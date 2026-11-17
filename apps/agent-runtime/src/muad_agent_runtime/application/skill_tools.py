@@ -408,14 +408,20 @@ class SkillToolSet:
     async def execute(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         target = arguments.get("target")
         allowed = {
-            "skill": {"target", "skill_key", "input", "argv", "completion_mode", "script"},
+            "skill": {"target", "skill_key", "input", "argv", "completion_mode", "script", "timeout_sec"},
             "draft": {"target", "draft_id", "command", "cwd", "timeout_sec", "reset_data"},
             "workspace": {"target", "command", "cwd", "timeout_sec", "platforms"},
         }
         if not isinstance(target, str) or target not in allowed:
             return _error_result("COMMON_VALIDATION_ERROR", "target must be skill, draft or workspace")
-        if set(arguments) - allowed[target]:
-            return _error_result("COMMON_VALIDATION_ERROR", "parameters do not match execution target")
+        unsupported = sorted(set(arguments) - allowed[target])
+        if unsupported:
+            # 键名必须回给模型：只说"不匹配"会让它挨个换形状重试，永远猜不到是多带了哪个键。
+            return _error_result(
+                "COMMON_VALIDATION_ERROR",
+                f"parameters do not match execution target: target={target} cannot use "
+                f"{', '.join(unsupported)}; accepted: {', '.join(sorted(allowed[target]))}",
+            )
         payload = {key: value for key, value in arguments.items() if key != "target"}
         if target == "skill":
             if "script" in payload:
@@ -440,6 +446,8 @@ class SkillToolSet:
                 "Draft commands run against a copy, with revision-checked writes; SKILL_DATA_DIR persists "
                 "for the draft, SKILL_OUTPUT_DIR is temporary, reset_data clears draft test data. "
                 "Skill argv are literal CLI arguments and input is JSON stdin; do not shell-quote argv. "
+                "target=skill accepts only skill_key, input, argv, completion_mode, timeout_sec and script; "
+                "command, cwd and reset_data belong to target=workspace or target=draft. "
                 "For instructions-only or MCP-only skills, load the skill and use its MCP tools directly. "
                 "Use session-manager get-state --skill-name workspace from workspace commands. "
                 "Do not output or persist credentials."
@@ -493,6 +501,11 @@ class SkillToolSet:
             input_data = _require_input(arguments)
             argv = _require_argv(arguments)
             if skill.execution_mode is SkillExecutionMode.ASYNC:
+                if "timeout_sec" in arguments:
+                    raise SkillToolError(
+                        ErrorCode.COMMON_VALIDATION_ERROR.value,
+                        "async Skill does not accept timeout_sec; the Task deadline governs",
+                    )
                 mode = CompletionMode(arguments.get("completion_mode", "JOIN"))
                 return await self._submit_background(skill, input_data, call_id, mode, argv=argv)
             if "completion_mode" in arguments:
@@ -501,7 +514,13 @@ class SkillToolSet:
                 )
             package = await self._package(skill)
             return await self._execute(
-                package.root, input_data, script=None, skill=skill, argv=argv, call_id=call_id
+                package.root,
+                input_data,
+                script=None,
+                skill=skill,
+                argv=argv,
+                timeout_sec=self._call_timeout(arguments),
+                call_id=call_id,
             )
         except SkillToolError as exc:
             return _error_result(exc.code, exc.message, exc.detail, retryable=exc.retryable)
@@ -517,7 +536,13 @@ class SkillToolSet:
             if skill.execution_mode is SkillExecutionMode.ASYNC:
                 _reject_async_entrypoint_bypass(package, script)
             return await self._execute(
-                package.root, input_data, script=script, skill=skill, argv=argv, call_id=call_id
+                package.root,
+                input_data,
+                script=script,
+                skill=skill,
+                argv=argv,
+                timeout_sec=self._call_timeout(arguments),
+                call_id=call_id,
             )
         except SkillToolError as exc:
             return _error_result(exc.code, exc.message, exc.detail, retryable=exc.retryable)
@@ -773,6 +798,13 @@ class SkillToolSet:
             raise SkillToolError(BACKGROUND_SUBMIT_FAILED, str(exc.code)) from exc
         return json.dumps(submitted, ensure_ascii=False)
 
+    def _call_timeout(self, arguments: Mapping[str, Any]) -> float:
+        """一次 Skill 调用的超时：缺省用 Run 的策略预算；给了就取较小值（只能收紧，不能放宽）。"""
+        try:
+            return _optional_timeout(arguments, limit=self._timeout_sec)
+        except ValueError as exc:
+            raise SkillToolError(ErrorCode.COMMON_VALIDATION_ERROR.value, str(exc)) from exc
+
     async def _ready_dir(self, skill: ResolvedSkill) -> Path:
         cached = self._ready_dirs.get(skill.key)
         if cached is not None:
@@ -815,6 +847,7 @@ class SkillToolSet:
         skill: ResolvedSkill,
         call_id: str,
         argv: tuple[str, ...] = (),
+        timeout_sec: float | None = None,
     ) -> str:
         try:
             invocation_id = egress_operation_key("TOOL_CALL", call_id)
@@ -842,6 +875,7 @@ class SkillToolSet:
                 execution_id=execution_id,
                 workspace_dir=lease.workspace_dir if lease is not None else self._workspace_dir,
                 invocation_id=invocation_id,
+                timeout_sec=timeout_sec,
             )
             self._record_execution(skill, result)
             outputs = await self._register_outputs(result)
@@ -861,6 +895,7 @@ class SkillToolSet:
         workspace_dir: Path | None,
         invocation_id: str,
         argv: tuple[str, ...] = (),
+        timeout_sec: float | None = None,
     ) -> SkillExecutionResult:
         try:
             broker, platform_context = await self._execution_egress(skill, invocation_id)
@@ -869,7 +904,7 @@ class SkillToolSet:
                     ready_dir=ready_dir,
                     input=input_data,
                     argv=argv,
-                    timeout_sec=self._timeout_sec,
+                    timeout_sec=timeout_sec if timeout_sec is not None else self._timeout_sec,
                     source=str(skill.source),
                     workspace_dir=workspace_dir,
                     execution_id=execution_id,

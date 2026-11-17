@@ -30,7 +30,7 @@ def test_configuration_inventory_covers_real_python_constants() -> None:
                 for target in targets:
                     if isinstance(target, ast.Name) and target.id.strip("_").isupper():
                         actual.add(
-                            (str(path.relative_to(ROOT)), node.lineno, target.id, ast.unparse(node.value))
+                            (path.relative_to(ROOT).as_posix(), node.lineno, target.id, ast.unparse(node.value))
                         )
     assert actual, "The audit must contain real source declarations"
     assert recorded == actual, f"Missing/stale constants: {actual ^ recorded}"
@@ -80,7 +80,7 @@ def test_configuration_inventory_covers_shared_settings_and_policy_fields() -> N
                         and node.value is not None
                         and node.target.id != "model_config"
                     ):
-                        actual.add((str(path.relative_to(ROOT)), node.lineno, ast.unparse(node.value)))
+                        actual.add((path.relative_to(ROOT).as_posix(), node.lineno, ast.unparse(node.value)))
     assert recorded == actual, f"Missing/stale settings: {actual ^ recorded}"
 
 

@@ -9,7 +9,7 @@ from muad_common import SharedSettings
 from muad_contracts.shared_egress import SharedEgressPolicy
 from pydantic import ValidationError
 
-from .egress_http_routes import EgressHTTPRoute, _authority_matches
+from .egress_http_routes import EgressHTTPRoute
 from .egress_ipc import AttemptMetadata, EgressTarget
 from .shared_redis import MeteringUnavailable
 
@@ -37,8 +37,6 @@ def tenant_domain(domain: str, tenant_id: str) -> str:
 
 
 def resolve_policy_target(policy: SharedEgressPolicy, request: AttemptMetadata) -> EgressTarget | None:
-    if not _authority_matches(request):
-        return None
     matches = []
     for rule in policy.rules:
         if rule.http_match is None:

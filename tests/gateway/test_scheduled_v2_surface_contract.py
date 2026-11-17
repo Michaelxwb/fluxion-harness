@@ -284,7 +284,6 @@ class _FakeOwner:
             "next_fire_at": _at(60).isoformat(),
         }
 
-
 @dataclass
 class _FakeArtifacts:
     async def resolve_task_artifact_version(self, artifact_id: UUID, **_: Any) -> dict[str, Any]:

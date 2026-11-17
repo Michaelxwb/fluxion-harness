@@ -62,6 +62,7 @@ ENUM_KEYS = (
     "audit.auditType.MODEL",
     "audit.resultStatus.SUCCESS",
     "audit.resultStatus.FAILED",
+    "audit.resultStatus.BLOCKED",
     "audit.resourceType.AGENT",
     "audit.resourceType.SKILL",
     "audit.resourceType.MCP",

@@ -6,8 +6,8 @@
 
 断言覆盖：
 
-- **HTTP 面完整**：列表/详情/Fire/Execution/待处理/徽标/回答/动作/下载/Draft 确认十个方法逐一落在
-  design §3.9 的路由与动词上；查询参数只发送调用方给出的值（不补默认值）。
+- **HTTP 面完整**：列表/详情/Fire/Execution/待处理/徽标/回答/动作/下载/Draft 确认/Draft 状态
+  十一个方法逐一落在 design §3.9 的路由与动词上；查询参数只发送调用方给出的值（不补默认值）。
 - **写操作幂等**：回答/动作/Draft 确认都携带调用方持有的 `Idempotency-Key`；GET 不带。
 - **Draft 确认是独立 surface 动作**：唯一请求是 `POST /webchat/schedule-drafts/{id}/confirm`，
   请求体只含 `draft_hash`；全量请求里没有 Run resume 通道。

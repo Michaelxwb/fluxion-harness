@@ -431,7 +431,7 @@ def test_e15_lost_response_retry_reuses_business_key_and_applies_effect_once(
         label="requeue after lost response",
     )
     assert requeued["lease_owner"] is None, requeued
-    assert "RETRY" in task_events(stack.database_url, tenant.tenant_id, task_id)
+    assert task_events(stack.database_url, tenant.tenant_id, task_id).count("QUEUED") >= 2
 
     # ③④ 重试复用业务键：外部写恰一次，结果标记 reused
     final = _wait_task(
@@ -449,8 +449,8 @@ def test_e15_lost_response_retry_reuses_business_key_and_applies_effect_once(
     assert final["result_json"]["reused"] is True, final["result_json"]
     assert final["result_json"]["business_key"] == fixture.idempotency_key, final["result_json"]
     events = task_events(stack.database_url, tenant.tenant_id, task_id)
-    assert events[0] == "CREATED" and events[-1] == "COMPLETED", events
-    assert events.count("CLAIMED") == 2 and "RETRY" in events, events
+    assert events[0] == "QUEUED" and events[-1] == "COMPLETED", events
+    assert events.count("CLAIMED") == 2 and events.count("QUEUED") >= 2, events
 
 
 @pytest.mark.parametrize("retry_safety", ["NON_RETRYABLE", ""])
@@ -491,7 +491,7 @@ def test_e15_non_idempotent_write_is_not_redone_and_stays_unverified(
     assert final["attempt"] == 1, final
     assert final["result_json"] is None, final
     events = task_events(stack.database_url, tenant.tenant_id, task_id)
-    assert events == ["CREATED", "CLAIMED", "FAILED"], events
+    assert events == ["QUEUED", "CLAIMED", "FAILED"], events
 
     # ③ 同键重投复用业务键：同一 task_id，不新增外部效果
     replay_status, replayed = submit_task(
@@ -587,7 +587,7 @@ def test_e15_stale_lease_is_not_resubmitted_or_read_as_success(
     assert final["attempt"] == 1, final
     assert final["lease_owner"] is None, final
     events = task_events(stack.database_url, tenant.tenant_id, task_id)
-    assert events == ["CREATED", "CLAIMED", "FAILED"], events
+    assert events == ["QUEUED", "CLAIMED", "FAILED"], events
 
     # ③ 外部效果恰一次；旧租约的同键重投仍是同一 task_id 与同一结局
     assert len(effect_probe.writes) == 1, effect_probe.writes

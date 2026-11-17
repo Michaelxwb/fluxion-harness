@@ -218,6 +218,11 @@ export interface WebchatHistoryMessage {
    * 持久事实回到历史里，刷新/重连后仍可确认。普通消息线格式不带这个键。
    */
   draft?: WebchatScheduleDraftReady | null;
+  /**
+   * 卡片的确认状态（服务端按 Owner Schema 只读投影出来）：刷新后直接据它渲染。
+   * 缺省/未知一律按「不可确认」处理——不得当成 PENDING。
+   */
+  draft_status?: ScheduleDraftStatus | null;
   /** canonical 事件落库时间（消息发送/接收的权威时刻）。 */
   created_at: string;
 }
@@ -485,6 +490,9 @@ export interface ScheduleDraftConfirmInput {
   draft_hash: string;
   name?: string;
 }
+
+/** Draft 的确认状态：历史卡片刷新后据此决定还能不能确认。 */
+export type ScheduleDraftStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'EXPIRED' | 'REJECTED';
 
 /** API-27 确认回执：确认即生效后的真实 Schedule 事实。 */
 export interface ScheduleDraftConfirmReceipt {

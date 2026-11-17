@@ -33,6 +33,7 @@ COPY apps/agent-worker /app/apps/agent-worker
 RUN python -m pip install --no-cache-dir --no-deps --no-build-isolation \
       /app/packages/* \
       /app/apps/agent-worker \
+ && python -m muad_egress_site --install \
  && chown -R 10001:10001 /app
 
 USER 10001:10001

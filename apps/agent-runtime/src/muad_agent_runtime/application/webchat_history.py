@@ -20,6 +20,7 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -29,7 +30,7 @@ from typing import Any
 import sqlalchemy as sa
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts import MAX_PAGE_SIZE, RunStatus
+from muad_contracts import MAX_PAGE_SIZE, DraftStatus, RunStatus
 from muad_contracts.webchat import (
     ActiveRunStatus,
     ConversationStatus,
@@ -45,6 +46,7 @@ from muad_contracts.webchat import (
     WebchatScheduleDraftReady,
 )
 from pydantic import ValidationError
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.db_clock import database_now
@@ -69,6 +71,8 @@ from .schedule_draft_events import (
     SCHEDULE_DRAFT_READY_EVENT,
     SCHEDULE_DRAFT_READY_STREAM_TYPE,
 )
+
+logger = logging.getLogger(__name__)
 
 #: 活跃 Run 状态（与 `uq_run_record_active_conversation` partial unique 谓词同源）。
 ACTIVE_RUN_STATUSES: tuple[RunStatus, ...] = (
@@ -305,10 +309,26 @@ def _publication_message(
     )
 
 
-def _draft_message(row: Any) -> WebchatHistoryMessage:
+def _draft_ids(rows: Sequence[Any]) -> list[uuid.UUID]:
+    """本页卡片引用的 Draft 身份（坏载荷不在这里裁决，留给 `_draft_message` 显式失败）。"""
+    ids: list[uuid.UUID] = []
+    for row in rows:
+        if row.event_type != SCHEDULE_DRAFT_READY_EVENT:
+            continue
+        try:
+            ids.append(WebchatScheduleDraftReady.model_validate(row.payload_json).draft_id)
+        except ValidationError:
+            continue
+    return ids
+
+
+def _draft_message(
+    row: Any, statuses: Mapping[uuid.UUID, DraftStatus]
+) -> WebchatHistoryMessage:
     """Draft 卡片 → 一条空正文助手条目（载荷本身就是卡片公开 DTO）。
 
     坏载荷是已知公开事件的内部错误：显式失败，不静默当过滤（否则用户会以为任务已建好）。
+    确认状态按本页批量读出的 `statuses` 挂上；查不到就是不可知（客户端不得确认）。
     """
     try:
         draft = WebchatScheduleDraftReady.model_validate(row.payload_json)
@@ -321,6 +341,7 @@ def _draft_message(row: Any) -> WebchatHistoryMessage:
         role="ASSISTANT",
         text="",
         draft=draft,
+        draft_status=statuses.get(draft.draft_id),
         created_at=row.create_time,
     )
 
@@ -440,7 +461,8 @@ class WebchatHistoryService:
             scope, conversation.id, watermark, page=page, page_size=page_size
         )
         artifacts = await self._artifacts_for(scope, rows)
-        items = self._message_items(rows, artifacts)
+        draft_statuses = await self._draft_statuses(scope, rows)
+        items = self._message_items(rows, artifacts, draft_statuses)
         return WebchatMessagePage(
             items=items, page=page, page_size=page_size, total=total, through_seq=watermark
         )
@@ -617,7 +639,10 @@ class WebchatHistoryService:
         return await _paged_rows(self._session, page_stmt=page_stmt, total_stmt=total_stmt)
 
     def _message_items(
-        self, rows: Sequence[Any], artifacts: Mapping[uuid.UUID, Artifact]
+        self,
+        rows: Sequence[Any],
+        artifacts: Mapping[uuid.UUID, Artifact],
+        draft_statuses: Mapping[uuid.UUID, DraftStatus],
     ) -> list[WebchatHistoryMessage]:
         """页内条目：可见消息 + 发布事实。
 
@@ -630,7 +655,7 @@ class WebchatHistoryService:
         answers: set[int] = set()
         for row in reversed(rows):
             if row.event_type == SCHEDULE_DRAFT_READY_EVENT:
-                card = _draft_message(row)
+                card = _draft_message(row, draft_statuses)
                 entries.append((card.seq, card))
                 continue
             if row.event_type == PUBLISH_EVENT_TYPE:
@@ -659,6 +684,47 @@ class WebchatHistoryService:
             entries.extend((message.seq, message) for message in messages)
         entries.sort(key=lambda pair: pair[0])
         return [item for _, item in entries]
+
+    async def _draft_statuses(
+        self, scope: HistoryScope, rows: Sequence[Any]
+    ) -> dict[uuid.UUID, DraftStatus]:
+        """本页 Draft 卡片的确认状态：跨 Owner Schema 只读聚合（harness-data 同条约定）。
+
+        只读、带 `tenant_id`/`owner_user_id`/`is_deleted = false`、页内**一次**批量查询
+        （不做逐卡关联）。`task.task_schedule_draft` 的所有权仍在 Worker，这里只读状态
+        与身份三列。读取失败降级为空：卡片按「状态不可知」渲染，不失败整页。
+        """
+        draft_ids = _draft_ids(rows)
+        if not draft_ids:
+            return {}
+        statement = sa.text(
+            "SELECT id, status FROM task.task_schedule_draft "
+            "WHERE id IN :draft_ids AND tenant_id = :tenant_id "
+            "AND owner_user_id = :owner_user_id AND is_deleted = false"
+        ).bindparams(sa.bindparam("draft_ids", expanding=True))
+        try:
+            result = await self._session.execute(
+                statement,
+                {
+                    "draft_ids": draft_ids,
+                    "tenant_id": scope.tenant_id,
+                    "owner_user_id": scope.user_id,
+                },
+            )
+        except SQLAlchemyError:
+            logger.warning("webchat_draft_status_unavailable", exc_info=True)
+            return {}
+        statuses: dict[uuid.UUID, DraftStatus] = {}
+        for row in result:
+            try:
+                statuses[row.id] = DraftStatus(row.status)
+            except ValueError:
+                # 词表外的取值只让这一张卡片变成"状态不可知"，不失败整页。
+                logger.warning(
+                    "webchat_draft_status_unrecognized",
+                    extra={"status": str(row.status)},
+                )
+        return statuses
 
     async def _artifacts_for(
         self, scope: HistoryScope, rows: Sequence[Any]

@@ -23,8 +23,8 @@
 
 import { Avatar, Banner, Button, Empty, Spin, Typography } from '@douyinfe/semi-ui';
 
-import { DraftCard, IDLE_DRAFT_CONFIRM } from './DraftCard';
-import type { DraftConfirmationBinding } from './DraftCard';
+import { DraftCard, IDLE_DRAFT_CONFIRM, draftEntryForStatus } from './DraftCard';
+import type { DraftConfirmEntry, DraftConfirmationBinding } from './DraftCard';
 import {
   IconCustomerSupport,
   IconDownload,
@@ -559,6 +559,20 @@ export function MessageAttachmentCard(props: MessageAttachmentCardProps) {
   );
 }
 
+/**
+ * 历史卡片的初始状态：页面控制器里的实时状态优先（本次会话内的提交中/已确认/失败）；
+ * 它没有意见时用消息自带的服务端投影 `draft_status`——这也包括"状态不可知"，此时不可确认。
+ * 当前流（刚发布）的卡片不经过这里，由事件本身证明是 PENDING。
+ */
+function historyDraftEntry(
+  binding: DraftConfirmationBinding | undefined,
+  draftId: string,
+  status: WebchatHistoryMessage['draft_status']
+): DraftConfirmEntry {
+  const live = binding?.entry(draftId) ?? IDLE_DRAFT_CONFIRM;
+  return live.phase === 'IDLE' ? draftEntryForStatus(status) : live;
+}
+
 interface MessageItemProps {
   message: WebchatHistoryMessage;
   onDownload(attachment: WebchatAttachment): void;
@@ -620,9 +634,11 @@ function MessageItem(props: MessageItemProps) {
         {message.draft === null || message.draft === undefined ? null : (
           <DraftCard
             draft={message.draft}
-            entry={
-              props.draftConfirmation?.entry(message.draft.draft_id) ?? IDLE_DRAFT_CONFIRM
-            }
+            entry={historyDraftEntry(
+              props.draftConfirmation,
+              message.draft.draft_id,
+              message.draft_status
+            )}
             nowMs={props.draftNowMs ?? Date.now()}
             onConfirm={(draft) => props.draftConfirmation?.confirm(draft)}
             onRetry={(draftId) => props.draftConfirmation?.retry(draftId)}

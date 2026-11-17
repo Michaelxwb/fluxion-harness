@@ -40,7 +40,7 @@ from muad_agent_runtime.infrastructure.models.runtime import (
 )
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts.enums import RunStatus
+from muad_contracts.enums import DraftStatus, RunStatus
 from muad_contracts.webchat import WebchatScheduleDraftReady
 from muad_contracts.webchat_events import (
     WebchatScheduleDraftReadyEvent,
@@ -331,3 +331,88 @@ async def test_private_lookalike_stream_is_never_projected(
     assert project_public_stream_event(row, {}) is None
     page = await _history(tenant, conversation)
     assert page.items == [], "未登记的私有类型不能进入历史"
+
+
+# --------------------------------------------------------------------------------------
+# 5. 卡片带着确认状态回到历史：跨 Owner Schema 只读聚合（`harness-data` 同条约定）
+# --------------------------------------------------------------------------------------
+
+
+async def _seed_draft_row(
+    tenant: TenantContext,
+    draft_id: uuid.UUID,
+    *,
+    status: str = "PENDING",
+    owner: uuid.UUID | None = None,
+) -> None:
+    """在 Worker 的 `task.task_schedule_draft` 里落一行真实 Draft（runtime 只读它）。"""
+    async with get_session_factory()() as session:
+        await session.execute(
+            sa.text(
+                "INSERT INTO task.task_schedule_draft"
+                " (id, tenant_id, owner_user_id, agent_id, kind, draft_hash,"
+                " payload_json, preview_json, status, expires_at, idempotency_key)"
+                " VALUES (:id, :tenant_id, :owner_user_id, :agent_id, 'CREATE', :draft_hash,"
+                " '{}'::jsonb, '{}'::jsonb, :status, :expires_at, :idempotency_key)"
+            ),
+            {
+                "id": draft_id,
+                "tenant_id": tenant.tenant_id,
+                "owner_user_id": owner if owner is not None else tenant.platform_user_id,
+                "agent_id": tenant.agent_id,
+                "draft_hash": "sha256:" + "a" * 64,
+                "status": status,
+                "expires_at": BASE_TIME,
+                "idempotency_key": f"seed-{draft_id}",
+            },
+        )
+        await session.commit()
+
+
+async def test_history_card_carries_the_draft_confirmation_status(
+    tenant: TenantContext, conversation: uuid.UUID, run_id: uuid.UUID
+) -> None:
+    """刷新后卡片自带确认状态：同一条历史在确认前后给出不同结论，客户端不再单独查一次。
+
+    一页两张卡片也覆盖了批量查询的形状（一次 `id IN (...)`，不是逐卡关联）。
+    """
+    first = _card()
+    second = _card(draft_id=uuid.uuid4())
+    await _publish(tenant, conversation, run_id, first)
+    await _publish(tenant, conversation, run_id, second)
+    await _seed_draft_row(tenant, first.draft_id, status="PENDING")
+    await _seed_draft_row(tenant, second.draft_id, status="CONFIRMED")
+
+    by_draft = {
+        item.draft.draft_id: item for item in (await _history(tenant, conversation)).items
+    }
+    assert by_draft[first.draft_id].draft_status == DraftStatus.PENDING
+    assert by_draft[second.draft_id].draft_status == DraftStatus.CONFIRMED
+
+    async with get_session_factory()() as session:
+        await session.execute(
+            sa.text("UPDATE task.task_schedule_draft SET status = 'CONFIRMED' WHERE id = :id"),
+            {"id": first.draft_id},
+        )
+        await session.commit()
+
+    confirmed = {
+        item.draft.draft_id: item for item in (await _history(tenant, conversation)).items
+    }
+    assert confirmed[first.draft_id].draft_status == DraftStatus.CONFIRMED
+    assert confirmed[first.draft_id].draft == first, "状态是叠加事实，不改卡片本身的公开载荷"
+
+
+async def test_history_card_status_is_unknown_without_an_owned_draft(
+    tenant: TenantContext, conversation: uuid.UUID, run_id: uuid.UUID
+) -> None:
+    """读不到 / 不是自己的 Draft 一律不可知：卡片不得因缺省状态被当成 PENDING。"""
+    card = _card()
+    await _publish(tenant, conversation, run_id, card)
+
+    (missing,) = (await _history(tenant, conversation)).items
+    assert missing.draft_status is None
+
+    await _seed_draft_row(tenant, card.draft_id, owner=uuid.uuid4())
+    (foreign,) = (await _history(tenant, conversation)).items
+    assert foreign.draft_status is None, "跨用户的 Draft 不泄露状态"

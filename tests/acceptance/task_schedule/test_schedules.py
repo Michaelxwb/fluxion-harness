@@ -131,7 +131,7 @@ def test_s02_cron_fire_creates_single_task_with_current_artifact(
     tasks = _schedule_tasks(live_stack, schedule_id)
     assert len(tasks) == 1, f"同一 fire_time 只允许一个 Task: {tasks}"
 
-    task_id, status, artifact_id, snapshot, snapshot_hash = first
+    task_id, status, artifact_id, snapshot, snapshot_hash, _error_code, _error_message = first
     assert str(artifact_id)
     assert snapshot["skills"][0]["artifact_id"] == str(artifact_id)
     assert snapshot_hash.startswith("sha256:")

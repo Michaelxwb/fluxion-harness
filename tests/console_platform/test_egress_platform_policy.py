@@ -26,7 +26,7 @@ async def egress_platform(tenant: TenantContext) -> AsyncIterator[ProjectPlatfor
             resolver_type="BASE_URL",
             resolver_config_json={"base_url": "https://assets.test/gateway/v1"},
             adapter_key="generic-http",
-            adapter_config_json={},
+            adapter_config_json={"host_header": "inner.test"},
             credential_mode="NONE",
             enabled=True,
         )
@@ -81,6 +81,7 @@ async def test_admin_selects_platform_and_only_relative_path_is_resolved(
         "origin": "https://assets.test",
         "method": "GET",
         "path_template": "/gateway/v1/assets/{id}",
+        "authority": "inner.test",
     }
     assert rule["route_id"] == "GET /assets/{id}"
     assert rule["window_requests"] == 50 and rule["max_inflight"] == 4
@@ -105,6 +106,7 @@ async def test_admin_selects_platform_and_only_relative_path_is_resolved(
         {"target_instance_id": "another-tenant-platform"},
         {"path_template": "https://override.test/assets"},
         {"origin": "https://override.test"},
+        {"path_template": "/assets?method=GET"},
     ],
 )
 async def test_invalid_or_unknown_platform_rules_cannot_be_saved(

@@ -211,6 +211,10 @@ export function errorCodeOf(error: unknown): string | null {
   return body?.code ?? null;
 }
 
+export function errorMessageOf(error: unknown): string | null {
+  return apiErrorBody(error)?.msg ?? null;
+}
+
 interface RawDetails {
   details?: { path?: string; message?: string }[];
 }

@@ -8,6 +8,7 @@ export const EVENT_CATEGORIES = {
   tool: { label: 'run.timeline.category.tool', icon: <IconWrench /> },
   context: { label: 'run.timeline.category.context', icon: <IconLayers /> },
   artifact: { label: 'run.timeline.category.artifact', icon: <IconFile /> },
+  egress: { label: 'run.timeline.category.egress', icon: <IconActivity /> },
   other: { label: 'run.timeline.category.other', icon: <IconActivity /> }
 } as const;
 
@@ -31,6 +32,7 @@ export function eventCategory(type: string): keyof typeof EVENT_CATEGORIES {
     case 'CONTEXT_SUMMARY':
     case 'CONTEXT_COMPACTED': return 'context';
     case 'ARTIFACT_CREATED': return 'artifact';
+    case 'EGRESS_BLOCKED': return 'egress';
     case 'RUN_CREATED':
     case 'INTERRUPT_REQUIRED':
     case 'CANCEL':
@@ -43,7 +45,7 @@ export function eventCategory(type: string): keyof typeof EVENT_CATEGORIES {
 }
 
 export function eventTone(type: string): string {
-  if (type === 'RUN_FAILED' || type === 'TOOL_SUBMISSION_FAILED') return 'error';
+  if (type === 'RUN_FAILED' || type === 'TOOL_SUBMISSION_FAILED' || type === 'EGRESS_BLOCKED') return 'error';
   if (['INTERRUPT_REQUIRED', 'CANCEL', 'RUN_WAITING_TOOL', 'BACKGROUND_RESULT_LATE'].includes(type)) return 'warning';
   if (['RUN_COMPLETED', 'MODEL_CALL_COMPLETED', 'TOOL_RESULT_RECEIVED', 'BACKGROUND_RESULT'].includes(type)) return 'success';
   return eventCategory(type);

@@ -71,7 +71,7 @@ export const RESOURCE_TYPES = [
 ] as const;
 
 /** 执行结果域取后端 `audit_query_service.RESULT_STATUSES`（Console 归一口径）：含策略拒绝。 */
-const RESULT_STATUSES = ['SUCCESS', 'FAILED', 'DENIED'] as const;
+const RESULT_STATUSES = ['SUCCESS', 'FAILED', 'DENIED', 'BLOCKED'] as const;
 
 function toIsoStart(value: Date | null | undefined): string | undefined {
   return value ? value.toISOString() : undefined;

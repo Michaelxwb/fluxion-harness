@@ -114,18 +114,35 @@ SELECT
 """
 
 _TIMELINE_SQL = """
-SELECT
-    seq,
-    event_type,
-    stream_type,
-    create_time,
-    artifact_id IS NOT NULL AS has_artifact
-  FROM runtime.canonical_event
- WHERE tenant_id = :tenant_id
-   AND run_id = :run_id
-   AND is_deleted = false
-   AND event_type <> ALL(:streaming_event_types)
- ORDER BY seq
+WITH canonical AS (
+    SELECT seq, event_type, stream_type, create_time,
+           artifact_id IS NOT NULL AS has_artifact,
+           NULL::jsonb AS egress
+      FROM runtime.canonical_event
+     WHERE tenant_id = :tenant_id AND run_id = :run_id
+       AND is_deleted = false AND event_type <> ALL(:streaming_event_types)
+), blocked_egress AS (
+    SELECT (-row_number() OVER (ORDER BY g.create_time, g.id))::bigint AS seq,
+           'EGRESS_BLOCKED' AS event_type,
+           NULL::text AS stream_type,
+           g.create_time,
+           false AS has_artifact,
+           jsonb_build_object(
+             'target', g.target, 'operation', g.operation, 'method', g.method,
+             'result_status', g.result_status, 'error_code', g.error_code,
+             'policy_decision', g.policy_decision, 'audit_id', g.id::text
+           ) AS egress
+      FROM runtime.egress_audit g
+     WHERE g.tenant_id = :tenant_id AND g.run_id = :run_id
+       AND g.is_deleted = false AND g.result_status = 'BLOCKED'
+), all_events AS (
+    SELECT * FROM canonical
+    UNION ALL
+    SELECT * FROM blocked_egress
+)
+SELECT seq, event_type, stream_type, create_time, has_artifact, egress
+  FROM all_events
+ ORDER BY create_time, seq
  LIMIT :limit
 """
 
@@ -206,6 +223,7 @@ class RunEventRow:
     stream_type: str | None
     has_artifact: bool
     create_time: datetime
+    egress: dict[str, object] | None = None
 
 
 @dataclass(frozen=True)
