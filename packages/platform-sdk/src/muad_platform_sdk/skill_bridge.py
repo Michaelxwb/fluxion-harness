@@ -290,9 +290,10 @@ async def skill_platform_environment(
                 else:
                     try:
                         request = json.loads(await asyncio.wait_for(reader.readline(), 10))
-                        if (
-                            not isinstance(request, dict)
-                            or request.get("skillName", skill_name) != skill_name
+                        legacy_request = isinstance(request, dict) and bool(request.get("legacy"))
+                        if not isinstance(request, dict) or (
+                            legacy_request
+                            and (request.get("skillName") != skill_name or not skill_name)
                         ):
                             result = {"error": "invalid_context"}
                         elif not ledger.take_request():
