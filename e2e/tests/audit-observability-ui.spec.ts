@@ -293,10 +293,14 @@ test('S-01 Run 操作行展示摘要与耗时，失败行有标记，明细视�
   await page.getByTestId('audit-view-back').click();
   await expect(page.getByTestId('audit-view-notice')).toHaveCount(0);
 
-  // Trace ID 与关联对象是两个落点：Trace 下钻该 Trace 的全部记录，运行标识才开运行详情
+  // Trace ID 与关联对象是两个落点：Trace 打开只读的记录侧栏，列表保持原样
   await page.getByTestId('audit-trace-run-1').click();
-  await expect(page.getByTestId('audit-trace-filter')).toHaveText('Trace trace-ru');
-  await expect(page.getByTestId('audit-view-notice')).toBeVisible();
-  await page.getByTestId('audit-trace-clear').click();
+  const traceSheet = page.locator('.semi-sidesheet');
+  await expect(traceSheet).toBeVisible();
+  await expect(page.getByTestId('detail-subtitle')).toContainText('trace-run-1');
+  await expect(page.getByTestId('audit-trace-row-audit-tool-1')).toBeVisible();
   await expect(page.getByTestId('audit-view-notice')).toHaveCount(0);
+  await traceSheet.locator('.semi-sidesheet-close').click();
+  await expect(page.locator('.semi-sidesheet')).toHaveCount(0);
+  await expect(page.getByText('帮我起一个每周一的周报定时任务')).toBeVisible();
 });

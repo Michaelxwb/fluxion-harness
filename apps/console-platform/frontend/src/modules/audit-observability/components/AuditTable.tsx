@@ -15,10 +15,16 @@ import { formatDateTime } from '../../../components/common/DateTimeText';
 import { CopyButton } from '../../../components/common/CopyButton';
 import { EmptyState } from '../../../components/common/EmptyState';
 import { EntityLink } from '../../../components/common/EntityLink';
-import { auditActionLabel, auditActorLabel, auditSourceLabel, auditTargetLabel } from '../auditLabels';
+import {
+  auditActionLabel,
+  auditActorLabel,
+  auditSourceLabel,
+  auditStatusOptions,
+  auditTargetLabel
+} from '../auditLabels';
 import { ErrorState } from '../../../components/common/ErrorState';
 import type { RemoteTableProps } from '../../../components/common/RemoteTable';
-import { StatusTag, type StatusTagOption } from '../../../components/common/StatusTag';
+import { StatusTag } from '../../../components/common/StatusTag';
 import { TableText } from '../../../components/common/TableText';
 import type { AuditListItem } from '../types';
 
@@ -265,14 +271,7 @@ function formatDuration(ms: number): string {
 
 /** 执行结果列复用 `StatusTag`。 */
 function buildResultColumns(t: TFunction): AuditTableColumns {
-  const statusOptions: Record<string, StatusTagOption> = {
-    SUCCESS: { color: 'green', label: t('audit.resultStatus.SUCCESS') },
-    FAILED: { color: 'red', label: t('audit.resultStatus.FAILED') },
-    DENIED: { color: 'red', label: t('audit.resultStatus.DENIED') },
-    BLOCKED: { color: 'red', label: t('audit.resultStatus.BLOCKED') },
-    RUNNING: { color: 'blue', label: t('audit.resultStatus.RUNNING') },
-    CANCELLED: { color: 'grey', label: t('audit.resultStatus.CANCELLED') }
-  };
+  const statusOptions = auditStatusOptions(t);
 
   return [
     {

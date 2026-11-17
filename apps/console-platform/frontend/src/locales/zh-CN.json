@@ -2300,6 +2300,7 @@
   "run.detail.stepCount": "{{count}} 次",
   "audit.target.runPrefix": "运行",
   "audit.trace.openRecords": "查看该 Trace 的全部审计记录",
-  "audit.views.traceFiltered": "Trace {{trace}}",
-  "audit.views.clearTrace": "清除 Trace"
+  "audit.trace.title": "Trace 详情",
+  "audit.trace.records": "共 {{count}} 条记录",
+  "audit.trace.empty": "该 Trace 没有审计记录"
 }

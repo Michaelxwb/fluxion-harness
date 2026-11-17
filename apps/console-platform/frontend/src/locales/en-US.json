@@ -2300,6 +2300,7 @@
   "run.detail.stepCount": "{{count}}",
   "audit.target.runPrefix": "Run",
   "audit.trace.openRecords": "View all audit records for this trace",
-  "audit.views.traceFiltered": "Trace {{trace}}",
-  "audit.views.clearTrace": "Clear trace"
+  "audit.trace.title": "Trace detail",
+  "audit.trace.records": "{{count}} records",
+  "audit.trace.empty": "No audit records under this trace"
 }

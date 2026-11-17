@@ -746,6 +746,41 @@ body {
   text-overflow: ellipsis;
 }
 
+/* Trace 详情：一条 Trace 下的审计记录列表 */
+.audit-trace-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.audit-trace-row {
+  display: grid;
+  grid-template-columns: 168px 110px minmax(0, 1fr) 72px;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--semi-color-border);
+  font-size: 13px;
+}
+
+.audit-trace-head {
+  color: var(--semi-color-text-2);
+  font-size: 12px;
+}
+
+.audit-trace-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.audit-trace-action {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* 对象短 id：等宽，保证同长度 id 的宽度一致（来源 chip 才能对齐） */
 .audit-object-id {
   font-family: var(--app-mono);

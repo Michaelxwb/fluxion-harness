@@ -21,7 +21,7 @@
 1. **不新增页面与路由**：改动全部落在既有 `/audits` 页面（`audit-observability` 模块）。
 2. **视图是筛选的产物**：`auditType ∈ {TOOL, MODEL}` → 明细视图，其余 → 操作视图；前端始终向后端显式传 `view`，不依赖后端推断。
 3. **Run 行新增用户提问摘要**（`summary`）；步骤计数与失败原因归运行详情的「运行概览」页签，列表不重复展示。
-4. **两个入口分工**：对象列「运行 …」打开运行详情；Trace ID 下钻该 Trace 的全部审计记录（明细视图 + Trace 提示条）。事件行的 Trace ID 仍打开该条审计详情。
+4. **两个入口分工**：对象列「运行 …」打开运行详情；Trace ID 打开「Trace 详情」只读侧栏（该 Trace 的全部记录），列表保持原样。事件行的 Trace ID 仍打开该条审计详情。
 5. **失败只在 Run 失败时呈现**：重试次数单独以中性文案展示，不渲染成失败。
 6. **明细视图必须有可见提示**：顶部提示条说明当前粒度，并提供「返回操作视图」出口。
 
@@ -119,6 +119,7 @@
 | CMP-03 | `AuditViewNotice` | 展示 | 新建（`components/`） | 说明当前粒度 + 返回操作视图 |
 | CMP-04 | `AuditTable`（列工厂） | 展示 | 改造 | RUN 行渲染、时间列层次、失败行标记、Trace 下钻入口 |
 | CMP-05 | `auditActionLabel` / `auditActorLabel` / `auditTargetLabel` | 纯函数 | 改造 | RUN 类型与 Run 行文案 |
+| CMP-06 | `AuditTraceSideSheet` | 容器 | 新建 | Trace 详情侧栏：按 `trace_id` 拉明细并只读展示 |
 
 **分层纪律**：视图派生与提示条状态放页面容器；表格只接收已成型的数据与回调。
 
@@ -177,8 +178,8 @@ export function auditViewOf(auditType?: AuditType): AuditView {
 ```
 
 - `view` 由 `auditType` 派生后写回 query，避免「筛选与视图不一致」；
-- Trace 下钻 = `setQuery({auditType: undefined, traceId, view: 'detail', page: 1})`，提示条显示 Trace 并提供「清除 Trace」；
-- 「返回操作视图」= 同时清 `auditType` 与 `traceId`，回到 `view: 'operation'`；
+- Trace 详情 = 打开侧栏并以 `{view: 'detail', traceId}` 取数，列表筛选保持不变；
+- 「返回操作视图」= 清 `auditType`，回到 `view: 'operation'`；
 - 刷新/重试沿用当前 query（含 view），行为与现有失败重试一致；
 - 导出请求不带 `view`（后端固定明细）。
 
