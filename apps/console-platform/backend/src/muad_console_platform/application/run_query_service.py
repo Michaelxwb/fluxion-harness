@@ -11,12 +11,14 @@ API-05/06：等待字段（含 `waiting_reason`，口径在 `muad_contracts.tool
 
 from __future__ import annotations
 
+import logging
 import uuid
 from typing import Any
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import RunStatus, tool_waiting_reason
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.repositories.run_query_repository import (
@@ -42,6 +44,9 @@ def _operation_view(row: RunOperationRow) -> dict[str, Any]:
     }
 
 
+logger = logging.getLogger(__name__)
+
+
 class RunQueryService:
     def __init__(self, session: AsyncSession) -> None:
         self._repository = RunQueryRepository(session)
@@ -52,6 +57,23 @@ class RunQueryService:
             # 跨租户与不存在同码：不泄漏「这个 id 在别的租户里存在」。
             raise AppError(ErrorCode.COMMON_NOT_FOUND)
         events, truncated = await self._repository.outline(tenant_id, run_id)
+        # 步骤统计跟随运行详情（审计列表不再重复展示）：无审计行时全 0 是事实；
+        # 聚合失败降级为 `null`（不可用 ≠ 0），并留 warning。
+        try:
+            aggregate = (await self._repository.run_step_aggregates(tenant_id, [run_id])).get(run_id)
+        except SQLAlchemyError:
+            logger.warning(
+                "run_steps_degraded",
+                extra={"tenant_id": tenant_id, "run_id": str(run_id)},
+            )
+            steps: dict[str, int] | None = None
+        else:
+            steps = {
+                "model": 0 if aggregate is None else aggregate.model_calls,
+                "tool": 0 if aggregate is None else aggregate.tool_calls,
+                "egress": 0 if aggregate is None else aggregate.egress_calls,
+                "retries": 0 if aggregate is None else aggregate.model_retries,
+            }
         reason = tool_waiting_reason(
             RunStatus(row.status),
             resume_ready=bool(row.continuation_ready),
@@ -74,6 +96,7 @@ class RunQueryService:
             "waiting_reason": reason.value if reason is not None else None,
             "pending_join_count": row.pending_join_count,
             "pending_submission_count": row.pending_submission_count,
+            "steps": steps,
             "continuation_count": (
                 row.continuation_count if row.continuation_count is not None else 0
             ),

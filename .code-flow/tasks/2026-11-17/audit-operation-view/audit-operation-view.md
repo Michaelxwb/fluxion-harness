@@ -221,7 +221,7 @@
     "id": "DELTA-001",
     "op": "add",
     "target": "ui/harness-ui",
-    "rule": "运行审计列表默认按业务操作成行：一次 Run、一次配置变更、一次出网各占一行；模型调用与工具调用只作为操作行上的步骤计数与失败摘要，完整步骤在运行详情中查看。按模型或工具调用筛选时进入步骤明细视图（一行 = 一次调用），列表必须给出当前粒度的可见提示与返回操作视图的入口。审计导出始终输出全量明细，不随列表视图改变粒度。",
+    "rule": "运行审计列表默认按业务操作成行：一次 Run、一次配置变更、一次出网各占一行；模型调用与工具调用的计数与失败在运行详情的概览中查看，列表不重复展示步骤明细。按模型或工具调用筛选时进入步骤明细视图（一行 = 一次调用），列表必须给出当前粒度的可见提示与返回操作视图的入口。审计导出始终输出全量明细，不随列表视图改变粒度。",
     "evidence": "audit-operation-view.backend.design.md#3.4 接口设计；audit-operation-view.frontend.design.md#3.6 UI 状态"
   }
 ]
@@ -236,4 +236,69 @@
 
 - 尚未执行
 - 2026-11-17T12:06:21.326Z PASS commands=1/1 executed=1 deduped=0 elapsed=2532ms tests=34f97d99fbc1 head=6c1792a089bb dirty=1
+  - frontend-typecheck PASS exit=0
+
+---
+
+## TASK-005: 步骤统计移入运行详情概览，列表视觉收口
+
+- **Status**: done
+- **Depends**: TASK-004
+- **Source**: audit-operation-view.frontend.design.md#3.6 UI 状态
+- **Scenarios**: S-01, S-02, S-04
+- **Spec-Refs**: ui/harness-ui#RULE-ui-001
+- **Paths**: apps/console-platform/backend/src/muad_console_platform/application/run_query_service.py, apps/console-platform/backend/src/muad_console_platform/application/audit_query_service.py, apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/run_query_repository.py, apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/audit_query_repository.py, apps/console-platform/frontend/src/modules/audit-observability/components/AuditTable.tsx, apps/console-platform/frontend/src/modules/audit-observability/types.ts, apps/console-platform/frontend/src/modules/audit-observability/services/auditService.ts, apps/console-platform/frontend/src/modules/run-observability/RunDetailSideSheet.tsx, apps/console-platform/frontend/src/modules/run-observability/services/runs.ts, apps/console-platform/frontend/src/locales/zh-CN.json, apps/console-platform/frontend/src/locales/en-US.json, apps/console-platform/frontend/src/styles/app.css, tests/console_platform/test_runs_api.py, tests/console_platform/test_audit_query_api.py, e2e/tests/audit-observability-ui.spec.ts
+- **E2E**: e2e/tests/audit-observability-ui.spec.ts
+- **Skip-Tests**:
+- **Skip-Reason**:
+
+### Tests
+
+```json
+[
+  {
+    "id": "run-steps",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/console_platform/test_runs_api.py", "tests/console_platform/test_audit_query_api.py"],
+    "timeout": 300,
+    "parallel": true
+  },
+  {
+    "id": "frontend-typecheck",
+    "argv": ["npm", "--prefix", "apps/console-platform/frontend", "run", "typecheck"],
+    "timeout": 300,
+    "parallel": true
+  }
+]
+```
+
+### Description
+
+列表不再展示「内部步骤」列：步骤计数（模型/工具/出网/重试）改由运行详情接口返回，并在「基本信息」页签展示；列表侧移除聚合与失败摘要字段，保留失败行的红色标记与结果标签。视觉收口：单元格垂直居中、对象短 id 等宽（来源 chip 对齐）、时间列拆成「日期 + 时刻 + 耗时」三级层次。入口语义：Trace ID 下钻该 Trace 的全部记录，关联对象打开运行详情。
+
+### Checklist
+
+- [x] 步骤聚合从审计列表服务/仓储迁到运行详情仓储，列表不再返回 `steps` / `failure`
+- [x] 运行详情接口在 `basic` 数据中返回 `steps`（模型/工具/出网/重试），无步骤时为全 0
+- [x] 运行详情「基本信息」页签展示步骤计数
+- [x] 列表移除「内部步骤」列与相关文案；失败行仍以红色标记 + 结果标签呈现
+- [x] 表格单元格垂直居中；对象短 id 等宽；时间列改为日期（弱）+ 时刻（强）+ 耗时胶囊
+- [x] Trace ID 下钻该 Trace 的明细视图（提示条可清除），与关联对象的运行详情区分
+- [x] zh-CN / en-US 词条同步；`typecheck` 与审计 component E2E 通过
+
+### Spec Delta
+
+```json
+[]
+```
+
+### Log
+
+- [2026-11-17] created
+- [2026-11-17T12:16:05.995Z] started tests=7ee65ed0f1cb
+
+### Verification
+
+- 尚未执行
+- 2026-11-17T12:30:10.328Z PASS commands=2/2 executed=2 deduped=0 elapsed=22383ms tests=7ee65ed0f1cb head=3cf68d2d8c42 dirty=1
+  - run-steps PASS exit=0
   - frontend-typecheck PASS exit=0

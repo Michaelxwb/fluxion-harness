@@ -20,21 +20,6 @@ export type AuditType = 'RUN' | 'CONFIG' | 'TOOL' | 'EGRESS' | 'MODEL';
 /** 详情只接受四类来源表：`RUN` 由运行详情承载。 */
 export type AuditDetailType = Exclude<AuditType, 'RUN'>;
 
-/** 操作行的内部步骤计数（后端当页聚合）。 */
-export interface AuditStepSummary {
-  model: number;
-  tool: number;
-  egress: number;
-  retries: number;
-}
-
-/** 操作行的失败摘要：仅在 Run 结果为失败时出现。 */
-export interface AuditFailureSummary {
-  kind: 'MODEL' | 'TOOL' | 'EGRESS';
-  name: string | null;
-  code: string | null;
-}
-
 export interface AuditListQuery {
   keyword?: string;
   auditType?: AuditType;
@@ -74,10 +59,6 @@ export interface AuditListItem {
   taskId?: string;
   /** RUN 行的用户提问摘要（只用于列表展示，不进导出）。 */
   summary?: string | null;
-  /** RUN 行的内部步骤计数；聚合降级时为 null（不显示 0）。 */
-  steps?: AuditStepSummary | null;
-  /** RUN 行的失败摘要；Run 成功时为 null。 */
-  failure?: AuditFailureSummary | null;
 }
 
 /** 详情可读关联：仅在后端确认关联真实可读时出现（不可读见 `relatedMissing`）。 */

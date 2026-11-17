@@ -10,8 +10,9 @@
 import { Button } from '@douyinfe/semi-ui';
 import type { TFunction } from 'i18next';
 
+import { formatDateTime } from '../../../components/common/DateTimeText';
+
 import { CopyButton } from '../../../components/common/CopyButton';
-import { DateTimeText } from '../../../components/common/DateTimeText';
 import { EmptyState } from '../../../components/common/EmptyState';
 import { EntityLink } from '../../../components/common/EntityLink';
 import { auditActionLabel, auditActorLabel, auditSourceLabel, auditTargetLabel } from '../auditLabels';
@@ -36,6 +37,8 @@ export interface AuditTableOptions {
   onOpenDetail(item: AuditListItem): void;
   /** 关联对象「Run …」直达运行详情侧栏（与审计详情内的关联行为一致，不再重复打开审计详情）。 */
   onOpenRun(runId: string): void;
+  /** Trace ID 下钻：查看该 Trace 下的全部审计记录（与运行详情是两个不同的落点）。 */
+  onOpenTrace(traceId: string): void;
   /** 关联对象「Task …」落任务列表深链（同审计详情内「关联 Task」的既有口径）。 */
   onOpenTask(taskId: string): void;
   /** 失败态重试（[E-06] 保留筛选条件）。 */
@@ -53,25 +56,27 @@ function buildAuditColumns(
   t: TFunction,
   onOpenDetail: (item: AuditListItem) => void,
   onOpenRun: (runId: string) => void,
-  onOpenTask: (taskId: string) => void
+  onOpenTask: (taskId: string) => void,
+  onOpenTrace: (traceId: string) => void
 ): AuditTableColumns {
   return [
-    buildTraceColumn(t, onOpenDetail, onOpenRun),
+    buildTraceColumn(t, onOpenDetail, onOpenRun, onOpenTrace),
     ...buildIdentityColumns(t),
     ...buildTargetColumns(t, onOpenDetail, onOpenRun, onOpenTask),
-    buildStepsColumn(t),
     ...buildResultColumns(t)
   ];
 }
 
 /**
- * Trace 可关联多条记录；点击始终按当前行打开：RUN 行直达运行详情（操作行没有审计详情），
- * 其余按当前 auditId 打开审计详情，无 Trace 时明确展示审计 ID。
+ * Trace 可关联多条记录，两个入口分工：
+ * - RUN 行（操作行没有单条审计详情）→ 下钻该 Trace 的全部审计记录；
+ * - 事件行 → 按当前 auditId 打开审计详情；无 Trace 时明确展示审计 ID。
  */
 function buildTraceColumn(
   t: TFunction,
   onOpenDetail: (item: AuditListItem) => void,
-  onOpenRun: (runId: string) => void
+  onOpenRun: (runId: string) => void,
+  onOpenTrace: (traceId: string) => void
 ): AuditTableColumns[number] {
   return {
     title: t('audit.columns.traceOrAudit'),
@@ -81,11 +86,18 @@ function buildTraceColumn(
     render: (traceId: string | undefined, record: AuditListItem) => {
       const value = traceId || record.auditId;
       const display = traceId || `${t('audit.detail.field.auditId')} ${record.auditId}`;
-      const open = record.auditType === 'RUN' && record.runId
-        ? () => onOpenRun(record.runId as string)
-        : () => onOpenDetail(record);
+      const open =
+        record.auditType === 'RUN'
+          ? record.traceId
+            ? () => onOpenTrace(record.traceId as string)
+            : () => record.runId && onOpenRun(record.runId)
+          : () => onOpenDetail(record);
+      const openTitle =
+        record.auditType === 'RUN'
+          ? t('audit.trace.openRecords')
+          : record.traceId ?? record.auditId;
       return (
-        <span className="copyable-text" title={value}>
+        <span className="copyable-text" title={openTitle}>
           <EntityLink testId={`audit-trace-${record.auditId}`} onClick={open}>
             <TableText>
               {record.traceId ? display : t('audit.trace.auditOnly', { id: shortId(record.auditId) })}
@@ -105,16 +117,25 @@ function buildIdentityColumns(t: TFunction): AuditTableColumns {
       title: t('audit.columns.time'),
       dataIndex: 'occurredAt',
       width: 176,
-      render: (value: string, record: AuditListItem) => (
-        <span>
-          <DateTimeText value={value} />
-          {record.auditType === 'RUN' && record.latencyMs != null ? (
-            <span style={{ display: 'block', color: 'var(--semi-color-text-2)', fontSize: 12 }}>
-              {t('audit.duration', { value: formatDuration(record.latencyMs) })}
+      render: (value: string, record: AuditListItem) => {
+        const [date, clock] = formatDateTime(value).split(' ');
+        return (
+          <span className="audit-time">
+            <span className="audit-time-main">
+              <span className="audit-time-date">{date}</span>
+              <span className="audit-time-clock">{clock}</span>
             </span>
-          ) : null}
-        </span>
-      )
+            {record.auditType === 'RUN' && record.latencyMs != null ? (
+              <span
+                className="audit-time-duration"
+                title={t('audit.duration', { value: formatDuration(record.latencyMs) })}
+              >
+                {formatDuration(record.latencyMs)}
+              </span>
+            ) : null}
+          </span>
+        );
+      }
     },
     {
       title: t('audit.columns.auditType'),
@@ -179,7 +200,10 @@ function buildTargetColumns(
               {/* 链接可收缩、来源 chip 不收缩：列窄时先省略运行短 id，chip 保持完整 */}
               <span style={{ minWidth: 0, overflow: 'hidden' }}>
                 <EntityLink testId={`audit-link-${record.auditId}`} onClick={() => onOpenRun(runId)}>
-                  <TableText>{t('audit.target.run', { id: shortId(runId) })}</TableText>
+                  <span className="table-text" title={t('audit.target.run', { id: shortId(runId) })}>
+                    {t('audit.target.runPrefix')}{' '}
+                    <span className="audit-object-id">{shortId(runId)}</span>
+                  </span>
                 </EntityLink>
               </span>
               {source ? (
@@ -239,64 +263,6 @@ function formatDuration(ms: number): string {
   return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
 }
 
-/** 内部步骤列：计数 + 重试 + 失败摘要；聚合降级（null）显示 `-`，不伪造 0。 */
-function buildStepsColumn(t: TFunction): AuditTableColumns[number] {
-  return {
-    title: t('audit.columns.steps'),
-    dataIndex: 'steps',
-    width: 220,
-    ellipsis: true,
-    render: (_: unknown, record: AuditListItem) => {
-      if (record.auditType !== 'RUN') {
-        return <TableText>-</TableText>;
-      }
-      if (record.steps == null) {
-        return <TableText>-</TableText>;
-      }
-      const parts: string[] = [];
-      if (record.steps.model) parts.push(t('audit.steps.model', { count: record.steps.model }));
-      if (record.steps.tool) parts.push(t('audit.steps.tool', { count: record.steps.tool }));
-      if (record.steps.egress) parts.push(t('audit.steps.egress', { count: record.steps.egress }));
-      if (record.steps.retries) parts.push(t('audit.steps.retries', { count: record.steps.retries }));
-      const counts = parts.length > 0 ? parts.join(' · ') : '-';
-      if (record.failure) {
-        const failure = auditFailureLabel(t, record.failure);
-        return (
-          <span className="audit-steps">
-            <span className="audit-steps-counts" title={counts}>
-              {counts}
-            </span>
-            <span className="audit-steps-failure" title={auditFailureTitle(t, record.failure)}>
-              {failure}
-            </span>
-          </span>
-        );
-      }
-      return (
-        <span className="audit-steps">
-          <span className="audit-steps-counts" title={counts}>
-            {counts}
-          </span>
-        </span>
-      );
-    }
-  };
-}
-
-/** 失败摘要文案：点名失败的工具/模型；没有名称时只说明类型。 */
-function auditFailureLabel(t: TFunction, failure: NonNullable<AuditListItem['failure']>): string {
-  if (failure.name) {
-    return t(`audit.steps.failure.${failure.kind}`, { name: failure.name });
-  }
-  return t(`audit.steps.failureNoName.${failure.kind}`);
-}
-
-/** 悬停展示完整失败信息（含错误码）：列宽只放得下摘要。 */
-function auditFailureTitle(t: TFunction, failure: NonNullable<AuditListItem['failure']>): string {
-  const label = auditFailureLabel(t, failure);
-  return failure.code ? `${label} (${failure.code})` : label;
-}
-
 /** 执行结果列复用 `StatusTag`。 */
 function buildResultColumns(t: TFunction): AuditTableColumns {
   const statusOptions: Record<string, StatusTagOption> = {
@@ -332,7 +298,13 @@ export function buildAuditTableProps(
         ? { className: 'audit-row-failed' }
         : {},
     loading: options.loading,
-    columns: buildAuditColumns(t, options.onOpenDetail, options.onOpenRun, options.onOpenTask),
+    columns: buildAuditColumns(
+      t,
+      options.onOpenDetail,
+      options.onOpenRun,
+      options.onOpenTask,
+      options.onOpenTrace
+    ),
     dataSource: options.items,
     page: options.page,
     pageSize: options.pageSize,

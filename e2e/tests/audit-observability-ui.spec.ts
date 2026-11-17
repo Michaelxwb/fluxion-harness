@@ -86,9 +86,7 @@ const RUN_ROW = {
   latency_ms: 12400,
   run_id: 'run-1',
   task_id: null,
-  summary: '帮我起一个每周一的周报定时任务',
-  steps: { model: 4, tool: 2, egress: 0, retries: 1 },
-  failure: { kind: 'TOOL', name: 'wecom_send', code: 'TOOL_VALIDATION_ERROR' }
+  summary: '帮我起一个每周一的周报定时任务'
 };
 
 function pageData(state: MockState) {
@@ -273,7 +271,7 @@ test('E-09 导出 FAILED 展示 error_code 文案与重试入口，不提供未�
   expect(state.exportDownloads).toEqual([]);
 });
 
-test('S-01 Run 操作行展示内部步骤与失败摘要，明细视图给出提示与返回入口', async ({ page }) => {
+test('S-01 Run 操作行展示摘要与耗时，失败行有标记，明细视图给出提示与返回入口', async ({ page }) => {
   const state = mockState();
   state.runRow = true;
   await mockApi(page, state);
@@ -281,13 +279,11 @@ test('S-01 Run 操作行展示内部步骤与失败摘要，明细视图给出�
   await page.goto('/audits');
 
   await expect(page.getByText('帮我起一个每周一的周报定时任务')).toBeVisible();
-  await expect(page.getByText('4 模型 · 2 工具 · 重试 1')).toBeVisible();
-  await expect(page.getByText('工具 wecom_send 调用失败')).toBeVisible();
-  // 完整失败信息（含错误码）在 title 里：列宽只放摘要
-  await expect(page.locator('.audit-steps-failure')).toHaveAttribute(
-    'title',
-    '工具 wecom_send 调用失败 (TOOL_VALIDATION_ERROR)'
-  );
+  // 步骤统计归运行详情：列表没有「内部步骤」列
+  await expect(page.getByRole('columnheader', { name: '内部步骤' })).toHaveCount(0);
+  await expect(page.getByText('12.4s')).toBeVisible();
+  // 失败的 Run 行有行首标记
+  await expect(page.locator('.audit-row-failed')).toHaveCount(1);
   await expect(page.getByTestId('audit-view-notice')).toHaveCount(0);
 
   await page.getByTestId('audit-filter-auditType').click();
@@ -295,5 +291,12 @@ test('S-01 Run 操作行展示内部步骤与失败摘要，明细视图给出�
   await expect(page.getByTestId('audit-view-notice')).toBeVisible();
 
   await page.getByTestId('audit-view-back').click();
+  await expect(page.getByTestId('audit-view-notice')).toHaveCount(0);
+
+  // Trace ID 与关联对象是两个落点：Trace 下钻该 Trace 的全部记录，运行标识才开运行详情
+  await page.getByTestId('audit-trace-run-1').click();
+  await expect(page.getByTestId('audit-trace-filter')).toHaveText('Trace trace-ru');
+  await expect(page.getByTestId('audit-view-notice')).toBeVisible();
+  await page.getByTestId('audit-trace-clear').click();
   await expect(page.getByTestId('audit-view-notice')).toHaveCount(0);
 });

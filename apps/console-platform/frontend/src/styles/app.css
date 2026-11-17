@@ -13,6 +13,7 @@
   --app-sider-width: 184px;
   --app-font:
     -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  --app-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 }
 
 body[theme-mode='dark'] {
@@ -717,28 +718,45 @@ body {
 .audit-type-dot[data-kind='MODEL'] { background: var(--semi-color-primary); }
 .audit-type-dot[data-kind='EGRESS'] { background: var(--semi-color-warning); }
 
-/* 内部步骤：计数一行、失败摘要一行；单行省略并保留完整 title */
-.audit-steps {
-  display: block;
-  min-width: 0;
-}
-
-.audit-steps-counts,
-.audit-steps-failure {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.audit-steps-counts {
+/* 时间：日期弱化、时刻常规、耗时单独成胶囊，两行结构在长列表里更易扫读 */
+/* 对象短 id：等宽，保证同长度 id 的宽度一致（来源 chip 才能对齐） */
+.audit-object-id {
+  font-family: var(--app-mono);
   font-variant-numeric: tabular-nums;
 }
 
-.audit-steps-failure {
-  margin-top: 2px;
-  color: var(--semi-color-danger);
+.audit-time {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+}
+
+.audit-time-main {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.audit-time-date {
+  color: var(--semi-color-text-2);
   font-size: 12px;
+}
+
+.audit-time-clock {
+  color: var(--semi-color-text-0);
+}
+
+.audit-time-duration {
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--semi-color-fill-0);
+  color: var(--semi-color-text-2);
+  font-size: 11px;
+  line-height: 16px;
 }
 
 /* 失败的运行操作行：行首色条，异常在整列里一眼可辨 */
@@ -746,10 +764,11 @@ body {
   box-shadow: inset 3px 0 0 var(--semi-color-danger);
 }
 
-/* 时间列：日期与耗时等宽对齐 */
-.audit-table .semi-table-tbody > .semi-table-row > .semi-table-row-cell:first-child + .semi-table-row-cell {
-  font-variant-numeric: tabular-nums;
+/* 行内单元格垂直居中：两行的时间单元格与单行内容对齐，关联对象不再顶对齐 */
+.audit-table .semi-table-tbody > .semi-table-row > .semi-table-row-cell {
+  vertical-align: middle;
 }
+
 
 .model-table .semi-table-row-head,
 .model-table .semi-table-row-cell {

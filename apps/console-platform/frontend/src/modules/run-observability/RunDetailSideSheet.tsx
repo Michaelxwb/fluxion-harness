@@ -55,9 +55,17 @@ function shortId(value: string): string {
   return value.slice(0, 8);
 }
 
+const EMPTY_STEPS = { model: 0, tool: 0, egress: 0, retries: 0 };
+const stepValue = (
+  steps: RunDetail['steps'],
+  key: keyof typeof EMPTY_STEPS,
+  t: (key: string, options?: Record<string, unknown>) => string
+): string => (steps == null ? '-' : t('run.detail.stepCount', { count: steps[key] }));
+
 function buildBasicItems(detail: RunDetail, t: (key: string, options?: Record<string, unknown>) => string) {
   const statusOptions = runStatusOptions(t);
   const waiting = WAITING_STATUSES.includes(detail.status);
+  const steps = detail.steps ?? EMPTY_STEPS;
   return [
     {
       label: t('run.columns.status'),
@@ -74,6 +82,30 @@ function buildBasicItems(detail: RunDetail, t: (key: string, options?: Record<st
       label: t('run.columns.endTime'),
       value: detail.end_time ? <DateTimeText value={detail.end_time} /> : '-'
     },
+    {
+      label: t('run.detail.stepModel'),
+      value: stepValue(detail.steps, 'model', t)
+    },
+    {
+      label: t('run.detail.stepTool'),
+      value: stepValue(detail.steps, 'tool', t)
+    },
+    ...(detail.steps != null && steps.egress > 0
+      ? [
+          {
+            label: t('run.detail.stepEgress'),
+            value: stepValue(detail.steps, 'egress', t)
+          }
+        ]
+      : []),
+    ...(detail.steps != null && steps.retries > 0
+      ? [
+          {
+            label: t('run.detail.stepRetries'),
+            value: stepValue(detail.steps, 'retries', t)
+          }
+        ]
+      : []),
     ...(waiting
       ? [
           {

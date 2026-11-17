@@ -22,10 +22,10 @@
 1. **只加读侧，不碰写侧**：Runtime、`AuditedModelProvider`、三张审计表的写入粒度与表结构一律不动；本需求全部改动落在 Console 的只读查询与前端展示。
 2. **操作视图 = 现有投影的新增分支 + 外层过滤**：在四表 `UNION ALL` 投影中新增 `RUN` 分支（来源 `runtime.run_record`），默认视图在外层只保留 `RUN / CONFIG / EGRESS`。
 3. **视图是显式参数**：列表新增 `view=operation|detail`；导出固定 `detail`，因此「列表变粗」不会传染到审计留档。
-4. **步骤计数两阶段**：先分页取出当页操作行，再对当页 `run_id` 集合做一次 `GROUP BY` 聚合 + 一次「最近失败」查询；禁止逐行相关子查询，禁止每页全量预聚合。
-5. **失败摘要与 Run 结果绑定**：只有 Run 自身失败时才展示失败步骤摘要；成功但有重试的 Run 只展示重试次数，不把重试渲染成失败。
+4. **步骤统计随运行详情返回**：列表不再展示步骤；运行详情接口按该 Run 的 `run_id` 做一次 `GROUP BY` 聚合（模型/工具/出网/重试），供「运行概览」页签使用。
+5. **失败在列表只做标记**：失败 Run 行以行首标记 + 结果标签呈现；具体失败步骤与错误文案在运行详情里查看，列表不再承载失败摘要。
 6. **新增索引**：`runtime.run_record (tenant_id, create_time DESC) WHERE is_deleted = false`，支撑默认视图的租户 + 时间倒序分页。
-7. **`RUN` 不提供审计详情**：列表首列/对象对 Run 行直接打开既有运行详情；`GET /audits/{type}/{id}` 仍只接受四类来源表，避免造出第二套运行详情。
+7. **`RUN` 不提供审计详情**：对象列打开既有运行详情，Trace ID 下钻该 Trace 的明细视图（复用 `view=detail` + `trace_id` 筛选，无新接口）；`GET /audits/{type}/{id}` 仍只接受四类来源表。
 
 ---
 
@@ -58,11 +58,11 @@
 | 功能ID | 功能名称 | 后端实现要点 | 优先级 | 来源 |
 |--------|---------|-------------|--------|------|
 | FEAT-01 | 操作视图默认粒度 | 新增 `RUN` 投影分支；默认视图外层只保留 `RUN/CONFIG/EGRESS` | P0 | US-01, US-06 |
-| FEAT-02 | 内部步骤列 | 两阶段聚合：计数 + 最近失败步骤；随列表行返回 | P0 | US-02 |
+| FEAT-02 | 步骤统计随运行详情 | 运行详情接口返回模型/工具/出网/重试计数，概览页签展示 | P0 | US-02 |
 | FEAT-03 | 步骤明细视图 | `view=detail` 复用现有四类分支，行为与现状一致 | P0 | US-03 |
 | FEAT-04 | 运行详情入口 | 不新增接口；`RUN` 不支持审计详情 | P0 | US-04 |
 | FEAT-05 | 导出保持全量明细 | `all_rows()` 固定 detail 投影，导出列不变 | P0 | US-05 |
-| FEAT-06 | Run 级投影与聚合查询 | 索引 + 两阶段聚合；EXPLAIN 验收 | P0 | US-01, US-02 |
+| FEAT-06 | Run 级投影与查询 | 操作视图投影 + 分页索引；步骤聚合归属运行详情 | P0 | US-01, US-02 |
 
 #### 2.3.2 字段约束
 
@@ -71,15 +71,14 @@
 | 字段 | 类型 | 规则 |
 |------|------|------|
 | `summary` | text | `run_record.input_text` 截断到 120 字符；**不参与关键字筛选**，不进导出列 |
-| `steps_model` / `steps_tool` / `steps_egress` | int | 当页聚合结果；不落库、不缓存 |
-| `steps_retries` | int | 模型 attempt 中 status 为重试的条数 |
-| `failure_kind` / `failure_name` / `failure_code` | text | 仅 Run 结果为 `FAILED` 时有值；取该 Run 时间上最后一条失败步骤 |
+| `steps.model` / `steps.tool` / `steps.egress` | int | 运行详情聚合结果；不落库、不缓存 |
+| `steps.retries` | int | 模型 attempt 中 status 为重试的条数 |
 
 ### 2.4 范围与边界
 
 | 类别 | 内容 |
 |------|------|
-| **范围（In Scope）** | `api/audits.py` 列表参数与出参；`audit_query_service` 校验与整形；`audit_query_repository` 投影与两阶段聚合；`runtime.run_record` 新索引迁移；后端测试。 |
+| **范围（In Scope）** | `api/audits.py` 列表参数与出参；`audit_query_service` 校验与整形；`audit_query_repository` 投影；运行详情步骤统计与 `runtime.run_record` 新索引迁移；后端测试。 |
 | **非范围（Out of Scope）** | Runtime 写入链路与模型调用链；审计表结构与清理策略；概览统计与执行导出；RUN 类型的审计详情；Task 级操作行（OQ-03）。 |
 | **有意妥协 / 技术债** | 只有 `task_id` 的执行不新建「任务操作行」：出网记录按出网操作行展示，模型/工具审计的 `run_id` 非空、不存在 task-only 记录；任务级操作行作为后续增量。 |
 
@@ -94,7 +93,7 @@
 | S-05 | CONFIG / EGRESS 行字段口径不变 |
 | S-06 | 导出在操作视图下仍输出全量明细 |
 | E-01 | 主查询失败返回统一错误，不返回半截数据 |
-| E-02 | 步骤聚合失败可见降级：`steps=null` 且记录 warning，不伪造 0 |
+| E-02 | 运行详情的步骤聚合失败可见降级：`steps=null` 且记录 warning，不伪造 0 |
 | B-01 | 分页在两个视图下各自按行语义计数 |
 | B-02 | 只有 `task_id` 的记录不被静默丢弃 |
 
@@ -128,7 +127,7 @@
 | 方案 | 做法 | 优点 | 缺点 | 结论 |
 |------|------|------|------|------|
 | A. 新建 Run 级审计宽表 | 写入时聚合，列表只读宽表 | 查询最快 | 双写、历史回填、与三表一致性风险；触碰写侧 | 否决 |
-| B. 查询期投影 + 两阶段聚合 | 新增 RUN 分支，分页后聚合当页 | 无新表、无回填、Runtime 零改动、可回退 | 需一条新索引；实现要守住两阶段 | **采用** |
+| B. 查询期投影 + 运行详情聚合 | 新增 RUN 分支；步骤统计随运行详情返回 | 无新表、无回填、Runtime 零改动、可回退 | 需一条新索引；列表与详情各自查询 | **采用** |
 | C. 前端按 trace 分组折叠 | 不动后端，前端 group | 改动最小 | 分页/总数语义失真；「模型调用不是审计事件」的根因未解 | 否决 |
 
 #### 关键决策记录
@@ -151,10 +150,13 @@ GET /api/v1/audits                      apps/console-platform/backend/.../api/au
   └─ AuditQueryService.list_audits      application/audit_query_service.py（校验 view/类型、整形出参）
        └─ AuditQueryRepository          infrastructure/repositories/audit_query_repository.py
             ├─ count(tenant, filters, view)       → 外层 count
-            ├─ page(tenant, filters, view)        → 外层分页
-            └─ attach_steps(tenant, run_ids)      → 当页步骤聚合（仅 operation 视图）
+            └─ page(tenant, filters, view)        → 外层分页
                  ▼
         control.config_audit_log / runtime.{tool_call_audit,egress_audit,model_invocation_audit,run_record}
+
+GET /api/v1/runs/{run_id}               api/runs.py
+  └─ RunQueryService.get_run            application/run_query_service.py
+       └─ RunQueryRepository.run_step_aggregates(tenant, [run_id])   → 运行概览的步骤计数
 ```
 
 #### 技术分层
@@ -163,7 +165,7 @@ GET /api/v1/audits                      apps/console-platform/backend/.../api/au
 |----|------|---------|
 | API | 参数声明与封套 | 不做视图语义判断 |
 | Service | `view`/`audit_type` 组合校验、行整形（steps/failure 组装） | 不写 SQL |
-| Repository | 投影 SQL、两阶段聚合、索引命中的查询形态 | 不做字段命名转换以外的业务判断 |
+| Repository | 投影 SQL、步骤计数聚合、索引命中的查询形态 | 不做字段命名转换以外的业务判断 |
 
 ### 3.3 数据设计
 
@@ -197,7 +199,7 @@ op.create_index(
 | `task_id` | `NULL` |
 | `summary` | `left(input_text, 120)` |
 
-**步骤聚合（两阶段第二段）**
+**步骤聚合（运行详情，按单个 Run）**
 
 ```sql
 WITH s AS (
@@ -221,21 +223,10 @@ SELECT run_id,
   FROM s GROUP BY run_id;
 ```
 
-失败摘要单独一条（同一 `run_ids` 集合）：
-
-```sql
-SELECT DISTINCT ON (run_id) run_id, kind, name, error_code
-  FROM s
- WHERE (kind = 'MODEL' AND status NOT IN ('OK','SUCCESS'))
-    OR (kind = 'TOOL'  AND status IN ('ERROR','FAILED'))
-    OR (kind = 'EGRESS' AND status IN ('ERROR','FAILED','DENIED','BLOCKED'))
- ORDER BY run_id, create_time DESC;
-```
-
 约束：
-- 两条查询都只接受当页 `run_ids`（≤ `page_size`），走 `run_id` 前缀索引；
-- 除 `RUN` 行外不发聚合查询；当页没有 RUN 行时直接跳过；
-- 聚合结果只用于出参整形，不缓存、不落库。
+- 运行详情只按单个 `run_id` 查询，走三张表的 `run_id` 前缀索引；
+- 聚合结果只用于出参整形，不缓存、不落库；
+- 失败步骤不在这里重复查询：运行详情的「失败原因」与事件轮廓已经承载。
 
 ### 3.4 接口设计
 
@@ -265,15 +256,23 @@ SELECT DISTINCT ON (run_id) run_id, kind, name, error_code
 {
   "audit_type": "RUN",
   "summary": "帮我起一个每周一早上九点的周报定时任务",
-  "steps": {"model": 4, "tool": 2, "egress": 0, "retries": 1},
-  "failure": {"kind": "TOOL", "name": "wecom_send", "code": "TOOL_VALIDATION_ERROR"}
+  "summary": "帮我起一个每周一早上九点的周报定时任务"
 }
 ```
 
-- `steps` / `failure` 仅 `RUN` 行出现；其他类型为 `null`；
-- `steps` 聚合失败时整项为 `null`（E-02），并写 warning 日志，**不返回 0**；
-- `failure` 仅当 `result_status = FAILED` 时有值；
+- `summary` 仅 `RUN` 行有值（用户提问摘要，只用于列表展示，不进导出）；
 - `total` / `page` 按当前视图的行语义计算。
+
+#### API-18: 运行详情（`GET /api/v1/runs/{run_id}`，本需求扩展）
+
+出参新增 `steps`：
+
+```json
+{"steps": {"model": 4, "tool": 2, "egress": 1, "retries": 1}}
+```
+
+- 计数来自当次 Run 的审计行（模型按 attempt 计，重试单列）；
+- 无审计行时全 0（事实）；聚合失败时 `steps=null`（不可用 ≠ 0）并写 warning。
 
 #### API-02: 审计详情（不变）
 
@@ -291,13 +290,13 @@ SELECT DISTINCT ON (run_id) run_id, kind, name, error_code
 
 - 主查询：外层 `ORDER BY occurred_at DESC, audit_id DESC` + `OFFSET/LIMIT`；RUN 分支按 `(tenant_id, create_time DESC)` 索引取数；
 - 计数：对投影外层 `count(*)`，操作视图候选集从事件行降到 Run 行；
-- 聚合：当页 `run_id` 集合 + 三表 `run_id` 前缀索引（已有 `ix_*_audit_run`）；
+- 步骤计数：运行详情按单个 `run_id` 走三张审计表的前缀索引（已有 `ix_*_audit_run`）；
 - 验收：对默认视图与明细视图各跑一次 `EXPLAIN (ANALYZE, BUFFERS)`，确认无逐行 SubPlan、无全表预聚合。
 
 #### 可靠性设计
 
 - 主查询失败：按统一错误返回，不返回半截列表；
-- 步骤聚合失败：该页 `steps` 置 `null`、记录 warning（含 tenant 与当页 run 数），列表其余字段照常返回；
+- 运行详情的步骤聚合失败：`steps` 置 `null`、记录 warning（含 tenant 与 run id），详情其余字段照常返回；
 - 导出失败保持现有任务态。
 
 #### 安全性设计
@@ -331,10 +330,10 @@ SELECT DISTINCT ON (run_id) run_id, kind, name, error_code
 
 | 风险ID | 描述 | 影响 | 缓解 |
 |--------|------|------|------|
-| RISK-01 | 聚合写成逐行子查询 | 大租户审计页变慢 | 两阶段实现 + EXPLAIN 验收 + 代码评审检查 |
+| RISK-01 | 步骤聚合写成逐行子查询 | 运行详情变慢 | 单次聚合 + 索引命中 + 代码评审检查 |
 | RISK-02 | `view` 与 `audit_type` 组合语义被前端误用 | 翻页/总数错位 | 解析规则在 spec 与测试中固化 |
 | RISK-03 | 新索引在热表上创建耗时 | 发布窗口风险 | 按现有迁移流程评估，必要时错峰 |
-| RISK-04 | 步骤聚合失败被静默当成 0 | 审计展示失真 | `steps=null` + warning 日志 + 用例覆盖 |
+| RISK-04 | 运行详情的步骤聚合失败被静默当成 0 | 概览展示失真 | `steps=null` + warning 日志 + 用例覆盖 |
 
 ---
 
@@ -343,7 +342,7 @@ SELECT DISTINCT ON (run_id) run_id, kind, name, error_code
 | US | FEAT | API | 场景 | 测试 |
 |----|------|-----|------|------|
 | US-01 | FEAT-01, FEAT-06 | API-01 | S-01, B-01 | `tests/console_platform/test_audit_query_api.py` |
-| US-02 | FEAT-02 | API-01 | S-02, E-02 | 新增步骤聚合同步/集成用例 |
+| US-02 | FEAT-02 | API-18 | S-02, E-02 | `tests/console_platform/test_runs_api.py` |
 | US-03 | FEAT-03 | API-01 | S-03 | `test_audits_api.py`、`test_audit_query_api.py` |
 | US-04 | FEAT-04 | API-02 | S-04 | `test_audit_detail_api.py` |
 | US-05 | FEAT-05 | API-05/06 | S-06 | `test_audit_export_api.py`、`test_audit_export_download.py` |
@@ -367,7 +366,7 @@ SELECT DISTINCT ON (run_id) run_id, kind, name, error_code
 |------|------|
 | 操作视图 | 一行 = 一次业务操作（RUN / CONFIG / EGRESS） |
 | 明细视图 | 一行 = 一次模型/工具/出网调用 |
-| 步骤聚合 | 对当页 Run 的模型/工具/出网记录做计数与最近失败提取 |
+| 步骤统计 | 对单个 Run 的模型/工具/出网记录做计数（运行概览用） |
 
 ---
 

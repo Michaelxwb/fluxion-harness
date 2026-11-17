@@ -127,6 +127,9 @@ _CLEANUP = tuple(
     statement.replace("tenant_id = :tenant_id", "tenant_id LIKE :tenant_prefix")
     for statement in (
         "DELETE FROM runtime.tool_control_outbox WHERE tenant_id = :tenant_id",
+        "DELETE FROM runtime.model_invocation_audit WHERE tenant_id = :tenant_id",
+        "DELETE FROM runtime.tool_call_audit WHERE tenant_id = :tenant_id",
+        "DELETE FROM runtime.egress_audit WHERE tenant_id = :tenant_id",
         "DELETE FROM runtime.tool_result_inbox WHERE tenant_id = :tenant_id",
         "DELETE FROM runtime.run_continuation WHERE tenant_id = :tenant_id",
         "DELETE FROM runtime.tool_operation WHERE tenant_id = :tenant_id",
@@ -763,3 +766,114 @@ async def test_run_operations_is_tenant_scoped_and_soft_deleted_absent(
             )
     deleted = await client.get(f"/api/v1/runs/{own.run_id}/operations")
     assert deleted.status_code == 404
+
+
+async def test_run_detail_reports_step_counts(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    """[S-02] 运行概览的步骤计数来自审计表：模型（含重试）/工具/出网分开计数。"""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        seed = await _seed_run(session, tenant)
+        await session.execute(
+            text(
+                """
+                INSERT INTO runtime.model_invocation_audit
+                    (id, tenant_id, run_id, task_id, provider, model, attempt,
+                     retry_reason, input_tokens, output_tokens, latency_ms, status,
+                     create_time)
+                VALUES (:audit_id, :tenant_id, :run_id, NULL, 'openai-compatible',
+                        'qwen3-235b-a22b', 0, NULL, 10, 20, 100, 'OK', now())
+                """
+            ),
+            {
+                "audit_id": uuid.uuid4(),
+                "tenant_id": tenant.tenant_id,
+                "run_id": seed.run_id,
+            },
+        )
+        await session.execute(
+            text(
+                """
+                INSERT INTO runtime.model_invocation_audit
+                    (id, tenant_id, run_id, task_id, provider, model, attempt,
+                     retry_reason, input_tokens, output_tokens, latency_ms, status,
+                     create_time)
+                VALUES (:audit_id, :tenant_id, :run_id, NULL, 'openai-compatible',
+                        'qwen3-235b-a22b', 1, 'RATE_LIMITED', NULL, NULL, 120, 'RETRY',
+                        now())
+                """
+            ),
+            {
+                "audit_id": uuid.uuid4(),
+                "tenant_id": tenant.tenant_id,
+                "run_id": seed.run_id,
+            },
+        )
+        await session.execute(
+            text(
+                """
+                INSERT INTO runtime.tool_call_audit
+                    (id, tenant_id, run_id, task_id, conversation_id, tool_call_id,
+                     tool_name, tool_kind, prepared_args_hash, args_preview_json,
+                     status, start_time, end_time, latency_ms, create_time)
+                VALUES (:audit_id, :tenant_id, :run_id, NULL, :conversation_id,
+                        'call-1', 'current_time', 'INLINE', 'sha256:seed',
+                        '{}'::jsonb, 'OK', now(), now(), 40, now())
+                """
+            ),
+            {
+                "audit_id": uuid.uuid4(),
+                "tenant_id": tenant.tenant_id,
+                "run_id": seed.run_id,
+                "conversation_id": seed.conversation_id,
+            },
+        )
+        await session.execute(
+            text(
+                """
+                INSERT INTO runtime.egress_audit
+                    (id, tenant_id, run_id, task_id, user_id, target_type, target,
+                     operation, method, policy_decision, status_code, result_status,
+                     latency_ms, create_time)
+                VALUES (:audit_id, :tenant_id, :run_id, NULL, :user_id, 'MCP',
+                        'mcp.example.com', 'mcp.tool', 'POST', 'ALLOW', 200, 'OK',
+                        15, now())
+                """
+            ),
+            {
+                "audit_id": uuid.uuid4(),
+                "tenant_id": tenant.tenant_id,
+                "run_id": seed.run_id,
+                "user_id": seed.actor_user_id,
+            },
+        )
+        await session.commit()
+
+    response = await client.get(f"/api/v1/runs/{seed.run_id}")
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["steps"] == {
+        "model": 2,
+        "tool": 1,
+        "egress": 1,
+        "retries": 1,
+    }
+
+
+async def test_run_detail_step_counts_are_zero_without_audit_rows(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    """[S-02] 没有审计行的 Run：计数全 0 是事实，不省略字段。"""
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        seed = await _seed_run(session, tenant)
+        await session.commit()
+
+    response = await client.get(f"/api/v1/runs/{seed.run_id}")
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["steps"] == {
+        "model": 0,
+        "tool": 0,
+        "egress": 0,
+        "retries": 0,
+    }

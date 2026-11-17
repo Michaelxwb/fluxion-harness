@@ -514,9 +514,9 @@ async def test_operation_view_collapses_run_events_into_one_row(
     assert DATE_TIME_PATTERN.match(str(run["occurred_at"])), run["occurred_at"]
     assert run["started_at"] == run["occurred_at"]
     assert run["summary"] == "audit seed"
-    # 步骤计数由当页聚合填充；Run 成功时没有失败摘要
-    assert run["steps"] == {"model": 1, "tool": 1, "egress": 1, "retries": 0}
-    assert run["failure"] is None
+    # 步骤统计归运行详情：列表不再返回 steps / failure
+    assert "steps" not in run
+    assert "failure" not in run
 
     config = rows["CONFIG"]
     _assert_config_row(config, audit_seed)
@@ -717,113 +717,6 @@ async def test_keyword_export_filters_survive_persistence_and_match_list(
     assert {str(row["audit_id"]) for row in rows} == {
         row["audit_id"] for row in response.json()["data"]["items"]
     }
-
-
-async def _fetch_operation_rows(
-    client: AsyncClient, tenant: TenantContext, seed: AuditSeed
-) -> dict[str, dict[str, object]]:
-    response = await client.get(
-        "/api/v1/audits",
-        params={"trace_id": seed.trace_id},
-        headers=_headers(tenant),
-    )
-    assert response.status_code == 200, response.text
-    return _by_type(response.json()["data"]["items"])
-
-
-async def test_operation_view_reports_step_counts(
-    client: AsyncClient, tenant: TenantContext, audit_seed: AuditSeed
-) -> None:
-    """[S-02] 操作行的内部步骤计数来自当页聚合，非 RUN 行不带步骤字段。"""
-    rows = await _fetch_operation_rows(client, tenant, audit_seed)
-    run = rows["RUN"]
-    # 种子：1 次模型（ERROR）、1 次工具（OK）、1 次出网（DENIED）
-    assert run["steps"] == {"model": 1, "tool": 1, "egress": 1, "retries": 0}
-    # Run 本身成功：失败摘要不出现，即使内部有失败尝试
-    assert run["failure"] is None
-
-    assert rows["CONFIG"]["steps"] is None
-    assert rows["EGRESS"]["steps"] is None
-    assert rows["EGRESS"]["failure"] is None
-
-
-async def test_failure_summary_appears_only_for_failed_run(
-    client: AsyncClient, tenant: TenantContext, audit_seed: AuditSeed
-) -> None:
-    """[S-02] 只有 Run 自身失败时才回填最后一条失败步骤。"""
-    async with get_session_factory()() as session:
-        await session.execute(
-            text("UPDATE runtime.run_record SET status = 'FAILED' WHERE id = :run_id"),
-            {"run_id": audit_seed.run_id},
-        )
-        await session.commit()
-
-    rows = await _fetch_operation_rows(client, tenant, audit_seed)
-    run = rows["RUN"]
-    assert run["result_status"] == "FAILED"
-    assert run["failure"] == {"kind": "MODEL", "name": None, "code": None}
-    assert run["steps"]["model"] == 1
-
-
-async def test_model_retries_are_counted_without_becoming_failure(
-    client: AsyncClient, tenant: TenantContext, audit_seed: AuditSeed
-) -> None:
-    """[B-03] 模型重试计入重试数；Run 成功时不得渲染成失败。"""
-    async with get_session_factory()() as session:
-        await session.execute(
-            text(
-                """
-                INSERT INTO runtime.model_invocation_audit
-                    (id, tenant_id, run_id, task_id, provider, model, attempt,
-                     retry_reason, input_tokens, output_tokens, latency_ms, status,
-                     create_time)
-                VALUES (:audit_id, :tenant_id, :run_id, NULL, 'openai-compatible',
-                        'qwen3-235b-a22b', 0, 'RATE_LIMITED', NULL, NULL, 120, 'RETRY',
-                        now())
-                """
-            ),
-            {
-                "audit_id": uuid.uuid4(),
-                "tenant_id": tenant.tenant_id,
-                "run_id": audit_seed.run_id,
-            },
-        )
-        await session.commit()
-
-    rows = await _fetch_operation_rows(client, tenant, audit_seed)
-    run = rows["RUN"]
-    assert run["steps"] == {"model": 2, "tool": 1, "egress": 1, "retries": 1}
-    assert run["failure"] is None
-
-
-async def test_steps_degrade_to_null_when_aggregate_query_fails(
-    client: AsyncClient,
-    tenant: TenantContext,
-    audit_seed: AuditSeed,
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """[E-02] 步骤聚合失败：列表照常返回，steps 为 null 并留下降级警告（不伪造 0）。"""
-    from muad_console_platform.infrastructure.repositories.audit_query_repository import (
-        AuditQueryRepository,
-    )
-    from sqlalchemy.exc import SQLAlchemyError
-
-    async def _boom(self: AuditQueryRepository, tenant_id: str, run_ids: list[uuid.UUID]) -> dict:
-        raise SQLAlchemyError("audit steps unavailable")
-
-    monkeypatch.setattr(AuditQueryRepository, "run_step_aggregates", _boom)
-
-    with caplog.at_level("WARNING"):
-        rows = await _fetch_operation_rows(client, tenant, audit_seed)
-
-    run = rows["RUN"]
-    assert run["audit_id"] == str(audit_seed.run_id)
-    assert run["steps"] is None
-    assert run["failure"] is None
-    assert any(
-        record.message == "audit_steps_degraded" for record in caplog.records
-    ), [record.message for record in caplog.records]
 
 
 async def _page(

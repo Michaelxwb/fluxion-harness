@@ -53,6 +53,7 @@ export interface AuditTableProps {
   onOpenDetail(item: AuditListItem): void;
   onOpenRun(runId: string): void;
   onOpenTask(taskId: string): void;
+  onOpenTrace(traceId: string): void;
 }
 
 /** TASK-013 `components/AuditDetailSideSheet.tsx` 的入参（设计 §3.4）。 */
@@ -121,7 +122,7 @@ function useAuditQueryState() {
     setQuery((prev) => ({ ...prev, page, pageSize }));
   }, []);
 
-  return { query, handleFilterChange, handleReset, handlePageChange };
+  return { query, setQuery, handleFilterChange, handleReset, handlePageChange };
 }
 
 /** 详情选择态（设计 §3.5）：打开落选择态、关闭清空（SideSheet 随之卸载）。 */
@@ -222,7 +223,8 @@ function AuditRefreshNotice(props: AuditRefreshNoticeProps) {
 export function AuditPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { query, handleFilterChange, handleReset, handlePageChange } = useAuditQueryState();
+  const { query, setQuery, handleFilterChange, handleReset, handlePageChange } =
+    useAuditQueryState();
   const { detail, handleOpenDetail, handleCloseDetail } = useAuditDetailSelection();
   const { items, loading, page, pageSize, total, failed, reload } = useAuditList(query);
   /** 关联对象直达：Run 就地叠加运行详情（无独立页面），Task 落任务列表深链（既有口径）。 */
@@ -233,6 +235,20 @@ export function AuditPage() {
       navigate(`/tasks?taskId=${taskId}`);
     },
     [navigate]
+  );
+
+  /** Trace 下钻：查看该 Trace 下的全部审计记录（进入明细视图，与运行详情区分）。 */
+  const handleOpenTrace = useCallback(
+    (traceId: string) => {
+      setQuery((prev) => ({
+        ...prev,
+        auditType: undefined,
+        traceId,
+        view: 'detail',
+        page: 1
+      }));
+    },
+    []
   );
 
   /** 刷新与失败重试同一出口（[E-06] 保留筛选条件，按当前页重取）。 */
@@ -255,7 +271,8 @@ export function AuditPage() {
     onPageChange: handlePageChange,
     onOpenDetail: handleOpenDetail,
     onOpenRun: related.openRun,
-    onOpenTask: handleOpenTask
+    onOpenTask: handleOpenTask,
+    onOpenTrace: handleOpenTrace
   };
 
   /**
@@ -286,7 +303,13 @@ export function AuditPage() {
         />
         {refreshFailed ? <AuditRefreshNotice onRetry={handleRefresh} /> : null}
         {query.view === 'detail' ? (
-          <AuditViewNotice onBack={() => handleFilterChange({ auditType: undefined, page: 1 })} />
+          <AuditViewNotice
+            traceId={query.traceId ?? null}
+            onClearTrace={() => handleFilterChange({ traceId: undefined, page: 1 })}
+            onBack={() =>
+              handleFilterChange({ auditType: undefined, traceId: undefined, page: 1 })
+            }
+          />
         ) : null}
         <RemoteTable<AuditListItem> {...auditTable} />
         <AuditDetailPanel detail={detail} handleCloseDetail={handleCloseDetail} />

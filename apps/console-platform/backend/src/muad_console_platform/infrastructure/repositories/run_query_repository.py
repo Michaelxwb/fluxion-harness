@@ -181,6 +181,37 @@ SELECT count(*)
  WHERE {_OPERATION_SCOPE}
 """
 
+# 运行概览的步骤统计：只接受当页/当前 Run 的 `run_id` 集合，三张审计表各走 run_id 前缀索引。
+# 计数与「最近失败」共用同一份 steps CTE，禁止逐行相关子查询。
+_STEP_SOURCE_SQL = """
+WITH ids AS (SELECT unnest(CAST(:run_ids AS uuid[])) AS run_id),
+steps AS (
+    SELECT run_id, 'MODEL' AS kind, status AS step_status, NULL::text AS step_name,
+           error_code, create_time
+      FROM runtime.model_invocation_audit
+     WHERE tenant_id = :tenant_id AND run_id IN (SELECT run_id FROM ids)
+    UNION ALL
+    SELECT run_id, 'TOOL', status, tool_name, error_code, create_time
+      FROM runtime.tool_call_audit
+     WHERE tenant_id = :tenant_id AND run_id IN (SELECT run_id FROM ids)
+    UNION ALL
+    SELECT run_id, 'EGRESS', result_status, target, error_code, create_time
+      FROM runtime.egress_audit
+     WHERE tenant_id = :tenant_id AND run_id IN (SELECT run_id FROM ids)
+)
+"""
+
+_STEP_COUNTS_SQL = f"""{_STEP_SOURCE_SQL}
+SELECT run_id,
+       count(*) FILTER (WHERE kind = 'MODEL') AS model_calls,
+       count(*) FILTER (WHERE kind = 'TOOL') AS tool_calls,
+       count(*) FILTER (WHERE kind = 'EGRESS') AS egress_calls,
+       count(*) FILTER (WHERE kind = 'MODEL' AND step_status = 'RETRY') AS model_retries
+  FROM steps
+ GROUP BY run_id
+"""
+
+
 _RUN_EXISTS_SQL = """
 SELECT 1
   FROM runtime.run_record
@@ -214,6 +245,16 @@ class RunDetailRow:
     continuation_count: int | None
     continuation_ready: bool | None
     waiting_since: datetime | None
+
+
+@dataclass(frozen=True)
+class RunStepAggregate:
+    """一次 Run 的步骤计数与最近失败（查询期聚合，不落库）。"""
+
+    model_calls: int
+    tool_calls: int
+    egress_calls: int
+    model_retries: int
 
 
 @dataclass(frozen=True)
@@ -264,6 +305,26 @@ class RunQueryRepository:
             )
         ).mappings().one_or_none()
         return RunDetailRow(**row) if row is not None else None
+
+    async def run_step_aggregates(
+        self, tenant_id: str, run_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, RunStepAggregate]:
+        """按 `run_id` 集合聚合步骤计数；单次小查询，不做逐行子查询。"""
+        if not run_ids:
+            return {}
+        params = {"tenant_id": tenant_id, "run_ids": run_ids}
+        rows = (
+            await self._session.execute(text(_STEP_COUNTS_SQL), params)
+        ).mappings()
+        return {
+            row["run_id"]: RunStepAggregate(
+                model_calls=int(row["model_calls"]),
+                tool_calls=int(row["tool_calls"]),
+                egress_calls=int(row["egress_calls"]),
+                model_retries=int(row["model_retries"]),
+            )
+            for row in rows
+        }
 
     async def run_exists(self, tenant_id: str, run_id: uuid.UUID) -> bool:
         found = await self._session.scalar(

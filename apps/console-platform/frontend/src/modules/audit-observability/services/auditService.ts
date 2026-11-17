@@ -44,19 +44,8 @@ interface RawAuditItem {
   latency_ms: number | null;
   run_id: string | null;
   task_id: string | null;
-  /** RUN 行专属：提问摘要、步骤计数与失败摘要（其他类型为 null/缺省）。 */
+  /** RUN 行专属：用户提问摘要（其他类型为 null/缺省）。 */
   summary?: string | null;
-  steps?: {
-    model: number;
-    tool: number;
-    egress: number;
-    retries: number;
-  } | null;
-  failure?: {
-    kind: 'MODEL' | 'TOOL' | 'EGRESS';
-    name: string | null;
-    code: string | null;
-  } | null;
 }
 
 /** 详情 = 投影行 + 来源表独有字段 + 关联可读性（E-01）。 */
@@ -177,9 +166,7 @@ function toAuditItem(raw: RawAuditItem): AuditListItem {
     latencyMs: optional(raw.latency_ms),
     runId: optional(raw.run_id),
     taskId: optional(raw.task_id),
-    summary: optional(raw.summary),
-    steps: raw.steps ?? null,
-    failure: raw.failure ?? null
+    summary: optional(raw.summary)
   };
 }
 

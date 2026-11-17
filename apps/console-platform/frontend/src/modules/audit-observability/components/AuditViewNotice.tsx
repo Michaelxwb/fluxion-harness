@@ -8,10 +8,17 @@ import { Button } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 
 export interface AuditViewNoticeProps {
+  /** 当前是否按某个 Trace 下钻；有值时额外给出清除入口。 */
+  traceId?: string | null;
+  onClearTrace?(): void;
   onBack(): void;
 }
 
-export function AuditViewNotice({ onBack }: AuditViewNoticeProps): JSX.Element {
+export function AuditViewNotice({
+  traceId = null,
+  onClearTrace,
+  onBack
+}: AuditViewNoticeProps): JSX.Element {
   const { t } = useTranslation();
   return (
     <div
@@ -31,6 +38,21 @@ export function AuditViewNotice({ onBack }: AuditViewNoticeProps): JSX.Element {
     >
       <strong>{t('audit.views.detailTitle')}</strong>
       <span>{t('audit.views.detailHint')}</span>
+      {traceId ? (
+        <>
+          <span data-testid="audit-trace-filter" style={{ fontWeight: 500 }}>
+            {t('audit.views.traceFiltered', { trace: traceId.slice(0, 8) })}
+          </span>
+          <Button
+            theme="borderless"
+            size="small"
+            data-testid="audit-trace-clear"
+            onClick={onClearTrace}
+          >
+            {t('audit.views.clearTrace')}
+          </Button>
+        </>
+      ) : null}
       <Button
         theme="borderless"
         type="primary"

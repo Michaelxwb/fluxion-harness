@@ -6,14 +6,12 @@
 
 from __future__ import annotations
 
-import logging
 import uuid
 from datetime import UTC, datetime, tzinfo
 from typing import Any
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.repositories.audit_query_repository import (
@@ -32,8 +30,6 @@ LIST_AUDIT_TYPES = AUDIT_TYPES | {"RUN"}
 #: 只存在于步骤明细视图的类型：与操作视图组合即语义冲突。
 DETAIL_ONLY_TYPES = frozenset({"MODEL", "TOOL"})
 AUDIT_VIEWS = frozenset({"operation", "detail"})
-
-logger = logging.getLogger(__name__)
 # 归一后的执行结果域（docs/07 §10.11）：SUCCESS / FAILED / BLOCKED / 领域错误码；
 # RUNNING / CANCELLED 只由操作行（Run）产出，作为筛选取值的加法扩展。
 RESULT_STATUSES = frozenset({"SUCCESS", "FAILED", "DENIED", "BLOCKED", "RUNNING", "CANCELLED"})
@@ -174,10 +170,7 @@ class AuditQueryService:
         rows = await self._repository.page(
             tenant_id, filters, page, page_size, view=resolved
         )
-        items = [self._project_list_item(row) for row in rows]
-        if resolved == "operation":
-            await self._attach_run_steps(tenant_id, rows, items)
-        return items, total
+        return [self._project_list_item(row) for row in rows], total
 
     def _validate(self, filters: AuditQueryFilters) -> None:
         validate_filters(
@@ -188,53 +181,10 @@ class AuditQueryService:
 
     @staticmethod
     def _project_list_item(row: dict[str, Any]) -> dict[str, Any]:
-        """列表行 = 统一投影 + 操作行摘要 + 步骤字段（步骤由聚合层填充，先冻结结构）。"""
+        """列表行 = 统一投影 + 操作行摘要；步骤统计归运行详情。"""
         item = AuditQueryService._project(row)
         item["summary"] = row.get("summary")
-        item["steps"] = None
-        item["failure"] = None
         return item
-
-    async def _attach_run_steps(
-        self,
-        tenant_id: str,
-        rows: list[dict[str, Any]],
-        items: list[dict[str, Any]],
-    ) -> None:
-        """操作视图的步骤聚合：只查当页 Run，失败可见降级为 `None`（不伪造 0）。"""
-        run_pairs = [
-            (row, item)
-            for row, item in zip(rows, items, strict=True)
-            if row["audit_type"] == "RUN"
-        ]
-        if not run_pairs:
-            return
-        run_ids = [row["audit_id"] for row, _ in run_pairs]
-        try:
-            aggregates = await self._repository.run_step_aggregates(tenant_id, run_ids)
-        except SQLAlchemyError:
-            logger.warning(
-                "audit_steps_degraded",
-                extra={"tenant_id": tenant_id, "run_count": len(run_ids)},
-            )
-            return
-        for row, item in run_pairs:
-            aggregate = aggregates.get(row["audit_id"])
-            if aggregate is None:
-                item["steps"] = {"model": 0, "tool": 0, "egress": 0, "retries": 0}
-                continue
-            item["steps"] = {
-                "model": aggregate.model_calls,
-                "tool": aggregate.tool_calls,
-                "egress": aggregate.egress_calls,
-                "retries": aggregate.model_retries,
-            }
-            if row["result_status"] == "FAILED" and aggregate.failure_kind is not None:
-                item["failure"] = {
-                    "kind": aggregate.failure_kind,
-                    "name": aggregate.failure_name,
-                    "code": aggregate.failure_code,
-                }
 
     async def get_audit_detail(
         self, tenant_id: str, audit_id: uuid.UUID, audit_type: str
