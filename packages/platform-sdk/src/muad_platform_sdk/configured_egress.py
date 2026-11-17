@@ -15,10 +15,13 @@ from muad_contracts.egress_identity import freeze_egress_identity_budgets
 from muad_contracts.shared_egress import FrozenIdentityBudgets, SharedEgressPolicy
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from .console_egress import load_console_egress_policy, resolve_policy_target, tenant_domain
+from .console_egress import (
+    load_console_egress_policy,
+    resolve_policy_target,
+    tenant_domain,
+)
 from .egress_audit_store import DatabaseAttemptObserver, EgressAuditIdentity
 from .egress_domain import provision_tenant_domain
-from .egress_http_routes import _authority_matches
 from .egress_ipc import AttemptMetadata, EgressTarget
 from .egress_source_authority import SourceClaim, SourceReader
 from .host_egress_execution import HostEgressExecution, HostEgressSettings
@@ -67,8 +70,6 @@ async def _publish_policy(
 
 def _resolver(meter: SharedRedisMeter) -> Callable[[AttemptMetadata], Awaitable[EgressTarget | None]]:
     async def resolve(request: AttemptMetadata) -> EgressTarget | None:
-        if not _authority_matches(request):
-            return None
         current = await meter.current_policy()
         selected = resolve_policy_target(current, request)
         return selected or EgressTarget("__unmatched__", "__unmatched__", current)

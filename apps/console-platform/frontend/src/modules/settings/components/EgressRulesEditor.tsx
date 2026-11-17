@@ -30,7 +30,7 @@ function readRules(value: unknown): Rule[] {
 function Field({ label, hint, children }: { label: string; hint: string; children: ReactNode }) {
   return <label className="egress-rule-field"><span className="egress-rule-label">{label}</span><span className="egress-rule-hint">{hint}</span>{children}</label>;
 }
-export function EgressRulesEditor({ value, disabled, onChange }: { value: unknown; disabled?: boolean; onChange(value: string): void }) {
+export function EgressRulesEditor({ value, error, disabled, onChange }: { value: unknown; error?: string; disabled?: boolean; onChange(value: string): void }) {
   const { t } = useTranslation();
   const [platforms, setPlatforms] = useState<PlatformItem[]>([]);
   const [platformsError, setPlatformsError] = useState(false);
@@ -38,6 +38,7 @@ export function EgressRulesEditor({ value, disabled, onChange }: { value: unknow
   const [platformsLoading, setPlatformsLoading] = useState(true);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [draft, setDraft] = useState<Rule>(EMPTY_RULE);
+  const [draftError, setDraftError] = useState<string | null>(null);
   const rules = readRules(value);
 
   useEffect(() => {
@@ -64,12 +65,18 @@ export function EgressRulesEditor({ value, disabled, onChange }: { value: unknow
   }, [platforms, rules, t]);
 
   const writeRules = (next: Rule[]) => onChange(JSON.stringify(next.map((rule) => ({ ...rule, route_id: `${rule.method} ${rule.path_template}` }))));
-  const openNew = () => { setDraft({ ...EMPTY_RULE }); setEditingIndex(-1); };
-  const openEdit = (index: number) => { setDraft({ ...rules[index] }); setEditingIndex(index); };
-  const closeEditor = () => setEditingIndex(null);
+  const openNew = () => { setDraft({ ...EMPTY_RULE }); setDraftError(null); setEditingIndex(-1); };
+  const openEdit = (index: number) => { setDraft({ ...rules[index] }); setDraftError(null); setEditingIndex(index); };
+  const closeEditor = () => { setDraftError(null); setEditingIndex(null); };
   const saveDraft = () => {
+    const path = draft.path_template.trim();
+    if (!path.startsWith('/') || path.startsWith('//') || path.includes('?') || path.includes('#') || path.includes('\\') || /\s/.test(path)) {
+      setDraftError(t('settings.egress.pathInvalid'));
+      return;
+    }
     const next = [...rules];
-    if (editingIndex === -1) next.push(draft); else if (editingIndex !== null) next[editingIndex] = draft;
+    const normalized = { ...draft, path_template: path };
+    if (editingIndex === -1) next.push(normalized); else if (editingIndex !== null) next[editingIndex] = normalized;
     writeRules(next);
     closeEditor();
   };
@@ -78,6 +85,7 @@ export function EgressRulesEditor({ value, disabled, onChange }: { value: unknow
 
   return <div className="egress-rules-editor" data-testid="egress-rules-editor">
     <div className="egress-rules-help">{t('settings.egress.help')}</div>
+    {error && <div role="alert" className="egress-rules-error">{error}</div>}
     {platformsError && <div role="alert" className="egress-rules-error">{t('settings.egress.platformLoadFailed')} <Button onClick={() => setReload((v) => v + 1)}>{t('settings.egress.retry')}</Button></div>}
     <div className="egress-rules-toolbar">
       <span className="egress-rules-count">{t('settings.egress.ruleCount', { count: rules.length })}</span>
@@ -96,11 +104,12 @@ export function EgressRulesEditor({ value, disabled, onChange }: { value: unknow
       <div className="egress-rule-form">
         <Field label={t('settings.egress.target')} hint={t('settings.egress.targetHint')}><Select value={draft.target_instance_id || undefined} disabled={platformsLoading} loading={platformsLoading} placeholder={t('settings.egress.targetPlaceholder')} optionList={platformOptions} onChange={(v) => setDraft({ ...draft, target_instance_id: String(v) })} /></Field>
         <Field label={t('settings.egress.method')} hint={t('settings.egress.methodHint')}><Select value={draft.method} optionList={['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].map((method) => ({ value: method, label: method }))} onChange={(v) => setDraft({ ...draft, method: String(v) })} /></Field>
-        <Field label={t('settings.egress.path')} hint={t('settings.egress.pathHint')}><Input value={draft.path_template} placeholder="/assets/{id}" onChange={(v) => setDraft({ ...draft, path_template: v })} /></Field>
+        <Field label={t('settings.egress.path')} hint={t('settings.egress.pathHint')}><Input value={draft.path_template} placeholder="/assets/{id}" validateStatus={draftError ? 'error' : undefined} onChange={(v) => { setDraftError(null); setDraft({ ...draft, path_template: v }); }} /></Field>
         <Field label={t('settings.egress.perMinute')} hint={t('settings.egress.perMinuteHint')}><InputNumber value={draft.window_requests} min={1} placeholder={t('settings.egress.unlimited')} onChange={(v) => setDraft({ ...draft, window_requests: typeof v === 'number' ? v : undefined, window_seconds: typeof v === 'number' ? 60 : undefined })} /></Field>
         <Field label={t('settings.egress.concurrency')} hint={t('settings.egress.concurrencyHint')}><InputNumber value={draft.max_inflight} min={1} placeholder={t('settings.egress.unlimited')} onChange={(v) => setDraft({ ...draft, max_inflight: typeof v === 'number' ? v : undefined })} /></Field>
         <label className="egress-rule-enabled"><span>{t('settings.egress.enabled')}</span><Switch checked={draft.enabled !== false} onChange={(enabled) => setDraft({ ...draft, enabled })} /></label>
       </div>
+      {draftError && <div role="alert" className="egress-rules-error">{draftError}</div>}
       <div className="egress-rules-help" data-testid="egress-url-preview">{t('settings.egress.preview')}: {preview}</div>
     </Modal>
   </div>;

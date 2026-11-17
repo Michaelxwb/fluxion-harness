@@ -17,6 +17,7 @@ from datetime import UTC, datetime
 
 import pytest
 from httpx import AsyncClient
+from muad_agent_runtime.infrastructure.models.runtime import EgressAudit
 from muad_console_platform.infrastructure.db import get_engine, get_session_factory
 from muad_console_platform.infrastructure.repositories.run_query_repository import TIMELINE_LIMIT
 from sqlalchemy import event, text
@@ -24,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from console_platform.conftest import (
     TenantContext,  # noqa: F401  (fixture re-export)
-    )
+)
 
 #: 刻意取一个不可能出现在元数据里的串，用来证明它没被投影出去。
 SECRET_INPUT = "用户原话-do-not-leak-9f2c"
@@ -415,6 +416,38 @@ async def test_run_detail_projects_metadata_and_structural_outline(
         "RUN_COMPLETED",
     ]
     assert [item["seq"] for item in data["timeline"]] == [1, 3, 4, 6, 7]
+
+
+async def test_run_detail_includes_blocked_egress_in_timeline(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    seed = await _run(tenant)
+    async with get_session_factory()() as session:
+        async with session.begin():
+            session.add(
+                EgressAudit(
+                    tenant_id=tenant.tenant_id,
+                    run_id=seed.run_id,
+                    user_id=seed.actor_user_id,
+                    target_type="HTTP",
+                    target="http://host.do",
+                    operation="GET /api/v1/ping",
+                    method="GET",
+                    policy_decision="DENY",
+                    result_status="BLOCKED",
+                    error_code="LIMIT_WINDOW",
+                    phase="completed",
+                )
+            )
+
+    response = await client.get(f"/api/v1/runs/{seed.run_id}")
+    assert response.status_code == 200, response.text
+    blocked = next(
+        item for item in response.json()["data"]["timeline"]
+        if item["event_type"] == "EGRESS_BLOCKED"
+    )
+    assert blocked["egress"]["operation"] == "GET /api/v1/ping"
+    assert blocked["egress"]["error_code"] == "LIMIT_WINDOW"
 
 
 async def test_run_detail_does_not_leak_input_text_or_event_payload(

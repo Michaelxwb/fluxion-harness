@@ -55,6 +55,7 @@ export function SettingsGroupPanel({
             <EgressRulesEditor
               key={field.path}
               value={values[field.path]}
+              error={errors[field.path]}
               disabled={disabled}
               onChange={(value) => onFieldChange(field.path, value)}
             />

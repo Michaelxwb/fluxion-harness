@@ -187,7 +187,8 @@ function buildResultColumns(t: TFunction): AuditTableColumns {
   const statusOptions: Record<string, StatusTagOption> = {
     SUCCESS: { color: 'green', label: t('audit.resultStatus.SUCCESS') },
     FAILED: { color: 'red', label: t('audit.resultStatus.FAILED') },
-    DENIED: { color: 'red', label: t('audit.resultStatus.DENIED') }
+    DENIED: { color: 'red', label: t('audit.resultStatus.DENIED') },
+    BLOCKED: { color: 'red', label: t('audit.resultStatus.BLOCKED') }
   };
 
   return [

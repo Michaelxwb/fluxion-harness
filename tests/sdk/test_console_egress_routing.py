@@ -175,10 +175,10 @@ async def test_platform_route_really_blocks_second_physical_request(http_meter):
         meter, public_rules_enabled=True, resolve=resolve, lifetime=RequestLifetime(5, 1, 0.1)
     )
     async with httpx.AsyncClient(transport=transport) as client:
-        assert (await client.get(origin + "/gateway/v1/assets/123")).status_code == 200
+        assert (await client.get(origin + "/gateway/v1/assets/123?method=GET")).status_code == 200
         with pytest.raises(SharedLimitExceeded):
             await client.get(origin + "/gateway/v1/assets/456")
-    assert received == ["/gateway/v1/assets/123"]
+    assert received == ["/gateway/v1/assets/123?method=GET"]
 
 
 @pytest.mark.integration
@@ -202,6 +202,36 @@ async def test_route_publication_race_cannot_bypass_matching_limit(http_meter):
         with pytest.raises(MeteringUnavailable):
             await client.get(origin + "/gateway/v1/assets/123")
     assert received == []
+
+
+@pytest.mark.integration
+async def test_unmatched_route_reaches_upstream_without_rule_limit(http_meter):
+    from muad_platform_sdk.console_egress import resolve_policy_target
+    from muad_platform_sdk.egress_ipc import AttemptMetadata
+    from muad_platform_sdk.shared_host_transport import HostRoute, SharedHostTransport
+    from muad_platform_sdk.shared_http_transport import RequestLifetime
+
+    meter, origin, received = http_meter
+    policy = routed_policy(origin)
+    await meter.publish(policy)
+
+    async def resolve(request):
+        target = resolve_policy_target(
+            await meter.current_policy(),
+            AttemptMetadata(origin=origin, method=request.method, path=request.url.path),
+        )
+        return (
+            HostRoute(target.target_instance_id, target.route_id, target.policy)
+            if target is not None
+            else HostRoute("__unmatched__", "__unmatched__", policy)
+        )
+
+    transport = SharedHostTransport(
+        meter, public_rules_enabled=True, resolve=resolve, lifetime=RequestLifetime(5, 1, 0.1)
+    )
+    async with httpx.AsyncClient(transport=transport) as client:
+        assert (await client.get(origin + "/gateway/v1/unlimited")).status_code == 200
+    assert received == ["/gateway/v1/unlimited"]
 
 
 @pytest.mark.integration

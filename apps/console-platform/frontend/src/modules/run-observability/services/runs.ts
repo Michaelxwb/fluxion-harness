@@ -46,6 +46,15 @@ export interface RunTimelineEvent {
   stream_type: string | null;
   has_artifact: boolean;
   create_time: string;
+  egress?: {
+    target: string;
+    operation: string;
+    method: string | null;
+    result_status: string;
+    error_code: string | null;
+    policy_decision: string;
+    audit_id: string;
+  };
 }
 
 export const EVENT_DETAIL_FIELDS = [

@@ -25,8 +25,8 @@ from ..infrastructure.repositories.audit_query_repository import (
 CONSOLE_TIME_FORMAT = "%Y-%m-%d %H:%M:%S%z"
 
 AUDIT_TYPES = frozenset({"CONFIG", "TOOL", "EGRESS", "MODEL"})
-# 归一后的执行结果域（docs/07 §10.11）：SUCCESS / FAILED / 领域错误码
-RESULT_STATUSES = frozenset({"SUCCESS", "FAILED", "DENIED"})
+# 归一后的执行结果域（docs/07 §10.11）：SUCCESS / FAILED / BLOCKED / 领域错误码
+RESULT_STATUSES = frozenset({"SUCCESS", "FAILED", "DENIED", "BLOCKED"})
 
 _TIME_FIELDS = ("occurred_at", "started_at", "finished_at")
 

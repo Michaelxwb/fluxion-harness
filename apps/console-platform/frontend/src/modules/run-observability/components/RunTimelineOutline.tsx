@@ -9,6 +9,21 @@ import type { RunTimelineEvent } from '../services/runs';
 import { EVENT_CATEGORIES, eventCategory, eventTone, formatDuration, timeDifference } from './timelinePresentation';
 import { RunEventDetails } from './RunEventDetails';
 
+function EgressBlockedDetails({ event }: { event: RunTimelineEvent }) {
+  const { t } = useTranslation();
+  if (!event.egress) return null;
+  const fields = [
+    [t('run.egress.target'), event.egress.target],
+    [t('run.egress.operation'), event.egress.operation],
+    [t('run.egress.method'), event.egress.method ?? '-'],
+    [t('run.egress.result'), event.egress.result_status],
+    [t('run.egress.error'), event.egress.error_code ?? '-']
+  ];
+  return <div className="run-event-details" data-testid={`run-egress-details-${event.seq}`}>
+    {fields.map(([label, value]) => <div className="run-egress-field" key={label}><span>{label}</span><strong>{value}</strong></div>)}
+  </div>;
+}
+
 /**
  * 时间线轮廓的**事件类型枚举**（设计 §3.5 I18N-01「动态键必须枚举」）。
  *
@@ -42,7 +57,8 @@ export const RUN_EVENT_TYPES = [
   'BACKGROUND_RESULT',
   'BACKGROUND_RESULT_LATE',
   'RUN_WAITING_TOOL',
-  'RUN_RESUMED'
+  'RUN_RESUMED',
+  'EGRESS_BLOCKED'
 ] as const;
 
 const KNOWN_EVENT_TYPES: ReadonlySet<string> = new Set(RUN_EVENT_TYPES);
@@ -111,7 +127,7 @@ function TimelineEvent(props: { runId: string; generation: number; onOpenTask?: 
       </Button>
       <EventTiming {...props} />
       <Collapsible id={`run-event-${event.seq}`} isOpen={expanded} motion={false} keepDOM lazyRender>
-        <RunEventDetails key={props.generation} runId={props.runId} seq={event.seq} expanded={expanded} onOpenTask={props.onOpenTask} />
+        {event.egress ? <EgressBlockedDetails event={event} /> : <RunEventDetails key={props.generation} runId={props.runId} seq={event.seq} expanded={expanded} onOpenTask={props.onOpenTask} />}
       </Collapsible>
     </Timeline.Item>
   );

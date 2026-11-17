@@ -53,12 +53,15 @@ async def platform_rules(
         except ValueError as exc:
             raise PlatformSettingsError("egress.rules_json 所选平台尚未配置有效 Base URL") from exc
         identity = hashlib.sha256(json.dumps([platform.key, rule.route_id]).encode()).hexdigest()
+        host_header = str(platform.adapter_config_json.get("host_header") or "").strip() or None
         result.append(
             SharedRule(
                 id=identity,
                 target_instance_id=platform.key,
                 route_id=rule.route_id,
-                http_match=SharedHTTPMatch(origin=origin, method=rule.method, path_template=path),
+                http_match=SharedHTTPMatch(
+                    origin=origin, method=rule.method, path_template=path, authority=host_header
+                ),
                 max_requests=rule.max_requests,
                 window_requests=rule.window_requests,
                 window_seconds=rule.window_seconds,
@@ -73,7 +76,9 @@ def _require_unambiguous(rules: list[SharedRule]) -> None:
     for index, first in enumerate(rules):
         for second in rules[index + 1 :]:
             a, b = first.http_match, second.http_match
-            if a is None or b is None or (a.origin, a.method) != (b.origin, b.method):
+            if a is None or b is None or (
+                a.origin, a.method, a.authority
+            ) != (b.origin, b.method, b.authority):
                 continue
             left, right = a.path_template.split("/"), b.path_template.split("/")
             if len(left) == len(right) and all(

@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { buildDocument, initialValues, isDirty } from '../formValues';
 import {
   errorCodeOf,
+  errorMessageOf,
   fieldErrorsFrom,
   getPlatformSettings,
   savePlatformSettings
@@ -147,6 +148,8 @@ export function usePlatformSettings(): PlatformSettingsState {
           setErrors(
             Object.fromEntries(fieldErrors.map((item) => [item.path, item.message]))
           );
+        } else {
+          Tips.error(errorMessageOf(error) ?? t('common.saveFailed'));
         }
       }
     } finally {
