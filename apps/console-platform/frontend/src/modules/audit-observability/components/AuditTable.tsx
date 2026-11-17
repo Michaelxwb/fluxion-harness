@@ -196,9 +196,9 @@ function buildTargetColumns(
         if (runId) {
           const source = record.auditType === 'RUN' ? auditSourceLabel(t, record.action) : '';
           return (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+            <span className="audit-target">
               {/* 链接可收缩、来源 chip 不收缩：列窄时先省略运行短 id，chip 保持完整 */}
-              <span style={{ minWidth: 0, overflow: 'hidden' }}>
+              <span className="audit-target-link">
                 <EntityLink testId={`audit-link-${record.auditId}`} onClick={() => onOpenRun(runId)}>
                   <span className="table-text" title={t('audit.target.run', { id: shortId(runId) })}>
                     {t('audit.target.runPrefix')}{' '}

@@ -719,6 +719,33 @@ body {
 .audit-type-dot[data-kind='EGRESS'] { background: var(--semi-color-warning); }
 
 /* 时间：日期弱化、时刻常规、耗时单独成胶囊，两行结构在长列表里更易扫读 */
+/* 关联对象：链接 + 来源 chip 一行；链接可收缩、chip 不收缩，起点与其它行一致 */
+.audit-target {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.audit-target-link {
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* 共享规则只对单元格直接子按钮生效；这里的按钮多包了一层，必须同样去掉 Semi 默认内边距 */
+.audit-target .semi-button {
+  max-width: 100%;
+  padding-inline: 0;
+}
+
+.audit-target .semi-button .semi-button-content {
+  min-width: 0;
+  max-width: 100%;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* 对象短 id：等宽，保证同长度 id 的宽度一致（来源 chip 才能对齐） */
 .audit-object-id {
   font-family: var(--app-mono);
