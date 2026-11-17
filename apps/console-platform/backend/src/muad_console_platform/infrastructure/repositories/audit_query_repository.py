@@ -250,6 +250,45 @@ SELECT
 # 列表投影：事件行 + 操作行；导出与详情固定只用上面的四表事件投影。
 _PROJECTION_SQL = f"{_EVENT_PROJECTION_SQL}\n\nUNION ALL\n{_RUN_PROJECTION_SQL}"
 
+# 步骤聚合只接受当页 Run 的 `run_id` 集合：id 列表 unnest 一次，三张表各走 run_id 前缀索引。
+# 计数与「最近失败」共用同一份 steps CTE，禁止逐行相关子查询。
+_STEP_SOURCE_SQL = """
+WITH ids AS (SELECT unnest(CAST(:run_ids AS uuid[])) AS run_id),
+steps AS (
+    SELECT run_id, 'MODEL' AS kind, status AS step_status, NULL::text AS step_name,
+           error_code, create_time
+      FROM runtime.model_invocation_audit
+     WHERE tenant_id = :tenant_id AND run_id IN (SELECT run_id FROM ids)
+    UNION ALL
+    SELECT run_id, 'TOOL', status, tool_name, error_code, create_time
+      FROM runtime.tool_call_audit
+     WHERE tenant_id = :tenant_id AND run_id IN (SELECT run_id FROM ids)
+    UNION ALL
+    SELECT run_id, 'EGRESS', result_status, target, error_code, create_time
+      FROM runtime.egress_audit
+     WHERE tenant_id = :tenant_id AND run_id IN (SELECT run_id FROM ids)
+)
+"""
+
+_STEP_COUNTS_SQL = f"""{_STEP_SOURCE_SQL}
+SELECT run_id,
+       count(*) FILTER (WHERE kind = 'MODEL') AS model_calls,
+       count(*) FILTER (WHERE kind = 'TOOL') AS tool_calls,
+       count(*) FILTER (WHERE kind = 'EGRESS') AS egress_calls,
+       count(*) FILTER (WHERE kind = 'MODEL' AND step_status = 'RETRY') AS model_retries
+  FROM steps
+ GROUP BY run_id
+"""
+
+_STEP_FAILURE_SQL = f"""{_STEP_SOURCE_SQL}
+SELECT DISTINCT ON (run_id) run_id, kind, step_name, error_code
+  FROM steps
+ WHERE (kind = 'MODEL' AND step_status NOT IN ('OK', 'SUCCESS', 'RETRY'))
+    OR (kind = 'TOOL' AND step_status IN ('ERROR', 'FAILED'))
+    OR (kind = 'EGRESS' AND step_status IN ('ERROR', 'FAILED', 'DENIED', 'BLOCKED'))
+ ORDER BY run_id, create_time DESC
+"""
+
 
 # 详情按 `audit_type` 定位来源表：4 张表的 UUID 不互通，来源表必须显式指定，不猜表。
 # 每类只取该来源表独有字段 + 原始 run_id/task_id（关联可读性判定用，config 无关联）。
@@ -305,6 +344,19 @@ _RELATION_SQL = {
 }
 
 RELATION_KEYS = ("run_id", "task_id")
+
+
+@dataclass(frozen=True)
+class RunStepAggregate:
+    """一次 Run 的步骤计数与最近失败（查询期聚合，不落库）。"""
+
+    model_calls: int
+    tool_calls: int
+    egress_calls: int
+    model_retries: int
+    failure_kind: str | None = None
+    failure_name: str | None = None
+    failure_code: str | None = None
 
 
 @dataclass(frozen=True)
@@ -428,6 +480,39 @@ class AuditQueryRepository:
             },
         )
         return [dict(row) for row in rows.mappings()]
+
+    async def run_step_aggregates(
+        self, tenant_id: str, run_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, RunStepAggregate]:
+        """按当页 `run_id` 集合聚合步骤计数与最近失败；两次小查询，不做逐行子查询。"""
+        if not run_ids:
+            return {}
+        params = {"tenant_id": tenant_id, "run_ids": run_ids}
+        counts = {
+            row["run_id"]: row
+            for row in (
+                await self._session.execute(text(_STEP_COUNTS_SQL), params)
+            ).mappings()
+        }
+        failures = {
+            row["run_id"]: row
+            for row in (
+                await self._session.execute(text(_STEP_FAILURE_SQL), params)
+            ).mappings()
+        }
+        aggregates: dict[uuid.UUID, RunStepAggregate] = {}
+        for run_id, row in counts.items():
+            failure = failures.get(run_id)
+            aggregates[run_id] = RunStepAggregate(
+                model_calls=int(row["model_calls"]),
+                tool_calls=int(row["tool_calls"]),
+                egress_calls=int(row["egress_calls"]),
+                model_retries=int(row["model_retries"]),
+                failure_kind=None if failure is None else str(failure["kind"]),
+                failure_name=None if failure is None else failure["step_name"],
+                failure_code=None if failure is None else failure["error_code"],
+            )
+        return aggregates
 
     async def all_rows(
         self, tenant_id: str, filters: AuditQueryFilters

@@ -61,12 +61,12 @@
   - audit-view PASS exit=0
 ## TASK-002: 后端 — 内部步骤两阶段聚合与降级
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001
 - **Source**: audit-operation-view.backend.design.md#3.3 数据设计
 - **Scenarios**: S-02, E-02, B-03
 - **Spec-Refs**: test/harness-test#RULE-test-001
-- **Paths**: apps/console-platform/backend/src/muad_console_platform/application/audit_query_service.py, apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/audit_query_repository.py, tests/console_platform/test_audit_operation_steps.py
+- **Paths**: apps/console-platform/backend/src/muad_console_platform/application/audit_query_service.py, apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/audit_query_repository.py, tests/console_platform/test_audit_query_api.py
 - **E2E**:
 - **Skip-Tests**:
 - **Skip-Reason**:
@@ -77,7 +77,7 @@
 [
   {
     "id": "audit-steps",
-    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/console_platform/test_audit_operation_steps.py"],
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/console_platform/test_audit_query_api.py"],
     "timeout": 300,
     "parallel": true
   }
@@ -90,12 +90,12 @@
 
 ### Checklist
 
-- [ ] 计数查询只接受当页 `run_ids`，使用 `run_id` 前缀索引
-- [ ] 重试数按模型 attempt 统计，成功但有重试的 Run 不产生失败摘要
-- [ ] 失败摘要取该 Run 时间上最后一条失败步骤（模型/工具/出网三类的失败判据分开）
-- [ ] 聚合异常时 `steps=null` 且写 warning（含租户与当页 run 数）
-- [ ] 非 RUN 行不触发聚合、字段保持 `null`
-- [ ] 集成用例使用真实 PostgreSQL，覆盖计数、失败、重试、降级四条路径
+- [x] 计数查询只接受当页 `run_ids`，使用 `run_id` 前缀索引
+- [x] 重试数按模型 attempt 统计，成功但有重试的 Run 不产生失败摘要
+- [x] 失败摘要取该 Run 时间上最后一条失败步骤（模型/工具/出网三类的失败判据分开）
+- [x] 聚合异常时 `steps=null` 且写 warning（含租户与当页 run 数）
+- [x] 非 RUN 行不触发聚合、字段保持 `null`
+- [x] 集成用例使用真实 PostgreSQL，覆盖计数、失败、重试、降级四条路径
 
 ### Spec Delta
 
@@ -106,13 +106,15 @@
 ### Log
 
 - [2026-11-17] created
+- [2026-11-17T11:59:41.424Z] started tests=be4151dd3141
 
 ### Verification
 
 - 尚未执行
 
 ---
-
+- 2026-11-17T12:00:03.927Z PASS commands=1/1 executed=1 deduped=0 elapsed=14662ms tests=be4151dd3141 head=e50268616e2d dirty=1
+  - audit-steps PASS exit=0
 ## TASK-003: 后端 — 明细视图、导出口径与详情边界
 
 - **Status**: draft
