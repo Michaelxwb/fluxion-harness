@@ -384,8 +384,8 @@ python -E -s -B <script>
 - 老 Skill 的 `cache` / `logs` / `companies` 迁到 `SKILL_DATA_DIR`，报告等单次结果写
   `SKILL_OUTPUT_DIR`；
 - `SKILL_OUTPUT_DIR` 可能为空（非 Skill 上下文），脚本必须先判空；
-- `workspace_shell` 使用同一 workspace 根，但输出目录按本次命令生成，并始终注入
-  执行级 session-manager；
+- `workspace_shell` 使用同一 workspace 根，但输出目录按本次命令生成，不注入
+  session-manager；
 - `execute_skill` / `run_skill_script` 与 `workspace_shell` 共用目录约定，区别只在
   Skill 包与 session-manager。
 
@@ -1008,7 +1008,7 @@ kubectl -n muad exec "$POD" -- sh -ec '
 | 用户 workspace 磁盘增长 | pip/npm/node_modules/cache 可能到 GB 级 | 每个 user + Agent workspace 配额、文件数上限、30 天 TTL 清理、容量规划 |
 | pip/npm 供应链与出网 | 安装及后续导入均可能执行恶意代码；可以访问公网源 | 接受 Pod 网络边界；安装到 workspace venv/node_modules；安装时不提供平台 session；不承诺包安全 |
 | 通用 Shell 越权 | 网络开放时可访问内网其他服务 | P1 首批门控 Runtime API；不挂生产目录/SA token；审计命令 |
-| session 凭据残留 | 脚本可复制 Cookie 到持久 workspace/输出，删除临时文件不等于撤销 | session-manager 仅提供执行级临时状态；脚本不得复制 Cookie 到持久 workspace/输出；需要隐藏 Cookie 时由父进程代发请求 |
+| session 凭据残留 | 脚本可复制 Cookie 到持久 workspace/输出，删除临时文件不等于撤销 | `workspace_shell` 不注入 session；Skill 执行按 `platforms` 注入；需要隐藏 Cookie 时由父进程代发请求 |
 | 资源限制粒度不足 | 单进程 rlimit 和 Pod cgroup 不等于执行进程树硬配额 | 加权预算与有界排队；硬隔离要求需执行级 cgroup/独立 Pod |
 
 ---
@@ -1021,7 +1021,7 @@ kubectl -n muad exec "$POD" -- sh -ec '
 2. `workspace_shell` 对所有 Agent 默认可用，不增加 Agent 配置项；
 3. workspace 按 **tenant + user + Agent** 隔离，同一 user + Agent 跨会话共享，不同 Agent 不共享；
 4. 网络与 Pod 一致：`--share-net`，可访问 Pod 网络和公网；不做 mirror allowlist 或 egress proxy；
-5. `workspace_shell` 默认提供执行级 `session-manager`；平台范围由可信执行上下文决定；
+5. `workspace_shell` 默认不提供 `session-manager`；平台登录态只跟 Skill 执行绑定；
 6. 接受 bwrap 级隔离；gVisor/Kata/独立 Sandbox Pod 只作为后续增强；
 7. 原生 macOS Dev 默认 `dev-unsafe`；本地 K8s 与内网 K8s 走 bwrap；
 8. 已审批 Skill 删除提供“一键解绑 + 软删”，二次确认 + 审计；
@@ -1352,7 +1352,8 @@ workspace 主要用于保存用户 Skill 执行的数据和输出，不是生产
    - 不挂 `/mnt/muad-artifacts`、其他用户 workspace、`/var/run`、Docker socket；
    - 不挂 Kubernetes ServiceAccount Token；
    - 不把 `INTERNAL_SERVICE_TOKEN`、DB/Redis 连接串传入沙箱；
-   - 每次执行都创建执行级 session-manager socket；平台范围由 AUTO/SELECTED/NONE scope 控制；
+   - `workspace_shell` 不创建 session-manager socket；平台登录态只在
+     `execute_skill` / `run_skill_script` 中按 Skill `platforms` 注入；
    - 安装阶段不提供平台 session；显式提供 session 时承认脚本可读取 Cookie，不能再称为无凭据；
    - 公网源不证明包安全；受控依赖可锁版本/哈希及限制源码包，安装脚本、后续 import
      和持久启动钩子始终按任意代码处理。
@@ -1393,7 +1394,7 @@ workspace 主要用于保存用户 Skill 执行的数据和输出，不是生产
 | TTL | `outputs` 30 天、`data` 30 天 |
 | 网络 | 与 Pod 一致，`--share-net`，允许公网 |
 | 安装 | 生产依赖管理员预装系统镜像；workspace 临时 pip/npm 仅验证 |
-| `workspace_shell` | 所有 Agent 默认可用，始终注入执行级 session-manager |
-| Skill 执行 | `/skill` 只读 + `/workspace` 可写 + 按执行 scope 注入 session-manager |
+| `workspace_shell` | 所有 Agent 默认可用，无 session-manager |
+| Skill 执行 | `/skill` 只读 + `/workspace` 可写 + 按 `platforms` 注入 session-manager |
 | 隔离 | bwrap；更强隔离后续评估 |
 | 清理 | Worker 内置维护循环，多副本认领；管理员不创建定时任务 |

@@ -327,7 +327,7 @@ class DraftShellRunner:
         declared = _declared_platforms(package_root)
         context = (
             self._platform_context_factory(request, declared)
-            if self._platform_context_factory is not None
+            if self._platform_context_factory is not None and declared
             else None
         )
         runner = self._runner_factory()

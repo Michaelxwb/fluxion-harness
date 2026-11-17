@@ -15,32 +15,13 @@ def main() -> int:
         print(json.dumps({"version": 1}))
         return 0
     if args == ["--help"]:
-        print(json.dumps({"version": 2, "usage": [
-            "session-manager list-platforms",
-            "session-manager get-state --platform <key>",
-            "session-manager refresh --platform <key>",
-        ]}))
+        print(json.dumps({"version": 1, "usage": "session-manager get-state --skill-name <name>"}))
         return 0
-    command: str
-    platform: str | None = None
-    refresh = False
-    if args == ["list-platforms"]:
-        command = "list-platforms"
-    elif len(args) == 3 and args[1] == "--platform" and args[2]:
-        command, platform = args[0], args[2]
-        if command not in {"get-state", "refresh"}:
-            command = ""
-        refresh = command == "refresh"
-    elif (
-        len(args) == 3
-        and args[:2] == ["get-state", "--skill-name"]
-        and re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", args[2])
+    if (
+        len(args) != 3
+        or args[:2] != ["get-state", "--skill-name"]
+        or not re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", args[2])
     ):
-        command, platform = "get-state", None
-        legacy_name = args[2]
-    else:
-        command = ""
-    if not command:
         print(json.dumps({"error": {"code": "invalid_arguments"}}), file=sys.stderr)
         return 2
     endpoint = os.environ.get("MUAD_SESSION_SOCKET")
@@ -51,14 +32,7 @@ def main() -> int:
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
             client.settimeout(120)
             client.connect(endpoint)
-            request = {"skillName": locals().get("legacy_name", os.environ.get("MUAD_SESSION_NAME", ""))}
-            if command == "list-platforms":
-                request["list"] = True
-            elif platform is not None:
-                request.update({"platform": platform, "refresh": refresh})
-            else:
-                request["legacy"] = True
-            client.sendall(json.dumps(request).encode() + b"\n")
+            client.sendall(json.dumps({"skillName": args[2]}).encode() + b"\n")
             with client.makefile("rb") as stream:
                 response = json.loads(stream.readline(65536))
     except (OSError, ValueError):
