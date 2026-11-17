@@ -115,7 +115,8 @@ def test_egress_rules_use_list_and_modal_editor() -> None:
     assert "editingIndex" in editor and "data-testid=\"egress-rule-add\"" in editor
     assert "egress-rule-card" not in editor, "规则表单不得随数量纵向展开"
     assert "pathInvalid" in editor, "路径模板非法时必须在编辑器内提示"
-    assert "error={errors[field.path]}" in (MODULE / "components/SettingsGroupPanel.tsx").read_text(encoding="utf-8"), "保存校验错误必须展示在出站规则编辑器"
+    panel = (MODULE / "components/SettingsGroupPanel.tsx").read_text(encoding="utf-8")
+    assert "error={errors[field.path]}" in panel, "保存校验错误必须展示在出站规则编辑器"
 
 
 def test_settings_page_has_four_ui_states() -> None:
