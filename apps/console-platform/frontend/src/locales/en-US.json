@@ -2289,7 +2289,6 @@
   "audit.resourceType.RUN": "Run",
   "audit.source.WEBCHAT": "WebChat",
   "audit.source.WECOM": "WeCom",
-  "audit.duration": "{{value}} elapsed",
   "audit.views.detailTitle": "Step detail view",
   "audit.views.detailHint": "One row per model or tool call; the full chain is in the run detail",
   "audit.views.backToOperation": "Back to operations",

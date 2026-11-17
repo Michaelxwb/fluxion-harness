@@ -10,7 +10,7 @@
 import { Button } from '@douyinfe/semi-ui';
 import type { TFunction } from 'i18next';
 
-import { formatDateTime } from '../../../components/common/DateTimeText';
+import { DateTimeText } from '../../../components/common/DateTimeText';
 
 import { CopyButton } from '../../../components/common/CopyButton';
 import { EmptyState } from '../../../components/common/EmptyState';
@@ -123,25 +123,8 @@ function buildIdentityColumns(t: TFunction): AuditTableColumns {
       title: t('audit.columns.time'),
       dataIndex: 'occurredAt',
       width: 176,
-      render: (value: string, record: AuditListItem) => {
-        const [date, clock] = formatDateTime(value).split(' ');
-        return (
-          <span className="audit-time">
-            <span className="audit-time-main">
-              <span className="audit-time-date">{date}</span>
-              <span className="audit-time-clock">{clock}</span>
-            </span>
-            {record.auditType === 'RUN' && record.latencyMs != null ? (
-              <span
-                className="audit-time-duration"
-                title={t('audit.duration', { value: formatDuration(record.latencyMs) })}
-              >
-                {formatDuration(record.latencyMs)}
-              </span>
-            ) : null}
-          </span>
-        );
-      }
+      // 与其它列表一致：统一使用共享 DateTimeText（不另做层级样式）
+      render: (value: string) => <DateTimeText value={value} />
     },
     {
       title: t('audit.columns.auditType'),
@@ -262,11 +245,6 @@ function buildTargetColumns(
       )
     }
   ];
-}
-
-/** 毫秒 → 列表耗时的紧凑写法：不足 1s 用 ms，否则保留 1 位小数秒。 */
-function formatDuration(ms: number): string {
-  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
 }
 
 /** 执行结果列复用 `StatusTag`。 */

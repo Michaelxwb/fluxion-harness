@@ -271,7 +271,7 @@ test('E-09 导出 FAILED 展示 error_code 文案与重试入口，不提供未�
   expect(state.exportDownloads).toEqual([]);
 });
 
-test('S-01 Run 操作行展示摘要与耗时，失败行有标记，明细视图给出提示与返回入口', async ({ page }) => {
+test('S-01 Run 操作行展示摘要，失败行有标记，明细视图给出提示与返回入口', async ({ page }) => {
   const state = mockState();
   state.runRow = true;
   await mockApi(page, state);
@@ -281,7 +281,8 @@ test('S-01 Run 操作行展示摘要与耗时，失败行有标记，明细视�
   await expect(page.getByText('帮我起一个每周一的周报定时任务')).toBeVisible();
   // 步骤统计归运行详情：列表没有「内部步骤」列
   await expect(page.getByRole('columnheader', { name: '内部步骤' })).toHaveCount(0);
-  await expect(page.getByText('12.4s')).toBeVisible();
+  // 时间列与其它列表同一格式（共享 DateTimeText，不展示耗时）
+  await expect(page.getByText('2026-10-11 10:00:00').first()).toBeVisible();
   // 失败的 Run 行有行首标记
   await expect(page.locator('.audit-row-failed')).toHaveCount(1);
   await expect(page.getByTestId('audit-view-notice')).toHaveCount(0);

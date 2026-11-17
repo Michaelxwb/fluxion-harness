@@ -2289,7 +2289,6 @@
   "audit.resourceType.RUN": "运行",
   "audit.source.WEBCHAT": "WebChat",
   "audit.source.WECOM": "企业微信",
-  "audit.duration": "耗时 {{value}}",
   "audit.views.detailTitle": "步骤明细视图",
   "audit.views.detailHint": "一行 = 一次模型或工具调用；完整链路见运行详情",
   "audit.views.backToOperation": "返回操作视图",
