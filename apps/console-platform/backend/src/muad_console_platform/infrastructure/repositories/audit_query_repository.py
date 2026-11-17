@@ -128,7 +128,7 @@ SELECT
     ad.name,
     COALESCE(NULLIF(g.operation, ''), g.target),
     CASE
-        WHEN g.result_status IN ('OK', 'SUCCEEDED', 'SUCCESS') THEN 'SUCCESS'
+        WHEN g.result_status IN ('OK', 'SUCCEEDED', 'SUCCESS', 'COMPLETED') THEN 'SUCCESS'
         WHEN g.result_status IN ('ERROR', 'FAILED') THEN 'FAILED'
         ELSE g.result_status
     END,
