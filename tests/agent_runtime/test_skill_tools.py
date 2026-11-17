@@ -511,6 +511,88 @@ async def test_unknown_skill_is_a_tool_error(skill_env: SkillEnv, tool_name: str
     assert _error_code(payload) == "SKILL_NOT_EFFECTIVE"
 
 
+async def test_unsupported_parameter_names_the_keys_and_the_target(skill_env: SkillEnv) -> None:
+    """跨 target 的键（例如 workspace 的 command）必须显式拒绝，并把键名回给模型。"""
+    definition = skill_env.registry.get("execute")
+    assert definition.handler is not None
+
+    payload = json.loads(
+        await definition.handler(
+            {"target": "skill", "skill_key": SKILL_KEY, "command": "echo hi"},
+            call_id="call-unsupported",
+        )
+    )
+
+    error = payload["error"]
+    assert error["code"] == "COMMON_VALIDATION_ERROR"
+    assert error["message"].startswith("parameters do not match execution target")
+    assert "target=skill cannot use command" in error["message"]
+    assert "skill_key" in error["message"], "允许的键也要一并给出，模型才知道该怎么改"
+
+
+async def test_execute_skill_accepts_call_timeout(tmp_path: Path) -> None:
+    """`timeout_sec` 与 target=workspace/draft 同义：SYNC Skill 也接受（只能收紧，不能放宽）。"""
+    env = _env_for(
+        tmp_path,
+        {
+            "SKILL.md": SKILL_MD,
+            "scripts/main.py": "import json\nprint(json.dumps({'ok': True}))\n",
+        },
+    )
+
+    payload = await _call(
+        env.registry,
+        EXECUTE_SKILL_TOOL,
+        {"skill_key": SKILL_KEY, "timeout_sec": 10},
+    )
+
+    assert payload.get("error") is None, "多带 timeout_sec 不该再被判成参数不匹配"
+    assert payload["status"] == "SUCCEEDED"
+
+
+async def test_execute_skill_honours_a_shorter_call_timeout(tmp_path: Path) -> None:
+    env = _env_for(
+        tmp_path,
+        {
+            "SKILL.md": SKILL_MD,
+            "scripts/main.py": "import time\ntime.sleep(5)\n",
+        },
+    )
+
+    payload = await _call(
+        env.registry,
+        EXECUTE_SKILL_TOOL,
+        {"skill_key": SKILL_KEY, "timeout_sec": 0.2},
+    )
+
+    assert payload.get("status") != "SUCCEEDED", "给了更短的超时就必须真的按它掐断"
+
+
+async def test_execute_skill_rejects_an_invalid_call_timeout(skill_env: SkillEnv) -> None:
+    payload = await _call(
+        skill_env.registry, EXECUTE_SKILL_TOOL, {"skill_key": SKILL_KEY, "timeout_sec": 0}
+    )
+
+    assert _error_code(payload) == "COMMON_VALIDATION_ERROR"
+    assert "timeout_sec must be a positive number" in payload["error"]["message"]
+
+
+async def test_async_skill_rejects_call_timeout(tmp_path: Path) -> None:
+    """ASYNC Skill 由 Task 的 deadline 管时间：多带 timeout_sec 要显式说清楚，不能静默忽略。"""
+    env = _env_for(
+        tmp_path,
+        {"SKILL.md": SKILL_MD, "scripts/main.py": MAIN_SCRIPT},
+        execution_mode="ASYNC",
+    )
+
+    payload = await _call(
+        env.registry, EXECUTE_SKILL_TOOL, {"skill_key": SKILL_KEY, "timeout_sec": 5}
+    )
+
+    assert _error_code(payload) == "COMMON_VALIDATION_ERROR"
+    assert "async Skill does not accept timeout_sec" in payload["error"]["message"]
+
+
 async def test_missing_artifact_surfaces_unavailable_code(skill_env: SkillEnv) -> None:
     missing = skill_env.skill.model_copy(update={"storage_key": "skills/demo-skill/missing.zip"})
     registry = build_skill_registry(
