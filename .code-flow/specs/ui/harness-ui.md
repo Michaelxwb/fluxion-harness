@@ -1,7 +1,7 @@
 ---
 {
   "description": "Console 视觉与列表",
-  "next_rule": 2
+  "next_rule": 3
 }
 ---
 
@@ -12,6 +12,8 @@
 - [RULE-ui-001] Console 使用 React + TypeScript + Semi Design；列表页采用“左上操作 + 右上搜索筛选 + 列表 + 右下分页”，不重复页签标题/说明块；主展示字段即详情入口；菜单固定十二项：概览/Agent/Skill/MCP/模型/用户/项目平台/后台任务/定时任务/运行审计/学习与经验/系统设置。
 
 - [RULE-001] 列表时间范围筛选只有一个实现：所有 Console 列表页复用 `components/common/DateRangeFilter.tsx`，页面与模块不得再声明 `DatePicker type="dateRange"`、日期范围输入框或第二套日期范围组件；共享组件的样式、回显与交互调整即全局调整。筛选顺序固定为「其他筛选 → 时间筛选 → 重置/刷新」，时间筛选排在其它筛选之后。机检：`tests/frontend/test_date_range_filter_contract.py`。
+
+- [RULE-002] 运行审计列表默认按业务操作成行：一次 Run、一次配置变更、一次出网各占一行；模型调用与工具调用的计数在运行详情概览中查看，失败原因与步骤明细在运行详情中定位，列表不重复展示步骤明细。按模型或工具调用筛选时进入步骤明细视图（一行 = 一次调用），列表必须给出当前粒度的可见提示与返回操作视图的入口。审计导出始终输出全量明细，不随列表视图改变粒度。
 
 ## Conventions
 
@@ -141,3 +143,5 @@ body[theme-mode='dark'] { --semi-color-primary: #4d8dff; }
 ## Applied Deltas
 
 - {"source":"2026-11-16/console-list-time-filter/console-list-time-filter.md#TASK-001#DELTA-001","op":"add","rule":"RULE-001","payload_sha256":"985d1eb8941cda481eb94602c7556043367481aeb071b755f98edb488c60c8e0","at":"2026-11-16T07:24:44.084Z"}
+
+- {"source":"2026-11-17/audit-operation-view/audit-operation-view.md#TASK-004#DELTA-001","op":"add","rule":"RULE-002","payload_sha256":"01b2c835f8a4bb6b474469ab0002d115526395cd19e3029baae13b9b63de000e","at":"2026-11-17T12:42:40.449Z"}
