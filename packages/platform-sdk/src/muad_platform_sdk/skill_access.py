@@ -221,6 +221,10 @@ class SkillPlatformAccess:
         return platform, request, manager
 
     async def start(self) -> None:
-        # Do not resolve or authenticate platforms while installing the broker.
-        # AUTO discovery and SELECTED authorization are checked by list/get/refresh.
-        return None
+        # Explicit Skill platform declarations retain their historical lease touch;
+        # AUTO execution remains fully lazy and does not contact Console/Redis here.
+        if self.context.scope is not PlatformScope.SELECTED:
+            return None
+        for key in await self.allowed_keys():
+            _, request, manager = await self.resolve_platform(key)
+            await manager.acquire(request)
