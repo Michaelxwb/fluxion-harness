@@ -19,6 +19,7 @@ class SharedHTTPMatch(SharedPolicyModel):
     origin: str
     method: Literal["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
     path_template: str
+    authority: str | None = None
 
     @model_validator(mode="after")
     def validate_target(self) -> Self:
@@ -37,6 +38,28 @@ class SharedHTTPMatch(SharedPolicyModel):
             raise ValueError("canonical HTTP origin required")
         _ = url.port
         TargetMatch(platform_key="platform", path_template=self.path_template)
+        if self.authority is not None:
+            authority = urlsplit("//" + self.authority)
+            if (
+                not authority.hostname
+                or authority.username
+                or authority.password
+                or authority.path
+                or authority.query
+                or authority.fragment
+            ):
+                raise ValueError("canonical HTTP authority required")
+            _ = authority.port
+        return self
+
+
+class SharedHTTPAuthority(SharedPolicyModel):
+    origin: str
+    authority: str
+
+    @model_validator(mode="after")
+    def validate_target(self) -> Self:
+        SharedHTTPMatch(origin=self.origin, method="GET", path_template="/", authority=self.authority)
         return self
 
 
@@ -114,6 +137,7 @@ class FrozenIdentityBudgets(SharedPolicyModel):
 class SharedEgressPolicy(SharedPolicyModel):
     revision: int = Field(default=0, ge=0, strict=True)
     rules: tuple[SharedRule, ...] = ()
+    authorities: tuple[SharedHTTPAuthority, ...] = ()
 
     @model_validator(mode="after")
     def unique_rules(self) -> Self:

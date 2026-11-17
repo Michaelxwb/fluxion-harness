@@ -6,7 +6,7 @@ import hashlib
 
 import httpx
 from muad_common import SharedSettings
-from muad_contracts.shared_egress import SharedEgressPolicy
+from muad_contracts.shared_egress import SharedEgressPolicy, SharedHTTPAuthority
 from pydantic import ValidationError
 
 from .egress_http_routes import EgressHTTPRoute, _authority_matches
@@ -36,8 +36,18 @@ def tenant_domain(domain: str, tenant_id: str) -> str:
     return domain + ":tenant:" + hashlib.sha256(tenant_id.encode()).hexdigest()
 
 
+def policy_authorities(policy: SharedEgressPolicy) -> tuple[SharedHTTPAuthority, ...]:
+    configured = list(policy.authorities)
+    configured.extend(
+        SharedHTTPAuthority(origin=match.origin, authority=match.authority)
+        for rule in policy.rules
+        if (match := rule.http_match) is not None and match.authority is not None
+    )
+    return tuple(configured)
+
+
 def resolve_policy_target(policy: SharedEgressPolicy, request: AttemptMetadata) -> EgressTarget | None:
-    if not _authority_matches(request):
+    if not _authority_matches(request, policy_authorities(policy)):
         return None
     matches = []
     for rule in policy.rules:

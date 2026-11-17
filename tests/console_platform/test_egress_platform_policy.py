@@ -26,7 +26,7 @@ async def egress_platform(tenant: TenantContext) -> AsyncIterator[ProjectPlatfor
             resolver_type="BASE_URL",
             resolver_config_json={"base_url": "https://assets.test/gateway/v1"},
             adapter_key="generic-http",
-            adapter_config_json={},
+            adapter_config_json={"host_header": "inner.test"},
             credential_mode="NONE",
             enabled=True,
         )
@@ -81,8 +81,10 @@ async def test_admin_selects_platform_and_only_relative_path_is_resolved(
         "origin": "https://assets.test",
         "method": "GET",
         "path_template": "/gateway/v1/assets/{id}",
+        "authority": "inner.test",
     }
     assert rule["route_id"] == "GET /assets/{id}"
+    assert policy["authorities"] == [{"origin": "https://assets.test", "authority": "inner.test"}]
     assert rule["window_requests"] == 50 and rule["max_inflight"] == 4
     async with get_session_factory()() as session:
         assert not (await current_egress_policy(session, "another-tenant")).rules
@@ -96,6 +98,7 @@ async def test_admin_selects_platform_and_only_relative_path_is_resolved(
     assert changed.revision > policy["revision"]
     assert changed.rules[0].http_match.origin == "https://new.test"
     assert changed.rules[0].http_match.path_template == "/api/assets/{id}"
+    assert changed.authorities[0].origin == "https://new.test"
     assert changed.rules[0].id == rule["id"]  # Same counters survive an address change.
 
 
@@ -127,7 +130,7 @@ async def test_default_empty_policy_is_unlimited(
         },
     )
     assert response.status_code == 200
-    assert response.json()["data"] == {"revision": 0, "rules": []}
+    assert response.json()["data"] == {"revision": 0, "rules": [], "authorities": []}
 
 
 async def test_first_use_provisions_domain_but_lost_state_is_never_recreated(tenant: TenantContext):

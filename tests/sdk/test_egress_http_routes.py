@@ -11,10 +11,11 @@ def route(path="/assets/{id}"):
     return {"origin": "https://platform.test", "method": "GET", "path_template": path}
 
 
-def policy(routes):
+def policy(routes, authorities=()):
     return SharedEgressPolicy.model_validate(
         {
             "revision": 1,
+            "authorities": list(authorities),
             "rules": [
                 {
                     "id": str(index),
@@ -49,6 +50,69 @@ def test_more_specific_route_wins_and_authority_override_is_denied():
     metadata = AttemptMetadata(origin="https://platform.test", method="GET", path="/assets/export")
     assert resolve_policy_target(settings, metadata).route_id == "GET /assets/export"
     assert resolve_policy_target(settings, metadata.model_copy(update={"authority": "another.test"})) is None
+
+
+def test_configured_authority_is_allowed_and_other_override_is_denied():
+    settings = policy(
+        [{**route("/gateway/v1/order"), "authority": "inner.sangfor.com.cn"}],
+        authorities=[{"origin": "https://platform.test", "authority": "inner.sangfor.com.cn"}],
+    )
+    request = AttemptMetadata(
+        origin="https://platform.test", method="GET", path="/gateway/v1/order",
+        authority="inner.sangfor.com.cn",
+    )
+    assert resolve_policy_target(settings, request).target_instance_id == "platform-instance"
+    assert resolve_policy_target(settings, request.model_copy(update={"authority": "other.test"})) is None
+
+
+def test_configured_authority_allows_unmatched_session_health_target():
+    settings = policy(
+        [route("/gateway/v1/order")],
+        authorities=[{"origin": "https://platform.test", "authority": "inner.sangfor.com.cn"}],
+    )
+    request = AttemptMetadata(
+        origin="https://platform.test", method="POST",
+        path="/gateway/mss-auth-acl-service/v1/certification/login_agent",
+        authority="inner.sangfor.com.cn",
+    )
+    from muad_platform_sdk.egress_http_routes import _authority_matches
+    assert _authority_matches(request, settings.authorities)
+    assert resolve_policy_target(settings, request) is None
+
+
+def test_same_origin_platforms_are_selected_by_configured_authority():
+    settings = SharedEgressPolicy.model_validate({
+        "revision": 1,
+        "authorities": [
+            {"origin": "https://gateway.test", "authority": "one.internal"},
+            {"origin": "https://gateway.test", "authority": "two.internal"},
+        ],
+        "rules": [
+            {
+                "id": "one", "target_instance_id": "one", "route_id": "GET /order",
+                "max_inflight": 1,
+                "http_match": {
+                    "origin": "https://gateway.test", "authority": "one.internal",
+                    "method": "GET", "path_template": "/order",
+                },
+            },
+            {
+                "id": "two", "target_instance_id": "two", "route_id": "GET /order",
+                "max_inflight": 1,
+                "http_match": {
+                    "origin": "https://gateway.test", "authority": "two.internal",
+                    "method": "GET", "path_template": "/order",
+                },
+            },
+        ],
+    })
+    target = resolve_policy_target(
+        settings,
+        AttemptMetadata(
+            origin="https://gateway.test", method="GET", path="/order", authority="two.internal"
+        ),
+    )
+    assert (target.target_instance_id, target.route_id) == ("two", "GET /order")
 
 
 @pytest.mark.parametrize(
