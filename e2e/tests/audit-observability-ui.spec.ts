@@ -282,9 +282,12 @@ test('S-01 Run 操作行展示内部步骤与失败摘要，明细视图给出�
 
   await expect(page.getByText('帮我起一个每周一的周报定时任务')).toBeVisible();
   await expect(page.getByText('4 模型 · 2 工具 · 重试 1')).toBeVisible();
-  await expect(
-    page.getByText('工具 wecom_send 调用失败 (TOOL_VALIDATION_ERROR)')
-  ).toBeVisible();
+  await expect(page.getByText('工具 wecom_send 调用失败')).toBeVisible();
+  // 完整失败信息（含错误码）在 title 里：列宽只放摘要
+  await expect(page.locator('.audit-steps-failure')).toHaveAttribute(
+    'title',
+    '工具 wecom_send 调用失败 (TOOL_VALIDATION_ERROR)'
+  );
   await expect(page.getByTestId('audit-view-notice')).toHaveCount(0);
 
   await page.getByTestId('audit-filter-auditType').click();

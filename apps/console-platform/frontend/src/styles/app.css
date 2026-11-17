@@ -693,6 +693,64 @@ body {
   text-overflow: ellipsis;
 }
 
+/* ---------- 运行审计列表 ---------- */
+
+/* 审计类型：色点 + 文案，长列表里按类型扫读 */
+.audit-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.audit-type-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  flex: none;
+  background: var(--semi-color-tertiary);
+}
+
+.audit-type-dot[data-kind='RUN'] { background: var(--semi-color-primary); }
+.audit-type-dot[data-kind='CONFIG'] { background: var(--semi-color-tertiary); }
+.audit-type-dot[data-kind='TOOL'] { background: var(--semi-color-info); }
+.audit-type-dot[data-kind='MODEL'] { background: var(--semi-color-primary); }
+.audit-type-dot[data-kind='EGRESS'] { background: var(--semi-color-warning); }
+
+/* 内部步骤：计数一行、失败摘要一行；单行省略并保留完整 title */
+.audit-steps {
+  display: block;
+  min-width: 0;
+}
+
+.audit-steps-counts,
+.audit-steps-failure {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audit-steps-counts {
+  font-variant-numeric: tabular-nums;
+}
+
+.audit-steps-failure {
+  margin-top: 2px;
+  color: var(--semi-color-danger);
+  font-size: 12px;
+}
+
+/* 失败的运行操作行：行首色条，异常在整列里一眼可辨 */
+.audit-table .semi-table-tbody > .semi-table-row.audit-row-failed > .semi-table-row-cell:first-child {
+  box-shadow: inset 3px 0 0 var(--semi-color-danger);
+}
+
+/* 时间列：日期与耗时等宽对齐 */
+.audit-table .semi-table-tbody > .semi-table-row > .semi-table-row-cell:first-child + .semi-table-row-cell {
+  font-variant-numeric: tabular-nums;
+}
+
 .model-table .semi-table-row-head,
 .model-table .semi-table-row-cell {
   white-space: nowrap;

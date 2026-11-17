@@ -22,6 +22,8 @@ export interface RemoteTableProps<T extends object> {
   onPageSizeChange?(pageSize: number): void;
   empty?: ReactNode;
   rowSelection?: SemiTableProps['rowSelection'];
+  /** 行级属性钩子（如失败行色条）：只透传，不改变表格结构与分页。 */
+  onRow?: SemiTableProps['onRow'];
 }
 
 export function RemoteTable<T extends object>(props: RemoteTableProps<T>) {
@@ -38,6 +40,7 @@ export function RemoteTable<T extends object>(props: RemoteTableProps<T>) {
         pagination={false}
         empty={props.empty}
         rowSelection={props.rowSelection}
+        onRow={props.onRow}
       />
       <PaginationFooter
         page={props.page}

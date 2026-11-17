@@ -119,8 +119,13 @@ function buildIdentityColumns(t: TFunction): AuditTableColumns {
     {
       title: t('audit.columns.auditType'),
       dataIndex: 'auditType',
-      width: 116,
-      render: (value: AuditListItem['auditType']) => t(`audit.auditType.${value}`)
+      width: 110,
+      render: (value: AuditListItem['auditType']) => (
+        <span className="audit-type">
+          <span className="audit-type-dot" data-kind={value} />
+          {t(`audit.auditType.${value}`)}
+        </span>
+      )
     },
     {
       title: t('audit.columns.actor'),
@@ -170,10 +175,13 @@ function buildTargetColumns(
         if (runId) {
           const source = record.auditType === 'RUN' ? auditSourceLabel(t, record.action) : '';
           return (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-              <EntityLink testId={`audit-link-${record.auditId}`} onClick={() => onOpenRun(runId)}>
-                <TableText>{t('audit.target.run', { id: shortId(runId) })}</TableText>
-              </EntityLink>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+              {/* 链接可收缩、来源 chip 不收缩：列窄时先省略运行短 id，chip 保持完整 */}
+              <span style={{ minWidth: 0, overflow: 'hidden' }}>
+                <EntityLink testId={`audit-link-${record.auditId}`} onClick={() => onOpenRun(runId)}>
+                  <TableText>{t('audit.target.run', { id: shortId(runId) })}</TableText>
+                </EntityLink>
+              </span>
               {source ? (
                 <span
                   style={{
@@ -236,7 +244,7 @@ function buildStepsColumn(t: TFunction): AuditTableColumns[number] {
   return {
     title: t('audit.columns.steps'),
     dataIndex: 'steps',
-    width: 168,
+    width: 220,
     ellipsis: true,
     render: (_: unknown, record: AuditListItem) => {
       if (record.auditType !== 'RUN') {
@@ -250,14 +258,25 @@ function buildStepsColumn(t: TFunction): AuditTableColumns[number] {
       if (record.steps.tool) parts.push(t('audit.steps.tool', { count: record.steps.tool }));
       if (record.steps.egress) parts.push(t('audit.steps.egress', { count: record.steps.egress }));
       if (record.steps.retries) parts.push(t('audit.steps.retries', { count: record.steps.retries }));
-      return (
-        <span>
-          <TableText>{parts.length > 0 ? parts.join(' · ') : '-'}</TableText>
-          {record.failure ? (
-            <span style={{ display: 'block', color: 'var(--semi-color-danger)', fontSize: 12 }}>
-              {auditFailureLabel(t, record.failure)}
+      const counts = parts.length > 0 ? parts.join(' · ') : '-';
+      if (record.failure) {
+        const failure = auditFailureLabel(t, record.failure);
+        return (
+          <span className="audit-steps">
+            <span className="audit-steps-counts" title={counts}>
+              {counts}
             </span>
-          ) : null}
+            <span className="audit-steps-failure" title={auditFailureTitle(t, record.failure)}>
+              {failure}
+            </span>
+          </span>
+        );
+      }
+      return (
+        <span className="audit-steps">
+          <span className="audit-steps-counts" title={counts}>
+            {counts}
+          </span>
         </span>
       );
     }
@@ -266,11 +285,16 @@ function buildStepsColumn(t: TFunction): AuditTableColumns[number] {
 
 /** 失败摘要文案：点名失败的工具/模型；没有名称时只说明类型。 */
 function auditFailureLabel(t: TFunction, failure: NonNullable<AuditListItem['failure']>): string {
-  const suffix = failure.code ? ` (${failure.code})` : '';
   if (failure.name) {
-    return `${t(`audit.steps.failure.${failure.kind}`, { name: failure.name })}${suffix}`;
+    return t(`audit.steps.failure.${failure.kind}`, { name: failure.name });
   }
-  return `${t(`audit.steps.failureNoName.${failure.kind}`)}${suffix}`;
+  return t(`audit.steps.failureNoName.${failure.kind}`);
+}
+
+/** 悬停展示完整失败信息（含错误码）：列宽只放得下摘要。 */
+function auditFailureTitle(t: TFunction, failure: NonNullable<AuditListItem['failure']>): string {
+  const label = auditFailureLabel(t, failure);
+  return failure.code ? `${label} (${failure.code})` : label;
 }
 
 /** 执行结果列复用 `StatusTag`。 */
@@ -303,6 +327,10 @@ export function buildAuditTableProps(
     className: 'audit-table app-table-fit app-table-nowrap',
     scroll: { x: '100%' },
     rowKey: 'auditId',
+    onRow: (record?: AuditListItem) =>
+      record && record.auditType === 'RUN' && record.resultStatus === 'FAILED'
+        ? { className: 'audit-row-failed' }
+        : {},
     loading: options.loading,
     columns: buildAuditColumns(t, options.onOpenDetail, options.onOpenRun, options.onOpenTask),
     dataSource: options.items,
