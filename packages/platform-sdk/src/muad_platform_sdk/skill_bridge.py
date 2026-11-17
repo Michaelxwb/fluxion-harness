@@ -26,7 +26,7 @@ from redis.exceptions import RedisClusterException, RedisError
 from .adapter.mss_config import PlatformAuthError, settings
 from .request_budget import LocalRateLimitError
 from .shared_redis import SharedLimitExceeded
-from .skill_access import SkillPlatformAccess, SkillPlatformContext
+from .skill_access import PlatformScope, SkillPlatformAccess, SkillPlatformContext
 
 BROKER_BUDGET_EXCEEDED = "PLATFORM_SESSION_BUDGET_EXCEEDED"
 BROKER_INTERNAL_ERROR = "broker_internal_error"
@@ -277,6 +277,11 @@ async def skill_platform_environment(
     active: set[asyncio.Task[None]] = set()
     root = Path(tempfile.mkdtemp(prefix="fx-session-", dir="/tmp"))
     try:
+        if context.scope is PlatformScope.SELECTED:
+            # Explicit platform selection is an execution constraint: reject an
+            # unauthorized selection before running an unrelated shell command.
+            # AUTO remains fully lazy and resolves only when the CLI is called.
+            await access.allowed_keys()
         run_dir, state_dir, command_dir, state_prefix, mounts = _prepare_layout(root, sandbox_root)
 
         async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
