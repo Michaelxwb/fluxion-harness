@@ -25,8 +25,14 @@ from ..infrastructure.repositories.audit_query_repository import (
 CONSOLE_TIME_FORMAT = "%Y-%m-%d %H:%M:%S%z"
 
 AUDIT_TYPES = frozenset({"CONFIG", "TOOL", "EGRESS", "MODEL"})
-# 归一后的执行结果域（docs/07 §10.11）：SUCCESS / FAILED / BLOCKED / 领域错误码
-RESULT_STATUSES = frozenset({"SUCCESS", "FAILED", "DENIED", "BLOCKED"})
+#: 列表可接受的类型：四类事件 + 操作行 `RUN`；导出与详情仍只认四类来源表。
+LIST_AUDIT_TYPES = AUDIT_TYPES | {"RUN"}
+#: 只存在于步骤明细视图的类型：与操作视图组合即语义冲突。
+DETAIL_ONLY_TYPES = frozenset({"MODEL", "TOOL"})
+AUDIT_VIEWS = frozenset({"operation", "detail"})
+# 归一后的执行结果域（docs/07 §10.11）：SUCCESS / FAILED / BLOCKED / 领域错误码；
+# RUNNING / CANCELLED 只由操作行（Run）产出，作为筛选取值的加法扩展。
+RESULT_STATUSES = frozenset({"SUCCESS", "FAILED", "DENIED", "BLOCKED", "RUNNING", "CANCELLED"})
 
 _TIME_FIELDS = ("occurred_at", "started_at", "finished_at")
 
@@ -51,15 +57,44 @@ def _as_utc(value: datetime) -> datetime:
 
 
 def _validate_audit_type(audit_type: str) -> None:
-    """来源表枚举是详情与列表共用的校验口径，只认已登记的四类。"""
+    """来源表枚举是详情与导出共用的校验口径，只认已登记的四类。"""
     if audit_type not in AUDIT_TYPES:
         raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
 
 
-def validate_filters(filters: AuditQueryFilters, allowed_result_statuses: frozenset[str]) -> None:
-    """API-01 列表/详情与 API-05 导出创建共用同一筛选校验口径。"""
+def _validate_list_audit_type(audit_type: str) -> None:
+    if audit_type not in LIST_AUDIT_TYPES:
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+
+
+def resolve_view(audit_type: str | None, view: str | None) -> str:
+    """把 `(view, audit_type)` 收敛成一个视图；冲突显式拒绝，不做静默改写。
+
+    - 显式 `view` 必须在枚举内；`operation` 与模型/工具类型、`detail` 与 `RUN` 都是冲突；
+    - 未传 `view` 时按类型推断：模型/工具 → 明细（兼容旧链接），其余 → 操作（新默认）。
+    """
+    if view is not None and view not in AUDIT_VIEWS:
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+    if audit_type is not None:
+        _validate_list_audit_type(audit_type)
+    if view is None:
+        return "detail" if audit_type in DETAIL_ONLY_TYPES else "operation"
+    if view == "operation" and audit_type in DETAIL_ONLY_TYPES:
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+    if view == "detail" and audit_type == "RUN":
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+    return view
+
+
+def validate_filters(
+    filters: AuditQueryFilters,
+    allowed_result_statuses: frozenset[str],
+    allowed_audit_types: frozenset[str] = AUDIT_TYPES,
+) -> None:
+    """API-01 列表/详情与 API-05 导出创建共用同一筛选校验口径（类型域可分别收窄）。"""
     if filters.audit_type is not None:
-        _validate_audit_type(filters.audit_type)
+        if filters.audit_type not in allowed_audit_types:
+            raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
     if (
         filters.result_status is not None
         and filters.result_status not in allowed_result_statuses
@@ -127,14 +162,31 @@ class AuditQueryService:
         *,
         page: int,
         page_size: int,
+        view: str | None = None,
     ) -> tuple[list[dict[str, Any]], int]:
+        resolved = resolve_view(filters.audit_type, view)
         self._validate(filters)
-        total = await self._repository.count(tenant_id, filters)
-        rows = await self._repository.page(tenant_id, filters, page, page_size)
-        return [self._project(row) for row in rows], total
+        total = await self._repository.count(tenant_id, filters, view=resolved)
+        rows = await self._repository.page(
+            tenant_id, filters, page, page_size, view=resolved
+        )
+        return [self._project_list_item(row) for row in rows], total
 
     def _validate(self, filters: AuditQueryFilters) -> None:
-        validate_filters(filters, self._allowed_result_statuses)
+        validate_filters(
+            filters,
+            self._allowed_result_statuses,
+            allowed_audit_types=LIST_AUDIT_TYPES,
+        )
+
+    @staticmethod
+    def _project_list_item(row: dict[str, Any]) -> dict[str, Any]:
+        """列表行 = 统一投影 + 操作行摘要 + 步骤字段（步骤由聚合层填充，先冻结结构）。"""
+        item = AuditQueryService._project(row)
+        item["summary"] = row.get("summary")
+        item["steps"] = None
+        item["failure"] = None
+        return item
 
     async def get_audit_detail(
         self, tenant_id: str, audit_id: uuid.UUID, audit_type: str

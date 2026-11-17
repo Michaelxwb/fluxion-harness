@@ -1,8 +1,9 @@
-"""四张审计表的查询期聚合投影（设计 §3.3「审计聚合投影」）。
+"""审计列表/详情的查询期聚合投影（设计 §3.3「审计聚合投影」）。
 
 不建宽表、不做物化视图：查询时把 `control.config_audit_log` 与
 `runtime.{tool_call_audit,egress_audit,model_invocation_audit}` UNION ALL 到同一字段集，
-Actor/Agent 名称在同一 SQL 内 JOIN 补齐（一次往返，不做逐行关联查询）。
+操作视图再 UNION 一条 `runtime.run_record` 操作行；Actor/Agent 名称在同一 SQL 内 JOIN 补齐
+（一次往返，不做逐行关联查询）。导出与详情固定只用四表事件投影，不受列表视图影响。
 """
 
 from __future__ import annotations
@@ -37,9 +38,12 @@ PROJECTED_COLUMNS = (
     "task_id",
 )
 
+#: 列表专属列：`summary` 只给操作行展示，进不了详情/导出的列集合。
+LIST_COLUMNS = (*PROJECTED_COLUMNS, "summary")
+
 # 每列位置与 PROJECTED_COLUMNS 严格一一对应：只有第一条 SELECT 起名，其余按位置对齐。
 # TOOL/EGRESS/MODEL 三表不冗余 trace_id：先按 task_id 取 task_event，否则回落 run_record。
-_PROJECTION_SQL = """
+_EVENT_PROJECTION_SQL = """
 SELECT
     c.id AS audit_id,
     'CONFIG' AS audit_type,
@@ -67,7 +71,8 @@ SELECT
     NULL::timestamptz AS finished_at,
     NULL::bigint AS latency_ms,
     NULL::uuid AS run_id,
-    NULL::uuid AS task_id
+    NULL::uuid AS task_id,
+    NULL::text AS summary
   FROM control.config_audit_log c
   LEFT JOIN control.console_account acct ON acct.id = c.actor_user_id
  WHERE c.tenant_id = :tenant_id
@@ -97,7 +102,8 @@ SELECT
     t.end_time,
     t.latency_ms,
     t.run_id,
-    t.task_id
+    t.task_id,
+    NULL::text
   FROM runtime.tool_call_audit t
   LEFT JOIN runtime.run_record r ON r.id = t.run_id
   LEFT JOIN task.task_execution tx ON tx.id = t.task_id
@@ -139,7 +145,8 @@ SELECT
     NULL::timestamptz,
     g.latency_ms,
     g.run_id,
-    g.task_id
+    g.task_id,
+    NULL::text
   FROM runtime.egress_audit g
   LEFT JOIN runtime.run_record r ON r.id = g.run_id
   LEFT JOIN task.task_execution tx ON tx.id = g.task_id
@@ -181,7 +188,8 @@ SELECT
     NULL::timestamptz,
     m.latency_ms,
     m.run_id,
-    m.task_id
+    m.task_id,
+    NULL::text
   FROM runtime.model_invocation_audit m
   LEFT JOIN runtime.run_record r ON r.id = m.run_id
   LEFT JOIN task.task_execution tx ON tx.id = m.task_id
@@ -199,6 +207,48 @@ SELECT
  WHERE m.tenant_id = :tenant_id
    AND m.is_deleted = false
 """
+
+# 操作行：一次 Run = 一次业务操作。列位置与 `_EVENT_PROJECTION_SQL` 一致，末列 `summary`
+# 取本轮输入摘要（只给列表展示，详情/导出不选这一列）。
+_RUN_PROJECTION_SQL = """
+SELECT
+    r.id AS audit_id,
+    'RUN' AS audit_type,
+    'RUN' AS resource_type,
+    r.id::text AS resource_id,
+    r.user_id AS actor_user_id,
+    pu.display_name AS actor_name,
+    r.agent_id AS agent_id,
+    ad.name AS agent_name,
+    COALESCE(r.channel_json->>'type', 'WEBCHAT') AS action,
+    CASE r.status::text
+        WHEN 'COMPLETED' THEN 'SUCCESS'
+        WHEN 'FAILED' THEN 'FAILED'
+        WHEN 'CANCELLED' THEN 'CANCELLED'
+        ELSE 'RUNNING'
+    END AS result_status,
+    r.trace_id AS trace_id,
+    'RUN/' || r.id::text AS target,
+    COALESCE(r.start_time, r.create_time) AS occurred_at,
+    r.start_time AS started_at,
+    r.end_time AS finished_at,
+    CASE
+        WHEN r.start_time IS NOT NULL AND r.end_time IS NOT NULL
+            THEN (EXTRACT(EPOCH FROM (r.end_time - r.start_time)) * 1000)::bigint
+        ELSE NULL::bigint
+    END AS latency_ms,
+    r.id AS run_id,
+    NULL::uuid AS task_id,
+    left(r.input_text, 120) AS summary
+  FROM runtime.run_record r
+  LEFT JOIN control.platform_user pu ON pu.id = r.user_id
+  LEFT JOIN control.agent_definition ad ON ad.id = r.agent_id
+ WHERE r.tenant_id = :tenant_id
+   AND r.is_deleted = false
+"""
+
+# 列表投影：事件行 + 操作行；导出与详情固定只用上面的四表事件投影。
+_PROJECTION_SQL = f"{_EVENT_PROJECTION_SQL}\n\nUNION ALL\n{_RUN_PROJECTION_SQL}"
 
 
 # 详情按 `audit_type` 定位来源表：4 张表的 UUID 不互通，来源表必须显式指定，不猜表。
@@ -289,14 +339,20 @@ def _text(value: uuid.UUID | None) -> str | None:
     return None if value is None else str(value)
 
 
-def _where(filters: AuditQueryFilters) -> tuple[str, dict[str, Any]]:
+def _where(filters: AuditQueryFilters, *, view: str = "detail") -> tuple[str, dict[str, Any]]:
     """按投影列拼装 WHERE；列名与操作符全部来自本函数字面量，值一律走绑定参数。
 
     `agent_id` 也按投影列过滤：运行类行由 `run_record` / `task_execution` 补齐该列，
     config 类行投影为 `NULL`，而 `NULL = :agent_id` 不成立 —— 因此该条件只命中运行类行。
+    操作视图在外层再收窄到 `RUN / CONFIG / EGRESS`，事件行不参与默认列表。
     """
     clauses: list[str] = []
     params: dict[str, Any] = {}
+    if view == "operation":
+        clauses.append("audit_type IN ('RUN', 'CONFIG', 'EGRESS')")
+    else:
+        # 明细视图只含事件行：RUN 操作行只存在于操作视图
+        clauses.append("audit_type <> 'RUN'")
     exact = {
         "audit_type": filters.audit_type,
         "resource_type": filters.resource_type,
@@ -337,8 +393,10 @@ class AuditQueryRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def count(self, tenant_id: str, filters: AuditQueryFilters) -> int:
-        where, params = _where(filters)
+    async def count(
+        self, tenant_id: str, filters: AuditQueryFilters, *, view: str = "detail"
+    ) -> int:
+        where, params = _where(filters, view=view)
         total = await self._session.scalar(
             text(f"SELECT count(*) FROM ({_PROJECTION_SQL}) u{where}"),
             {"tenant_id": tenant_id, **params},
@@ -351,9 +409,11 @@ class AuditQueryRepository:
         filters: AuditQueryFilters,
         page: int,
         page_size: int,
+        *,
+        view: str = "detail",
     ) -> list[dict[str, Any]]:
-        where, params = _where(filters)
-        columns = ", ".join(PROJECTED_COLUMNS)
+        where, params = _where(filters, view=view)
+        columns = ", ".join(LIST_COLUMNS)
         rows = await self._session.execute(
             text(
                 f"SELECT {columns} FROM ({_PROJECTION_SQL}) u{where} "
@@ -372,12 +432,12 @@ class AuditQueryRepository:
     async def all_rows(
         self, tenant_id: str, filters: AuditQueryFilters
     ) -> list[dict[str, Any]]:
-        """API-06 导出执行：同一四表 UNION ALL 投影按筛选条件取全量行（行序同列表）。"""
+        """API-06 导出执行：固定四表事件投影（导出永远是全量明细，不受列表视图影响）。"""
         where, params = _where(filters)
         columns = ", ".join(PROJECTED_COLUMNS)
         rows = await self._session.execute(
             text(
-                f"SELECT {columns} FROM ({_PROJECTION_SQL}) u{where} "
+                f"SELECT {columns} FROM ({_EVENT_PROJECTION_SQL}) u{where} "
                 "ORDER BY occurred_at DESC, audit_id DESC"
             ),
             {"tenant_id": tenant_id, **params},
@@ -404,11 +464,11 @@ class AuditQueryRepository:
     async def _projected_row(
         self, tenant_id: str, audit_id: uuid.UUID, audit_type: str
     ) -> dict[str, Any] | None:
-        """复用 API-01 的聚合投影取单行，保证详情与列表字段口径一致。"""
+        """复用 API-01 的事件投影取单行，保证详情与明细列表字段口径一致。"""
         columns = ", ".join(f"u.{column}" for column in PROJECTED_COLUMNS)
         rows = await self._session.execute(
             text(
-                f"SELECT {columns} FROM ({_PROJECTION_SQL}) u "
+                f"SELECT {columns} FROM ({_EVENT_PROJECTION_SQL}) u "
                 "WHERE u.audit_id = :audit_id AND u.audit_type = :audit_type"
             ),
             {"tenant_id": tenant_id, "audit_id": audit_id, "audit_type": audit_type},

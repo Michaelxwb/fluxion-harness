@@ -27,6 +27,7 @@ async def list_audits(
     tenant_id: TenantId,
     session: Session,
     audit_type: str | None = Query(default=None),
+    view: str | None = Query(default=None, max_length=16),
     resource_type: str | None = Query(default=None),
     resource_id: uuid.UUID | None = Query(default=None),  # noqa: B008
     actor_user_id: uuid.UUID | None = Query(default=None),  # noqa: B008
@@ -55,7 +56,7 @@ async def list_audits(
     )
     catalog = request.app.state.message_catalog
     items, total = await AuditQueryService(session, catalog.codes()).list_audits(
-        tenant_id, filters, page=page, page_size=page_size
+        tenant_id, filters, page=page, page_size=page_size, view=view
     )
     return ok(
         catalog,

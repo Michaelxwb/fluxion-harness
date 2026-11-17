@@ -344,10 +344,15 @@ def _by_type(items: list[dict[str, object]]) -> dict[str, dict[str, object]]:
 async def _fetch_trace_audits(
     client: AsyncClient, tenant: TenantContext, seed: AuditSeed
 ) -> dict[str, Any]:
-    """[S-01] 按同一 trace 拉取聚合列表首页，返回已校验 200 的响应体。"""
+    """[S-01] 按同一 trace 拉取明细视图首页，返回已校验 200 的响应体。"""
     response = await client.get(
         "/api/v1/audits",
-        params={"trace_id": seed.trace_id, "page": 1, "page_size": 20},
+        params={
+            "trace_id": seed.trace_id,
+            "view": "detail",
+            "page": 1,
+            "page_size": 20,
+        },
         headers=_headers(tenant),
     )
     assert response.status_code == 200, response.text
@@ -470,6 +475,89 @@ async def test_s01_audit_list_projects_four_tables_with_unified_fields(
     _assert_model_row(rows["MODEL"], audit_seed)
 
 
+async def test_operation_view_collapses_run_events_into_one_row(
+    client: AsyncClient, tenant: TenantContext, audit_seed: AuditSeed
+) -> None:
+    """[S-01][S-05] 默认视图：Run 的模型/工具事件折叠成一条操作行；配置变更与出网各占一行。"""
+    response = await client.get(
+        "/api/v1/audits",
+        params={"trace_id": audit_seed.trace_id},
+        headers=_headers(tenant),
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["total"] == 3
+
+    rows = _by_type(data["items"])
+    assert set(rows) == {"RUN", "CONFIG", "EGRESS"}
+    # 默认按开始时间倒序：RUN(start_time=now) > EGRESS(-1min) > CONFIG(-3min)
+    assert [item["audit_type"] for item in data["items"]] == ["RUN", "EGRESS", "CONFIG"]
+
+    run = rows["RUN"]
+    for field in UNIFIED_FIELDS:
+        assert field in run, f"RUN 缺统一字段 {field}"
+    assert run["audit_id"] == str(audit_seed.run_id)
+    assert run["resource_type"] == "RUN"
+    assert run["resource_id"] == str(audit_seed.run_id)
+    assert run["actor_user_id"] == str(audit_seed.user_id)
+    assert run["actor_name"] == audit_seed.user_name
+    assert run["agent_id"] == str(audit_seed.agent_id)
+    assert run["agent_name"] == audit_seed.agent_name
+    # 无 channel_json 的 Run 落 WEBCHAT（入口渠道是动作列的唯一来源）
+    assert run["action"] == "WEBCHAT"
+    assert run["result_status"] == "SUCCESS"
+    assert run["trace_id"] == audit_seed.trace_id
+    assert run["target"] == f"RUN/{audit_seed.run_id}"
+    assert run["run_id"] == str(audit_seed.run_id)
+    assert run["task_id"] is None
+    assert run["latency_ms"] == 0
+    assert DATE_TIME_PATTERN.match(str(run["occurred_at"])), run["occurred_at"]
+    assert run["started_at"] == run["occurred_at"]
+    assert run["summary"] == "audit seed"
+    # 步骤字段结构冻结；聚合在后续任务填充
+    assert run["steps"] is None
+    assert run["failure"] is None
+
+    config = rows["CONFIG"]
+    _assert_config_row(config, audit_seed)
+    assert config["summary"] is None
+
+    # 出网是合规记录，保持独立成行（不被折叠进 Run）
+    _assert_egress_row(rows["EGRESS"], audit_seed)
+    assert rows["EGRESS"]["summary"] is None
+
+
+async def test_legacy_type_link_without_view_keeps_detail(
+    client: AsyncClient, tenant: TenantContext, audit_seed: AuditSeed
+) -> None:
+    """[NFR-COMPAT-01] 旧链接只带模型/工具类型时仍走明细视图，行为与改造前一致。"""
+    response = await client.get(
+        "/api/v1/audits", params={"audit_type": "MODEL"}, headers=_headers(tenant)
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["total"] == 1
+    assert data["items"][0]["audit_type"] == "MODEL"
+    _assert_model_row(data["items"][0], audit_seed)
+
+
+async def test_view_and_type_conflicts_are_rejected(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    """[E-03] 视图与类型冲突、未知视图都显式拒绝，不静默改写。"""
+    for params in (
+        {"view": "operation", "audit_type": "MODEL"},
+        {"view": "operation", "audit_type": "TOOL"},
+        {"view": "detail", "audit_type": "RUN"},
+        {"view": "bogus"},
+        {"view": "operation", "audit_type": "BOGUS"},
+    ):
+        response = await client.get("/api/v1/audits", params=params, headers=_headers(tenant))
+        assert response.status_code == 422, (params, response.text)
+        assert response.json()["code"] == "COMMON_VALIDATION_ERROR"
+        assert "items" not in (response.json().get("data") or {})
+
+
 async def test_e03_invalid_filters_are_rejected_without_full_dump(
     client: AsyncClient, tenant: TenantContext, audit_seed: AuditSeed
 ) -> None:
@@ -504,12 +592,20 @@ async def test_e03_invalid_filters_are_rejected_without_full_dump(
     assert malformed_range.status_code == 422, malformed_range.text
     assert malformed_range.json()["code"] == "COMMON_VALIDATION_ERROR"
 
-    # 反证：同样的种子数据在合法查询下确实有 4 条，说明上面的拒绝不是"本来就查不到"
+    # 反证：同样的种子数据在合法查询下确实有 4 条明细、3 条操作，说明上面的拒绝不是"本来就查不到"
     valid = await client.get(
-        "/api/v1/audits", params={"page": 1, "page_size": 100}, headers=_headers(tenant)
+        "/api/v1/audits",
+        params={"view": "detail", "page": 1, "page_size": 100},
+        headers=_headers(tenant),
     )
     assert valid.status_code == 200, valid.text
     assert valid.json()["data"]["total"] == 4
+
+    operation = await client.get(
+        "/api/v1/audits", params={"page": 1, "page_size": 100}, headers=_headers(tenant)
+    )
+    assert operation.status_code == 200, operation.text
+    assert operation.json()["data"]["total"] == 3
 
 
 async def test_ru02_page_bounds_are_enforced(
@@ -540,7 +636,9 @@ async def test_ru02_type_and_status_filters_narrow_the_projection(
     assert model_page["items"][0]["audit_type"] == "MODEL"
 
     failed = await client.get(
-        "/api/v1/audits", params={"result_status": "FAILED"}, headers=_headers(tenant)
+        "/api/v1/audits",
+        params={"view": "detail", "result_status": "FAILED"},
+        headers=_headers(tenant),
     )
     assert failed.status_code == 200, failed.text
     failed_page = failed.json()["data"]
@@ -565,7 +663,9 @@ async def test_keyword_matches_names_ids_and_targets(
 ) -> None:
     keyword = str(getattr(audit_seed, field))[1:-1].upper()
     response = await client.get(
-        "/api/v1/audits", params={"keyword": keyword}, headers=_headers(tenant)
+        "/api/v1/audits",
+        params={"keyword": keyword, "view": "detail"},
+        headers=_headers(tenant),
     )
     assert response.status_code == 200, response.text
     assert response.json()["data"]["total"] == expected
@@ -609,7 +709,9 @@ async def test_keyword_export_filters_survive_persistence_and_match_list(
     async with get_session_factory()() as session:
         rows = await AuditQueryRepository(session).all_rows(tenant.tenant_id, filters)
     response = await client.get(
-        "/api/v1/audits", params={"keyword": payload.keyword}, headers=_headers(tenant)
+        "/api/v1/audits",
+        params={"keyword": payload.keyword, "view": "detail"},
+        headers=_headers(tenant),
     )
     assert len(rows) == 3
     assert {str(row["audit_id"]) for row in rows} == {

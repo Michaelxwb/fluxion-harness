@@ -38,6 +38,7 @@ EXPECTED_INDEXES: dict[str, tuple[str, ...]] = {
         "ix_run_record_running_lease_until",
         "ix_run_record_trace_id",
         "ix_run_record_task_family",
+        "ix_run_record_tenant_create_time",
     ),
     "runtime_snapshot": ("uq_runtime_snapshot_run_id", "ix_runtime_snapshot_content_hash"),
     "canonical_event": (
@@ -70,7 +71,11 @@ EXPECTED_UNIQUE_INDEXES: dict[str, tuple[str, ...]] = {
 }
 
 EXPECTED_PARTIAL_INDEXES: dict[str, tuple[str, ...]] = {
-    "run_record": ("uq_run_record_active_conversation", "ix_run_record_running_lease_until"),
+    "run_record": (
+        "uq_run_record_active_conversation",
+        "ix_run_record_running_lease_until",
+        "ix_run_record_tenant_create_time",
+    ),
     "user_memory": (
         "ix_user_memory_candidates",
         "ix_user_memory_expiry",

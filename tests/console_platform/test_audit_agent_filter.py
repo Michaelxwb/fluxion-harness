@@ -458,20 +458,26 @@ async def test_b213_list_agent_filter_returns_only_that_agents_runtime_rows(
 ) -> None:
     """[B-213] `agent_id=A` 只回 A 的运行类行；B 与 config 类被排除；缺省行为不变。"""
     seed = agent_filter_env
-    only_a = await _list(client, tenant, agent_id=str(seed.agent_a_id), page=1, page_size=20)
+    only_a = await _list(
+        client, tenant, view="detail", agent_id=str(seed.agent_a_id), page=1, page_size=20
+    )
     _assert_runtime_rows_of_a(only_a, seed)
 
-    only_b = await _list(client, tenant, agent_id=str(seed.agent_b_id), page=1, page_size=20)
+    only_b = await _list(
+        client, tenant, view="detail", agent_id=str(seed.agent_b_id), page=1, page_size=20
+    )
     assert only_b["total"] == len(seed.audit_b_ids)
     assert _audit_ids(only_b) == [str(audit_id) for audit_id in seed.audit_b_ids]
     assert only_b["items"][0]["agent_name"] == seed.agent_b_name
 
-    unknown = await _list(client, tenant, agent_id=str(UNKNOWN_AGENT_ID), page=1, page_size=20)
+    unknown = await _list(
+        client, tenant, view="detail", agent_id=str(UNKNOWN_AGENT_ID), page=1, page_size=20
+    )
     assert unknown["total"] == 0
     assert unknown["items"] == []
 
     # 未传 agent_id：行为不变（A + B + config 全部返回）
-    unfiltered = await _list(client, tenant, page=1, page_size=100)
+    unfiltered = await _list(client, tenant, view="detail", page=1, page_size=100)
     assert unfiltered["total"] == len(seed.all_audit_ids)
     assert set(_audit_ids(unfiltered)) == seed.all_audit_ids
     assert str(seed.config_audit_id) in _audit_ids(unfiltered)
@@ -490,8 +496,12 @@ async def test_b213_list_agent_filter_keeps_pagination_and_total_consistent(
 ) -> None:
     """[B-213] 带 `agent_id` 时 total 与逐页 items 一致（分页不串行、不多不少）。"""
     seed = agent_filter_env
-    first = await _list(client, tenant, agent_id=str(seed.agent_a_id), page=1, page_size=1)
-    second = await _list(client, tenant, agent_id=str(seed.agent_a_id), page=2, page_size=1)
+    first = await _list(
+        client, tenant, view="detail", agent_id=str(seed.agent_a_id), page=1, page_size=1
+    )
+    second = await _list(
+        client, tenant, view="detail", agent_id=str(seed.agent_a_id), page=2, page_size=1
+    )
     assert first["total"] == second["total"] == len(seed.audit_a_ids)
     assert first["page"] == 1 and first["page_size"] == 1
     assert len(first["items"]) == len(second["items"]) == 1
