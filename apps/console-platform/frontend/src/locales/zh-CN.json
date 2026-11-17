@@ -897,6 +897,7 @@
   "agent.channel.channel": "通道类型",
   "agent.channel.channelWecom": "企业微信",
   "agent.channel.channelWebchat": "网页入口",
+  "agent.channel.channelMsswweb": "MSSW 网页入口",
   "agent.channel.entryKey": "入口标识",
   "agent.channel.entryKeyHint": "网页入口的稳定标识，用于生成聊天地址；创建后不建议修改",
   "agent.channel.copyChatLink": "复制聊天地址",

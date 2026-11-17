@@ -897,6 +897,7 @@
   "agent.channel.channel": "Channel type",
   "agent.channel.channelWecom": "WeCom",
   "agent.channel.channelWebchat": "Web entry",
+  "agent.channel.channelMsswweb": "MSSW web entry",
   "agent.channel.entryKey": "Entry key",
   "agent.channel.entryKeyHint": "Stable key for the web entry, used to build the chat URL; avoid changing it after creation",
   "agent.channel.copyChatLink": "Copy chat URL",
