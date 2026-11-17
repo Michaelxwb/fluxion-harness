@@ -971,6 +971,8 @@ MSSW 的身份在 Cookie `soc-token`。Playwright 用 `context.addCookies()` 种
 
 - [2026-11-16] created
 - [2026-11-17] pytest 验收层完成：`tests/acceptance/msswweb` 38 条 + 受影响 gateway 套件，Pod 上 85 条全过（`EXIT_CODE=0`）。补齐 `/entries` 的 `allowed`/`reason` 与 `POST /conversations/{id}/read`。浏览器层改人工执行。
+- [2026-11-17] 跨用户隔离补用例 `test_cross_user_isolation.py`（5 条，Pod 全过）。文档对齐：BFF 文档、设计/PRD/前端设计、`docs/mssw-channel/` 共 9 处旧形态（`?agent_id=` / `ENTRY_DISABLED` / `through_seq` 回执）修正。
+- [2026-11-17] E-10（Redis 缓存 revision 失效）核对结论：**认证读路径未接入缓存**（分层原语与失效流程已实现，读/写原语零调用方，每次直查 PG）。已在 scenarios 与 backend.design 标注实现状态并说明偏差；**未补实现**——属性能优化，接入会使 Redis 成为认证必经依赖，经用户确认仅备注文档。
 
 ### Verification
 

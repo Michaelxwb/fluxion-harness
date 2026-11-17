@@ -36,7 +36,8 @@ API 层已由 `tests/acceptance/msswweb/` 持续回归覆盖；浏览器/长流�
 | E-09 因子轮换 | ✅ | `test_auth_surface.py`（旧私钥 token 失效） |
 | E-10 Redis 缓存失效 | **不适用**：当前实现无 Redis 认证缓存（每次直查控制库） | 由 E-05 的「即时生效」等价覆盖 |
 | E-11 跨租户隔离 | ✅ | `test_auth_surface.py`（伪造租户头不越界）+ `tests/gateway/test_msswwweb_chat_auth.py`（跨租户主体 403） |
-| E-12~E-13 缓存与重启一致性 | **不适用**：无 Redis 认证缓存层（每次直查控制库） | — |
+| E-10 Redis 缓存失效/不可用 | **不适用**：缓存层已实现并写入，但读路径未接入（每次直查控制库）；详见该场景内的说明 | — |
+| E-12~E-13 缓存与重启一致性 | **不适用**：认证读路径无 Redis 缓存（每次直查控制库） | — |
 | E-14 配置变化与普通重启的区别 | ✅ | `test_platform_config_isolation.py::test_e14_rotated_config_rejects_tokens_signed_by_old_key` |
 | B-01 空列表/缺会话 | ✅ | `test_conversation_boundaries.py` |
 | B-02 超龄 token | ✅ | `test_auth_surface.py` |
@@ -385,6 +386,31 @@ API 层已由 `tests/acceptance/msswweb/` 持续回归覆盖；浏览器/长流�
   - 业务平台按约定在窗口内换发 token，BFF 不缓存旧 token。
 
 ## E-10 Redis 缓存 revision 失效/不可用
+
+> **当前不适用（2026-11-17 核对结论）**：认证读路径**没有接入缓存**，本场景的前提不成立。
+>
+> 现状：`muad_common.auth_cache` 的三层缓存原语（凭证 `cred:` / 权限 `perm:` / 状态
+> `barrier:`+`userver:`+`platform:`）与失效流程（`AuthCacheDirectory.invalidate`，12 个管理
+> 变更点均已调用）都已实现并在 Console 装配，但 `read_permission` / `read_credential` /
+> `write_permission` / `write_credential` **零调用方**。外部断言路径
+> （`ExternalAssertionService` / `resolve_principal`）每次请求直查 PG，Gateway 未 import 该模块。
+>
+> 由此产生与下述原期望的偏差：
+> - 「命中 Redis 不查 Console」——不成立：每次都查 PG，无命中一说。
+> - 「revision 变化后旧缓存不再放行」——无意义：不存在会被放行的旧缓存。
+> - 「Redis 不可用时有界回源」——方向相反：`auth_cache.py` 的契约是 **fail closed**（抛
+>   `AuthCacheUnavailable` 按 503），本就没有「有界回源」这一档；且因读侧不接，Redis 故障
+>   当前**不影响**认证请求，仅影响管理侧撤权（会同事务回滚）。
+> - 「不等待缓存到期/重启，两入口立即反映新权限」——**成立**，但机制是「不缓存 + 每次直查 PG」，
+>   不是缓存失效。
+>
+> **另需区分**：`RedisSessionStore` 确有 TTL 滑动续期（命中后 `EXPIRE`），但那是 WebChat 面
+> USER_TOKEN 会话的，MSSWWEB 面走外部断言，**无自动续期**——凭据就是断言本身，有效期由
+> `iat + external_assertion_max_session_age_sec` 判定，不续期。`AuthCacheStore` 的 TTL 仅用于
+> 回收数据，不提供撤权保证（`auth_cache.py` 模块 docstring 已明示）。
+>
+> 若要真正启用本条场景，需让 Gateway 的 `resolve_external` 读穿缓存；**这是一次性能优化而非
+> 功能修复**，代价是 Redis 从「可缺失」变为「认证必经依赖」。当前直查 PG 的正确性无问题。
 
 - **负责**：待 plan 分配
 - **前置**：已通过 `/identity` 写入 Redis；用户有绑定/授权。

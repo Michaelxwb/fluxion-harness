@@ -191,6 +191,10 @@ design_template: full
 3. **入口权限与用户身份分离**：`external_identity`（用户级）+ `entry_access_grant`（入口授权）；解绑只删 grant，身份保留，清理能力闭合。
 4. **平台级身份 schema**：`identity_keys` 属于平台，放平台 Secret/ConfigMap，不建元数据表；不是每个入口一套；绑定 JSON 多字段 AND。
 5. **认证缓存**：`/identity` 永远查 Console/PG；凭证与当前权限分层缓存；解绑/撤权成功前删除对应权限缓存，并阻止旧回源结果再次写入；TTL 不提供撤权保证。WebChat 与 MSSWWEB 共用权限层。
+
+   > **实现状态（2026-11-17 核对）**：**读侧尚未接入**。`muad_common.auth_cache` 的分层原语与失效流程已落地并在 Console 装配（`AuthCacheDirectory.invalidate`，12 个管理变更点均调用），但 `read_permission` / `read_credential` / `write_permission` / `write_credential` 无调用方；`ExternalAssertionService` 与 `resolve_principal` 每次请求直查 PG，Gateway 未 import 该模块。因此本节「资源 Redis-first + revision 校验 + 屏障回填」属于**设计意图，尚未实现**。
+   >
+   > 实际行为：认证路径不读缓存，故无「命中/失效」语义；撤权即时生效由「每次直查 PG」保证，而非缓存失效；`AuthCacheUnavailable` 的 fail-closed 分支当前只影响管理侧撤权（同事务回滚），不影响认证请求。NFR-PERF-01 中「缓存命中」时延项在接入前无法测量。若要启用，需 Gateway 的 `resolve_external` 读穿缓存——这是性能优化而非功能修复，代价是 Redis 由「可缺失」变为「认证必经依赖」。
 6. **resume 不是清理**：要求用户 ACTIVE + 当前 Agent 授权；entry 不是边界；Agent 撤权默认拒绝。
 7. **不做 IM 通道数据隔离**：不再按 entry/channel 对按 ID 资源做 404 断言；不同用户才隔离。
 8. **来源保留在后台**：会话来源是创建时入口；每个 Run 来源是本次实际入口；通知/交付跟随来源 Run。页面不强制增加来源标签，来源不参与共享资源授权。
@@ -481,6 +485,8 @@ WHERE is_deleted = false;
 | token 有效但无外部身份 | 200 | `allowed=false, reason=UNBOUND`；不伪造主体 |
 
 **处理逻辑**：Gateway 取 `soc-token` → Console 按当前平台配置验签并查 PG → 返回主体、权限版本、配置版本及权限集合 → 按下文屏障协议写凭证/权限两层缓存。回填失败若源于版本或屏障变化，必须丢弃整份旧响应后重查，不能用未成功回填的旧主体直接放行。未绑定结果第一版不缓存。
+
+> **实现状态（2026-11-17）**：只实现了前半段——Gateway 转发断言、Console 验签并查 PG、返回主体与 `grants`。后半段「写凭证/权限两层缓存」**未实现**，见 §「认证缓存」下的实现状态说明。当前表现：每次请求都走完「验签 + 查 PG」，没有缓存读写。
 
 ---
 
