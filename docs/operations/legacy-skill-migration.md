@@ -159,7 +159,7 @@ execute_skill(skill_key="policy-check-mssp", argv=["--phase", "2", "--latest"])
 
 ### 2.2 登录态：session-manager 替代 cookies.txt
 
-迁移到统一执行级入口，按稳定平台 key 获取：
+保持旧入口不变，只把本地会话读取替换为：
 
 ```python
 import json
@@ -167,7 +167,7 @@ import subprocess
 
 info = json.loads(
     subprocess.check_output(
-        ["session-manager", "get-state", "--platform", "mssp"],
+        ["session-manager", "get-state", "--skill-name", "login-mssp-platform"],
         text=True,
     )
 )

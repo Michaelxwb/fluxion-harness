@@ -170,36 +170,3 @@ async def resolve_egress_access(
         "platform": _platform_snapshot(platform),
         "credential": credential,
     }
-
-
-async def list_platforms(
-    session: AsyncSession,
-    tenant_id: str,
-    actor_user_id: str,
-) -> dict[str, Any]:
-    """Return safe platform metadata for an execution; never include credential material."""
-    actor = uuid.UUID(str(actor_user_id))
-    rows = list(
-        await session.scalars(
-            select(ProjectPlatform).where(
-                ProjectPlatform.tenant_id == tenant_id,
-                ProjectPlatform.is_deleted.is_(False),
-                ProjectPlatform.enabled.is_(True),
-            ).order_by(ProjectPlatform.key)
-        )
-    )
-    items: list[dict[str, Any]] = []
-    for platform in rows:
-        available = platform.credential_mode == "NONE"
-        if not available:
-            try:
-                available = await _resolve_credential(session, tenant_id, actor, platform) is not None
-            except AppError:
-                available = False
-        items.append({
-            "key": platform.key,
-            "name": platform.key,
-            "authentication": "none" if platform.credential_mode == "NONE" else "session",
-            "available": available,
-        })
-    return {"platforms": items}

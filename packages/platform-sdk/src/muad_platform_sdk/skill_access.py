@@ -7,7 +7,6 @@ import json
 import ssl
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from enum import StrEnum
 from typing import Any, cast
 
 import httpx
@@ -24,12 +23,6 @@ from .types import PlatformConfig, SecretValue
 _AUTHORIZATION_DENIALS = frozenset(
     {"PLATFORM_ACCESS_DENIED", "PLATFORM_ACCESS_UNAVAILABLE", "CREDENTIAL_MISSING"}
 )
-
-
-class PlatformScope(StrEnum):
-    AUTO = "AUTO"
-    SELECTED = "SELECTED"
-    NONE = "NONE"
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,11 +42,8 @@ class SkillPlatformContext:
     transport_factory: Callable[[ssl.SSLContext], httpx.AsyncBaseTransport] | None = field(
         default=None, repr=False,
     )
-    scope: PlatformScope = PlatformScope.AUTO
 
     def __post_init__(self) -> None:
-        if self.platform_keys and self.scope is PlatformScope.AUTO:
-            object.__setattr__(self, "scope", PlatformScope.SELECTED)
         if self.budget_scope is not None and self.transport_factory is not None:
             raise ValueError("shared transport and local budget cannot be combined")
 
@@ -89,9 +79,7 @@ class SkillPlatformAccess:
         self, key: str, method: str, path: str
     ) -> tuple[PlatformConfig, SessionRequest, RedisPlatformSessionManager]:
         ctx = self.context
-        if ctx.scope is PlatformScope.NONE or (
-            ctx.scope is PlatformScope.SELECTED and key not in ctx.platform_keys
-        ) or not ctx.service_token or self.redis is None:
+        if key not in ctx.platform_keys or not ctx.service_token or self.redis is None:
             raise PlatformAuthError("PLATFORM_ACCESS_UNAVAILABLE")
         data = await self._resolve_http(key, method)
         return self._resolved(key, data)
@@ -112,13 +100,8 @@ class SkillPlatformAccess:
         Skill 声明的 ``platforms`` 只是候选上界；凭据模式与平台权限由 Console 判定。
         全部被拒绝时按契约返回 ``PLATFORM_SESSION_REQUIRED``，部分拒绝只收敛该平台。
         """
-        if self.context.scope is PlatformScope.NONE:
-            return ()
-        keys = self.context.platform_keys
-        if self.context.scope is PlatformScope.AUTO and not keys:
-            keys = await self._discover_keys()
         allowed: list[str] = []
-        for key in keys:
+        for key in self.context.platform_keys:
             try:
                 await self.resolve_platform(key)
             except PlatformAuthError as exc:
@@ -128,39 +111,9 @@ class SkillPlatformAccess:
                     continue
                 raise
             allowed.append(key)
-        if not allowed and self.context.scope is PlatformScope.SELECTED:
+        if not allowed:
             raise PlatformAuthError("PLATFORM_SESSION_REQUIRED")
         return tuple(allowed)
-
-    async def _discover_keys(self) -> tuple[str, ...]:
-        return tuple(item["key"] for item in await self.list_platforms() if item.get("available"))
-
-    async def list_platforms(self) -> list[dict[str, Any]]:
-        ctx = self.context
-        if not ctx.service_token:
-            raise PlatformAuthError("PLATFORM_ACCESS_UNAVAILABLE")
-        payload = {
-            "execution_ref": {"type": ctx.execution_type, "id": ctx.execution_id},
-            "actor_user_id": ctx.actor_user_id,
-        }
-        headers = {"X-Tenant-Id": ctx.tenant_id, "X-Internal-Service": ctx.service_token}
-        try:
-            async with httpx.AsyncClient(timeout=10, trust_env=False) as client:
-                response = await client.post(
-                    ctx.console_url.rstrip("/") + "/internal/runtime/list-platforms",
-                    json=payload,
-                    headers=headers,
-                )
-            body = response.json()
-        except (httpx.HTTPError, ValueError):
-            raise PlatformAuthError("PLATFORM_RESOLVE_FAILED", retryable=True) from None
-        if response.status_code >= 400 or not isinstance(body, dict) or body.get("code") not in ("0", 0):
-            raise PlatformAuthError("PLATFORM_ACCESS_DENIED")
-        data = body.get("data")
-        platforms = data.get("platforms") if isinstance(data, dict) else None
-        if not isinstance(platforms, list):
-            raise PlatformAuthError("PLATFORM_RESOLVE_INVALID")
-        return [item for item in platforms if isinstance(item, dict) and item.get("key")]
 
     async def _resolve_http(self, key: str, method: str) -> dict[str, Any]:
         ctx = self.context
@@ -221,6 +174,8 @@ class SkillPlatformAccess:
         return platform, request, manager
 
     async def start(self) -> None:
-        # Resolve authorization only; actual login/session acquisition remains lazy.
-        # This keeps invalid selected scopes visible without authenticating every platform.
-        await self.allowed_keys()
+        # Skill execution, including scripts without a business call, resets idle TTL.
+        # 只续期 Console 放行的平台；未授权平台不触发登录，也不进入 state 文件。
+        for key in await self.allowed_keys():
+            _, request, manager = await self.resolve_platform(key)
+            await manager.acquire(request)

@@ -35,6 +35,8 @@ def build_draft_shell_runner(
     def platform_context(
         request: DraftShellRequest, platform_keys: tuple[str, ...]
     ) -> SkillPlatformContext | None:
+        if not platform_keys:
+            return None
         if not request.run_id:
             raise ValueError("draft shell platform access requires a run identity")
         return SkillPlatformContext(
