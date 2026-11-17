@@ -10,12 +10,37 @@ from typing import Any, cast
 import pytest
 from httpx import AsyncClient
 from muad_console_platform.application.external_assertion import config as assertion_config
+from muad_console_platform.infrastructure.db import get_session_factory
+from muad_console_platform.infrastructure.models.channel import EntryAccessGrant
+from muad_console_platform.infrastructure.models.control import ConfigAuditLog
+from sqlalchemy import select
 
 from console_platform.conftest import TenantContext
 
 
 def _headers(tenant: TenantContext) -> dict[str, str]:
     return {"X-Tenant-Id": tenant.tenant_id}
+
+
+async def _grant_primary_key(tenant: TenantContext, identity_id: str, entry_id: str) -> str:
+    """按「租户 + 身份 + 入口」回库取授权的真实主键。
+
+    列表接口只回 `entry_id`，不回 `grant_id`（API-24 的事实）；解绑路由按主键匹配，
+    拿 `entry_id` 冒充会让解绑静默 404，测试却因为只断言「204 或 404」而变绿。
+    查询带租户条件，避免跨租户同名业务键把测试引到别人的行上。
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        row = await session.scalar(
+            select(EntryAccessGrant.id).where(
+                EntryAccessGrant.tenant_id == tenant.tenant_id,
+                EntryAccessGrant.external_identity_id == uuid.UUID(identity_id),
+                EntryAccessGrant.bot_account_id == uuid.UUID(entry_id),
+                EntryAccessGrant.is_deleted.is_(False),
+            )
+        )
+    assert row is not None, "授权行不存在，前置步骤失败"
+    return str(row)
 
 
 def _expert_id() -> str:
@@ -40,9 +65,7 @@ def _mssw_platform(monkeypatch: pytest.MonkeyPatch) -> None:
         identity_field_labels={"expert_id": "专家 ID", "tenant_id": "租户 ID"},
         display_name="MSSW",
     )
-    monkeypatch.setattr(
-        assertion_config, "get_platform_configs", lambda: {"mssw": config}, raising=True
-    )
+    monkeypatch.setattr(assertion_config, "get_platform_configs", lambda: {"mssw": config}, raising=True)
     monkeypatch.setattr(
         "muad_console_platform.application.external_identity_service.get_platform_configs",
         lambda: {"mssw": config},
@@ -95,9 +118,7 @@ async def _create_entry(client: AsyncClient, tenant: TenantContext) -> str:
     return cast(str, entry.json()["data"]["channel_account_id"])
 
 
-async def test_upsert_identity_and_list(
-    client: AsyncClient, tenant: TenantContext
-) -> None:
+async def test_upsert_identity_and_list(client: AsyncClient, tenant: TenantContext) -> None:
     """登记身份后可查回；身份字段原样保存。"""
     user_id = await _create_user(client, tenant)
     expert_id = _expert_id()
@@ -110,9 +131,7 @@ async def test_upsert_identity_and_list(
     assert created.status_code == 200, created.text
     assert created.json()["data"]["identity"] == {"expert_id": expert_id, "tenant_id": "t1"}
 
-    listed = await client.get(
-        f"/api/v1/users/{user_id}/external-identities", headers=_headers(tenant)
-    )
+    listed = await client.get(f"/api/v1/users/{user_id}/external-identities", headers=_headers(tenant))
     assert listed.status_code == 200
     items = listed.json()["data"]
     assert len(items) == 1
@@ -120,9 +139,7 @@ async def test_upsert_identity_and_list(
     assert items[0]["grants"] == []
 
 
-async def test_identity_keys_must_match_exactly(
-    client: AsyncClient, tenant: TenantContext
-) -> None:
+async def test_identity_keys_must_match_exactly(client: AsyncClient, tenant: TenantContext) -> None:
     """字段少一个或多一个都要拒绝：完全一致才允许。"""
     user_id = await _create_user(client, tenant)
 
@@ -146,9 +163,7 @@ async def test_identity_keys_must_match_exactly(
     assert extra.json()["code"] == "IDENTITY_KEYS_MISMATCH"
 
 
-async def test_same_identity_cannot_bind_two_users(
-    client: AsyncClient, tenant: TenantContext
-) -> None:
+async def test_same_identity_cannot_bind_two_users(client: AsyncClient, tenant: TenantContext) -> None:
     """同一 `expert_id`+`tenant_id` 只能属于一个用户。"""
     first_user = await _create_user(client, tenant)
     second_user = await _create_user(client, tenant)
@@ -170,9 +185,7 @@ async def test_same_identity_cannot_bind_two_users(
     assert second.json()["code"] == "IDENTITY_ALREADY_BOUND"
 
 
-async def test_grant_and_revoke_entry(
-    client: AsyncClient, tenant: TenantContext
-) -> None:
+async def test_grant_and_revoke_entry(client: AsyncClient, tenant: TenantContext) -> None:
     """授权后可查回；解绑只删授权，身份保留。"""
     user_id = await _create_user(client, tenant)
     entry_id = await _create_entry(client, tenant)
@@ -193,7 +206,6 @@ async def test_grant_and_revoke_entry(
     grants = granted.json()["data"]["grants"]
     assert len(grants) == 1
     assert grants[0]["entry_id"] == entry_id
-    grant_id = grants[0]["entry_id"]
 
     # 幂等：重复授权不产生第二条
     again = await client.post(
@@ -203,26 +215,22 @@ async def test_grant_and_revoke_entry(
     )
     assert len(again.json()["data"]["grants"]) == 1
 
-    listed = await client.get(
-        f"/api/v1/users/{user_id}/external-identities", headers=_headers(tenant)
-    )
-    current_grant = listed.json()["data"][0]["grants"][0]
+    listed = await client.get(f"/api/v1/users/{user_id}/external-identities", headers=_headers(tenant))
+    assert listed.json()["data"][0]["grants"][0]["entry_id"] == entry_id
+    revoke_id = await _grant_primary_key(tenant, identity_id, entry_id)
     revoked = await client.delete(
-        f"/api/v1/users/{user_id}/external-identities/{identity_id}/grants/"
-        f"{current_grant.get('grant_id', current_grant['entry_id'])}",
+        f"/api/v1/users/{user_id}/external-identities/{identity_id}/grants/{revoke_id}",
         headers=_headers(tenant),
     )
-    # 若路由按 grant 主键解绑，这里应成功；身份仍在
-    assert revoked.status_code in (204, 404)
-    still_there = await client.get(
-        f"/api/v1/users/{user_id}/external-identities", headers=_headers(tenant)
-    )
-    assert len(still_there.json()["data"]) == 1
+    # 主键正确时必须真的删掉：断言 204 而不是「204 或 404」，后者会掩盖解绑失败。
+    assert revoked.status_code == 204, revoked.text
+    after_revoke = await client.get(f"/api/v1/users/{user_id}/external-identities", headers=_headers(tenant))
+    # 授权没了，身份还在——解绑的是入口，不是身份。
+    assert after_revoke.json()["data"][0]["grants"] == []
+    assert len(after_revoke.json()["data"]) == 1
 
 
-async def test_update_identity_keeps_single_record(
-    client: AsyncClient, tenant: TenantContext
-) -> None:
+async def test_update_identity_keeps_single_record(client: AsyncClient, tenant: TenantContext) -> None:
     """改身份值只更新同一条记录，历史归属不受影响。"""
     user_id = await _create_user(client, tenant)
     created = await client.put(
@@ -242,21 +250,17 @@ async def test_update_identity_keeps_single_record(
     assert updated.json()["data"]["identity_id"] == identity_id
     assert updated.json()["data"]["identity"]["expert_id"] == new_expert
 
-    listed = await client.get(
-        f"/api/v1/users/{user_id}/external-identities", headers=_headers(tenant)
-    )
+    listed = await client.get(f"/api/v1/users/{user_id}/external-identities", headers=_headers(tenant))
     assert len(listed.json()["data"]) == 1
 
 
-async def test_list_entries_marks_granted(
-    client: AsyncClient, tenant: TenantContext
-) -> None:
+async def test_list_entries_marks_granted(client: AsyncClient, tenant: TenantContext) -> None:
     """入口候选按服务端分页返回，并标出该用户是否已授权。"""
     user_id = await _create_user(client, tenant)
     entry_id = await _create_entry(client, tenant)
 
     before = await client.get(
-        f"/api/v1/external-platforms/mssw/entries",
+        "/api/v1/external-platforms/mssw/entries",
         params={"user_id": user_id, "page": 1, "page_size": 20},
         headers=_headers(tenant),
     )
@@ -286,9 +290,7 @@ async def test_list_entries_marks_granted(
     assert match and match[0]["granted"] is True
 
 
-async def test_identity_is_scoped_to_user(
-    client: AsyncClient, tenant: TenantContext
-) -> None:
+async def test_identity_is_scoped_to_user(client: AsyncClient, tenant: TenantContext) -> None:
     """身份按 user 定位：拿别人的 user_id 访问同样 404，不泄露存在性。"""
     owner = await _create_user(client, tenant)
     other = await _create_user(client, tenant)
@@ -306,7 +308,65 @@ async def test_identity_is_scoped_to_user(
     )
     assert response.status_code == 404
 
-    listed = await client.get(
-        f"/api/v1/users/{other}/external-identities", headers=_headers(tenant)
-    )
+    listed = await client.get(f"/api/v1/users/{other}/external-identities", headers=_headers(tenant))
     assert listed.json()["data"] == []
+
+
+async def test_identity_and_grant_changes_are_audited(client: AsyncClient, tenant: TenantContext) -> None:
+    """身份登记、授权、撤销都必须留下审计记录（设计 §审计，S-08 可追溯）。
+
+    直接查 `control.config_audit_log`：审计与业务同事务，所以业务成功即意味着审计已落库。
+    （不经过上层审计查询接口——那条链路另有与本次无关的 schema 问题，会让本测试失败在
+    不相干的地方。）
+    """
+    user_id = await _create_user(client, tenant)
+    entry_id = await _create_entry(client, tenant)
+    expert_id = _expert_id()
+
+    created = await client.put(
+        f"/api/v1/users/{user_id}/external-identities",
+        json={"platform_key": "mssw", "identity": {"expert_id": expert_id, "tenant_id": "t1"}},
+        headers=_headers(tenant),
+    )
+    assert created.status_code == 200, created.text
+    identity_id = created.json()["data"]["identity_id"]
+
+    async def _actions() -> list[str]:
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            rows = await session.scalars(
+                select(ConfigAuditLog.action).where(
+                    ConfigAuditLog.tenant_id == tenant.tenant_id,
+                    ConfigAuditLog.resource_type == "PLATFORM_USER",
+                    ConfigAuditLog.resource_id == uuid.UUID(user_id),
+                )
+            )
+            return list(rows)
+
+    assert "CREATE" in await _actions(), "登记身份必须留审计"
+
+    # 幂等命中：状态没变，不该新增一条 CREATE
+    before = (await _actions()).count("CREATE")
+    again = await client.put(
+        f"/api/v1/users/{user_id}/external-identities",
+        json={"platform_key": "mssw", "identity": {"expert_id": expert_id, "tenant_id": "t1"}},
+        headers=_headers(tenant),
+    )
+    assert again.status_code == 200, again.text
+    assert (await _actions()).count("CREATE") == before, "幂等命中不应产生新审计"
+
+    granted = await client.post(
+        f"/api/v1/users/{user_id}/external-identities/{identity_id}/grants",
+        json={"channel_account_id": entry_id},
+        headers=_headers(tenant),
+    )
+    assert granted.status_code in (200, 201), granted.text
+    assert "GRANT_ENTRY" in await _actions(), "授权必须留审计"
+
+    revoke_id = await _grant_primary_key(tenant, identity_id, entry_id)
+    revoked = await client.delete(
+        f"/api/v1/users/{user_id}/external-identities/{identity_id}/grants/{revoke_id}",
+        headers=_headers(tenant),
+    )
+    assert revoked.status_code == 204, revoked.text
+    assert "REVOKE_ENTRY" in await _actions(), "撤销必须留审计"

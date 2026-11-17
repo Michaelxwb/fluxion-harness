@@ -853,7 +853,7 @@ flowchart TD
 - 一个平台一套 `identity_keys`；绑定/编辑必须同 key 集合；MSSP 未来加平台元数据，不改代码。
 - `email`/`email_login`/`phone_login` 不解密、不落库。
 - `soc-token` 长度设置上限（如 4KB，具体值由配置定义，并与 nginx header buffer 对齐）；超限直接 401，不解析。
-- 最大会话年龄：取全局 `EXTERNAL_ASSERTION_MAX_SESSION_AGE_SEC`；优先 `login_time`（秒）/`time`（毫秒），缺失时拒绝（无法界定有效期），不默认无限。
+- 最大会话年龄：取全局 `EXTERNAL_ASSERTION_MAX_SESSION_AGE_SEC`；签发时刻取 `login_time`（**string，Unix 毫秒**）或 `time`（**int64，同值毫秒**），**缺失时拒绝**（无法界定有效期，否则 `exp=-1` 的 token 可无限续订）。**不吃 `iat`**——上游从不发该字段，读了也取不到值，等于让上限校验空转。
 - `expires_at` = min(now + max_age, login_time + max_age, 正数 exp)；用于 SSE 复核停止点，不滑动。
 - `session_id` = `uuid5(固定命名空间, tenant|platform_key|platform_user_id|sha256(soc_token))`；只用于日志/流身份，不落库。
 - MSSWWEB **不要求** `X-Chat-Context`（无 Cookie 会话可切）；`soc-token` 是唯一凭据。WebChat 保持现有 Cookie + `X-Chat-Context` 口径。

@@ -578,8 +578,9 @@ class WebchatClientTransport(WebchatContract):
 class ExternalPrincipalRequest(WebchatContract):
     """Gateway → Console 内部身份门（对应 `POST /internal/channel/external-principal`）。
 
-    网关转发它从 Cookie 拿到的原始外部断言（如 MSSW 的 `soc-token`）；`platform_key`
-    与服务端配置的因子共同决定验签方式。主体自报的 tenant/user 不在形状内。
+    网关转发它从 `soc-token` **请求头**拿到的原始外部断言（RULE-01：外部断言面只认该头，
+    不读 Cookie 与 `Authorization`）；`platform_key` 与服务端配置的因子共同决定验签方式。
+    主体自报的 tenant/user 不在形状内。
     """
 
     platform_key: ChatText

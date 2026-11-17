@@ -572,11 +572,14 @@ codes:
       zh-CN: 身份字段与平台配置不一致，请按 {expected} 填写
       en-US: The identity fields do not match the platform configuration; fill in {expected}
 
+  # 同一错误码服务两条链路：main 分支的 IM 绑定码（channel_service）与本需求的外部身份登记
+  # （external_identity_service）都会抛它。重复定义会让 YAML 后一条静默覆盖前一条，使其中一方
+  # 看到错误的提示文案，因此只保留这一处，文案取对两条链路都成立的表述。
   IDENTITY_ALREADY_BOUND:
     http_status: 409
     messages:
-      zh-CN: 该外部身份已绑定到其他用户
-      en-US: This external identity is already bound to another user
+      zh-CN: 该身份已绑定到其他用户，请先解绑后再试
+      en-US: This identity is already bound to another user; unbind it first and retry
 
   MCP_CONFIG_INVALID:
     http_status: 400
@@ -596,11 +599,6 @@ codes:
       zh-CN: 绑定码已过期
       en-US: The bind code has expired
 
-  IDENTITY_ALREADY_BOUND:
-    http_status: 409
-    messages:
-      zh-CN: 该 IM 身份已绑定到其他用户，请先解绑后再使用绑定码
-      en-US: This IM identity is already bound to another user. Unbind it before using the code.
 
   BOT_NOT_FOUND:
     http_status: 404

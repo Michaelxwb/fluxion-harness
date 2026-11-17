@@ -67,7 +67,9 @@ def _check_algorithm(header: dict[str, object]) -> None:
         raise AssertionRejected("algorithm_not_allowed")
 
 
-def _verify_signature(header_b64: str, payload_b64: str, signature_b64: str, config: ExternalPlatformConfig) -> None:
+def _verify_signature(
+    header_b64: str, payload_b64: str, signature_b64: str, config: ExternalPlatformConfig
+) -> None:
     signature = _b64url_decode(signature_b64)
     signing_input = f"{header_b64}.{payload_b64}".encode("ascii")
     try:
@@ -94,17 +96,41 @@ def _check_factors(claims: dict[str, object], config: ExternalPlatformConfig) ->
         raise AssertionRejected("issuer_mismatch")
 
 
-def _check_max_age(claims: dict[str, object], max_session_age_sec: int | None) -> None:
-    """``exp`` 恒为 -1，不可信；用签发自报时间做上限兜底（第 ③ 步）。
+def _issued_at_seconds(claims: dict[str, object]) -> float | None:
+    """取上游签发自报时刻，统一换成**秒**。
 
-    上游不保证一定有 ``iat``；没有就跳过——这道闸是「防超期复用」，不是必需身份字段。
+    上游发的是 ``login_time``（字符串形式的 Unix **毫秒**）与 ``time``（int64 毫秒），
+    二者同值；``iat`` 是上游**不发的**字段（见 ``docs/mssw-channel/01-jwt-spec.md``），
+    这里刻意不读它——读了也永远取不到值，等于把上限校验变成空转。
+    """
+    for key in ("login_time", "time"):
+        raw = claims.get(key)
+        if isinstance(raw, bool):  # bool 是 int 的子类，必须先排除
+            continue
+        if isinstance(raw, str):
+            try:
+                raw = int(raw)
+            except ValueError:
+                continue
+        if isinstance(raw, (int, float)) and raw > 0:
+            return float(raw) / 1000.0
+    return None
+
+
+def _check_max_age(claims: dict[str, object], max_session_age_sec: int | None) -> None:
+    """``exp`` 恒为 -1，不可信；用签发自报时间做绝对上限（第 ③ 步）。
+
+    这道闸的作用是限制「``exp=-1`` 的 token 无限续订 SSE」——**签发时间不可知时无界，
+    所以必须拒绝**，而不是跳过。跳过等于让无时间线索的 token 永久有效。
+    未来时间同样拒绝：签名方时钟超前会让上限失效，宁可误杀也不放行。
     """
     if not max_session_age_sec or max_session_age_sec <= 0:
         return
-    issued_at = claims.get("iat")
-    if not isinstance(issued_at, (int, float)):
-        return
-    if time.time() - float(issued_at) > max_session_age_sec:
+    issued_at = _issued_at_seconds(claims)
+    if issued_at is None:
+        raise AssertionRejected("missing_issue_time")
+    age = time.time() - issued_at
+    if age < 0 or age > max_session_age_sec:
         raise AssertionRejected("assertion_expired")
 
 

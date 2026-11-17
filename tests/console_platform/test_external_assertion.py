@@ -8,11 +8,11 @@ from __future__ import annotations
 
 import base64
 import json
+import time
 
 import pytest
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
-
 from muad_console_platform.application.external_assertion.aes_ecb import (
     derive_key,
     encrypt_expected,
@@ -78,6 +78,12 @@ def _sign(private, claims: dict, *, alg: str = "RS256") -> str:
 
 
 def _claims(**overrides) -> dict:
+    """上游真实形态的 claims。
+
+    签发时刻用 `login_time`（字符串毫秒）+ `time`（int64 毫秒），**不是 `iat`**——
+    上游从不发 `iat`，用 `iat` 造样本会让绝对上限校验取不到值，测试因而看不见该校验失效。
+    """
+    issued_ms = int(time.time() * 1000)
     base = {
         "_id": "6a4ca2554a2a45d4b1ad5996",
         "expert_id": "6a4ca2554a2a45d4b1ad5996",
@@ -86,6 +92,8 @@ def _claims(**overrides) -> dict:
         "aud": _b64(encrypt_expected(AUDIENCE, SALT)),
         "iss": [_b64(encrypt_expected(ISSUER, SALT))],
         "exp": -1,
+        "login_time": str(issued_ms),
+        "time": issued_ms,
     }
     base.update(overrides)
     return base
@@ -176,9 +184,9 @@ def test_malformed_token_is_rejected(config) -> None:
     assert exc.value.reason == "malformed_token"
 
 
-def test_stale_issued_at_is_rejected_when_max_age_enforced(keypair, config) -> None:
+def test_stale_login_time_is_rejected_when_max_age_enforced(keypair, config) -> None:
     private, _ = keypair
-    token = _sign(private, _claims(iat=1))
+    token = _sign(private, _claims(login_time="1000", time=1000))
     with pytest.raises(AssertionRejected) as exc:
         verify_assertion(token, config, max_session_age_sec=60)
     assert exc.value.reason == "assertion_expired"
@@ -186,8 +194,42 @@ def test_stale_issued_at_is_rejected_when_max_age_enforced(keypair, config) -> N
 
 def test_max_age_is_skipped_when_not_configured(keypair, config) -> None:
     private, _ = keypair
-    token = _sign(private, _claims(iat=1))
+    token = _sign(private, _claims(login_time="1000", time=1000))
     assert verify_assertion(token, config, max_session_age_sec=0).claims["exp"] == -1
+
+
+def test_missing_issue_time_is_rejected_when_max_age_enforced(keypair, config) -> None:
+    """签发时间不可知就没有绝对上限，`exp=-1` 的 token 会无限续订——必须拒绝而非跳过。"""
+    private, _ = keypair
+    claims = _claims()
+    claims.pop("login_time")
+    claims.pop("time")
+    token = _sign(private, claims)
+    with pytest.raises(AssertionRejected) as exc:
+        verify_assertion(token, config, max_session_age_sec=60)
+    assert exc.value.reason == "missing_issue_time"
+
+
+def test_future_issue_time_is_rejected(keypair, config) -> None:
+    """签名方时钟超前会让上限失效，宁可误杀也不放行。"""
+    private, _ = keypair
+    future_ms = int((time.time() + 3600) * 1000)
+    token = _sign(private, _claims(login_time=str(future_ms), time=future_ms))
+    with pytest.raises(AssertionRejected) as exc:
+        verify_assertion(token, config, max_session_age_sec=60)
+    assert exc.value.reason == "assertion_expired"
+
+
+def test_iat_alone_is_not_accepted_as_issue_time(keypair, config) -> None:
+    """上游从不发 `iat`：只带 `iat` 的样本必须被判为「缺签发时间」，防止字段名回退。"""
+    private, _ = keypair
+    claims = _claims(iat=int(time.time()))
+    claims.pop("login_time")
+    claims.pop("time")
+    token = _sign(private, claims)
+    with pytest.raises(AssertionRejected) as exc:
+        verify_assertion(token, config, max_session_age_sec=60)
+    assert exc.value.reason == "missing_issue_time"
 
 
 # --- 身份提取与指纹 -------------------------------------------------------
@@ -304,3 +346,52 @@ async def test_resolve_raises_platform_unavailable_before_touching_storage(
     with pytest.raises(svc_mod.PlatformUnavailable):
         await service.resolve("t1", "mssw", "any.assertion.token")
     assert touched == [], "配置检查必须先于任何存储访问"
+
+
+def test_session_expiry_takes_the_soonest_of_three_bounds() -> None:
+    """`expires_at = min(now + max_age, login_time + max_age, 正数 exp)`。
+
+    三路取最小是设计口径：`now + max_age` 兜底、`login_time + max_age` 是绝对上限、
+    正数 `exp` 若可信则尊重。这里让三者互不相同，断言取的确实是最早的那个。
+    """
+    from datetime import UTC, datetime, timedelta
+
+    from muad_console_platform.application.external_assertion_service import _session_expires_at
+
+    now = datetime.now(tz=UTC)
+    issued = now - timedelta(seconds=30)
+
+    # exp 最早 → 应取 exp
+    expires = _session_expires_at(
+        {
+            "login_time": str(int(issued.timestamp() * 1000)),
+            "exp": int((now + timedelta(seconds=5)).timestamp()),
+        },
+        max_session_age_sec=600,
+    )
+    assert expires < now + timedelta(seconds=10)
+    assert expires > now
+
+    # 无正数 exp、login_time 较旧 → 应取 login_time + max_age（毫秒截断，允许亚秒误差）
+    expires = _session_expires_at(
+        {"login_time": str(int(issued.timestamp() * 1000)), "exp": -1}, max_session_age_sec=60
+    )
+    assert abs((expires - (issued + timedelta(seconds=60))).total_seconds()) < 1
+
+    # 缺 login_time 且 exp 非正 → 只剩 now + max_age 兜底
+    before = datetime.now(tz=UTC)
+    expires = _session_expires_at({"exp": -1}, max_session_age_sec=60)
+    assert expires >= before + timedelta(seconds=59)
+
+
+def test_session_expiry_ignores_non_positive_exp() -> None:
+    """`exp=-1` 不可信，必须被忽略而不是当成「已过期」或「永不过期」。"""
+    from datetime import UTC, datetime, timedelta
+
+    from muad_console_platform.application.external_assertion_service import _session_expires_at
+
+    now = datetime.now(tz=UTC)
+    issued_ms = int((now - timedelta(seconds=10)).timestamp() * 1000)
+    expires = _session_expires_at({"login_time": str(issued_ms), "exp": -1}, max_session_age_sec=600)
+    # 落在 login_time + 600s 附近，且显然在「现在」之后（-1 没把会话判死）
+    assert expires > now + timedelta(seconds=500)

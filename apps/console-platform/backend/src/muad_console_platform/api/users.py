@@ -9,8 +9,8 @@ from muad_contracts.webchat import WebchatTokenMutation
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.audit_service import AuditActor
-from ..application.channel_service import ChannelService
 from ..application.auth_cache_invalidator import InvalidationPlan, auth_cache_directory
+from ..application.channel_service import ChannelService
 from ..application.chat_session_directory import ChatSessionDirectory
 from ..application.chat_token_service import ChatTokenService
 from ..application.dto import (
@@ -494,7 +494,7 @@ async def list_external_identities(
 async def upsert_external_identity(
     user_id: uuid.UUID,
     payload: ExternalIdentityUpsertRequest,
-    _admin: AdminAccount,
+    admin: AdminAccount,
     tenant_id: TenantId,
     session: Session,
     request: Request,
@@ -506,6 +506,7 @@ async def upsert_external_identity(
         user_id=user_id,
         platform_key=payload.platform_key,
         identity=payload.identity,
+        actor=_actor(admin, request),
     )
     await auth_cache_directory(session, request.app.state).invalidate(
         tenant_id,
@@ -523,7 +524,7 @@ async def update_external_identity(
     user_id: uuid.UUID,
     identity_id: uuid.UUID,
     payload: ExternalIdentityUpdateRequest,
-    _admin: AdminAccount,
+    admin: AdminAccount,
     tenant_id: TenantId,
     session: Session,
     request: Request,
@@ -535,6 +536,7 @@ async def update_external_identity(
         user_id=user_id,
         identity_id=identity_id,
         identity=payload.identity,
+        actor=_actor(admin, request),
     )
     await auth_cache_directory(session, request.app.state).invalidate(
         tenant_id,
@@ -550,7 +552,7 @@ async def update_external_identity(
 async def delete_external_identity(
     user_id: uuid.UUID,
     identity_id: uuid.UUID,
-    _admin: AdminAccount,
+    admin: AdminAccount,
     tenant_id: TenantId,
     session: Session,
     request: Request,
@@ -558,7 +560,10 @@ async def delete_external_identity(
     """解绑身份（同时软删其授入口权）。"""
     service = ExternalIdentityService(session)
     await service.delete_identity(
-        tenant_id=tenant_id, user_id=user_id, identity_id=identity_id
+        tenant_id=tenant_id,
+        user_id=user_id,
+        identity_id=identity_id,
+        actor=_actor(admin, request),
     )
     await auth_cache_directory(session, request.app.state).invalidate(
         tenant_id,
@@ -577,7 +582,7 @@ async def grant_external_entry(
     user_id: uuid.UUID,
     identity_id: uuid.UUID,
     payload: ExternalGrantCreateRequest,
-    _admin: AdminAccount,
+    admin: AdminAccount,
     tenant_id: TenantId,
     session: Session,
     request: Request,
@@ -589,6 +594,7 @@ async def grant_external_entry(
         user_id=user_id,
         identity_id=identity_id,
         channel_account_id=payload.channel_account_id,
+        actor=_actor(admin, request),
     )
     await auth_cache_directory(session, request.app.state).invalidate(
         tenant_id,
@@ -606,7 +612,7 @@ async def revoke_external_entry(
     user_id: uuid.UUID,
     identity_id: uuid.UUID,
     grant_id: uuid.UUID,
-    _admin: AdminAccount,
+    admin: AdminAccount,
     tenant_id: TenantId,
     session: Session,
     request: Request,
@@ -618,6 +624,7 @@ async def revoke_external_entry(
         user_id=user_id,
         identity_id=identity_id,
         grant_id=grant_id,
+        actor=_actor(admin, request),
     )
     await auth_cache_directory(session, request.app.state).invalidate(
         tenant_id,

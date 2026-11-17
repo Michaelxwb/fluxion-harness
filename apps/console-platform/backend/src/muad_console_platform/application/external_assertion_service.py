@@ -23,13 +23,20 @@ from .external_assertion.config import (
     load_platform_configs,
 )
 from .external_assertion.principal import GrantView, resolve_principal
-from .external_assertion.verifier import AssertionRejected, verify_assertion
+from .external_assertion.verifier import (
+    AssertionRejected,
+    _issued_at_seconds,
+    verify_assertion,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
 #: 断言被拒原因 → 对网关的错误码。细分是为了让网关能区分处置（重试 / 引导绑定 / 提示无权限）。
 _REJECTION_TO_CODE = {
     "assertion_expired": "EXTERNAL_ASSERTION_EXPIRED",
+    # 签发时间不可知就无法施加绝对上限，等价于「无法判定有效期」——直接拒绝，
+    # 与 assertion_expired 归为同一对外码，不向调用方泄露内部判定细节。
+    "missing_issue_time": "EXTERNAL_ASSERTION_EXPIRED",
 }
 _DEFAULT_REJECTION_CODE = "EXTERNAL_ASSERTION_INVALID"
 
@@ -191,9 +198,23 @@ _DEFAULT_SESSION_TTL_SEC = 300
 
 
 def _session_expires_at(claims: dict[str, object], max_session_age_sec: int | None) -> datetime:
-    """断言会话的权威到期时刻：`iat + 最大会话年龄`，无 `iat`/配置时按兜底 TTL。"""
+    """断言会话的权威到期时刻：`min(now + max_age, login_time + max_age, 正数 exp)`。
+
+    三路取最小值，任一缺失就只是少一路约束，这是设计明文规定的口径：
+    - `now + max_age`：兜底，保证即使签发时间被伪造成很早，会话也不会无限长；
+    - `login_time + max_age`：真正的绝对上限，阻止 `exp=-1` 的 token 无限续订；
+    - 正数 `exp`：上游若给了可信到期时间就尊重它（-1 等非正数一律忽略）。
+
+    `login_time` 的取值与单位换算由 `_issued_at_seconds` 统一处理；那边在配置了最大会话
+    年龄时会拒绝缺失，所以走到这里 `login_time` 可能有值也可能为 None，按缺一路处理。
+    """
     ttl = max_session_age_sec if max_session_age_sec and max_session_age_sec > 0 else _DEFAULT_SESSION_TTL_SEC
-    issued_at = claims.get("iat")
-    if isinstance(issued_at, (int, float)):
-        return datetime.fromtimestamp(float(issued_at), tz=UTC) + timedelta(seconds=ttl)
-    return datetime.now(tz=UTC) + timedelta(seconds=ttl)
+    now = datetime.now(tz=UTC)
+    candidates = [now + timedelta(seconds=ttl)]
+    issued_at = _issued_at_seconds(claims)
+    if issued_at is not None:
+        candidates.append(datetime.fromtimestamp(issued_at, tz=UTC) + timedelta(seconds=ttl))
+    raw_exp = claims.get("exp")
+    if isinstance(raw_exp, (int, float)) and not isinstance(raw_exp, bool) and raw_exp > 0:
+        candidates.append(datetime.fromtimestamp(float(raw_exp), tz=UTC))
+    return min(candidates)

@@ -113,15 +113,20 @@ def default_claims(
     `aud` / `iss` 是「期望明文的加密结果」再 base64：Console 用同一算法加密后逐字节比对，
     不需要解密（见 `aes_ecb` 模块说明）。
     """
+    # 上游发的签发时刻是 `login_time`（字符串毫秒）与 `time`（int64 毫秒），**不是 `iat`**。
+    # 这里照上游真实形态签发：用 `iat` 造 token 会让 Console 侧的绝对上限校验永远取不到值，
+    # 测试因而无法发现该校验失效。
+    issued_ms = int(time.time() * 1000)
     claims: dict[str, Any] = {
         "_id": expert_id,
         "expert_id": expert_id,
         "tenant_id": tenant_id,
         "aud": b64(encrypt_expected(platform.audience, platform.salt)),
         "iss": [b64(encrypt_expected(platform.issuer, platform.salt))],
-        # 上游固定 exp=-1（不可信）；是否超期由 `iat` + 最大会话年龄判定。
+        # 上游固定 exp=-1（不可信）；是否超期由 `login_time`/`time` + 最大会话年龄判定。
         "exp": -1,
-        "iat": int(time.time()),
+        "login_time": str(issued_ms),
+        "time": issued_ms,
     }
     if extra:
         claims.update(extra)
@@ -200,17 +205,36 @@ def issue_expired(
     max_session_age_sec: int,
     age_sec: int | None = None,
 ) -> str:
-    """超过最大会话年龄的 token：`exp` 恒为 -1，超期由 `iat` 判定（B-02）。"""
+    """超过最大会话年龄的 token：`exp` 恒为 -1，超期由签发时刻判定（B-02）。"""
     too_old = age_sec if age_sec is not None else max_session_age_sec + 60
+    issued_ms = int((time.time() - too_old) * 1000)
     return sign(
         platform,
         default_claims(
             platform,
             expert_id=expert_id,
             tenant_id=tenant_id,
-            iat=int(time.time()) - too_old,
+            login_time=str(issued_ms),
+            time=issued_ms,
         ),
     )
+
+
+def issue_without_issue_time(
+    platform: MsswPlatform,
+    *,
+    expert_id: str,
+    tenant_id: str,
+) -> str:
+    """删掉 `login_time` 与 `time` 的合法签名 token。
+
+    上游规范要求这类 token 被**拒绝**（签发时间不可知即无界）。签名仍然合法，
+    所以它验证的是「缺时间线索」这条分支，而不是签名失败。
+    """
+    claims = default_claims(platform, expert_id=expert_id, tenant_id=tenant_id)
+    claims.pop("login_time", None)
+    claims.pop("time", None)
+    return sign(platform, claims)
 
 
 def issue_mismatched_factors(platform: MsswPlatform, *, expert_id: str, tenant_id: str) -> str:
