@@ -33,6 +33,7 @@ COPY apps/agent-runtime /app/apps/agent-runtime
 RUN python -m pip install --no-cache-dir --no-deps --no-build-isolation \
       /app/packages/* \
       /app/apps/agent-runtime \
+ && python -m muad_egress_site --install \
  && chown -R 10001:10001 /app
 
 USER 10001:10001
