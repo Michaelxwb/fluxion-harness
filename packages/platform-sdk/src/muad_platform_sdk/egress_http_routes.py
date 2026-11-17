@@ -39,6 +39,8 @@ class EgressHTTPRoute(SharedPolicyModel):
             return False
         if self.authority is not None and request.authority != self.authority:
             return False
+        if self.authority is None and not _authority_matches(request):
+            return False
         template, actual = self.path_template.split("/"), request.path.split("/")
         return len(template) == len(actual) and all(
             left == right or (left.startswith("{") and bool(right))

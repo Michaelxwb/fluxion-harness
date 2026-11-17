@@ -53,16 +53,6 @@ class SharedHTTPMatch(SharedPolicyModel):
         return self
 
 
-class SharedHTTPAuthority(SharedPolicyModel):
-    origin: str
-    authority: str
-
-    @model_validator(mode="after")
-    def validate_target(self) -> Self:
-        SharedHTTPMatch(origin=self.origin, method="GET", path_template="/", authority=self.authority)
-        return self
-
-
 class SharedRule(SharedPolicyModel):
     id: str = Field(min_length=1, pattern=r"^\S+$")
     target_instance_id: str = Field(min_length=1, pattern=r"^\S+$")
@@ -137,7 +127,6 @@ class FrozenIdentityBudgets(SharedPolicyModel):
 class SharedEgressPolicy(SharedPolicyModel):
     revision: int = Field(default=0, ge=0, strict=True)
     rules: tuple[SharedRule, ...] = ()
-    authorities: tuple[SharedHTTPAuthority, ...] = ()
 
     @model_validator(mode="after")
     def unique_rules(self) -> Self:

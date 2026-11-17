@@ -12,7 +12,7 @@ from muad_contracts.platform_settings import (
     PlatformSettingsError,
     egress_rules_from_settings,
 )
-from muad_contracts.shared_egress import SharedEgressPolicy, SharedHTTPAuthority, SharedHTTPMatch, SharedRule
+from muad_contracts.shared_egress import SharedEgressPolicy, SharedHTTPMatch, SharedRule
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -101,12 +101,4 @@ async def current_egress_policy(session: AsyncSession, tenant_id: str) -> Shared
     latest = max(timestamps, default=datetime(1970, 1, 1, tzinfo=UTC))
     elapsed = latest - datetime(1970, 1, 1, tzinfo=UTC)
     revision = (elapsed.days * 86400 + elapsed.seconds) * 1_000_000 + elapsed.microseconds
-    authorities = tuple(
-        SharedHTTPAuthority(
-            origin=rule.http_match.origin,
-            authority=rule.http_match.authority,
-        )
-        for rule in rules
-        if rule.http_match is not None and rule.http_match.authority is not None
-    )
-    return SharedEgressPolicy(revision=revision, rules=rules, authorities=authorities)
+    return SharedEgressPolicy(revision=revision, rules=rules)

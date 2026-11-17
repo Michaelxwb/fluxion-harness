@@ -11,11 +11,10 @@ def route(path="/assets/{id}"):
     return {"origin": "https://platform.test", "method": "GET", "path_template": path}
 
 
-def policy(routes, authorities=()):
+def policy(routes):
     return SharedEgressPolicy.model_validate(
         {
             "revision": 1,
-            "authorities": list(authorities),
             "rules": [
                 {
                     "id": str(index),
@@ -55,7 +54,6 @@ def test_more_specific_route_wins_and_authority_override_is_denied():
 def test_configured_authority_is_allowed_and_other_override_is_denied():
     settings = policy(
         [{**route("/gateway/v1/order"), "authority": "inner.sangfor.com.cn"}],
-        authorities=[{"origin": "https://platform.test", "authority": "inner.sangfor.com.cn"}],
     )
     request = AttemptMetadata(
         origin="https://platform.test", method="GET", path="/gateway/v1/order",
@@ -68,25 +66,18 @@ def test_configured_authority_is_allowed_and_other_override_is_denied():
 def test_configured_authority_allows_unmatched_session_health_target():
     settings = policy(
         [route("/gateway/v1/order")],
-        authorities=[{"origin": "https://platform.test", "authority": "inner.sangfor.com.cn"}],
     )
     request = AttemptMetadata(
         origin="https://platform.test", method="POST",
         path="/gateway/mss-auth-acl-service/v1/certification/login_agent",
         authority="inner.sangfor.com.cn",
     )
-    from muad_platform_sdk.egress_http_routes import _authority_matches
-    assert _authority_matches(request, settings.authorities)
     assert resolve_policy_target(settings, request) is None
 
 
 def test_same_origin_platforms_are_selected_by_configured_authority():
     settings = SharedEgressPolicy.model_validate({
         "revision": 1,
-        "authorities": [
-            {"origin": "https://gateway.test", "authority": "one.internal"},
-            {"origin": "https://gateway.test", "authority": "two.internal"},
-        ],
         "rules": [
             {
                 "id": "one", "target_instance_id": "one", "route_id": "GET /order",

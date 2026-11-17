@@ -84,7 +84,6 @@ async def test_admin_selects_platform_and_only_relative_path_is_resolved(
         "authority": "inner.test",
     }
     assert rule["route_id"] == "GET /assets/{id}"
-    assert policy["authorities"] == [{"origin": "https://assets.test", "authority": "inner.test"}]
     assert rule["window_requests"] == 50 and rule["max_inflight"] == 4
     async with get_session_factory()() as session:
         assert not (await current_egress_policy(session, "another-tenant")).rules
@@ -98,7 +97,6 @@ async def test_admin_selects_platform_and_only_relative_path_is_resolved(
     assert changed.revision > policy["revision"]
     assert changed.rules[0].http_match.origin == "https://new.test"
     assert changed.rules[0].http_match.path_template == "/api/assets/{id}"
-    assert changed.authorities[0].origin == "https://new.test"
     assert changed.rules[0].id == rule["id"]  # Same counters survive an address change.
 
 
@@ -130,7 +128,7 @@ async def test_default_empty_policy_is_unlimited(
         },
     )
     assert response.status_code == 200
-    assert response.json()["data"] == {"revision": 0, "rules": [], "authorities": []}
+    assert response.json()["data"] == {"revision": 0, "rules": []}
 
 
 async def test_first_use_provisions_domain_but_lost_state_is_never_recreated(tenant: TenantContext):
