@@ -181,9 +181,29 @@ class WebchatSessionInfo(WebchatContract):
 
 
 class WebchatEntry(WebchatContract):
+    """入口项（API-03）。
+
+    与 `ExternalIdentityGrant` 的区别：这里只服务 CHAT 会话面（`USER_TOKEN` 与
+    `EXTERNAL_ASSERTION` 共用），`allowed` / `reason` 只有在断言面才有判定来源——
+    WebChat 面的 `reason` 恒为 `None`，`allowed` 恒为 `True`（该面没有「入口级不可用」概念，
+    不可用入口直接不出现）。
+    """
+
     entry_id: UUID
     agent_id: UUID
     display_name: ChatText
+    #: 该入口当前是否可用。断言面上「已授权但机器人停用」会以 `allowed=False` 出现，
+    #: 供 BFF 展示但置灰（见 BFF 对接文档 §4.3）。
+    allowed: StrictBool = True
+    reason: ExternalDenialReason | None = None
+
+    @model_validator(mode="after")
+    def _denial_shape(self) -> Self:
+        if self.allowed and self.reason is not None:
+            raise ValueError("an allowed entry must not carry a denial reason")
+        if not self.allowed and self.reason is None:
+            raise ValueError("a denied entry requires a denial reason")
+        return self
 
 
 class WebchatPageQuery(WebchatContract):
@@ -560,6 +580,30 @@ class ExternalPrincipalRequest(WebchatContract):
     entry_id: UUID | None = None
 
 
+class ExternalIdentityGrant(WebchatContract):
+    """逐入口授权视图（API-01），同时是 `/identity` 的 `grants[]` 与 `/entries` 的判定来源。
+
+    设计要点：**在列表里但 `allowed=false`** 与 **不在列表里** 语义不同——后者表示该入口从未
+    授权给此人，前者表示授权存在但当前不可用（`AGENT_DISABLED` 等）。BFF 靠这个区别决定
+    「不展示入口」还是「展示但置灰」。
+    """
+
+    entry_id: UUID
+    agent_id: UUID
+    entry_name: ChatText
+    channel: ChatText
+    allowed: StrictBool
+    reason: ExternalDenialReason | None = None
+
+    @model_validator(mode="after")
+    def _denial_shape(self) -> Self:
+        if self.allowed and self.reason is not None:
+            raise ValueError("an allowed grant must not carry a denial reason")
+        if not self.allowed and self.reason is None:
+            raise ValueError("a denied grant requires a denial reason")
+        return self
+
+
 class ExternalPrincipalResult(WebchatContract):
     """验签结果。`allowed=false` 时 `principal` 可能为空（UNBOUND）或非空（NO_ENTRY_GRANT）。
 
@@ -571,6 +615,9 @@ class ExternalPrincipalResult(WebchatContract):
     reason: ExternalDenialReason | None = None
     #: 该主体在**当前入口**下可用的 Agent（空列表表示无授权）。
     agents: list[ChatAuthorizedAgent] = Field(default_factory=list)
+    #: 逐入口裁决：认证一次即可同时供 `/entries` 判定「哪些入口可用」，无需二次查询。
+    #: 与 `agents` 视角不同——`agents` 按 Agent 去重，这里每个入口一行。
+    grants: list[ExternalIdentityGrant] = Field(default_factory=list)
     #: 断言会话的权威到期时刻（allowed=true 时必填）：网关据此给长流设最长时限，到点即停。
     #: 外部断言无 `exp` 时取 `iat + 最大会话年龄`。
     expires_at: AwareDatetime | None = None
@@ -601,30 +648,6 @@ class ExternalIdentityQuery(WebchatContract):
     channel: ChatText
     assertion: ChatToken = Field(exclude=True, repr=False)
     entry_id: UUID | None = None
-
-
-class ExternalIdentityGrant(WebchatContract):
-    """`/identity` 的逐入口授权视图（API-01）。
-
-    设计要点：**在列表里但 `allowed=false`** 与 **不在列表里** 语义不同——后者表示该入口从未
-    授权给此人，前者表示授权存在但当前不可用（`AGENT_DISABLED`）。BFF 靠这个区别决定
-    「不展示入口」还是「展示但置灰」。
-    """
-
-    entry_id: UUID
-    agent_id: UUID
-    entry_name: ChatText
-    channel: ChatText
-    allowed: StrictBool
-    reason: ExternalDenialReason | None = None
-
-    @model_validator(mode="after")
-    def _denial_shape(self) -> Self:
-        if self.allowed and self.reason is not None:
-            raise ValueError("an allowed grant must not carry a denial reason")
-        if not self.allowed and self.reason is None:
-            raise ValueError("a denied grant requires a denial reason")
-        return self
 
 
 class ExternalIdentityView(WebchatContract):

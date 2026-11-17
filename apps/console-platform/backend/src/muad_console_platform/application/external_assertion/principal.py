@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from muad_contracts.webchat import ChatAuthorizedAgent
+
 from muad_console_platform.infrastructure.repositories.external_identity_repository import (
     ExternalIdentityRepository,
 )
@@ -194,7 +195,7 @@ async def resolve_principal(
 
 
 def _grant_views(
-    grants: list[tuple["EntryAccessGrant", "BotAccount", bool | None]],
+    grants: list[tuple[EntryAccessGrant, BotAccount, bool | None]],
 ) -> tuple[GrantView, ...]:
     """把（授权, 入口, Agent 启用状态）压成逐入口裁决。
 
@@ -217,7 +218,7 @@ def _grant_views(
 
 
 def _agents_from_grants(
-    grants: list[tuple["EntryAccessGrant", "BotAccount", bool | None]],
+    grants: list[tuple[EntryAccessGrant, BotAccount, bool | None]],
 ) -> tuple[ChatAuthorizedAgent, ...]:
     """把入口授权里的 `BotAccount` 聚成去重后的 Agent 列表（保持授权顺序）。
 

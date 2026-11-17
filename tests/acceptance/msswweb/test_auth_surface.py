@@ -62,8 +62,40 @@ def test_auth_valid_token_lists_authorized_entries(
 
     assert response.status_code == 200, response.text
     payload = response.json()["data"]
-    entry_ids = {item["entry_id"] for item in payload["items"]}
-    assert str(mssw_stack.seed.entry_id) in entry_ids
+    entries = {item["entry_id"]: item for item in payload["items"]}
+    assert str(mssw_stack.seed.entry_id) in entries
+    # 可用入口必须明确标 allowed=true，BFF 靠它决定「渲染」而非「置灰」。
+    usable = entries[str(mssw_stack.seed.entry_id)]
+    assert usable["allowed"] is True
+    assert usable["reason"] is None
+
+
+def test_s06_disabled_agent_keeps_entry_listed_but_greyed_out(
+    mssw_stack: MsswStack, gateway_client: httpx.Client, admin_api: AdminApi
+) -> None:
+    """S-06：机器人停用后，入口**仍出现在列表里**但 `allowed=false` / `AGENT_DISABLED`。
+
+    这是 BFF「展示但置灰」的依据。若实现退回「只列可用入口」，用户会以为入口凭空消失，
+    无法分辨「没授权」与「暂时不可用」——所以这条用例守的是语义，不是字段存在性。
+    """
+    token = issue(
+        mssw_stack.platform,
+        expert_id=mssw_stack.seed.expert_id,
+        tenant_id=mssw_stack.seed.platform_tenant_id,
+    )
+    admin_api.set_agent_enabled(mssw_stack.seed.agent_id, False)
+    try:
+        response = gateway_client.get(
+            f"{mssw_stack.gateway_url}{ENTRIES_PATH}",
+            headers=mssw_stack.mssw_headers(token),
+        )
+        assert response.status_code == 200, response.text
+        entries = {item["entry_id"]: item for item in response.json()["data"]["items"]}
+        entry = entries[str(mssw_stack.seed.entry_id)]
+        assert entry["allowed"] is False
+        assert entry["reason"] == "AGENT_DISABLED"
+    finally:
+        admin_api.set_agent_enabled(mssw_stack.seed.agent_id, True)
 
 
 def test_auth_entries_carry_no_console_permissions(

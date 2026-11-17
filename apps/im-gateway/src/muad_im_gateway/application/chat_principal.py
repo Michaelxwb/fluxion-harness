@@ -42,6 +42,7 @@ from muad_contracts.webchat import (
     ChatAuthMethod,
     ChatAuthorizedAgent,
     ChatPrincipal,
+    ExternalIdentityGrant,
     ExternalIdentityView,
 )
 from pydantic import SecretStr
@@ -97,6 +98,9 @@ class ChatIdentity:
     principal: ChatPrincipal
     expires_at: datetime
     agents: tuple[ChatAuthorizedAgent, ...]
+    #: 逐入口裁决（仅断言面有）：`/entries` 据此标 `allowed`/`reason`。
+    #: `USER_TOKEN` 面为空元组——该面没有「入口级不可用」概念，不可用入口直接不出现。
+    grants: tuple[ExternalIdentityGrant, ...] = ()
 
 
 def _require_session_credentials(
@@ -241,6 +245,7 @@ class ChatPrincipalGate:
             principal=principal,
             expires_at=result.expires_at,
             agents=tuple(result.agents),
+            grants=tuple(result.grants),
         )
 
     async def describe_external(

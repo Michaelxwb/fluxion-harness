@@ -40,15 +40,15 @@ class AdminApi:
     def _write_headers(self) -> dict[str, str]:
         return {"X-CSRF-Token": self.csrf_token, "X-Tenant-Id": self.tenant_id}
 
-    def _identity_collection(self) -> str:
-        return f"/api/v1/users/{self.user_id}/external-identities"
+    def _identity_collection(self, user_id: uuid.UUID | None = None) -> str:
+        return f"/api/v1/users/{user_id or self.user_id}/external-identities"
 
-    def _identity_path(self, identity_id: uuid.UUID) -> str:
-        return f"{self._identity_collection()}/{identity_id}"
+    def _identity_path(self, identity_id: uuid.UUID, user_id: uuid.UUID | None = None) -> str:
+        return f"{self._identity_collection(user_id)}/{identity_id}"
 
-    def identity_item(self, identity_id: uuid.UUID) -> dict:
+    def identity_item(self, identity_id: uuid.UUID, user_id: uuid.UUID | None = None) -> dict:
         response = self.client.get(
-            self._url(self._identity_collection()),
+            self._url(self._identity_collection(user_id)),
             headers={"X-Tenant-Id": self.tenant_id},
         )
         assert response.status_code == 200, response.text
@@ -57,7 +57,9 @@ class AdminApi:
                 return item
         raise AssertionError(f"identity {identity_id} not found")
 
-    def delete_grant(self, identity_id: uuid.UUID, grant_id: uuid.UUID) -> None:
+    def delete_grant(
+        self, identity_id: uuid.UUID, grant_id: uuid.UUID, *, user_id: uuid.UUID | None = None
+    ) -> None:
         """撤销入口授权（API-23）。
 
         `grant_id` 必须由调用方给出：`GET .../external-identities` 返回的授权项只有
@@ -65,15 +67,62 @@ class AdminApi:
         验收用它；这不是绕过 API，而是 API 目前确实不提供反查。
         """
         response = self.client.delete(
-            self._url(f"{self._identity_path(identity_id)}/grants/{grant_id}"),
+            self._url(f"{self._identity_path(identity_id, user_id)}/grants/{grant_id}"),
             headers=self._write_headers(),
         )
         assert response.status_code < 400, response.text
 
-    def restore_grant(self, identity_id: uuid.UUID, entry_id: uuid.UUID) -> None:
+    def restore_grant(
+        self, identity_id: uuid.UUID, entry_id: uuid.UUID, *, user_id: uuid.UUID | None = None
+    ) -> None:
         """重新授权（API-22，幂等）。"""
         response = self.client.post(
-            self._url(f"{self._identity_path(identity_id)}/grants"),
+            self._url(f"{self._identity_path(identity_id, user_id)}/grants"),
+            json={"channel_account_id": str(entry_id)},
+            headers=self._write_headers(),
+        )
+        assert response.status_code < 400, response.text
+
+    def create_user(self, user_code: str, display_name: str) -> uuid.UUID:
+        """建平台用户（真实管理面），返回其 id。
+
+        用于「全新用户」类断言（B-01 空列表）：会话按平台用户归属，复用既有用户会看到
+        别的用例留下的会话，测出来的「不空」是测试污染而非缺陷。
+        """
+        response = self.client.post(
+            self._url("/api/v1/users"),
+            json={"user_code": user_code, "display_name": display_name},
+            headers=self._write_headers(),
+        )
+        assert response.status_code < 400, response.text
+        return uuid.UUID(response.json()["data"]["id"])
+
+    def bind_agent(self, user_id: uuid.UUID, agent_id: uuid.UUID) -> None:
+        """给用户授权 Agent（`POST /users/{id}/agents/{agent_id}`，幂等）。"""
+        response = self.client.post(
+            self._url(f"/api/v1/users/{user_id}/agents/{agent_id}"),
+            headers=self._write_headers(),
+        )
+        assert response.status_code < 400, response.text
+
+    def upsert_identity(
+        self, platform_key: str, identity: dict[str, str], *, user_id: uuid.UUID | None = None
+    ) -> dict:
+        """登记/更新指定用户的平台身份（API-18，幂等，按指纹 upsert）。"""
+        response = self.client.put(
+            self._url(self._identity_collection(user_id)),
+            json={"platform_key": platform_key, "identity": identity},
+            headers=self._write_headers(),
+        )
+        assert response.status_code < 400, response.text
+        return response.json()["data"]
+
+    def grant_entry(
+        self, identity_id: uuid.UUID, entry_id: uuid.UUID, *, user_id: uuid.UUID | None = None
+    ) -> None:
+        """授权入口（API-22，幂等）。"""
+        response = self.client.post(
+            self._url(f"{self._identity_path(identity_id, user_id)}/grants"),
             json={"channel_account_id": str(entry_id)},
             headers=self._write_headers(),
         )

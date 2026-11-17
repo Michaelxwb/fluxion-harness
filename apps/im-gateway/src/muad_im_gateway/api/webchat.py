@@ -31,6 +31,7 @@ from muad_api.error_codes import ErrorCode
 from muad_contracts import MAX_PAGE_SIZE
 from muad_contracts.webchat import (
     WebchatHistoryQuery,
+    WebchatMarkReadRequest,
     WebchatMessageRequest,
     WebchatResumeRequest,
 )
@@ -51,7 +52,6 @@ from ..application.webchat_config import (
     WebchatTransportBudget,
 )
 from ..application.webchat_core import ChatSurface
-from ..application.webchat_surfaces import get_webchat_surface
 from ..application.webchat_service import WebchatResourceService
 from ..application.webchat_streams import (
     HEARTBEAT_FRAME,
@@ -61,6 +61,7 @@ from ..application.webchat_streams import (
     WebchatStreamBudget,
     WebchatStreamService,
 )
+from ..application.webchat_surfaces import get_webchat_surface
 from ..application.webchat_uploads import WebchatUploadService
 from .deps import (
     ChatCredentialsDep,
@@ -390,6 +391,24 @@ async def delete_conversation(
     """API-16：删除自己的会话（软删；活跃 Run 在同一请求内按既有取消语义处理）。"""
     deletion = await service.delete_conversation(chat, conversation_id)
     return ok(request.app.state.message_catalog, deletion.model_dump(mode="json"))
+
+
+@router.post("/conversations/{conversation_id}/read")
+async def mark_conversation_read(
+    conversation_id: uuid.UUID,
+    payload: WebchatMarkReadRequest,
+    request: Request,
+    chat: ChatIdentityDep,
+    service: WebchatServiceDep,
+) -> ApiResponse[Any]:
+    """会话级已读（幂等）：把 ≤ `notification_through_seq` 的通知标记为已读。
+
+    为什么需要它：会话列表与详情都返回 `has_unread`，但 MsswWeb 面不挂通知中心
+    （`/notifications/*` 只在 WebChat 面），没有这条路径红点只增不减。水位超前由 Owner
+    判 `CURSOR_AHEAD`，他主体/未知会话先判 404（不泄露存在性）。
+    """
+    receipt = await service.mark_conversation_read(chat, conversation_id, payload.notification_through_seq)
+    return ok(request.app.state.message_catalog, receipt.model_dump(mode="json"))
 
 
 @router.get("/conversations/{conversation_id}/messages")

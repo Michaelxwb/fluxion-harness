@@ -394,7 +394,7 @@ WHERE is_deleted = false;
 
 | 接口ID | 名称 | 方法 | 路径 | 说明 |
 |--------|------|------|------|------|
-| API-01 | 权限/入口可用 | GET | `/identity` | 永远查 PG；返回用户级主体 + grants + allowed/reason；成功后写 Redis |
+| API-01 | 权限/入口可用 | GET | `/identity` | 永远查 PG；返回用户级主体 + grants + allowed/reason + auth_revision |
 | API-02 | 客户端配置 | GET | `/client-config` | 复用；对 BFF 的字段定义在 `bff-agent-integration.md` §4.2 |
 | API-03 | 入口列表 | GET | `/entries` | 只返回**已授权**的入口；每项带 `allowed`+`reason` 区分"没授权"（不在列表）与"授权了但不可用"（在列表但 `allowed=false`） |
 | API-04 | 创建会话 | POST | `/entries/{entry_id}/conversations` | 入口作为本次会话的来源/展示 |

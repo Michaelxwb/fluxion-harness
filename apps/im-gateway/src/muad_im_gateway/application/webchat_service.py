@@ -36,6 +36,7 @@ from muad_api.error_codes import ErrorCode
 from muad_contracts import BotSnapshotItem, ChannelContext, ChannelName, RunRequest
 from muad_contracts.im import InboundEvent
 from muad_contracts.webchat import (
+    ExternalIdentityGrant,
     WebchatConversationCreated,
     WebchatConversationDeletion,
     WebchatConversationDetail,
@@ -43,6 +44,7 @@ from muad_contracts.webchat import (
     WebchatConversationScope,
     WebchatEntry,
     WebchatEntryPage,
+    WebchatMarkReadReceipt,
     WebchatMessageAccepted,
     WebchatMessagePage,
     WebchatMessageRequest,
@@ -158,6 +160,10 @@ class WebchatOwnerPort(Protocol):
         self, notification_id: UUID, *, tenant_id: str, user_id: UUID
     ) -> dict[str, Any]: ...
 
+    async def mark_conversation_read(
+        self, conversation_id: UUID, through_seq: int, *, tenant_id: str, user_id: UUID
+    ) -> dict[str, Any]: ...
+
 
 class WebchatEntrySource(Protocol):
     """入口快照的只读面（生产实现是 `BotSnapshotCache`，装配根按同形发布）。"""
@@ -215,25 +221,57 @@ class WebchatResourceService:
 
     # --- API-05 ---------------------------------------------------------------------
     def list_entries(self, identity: ChatIdentity) -> WebchatEntryPage:
-        """仅列已启用且当前用户获 Agent 授权的 WEBCHAT 入口；授权来自本次 Console 核验。"""
-        authorized = {agent.agent_id: agent.name for agent in identity.agents}
-        items = [
-            WebchatEntry(
-                entry_id=item.bot_account_id,
-                agent_id=item.agent_id,
-                display_name=authorized[item.agent_id],
-            )
-            for item in self._entries.items
-            if item.enabled
-            and item.channel == self._surface.channel
-            and item.agent_id in authorized
-        ]
+        """列当前用户获授权的入口；授权来自本次 Console 核验。
+
+        断言面（`identity.grants` 非空）与 WebChat 面口径不同，这不是实现分歧而是产品差异：
+
+        - **断言面**：返回**全部已授权入口**，逐项标 `allowed` / `reason`。已授权但不可用的
+          入口（机器人停用、Agent 被删）也出现，`allowed=false` —— BFF 据此「展示但置灰」
+          （BFF 对接文档 §4.3）。
+        - **WebChat 面**：`grants` 为空，退回旧口径——只列「快照里启用且已授权」的入口，
+          `allowed` 恒为 true。该面由 Console 前端驱动，没有「置灰不可用入口」的需求。
+        """
+        if identity.grants:
+            items = self._entries_from_grants(identity.grants)
+        else:
+            authorized = {agent.agent_id: agent.name for agent in identity.agents}
+            items = [
+                WebchatEntry(
+                    entry_id=item.bot_account_id,
+                    agent_id=item.agent_id,
+                    display_name=authorized[item.agent_id],
+                )
+                for item in self._entries.items
+                if item.enabled
+                and item.channel == self._surface.channel
+                and item.agent_id in authorized
+            ]
         if len(items) > MAX_ENTRIES:
             # 入口数是"当前授权入口"的完整集合，不允许静默截断（截断=看不见的入口）。
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
         return WebchatEntryPage(
             items=items, page=1, page_size=max(len(items), 1), total=len(items)
         )
+
+    def _entries_from_grants(
+        self, grants: tuple[ExternalIdentityGrant, ...]
+    ) -> list[WebchatEntry]:
+        """把逐入口裁决投影成入口项（断言面口径：不可用的也列出并标原因）。
+
+        按 `channel` 过滤：同一身份可能在别的通道也有授权（如已迁到 MSSWWEB 的旧企微
+        入口），那些与本面无关，不能混进列表。
+        """
+        return [
+            WebchatEntry(
+                entry_id=grant.entry_id,
+                agent_id=grant.agent_id,
+                display_name=grant.entry_name,
+                allowed=grant.allowed,
+                reason=grant.reason,
+            )
+            for grant in grants
+            if grant.channel == self._surface.channel
+        ]
 
     # --- API-06 ---------------------------------------------------------------------
     async def submit_message(
@@ -462,6 +500,25 @@ class WebchatResourceService:
             user_id=identity.principal.platform_user_id,
         )
         return _project(WebchatNotificationReadReceipt, data)
+
+    async def mark_conversation_read(
+        self, identity: ChatIdentity, conversation_id: UUID, through_seq: int
+    ) -> WebchatMarkReadReceipt:
+        """会话级已读：把 ≤ `through_seq` 的通知标为已读（BFF 清红点用）。
+
+        与 `mark_notification_read` 的分工：那条按「单条通知」标读，只挂在 WebChat 面；
+        MsswWeb 面没有通知中心，BFF 拿着会话列表的 `has_unread` 却无从下手，因此这里提供
+        会话级入口。**归属先于标读**：先按会话解析作用域（他主体/不存在即 404，不泄露存在性），
+        再把水位交给 Owner 校验——超前水位由 Owner 回 `CURSOR_AHEAD`，本地不预先截断。
+        """
+        await self._resolve_scope(identity, conversation_id)
+        data = await self._runtime.mark_conversation_read(
+            conversation_id,
+            through_seq,
+            tenant_id=self._tenant_id,
+            user_id=identity.principal.platform_user_id,
+        )
+        return _project(WebchatMarkReadReceipt, data)
 
     # --- 内部：授权与归属 -------------------------------------------------------------
     def _resolve_entry(self, identity: ChatIdentity, entry_id: UUID) -> ResolvedEntry:

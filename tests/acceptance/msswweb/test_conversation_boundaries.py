@@ -10,7 +10,7 @@ import uuid
 
 import httpx
 
-from tests.acceptance.msswweb.conftest import MsswStack
+from tests.acceptance.msswweb.conftest import FreshUser, MsswStack
 from tests.e2e.mssw_token_factory import issue
 
 ENTRIES = "/api/v1/msswwweb/entries"
@@ -31,12 +31,16 @@ def _entry_path(mssw_stack: MsswStack, suffix: str) -> str:
 
 
 def test_b01_new_user_sees_empty_conversation_list(
-    mssw_stack: MsswStack, gateway_client: httpx.Client
+    mssw_stack: MsswStack, gateway_client: httpx.Client, fresh_mssw_user: FreshUser
 ) -> None:
-    """从未聊过的人拿到的必须是 `items=[]`，而不是报错或隐式建会话。"""
+    """从未聊过的人拿到的必须是 `items=[]`，而不是报错或隐式建会话。
+
+    用 `fresh_mssw_user`（新平台用户）而不是种子身份：会话按平台用户归属，种子用户在同
+    模块其它用例里已经建过会话，复用会让「不空」看起来像缺陷。
+    """
     response = gateway_client.get(
         f"{mssw_stack.gateway_url}{_entry_path(mssw_stack, 'conversations')}",
-        headers=_headers(mssw_stack),
+        headers=mssw_stack.mssw_headers(fresh_mssw_user.token(mssw_stack.platform)),
     )
 
     assert response.status_code == 200, response.text

@@ -75,6 +75,8 @@ TASK_ARTIFACT_VERSION_PATH = "/internal/artifacts/{artifact_id}/versions/{versio
 #: 受信活动收件箱端口（TASK-064/070）：按用户 feed seq 增量读取 + 显式已读。
 INTERNAL_NOTIFICATIONS_PATH = "/internal/webchat/notifications"
 INTERNAL_NOTIFICATION_READ_PATH = "/internal/webchat/notifications/{notification_id}/read"
+#: 会话级已读（≤ 该水位的通知）：MsswWeb 面没有通知中心，靠这条路径清红点。
+INTERNAL_CONVERSATION_READ_PATH = "/internal/webchat/conversations/{conversation_id}/read"
 CANCEL_ACTIVE_PATH = "/v1/runs/cancel-active"
 #: 受信聊天路由端口（TASK-025）：入站文本先判「是不是 Human 回答」，NONE 才继续建 Run。
 HUMAN_ROUTING_PATH = "/v1/human-routing"
@@ -659,6 +661,21 @@ class RuntimeClient:
         return await self._post_internal_json(
             INTERNAL_NOTIFICATION_READ_PATH.format(notification_id=notification_id),
             {},
+            tenant_id,
+            params={"user_id": str(user_id)},
+        )
+
+    async def mark_conversation_read(
+        self, conversation_id: UUID, through_seq: int, *, tenant_id: str, user_id: UUID
+    ) -> dict[str, Any]:
+        """会话级已读：把 ≤ `through_seq` 的通知标记为已读（BFF 清红点）。
+
+        通知中心本身只挂在 WebChat 面，但 MsswWeb 面同样返回 `has_unread`；没有这条路径，
+        红点只增不减。水位合法性（不超前于最新 seq）由 Owner 判定，这里只做转发与归属。
+        """
+        return await self._post_internal_json(
+            INTERNAL_CONVERSATION_READ_PATH.format(conversation_id=conversation_id),
+            {"notification_through_seq": through_seq},
             tenant_id,
             params={"user_id": str(user_id)},
         )

@@ -36,7 +36,7 @@
 ```text
 1. GET  /identity                         确认用户能不能用、拿到入口授权
 2. GET  /entries                          拿到 entry_id
-3. GET  /conversations?agent_id=...       最近会话（同用户+Agent 跨入口）
+3. GET  /entries/{entry_id}/conversations 入口内最近会话（按最近活动倒序）
 4. POST /entries/{entry_id}/conversations 创建会话
 5. POST /entries/{entry_id}/messages      发送消息
 6. GET  /runs/{run_id}/events             接收流式回答（SSE）
@@ -49,7 +49,7 @@
 - 下载文件：`GET /artifacts/{artifact_id}/content`；
 - 停止生成：`POST /runs/{run_id}/cancel`；
 - 确认后继续：SSE `confirmation.required` / `active_run.confirmation` → `POST /runs/{run_id}/resume`（例如保存记忆）；
-- 最近会话红点：`GET /conversations?agent_id=...` 的 `has_unread` + `POST /conversations/{id}/read`。
+- 最近会话红点：会话列表/详情返回的 `has_unread` + `POST /conversations/{id}/read` 清除。
 
 ---
 
@@ -142,12 +142,14 @@ BFF 在展示入口前调用一次。
 
 | 字段 | 类型 | 含义 |
 |---|---|---|
-| `authenticated` | boolean | JWT 是否有效 |
-| `platform_user_id` | string/null | 我方平台用户 id；未绑定时为 null |
+| `authenticated` | boolean | 验签是否通过（恒为 `true`；验签失败走 401） |
+| `platform_user_id` | string/null | 我方平台用户 id；`UNBOUND` 时为 null |
 | `external_identity_id` | string/null | 用户级外部身份 id |
+| `platform_key` | string | 本次断言所属平台，固定 `mssw` |
 | `allowed` | boolean | 当前入口（或任一入口）是否可用 |
 | `reason` | string/null | 不可用原因，见下 |
-| `grants` | array | 该用户可用的入口授权列表 |
+| `grants` | array | 该用户的**全部已授权入口**（含当前不可用的，逐项带 `allowed`/`reason`） |
+| `auth_revision` | int/null | 权限版本号：授权/身份/用户状态变更时递增，可用于判断本地缓存是否过期 |
 
 `grants[]`：
 
@@ -156,18 +158,25 @@ BFF 在展示入口前调用一次。
 | `entry_id` | string | 入口 id，后续接口都用它 |
 | `agent_id` | string | Agent id |
 | `entry_name` | string | 入口展示名，可直接给前端 |
+| `channel` | string | 该入口所属通道，固定 `MSSWWEB` |
 | `allowed` | boolean | 该入口是否可用 |
 | `reason` | string/null | 不可用原因 |
+
+> **HTTP 状态**：本接口是「权限查询」，未通过是正常结果，**恒返回 200** + `allowed=false`。
+> 只有 token 本身不合法（签名/算法/因子/时效）返回 401，平台未配置返回 503。
 
 `reason` 取值：
 
 | 值 | 含义 | BFF 怎么做 |
 |---|---|---|
-| `UNBOUND` | 用户没有外部身份/入口授权 | 不展示入口，提示联系管理员 |
-| `ENTRY_DISABLED` | 入口已停用 | 不展示入口 |
-| `AGENT_DISABLED` | Agent 已停用 | 不展示入口 |
-| `NO_AGENT_GRANT` | 用户没有该 Agent 权限 | 不展示入口 |
-| `USER_DISABLED` | 用户已停用 | 不展示入口 |
+| `UNBOUND` | 验签通过但该用户从未绑定到我方平台 | 不展示入口，提示联系管理员 |
+| `NO_ENTRY_GRANT` | 入口对该用户未授权**或**入口本身已停用 | 不展示该入口 |
+| `AGENT_DISABLED` | 入口绑定的机器人已停用 | 该入口置灰（授权仍在） |
+| `NO_AGENT_GRANT` | 入口绑定的机器人已被删除 | 不展示该入口 |
+| `USER_DISABLED` | 该用户已被停用 | 不展示所有入口 |
+
+> `NO_ENTRY_GRANT` 与 `AGENT_DISABLED` 的区别很重要：前者「压根没给你」，后者「给你了但暂时
+> 用不了」。`grants[]` 里只出现在後者的情况——未授权的入口不会出现在 `grants[]` 中。
 
 **示例**
 
@@ -226,7 +235,6 @@ BFF 在展示入口前调用一次。
       "entry_id": "9a3e...",
       "agent_id": "7b2d...",
       "display_name": "MSS 智能机器人",
-      "channel": "MSSWWEB",
       "allowed": true,
       "reason": null
     }
@@ -242,9 +250,8 @@ BFF 在展示入口前调用一次。
 | `entry_id` | 入口 id，后续所有接口都用它 |
 | `agent_id` | Agent id |
 | `display_name` | 展示名 |
-| `channel` | 来源通道，固定 `MSSWWEB` |
-| `allowed` | 当前是否真正可用 |
-| `reason` | `allowed=false` 时的原因（如入口停用、Agent 撤权） |
+| `allowed` | 当前是否真正可用（不可用的入口**仍会出现**，由 BFF 置灰） |
+| `reason` | `allowed=false` 时的原因：`NO_ENTRY_GRANT`（入口停用）、`AGENT_DISABLED`（机器人停用）、`NO_AGENT_GRANT`（机器人已删除） |
 
 **怎么判断授权**：**列表里出现的入口就是已授权的**，未授权的入口不会返回。`allowed` 表达的是另一件事——「授权了但当前是否真的能用」：
 
@@ -288,11 +295,11 @@ BFF 在展示入口前调用一次。
 
 ---
 
-### 4.5 `GET /conversations?agent_id=...` — 用户+Agent 最近会话
+### 4.5 `GET /entries/{entry_id}/conversations` — 入口内会话列表
 
-同一用户 + 同一 Agent 的会话跨入口共享；BFF 用这个列表作为“最近会话”。
+同一用户在同一入口下的会话，按最近活动倒序。BFF 用它做「该入口的最近会话」。
 
-**Query**：`agent_id`、`page`、`page_size`
+**Path / Query**：路径 `entry_id`（必填）；查询参数 `page`、`page_size`
 
 **返回 `items[]`**
 
@@ -300,7 +307,6 @@ BFF 在展示入口前调用一次。
 {
   "conversation_id": "c1a2...",
   "entry_id": "9a3e...",
-  "channel": "MSSWWEB",
   "title": "异常 IP 分析",
   "create_time": "2026-11-13T09:00:00Z",
   "last_message_at": "2026-11-13T09:30:00Z",
@@ -313,13 +319,16 @@ BFF 在展示入口前调用一次。
 
 | 字段 | 含义 |
 |---|---|
-| `entry_id` / `channel` | 会话创建来源；可空；不影响共享资源访问，页面不强制显示标签 |
+| `entry_id` | 会话创建来源入口；不影响共享资源访问，页面不强制显示标签 |
 | `last_message_at` | 最近一条可见消息时间；列表按它倒序 |
 | `active_run_status` | `CREATED`/`RUNNING`/`WAITING_TOOL`/`WAITING_INPUT`/`null` |
-| `has_unread` | 是否有未读终态通知（用于红点） |
+| `has_unread` | 是否有未读终态通知（用于红点）；用 4.10 清除 |
 
 > 新建但未发消息的会话也会出现在列表；BFF 可自行决定是否展示。
-> WebChat 创建的同一 Agent 会话也会出现在这里（同用户共享）。
+
+**当前不支持「跨入口按 Agent 聚合最近会话」**：会话本身跨入口共享（同一用户在同一 Agent
+下的会话，从任意入口都能读到），但列表按入口分页，没有 `?agent_id=` 形式的全局列表。
+BFF 若需要「所有会话」，请对 `/entries` 返回的每个入口各拉一次并合并——注意各自独立分页。
 
 ---
 
@@ -438,18 +447,18 @@ BFF 在展示入口前调用一次。
 
 | 字段 | 类型 | 必填 | 含义 |
 |---|---|---|---|
-| `through_seq` | int | 是 | 已展示的那次会话详情中的 `notification_through_seq`（N）；不是 `last_seq`、历史 through_seq 或 SSE id |
+| `notification_through_seq` | int | 是 | 已展示的那次会话详情中的 `notification_through_seq`（N）；不是 `last_seq`、历史 through_seq 或 SSE id |
 
 **返回 `data`**
 
 ```json
-{"conversation_id": "c1a2...", "read_count": 2, "read_at": "2026-11-13T09:35:00Z"}
+{"conversation_id": "c1a2...", "notification_through_seq": 12, "has_unread": false}
 ```
 
 | 字段 | 含义 |
 |---|---|
-| `read_count` | 本次标记的未读通知数；0 也正常 |
-| `read_at` | 标记时间 |
+| `notification_through_seq` | 本次生效的水位（回显请求值） |
+| `has_unread` | 标读后是否仍有未读（有更新终态通知时仍为 `true`，BFF 可据此决定是否继续轮询） |
 
 只清除已看到范围内的红点；新到达的通知保持未读。不会修改消息本身。
 
@@ -522,7 +531,7 @@ BFF 在展示入口前调用一次。
 
 **返回 `data`**：`{run_id, submission_id, status, execution_status}`
 
-**错误**：409 `NO_ACTIVE_RUN`/`RUN_BUSY`；422 选项非法；Agent 授权被撤销时 403/409（取消仍可用）。
+**错误**：404 `NO_ACTIVE_RUN`（没有可恢复的活跃 Run）、409 `RUN_BUSY`；422 选项非法；Agent 授权被撤销时 403/409（取消仍可用）。
 
 ---
 
@@ -595,7 +604,7 @@ data: {"event_id":"...","conversation_id":"...","run_id":"...","seq":42,"timesta
 
 ## 5. 最近会话与红点
 
-- 最近会话：`GET /conversations?agent_id=...`，同一用户+Agent 跨入口聚合；按 `last_message_at` 倒序；要最新一条用 `page_size=1`。
+- 最近会话：`GET /entries/{entry_id}/conversations`，按入口列出、按 `last_message_at` 倒序；要最新一条用 `page_size=1`。跨入口聚合需逐个入口拉取后合并（见 §4.5）。
 - 红点：`has_unread=true` 表示该会话有未读的“回答结束/等待输入/任务结果”通知。
 - 用户打开会话后调用 `POST /conversations/{id}/read`，红点消失；重复调用没问题。
 - 本期不提供通知中心；红点 + 最近会话足够。
@@ -636,7 +645,7 @@ data: {"event_id":"...","conversation_id":"...","run_id":"...","seq":42,"timesta
 - [ ] `GET /entries` 能拿到入口。
 - [ ] 创建会话 → 发消息 → SSE 有增量 → 终态 → 历史可见。
 - [ ] 停止生成后 SSE 结束，历史显示取消。
-- [ ] 最近会话（`GET /conversations?agent_id=...`）顺序正确，带来源 `entry_id`/`channel`。
+- [ ] 最近会话（`GET /entries/{entry_id}/conversations`）顺序正确，`entry_id` 与请求路径一致。
 - [ ] 同一用户同一 Agent 的 WebChat 会话在 MSSWWEB 可见，反之亦然；不同用户不可见。
 - [ ] 确认事件出现后，BFF 能展示选项并调用 resume 继续同一个 Run；Agent 撤权后 resume 被拒绝。
 - [ ] 上传图片/PDF/Excel 成功；不支持类型/超限有明确错误。

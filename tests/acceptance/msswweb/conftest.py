@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import os
+import uuid
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
 from typing import Any
@@ -76,16 +77,16 @@ class MsswStack:
         return {"soc-token": token}
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def mssw_platform() -> MsswPlatform:
     """本模块一份自签平台：同一进程内的用例共享它，便于跨用例引用同一条身份。"""
     return new_platform()
 
 
-@pytest.fixture(scope="module")
-async def mssw_stack(
+@pytest.fixture(scope="session")
+def mssw_stack(
     tmp_path_factory: pytest.TempPathFactory, mssw_platform: MsswPlatform
-) -> AsyncIterator[MsswStack]:
+) -> Iterator[MsswStack]:
     settings = SharedSettings()
     require("DATABASE_URL", settings.database_url)
     require("REDIS_URL", settings.redis_url)
@@ -119,11 +120,13 @@ async def mssw_stack(
         _wait_for_entry(stack, seed, mssw_platform)
         yield MsswStack(stack=stack, platform=mssw_platform, seed=seed)
     finally:
+        import asyncio
+
         # 清理顺序：`entry_access_grant` 有指向 `bot_account` 的外键，必须先删授权，
         # 否则 `seed_control` 的 `DELETE FROM control.bot_account` 会撞 FK。
-        await _purge_msswweb_rows()
+        asyncio.run(_purge_msswweb_rows())
         stop_gateway_stack(processes)
-        await purge_tenant()
+        asyncio.run(purge_tenant())
         clear_engine_caches()
         for name, value in previous.items():
             _restore_env(name, value)
@@ -216,6 +219,67 @@ def admin_api(mssw_stack: MsswStack) -> Iterator[AdminApi]:
         yield api
     finally:
         api.client.close()
+
+
+@dataclass(frozen=True, slots=True)
+class FreshUser:
+    """一个「从未聊过天」的断言用身份：新平台用户 + 已绑定并授权的同一入口。"""
+
+    user_id: uuid.UUID
+    identity_id: uuid.UUID
+    expert_id: str
+    platform_tenant_id: str
+
+    def token(self, platform: MsswPlatform) -> str:
+        from tests.e2e.mssw_token_factory import issue
+
+        return issue(platform, expert_id=self.expert_id, tenant_id=self.platform_tenant_id)
+
+
+@pytest.fixture()
+def fresh_mssw_user(mssw_stack: MsswStack, admin_api: AdminApi) -> FreshUser:
+    """建一个全新 MSSW 用户并授权同一入口。
+
+    为什么需要它：会话与通知按**平台用户**归属。模块级 fixture 共享同一个种子用户，
+    前一个用例建的会话会让「新用户应看到空列表」这类断言失败——那是测试污染而非缺陷。
+    这里走真实管理面（建用户 → 绑 Agent → 登记身份 → 授权入口），顺带覆盖那几条链路。
+    """
+    expert_id = f"fresh-{uuid.uuid4().hex[:16]}"
+    user_id = admin_api.create_user(user_code=f"u-{expert_id}", display_name="全新用户")
+    admin_api.bind_agent(user_id, mssw_stack.seed.agent_id)
+    item = admin_api.upsert_identity(
+        mssw_stack.platform.platform_key,
+        {"expert_id": expert_id, "tenant_id": mssw_stack.seed.platform_tenant_id},
+        user_id=user_id,
+    )
+    identity_id = uuid.UUID(item["identity_id"])
+    admin_api.grant_entry(identity_id, mssw_stack.seed.entry_id, user_id=user_id)
+    fresh = FreshUser(
+        user_id=user_id,
+        identity_id=identity_id,
+        expert_id=expert_id,
+        platform_tenant_id=mssw_stack.seed.platform_tenant_id,
+    )
+    _assert_entry_usable(mssw_stack, fresh)
+    return fresh
+
+
+def _assert_entry_usable(stack: MsswStack, fresh: FreshUser) -> None:
+    """前置断言：新用户此刻必须能看到该入口。
+
+    否则「列表为空」可能来自**入口不可用**而非「没有会话」，断言就失去了判别力。
+    这里把环境问题（前置状态不对）与产品行为分开报错，避免误判。
+    """
+    response = httpx.get(
+        f"{stack.gateway_url}/api/v1/msswwweb/entries",
+        headers={"soc-token": fresh.token(stack.platform)},
+        timeout=10.0,
+    )
+    assert response.status_code == 200, response.text
+    entries = response.json()["data"]["items"]
+    assert any(
+        item["entry_id"] == str(stack.seed.entry_id) and item["allowed"] for item in entries
+    ), f"新用户应看到可用入口，实际：{entries}"
 
 
 def set_identity_status(tenant_id: str, identity_id: Any, status: str) -> None:

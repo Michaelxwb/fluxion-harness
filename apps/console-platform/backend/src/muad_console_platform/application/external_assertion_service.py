@@ -22,7 +22,7 @@ from .external_assertion.config import (
     PlatformConfigError,
     load_platform_configs,
 )
-from .external_assertion.principal import resolve_principal
+from .external_assertion.principal import GrantView, resolve_principal
 from .external_assertion.verifier import AssertionRejected, verify_assertion
 
 _LOGGER = logging.getLogger(__name__)
@@ -96,6 +96,8 @@ class ExternalAssertionService:
             "reason": resolved.reason,
             "principal": principal.model_dump(mode="json") if principal is not None else None,
             "agents": [agent.model_dump(mode="json") for agent in resolved.agents],
+            # 逐入口裁决随认证一次带回：网关据此给 `/entries` 标可用性，不必二次请求。
+            "grants": [_grant_payload(view) for view in resolved.grants],
             "expires_at": expires_at.isoformat(),
         }
 
@@ -125,17 +127,7 @@ class ExternalAssertionService:
             "platform_key": config.platform_key,
             "allowed": resolved.allowed,
             "reason": resolved.reason,
-            "grants": [
-                {
-                    "entry_id": str(view.entry_id),
-                    "agent_id": str(view.agent_id),
-                    "entry_name": view.entry_name,
-                    "channel": view.channel,
-                    "allowed": view.allowed,
-                    "reason": view.reason,
-                }
-                for view in resolved.grants
-            ],
+            "grants": [_grant_payload(view) for view in resolved.grants],
             "auth_revision": await self._repository.find_user_auth_revision(
                 tenant_id, resolved.platform_user_id
             )
@@ -146,6 +138,18 @@ class ExternalAssertionService:
 
 def _as_str(value: uuid.UUID | None) -> str | None:
     return str(value) if value is not None else None
+
+
+def _grant_payload(view: GrantView) -> dict[str, object]:
+    """逐入口裁决的线上形态：`resolve` 与 `describe` 共用，避免两处字段漂移。"""
+    return {
+        "entry_id": str(view.entry_id),
+        "agent_id": str(view.agent_id),
+        "entry_name": view.entry_name,
+        "channel": view.channel,
+        "allowed": view.allowed,
+        "reason": view.reason,
+    }
 
 
 def _require_config(platform_key: str) -> ExternalPlatformConfig:
