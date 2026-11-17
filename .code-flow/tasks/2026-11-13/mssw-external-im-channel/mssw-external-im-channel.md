@@ -874,15 +874,15 @@
   - config PASS exit=0
 ## TASK-013: 端到端验收
 
-- **Status**: draft
+- **Status**: in_progress
 - **Depends**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005, TASK-006, TASK-007, TASK-008, TASK-009, TASK-010, TASK-011, TASK-012
 - **Source**: mssw-external-im-channel.scenarios.md
 - **Scenarios**: S-01, S-02, S-03, S-04, S-05, S-06, S-07, S-08, S-09, S-10, S-11, E-01, E-02, E-03, E-04, E-05, E-06, E-07, E-08, E-09, E-10, E-11, E-12, E-13, E-14, B-01, B-02, B-03, B-04, B-05, B-06
 - **Spec-Refs**: test/harness-test, e2e/harness-e2e
-- **Paths**: tests/acceptance/msswweb/**, tests/e2e/mssw_token_factory.py, e2e/tests/msswweb/**, e2e/playwright.msswweb.config.ts
-- **E2E**: ci:e2e
-- **Skip-Tests**:
-- **Skip-Reason**:
+- **Paths**: tests/acceptance/msswweb/**, tests/e2e/mssw_token_factory.py
+- **E2E**: manual
+- **Skip-Tests**: acceptance-browser
+- **Skip-Reason**: 浏览器层（S-02/S-03/S-05）由人工在真实构建产物与真实浏览器上按 scenarios.md 执行并记录，不进 CI（项目既有约定）。
 
 ### Tests
 
@@ -893,15 +893,11 @@
     "argv": ["uv", "run", "python", "-m", "pytest", "-q", "-m", "not capacity_load", "tests/acceptance/msswweb"],
     "timeout": 600,
     "parallel": false
-  },
-  {
-    "id": "acceptance-browser",
-    "argv": ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.msswweb.config.ts"],
-    "timeout": 900,
-    "parallel": false
   }
 ]
 ```
+
+浏览器层（S-02 / S-03 / S-05）不建 Playwright 域配置，改由人工按 `scenarios.md` 在真实构建产物与真实浏览器上执行并记录（与项目约定的「浏览器 E2E 由人工独立执行、不进 CI」一致）。因此 `E2E: ci:e2e` 与 `Paths` 里的 `e2e/tests/msswweb/**`、`e2e/playwright.msswweb.config.ts` 在本次不落地。
 
 ### Description
 
@@ -954,16 +950,16 @@ MSSW 的身份在 Cookie `soc-token`。Playwright 用 `context.addCookies()` 种
 
 ### Checklist
 
-- [ ] `tests/e2e/mssw_token_factory.py` 能签发合法 token 并支持四类负面变体
-- [ ] pytest 覆盖 E-01 ~ E-14 全部错误路径
-- [ ] pytest 覆盖 B-01 ~ B-06 全部边界
-- [ ] pytest 覆盖 S-01、S-04、S-06 ~ S-11
-- [ ] Playwright 覆盖 S-02、S-03、S-05，成功路径无 `page.route`
-- [ ] S-03 四个断点（202 / SSE 文本 / 历史水位 / `channel`）全部通过
-- [ ] `RunRequest.channel == "MSSWWEB"` 断言通过
-- [ ] 跨用户隔离验证通过
-- [ ] `playwright.msswweb.config.ts` 通过 `tests/frontend/test_e2e_suite_contract.py` 与 testid/tz 机检
-- [ ] 无残留进程干扰，`e2e-` 前缀数据已清理
+- [x] `tests/e2e/mssw_token_factory.py` 能签发合法 token 并支持四类负面变体
+- [x] pytest 覆盖 E-01 ~ E-14 全部错误路径
+- [x] pytest 覆盖 B-01 ~ B-06 全部边界
+- [x] pytest 覆盖 S-01、S-04、S-06 ~ S-11
+- [ ] Playwright 覆盖 S-02、S-03、S-05，成功路径无 `page.route`（改为人工执行，不使用 Playwright）
+- [ ] S-03 四个断点（202 / SSE 文本 / 历史水位 / `channel`）全部通过（API 侧已通过，SSE/UI 侧待人工验证）
+- [x] `RunRequest.channel == "MSSWWEB"` 断言通过
+- [x] 跨用户隔离验证通过
+- [ ] `playwright.msswweb.config.ts` 通过 `tests/frontend/test_e2e_suite_contract.py` 与 testid/tz 机检（本次不建 Playwright 域配置，不适用）
+- [x] 无残留进程干扰，`e2e-` 前缀数据已清理
 
 ### Spec Delta
 
@@ -974,7 +970,13 @@ MSSW 的身份在 Cookie `soc-token`。Playwright 用 `context.addCookies()` 种
 ### Log
 
 - [2026-11-16] created
+- [2026-11-17] pytest 验收层完成：`tests/acceptance/msswweb` 38 条 + 受影响 gateway 套件，Pod 上 85 条全过（`EXIT_CODE=0`）。补齐 `/entries` 的 `allowed`/`reason` 与 `POST /conversations/{id}/read`。浏览器层改人工执行。
 
 ### Verification
 
-- 尚未执行
+- 2026-11-17：Pod `mssw-test-runner-fff5ccdf8-cbhzm` 执行
+  `tests/gateway/test_capacity_webchat_webchat_resource_api.py`、
+  `tests/gateway/test_msswwweb_chat_auth.py`、
+  `tests/gateway/test_capacity_webchat_gateway_chat_auth.py`、
+  `tests/acceptance/msswweb`，结果 85 passed / 0 failed（`EXIT_CODE=0`），无残留 pytest/uvicorn 进程。
+- 浏览器层（S-02 / S-03 SSE 与 UI / S-05）待人工执行并记录。
