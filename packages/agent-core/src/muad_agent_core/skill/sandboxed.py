@@ -282,7 +282,11 @@ class SandboxedSkillExecutor:
         dev_unsafe = getattr(runner, "name", "") == "dev-unsafe"
         skill_name = ""
         if request.platform_context is not None:
-            skill_name = _package_skill_name(package_root)
+            try:
+                skill_name = _package_skill_name(package_root)
+            except SkillExecutionError:
+                # v2 platform-key commands do not require a package name.
+                skill_name = ""
         async with (
             skill_egress_environment(request.egress_broker, dev_unsafe=dev_unsafe) as egress,
             skill_platform_environment(

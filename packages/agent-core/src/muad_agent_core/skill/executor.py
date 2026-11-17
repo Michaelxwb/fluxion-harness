@@ -43,8 +43,13 @@ class ScriptSkillExecutor:
         try:
             name = ""
             if request.platform_context is not None:
-                root, _ = locate_package_root(request.ready_dir)
-                name = SkillPackage.load(root).manifest.name
+                try:
+                    root, _ = locate_package_root(request.ready_dir)
+                    name = SkillPackage.load(root).manifest.name
+                except SkillPackageError:
+                    # v2 platform-key commands do not bind to a Skill name;
+                    # test/task runners may execute a script-only fixture.
+                    name = ""
             async with skill_platform_environment(request.platform_context, name) as session:
                 return await self._execute(replace(request, env={**request.env, **session.env}))
         except SkillPackageError as exc:
