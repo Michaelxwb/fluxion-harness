@@ -21,7 +21,9 @@ from .session.redis_manager import RedisPlatformSessionManager
 from .types import PlatformConfig, SecretValue
 
 #: Console 拒绝（无权限/无凭据）只收敛该平台，不把整个执行判为失败；其余错误原样上抛。
-_AUTHORIZATION_DENIALS = frozenset({"PLATFORM_ACCESS_DENIED", "PLATFORM_ACCESS_UNAVAILABLE", "CREDENTIAL_MISSING"})
+_AUTHORIZATION_DENIALS = frozenset(
+    {"PLATFORM_ACCESS_DENIED", "PLATFORM_ACCESS_UNAVAILABLE", "CREDENTIAL_MISSING"}
+)
 
 
 class PlatformScope(StrEnum):
