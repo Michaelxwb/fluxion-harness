@@ -179,38 +179,19 @@ async def _write_state(
     state_dir: Path,
     state_prefix: str,
     skill_name: str,
-    platform_key: str | None,
-    refresh: bool,
-    legacy_mode: bool,
     ledger: _BudgetLedger,
 ) -> dict[str, Any]:
-    if platform_key is None and not legacy_mode:
-        return {
-            "version": 2,
-            "platforms": await access.list_platforms(),
-        }
-    keys = await access.allowed_keys()
-    if platform_key is not None:
-        if platform_key not in keys:
-            raise PlatformAuthError("PLATFORM_ACCESS_DENIED")
-        keys = (platform_key,)
-    if not keys:
-        raise PlatformAuthError("PLATFORM_SESSION_REQUIRED")
     platforms: dict[str, dict[str, Any]] = {}
-    for key in keys:
+    for key in await access.allowed_keys():
         platform, request, manager = await access.resolve_platform(key)
-        state = await manager.renew(request) if refresh else await manager.acquire(request)
-        if legacy_mode and not refresh:
-            # Legacy CLI callers historically performed an execution probe before
-            # materializing state. Keep that observable error boundary during migration.
-            state = await manager.acquire(request)
+        state = await manager.acquire(request)
         if state is None:
             raise PlatformAuthError("PLATFORM_SESSION_REQUIRED")
-        state_payload = _legacy_platform(platform, state)
-        if state_payload["expiresAt"] is None:
+        legacy = _legacy_platform(platform, state)
+        if legacy["expiresAt"] is None:
             # stdout 的旧契约要求 expiresAt 必须存在；没有有效期的登录态不能交付。
             raise PlatformAuthError("PLATFORM_SESSION_INVALID")
-        platforms[key] = state_payload
+        platforms[key] = legacy
     if not ledger.take_state_file():
         raise _BudgetExceeded()
     filename = f"{state_prefix}/state-{uuid.uuid4().hex}.json"
@@ -219,14 +200,10 @@ async def _write_state(
     with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
         json.dump({"version": 1, "skillName": skill_name, "platforms": platforms}, stream)
     return {
-        "version": 1 if legacy_mode else 2,
+        "version": 1,
         "status": "ready",
         "skillName": skill_name,
-        "platform": platform_key,
         "sessionStateFile": filename,
-        "authenticated": True,
-        "resolution": "refreshed" if refresh else "authenticated",
-        "refresh": {"requested": refresh, "performed": refresh},
         # 旧 Skill 从 stdout 读 list；state 文件内部仍是 dict。
         "platforms": [
             {"platform": key, "source": "session", "expiresAt": value["expiresAt"]}
@@ -269,7 +246,7 @@ async def skill_platform_environment(
     sandbox_root: str | None = None,
     budget: SessionBrokerBudget | None = None,
 ) -> AsyncIterator[PlatformSessionEnvironment]:
-    if context is None:
+    if context is None or not context.platform_keys:
         yield PlatformSessionEnvironment()
         return
     access = SkillPlatformAccess(context)
@@ -290,24 +267,12 @@ async def skill_platform_environment(
                 else:
                     try:
                         request = json.loads(await asyncio.wait_for(reader.readline(), 10))
-                        if (
-                            not isinstance(request, dict)
-                            or request.get("skillName", skill_name) != skill_name
-                        ):
+                        if request != {"skillName": skill_name} or not skill_name:
                             result = {"error": "invalid_context"}
                         elif not ledger.take_request():
                             result = {"error": BROKER_BUDGET_EXCEEDED}
                         else:
-                            result = await _write_state(
-                                access,
-                                state_dir,
-                                state_prefix,
-                                skill_name,
-                                request.get("platform"),
-                                bool(request.get("refresh")),
-                                bool(request.get("legacy")),
-                                ledger,
-                            )
+                            result = await _write_state(access, state_dir, state_prefix, skill_name, ledger)
                     except (ValueError, TypeError, TimeoutError):
                         result = {"error": "invalid_arguments"}
                     except (RedisError, RedisClusterException):
@@ -338,7 +303,6 @@ async def skill_platform_environment(
             yield PlatformSessionEnvironment(
                 env={
                     "MUAD_SESSION_SOCKET": f"{command_dir}/session.sock",
-                    "MUAD_SESSION_NAME": skill_name,
                     "PATH": command_dir + os.pathsep + os.environ.get("PATH", os.defpath),
                 },
                 mounts=mounts,
