@@ -93,8 +93,8 @@ sequenceDiagram
 
     rect rgb(252, 240, 250)
     Note over BFF,RT: 阶段 4｜会话列表、详情与历史
-    BFF->>GW: GET /api/v1/msswwweb/conversations?agent_id=<br/>Cookie: soc-token=[JWT]
-    GW-->>BFF: 200 {items:[{conversation_id, entry_id, channel, has_unread, ...}]}
+    BFF->>GW: GET /api/v1/msswwweb/entries/{entry_id}/conversations<br/>Cookie: soc-token=[JWT]
+    GW-->>BFF: 200 {items:[{conversation_id, entry_id, has_unread, ...}]}
     BFF->>GW: GET /api/v1/msswwweb/conversations/{id}<br/>?through_seq=[通知水位]
     GW-->>BFF: 200 {messages[], confirmation, through_seq}
     BFF->>GW: GET /api/v1/msswwweb/conversations/{id}/messages<br/>?page=1&page_size=20&through_seq=[冻结水位]

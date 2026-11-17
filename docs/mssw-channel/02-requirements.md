@@ -393,10 +393,9 @@ resume 与 SSE 一样按当前授权复核；授权在等待期间被撤销时�
 |---|---|---|
 | `UNBOUND` | 身份未绑定到任何平台用户 | 200 |
 | `USER_DISABLED` | 平台用户已停用 | 200 |
-| `NO_ENTRY_GRANT` | 身份存在，但无该入口的授权（**不丢弃主体**） | 200 |
-| `ENTRY_DISABLED` | 入口已禁用/删除 | 200 |
-| `NO_AGENT_GRANT` | 无该 Agent 的授权 | 200 |
-| `AGENT_DISABLED` | Agent 已禁用/删除 | 200 |
+| `NO_ENTRY_GRANT` | 入口未授权**或**入口已停用（对外同一个原因；身份存在，**不丢弃主体**） | 200 |
+| `NO_AGENT_GRANT` | 入口绑定的 Agent 已被删除 | 200 |
+| `AGENT_DISABLED` | 入口绑定的 Agent 已停用 | 200 |
 
 **运维降级语义**：Secret 缺失/损坏**只让 MSSWWEB 返回 503**，不影响启动与其他通道。新错误码必须同时登记 `packages/api-kit/.../error_codes.py` 与 `config/api-messages.yaml`（双向断言）。
 

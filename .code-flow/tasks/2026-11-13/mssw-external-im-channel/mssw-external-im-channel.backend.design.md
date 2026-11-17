@@ -398,9 +398,9 @@ WHERE is_deleted = false;
 | API-02 | 客户端配置 | GET | `/client-config` | 复用；对 BFF 的字段定义在 `bff-agent-integration.md` §4.2 |
 | API-03 | 入口列表 | GET | `/entries` | 只返回**已授权**的入口；每项带 `allowed`+`reason` 区分"没授权"（不在列表）与"授权了但不可用"（在列表但 `allowed=false`） |
 | API-04 | 创建会话 | POST | `/entries/{entry_id}/conversations` | 入口作为本次会话的来源/展示 |
-| API-05 | 用户+Agent 会话列表 | GET | `/conversations?agent_id=` | 跨入口聚合；item 带来源 `entry_id`/`channel`/`has_unread` |
+| API-05 | 会话列表 | GET | `/entries/{entry_id}/conversations` | `entry_id` 只用于鉴权与归属（当前用户对该入口的权限、入口当前绑定的 Agent），**不是过滤条件**；按 user+Agent 聚合（跨入口共享），item 带来源 `entry_id`/`has_unread`，**不含 `channel`** |
 | API-06 | 提交消息 | POST | `/entries/{entry_id}/messages` | 入口作为本次 Run 的来源 |
-| API-07 | 会话详情 | GET | `/conversations/{id}` | user+agent 核属；不做 entry/channel 断言。返回**会话当前状态**（`has_unread`/`confirmation`/`through_seq`），与分页接口互补：进入对话页先调它拿状态与水位，再调 API-09 拉历史 |
+| API-07 | 会话详情 | GET | `/conversations/{id}` | user+agent 核属；不做 entry/channel 断言。返回**会话当前状态**（`has_unread`/`confirmation`/`notification_through_seq`），与分页接口互补：进入对话页先调它拿状态与水位，再调 API-09 拉历史 |
 | API-08 | 删除会话 | DELETE | `/conversations/{id}` | user 级；沿用现有幂等 delete |
 | API-09 | 历史消息 | GET | `/conversations/{id}/messages` | user+agent；不做 entry/channel 断言 |
 | API-10 | 会话已读 | POST | `/conversations/{id}/read` | 带通知水位；只标已看到 |
@@ -428,7 +428,7 @@ WHERE is_deleted = false;
 | 接口ID | 名称 | 方法 | 路径 | 说明 |
 |--------|------|------|------|------|
 | API-20 | 会话已读 | POST | `/internal/webchat/conversations/{id}/read` | 服务身份；带水位 |
-| API-25 | 用户+Agent 会话列表 | GET | `/internal/webchat/conversations?agent_id=` | 用户级聚合；来源字段 |
+| API-25 | 会话列表 | GET | `/internal/webchat/entries/{entry_id}/conversations` | `entry_agnostic=true` 时按 user+Agent 聚合（跨入口共享），入口只作来源；Gateway 的 API-05 用它 |
 | API-26 | 授权同步状态（ADMIN） | GET | `/api/v1/auth-cache-sync` | 当前租户同步状态与可安全展示的操作摘要 |
 | 既有 | 会话详情 | GET | `/internal/webchat/conversations/{id}` | 同快照返回 `last_seq`、active_run 与 `notification_through_seq` |
 
@@ -486,12 +486,12 @@ WHERE is_deleted = false;
 
 #### API-10: `POST /api/v1/msswwweb/conversations/{id}/read`
 
-**请求**：`soc-token` header；body `{ "through_seq": 123 }`。这里是会话详情返回的 `notification_through_seq`，属于用户通知 feed 序号，不能使用 `last_seq`、历史 `through_seq` 或 SSE id 替代。
+**请求**：`soc-token` header；body `{ "notification_through_seq": 123 }`。这里是会话详情返回的 `notification_through_seq`，属于用户通知 feed 序号，不能使用 `last_seq`、历史 `through_seq` 或 SSE id 替代。
 
 **响应**
 
 ```json
-{ "conversation_id": "uuid", "read_count": 3, "read_at": "2026-11-13T10:00:00Z" }
+{ "conversation_id": "uuid", "notification_through_seq": 123, "has_unread": false }
 ```
 
 **处理逻辑**：按 `(tenant,user,conversation)` 核属 → Runtime 按同一范围 UPDATE `seq <= through_seq AND read_at IS NULL AND is_deleted=false`；幂等，零更新成功；晚到通知保留未读。先校验非负整数及不超过当前用户已提交 feed 水位，超前返回 `CURSOR_AHEAD`；不保存一个会自动吃掉未来通知的已读上限。
@@ -675,27 +675,27 @@ flowchart TD
 
 #### API-20: `POST /internal/webchat/conversations/{id}/read`
 
-**请求**：`user_id` query；body `{ "through_seq": 123 }`；服务身份门控。
+**请求**：`user_id` query；body `{ "notification_through_seq": 123 }`；服务身份门控。
 
 **响应**
 
 ```json
-{ "conversation_id": "uuid", "read_count": 3, "read_at": "2026-11-13T10:00:00Z" }
+{ "conversation_id": "uuid", "notification_through_seq": 123, "has_unread": false }
 ```
 
 **处理逻辑**：与 API-10 同一通知水位语义；校验水位不超前后按 `(tenant,user,conversation)` 更新，追加 `seq <= through_seq AND read_at IS NULL AND is_deleted=false`；PG `now()`；不碰消息、交付状态或 feed 水位。
 
 ---
 
-#### API-25: `GET /internal/webchat/conversations?agent_id=...`
+#### API-25: `GET /internal/webchat/entries/{entry_id}/conversations`
 
-**用途**：用户+Agent 跨入口会话列表；Gateway 的 `GET /conversations?agent_id=` 用它。
+**用途**：会话列表；Gateway 的 `GET /entries/{entry_id}/conversations` 用它（带 `entry_agnostic=true`）。
 
-**请求**：`tenant`（头）、`user_id`、`agent_id`、`page/page_size`。
+**请求**：`tenant`（头）、`user_id`、`agent_id`、路径 `entry_id`、查询 `entry_agnostic`、`page/page_size`。
 
-**响应**：`WebchatConversationPage`，item 增加 `entry_id`/`channel`/`has_unread`；按 `last_message_at DESC NULLS LAST, id DESC`。
+**响应**：`WebchatConversationPage`，item 带 `entry_id`/`has_unread`（**无 `channel`**）；按 `last_message_at DESC NULLS LAST, id DESC`。
 
-**处理逻辑**：`WHERE tenant,user,agent,is_deleted=false`，不再按 entry 过滤；未读用 EXISTS + 新索引；来源字段来自 `conversation.channel_account_id`/`channel`。
+**处理逻辑**：`entry_agnostic=true` 时 `WHERE tenant,user,agent,is_deleted=false`（不按 entry 过滤，跨入口共享）；`entry_agnostic=false` 时追加 `channel_account_id = entry_id` 严格核属（越权 404）；未读用 EXISTS + 新索引；来源字段来自 `conversation.channel_account_id`。
 
 ---
 

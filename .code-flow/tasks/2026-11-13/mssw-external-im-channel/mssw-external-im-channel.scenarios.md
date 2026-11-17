@@ -19,22 +19,25 @@ API 层已由 `tests/acceptance/msswweb/` 持续回归覆盖；浏览器/长流�
 | S-01 建入口 | 人工（Console 页面） | — |
 | S-02 建身份并授权 | 部分（API 等价路径） | `admin_api.py` 的 upsert/grant 调用被 E-05/E-07 复用 |
 | S-03 完整对话 | ✅ pytest 全链路（真实 LLM 探针） | `test_full_conversation.py` |
-| S-04 无 Console 权限泄露 | ✅ | `test_auth_surface.py::test_auth_entries_carry_no_console_permissions` |
+| S-04 停止生成 | 人工（需真实长回答中途取消） | — |
+| S-04b 无 Console 权限泄露 | ✅ | `test_auth_surface.py::test_auth_entries_carry_no_console_permissions` |
 | S-05 浏览/刷新历史 | 人工（浏览器刷新） | — |
-| S-06 附件归属 | 人工 | — |
+| S-06 附件归属 | 人工（附件上传/下载本体无验收用例） | ——注：`test_auth_surface.py::test_s06_disabled_agent_keeps_entry_listed_but_greyed_out` 测的是 Agent 置灰，非附件 |
 | S-07~S-11 | 人工 | — |
 | E-01 断言不可信 | ✅ | `test_auth_surface.py`（4 变体）+ `test_identity_api.py`（401） |
 | E-02 未绑定/无入口授权 | ✅ | 同上（UNBOUND / NO_ENTRY_GRANT） |
 | E-03 平台未配置/配置损坏 | ✅ | `test_platform_config_isolation.py`（4 变体 + 不触达存储） |
 | E-04 用户停用 | ✅ | `test_identity_api.py`（USER_DISABLED） |
+| E-04b 不同用户会话隔离 | ✅ | `test_cross_user_isolation.py`（他人会话/消息/删除/取消/列举均拿不到） |
 | E-05 撤权即时生效 | ✅ | `test_auth_surface.py`（撤权后入口不可见） |
 | E-06 重复提交 | ✅ | `test_conversation_boundaries.py`（不产生第二个 Run） |
 | E-07 Agent 停用 | ✅ | `test_identity_api.py`（AGENT_DISABLED + 资源接口同步拒绝） |
 | E-08 长流中撤权 | 人工（需真实长回答 + 中途撤权） | 单元层有 `ChatStreamGuard` 重放覆盖 |
 | E-09 因子轮换 | ✅ | `test_auth_surface.py`（旧私钥 token 失效） |
 | E-10 Redis 缓存失效 | **不适用**：当前实现无 Redis 认证缓存（每次直查控制库） | 由 E-05 的「即时生效」等价覆盖 |
-| E-11 跨租户隔离 | ✅ | `test_auth_surface.py`（跨租户主体 403） |
-| E-12~E-14 缓存与配置一致性 | **不适用/已改写**：无缓存层；配置一致性见 `test_platform_config_isolation.py` | — |
+| E-11 跨租户隔离 | ✅ | `test_auth_surface.py`（伪造租户头不越界）+ `tests/gateway/test_msswwweb_chat_auth.py`（跨租户主体 403） |
+| E-12~E-13 缓存与重启一致性 | **不适用**：无 Redis 认证缓存层（每次直查控制库） | — |
+| E-14 配置变化与普通重启的区别 | ✅ | `test_platform_config_isolation.py::test_e14_rotated_config_rejects_tokens_signed_by_old_key` |
 | B-01 空列表/缺会话 | ✅ | `test_conversation_boundaries.py` |
 | B-02 超龄 token | ✅ | `test_auth_surface.py` |
 | B-03 文本超限 | ✅（改写为「上限下发」） | 见该用例 docstring：服务端**不做**长度校验，属既有缺口 |
@@ -99,7 +102,7 @@ API 层已由 `tests/acceptance/msswweb/` 持续回归覆盖；浏览器/长流�
 - **前置**：S-02 已完成；BFF 可携带 `soc-token` 调用。
 - **步骤**：
   1. 调 `GET /api/v1/msswwweb/identity`，携带 `soc-token`。
-  2. 调 `GET /api/v1/msswwweb/entries`，拿到入口。
+  2. 调 `GET /api/v1/msswwweb/entries`，拿到入口（返回全部已授权入口，每项带 `allowed`/`reason`；不可用的入口仍会出现，`allowed=false`）。
   3. 调 `POST /api/v1/msswwweb/entries/{entry_id}/conversations` 创建会话。
   4. 调 `POST /api/v1/msswwweb/entries/{entry_id}/messages` 发送一条文本，带 `Idempotency-Key`。
   5. 用返回的 `run_id` 打开 `GET /api/v1/msswwweb/runs/{run_id}/events`。
@@ -131,10 +134,10 @@ API 层已由 `tests/acceptance/msswweb/` 持续回归覆盖；浏览器/长流�
 - **负责**：待 plan 分配
 - **前置**：用户至少有一个会话，且有一轮 Run 已完成但未读。
 - **步骤**：
-  1. 调 `GET /api/v1/msswwweb/conversations?agent_id=...`。
-  2. 找到有未读通知的会话，观察 `has_unread` 与来源 `entry_id`/`channel`。
+  1. 调 `GET /api/v1/msswwweb/entries/{entry_id}/conversations`（路径里的入口用于鉴权，列表按用户+Agent 聚合）。
+  2. 找到有未读通知的会话，观察 `has_unread` 与来源 `entry_id`。
   3. 取该会话详情，记录同次返回的 `last_seq=C` 与 `notification_through_seq=N`，显示其当前状态/确认提示。
-  4. 用 `through_seq=C` 获取历史并展示；随后调会话 read，body 为 `{"through_seq":N}`。
+  4. 用 `through_seq=C` 获取历史并展示；随后调会话 read，body 为 `{"notification_through_seq":N}`。
   5. 再查一次会话列表。
 - **期望**：
   - 列表按最近活动倒序；同用户+Agent 跨入口聚合；第一条是最新会话。
@@ -223,7 +226,7 @@ API 层已由 `tests/acceptance/msswweb/` 持续回归覆盖；浏览器/长流�
 - **期望**：
   - 确认动作能真正继续同一个 Run，不新建 Run/会话。
   - resume 后产生预期副作用（如记忆保存）。
-  - Agent 授权撤销后 resume 返回 403/409，不继续执行；取消仍可用。
+  - Agent 授权撤销后 resume 返回 403（当前授权集合已不含该 Agent），不继续执行；取消仍可用。
   - 重复/过期确认按稳定错误处理。
 
 ## S-11 同用户同 Agent 跨入口共享
@@ -300,6 +303,10 @@ API 层已由 `tests/acceptance/msswweb/` 持续回归覆盖；浏览器/长流�
   - U2 的资源一律 404/403，不泄露存在性。
   - 不产生跨用户副作用；同用户操作正常。
   - 通知：WebChat 可以看到 U1 的 MSSW 通知（用户级共享），看不到 U2 的。
+- **自动化**：步骤 4 的「不同用户隔离」由 `tests/acceptance/msswweb/test_cross_user_isolation.py`
+  覆盖（U2 有同一入口授权，读/列/删他人会话、取消他人 Run 全部 404，且删除被拒后会话仍在）；
+  步骤 1~3、5 的「同用户跨入口共享」由 `tests/gateway/test_msswwweb_surface.py` 与
+  `tests/agent_runtime/test_msswweb_cross_entry_conversation.py` 覆盖核心逻辑，真实浏览器时序仍人工执行。
 
 
 ## E-05 Agent 授权撤销
@@ -401,7 +408,7 @@ API 层已由 `tests/acceptance/msswweb/` 持续回归覆盖；浏览器/长流�
   2. 调 `POST /runs/{run_id}/resume`。
   3. 调 `POST /runs/{run_id}/cancel`。
 - **期望**：
-  - resume 返回 403/409，不继续执行、不产生副作用。
+  - resume 返回 403（`FORBIDDEN`：当前授权集合已不含该 Run 所属 Agent；若 Run 已终结则为 404 `NO_ACTIVE_RUN`），不继续执行、不产生副作用。
   - cancel 仍成功（用户级清理/停止）。
   - 不把 resume 当作清理例外。
 

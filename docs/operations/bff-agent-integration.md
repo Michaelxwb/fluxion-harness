@@ -295,9 +295,13 @@ BFF 在展示入口前调用一次。
 
 ---
 
-### 4.5 `GET /entries/{entry_id}/conversations` — 入口内会话列表
+### 4.5 `GET /entries/{entry_id}/conversations` — 会话列表
 
-同一用户在同一入口下的会话，按最近活动倒序。BFF 用它做「该入口的最近会话」。
+同一用户在同一 Agent 下的会话，按最近活动倒序。路径里的 `entry_id` 只用于**鉴权与归属**
+（当前用户对该入口是否有权限、该入口当前绑定的是哪个 Agent），**不是列表的过滤条件**：
+入口绑定的 Agent 相同，从任一入口拉到的就是同一批会话（同一用户 + 同一 Agent 跨入口共享）。
+
+BFF 用它做「该入口的最近会话」即可；涉及同一 Agent 的多个入口时，各入口返回的列表内容相同。
 
 **Path / Query**：路径 `entry_id`（必填）；查询参数 `page`、`page_size`
 
@@ -326,9 +330,9 @@ BFF 在展示入口前调用一次。
 
 > 新建但未发消息的会话也会出现在列表；BFF 可自行决定是否展示。
 
-**当前不支持「跨入口按 Agent 聚合最近会话」**：会话本身跨入口共享（同一用户在同一 Agent
-下的会话，从任意入口都能读到），但列表按入口分页，没有 `?agent_id=` 形式的全局列表。
-BFF 若需要「所有会话」，请对 `/entries` 返回的每个入口各拉一次并合并——注意各自独立分页。
+**没有 `?agent_id=` 形式的全局列表**：会话本身跨入口共享（同一用户在同一 Agent 下的会话，
+从该 Agent 所属的任意入口都能读到），但仍需先经某个入口发起请求（用于鉴权）。BFF 若需要
+「某 Agent 的全部会话」，拉该 Agent 所属的任一个入口即可，不必逐个入口合并。
 
 ---
 
@@ -389,7 +393,7 @@ BFF 若需要「所有会话」，请对 `/entries` 返回的每个入口各拉�
 | 字段 | 含义 |
 |---|---|
 | `conversation_id` | 会话 id |
-| `entry_id` / `channel` | 不可变的会话创建来源；可为空，继续对话不修改它 |
+| `entry_id` | 不可变的会话创建来源；可为空，继续对话不修改它 |
 | `agent_id` | 该会话所属 Agent，必须与本次选择的 Agent 相同 |
 | `title` | 标题 |
 | `status` | `ACTIVE` / `ARCHIVED` |
@@ -604,7 +608,7 @@ data: {"event_id":"...","conversation_id":"...","run_id":"...","seq":42,"timesta
 
 ## 5. 最近会话与红点
 
-- 最近会话：`GET /entries/{entry_id}/conversations`，按入口列出、按 `last_message_at` 倒序；要最新一条用 `page_size=1`。跨入口聚合需逐个入口拉取后合并（见 §4.5）。
+- 最近会话：`GET /entries/{entry_id}/conversations`，按 `last_message_at` 倒序；要最新一条用 `page_size=1`。列表按「用户 + Agent」聚合，同一 Agent 的多个入口结果相同（见 §4.5）。
 - 红点：`has_unread=true` 表示该会话有未读的“回答结束/等待输入/任务结果”通知。
 - 用户打开会话后调用 `POST /conversations/{id}/read`，红点消失；重复调用没问题。
 - 本期不提供通知中心；红点 + 最近会话足够。

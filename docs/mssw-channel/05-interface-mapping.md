@@ -29,7 +29,7 @@
 | API-02 | GET | `/client-config` | 复用；装在 `bff-agent-integration.md` §4.2 对 BFF 有明确定义 |
 | API-03 | GET | `/entries` | 当前用户可用的入口授权 + Agent |
 | API-04 | POST | `/entries/{entry_id}/conversations` | 入口作为**本次会话的来源** |
-| API-05 | GET | `/conversations?agent_id=` | **跨入口聚合**；item 带 `entry_id`/`channel`/`has_unread` |
+| API-05 | GET | `/entries/{entry_id}/conversations` | `entry_id` 只用于鉴权与归属，**不是过滤条件**；按 user+Agent 聚合（跨入口共享）；item 带 `entry_id`/`has_unread`（无 `channel`） |
 | API-06 | POST | `/entries/{entry_id}/messages` | 入口作为**本次 Run 的来源** |
 | API-07 | GET | `/conversations/{id}` | user + agent 核属；**不做** entry/channel 断言 |
 | API-08 | DELETE | `/conversations/{id}` | user 级；沿用现有幂等 delete |
@@ -54,7 +54,7 @@
 | ID | 方法 | 路径 | 说明 |
 |---|---|---|---|
 | API-20 | POST | `/internal/webchat/conversations/{id}/read` | 标记已读（带通知水位） |
-| API-25 | GET | `/internal/webchat/conversations?agent_id=` | 用户级跨入口会话列表（带来源字段） |
+| API-25 | GET | `/internal/webchat/entries/{entry_id}/conversations` | 会话列表；`entry_agnostic=true` 时按 user+Agent 聚合（入口只作来源） |
 
 > API-20 / API-25 之所以走内部接口而不是让 BFF 直连 Runtime：身份解析、缓存与授权判定全在 Console，Runtime 只接受已核属的调用。
 
@@ -139,7 +139,7 @@ Cookie: soc-token=<JWT>
 
 | 改造点 | 说明 |
 |---|---|
-| 会话列表跨入口聚合 | `GET /entries/{entry_id}/conversations` 改为 `GET /conversations?agent_id=`，不再按入口过滤 |
+| 会话列表跨入口聚合 | 保留 `GET /entries/{entry_id}/conversations`，新增 `entry_agnostic=true`：按 user+Agent 聚合，入口只作鉴权与来源，不再作为可见性过滤 |
 | 核属改为 user + agent | Runtime `_load_run_in` 只按 `id + tenant_id` 查，**不带 user_id**，调用方必须补 |
 | SSE 每事件复核 | 现有 `ChatStreamGuard` **不可复用**（`chat_principal.py:184-207` 只在建连校验） |
 | 通知模型 | 旧 `/notifications` 系列不暴露；红点并入会话列表 `has_unread` + 会话级 `mark-read` |
@@ -210,10 +210,9 @@ if idempotency_key:
 |---|---|
 | `UNBOUND` | 身份未绑定 |
 | `USER_DISABLED` | 平台用户停用 |
-| `NO_ENTRY_GRANT` | 无该入口授权（主体保留，不丢弃） |
-| `ENTRY_DISABLED` | 入口禁用/删除 |
-| `NO_AGENT_GRANT` | 无 Agent 授权 |
-| `AGENT_DISABLED` | Agent 禁用/删除 |
+| `NO_ENTRY_GRANT` | 入口未授权**或**入口已停用（对外同一个原因） |
+| `NO_AGENT_GRANT` | 入口绑定的 Agent 已被删除 |
+| `AGENT_DISABLED` | 入口绑定的 Agent 已停用 |
 
 ### 7.5 通道能力分组
 

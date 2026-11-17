@@ -269,7 +269,7 @@ ExternalIdentitySection
 | `conversationId` | 当前显式会话；所属用户由服务端核验，前端不得用 URL 或来源字段自报身份 |
 | `viewWatermarks` | 同次详情的 `{historyThroughSeq:last_seq, notificationThroughSeq:notification_through_seq}`；只对完成展示的对应视图提交已读 |
 
-1. `webchatApi.listConversations(agentId, paging)` 改调 `GET /api/v1/webchat/conversations?agent_id=...`，不用入口维度列表。所有请求仍通过 service 层，组件/状态模块不得另写 fetch。
+1. `webchatApi.listConversations(entryId, paging)` 调 `GET /api/v1/webchat/entries/{entry_id}/conversations`（入口维度路径，服务端带 `entry_agnostic=true` 按 user+Agent 聚合，入口只作鉴权与来源，不是过滤条件）。所有请求仍通过 service 层，组件/状态模块不得另写 fetch。
 2. `ChatPage.applyConversation`、会话选择和 URL 恢复移除来源入口相等判断，保留 Agent 匹配、有效响应及服务端 403/404 处理；无可用来源标签不阻止加载。
 3. 对来自 A 的会话，在 B 发消息仍用 `/entries/B/messages` 并显式传该 conversation_id；上传也用 B。不能把 A 回写当前入口，也不能在 URL 刷新时偷偷切换用户或 Agent。等待确认时对现有 Run resume，不能新建替代 Run。
 4. 列表读取、详情/历史读取、发送及 SSE 使用可取消请求或选择代次，丢弃切换前晚到的响应。跨 Agent/用户切换时清空旧列表、详情、流、上传暂存和水位；同 Agent 换入口保留有权会话。

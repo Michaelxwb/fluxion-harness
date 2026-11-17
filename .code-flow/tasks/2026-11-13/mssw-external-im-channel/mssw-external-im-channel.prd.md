@@ -252,7 +252,7 @@
 | token 的 `exp=-1` | 按最大会话年龄兜底；不无限接受 |
 | token 的 `login_time` 在未来/过旧 | 超出 leeway 拒绝 |
 | token 有效但无外部身份 | `/identity` 200 `allowed=false`、`reason=UNBOUND`；资源接口 403/404；不伪造主体 |
-| 入口禁用/删除 | `/identity` 200 `ENTRY_DISABLED`；同用户同 Agent 的已有会话仍可按 user+agent 访问；新建/发消息不可用 |
+| 入口禁用/删除 | `/identity` 200 `NO_ENTRY_GRANT`（入口停用与未授权对外同一个原因）；同用户同 Agent 的已有会话仍可按 user+agent 访问；新建/发消息不可用 |
 | Agent 禁用/授权撤销 | `/identity` 200 `AGENT_DISABLED`/`NO_AGENT_GRANT`；读/发/SSE/resume 拒绝；删除/取消/已读保留 |
 | Secret 缺失/损坏 | MSSWWEB 503；其他通道正常；启动不失败 |
 | Redis 不可用 | `/identity` 仍走 PG；资源接口降级回 Console；不把 Redis 当唯一权威 |
