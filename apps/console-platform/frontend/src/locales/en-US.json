@@ -1210,6 +1210,7 @@
   "audit.resultStatus.SUCCESS": "Success",
   "audit.resultStatus.FAILED": "Failed",
   "audit.resultStatus.DENIED": "Denied",
+  "audit.resultStatus.BLOCKED": "Blocked",
   "audit.detail.section.basic": "Basic info",
   "audit.detail.section.source": "Source fields",
   "audit.detail.section.relations": "Relations",
