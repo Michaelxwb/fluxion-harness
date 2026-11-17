@@ -70,15 +70,16 @@ class ChatSurface:
     #: 认证方式：`USER_TOKEN`（WebChat：Console 签发 CHAT token）或
     #: `EXTERNAL_ASSERTION`（MSSWWEB：上游 platform 断言）。认证分支在 `api/deps.py` 落地。
     auth_kind: str = "USER_TOKEN"
+    #: 外部断言面所属的 `platform_key`（仅 `EXTERNAL_ASSERTION` 用到）；来自 Secret 配置，
+    #: 视为非敏感标识。Gateway 转发到 Console 的 `external-principal` 时原样带上。
+    platform_key: str | None = None
 
     @property
     def identity(self) -> WebchatChannelIdentity:
         return WebchatChannelIdentity(channel=self.channel)
 
 
-def _run_request(
-    event: InboundEvent, principal: SyncPrincipal, *, channel: ChannelName
-) -> RunRequest:
+def _run_request(event: InboundEvent, principal: SyncPrincipal, *, channel: ChannelName) -> RunRequest:
     """渠道中立事件 + 已验证主体 → Runtime 提交契约（显式会话、暂存上传原样保留）。"""
     if event.external_conversation_id is None:
         # 本地流式提交**永远**带显式会话（API-06 形状）：缺失是调用方错误，不猜最新指针。

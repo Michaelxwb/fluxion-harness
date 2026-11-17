@@ -45,16 +45,23 @@ ChatPositiveSeconds = Annotated[float, Field(strict=True, gt=0)]
 ChatAuthMethod = Literal["USER_TOKEN", "EXTERNAL_ASSERTION"]
 #: 外部断言未通过授权时的原因（`allowed=false` 时给出，便于 BFF 区分「查无此人」与「有此人不许进」）。
 ExternalDenialReason = Literal[
-    "UNBOUND",           # 验签通过，但无 external_identity 记录（不伪造主体）
-    "NO_ENTRY_GRANT",    # 身份存在，但当前入口无授权（主体照常返回）
-    "USER_DISABLED",     # 用户已停用
-    "NO_AGENT_GRANT",    # 入口下无可用 Agent
+    "UNBOUND",  # 验签通过，但无 external_identity 记录（不伪造主体）
+    "NO_ENTRY_GRANT",  # 身份存在，但当前入口无授权（主体照常返回）
+    "USER_DISABLED",  # 用户已停用
+    "NO_AGENT_GRANT",  # 入口下无可用 Agent（入口未绑 Agent 或 Agent 已被删除）
+    "AGENT_DISABLED",  # 入口绑定的 Agent 被停用（`AgentDefinition.enabled=false`）
 ]
 ConversationStatus = Literal["ACTIVE", "ARCHIVED"]
 ActiveRunStatus = Literal["CREATED", "RUNNING", "WAITING_TOOL", "WAITING_INPUT"]
 ExecutionStage = Literal[
-    "WAITING_RUNTIME", "WAITING_MODEL", "RUNNING", "WAITING_TOOL", "WAITING_INPUT",
-    "COMPLETED", "FAILED", "CANCELLED",
+    "WAITING_RUNTIME",
+    "WAITING_MODEL",
+    "RUNNING",
+    "WAITING_TOOL",
+    "WAITING_INPUT",
+    "COMPLETED",
+    "FAILED",
+    "CANCELLED",
 ]
 
 
@@ -81,11 +88,19 @@ class WebchatTokenMetadata(WebchatContract):
     @model_validator(mode="after")
     def _complete_metadata(self) -> Self:
         if not self.configured:
-            if (self.status != "NOT_CONFIGURED" or self.revision != 0
-                    or any(value is not None for value in (self.token_id, self.issued_at, self.expires_at))):
+            if (
+                self.status != "NOT_CONFIGURED"
+                or self.revision != 0
+                or any(value is not None for value in (self.token_id, self.issued_at, self.expires_at))
+            ):
                 raise ValueError("unconfigured token must have empty metadata and revision zero")
-        elif (self.status == "NOT_CONFIGURED" or self.token_id is None or self.revision < 1
-              or self.issued_at is None or self.expires_at is None):
+        elif (
+            self.status == "NOT_CONFIGURED"
+            or self.token_id is None
+            or self.revision < 1
+            or self.issued_at is None
+            or self.expires_at is None
+        ):
             raise ValueError("configured token requires complete metadata and positive revision")
         elif self.expires_at <= self.issued_at:
             raise ValueError("expires_at must follow issued_at")
@@ -286,9 +301,7 @@ class WebchatHistoryMessage(WebchatContract):
     #: 定时任务卡片：Draft 事件不是普通消息，但它必须能以同一条持久事实回到历史里
     #: （刷新后仍可确认），因此挂在助手条目上而不是另造一种历史条目。只有卡片条目带这个键，
     #: 普通消息的线格式不因此多一个 `draft: null`。
-    draft: WebchatScheduleDraftReady | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
+    draft: WebchatScheduleDraftReady | None = Field(default=None, exclude_if=lambda value: value is None)
     #: canonical 事件落库时间（消息发送/接收的权威时刻，页面只展示不推算）。
     created_at: AwareDatetime
 
@@ -376,8 +389,14 @@ class WebchatMessageAccepted(WebchatContract):
 
 #: 取消回执的显示状态：`CANCELLING` 是取消请求已受理但尚未落地（Runtime `display_run_status`）。
 RunDisplayStatus = Literal[
-    "CREATED", "RUNNING", "WAITING_TOOL", "WAITING_INPUT",
-    "COMPLETED", "FAILED", "CANCELLED", "CANCELLING",
+    "CREATED",
+    "RUNNING",
+    "WAITING_TOOL",
+    "WAITING_INPUT",
+    "COMPLETED",
+    "FAILED",
+    "CANCELLED",
+    "CANCELLING",
 ]
 
 
@@ -511,10 +530,15 @@ class WebchatClientTransport(WebchatContract):
 
     @model_validator(mode="after")
     def _reconnect_schema_bounds(self) -> Self:
-        parse_platform_settings({"webchat": {
-            "reconnect_base_ms": self.reconnect_base_ms, "reconnect_cap_ms": self.reconnect_cap_ms,
-            "reconnect_max_attempts": self.reconnect_max_attempts,
-        }})
+        parse_platform_settings(
+            {
+                "webchat": {
+                    "reconnect_base_ms": self.reconnect_base_ms,
+                    "reconnect_cap_ms": self.reconnect_cap_ms,
+                    "reconnect_max_attempts": self.reconnect_max_attempts,
+                }
+            }
+        )
         return self
 
 
@@ -547,16 +571,93 @@ class ExternalPrincipalResult(WebchatContract):
     reason: ExternalDenialReason | None = None
     #: 该主体在**当前入口**下可用的 Agent（空列表表示无授权）。
     agents: list[ChatAuthorizedAgent] = Field(default_factory=list)
+    #: 断言会话的权威到期时刻（allowed=true 时必填）：网关据此给长流设最长时限，到点即停。
+    #: 外部断言无 `exp` 时取 `iat + 最大会话年龄`。
+    expires_at: AwareDatetime | None = None
 
     @model_validator(mode="after")
     def _denial_shape(self) -> Self:
         if self.allowed:
             if self.principal is None or self.reason is not None:
                 raise ValueError("an allowed result requires a principal and no denial reason")
+            if self.expires_at is None:
+                raise ValueError("an allowed result requires an expires_at")
         elif self.reason is None:
             raise ValueError("a denied result requires a denial reason")
         elif self.reason == "UNBOUND" and self.principal is not None:
             raise ValueError("an unbound result must not fabricate a principal")
+        return self
+
+
+class ExternalIdentityQuery(WebchatContract):
+    """内部调用：`POST /internal/channel/external-identity`（API-01 的 Console 侧输入）。
+
+    与 `ExternalPrincipalRequest` 分开而不是给它加开关：`external-principal` 是 Gateway
+    的每次请求热路径，它的契约面越小越好；`/identity` 是独立查询，输入还多一个
+    「问哪个入口」。
+    """
+
+    platform_key: ChatText
+    channel: ChatText
+    assertion: ChatToken = Field(exclude=True, repr=False)
+    entry_id: UUID | None = None
+
+
+class ExternalIdentityGrant(WebchatContract):
+    """`/identity` 的逐入口授权视图（API-01）。
+
+    设计要点：**在列表里但 `allowed=false`** 与 **不在列表里** 语义不同——后者表示该入口从未
+    授权给此人，前者表示授权存在但当前不可用（`AGENT_DISABLED`）。BFF 靠这个区别决定
+    「不展示入口」还是「展示但置灰」。
+    """
+
+    entry_id: UUID
+    agent_id: UUID
+    entry_name: ChatText
+    channel: ChatText
+    allowed: StrictBool
+    reason: ExternalDenialReason | None = None
+
+    @model_validator(mode="after")
+    def _denial_shape(self) -> Self:
+        if self.allowed and self.reason is not None:
+            raise ValueError("an allowed grant must not carry a denial reason")
+        if not self.allowed and self.reason is None:
+            raise ValueError("a denied grant requires a denial reason")
+        return self
+
+
+class ExternalIdentityView(WebchatContract):
+    """`GET /api/v1/msswwweb/identity` 的响应（API-01）：外部平台据此判断「此人能否用机器人」。
+
+    与 `/entries` 的分工：`/entries` 是**资源接口**（只列可用入口，拒绝走 401/403）；
+    `/identity` 是**权限查询**（未通过是正常结果，恒 200）——所以这里用 `allowed` + `reason`
+    表达，而不是靠 HTTP 状态码。
+
+    `authenticated` 只表达「验签通过」；符号层面的问题（签名/算法/因子/时效）在 `/identity`
+    上仍走 401，那属于「无效请求」，不是「权限查询的结果」。
+    """
+
+    authenticated: StrictBool
+    platform_user_id: UUID | None = None
+    external_identity_id: UUID | None = None
+    platform_key: ChatText
+    allowed: StrictBool
+    reason: ExternalDenialReason | None = None
+    grants: list[ExternalIdentityGrant] = Field(default_factory=list)
+    #: 权限版本号：授权/身份/用户状态变更时递增，供 BFF 判断自己的缓存是否过期。
+    auth_revision: int | None = None
+
+    @model_validator(mode="after")
+    def _denial_shape(self) -> Self:
+        if not self.authenticated:
+            raise ValueError("an unauthenticated view must not be served (use 401)")
+        if self.allowed and self.reason is not None:
+            raise ValueError("an allowed view must not carry a denial reason")
+        if not self.allowed and self.reason is None:
+            raise ValueError("a denied view requires a denial reason")
+        if self.reason == "UNBOUND" and self.platform_user_id is not None:
+            raise ValueError("an unbound view must not fabricate a platform user")
         return self
 
 
@@ -615,22 +716,31 @@ class WebchatClientConfig(WebchatContract):
 
     @classmethod
     def from_settings(
-        cls, *, settings_revision: int, transport_revision: str, webchat: WebchatSettings,
-        sse_event_max_bytes: int, sse_heartbeat_sec: float,
+        cls,
+        *,
+        settings_revision: int,
+        transport_revision: str,
+        webchat: WebchatSettings,
+        sse_event_max_bytes: int,
+        sse_heartbeat_sec: float,
     ) -> Self:
         """Project only approved browser fields; transport revision is an opaque config fingerprint."""
         return cls(
-            settings_revision=settings_revision, transport_revision=transport_revision,
+            settings_revision=settings_revision,
+            transport_revision=transport_revision,
             webchat=WebchatClientLimits(
-                history_page_size=webchat.history_page_size, text_max_bytes=webchat.text_max_bytes,
+                history_page_size=webchat.history_page_size,
+                text_max_bytes=webchat.text_max_bytes,
                 upload_max_bytes=webchat.upload_max_bytes,
                 upload_max_per_message=webchat.upload_max_per_message,
                 notification_poll_sec=webchat.notification_poll_sec,
                 upload_formats=SUPPORTED_UPLOAD_FORMATS,
             ),
             transport=WebchatClientTransport(
-                sse_event_max_bytes=sse_event_max_bytes, sse_heartbeat_sec=sse_heartbeat_sec,
-                reconnect_base_ms=webchat.reconnect_base_ms, reconnect_cap_ms=webchat.reconnect_cap_ms,
+                sse_event_max_bytes=sse_event_max_bytes,
+                sse_heartbeat_sec=sse_heartbeat_sec,
+                reconnect_base_ms=webchat.reconnect_base_ms,
+                reconnect_cap_ms=webchat.reconnect_cap_ms,
                 reconnect_max_attempts=webchat.reconnect_max_attempts,
             ),
         )

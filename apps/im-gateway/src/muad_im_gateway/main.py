@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
@@ -265,14 +266,10 @@ def _build_inbound(
         settings_client=settings_client,
         # Run 终态交付的同键协调（设计 §3.6）：活跃会话收尾与兜底主动交付共用
         # `run:{run_id}:terminal`，经 Runtime 的受信 API-18 端口 reserve/ack（网关不持库）。
-        channel_delivery=ActiveChannelDelivery(
-            runtime, permission=ConsoleDeliveryPermission(console)
-        ),
+        channel_delivery=ActiveChannelDelivery(runtime, permission=ConsoleDeliveryPermission(console)),
         # 聊天入口的用户动作（TASK-025）：Draft 确认走 Worker 的 API-27，Human 回答先由
         # Runtime 按 user+agent+会话裁决——Gateway 不直接改 Execution，也不猜是哪一个问题。
-        schedules=ChatScheduleService(
-            owner=worker, routes=runtime, tenant_id=settings.default_tenant_id
-        ),
+        schedules=ChatScheduleService(owner=worker, routes=runtime, tenant_id=settings.default_tenant_id),
         # 在飞受理上限：每进程启动预算（§3.7 GATEWAY_MAX_CONCURRENT_HANDLERS）。
         max_concurrent_handlers=settings.gateway_max_concurrent_handlers,
         # 排队上限（全局/每路由/命令三条）：同一处启动预算（§3.7 GATEWAY_MAX_PENDING_*）。
@@ -306,9 +303,7 @@ async def _build_resources(
     settings: SharedSettings, catalog: MessageCatalog, pools: GatewayHttpPools
 ) -> _GatewayResources:
     """按启动设置组装运行时资源；中途失败时回收已创建的部分（分池由调用方收尾）。"""
-    console, runtime, settings_client, artifacts, worker = _build_outbound_clients(
-        settings, pools
-    )
+    console, runtime, settings_client, artifacts, worker = _build_outbound_clients(settings, pools)
     redis = _build_redis(settings)
     try:
         pubsub_redis = await _build_pubsub_redis(settings)
@@ -428,9 +423,7 @@ def _start_background(resources: _GatewayResources) -> list[asyncio.Task[None]]:
     机器人连接由注册表 `start_all`/`stop_all` 启停；公开 SSE 订阅由进程账本登记/释放。
     每条循环一条任务、命名可观测；退出路径在 lifespan 统一取消并等待收尾（不吞异常）。
     """
-    tasks = [
-        asyncio.create_task(resources.snapshot.run_forever(), name=SNAPSHOT_LOOP_NAME)
-    ]
+    tasks = [asyncio.create_task(resources.snapshot.run_forever(), name=SNAPSHOT_LOOP_NAME)]
     tasks.extend(
         asyncio.create_task(
             resources.inbound.consume(adapter),
@@ -439,16 +432,8 @@ def _start_background(resources: _GatewayResources) -> list[asyncio.Task[None]]:
         for adapter in resources.registry.started_adapters
     )
     # 入站 Stream 消费组：Connector/Webhook 持久化后的统一入口（IM ASYNC 路径）。
-    tasks.append(
-        asyncio.create_task(
-            resources.inbound_consumer.run_forever(), name=INBOUND_STREAM_LOOP_NAME
-        )
-    )
-    tasks.append(
-        asyncio.create_task(
-            resources.notification_hub.run_forever(), name="gateway.notifications"
-        )
-    )
+    tasks.append(asyncio.create_task(resources.inbound_consumer.run_forever(), name=INBOUND_STREAM_LOOP_NAME))
+    tasks.append(asyncio.create_task(resources.notification_hub.run_forever(), name="gateway.notifications"))
     return tasks
 
 
@@ -502,9 +487,7 @@ class _ServerErrorLogMiddleware:
 
         async def send_wrapper(message: Message) -> None:
             if message["type"] == "http.response.start" and message["status"] >= 500:
-                logger.warning(
-                    "gateway_5xx", extra={"path": scope["path"], "status": message["status"]}
-                )
+                logger.warning("gateway_5xx", extra={"path": scope["path"], "status": message["status"]})
             await send(message)
 
         await self._app(scope, receive, send_wrapper)
@@ -519,6 +502,8 @@ install_health_probes(
 app.include_router(delivery_router)
 # 通用 Webhook 入站（S-07）：`/channels/{channel}/events` —— 通道由配置装配，不新增部署单元。
 app.include_router(webhook_router)
+
+
 # 本地流式对话面：同一套 router 按 surface 多挂载（设计 §ChatSurface / RULE-im-006）。
 # WEBCHAT（Console 签发的 CHAT token）与 MSSWWEB（上游 platform 断言）共享 handler，
 # 仅通道名与认证方式不同；通道字面量只在本装配根出现，api/application 层保持中立。
@@ -529,9 +514,27 @@ def _build_webchat_surfaces(settings: SharedSettings) -> dict[str, ChatSurface]:
     }
     if _external_platforms_configured(settings):
         surfaces["/api/v1/msswwweb"] = ChatSurface(
-            channel="MSSWWEB", auth_kind="EXTERNAL_ASSERTION"
+            channel="MSSWWEB",
+            auth_kind="EXTERNAL_ASSERTION",
+            platform_key=_single_external_platform_key(settings),
         )
     return surfaces
+
+
+def _single_external_platform_key(settings: SharedSettings) -> str | None:
+    """从 Secret 配置解析外部断言平台的 `platform_key`（channel 与平台一一对应）。
+
+    未配置/无法解析时返回 `None`：认证会在转发 `external-principal` 前以 503 失败，
+    而不是把错误藏进验签结果里。
+    """
+    raw = getattr(settings, "external_assertion_platforms_json", "") or ""
+    try:
+        parsed = json.loads(raw) if raw.strip() else {}
+    except ValueError:
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    return next(iter(parsed), None)
 
 
 def mount_webchat_surfaces(target_app: FastAPI, settings: SharedSettings) -> None:
