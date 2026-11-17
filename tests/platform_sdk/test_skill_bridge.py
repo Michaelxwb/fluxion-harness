@@ -237,9 +237,10 @@ async def test_unauthorized_platform_fails_with_platform_session_required(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _patch_resolver(monkeypatch, denied=frozenset({"mssp"}))
+    access = SkillPlatformAccess(_context())
     with pytest.raises(PlatformAuthError) as captured:
-        async with skill_platform_environment(_context(), "probe-skill"):
-            pass
+        await access.allowed_keys()
+    await access.close()
     assert captured.value.code == "PLATFORM_SESSION_REQUIRED"
 
 

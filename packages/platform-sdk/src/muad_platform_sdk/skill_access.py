@@ -221,6 +221,6 @@ class SkillPlatformAccess:
         return platform, request, manager
 
     async def start(self) -> None:
-        # Resolve authorization only; actual login/session acquisition remains lazy.
-        # This keeps invalid selected scopes visible without authenticating every platform.
-        await self.allowed_keys()
+        # Do not resolve or authenticate platforms while installing the broker.
+        # AUTO discovery and SELECTED authorization are checked by list/get/refresh.
+        return None
