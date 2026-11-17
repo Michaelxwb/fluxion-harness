@@ -207,7 +207,11 @@ export function ExternalIdentitySection(props: ExternalIdentitySectionProps) {
                   <Button size="small" onClick={() => openEdit(item)}>
                     {t('common.edit')}
                   </Button>
-                  <ConfirmAction onConfirm={() => void removeIdentity(item)}>
+                  <ConfirmAction
+                    type="danger"
+                    title={t('user.external.confirmDelete')}
+                    onConfirm={() => void removeIdentity(item)}
+                  >
                     <Button size="small" type="danger">
                       {t('common.delete')}
                     </Button>
