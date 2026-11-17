@@ -538,6 +538,8 @@ async def test_b202_export_status_progresses_and_download_returns_artifact(
 
     fieldnames, rows = _parse_csv(download.content)
     assert fieldnames == list(PROJECTED_FIELDS)
+    # 列表专属摘要不进导出：留档列集合与改造前一致
+    assert "summary" not in fieldnames
     assert sorted(row["audit_id"] for row in rows) == sorted(export_env.expected_ids)
     # 行序与 API-01 一致（occurred_at DESC）：seed 的 TOOL 行晚于 CONFIG 行
     assert [row["audit_type"] for row in rows] == ["TOOL", "CONFIG"]

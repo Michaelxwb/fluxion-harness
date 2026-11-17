@@ -117,12 +117,12 @@
   - audit-steps PASS exit=0
 ## TASK-003: 后端 — 明细视图、导出口径与详情边界
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001
 - **Source**: audit-operation-view.backend.design.md#3.4 接口设计
 - **Scenarios**: S-03, S-06, B-01, B-02
 - **Spec-Refs**:
-- **Paths**: apps/console-platform/backend/src/muad_console_platform/api/audits.py, apps/console-platform/backend/src/muad_console_platform/application/audit_query_service.py, apps/console-platform/backend/src/muad_console_platform/application/audit_export_service.py, apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/audit_query_repository.py, tests/console_platform/test_audits_api.py, tests/console_platform/test_audit_export_api.py, tests/console_platform/test_audit_export_download.py, tests/console_platform/test_audit_detail_api.py
+- **Paths**: apps/console-platform/backend/src/muad_console_platform/api/audits.py, apps/console-platform/backend/src/muad_console_platform/application/audit_query_service.py, apps/console-platform/backend/src/muad_console_platform/application/audit_export_service.py, apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/audit_query_repository.py, tests/console_platform/test_audit_query_api.py, tests/console_platform/test_audits_api.py, tests/console_platform/test_audit_export_api.py, tests/console_platform/test_audit_export_download.py, tests/console_platform/test_audit_detail_api.py
 - **E2E**:
 - **Skip-Tests**:
 - **Skip-Reason**:
@@ -133,7 +133,7 @@
 [
   {
     "id": "audit-detail-export",
-    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/console_platform/test_audits_api.py", "tests/console_platform/test_audit_export_api.py", "tests/console_platform/test_audit_export_download.py", "tests/console_platform/test_audit_detail_api.py"],
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/console_platform/test_audit_query_api.py", "tests/console_platform/test_audits_api.py", "tests/console_platform/test_audit_export_api.py", "tests/console_platform/test_audit_export_download.py", "tests/console_platform/test_audit_detail_api.py"],
     "timeout": 300,
     "parallel": true
   }
@@ -146,13 +146,13 @@
 
 ### Checklist
 
-- [ ] `view=detail` 未传类型时返回四类全量，字段与分页语义同改造前
-- [ ] `view=detail` + 工具/模型类型返回对应事件行
-- [ ] 导出服务固定按明细取数，忽略 `view`；`audit_type=RUN` 返回校验错误
-- [ ] 导出列集合不包含 `summary`
-- [ ] 详情接口对 `RUN` 返回校验错误，四类来源表行为不变
-- [ ] 两个视图的 `total` 各自按行语义计数，翻页不越界
-- [ ] 集成用例覆盖上述六条
+- [x] `view=detail` 未传类型时返回四类全量，字段与分页语义同改造前
+- [x] `view=detail` + 工具/模型类型返回对应事件行
+- [x] 导出服务固定按明细取数，忽略 `view`；`audit_type=RUN` 返回校验错误
+- [x] 导出列集合不包含 `summary`
+- [x] 详情接口对 `RUN` 返回校验错误，四类来源表行为不变
+- [x] 两个视图的 `total` 各自按行语义计数，翻页不越界
+- [x] 集成用例覆盖上述六条
 
 ### Spec Delta
 
@@ -163,13 +163,15 @@
 ### Log
 
 - [2026-11-17] created
+- [2026-11-17T12:00:12.676Z] started tests=69dd81a2bdb3
 
 ### Verification
 
 - 尚未执行
 
 ---
-
+- 2026-11-17T12:02:23.000Z PASS commands=1/1 executed=1 deduped=0 elapsed=21851ms tests=16be92345f1f head=d3e145de08cd dirty=1 tests-changed
+  - audit-detail-export PASS exit=0
 ## TASK-004: 前端 — 操作视图、明细视图与文案
 
 - **Status**: draft

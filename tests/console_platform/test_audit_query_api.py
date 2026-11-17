@@ -824,3 +824,76 @@ async def test_steps_degrade_to_null_when_aggregate_query_fails(
     assert any(
         record.message == "audit_steps_degraded" for record in caplog.records
     ), [record.message for record in caplog.records]
+
+
+async def _page(
+    client: AsyncClient,
+    tenant: TenantContext,
+    **params: Any,
+) -> dict[str, Any]:
+    response = await client.get("/api/v1/audits", params=params, headers=_headers(tenant))
+    assert response.status_code == 200, response.text
+    return dict(response.json()["data"])
+
+
+async def test_pagination_semantics_follow_the_view(
+    client: AsyncClient, tenant: TenantContext, audit_seed: AuditSeed
+) -> None:
+    """[B-01] 两个视图各自按行语义分页：总数、页码、行内容不串味。"""
+    detail = await _page(
+        client, tenant, view="detail", trace_id=audit_seed.trace_id, page=1, page_size=2
+    )
+    detail_two = await _page(
+        client, tenant, view="detail", trace_id=audit_seed.trace_id, page=2, page_size=2
+    )
+    assert detail["total"] == detail_two["total"] == 4
+    assert len(detail["items"]) == len(detail_two["items"]) == 2
+    assert {item["audit_id"] for item in detail["items"]}.isdisjoint(
+        {item["audit_id"] for item in detail_two["items"]}
+    )
+
+    operation = await _page(
+        client, tenant, trace_id=audit_seed.trace_id, page=1, page_size=2
+    )
+    operation_two = await _page(
+        client, tenant, trace_id=audit_seed.trace_id, page=2, page_size=2
+    )
+    assert operation["total"] == operation_two["total"] == 3
+    assert len(operation["items"]) == 2
+    assert len(operation_two["items"]) == 1
+    assert operation_two["items"][0]["audit_type"] == "CONFIG"
+
+
+async def test_task_only_records_are_not_dropped(
+    client: AsyncClient, tenant: TenantContext, audit_seed: AuditSeed
+) -> None:
+    """[B-02] 只有 task_id 的任务出网记录在默认视图与明细视图都可见，不被静默丢弃。"""
+    task_id = uuid.uuid4()
+    audit_id = uuid.uuid4()
+    async with get_session_factory()() as session:
+        await session.execute(
+            text(
+                """
+                INSERT INTO runtime.egress_audit
+                    (id, tenant_id, run_id, task_id, user_id, target_type, target,
+                     operation, method, policy_decision, status_code, result_status,
+                     latency_ms, create_time)
+                VALUES (:audit_id, :tenant_id, NULL, :task_id, :user_id, 'MCP',
+                        'task-only-target', 'mcp.tool', 'POST', 'ALLOW', 200, 'OK',
+                        15, now())
+                """
+            ),
+            {
+                "audit_id": audit_id,
+                "tenant_id": tenant.tenant_id,
+                "task_id": task_id,
+                "user_id": audit_seed.user_id,
+            },
+        )
+        await session.commit()
+
+    # 任务出网没有 Run，也就没有 trace：按租户取全量页，不按 trace 过滤
+    operation = await _page(client, tenant, page_size=50)
+    detail = await _page(client, tenant, view="detail", page_size=50)
+    assert str(audit_id) in {str(item["audit_id"]).lower() for item in operation["items"]}
+    assert str(task_id) in {str(item["task_id"]).lower() for item in detail["items"]}

@@ -554,3 +554,16 @@ async def test_api02_unknown_or_mismatched_type_is_not_found_or_invalid(
     # 已归档（is_deleted = true）的审计行同样按不存在处理
     await _soft_delete(AUDIT_TABLES["EGRESS"], "id", seed.audit_ids["EGRESS"])
     await _assert_error(client, tenant, seed.audit_ids["EGRESS"], "EGRESS", 404)
+
+
+async def test_run_rows_are_not_audit_detail_sources(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    """[API-02] `RUN` 是列表操作行，不是来源表：详情请求显式拒绝，由前端改开运行详情。"""
+    response = await client.get(
+        f"/api/v1/audits/{uuid.uuid4()}",
+        params={"audit_type": "RUN"},
+        headers=_headers(tenant),
+    )
+    assert response.status_code == 422, response.text
+    assert response.json()["code"] == "COMMON_VALIDATION_ERROR"
