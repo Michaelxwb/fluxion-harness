@@ -88,7 +88,7 @@ class RunQueryService:
                     "stream_type": event.stream_type,
                     "has_artifact": event.has_artifact,
                     "create_time": format_console_time(event.create_time),
-                    "egress": event.egress,
+                    **({"egress": event.egress} if event.egress is not None else {}),
                 }
                 for event in events
             ],
