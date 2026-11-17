@@ -64,9 +64,7 @@ class ExternalIdentityService:
         records = await self._repo.list_for_user(tenant_id, user_id)
         if not records:
             return []
-        entries = await self._repo.list_grants(
-            tenant_id, [record.id for record in records]
-        )
+        entries = await self._repo.list_grants(tenant_id, [record.id for record in records])
         grants_by_identity: dict[uuid.UUID, list[ExternalEntryGrantItem]] = {
             record.id: [] for record in records
         }
@@ -188,9 +186,7 @@ class ExternalIdentityService:
         if user_id is not None:
             identities = await self._repo.list_for_user(tenant_id, user_id)
             if identities:
-                entries = await self._repo.list_grants(
-                    tenant_id, [record.id for record in identities]
-                )
+                entries = await self._repo.list_grants(tenant_id, [record.id for record in identities])
                 granted = {bot.id for _, bot in entries}
         return [
             ExternalEntryItem(

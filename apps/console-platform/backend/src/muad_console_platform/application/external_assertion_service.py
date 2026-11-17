@@ -8,14 +8,20 @@ from __future__ import annotations
 
 import logging
 import uuid
+from datetime import UTC, datetime, timedelta
 
 from muad_common.settings import process_settings
+from muad_contracts.webchat import ChatPrincipal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.repositories.external_identity_repository import (
     ExternalIdentityRepository,
 )
-from .external_assertion.config import ExternalPlatformConfig, load_platform_configs
+from .external_assertion.config import (
+    ExternalPlatformConfig,
+    PlatformConfigError,
+    load_platform_configs,
+)
 from .external_assertion.principal import resolve_principal
 from .external_assertion.verifier import AssertionRejected, verify_assertion
 
@@ -26,11 +32,6 @@ _REJECTION_TO_CODE = {
     "assertion_expired": "EXTERNAL_ASSERTION_EXPIRED",
 }
 _DEFAULT_REJECTION_CODE = "EXTERNAL_ASSERTION_INVALID"
-_DENIAL_TO_CODE = {
-    "UNBOUND": "EXTERNAL_ASSERTION_UNBOUND",
-    "NO_ENTRY_GRANT": "EXTERNAL_ASSERTION_NOT_GRANTED",
-    "USER_DISABLED": "EXTERNAL_ASSERTION_USER_DISABLED",
-}
 
 
 class PlatformUnavailable(Exception):
@@ -65,22 +66,8 @@ class ExternalAssertionService:
         ``reason`` 返回 —— 与契约 ``ExternalPrincipalResult`` 的形状一致。
         """
         settings = process_settings()
-        configs = load_platform_configs(settings.external_assertion_platforms_json)
-        config: ExternalPlatformConfig | None = configs.get(platform_key)
-        if config is None:
-            raise PlatformUnavailable(f"external platform {platform_key} is not configured")
-
-        try:
-            verified = verify_assertion(
-                assertion,
-                config,
-                max_session_age_sec=settings.external_assertion_max_session_age_sec,
-            )
-        except AssertionRejected as exc:
-            _LOGGER.info("external assertion rejected: platform=%s reason=%s", platform_key, exc.reason)
-            raise ExternalAssertionRejected(
-                _REJECTION_TO_CODE.get(exc.reason, _DEFAULT_REJECTION_CODE), exc.reason
-            ) from exc
+        config = _require_config(platform_key)
+        verified = _verify(assertion, config, platform_key, settings)
 
         resolved = await resolve_principal(
             self._repository,
@@ -89,13 +76,120 @@ class ExternalAssertionService:
             verified,
             entry_id=entry_id,
         )
-        payload: dict[str, object] = {
+        principal = (
+            ChatPrincipal(
+                tenant_id=tenant_id,
+                platform_user_id=resolved.platform_user_id,
+                # 外部断言无独立会话：以稳定的外部身份 id 作会话标识（同身份复用同一标识）。
+                session_id=resolved.identity_id,
+                auth_method="EXTERNAL_ASSERTION",
+            )
+            if resolved.platform_user_id is not None and resolved.identity_id is not None
+            else None
+        )
+        expires_at = _session_expires_at(verified.claims, settings.external_assertion_max_session_age_sec)
+        # 只回 `ExternalPrincipalResult` 声明的字段：契约 `extra="forbid"`，多带一个键
+        # 会让网关反序列化失败并把**每一条**拒绝路径打成 500（E-02/E-04 实测）。错误码由
+        # 调用方按 `reason` 自行映射（`chat_principal._EXTERNAL_DENIAL_CODES`）。
+        return {
             "allowed": resolved.allowed,
             "reason": resolved.reason,
-            "platform_user_id": str(resolved.platform_user_id) if resolved.platform_user_id else None,
-            "identity_id": str(resolved.identity_id) if resolved.identity_id else None,
-            "entry_ids": [str(item) for item in resolved.entry_ids],
+            "principal": principal.model_dump(mode="json") if principal is not None else None,
+            "agents": [agent.model_dump(mode="json") for agent in resolved.agents],
+            "expires_at": expires_at.isoformat(),
         }
-        if not resolved.allowed:
-            payload["error_code"] = _DENIAL_TO_CODE.get(resolved.reason or "", _DEFAULT_REJECTION_CODE)
-        return payload
+
+    async def describe(
+        self,
+        tenant_id: str,
+        platform_key: str,
+        assertion: str,
+        *,
+        entry_id: uuid.UUID | None = None,
+    ) -> dict[str, object]:
+        """`GET /identity` 的权威数据（API-01）：回答「此人能否用机器人」。
+
+        与 :meth:`resolve` 的差别只在**表达方式**，不在判定：`resolve` 面向资源接口（拒绝即
+        401/403），`describe` 面向权限查询（未通过也是正常结果，恒 200 + ``allowed=false``）。
+
+        验签失败仍抛 :class:`ExternalAssertionRejected`（401）：签名/算法/因子/时效属于
+        「无效请求」，把它说成「没有权限」会误导外部平台去引导用户绑定，方向就错了。
+        """
+        config = _require_config(platform_key)
+        verified = _verify(assertion, config, platform_key, process_settings())
+        resolved = await resolve_principal(self._repository, tenant_id, config, verified, entry_id=entry_id)
+        return {
+            "authenticated": True,
+            "platform_user_id": _as_str(resolved.platform_user_id),
+            "external_identity_id": _as_str(resolved.identity_id),
+            "platform_key": config.platform_key,
+            "allowed": resolved.allowed,
+            "reason": resolved.reason,
+            "grants": [
+                {
+                    "entry_id": str(view.entry_id),
+                    "agent_id": str(view.agent_id),
+                    "entry_name": view.entry_name,
+                    "channel": view.channel,
+                    "allowed": view.allowed,
+                    "reason": view.reason,
+                }
+                for view in resolved.grants
+            ],
+            "auth_revision": await self._repository.find_user_auth_revision(
+                tenant_id, resolved.platform_user_id
+            )
+            if resolved.platform_user_id is not None
+            else None,
+        }
+
+
+def _as_str(value: uuid.UUID | None) -> str | None:
+    return str(value) if value is not None else None
+
+
+def _require_config(platform_key: str) -> ExternalPlatformConfig:
+    """取平台因子配置；「取不到」一律是 503，不是 500。
+
+    `load_platform_configs` 对坏 JSON / 结构错误抛 `PlatformConfigError`。那是**配置问题**
+    而不是代码缺陷，必须对外表现为「平台不可用」（503）——否则运维改 Secret 时写错一个
+    括号，外部看到的是 500 内部错误，排查方向直接跑偏。
+
+    空配置（`""` / `{}`）是合法状态（表示一个平台都没配），同样走 503。
+    """
+    try:
+        configs = load_platform_configs(process_settings().external_assertion_platforms_json)
+    except PlatformConfigError as exc:
+        _LOGGER.warning("external assertion config is unusable: %s", exc)
+        raise PlatformUnavailable(str(exc)) from exc
+    config: ExternalPlatformConfig | None = configs.get(platform_key)
+    if config is None:
+        raise PlatformUnavailable(f"external platform {platform_key} is not configured")
+    return config
+
+
+def _verify(assertion: str, config: ExternalPlatformConfig, platform_key: str, settings: object):
+    try:
+        return verify_assertion(
+            assertion,
+            config,
+            max_session_age_sec=settings.external_assertion_max_session_age_sec,  # type: ignore[attr-defined]
+        )
+    except AssertionRejected as exc:
+        _LOGGER.info("external assertion rejected: platform=%s reason=%s", platform_key, exc.reason)
+        raise ExternalAssertionRejected(
+            _REJECTION_TO_CODE.get(exc.reason, _DEFAULT_REJECTION_CODE), exc.reason
+        ) from exc
+
+
+#: 断言未声明 `exp` 时的会话最长时限兜底（仅在配置未给最大会话年龄时使用）。
+_DEFAULT_SESSION_TTL_SEC = 300
+
+
+def _session_expires_at(claims: dict[str, object], max_session_age_sec: int | None) -> datetime:
+    """断言会话的权威到期时刻：`iat + 最大会话年龄`，无 `iat`/配置时按兜底 TTL。"""
+    ttl = max_session_age_sec if max_session_age_sec and max_session_age_sec > 0 else _DEFAULT_SESSION_TTL_SEC
+    issued_at = claims.get("iat")
+    if isinstance(issued_at, (int, float)):
+        return datetime.fromtimestamp(float(issued_at), tz=UTC) + timedelta(seconds=ttl)
+    return datetime.now(tz=UTC) + timedelta(seconds=ttl)

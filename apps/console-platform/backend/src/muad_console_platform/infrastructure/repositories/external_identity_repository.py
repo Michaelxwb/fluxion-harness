@@ -6,10 +6,11 @@
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.channel import BotAccount, EntryAccessGrant, ExternalIdentity
+from ..models.control import AgentDefinition, PlatformUser
 
 
 class ExternalIdentityRepository:
@@ -94,6 +95,54 @@ class ExternalIdentityRepository:
         )
         return [(grant, bot) for grant, bot in rows.all()]
 
+    async def find_user_auth_revision(self, tenant_id: str, platform_user_id: uuid.UUID) -> int | None:
+        """取平台用户的权限版本号（`/identity` 的 `auth_revision`，API-01）。
+
+        外部平台用它判断自己的授权缓存是否过期；用户不存在（已删）时返回 None，不编造 0。
+        """
+        return await self._session.scalar(
+            select(PlatformUser.auth_revision).where(
+                PlatformUser.tenant_id == tenant_id,
+                PlatformUser.id == platform_user_id,
+                PlatformUser.is_deleted.is_(False),
+            )
+        )
+
+    async def list_grants_with_agent(
+        self,
+        tenant_id: str,
+        identity_ids: list[uuid.UUID],
+    ) -> list[tuple[EntryAccessGrant, BotAccount, bool | None]]:
+        """取授权 + 入口 + 其 Agent 是否启用，供 `/identity` 做逐入口裁决（API-01）。
+
+        与 `list_grants` 分开是为了不动 Gateway 热路径：那条路只要「有哪些 Agent」，
+        不需要 Agent 启用状态，也不该为它多 join 一张表。
+
+        第三个元素为 `None` 表示 Agent 行不存在（被删除）而非「停用」——两者对外的
+        `reason` 不同（`NO_AGENT_GRANT` vs `AGENT_DISABLED`），不能合并。
+        """
+        if not identity_ids:
+            return []
+        rows = await self._session.execute(
+            select(EntryAccessGrant, BotAccount, AgentDefinition.enabled)
+            .join(BotAccount, BotAccount.id == EntryAccessGrant.bot_account_id)
+            .outerjoin(
+                AgentDefinition,
+                (AgentDefinition.id == BotAccount.agent_id)
+                & (AgentDefinition.tenant_id == tenant_id)
+                & (AgentDefinition.is_deleted.is_(False)),
+            )
+            .where(
+                EntryAccessGrant.tenant_id == tenant_id,
+                EntryAccessGrant.external_identity_id.in_(identity_ids),
+                EntryAccessGrant.is_deleted.is_(False),
+                BotAccount.tenant_id == tenant_id,
+                BotAccount.is_deleted.is_(False),
+            )
+            .order_by(EntryAccessGrant.create_time.asc(), EntryAccessGrant.id.asc())
+        )
+        return [(grant, bot, enabled) for grant, bot, enabled in rows.all()]
+
     async def find_grant(
         self,
         tenant_id: str,
@@ -141,9 +190,7 @@ class ExternalIdentityRepository:
         )
         if query.strip():
             pattern = f"%{query.strip()}%"
-            stmt = stmt.where(
-                or_(BotAccount.name.ilike(pattern), BotAccount.bot_id.ilike(pattern))
-            )
+            stmt = stmt.where(or_(BotAccount.name.ilike(pattern), BotAccount.bot_id.ilike(pattern)))
         stmt = stmt.order_by(BotAccount.create_time.desc(), BotAccount.id.desc())
         rows = await self._session.scalars(stmt.offset(offset).limit(limit))
         return list(rows)

@@ -10,7 +10,11 @@ from muad_contracts import (
     ChannelResolveRequest,
     InboundAuditRequest,
 )
-from muad_contracts.webchat import ChatPrincipalRequest, ExternalPrincipalRequest
+from muad_contracts.webchat import (
+    ChatPrincipalRequest,
+    ExternalIdentityQuery,
+    ExternalPrincipalRequest,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.artifact_delivery_audit_service import ArtifactDeliveryAuditService
@@ -71,9 +75,7 @@ async def bots(
 ) -> ApiResponse[Any]:
     """入口快照：`channels`（逗号分隔）限定调用方拥有的通道，避免泄露别人的 bot secret。"""
     wanted = (
-        frozenset(item.strip().upper() for item in channels.split(",") if item.strip())
-        if channels
-        else None
+        frozenset(item.strip().upper() for item in channels.split(",") if item.strip()) if channels else None
     )
     snapshot = await ChannelService(session).bots(
         tenant_id,
@@ -189,3 +191,32 @@ async def external_principal(
     except ExternalAssertionRejected as exc:
         raise AppError(ErrorCode(exc.code)) from exc
     return ok(request.app.state.message_catalog, resolved)
+
+
+@router.post("/external-identity")
+async def external_identity(
+    payload: ExternalIdentityQuery,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    internal_service: InternalServiceDep,
+) -> ApiResponse[Any]:
+    """外部身份权限查询（API-01 的 Console 侧，供网关投影 `GET /identity`）。
+
+    与 `/external-principal` 判定同源、表达不同：这里回逐入口 `allowed`/`reason` 与
+    `auth_revision`，让外部平台能区分「没授权」与「授权了但不可用」。断言不可信仍是
+    401（无效请求不是权限结论）；平台未配置 503。
+    """
+    service = ExternalAssertionService(session)
+    try:
+        described = await service.describe(
+            tenant_id,
+            payload.platform_key,
+            payload.assertion.get_secret_value(),
+            entry_id=payload.entry_id,
+        )
+    except PlatformUnavailable as exc:
+        raise AppError(ErrorCode.EXTERNAL_PLATFORM_UNAVAILABLE) from exc
+    except ExternalAssertionRejected as exc:
+        raise AppError(ErrorCode(exc.code)) from exc
+    return ok(request.app.state.message_catalog, described)
