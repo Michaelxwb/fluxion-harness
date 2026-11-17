@@ -42,7 +42,6 @@ from muad_contracts import (
     ScheduleDetail,
     ScheduleDraftConfirmRequest,
     ScheduleDraftConfirmResponse,
-    ScheduleDraftStatusResponse,
     ScheduleListItem,
     ScheduleMode,
     ScheduleStatus,
@@ -151,14 +150,6 @@ class TaskCenterOwnerPort(Protocol):
         surface: ConfirmationSurface,
         ref: str,
         idempotency_key: str,
-    ) -> dict[str, Any]: ...
-
-    async def get_schedule_draft_status(
-        self,
-        *,
-        tenant_id: str,
-        user_id: UUID,
-        draft_id: UUID,
     ) -> dict[str, Any]: ...
 
 
@@ -400,17 +391,6 @@ class TaskCenterService:
             idempotency_key=idempotency_key,
         )
         return _project(ScheduleDraftConfirmResponse, data).model_dump(mode="json")
-
-    async def get_draft_status(
-        self, identity: ChatIdentity, draft_id: UUID
-    ) -> dict[str, Any]:
-        """API-32：读取 Draft 的确认状态（只按 owner 核属，不暴露预览/载荷）。"""
-        data = await self._owner.get_schedule_draft_status(
-            tenant_id=self._tenant(identity),
-            user_id=identity.principal.platform_user_id,
-            draft_id=draft_id,
-        )
-        return _project(ScheduleDraftStatusResponse, data).model_dump(mode="json")
 
     # -- 产物下载 ---------------------------------------------------------------
 

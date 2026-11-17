@@ -30,7 +30,6 @@ import type {
   ScheduleDraftConfirmInput,
   ScheduleDraftConfirmReceipt,
   ScheduleDraftStatus,
-  ScheduleDraftStatusResponse,
   ScheduleMode,
   SchedulePreview,
   WebchatScheduleDraftReady,
@@ -55,6 +54,8 @@ export const DRAFT_ERROR_KEYS: Record<string, string> = {
   DRAFT_ID_REQUIRED: 'chat.draft.error.failed',
   DRAFT_HASH_REQUIRED: 'chat.draft.error.failed',
   IDEMPOTENCY_KEY_REQUIRED: 'chat.draft.error.failed',
+  SCHEDULE_DRAFT_CANCELLED: 'chat.draft.error.cancelled',
+  SCHEDULE_DRAFT_STATUS_UNKNOWN: 'chat.draft.error.statusUnknown',
   UNKNOWN: 'chat.draft.error.failed'
 };
 
@@ -66,6 +67,8 @@ export function draftErrorKey(code: string | null): string {
 /** 终态失败（重试无意义）：过期/已确认/无权限/不存在。 */
 const FINAL_DRAFT_FAILURES: ReadonlySet<string> = new Set<string>([
   'SCHEDULE_DRAFT_EXPIRED',
+  'SCHEDULE_DRAFT_CANCELLED',
+  'SCHEDULE_DRAFT_STATUS_UNKNOWN',
   'SCHEDULE_CONFIRMATION_REQUIRED',
   'SCHEDULE_NOT_FOUND',
   'COMMON_NOT_FOUND',
@@ -90,7 +93,7 @@ export function draftConfirmInput(draft: WebchatScheduleDraftReady): ScheduleDra
   return { draft_hash: hash };
 }
 
-export type DraftConfirmPhase = 'IDLE' | 'CHECKING' | 'SUBMITTING' | 'SUBMITTED' | 'FAILED';
+export type DraftConfirmPhase = 'IDLE' | 'SUBMITTING' | 'SUBMITTED' | 'FAILED';
 
 export interface DraftConfirmEntry {
   phase: DraftConfirmPhase;
@@ -116,19 +119,15 @@ export interface DraftConfirmPort {
     input: ScheduleDraftConfirmInput,
     options: WebchatWriteOptions
   ): Promise<ScheduleDraftConfirmReceipt>;
-  /** 历史卡片刷新后的确认状态；缺省时不做自动状态校验（只用于无法接线的测试）。 */
-  getDraftStatus?(draftId: string): Promise<ScheduleDraftStatusResponse>;
 }
 
 export interface DraftConfirmController {
   snapshot(): DraftConfirmState;
   subscribe(listener: (snapshot: DraftConfirmState) => void): () => void;
   entry(draftId: string): DraftConfirmEntry;
-  /** 历史卡片进入页面时读取一次服务端确认状态（幂等，不重放用户动作）。 */
-  resolve(draft: WebchatScheduleDraftReady): void;
   /** 唯一提交入口：用户显式确认（不自动消费）。 */
   confirm(draft: WebchatScheduleDraftReady): void;
-  /** 可重试失败的显式重试：确认失败沿用同一幂等键；状态读取失败则重读状态。 */
+  /** 可重试失败的显式重试：沿用同一幂等键与请求体。 */
   retry(draftId: string): void;
   reset(): void;
   dispose(): void;
@@ -153,10 +152,6 @@ interface DraftConfirmRuntime {
   newKey: () => string;
   entries: Map<string, DraftConfirmEntry>;
   attempts: Map<string, DraftAttempt>;
-  /** 已自动读取过状态的 Draft：页面重渲染/历史重放不重复发请求。 */
-  hydrated: Set<string>;
-  /** 状态读取过的 Draft：读取失败后的「重试」重读状态，而不是盲目确认。 */
-  statusChecks: Map<string, WebchatScheduleDraftReady>;
   generation: number;
   listeners: Set<(snapshot: DraftConfirmState) => void>;
   cached: DraftConfirmState | null;
@@ -222,8 +217,17 @@ function dispatch(
     );
 }
 
-/** 服务端状态 → 卡片状态：CONFIRMED 卡片只读；PENDING 仍可确认；终态失败不可重试。 */
-export function draftEntryForStatus(status: ScheduleDraftStatus): DraftConfirmEntry {
+/**
+ * 服务端投影的确认状态 → 卡片初始状态。只用于**历史**卡片：当前流的卡片是刚发布的
+ * 事实，本身就是 PENDING，不经过这里。
+ *
+ * - `PENDING` 仍可确认；`CONFIRMED` 只读（刷新后不再出现「确认创建」）。
+ * - `EXPIRED` / `CANCELLED` / `REJECTED` 与服务端不可知（`null`）一律**不可确认**：
+ *   状态不明时放开按钮只会换来一次注定失败的请求。
+ */
+export function draftEntryForStatus(
+  status: ScheduleDraftStatus | null | undefined
+): DraftConfirmEntry {
   switch (status) {
     case 'CONFIRMED':
       return { phase: 'SUBMITTED', errorCode: null, receipt: null };
@@ -233,47 +237,10 @@ export function draftEntryForStatus(status: ScheduleDraftStatus): DraftConfirmEn
       return { phase: 'FAILED', errorCode: 'SCHEDULE_DRAFT_EXPIRED', receipt: null };
     case 'CANCELLED':
     case 'REJECTED':
-      return { phase: 'FAILED', errorCode: 'SCHEDULE_STATE_INVALID', receipt: null };
+      return { phase: 'FAILED', errorCode: 'SCHEDULE_DRAFT_CANCELLED', receipt: null };
     default:
-      return { phase: 'FAILED', errorCode: 'UNKNOWN', receipt: null };
+      return { phase: 'FAILED', errorCode: 'SCHEDULE_DRAFT_STATUS_UNKNOWN', receipt: null };
   }
-}
-
-function checkStatus(
-  runtime: DraftConfirmRuntime,
-  draft: WebchatScheduleDraftReady,
-  generation: number
-): void {
-  const draftId = draft.draft_id.trim();
-  if (draftId === '' || runtime.port.getDraftStatus === undefined) return;
-  setEntry(runtime, draftId, { phase: 'CHECKING', errorCode: null, receipt: null });
-  runtime.port.getDraftStatus(draftId).then(
-    (response) => {
-      if (runtime.generation !== generation) return;
-      if (entryOf(runtime, draftId).phase !== 'CHECKING') return;
-      setEntry(runtime, draftId, draftEntryForStatus(response.status));
-    },
-    (error: unknown) => {
-      if (runtime.generation !== generation) return;
-      if (entryOf(runtime, draftId).phase !== 'CHECKING') return;
-      setEntry(runtime, draftId, {
-        phase: 'FAILED',
-        errorCode: taskCenterErrorCode(error),
-        receipt: null
-      });
-    }
-  );
-}
-
-function resolveDraft(runtime: DraftConfirmRuntime, draft: WebchatScheduleDraftReady): void {
-  const draftId = draft.draft_id.trim();
-  if (draftId === '') return;
-  if (runtime.hydrated.has(draftId) || runtime.port.getDraftStatus === undefined) return;
-  if (entryOf(runtime, draftId).phase !== 'IDLE') return;
-  runtime.hydrated.add(draftId);
-  runtime.statusChecks.set(draftId, draft);
-  // 不推进全局 generation：状态读取与其它 Draft 的确认响应互不相干。
-  checkStatus(runtime, draft, runtime.generation);
 }
 
 function confirm(runtime: DraftConfirmRuntime, draft: WebchatScheduleDraftReady): void {
@@ -283,11 +250,7 @@ function confirm(runtime: DraftConfirmRuntime, draft: WebchatScheduleDraftReady)
     return;
   }
   const current = entryOf(runtime, draftId);
-  if (
-    current.phase === 'CHECKING' ||
-    current.phase === 'SUBMITTING' ||
-    current.phase === 'SUBMITTED'
-  ) {
+  if (current.phase === 'SUBMITTING' || current.phase === 'SUBMITTED') {
     return;
   }
   if (current.phase === 'FAILED' && isDraftFailureFinal(current.errorCode)) return;
@@ -313,12 +276,7 @@ function retryDraft(runtime: DraftConfirmRuntime, draftId: string): void {
   const current = entryOf(runtime, draftId);
   if (current.phase !== 'FAILED' || isDraftFailureFinal(current.errorCode)) return;
   const attempt = runtime.attempts.get(draftId);
-  if (attempt === undefined) {
-    // 失败发生在状态读取而不是确认：重读状态，绝不把「重试」变成一次确认。
-    const draft = runtime.statusChecks.get(draftId);
-    if (draft !== undefined) checkStatus(runtime, draft, runtime.generation);
-    return;
-  }
+  if (attempt === undefined) return;
   if (draftExpired(attempt.draft.expires_at, runtime.now())) {
     setEntry(runtime, draftId, {
       phase: 'FAILED',
@@ -341,8 +299,6 @@ export function createDraftConfirmController(
     newKey: deps.newKey ?? newRequestId,
     entries: new Map(),
     attempts: new Map(),
-    hydrated: new Set(),
-    statusChecks: new Map(),
     generation: 0,
     listeners: new Set(),
     cached: null
@@ -356,23 +312,18 @@ export function createDraftConfirmController(
       };
     },
     entry: (draftId) => entryOf(runtime, draftId),
-    resolve: (draft) => resolveDraft(runtime, draft),
     confirm: (draft) => confirm(runtime, draft),
     retry: (draftId) => retryDraft(runtime, draftId),
     reset() {
       runtime.generation += 1;
       runtime.entries.clear();
       runtime.attempts.clear();
-      runtime.hydrated.clear();
-      runtime.statusChecks.clear();
       publish(runtime);
     },
     dispose() {
       runtime.generation += 1;
       runtime.entries.clear();
       runtime.attempts.clear();
-      runtime.hydrated.clear();
-      runtime.statusChecks.clear();
       runtime.listeners.clear();
       runtime.cached = null;
     }
@@ -542,9 +493,8 @@ export function DraftCard(props: DraftCardProps) {
   const expired = draftExpired(draft.expires_at, props.nowMs);
   const submitted = entry.phase === 'SUBMITTED';
   const submitting = entry.phase === 'SUBMITTING';
-  const checking = entry.phase === 'CHECKING';
   const locked =
-    checking || submitting || submitted || expired || isDraftFailureFinal(entry.errorCode);
+    submitting || submitted || expired || isDraftFailureFinal(entry.errorCode);
   const finalFailure = isDraftFailureFinal(entry.errorCode);
   return (
     <section
@@ -577,7 +527,7 @@ export function DraftCard(props: DraftCardProps) {
           size="small"
           data-testid="chat-draft-confirm"
           disabled={locked}
-          loading={submitting || checking}
+          loading={submitting}
           onClick={() => props.onConfirm(draft)}
         >
           {t(draft.kind === 'UPDATE' ? 'chat.draft.confirm.UPDATE' : 'chat.draft.confirm.CREATE')}
@@ -603,11 +553,6 @@ export function DraftCard(props: DraftCardProps) {
             {t('chat.draft.submitting')}
           </span>
         ) : null}
-        {checking ? (
-          <span className="chat-draft-checking" data-testid="chat-draft-checking">
-            {t('chat.draft.checking')}
-          </span>
-        ) : null}
         {submitted ? (
           <span className="chat-draft-submitted" data-testid="chat-draft-submitted">
             {t('chat.draft.submitted')}
@@ -630,7 +575,6 @@ export function DraftCard(props: DraftCardProps) {
 /** 历史/流式两处复用的端口：页面持有控制器，展示组件只读状态并转发动作。 */
 export interface DraftConfirmationBinding {
   entry(draftId: string): DraftConfirmEntry;
-  resolve(draft: WebchatScheduleDraftReady): void;
   confirm(draft: WebchatScheduleDraftReady): void;
   retry(draftId: string): void;
 }

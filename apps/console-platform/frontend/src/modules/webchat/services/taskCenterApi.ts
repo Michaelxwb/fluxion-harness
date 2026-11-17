@@ -26,7 +26,6 @@ import type {
   ScheduleDetail,
   ScheduleDraftConfirmInput,
   ScheduleDraftConfirmReceipt,
-  ScheduleDraftStatusResponse,
   ScheduleExecutionDetail,
   ScheduleListPage,
   TaskCenterAgentQuery,
@@ -272,19 +271,6 @@ export async function confirmScheduleDraft(
   );
 }
 
-/** API-32：历史卡片的确认状态；只按 owner 取，不重放任何用户动作。 */
-export async function getScheduleDraftStatus(
-  draftId: string,
-  options: WebchatRequestOptions = {}
-): Promise<ScheduleDraftStatusResponse> {
-  return unwrap(
-    await api.get<ApiResponse<ScheduleDraftStatusResponse>>(
-      `/webchat/schedule-drafts/${requireText(draftId, 'DRAFT_ID_REQUIRED')}`,
-      { signal: options.signal }
-    )
-  );
-}
-
 /** 构造任务中心 typed 客户端；页面只消费这个端口，不自行拼请求。 */
 export function createTaskCenterClient(): TaskCenterClient {
   return {
@@ -297,7 +283,6 @@ export function createTaskCenterClient(): TaskCenterClient {
     respondHuman,
     scheduleAction,
     downloadArtifact,
-    confirmDraft: confirmScheduleDraft,
-    getDraftStatus: getScheduleDraftStatus
+    confirmDraft: confirmScheduleDraft
   };
 }

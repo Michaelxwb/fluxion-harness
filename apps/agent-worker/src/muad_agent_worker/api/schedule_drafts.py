@@ -30,7 +30,6 @@ from ..application.schedule_drafts import (
     DraftIdentity,
     ScheduleDraftService,
     load_draft,
-    load_draft_status,
     parse_draft_request,
 )
 from ..application.submissions import (
@@ -147,27 +146,6 @@ async def read_schedule_draft(
         identity=DraftIdentity(
             tenant_id=tenant_id, owner_user_id=actor_user_id, agent_id=agent_id
         ),
-    )
-    return ok(request.app.state.message_catalog, data)
-
-
-@router.get("/{draft_id}/status")
-async def read_schedule_draft_status(
-    draft_id: uuid.UUID,
-    request: Request,
-    tenant_id: TenantId,
-    session: Session,
-    actor_user_id: RequiredActorUserId,
-) -> ApiResponse[Any]:
-    """确认状态读面：surface 刷新后判断历史卡片是否仍可确认。
-
-    只按 tenant + owner 核属；不要求 `X-Agent-Id`，因为客户端拿到的历史卡片没有 Agent。
-    """
-    data = await load_draft_status(
-        session,
-        draft_id,
-        tenant_id=tenant_id,
-        owner_user_id=actor_user_id,
     )
     return ok(request.app.state.message_catalog, data)
 

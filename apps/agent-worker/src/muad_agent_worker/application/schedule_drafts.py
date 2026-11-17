@@ -528,28 +528,6 @@ async def load_draft(
     return draft_response(draft)
 
 
-async def load_draft_status(
-    session: AsyncSession,
-    draft_id: uuid.UUID,
-    *,
-    tenant_id: str,
-    owner_user_id: uuid.UUID,
-) -> dict[str, Any]:
-    """Draft 状态读面：只按 owner 核属。
-
-    surface 刷新后拿到的历史卡片可能来自当前授权的任一 Agent，客户端并不知道该 Draft
-    的 agent；状态只回答「还能不能确认」，不暴露预览/载荷。
-    """
-    draft = await _owned_draft(
-        session, draft_id, tenant_id=tenant_id, owner_user_id=owner_user_id
-    )
-    return {
-        "draft_id": str(draft.id),
-        "status": draft.status,
-        "schedule_id": str(draft.schedule_id) if draft.schedule_id is not None else None,
-    }
-
-
 async def _owned_draft(
     session: AsyncSession,
     draft_id: uuid.UUID,

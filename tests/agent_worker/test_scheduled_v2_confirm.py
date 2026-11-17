@@ -432,26 +432,6 @@ async def test_another_users_draft_is_not_found(
     assert (await load_draft(tenant, draft.id)).status == "PENDING"
 
 
-async def test_draft_status_read_is_owner_scoped(client: AsyncClient, tenant: TenantContext) -> None:
-    owner, agent = uuid.uuid4(), uuid.uuid4()
-    draft = await seed_draft(tenant, owner=owner, agent=agent, status="CONFIRMED")
-    path = f"/internal/schedule-drafts/{draft.id}/status"
-
-    response = await client.get(path, headers=headers(tenant, actor=owner))
-
-    assert response.status_code == 200, response.text
-    assert response.json()["data"] == {
-        "draft_id": str(draft.id),
-        "status": "CONFIRMED",
-        "schedule_id": None,
-    }
-
-    foreign = await client.get(path, headers=headers(tenant, actor=uuid.uuid4()))
-    assert foreign.status_code == 404
-    assert foreign.json()["code"] == "SCHEDULE_NOT_FOUND"
-    assert (await load_draft(tenant, draft.id)).status == "CONFIRMED", "状态读取不得改 Draft"
-
-
 async def test_another_tenants_draft_is_not_found(
     client: AsyncClient, tenant: TenantContext
 ) -> None:

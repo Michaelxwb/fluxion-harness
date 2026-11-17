@@ -17,7 +17,7 @@ from pydantic import (
 
 from .attachments import SUPPORTED_UPLOAD_FORMATS, AttachmentFormat
 from .channel import MAX_PAGE_SIZE, AttachmentKind
-from .enums import DraftKind, RunStatus, ScheduleMode
+from .enums import DraftKind, DraftStatus, RunStatus, ScheduleMode
 from .platform_settings import WebchatSettings, parse_platform_settings
 from .scheduling import SchedulePreview
 from .tasks import ContractModel
@@ -278,6 +278,12 @@ class WebchatHistoryMessage(WebchatContract):
     #: （刷新后仍可确认），因此挂在助手条目上而不是另造一种历史条目。只有卡片条目带这个键，
     #: 普通消息的线格式不因此多一个 `draft: null`。
     draft: WebchatScheduleDraftReady | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    #: 卡片的确认状态：历史投影按跨 Owner Schema 只读聚合从 `task.task_schedule_draft.status`
+    #: 读出，刷新后直接据它渲染（不需要客户端再单独查一次）。缺省表示状态不可知——
+    #: 客户端必须按不可确认处理，不得当成 PENDING。
+    draft_status: DraftStatus | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
     #: canonical 事件落库时间（消息发送/接收的权威时刻，页面只展示不推算）。

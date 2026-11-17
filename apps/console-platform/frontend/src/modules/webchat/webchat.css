@@ -1373,7 +1373,6 @@
 }
 
 .chat-draft-submitting,
-.chat-draft-checking,
 .chat-draft-submitted {
   color: var(--semi-color-text-2);
 }

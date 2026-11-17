@@ -218,6 +218,11 @@ export interface WebchatHistoryMessage {
    * 持久事实回到历史里，刷新/重连后仍可确认。普通消息线格式不带这个键。
    */
   draft?: WebchatScheduleDraftReady | null;
+  /**
+   * 卡片的确认状态（服务端按 Owner Schema 只读投影出来）：刷新后直接据它渲染。
+   * 缺省/未知一律按「不可确认」处理——不得当成 PENDING。
+   */
+  draft_status?: ScheduleDraftStatus | null;
   /** canonical 事件落库时间（消息发送/接收的权威时刻）。 */
   created_at: string;
 }
@@ -489,13 +494,6 @@ export interface ScheduleDraftConfirmInput {
 /** Draft 的确认状态：历史卡片刷新后据此决定还能不能确认。 */
 export type ScheduleDraftStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'EXPIRED' | 'REJECTED';
 
-/** API-32：只回答确认状态与已生效的 Schedule，不携带预览/载荷。 */
-export interface ScheduleDraftStatusResponse {
-  draft_id: string;
-  status: ScheduleDraftStatus;
-  schedule_id: string | null;
-}
-
 /** API-27 确认回执：确认即生效后的真实 Schedule 事实。 */
 export interface ScheduleDraftConfirmReceipt {
   schedule_id: string;
@@ -729,9 +727,4 @@ export interface TaskCenterClient {
     input: ScheduleDraftConfirmInput,
     options: WebchatWriteOptions
   ): Promise<ScheduleDraftConfirmReceipt>;
-  /** API-32：历史卡片刷新后的确认状态（owner 核属，不含预览/载荷）。 */
-  getDraftStatus(
-    draftId: string,
-    options?: WebchatRequestOptions
-  ): Promise<ScheduleDraftStatusResponse>;
 }

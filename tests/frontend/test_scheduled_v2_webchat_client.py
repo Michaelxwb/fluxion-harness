@@ -56,7 +56,6 @@ CLIENT_METHODS = (
     "confirmDraft",
     "downloadArtifact",
     "getBadges",
-    "getDraftStatus",
     "getExecution",
     "getSchedule",
     "listFires",
@@ -420,13 +419,6 @@ observations.confirm = {
 };
 observations.confirm.request = observed();
 
-// 11b) API-32 Draft 确认状态：刷新后的历史卡片只读，不重放确认
-payload = { draft_id: DRAFT_ID, status: 'CONFIRMED', schedule_id: SCHEDULE_ID };
-observations.draftStatus = {
-  result: await client.getDraftStatus(DRAFT_ID, signalOption)
-};
-observations.draftStatus.request = observed();
-
 // 12) 本地前置校验：零 HTTP
 const beforeGuards = requests.length;
 observations.guards = {
@@ -661,18 +653,6 @@ def test_writes_carry_idempotency_and_the_draft_surface_body(task_center: dict[s
     assert confirm["body"] == {"draft_hash": DRAFT_HASH}, "确认体只绑定 draft_hash"
     assert confirm["idempotencyKey"] == "idem-confirm-282"
     assert task_center["confirm"]["result"]["schedule_id"] == SCHEDULE_ID
-
-    status_request = task_center["draftStatus"]["request"]
-    assert (status_request["method"], status_request["url"]) == (
-        "GET",
-        f"/webchat/schedule-drafts/{DRAFT_ID}",
-    )
-    assert status_request["idempotencyKey"] is None
-    assert task_center["draftStatus"]["result"] == {
-        "draft_id": DRAFT_ID,
-        "status": "CONFIRMED",
-        "schedule_id": SCHEDULE_ID,
-    }
 
 
 def test_download_selects_the_named_version(task_center: dict[str, Any]) -> None:

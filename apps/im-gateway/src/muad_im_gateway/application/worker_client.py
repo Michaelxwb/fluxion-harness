@@ -37,7 +37,6 @@ PENDING_PATH = "/internal/task-center/pending"
 BADGES_PATH = "/internal/task-center/badges"
 HUMAN_RESPOND_PATH = "/internal/human-interactions/{interaction_id}/respond"
 SCHEDULE_DRAFT_PATH = "/internal/schedule-drafts/{draft_id}"
-SCHEDULE_DRAFT_STATUS_PATH = "/internal/schedule-drafts/{draft_id}/status"
 SCHEDULE_CONFIRM_PATH = "/internal/schedule-drafts/{draft_id}/confirm"
 
 TENANT_HEADER = "X-Tenant-Id"
@@ -196,20 +195,6 @@ class WorkerClient:
             tenant_id=tenant_id,
             user_id=user_id,
             agent_id=agent_id,
-        )
-
-    async def get_schedule_draft_status(
-        self,
-        *,
-        tenant_id: str,
-        user_id: UUID,
-        draft_id: UUID,
-    ) -> dict[str, Any]:
-        """Draft 确认状态读面：surface 刷新后判断历史卡片是否还能确认。"""
-        return await self._get(
-            SCHEDULE_DRAFT_STATUS_PATH.format(draft_id=draft_id),
-            tenant_id=tenant_id,
-            user_id=user_id,
         )
 
     async def confirm_draft(

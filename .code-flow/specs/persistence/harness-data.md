@@ -17,7 +17,10 @@
 
 - **稳定 key 不因软删除而重置**：`user_memory` 的 `(tenant_id,user_id,memory_key)` 与 `memory_scope` 的 `(tenant_id,user_id)` 使用完整唯一。历史对稳定 `origin_id` 建同 Owner FK，执行对象/actor/command 是逻辑审计引用；history/receipt/job 的 `is_deleted` CHECK 恒 false。同族的新注册表同样使用完整唯一（含 tombstone）：`runtime.model_capacity`（0022）、`runtime.run_admission_policy`（0023，另有 `is_deleted=false` CHECK）、`runtime.channel_notification_feed`（0026）。
   - ✅ 删除后保留原 id，下一次合法修改续增 version，并在同事务写完整历史；❌ 用 partial key 唯一建立第二个 incarnation，再从 version=1 开始。
-- **跨 Owner Schema 的只读聚合**：允许直接读取其它 Owner 的表（如 `task.*`、`runtime.*`）做**只读聚合投影**，条件是：① 只读、不写任何表；② 每条查询都带 `tenant_id` 与 `is_deleted = false`（或该表的软删等价条件）；③ 名称类字段在同一 SQL 内 JOIN 批量补齐，不做逐行关联（N+1）。既有两例：`audit_query_repository`（11-audit-observability）与 `overview_query_repository`（12-overview-dashboard）。**不建宽表、不建物化视图**，跨 Schema 一律逻辑引用（UUID）、不建物理 FK。
+- **跨 Owner Schema 的只读聚合**：允许直接读取其它 Owner 的表（如 `task.*`、`runtime.*`）做**只读聚合投影**，条件是：① 只读、不写任何表；② 每条查询都带 `tenant_id` 与 `is_deleted = false`（或该表的软删等价条件）；③ 名称类字段在同一 SQL 内 JOIN 批量补齐，不做逐行关联（N+1）。既有三例：`audit_query_repository`（11-audit-observability）、`overview_query_repository`（12-overview-dashboard）与 webchat 历史投影（Runtime `webchat_history` 的 `_draft_statuses`，读 Worker 的 `task.task_schedule_draft` 取 Draft 确认状态）。**不建宽表、不建物化视图**，跨 Schema 一律逻辑引用（UUID）、不建物理 FK。
+  - **读别人的表要复刻对方的可见性谓词**：除 `tenant_id` 与软删外，被读表若有归属列（如 `owner_user_id`）必须一并带上，不得只按主键取；读不到或读取失败降级为"该事实不可知"，由投影层把它渲染成**不可操作**（如卡片不可确认），不得失败整页，也不得回落成某个默认值（把未知状态当 `PENDING` 就是伪造事实）。
+  - ✅ `SELECT id, status FROM task.task_schedule_draft WHERE id IN (...) AND tenant_id = ? AND owner_user_id = ? AND is_deleted = false`，一页一次批量；缺失/失败 → 字段为空、客户端按不可操作渲染
+  - ❌ 只按 `id` 读（跨用户泄露他人 Draft 状态）、逐条查（N+1）、读失败当默认 `PENDING`（历史卡片会把已确认的再次放开）
 - **四列口径的唯一载体是 `StandardColumnsMixin`**：`id`/`is_deleted`/`create_time`/`update_time` 四个声明集中在各 app 的 `infrastructure/models/base.py`，产品 ORM 统一继承该 mixin。三个 app 各持一份**同名同内容的副本**：`apps/console-platform/backend/src/muad_console_platform/infrastructure/models/base.py`、`apps/agent-worker/src/muad_agent_worker/infrastructure/models/base.py`、`apps/agent-runtime/src/muad_agent_runtime/infrastructure/models/base.py`（三份 `NAMING_CONVENTION` 也一致）。
   - ✅ `class X(StandardColumnsMixin, Base):` —— 四列自动齐全且口径一致。
   - ❌ 直接 `class X(Base):` 自己写四列 ⇒ 极易漏 `is_deleted`（软删条件失效）或写成裸 `datetime` 而非 `DateTime(timezone=True)`。
