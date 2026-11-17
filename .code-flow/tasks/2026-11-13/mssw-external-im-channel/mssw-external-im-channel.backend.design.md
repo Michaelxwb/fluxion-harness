@@ -808,17 +808,33 @@ flowchart TD
 
 `/identity` 的 reason 词表：
 
-| reason | 含义 |
-|--------|------|
-| `UNBOUND` | 验签通过但没有用户级外部身份 |
-| `NO_ENTRY_GRANT` | 用户级身份存在，但没有请求入口或可用入口的 grant；不丢弃主体 |
-| `ENTRY_DISABLED` | 入口禁用/删除 |
-| `AGENT_DISABLED` | Agent 禁用/删除 |
-| `NO_AGENT_GRANT` | 无 Agent 授权 |
-| `USER_DISABLED` | 平台用户停用 |
+| reason | 含义 | 判定依据 |
+|--------|------|----------|
+| `UNBOUND` | 验签通过但没有用户级外部身份 | 无 `external_identity` 记录；不构造主体 |
+| `NO_ENTRY_GRANT` | 身份存在，但该入口没有授权；或入口本身已停用 | 无 grant 记录，或 `BotAccount.enabled=false` |
+| `NO_AGENT_GRANT` | 入口绑定的 Agent 行不存在（已删除） | 授权 + 入口存在，Agent 查询结果为 NULL |
+| `AGENT_DISABLED` | 入口绑定的 Agent 被停用 | `AgentDefinition.enabled=false` |
+| `USER_DISABLED` | 平台用户停用 | `external_identity.status != ACTIVE`；此时所有入口统一报此原因 |
+
+**逐入口优先级**（`_grant_views`，高 → 低）：用户停用 → 入口停用 → Agent 不存在 → Agent 停用 → 可用。
+用户停用单独排在最前，是为了不因「Agent 恰好也被停用」而把原因说成 `AGENT_DISABLED`——排查方向会因此跑偏。
 
 - Console 内部端点对停用用户返回 403；Gateway 的 `/identity` handler 把它投影为 200 + `reason=USER_DISABLED`，资源接口保持 403。
 - 新错误码必须同时登记 `packages/api-kit/src/muad_api/error_codes.py` 与 `config/api-messages.yaml`（双向断言）。
+
+**判定同源（实现口径，2026-11 起）**：`external-principal`（资源接口）与 `/identity`（权限查询）共用
+`resolve_principal` 一个判定，`allowed` 不可能不一致；两者只在**表达方式**上分叉（资源接口把 `allowed=false`
+转成 401/403，权限查询恒 200 + `allowed=false`）。
+
+由此带来一个**有意的行为变更**：早期 `external-principal` 只校验「有没有授权」，不看 Agent 状态，
+因此 Agent 被停用后旧授权仍能把用户放进来。现在 Agent 停用会一并拒绝资源接口，与
+`resolve_service` 对其他通道的判定一致。同时，未指定 `entry_id` 的查询在「没有任何可用入口」时
+整体 `allowed=false`（先前口径是「授权存在即放行」）。
+
+**行为变更的影响面**（发布前须知）：
+
+- 存量已授权但 Agent 处于停用的用户，升级后会立刻无法进入对话/发消息——这是期望的收口，但需要在发布说明中提示运营方先检查停用 Agent 的授权情况。
+- `/entries` 本就过滤不可用入口，因此表现不变；变化的是「直接提交消息」这条路径不再放行。
 
 #### 3.4.3 验签实现要点
 
@@ -1170,5 +1186,27 @@ location /api/v1/msswwweb {
 以上只支撑基础设施语义，不证明本方案已实现或达到性能目标；实际正确性、故障恢复、查询计划与延迟需由后续 Task 测试及隔离环境压测验证。
 
 ---
+
+## 实现期发现（2026-11，验收阶段记录）
+
+验收（TASK-013）过程中发现、已修复或已确认不影响本次需求的差异，记录在此以免后续重复排查。
+
+**已修复**：
+
+1. **拒绝路径一律 500**：Console 的 `/internal/channel/external-principal` 在 `allowed=false` 时多回一个 `error_code` 字段，而契约 `ExternalPrincipalResult` 为 `extra="forbid"`，网关反序列化失败 → 所有拒绝（未绑定/无授权/停用/Agent 停用）都表现为 500 `COMMON_INTERNAL_ERROR`。已删除该字段；错误码由网关按 `reason` 自行映射。
+2. **配置写错返回 500**：`load_platform_configs` 对坏 JSON 抛 `PlatformConfigError`，此前未捕获。现统一转为 `PlatformUnavailable`（503），并在日志中留 warning。
+3. **撤权后 `/entries` 越界 500**：`grant_views` 为空时取首元素越界。现明确回落为 `NO_ENTRY_GRANT`。
+4. **外部断言路径漏判 Agent 状态**：见 `## 3.4.2` 的「判定同源 / 行为变更」。
+5. **`AGENT_DISABLED` 缺错误码映射**：此前落到通用 `FORBIDDEN`，现映射为 `EXTERNAL_ASSERTION_NOT_GRANTED`（与「无授权」同属可用性拒绝；细分原因由 `/identity` 的 `reason` 承担）。
+
+**未修复（既有缺口，不属于本次范围）**：
+
+- **提交文本长度服务端不校验**：`webchat.text_max_bytes` 只下发在 `client-config` 里供客户端拦截；`submit_message` 不做长度判断，超限文本会被受理（202）。WebChat 面同样如此，修它属跨通道行为变更，需单独评估。验收用例 `test_b03_client_config_exposes_text_limit_for_client_side_guard` 按实际行为断言，并在 docstring 中记录。
+- **重复提交的终态是 409 `RUN_BUSY`**：同一 `message_id` 重发时，若首轮仍在执行，会话级并发闸先拦下。效果上仍是「不会跑两遍」，但与「返回同一个 run_id」不同；验收按实际终态断言。
+
+**场景编号与实现的偏差**：
+
+- 早期 scenarios 以 `/identity` 描述权限查询，但该接口在 TASK-001~012 中未被任何 Task 认领，实现缺失。本次已补齐。
+- scenarios 中 E-10、E-12~E-14 以「Redis 认证缓存 + revision 失效」为前提，而实现**不存在**该缓存（外部断言每次直查控制库）。相关场景已改写为「撤权即时生效」（E-05 覆盖）；若将来引入缓存，这批场景需要重新定义。
 
 *文档结束*

@@ -3,12 +3,50 @@
 ---
 # MSSW 外部 IM 入口 验收场景
 
-> **修订版本**：v1.2；状态为待实现/待人工执行，本文不代表验收已通过。
+> **修订版本**：v1.3；状态为待实现/待人工执行，本文不代表验收已通过。
 
 > 这是给**人工测试者**使用的验收清单，不是 E2E 代码或测试注册表。
 > 每个场景保留 S-/E-/B- 编号，供 design 和 Task 的 `Scenarios` 字段引用。
 > 步骤用用户能执行的界面动作、CLI 命令或 API 请求描述；期望写用户可观察的结果。
 > 本次接入方是业务平台 BFF，因此部分场景以 API 请求为主；Console 管理面场景以页面操作为主。
+
+## 自动化覆盖对照（v1.3 实测）
+
+API 层已由 `tests/acceptance/msswweb/` 持续回归覆盖；浏览器/长流时序场景仍需人工执行。
+
+| 场景 | 自动化 | 位置 |
+|------|--------|------|
+| S-01 建入口 | 人工（Console 页面） | — |
+| S-02 建身份并授权 | 部分（API 等价路径） | `admin_api.py` 的 upsert/grant 调用被 E-05/E-07 复用 |
+| S-03 完整对话 | ✅ pytest 全链路（真实 LLM 探针） | `test_full_conversation.py` |
+| S-04 无 Console 权限泄露 | ✅ | `test_auth_surface.py::test_auth_entries_carry_no_console_permissions` |
+| S-05 浏览/刷新历史 | 人工（浏览器刷新） | — |
+| S-06 附件归属 | 人工 | — |
+| S-07~S-11 | 人工 | — |
+| E-01 断言不可信 | ✅ | `test_auth_surface.py`（4 变体）+ `test_identity_api.py`（401） |
+| E-02 未绑定/无入口授权 | ✅ | 同上（UNBOUND / NO_ENTRY_GRANT） |
+| E-03 平台未配置/配置损坏 | ✅ | `test_platform_config_isolation.py`（4 变体 + 不触达存储） |
+| E-04 用户停用 | ✅ | `test_identity_api.py`（USER_DISABLED） |
+| E-05 撤权即时生效 | ✅ | `test_auth_surface.py`（撤权后入口不可见） |
+| E-06 重复提交 | ✅ | `test_conversation_boundaries.py`（不产生第二个 Run） |
+| E-07 Agent 停用 | ✅ | `test_identity_api.py`（AGENT_DISABLED + 资源接口同步拒绝） |
+| E-08 长流中撤权 | 人工（需真实长回答 + 中途撤权） | 单元层有 `ChatStreamGuard` 重放覆盖 |
+| E-09 因子轮换 | ✅ | `test_auth_surface.py`（旧私钥 token 失效） |
+| E-10 Redis 缓存失效 | **不适用**：当前实现无 Redis 认证缓存（每次直查控制库） | 由 E-05 的「即时生效」等价覆盖 |
+| E-11 跨租户隔离 | ✅ | `test_auth_surface.py`（跨租户主体 403） |
+| E-12~E-14 缓存与配置一致性 | **不适用/已改写**：无缓存层；配置一致性见 `test_platform_config_isolation.py` | — |
+| B-01 空列表/缺会话 | ✅ | `test_conversation_boundaries.py` |
+| B-02 超龄 token | ✅ | `test_auth_surface.py` |
+| B-03 文本超限 | ✅（改写为「上限下发」） | 见该用例 docstring：服务端**不做**长度校验，属既有缺口 |
+| B-04~B-06 | 人工 | — |
+
+**接口现状更正（v1.3）**：早期本文多处以 `GET /api/v1/msswwweb/identity` 描述「入口可用查询」。
+该接口在 TASK-001~012 中**未被分配**，因此实现缺失；v1.3 已按 API-01 补齐（`Gateway → POST
+/internal/channel/external-identity → Console`），语义为「权限查询恒 200 + `allowed`/`reason`/
+`grants[]`/`auth_revision`」。验签不合法仍为 401（无效请求不是权限结论），平台未配置为 503。
+
+**行为变更（v1.3）**：Agent 停用现在会同时拒绝资源接口（提交消息），此前旧授权仍可放行。
+详见 `backend.design.md` 的「判定同源」与「行为变更的影响面」。
 
 ## 公共前置
 
