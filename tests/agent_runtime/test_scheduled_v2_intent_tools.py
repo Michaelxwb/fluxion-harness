@@ -46,6 +46,7 @@ from muad_agent_worker.main import app as worker_app
 from muad_contracts import (
     DeliveryRouteInput,
     ResolvedAgent,
+    ResolvedMcpServer,
     ResolvedModel,
     ResolvedSkill,
     ScheduleAdmissionMaterials,
@@ -226,6 +227,16 @@ def _context(
             id=uuid.uuid4(), revision=1, model_id="gpt-4o-mini", base_url="http://model", params={}
         ),
         skills=(_skill(),),
+        # AGENT_TURN 的 tools_allow 只能收紧 owner 已有的工具；CRM 工具就是本 Run 的材料。
+        mcp_servers=(
+            ResolvedMcpServer(
+                mcp_server_id=uuid.uuid4(),
+                key="crm",
+                endpoint="https://crm.internal/mcp",
+                catalog_revision=3,
+                definitions=[{"name": "customer.report"}],
+            ),
+        ),
         source_run_id=run_id or uuid.uuid4(),
         conversation_id=conversation_id,
         entry_channel=entry_channel,

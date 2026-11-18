@@ -692,7 +692,7 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
   - contracts PASS exit=0
 ## TASK-013: Authoring 编译器与意图识别
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-012, TASK-005
 - **Source**: run-failure-reporting/run-failure-reporting.design.md#10.4
 - **Scenarios**: run-failure-reporting:S-11, run-failure-reporting:S-15
@@ -721,12 +721,12 @@ Agent 输出结构化 `SchedulePlan`（kind/skill/input/argv/window/session/deli
 
 ### Checklist
 
-- [ ] `SchedulePlan` 契约与校验器（skill/entrypoint/input/argv/cron/timezone/delivery_intent/tools）。
-- [ ] 意图决策树：通知/固定 Skill/开放任务；歧义问业务问题。
-- [ ] 黄金集：日报→SKILL_PLAN；汇总→AGENT_TURN；提醒→REMINDER；歧义→问题。
-- [ ] 校验失败返回结构化字段错误，模型可修正一次；仍失败降级或让用户确认。
-- [ ] 卡片返回 resolved plan、confidence、reason、budget source。
-- [ ] 不要求用户/模型选 `mode`。
+- [x] `SchedulePlan` 契约与校验器（skill/entrypoint/input/argv/cron/timezone/delivery_intent/tools）。
+- [x] 意图决策树：通知/固定 Skill/开放任务；歧义问业务问题。
+- [x] 黄金集：日报→SKILL_PLAN；汇总→AGENT_TURN；提醒→REMINDER；歧义→问题。
+- [x] 校验失败返回结构化字段错误，模型可修正一次；仍失败降级或让用户确认。
+- [x] 卡片返回 resolved plan、confidence、reason、budget source。
+- [x] 不要求用户/模型选 `mode`。
 
 ### Spec Delta
 
@@ -737,11 +737,14 @@ Agent 输出结构化 `SchedulePlan`（kind/skill/input/argv/window/session/deli
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18] implemented: schedule authoring compiler, intent tree, structured field errors, clarification without Draft, confidence/reason on card
+- [2026-11-18T20:21:08.746Z] started tests=d01a0ef9aa74
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-18T20:21:17.641Z PASS commands=1/1 executed=1 deduped=0 elapsed=8775ms tests=d01a0ef9aa74 head=24a62fa5c1cd dirty=1
+  - authoring PASS exit=0
 ## TASK-014: 真实试跑与从成功执行提升
 
 - **Status**: draft

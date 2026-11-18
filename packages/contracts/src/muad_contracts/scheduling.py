@@ -442,6 +442,10 @@ class SchedulePreview(ContractModel):
     tools_allow: list[str] = Field(default_factory=list)
     #: 预算来源：`PLATFORM` = 平台设置；`NONE` = 该 payload 不消费模型预算。
     budget_source: Literal["PLATFORM", "NONE"] = "NONE"
+    #: Authoring-only card facts: how sure the compiler is and why it chose this plan.
+    #: They never enter the frozen Job config (design §10.4 / §10.11).
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    reason: str = Field(default="", max_length=2000)
     dependencies: list[str] = Field(default_factory=list)
     budget: dict[str, Any] = Field(default_factory=dict)
     #: 只有 UPDATE Draft 才有：CREATE 没有「之前」，空列表就是「没有旧配置可比」。

@@ -32,23 +32,27 @@ from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import (
     SCHEDULE_CONFIRM_COMMAND,
-    DeliveryIntent,
     DraftKind,
     ResolvedSkill,
     SchedulePreview,
 )
-from muad_contracts.enums import LOCAL_STREAM_CHANNELS, OUTBOUND_CHANNELS, ScheduleStatus
+from muad_contracts.enums import OUTBOUND_CHANNELS, ScheduleStatus
 from muad_contracts.webchat import WebchatScheduleDraftReady
 from pydantic import ValidationError
 
 from ..infrastructure.db import SessionFactoryProvider
+from .schedule_authoring import (
+    ScheduleAuthoringContext,
+    ScheduleAuthoringError,
+    ScheduleAuthoringResult,
+    compile_schedule_plan,
+)
 from .schedule_draft_events import publish_schedule_draft_ready
 from .task_client import (
     TaskSubmissionContext,
     WorkerTaskClient,
     submission_idempotency_key,
 )
-from .time_tools import resolve_zone
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +101,14 @@ _RECURRENCE: Mapping[str, Any] = {
     "required": ["kind"],
     "additionalProperties": False,
 }
-_PAYLOAD_KIND = {"type": "string", "enum": ["REMINDER", "SKILL_PLAN", "AGENT_TURN"]}
+_PAYLOAD_KIND = {
+    "type": "string",
+    "enum": ["REMINDER", "SKILL_PLAN", "AGENT_TURN"],
+    "description": (
+        "Optional. When omitted, the platform derives it from the fields present. Never ask "
+        "the user to choose a kind."
+    ),
+}
 _PAYLOAD: Mapping[str, Any] = {
     "type": "object",
     "properties": {
@@ -146,7 +157,7 @@ _PAYLOAD: Mapping[str, Any] = {
             "description": "AGENT_TURN only: budget source; the platform is the only source.",
         },
     },
-    "required": ["kind"],
+    "required": [],
     "additionalProperties": False,
 }
 _DRAFT_ARGS: Mapping[str, Any] = {
@@ -180,12 +191,22 @@ _DRAFT_ARGS: Mapping[str, Any] = {
         "properties": {"parameters": _OBJECT, "output": _OBJECT},
         "additionalProperties": False,
     },
-}
-#: payload 各 kind 的专属字段：出现别的 kind 的字段就是模型理解错了，显式拒绝。
-PAYLOAD_ONLY_FIELDS = {
-    "REMINDER": ("text",),
-    "SKILL_PLAN": ("skill_key", "skill_id", "input", "argv", "window"),
-    "AGENT_TURN": ("prompt", "model_ref", "tools_allow", "budget_ref"),
+    "confidence": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1,
+        "description": (
+            "0..1 confidence that this plan matches the business request. The platform asks "
+            "one business question instead of drafting when confidence is low."
+        ),
+    },
+    "reason": {
+        **_STRING,
+        "description": (
+            "One sentence in the user's language explaining why this plan matches the "
+            "request; shown on the confirmation card."
+        ),
+    },
 }
 
 
@@ -270,38 +291,6 @@ def _schedule_list_resource_key(arguments: Mapping[str, Any]) -> str:
     return "schedules:list"
 
 
-def _timezone_arg(arguments: Mapping[str, Any]) -> str:
-    """Draft 必须有用户确认过的 IANA 时区；缺就问用户，不退服务端默认时区（E-01）。"""
-    value = arguments.get("timezone")
-    if not isinstance(value, str) or not value.strip():
-        raise TaskToolError(
-            ErrorCode.SCHEDULE_TIMEZONE_REQUIRED.value,
-            "the user's IANA time zone is required; ask the user instead of assuming the "
-            "server time zone (current_time shows the conversation's configured zone)",
-        )
-    try:
-        return resolve_zone(value.strip()).key
-    except ValueError as exc:
-        raise TaskToolError(
-            ErrorCode.SCHEDULE_DRAFT_INVALID.value,
-            "timezone must be a valid IANA name, e.g. Asia/Shanghai",
-            {"reason": "INVALID_TIMEZONE"},
-        ) from exc
-
-
-def _session_target_arg(arguments: Mapping[str, Any]) -> str:
-    """会话目标与投递分离；形状由 Worker 契约再次校验。"""
-    value = arguments.get("session_target")
-    if value is None:
-        return "isolated"
-    if not isinstance(value, str) or not value.strip():
-        raise TaskToolError(
-            ErrorCode.COMMON_VALIDATION_ERROR.value,
-            "session_target must be isolated, current, main or session:<id>",
-        )
-    return value.strip()
-
-
 def _instruction_arg(arguments: Mapping[str, Any]) -> str:
     value = arguments.get("instruction")
     if not isinstance(value, str) or not value.strip():
@@ -309,24 +298,6 @@ def _instruction_arg(arguments: Mapping[str, Any]) -> str:
             ErrorCode.COMMON_VALIDATION_ERROR.value, "instruction is required"
         )
     return value.strip()
-
-
-def _delivery_intent(entry_channel: str | None) -> str:
-    """未显式选择 delivery 时的默认值：入口能推就 PUSH，否则只读任务中心。
-
-    显式 `delivery.intent` 优先；入口只提供默认能力，不是限制（TASK-005）。
-    """
-    if entry_channel is None:
-        return DeliveryIntent.NONE.value
-    if entry_channel in OUTBOUND_CHANNELS:
-        return DeliveryIntent.PUSH.value
-    if entry_channel in LOCAL_STREAM_CHANNELS:
-        return DeliveryIntent.NONE.value
-    raise TaskToolError(
-        ErrorCode.SCHEDULE_DELIVERY_UNSUPPORTED.value,
-        "this entry surface has no delivery capability registered",
-        {"reason": "ENTRY_CHANNEL_UNSUPPORTED"},
-    )
 
 
 def _multi_target_fields(parameters: Mapping[str, Any]) -> list[str]:
@@ -364,120 +335,14 @@ def _multi_target_guard(parameters: Mapping[str, Any]) -> dict[str, Any]:
     return dict(parameters)
 
 
-def _recurrence_arg(arguments: Mapping[str, Any], timezone: str) -> dict[str, Any]:
-    raw = _object_arg(arguments, "recurrence")
-    if raw is None:
-        raise TaskToolError(ErrorCode.COMMON_VALIDATION_ERROR.value, "recurrence is required")
-    recurrence = {**raw, "timezone": timezone}
-    kind = recurrence.get("kind")
-    if kind == "CRON" and not isinstance(recurrence.get("cron"), str):
-        raise TaskToolError(
-            ErrorCode.SCHEDULE_PARAMETER_INCOMPLETE.value, "recurrence.cron is required for CRON",
-            {"fields": ["recurrence.cron"]},
-        )
-    if kind == "ONCE" and not isinstance(recurrence.get("run_at"), str):
-        raise TaskToolError(
-            ErrorCode.SCHEDULE_PARAMETER_INCOMPLETE.value, "recurrence.run_at is required for ONCE",
-            {"fields": ["recurrence.run_at"]},
-        )
-    return recurrence
-
-
-def _payload_arg(
-    arguments: Mapping[str, Any], skills: Mapping[str, ResolvedSkill]
-) -> dict[str, Any]:
-    """payload 是唯一的执行选择；`mode` 不在这里出现（服务端派生）。"""
-    payload = _object_arg(arguments, "payload")
-    if payload is None:
-        raise TaskToolError(
-            ErrorCode.SCHEDULE_PARAMETER_INCOMPLETE.value,
-            "payload is required; choose REMINDER, SKILL_PLAN or AGENT_TURN and fill its fields",
-            {"fields": ["payload"]},
-        )
-    kind = payload.get("kind")
-    if kind not in PAYLOAD_ONLY_FIELDS:
-        raise TaskToolError(
-            ErrorCode.COMMON_VALIDATION_ERROR.value,
-            "payload.kind must be one of REMINDER, SKILL_PLAN, AGENT_TURN",
-        )
-    for other, fields in PAYLOAD_ONLY_FIELDS.items():
-        if other == kind:
-            continue
-        present = [name for name in fields if payload.get(name) is not None]
-        if present:
-            raise TaskToolError(
-                ErrorCode.COMMON_VALIDATION_ERROR.value,
-                f"{', '.join(present)} only apply to payload kind {other}",
-            )
-    if kind == "REMINDER":
-        return {"kind": "REMINDER", "text": _required_text(payload, "text", "REMINDER")}
-    if kind == "SKILL_PLAN":
-        argv = payload.get("argv") or []
-        if not isinstance(argv, list) or any(not isinstance(item, str) for item in argv):
-            raise TaskToolError(
-                ErrorCode.COMMON_VALIDATION_ERROR.value, "payload.argv must be an array of strings"
-            )
-        return {
-            "kind": "SKILL_PLAN",
-            "skill_id": str(_skill(payload, skills).skill_id),
-            "input": _object_arg(payload, "input") or {},
-            "argv": list(argv),
-            "window": _object_arg(payload, "window") or {},
-        }
-    return {
-        "kind": "AGENT_TURN",
-        "prompt": _required_text(payload, "prompt", "AGENT_TURN"),
-        "model_ref": payload.get("model_ref"),
-        "tools_allow": _tools_allow_arg(payload.get("tools_allow"), skills),
-        "budget_ref": payload.get("budget_ref") or "platform",
-    }
-
-
-def _required_text(payload: Mapping[str, Any], key: str, kind: str) -> str:
-    value = payload.get(key)
-    if not isinstance(value, str) or not value.strip():
-        raise TaskToolError(
-            ErrorCode.SCHEDULE_PARAMETER_INCOMPLETE.value,
-            f"payload.{key} is required for {kind}",
-            {"fields": [f"payload.{key}"]},
-        )
-    return value.strip()
-
-
-def _skill(payload: Mapping[str, Any], skills: Mapping[str, ResolvedSkill]) -> ResolvedSkill:
-    """Skill 只认本 Run 的有效 key；已给 UUID 时按 UUID 找同一份有效定义。"""
-    key = payload.get("skill_key")
-    if isinstance(key, str) and key.strip():
-        skill = skills.get(key.strip())
-    else:
-        raw_id = payload.get("skill_id")
-        skill = next(
-            (item for item in skills.values() if str(item.skill_id) == str(raw_id)),
-            None,
-        ) if raw_id is not None else None
-    if skill is None:
-        raise TaskToolError(
-            "SKILL_NOT_EFFECTIVE", f"skill is not effective for this run: {key or payload.get('skill_id')}"
-        )
-    return skill
-
-
-def _tools_allow_arg(value: Any, skills: Mapping[str, ResolvedSkill]) -> list[str]:
-    """工具策略字符串；`SKILL:<skill_key>:<tool>` 编译成本 Run 的 skill UUID。"""
-    if value is None:
-        return []
-    if not isinstance(value, list) or any(not isinstance(item, str) or not item.strip() for item in value):
-        raise TaskToolError(
-            ErrorCode.COMMON_VALIDATION_ERROR.value, "payload.tools_allow must be an array of strings"
-        )
-    compiled: list[str] = []
-    for raw in value:
-        parts = raw.strip().split(":", 2)
-        if parts[0] == "SKILL" and len(parts) == 3 and parts[1] in skills:
-            compiled.append(f"SKILL:{skills[parts[1]].skill_id}:{parts[2]}")
-        else:
-            compiled.append(raw.strip())
-    return compiled
+def _authoring_context(context: TaskSubmissionContext) -> ScheduleAuthoringContext:
+    return ScheduleAuthoringContext(
+        skills={skill.key: skill for skill in context.skills},
+        mcp_servers=context.mcp_servers,
+        entry_channel=context.entry_channel,
+        delivery_route=context.delivery_route,
+        conversation_id=context.conversation_id,
+    )
 
 
 class BackgroundTaskToolSet:
@@ -546,10 +411,13 @@ class BackgroundTaskToolSet:
                 DRAFT_SCHEDULE_TOOL,
                 "Prepare a NEW scheduled task for the user to confirm. It only creates a draft: "
                 "nothing runs and nothing is saved until the user confirms the card in the chat. "
-                "Choose the payload kind: REMINDER for fixed text, SKILL_PLAN when the skill and "
-                "inputs are fixed, AGENT_TURN for a natural-language prompt over a tool policy. "
-                "Session and delivery are separate choices. Call it once per independent "
-                "customer/target. Ask the user for their IANA time zone when unknown.",
+                "Decide from the business request, without asking the user to pick internals: "
+                "pure notification -> REMINDER; fixed skill and fixed parameters -> SKILL_PLAN; "
+                "runtime judgment, multiple tools or context -> AGENT_TURN. If the intent is "
+                "ambiguous, ask ONE business question (for example whether the customer/scope "
+                "is fixed) instead of guessing or offering an internal option menu. Session and "
+                "delivery are separate choices. Call it once per independent customer/target. "
+                "Ask the user for their IANA time zone when unknown.",
                 draft_schema,
                 ToolEffect.WRITE,
                 self._draft_schedule,
@@ -676,18 +544,33 @@ class BackgroundTaskToolSet:
         kind: DraftKind,
         target: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
-        body = self._draft_body(arguments, kind=kind, target=target)
+        authoring = self._authoring(arguments)
+        if authoring.clarification is not None:
+            return self._clarification(authoring)
+        plan = authoring.plan
+        assert plan is not None
+        body = self._draft_body(arguments, kind=kind, target=target, authoring=authoring)
         response = await self._client.create_schedule_draft(
             tenant_id=self._context.tenant_id,
             agent_id=self._context.agent.id,
             actor_user_id=self._context.actor_user_id,
             entry_channel=self._context.entry_channel,
             draft=body,
-            idempotency_key=self._draft_key(arguments),
+            idempotency_key=self._draft_key(body),
             trace_id=self._context.trace_id,
             locale=self._context.locale,
         )
         card = _draft_card(response, kind=kind)
+        card = card.model_copy(
+            update={
+                "preview": card.preview.model_copy(
+                    update={
+                        "confidence": authoring.confidence,
+                        "reason": authoring.reason,
+                    }
+                )
+            }
+        )
         seq = await self._publish_card(card)
         return {
             "draft_id": str(card.draft_id),
@@ -696,6 +579,14 @@ class BackgroundTaskToolSet:
             "kind": kind.value,
             "mode": card.mode.value,
             "preview": card.preview.model_dump(mode="json"),
+            "resolved_plan": plan.model_dump(mode="json"),
+            "resolved_payload": plan.payload.model_dump(mode="json"),
+            "confidence": authoring.confidence,
+            "reason": authoring.reason,
+            "budget_source": authoring.budget_source,
+            "session_target": str(plan.session_target),
+            "delivery": str(plan.delivery.intent),
+            "tools_allow": authoring.tools_allow,
             "expires_at": response.get("expires_at"),
             "card_event_seq": seq,
             "card": "PUBLISHED" if seq is not None else "UNPUBLISHED",
@@ -704,6 +595,30 @@ class BackgroundTaskToolSet:
                 f"{SCHEDULE_CONFIRM_COMMAND} {card.draft_id}"
                 if self._is_push_surface()
                 else None
+            ),
+        }
+
+    def _authoring(self, arguments: Mapping[str, Any]) -> ScheduleAuthoringResult:
+        try:
+            return compile_schedule_plan(
+                arguments, context=_authoring_context(self._context)
+            )
+        except ScheduleAuthoringError as exc:
+            raise TaskToolError(exc.code, exc.message, exc.data) from exc
+
+    def _clarification(self, authoring: ScheduleAuthoringResult) -> dict[str, Any]:
+        clarification = authoring.clarification
+        assert clarification is not None
+        return {
+            "status": "NEEDS_CLARIFICATION",
+            "needs_clarification": True,
+            "confidence": authoring.confidence,
+            "reason": authoring.reason,
+            "question": clarification.question,
+            "fields": list(clarification.fields),
+            "next_step": (
+                "Ask the user this ONE business question in their language. Do not offer "
+                "internal choices, and do not create a draft until the answer is clear."
             ),
         }
 
@@ -729,19 +644,10 @@ class BackgroundTaskToolSet:
         *,
         kind: DraftKind,
         target: Mapping[str, Any] | None,
+        authoring: ScheduleAuthoringResult,
     ) -> dict[str, Any]:
-        timezone = _timezone_arg(arguments)
-        delivery = _object_arg(arguments, "delivery") or {}
-        requested = delivery.get("intent")
-        if requested is not None and requested not in (
-            DeliveryIntent.NONE.value,
-            DeliveryIntent.PUSH.value,
-        ):
-            raise TaskToolError(
-                ErrorCode.COMMON_VALIDATION_ERROR.value,
-                "delivery.intent must be NONE or PUSH",
-            )
-        intent = requested or _delivery_intent(self._context.entry_channel)
+        plan = authoring.plan
+        assert plan is not None
         context = _context_arg(arguments)
         # 入口只作审计（design §2.3.6）：入口不是数据隔离边界，可见性仍按 user+agent。
         context["source"] = {
@@ -750,25 +656,14 @@ class BackgroundTaskToolSet:
             ),
             "origin_channel": self._context.entry_channel,
         }
-        delivery_plan: dict[str, Any] = {"intent": intent}
-        if intent == DeliveryIntent.PUSH.value:
-            route = self._context.delivery_route
-            if route is None:
-                # 没有"创建时的那一个会话"就无法兑现 PUSH：显式失败，不落一条投不出去的任务。
-                raise TaskToolError(
-                    ErrorCode.SCHEDULE_DELIVERY_UNSUPPORTED.value,
-                    "this chat surface cannot provide a delivery route for the schedule",
-                    {"reason": "DELIVERY_ROUTE_UNAVAILABLE"},
-                )
-            delivery_plan["route"] = route.model_dump(mode="json")
         body: dict[str, Any] = {
             "kind": kind.value,
             "instruction": _instruction_arg(arguments),
-            "recurrence": _recurrence_arg(arguments, timezone),
+            "recurrence": dict(authoring.recurrence or {}),
             "context": context,
-            "payload": _payload_arg(arguments, self._skills),
-            "session_target": _session_target_arg(arguments),
-            "delivery": delivery_plan,
+            "payload": plan.payload.model_dump(mode="json"),
+            "session_target": str(plan.session_target),
+            "delivery": plan.delivery.model_dump(mode="json", exclude_none=True),
         }
         name = arguments.get("name")
         if isinstance(name, str) and name.strip():
@@ -780,9 +675,9 @@ class BackgroundTaskToolSet:
             body["base_config_version"] = target["config_version"]
         return body
 
-    def _draft_key(self, arguments: Mapping[str, Any]) -> str:
-        """同一个 Run 里同参数的 Draft 重试复用同一条（Worker 侧 task_submission 幂等）。"""
-        canonical = json.dumps(dict(arguments), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    def _draft_key(self, body: Mapping[str, Any]) -> str:
+        """同一个 Run 里同配置的 Draft 重试复用同一条（authoring 元数据不属于配置）。"""
+        canonical = json.dumps(dict(body), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:24]
         return f"run:{self._context.source_run_id or 'ad-hoc'}:schedule-draft:{digest}"
 
