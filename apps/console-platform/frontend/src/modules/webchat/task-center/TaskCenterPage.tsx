@@ -49,6 +49,12 @@ export interface WebchatTaskCenterPageProps {
 
 type TaskCenterGroup = 'schedule' | 'background';
 
+/** 分组标题的静态词条键：保留字面量，i18n 死键扫描才能看见动态枚举。 */
+const GROUP_TITLE_KEYS: Record<TaskCenterGroup, string> = {
+  schedule: 'chat.taskCenter.group.schedule',
+  background: 'chat.taskCenter.group.background'
+};
+
 /** 两个分组共用同一条 `/chat/tasks` 路由；分组只是页面内视图，不是新路由。 */
 function TaskCenterGroups(props: {
   active: TaskCenterGroup;
@@ -71,7 +77,7 @@ function TaskCenterGroups(props: {
           data-testid={`chat-task-center-group-${group}`}
           onClick={() => props.onSelect(group)}
         >
-          {t(`chat.taskCenter.group.${group}`)}
+          {t(GROUP_TITLE_KEYS[group])}
         </button>
       ))}
     </div>

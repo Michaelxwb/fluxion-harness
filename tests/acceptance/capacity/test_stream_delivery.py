@@ -71,6 +71,8 @@ WEBCHAT_ENTRY_PREFIX = "/api/v1/webchat/entries"
 WEBCHAT_RUN_PREFIX = "/api/v1/webchat/runs"
 RUNTIME_EVENTS_PATH = "/v1/runs/{run_id}/events"
 WAIT_TIMEOUT_SEC = 120.0
+#: Gateway 重启后的持久意图重投：退避 + 进程重启在 CI 负载下可能超过 120s。
+RECOVERY_TIMEOUT_SEC = 180.0
 SSE_READ_TIMEOUT_SEC = 60.0
 TERMINAL_EVENTS = ("run.completed", "run.failed")
 
@@ -1162,7 +1164,7 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
         lambda: _wecom_notification(stack.database_url, first_run)["delivery_state"]
         == "DELIVERED",
         what="Gateway 恢复后持久意图未触发主动交付",
-        timeout=WAIT_TIMEOUT_SEC,
+        timeout=RECOVERY_TIMEOUT_SEC,
     )
     delivered = _wecom_notification(stack.database_url, first_run)
     assert _delivery_outcome(delivered) == "DELIVERED", (
@@ -1260,7 +1262,7 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
         lambda: _wecom_notification(stack.database_url, second_run)["delivery_state"]
         == "DELIVERED",
         what="恢复投递端点后未重投成功",
-        timeout=WAIT_TIMEOUT_SEC,
+        timeout=RECOVERY_TIMEOUT_SEC,
     )
     assert _delivery_outcome(
         _wecom_notification(stack.database_url, second_run)

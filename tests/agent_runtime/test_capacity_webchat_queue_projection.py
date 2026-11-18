@@ -687,6 +687,10 @@ async def test_b236_claim_ends_the_queue_and_projects_running_in_one_transaction
         # 放行占槽片段：Run1 完成、槽释放；Run2 仍未被领取（本测试手工触发真实领取）。
         gated_executor.release()
         await _wait_for_status(tenant.tenant_id, first.run_id, ("COMPLETED",))
+        # 状态提交与槽释放不是同一时刻：等到执行器 finally 真正归还名额再断言。
+        deadline = time.monotonic() + WAIT_TIMEOUT_SEC
+        while supervisor.free_slots != 1 and time.monotonic() < deadline:
+            await asyncio.sleep(0.05)
         assert supervisor.free_slots == 1
 
         # 行锁阻塞期间：Run 行仍是 CREATED、阶段事件仍只有 WAITING_RUNTIME（同一事务）。

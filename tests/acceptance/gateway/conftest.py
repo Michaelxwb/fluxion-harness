@@ -1,11 +1,9 @@
-"""S-06/E-13/E-17 验收环境：task-schedule 真栈 + join 模型探针 + WS 网关 + 可断流中继。
+"""S-06 验收环境：task-schedule 真栈 + 模型探针 + WS 网关 + 可断流中继。
 
 不得 Mock 的真实边界：真实 Console/Runtime/Worker 进程（真实 HTTP/PG/Redis）、真实
-Worker 执行 ASYNC JOIN Skill、真实 WeCom 协议 WS（官方 SDK）承载入站与出站、原消息回复探针。
-网关进程经一个真实 TCP 中继连 Runtime —— 用例可在**不杀进程**的前提下断开在飞 SSE。
-
-`join_stack` 复用 runtime 验收的既有夹具（task-schedule 进程栈 + gate 化 ASYNC Skill +
-join 模型探针）；本夹具只在其上补：渠道身份绑定、WS 网关进程与断流中继。
+Worker 执行 ASYNC DETACH Skill（Run 立即完成，结果后台投递）、真实 WeCom 协议 WS
+（官方 SDK）承载入站与出站、原消息回复探针。
+网关进程经一个真实 TCP 中继连 Runtime，必要时可断开在飞连接。
 """
 
 from __future__ import annotations
@@ -29,7 +27,7 @@ from sqlalchemy import delete
 from sqlalchemy import select as sa_select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from tests.acceptance.runtime.test_background_result_resume import join_stack as _join_stack
+from tests.acceptance.runtime.join_stack import join_stack as _join_stack
 from tests.acceptance.task_schedule.environment import (
     BOT_ID,
     BOT_SECRET,

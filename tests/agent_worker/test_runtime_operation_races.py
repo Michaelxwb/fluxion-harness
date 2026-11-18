@@ -324,7 +324,7 @@ async def test_b07_lease_reservation_blocks_stale_ack(async_tool_database):
         assert not await dispatcher.ack(outbox.id, claimed[0].lease_until, now + timedelta(seconds=32))
 
 
-async def test_b07_detach_and_children_never_enqueue_root_results(async_tool_database):
+async def test_b07_detach_root_publishes_but_children_do_not(async_tool_database):
     from muad_contracts import CompletionMode
 
     factory = async_sessionmaker(async_tool_database, expire_on_commit=False)
@@ -344,7 +344,9 @@ async def test_b07_detach_and_children_never_enqueue_root_results(async_tool_dat
             session, parent, TerminalChange(status=TerminalStatus.COMPLETED, result={}), datetime.now(UTC)
         )
     async with factory() as session:
-        assert await session.scalar(select(func.count()).select_from(RuntimeResultOutbox)) == 0
+        rows = list(await session.scalars(select(RuntimeResultOutbox)))
+        assert len(rows) == 1, "Run-owned DETACH 根仍要发 Runtime 结果"
+        assert rows[0].task_id == parent.id, "子 Task 不得直接向 Runtime 发根结果"
 
 
 async def test_b07_failed_prefix_does_not_starve_other_tenants(async_tool_database):

@@ -1803,7 +1803,6 @@
   "chat.run.queuedAt": "Queued at: ",
   "chat.run.startedAt": "Started at: ",
   "chat.thinking": "Thinking…",
-  "chat.thinking.elapsed": "Thinking… {{elapsed}}",
   "chat.run.tool.executing": "Running {{name}}",
   "chat.run.tool.elapsed": "{{seconds}}s elapsed",
   "chat.run.connection.label": "Connection State",

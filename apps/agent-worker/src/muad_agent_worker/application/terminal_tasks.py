@@ -290,7 +290,7 @@ async def write_terminal(
 async def _enqueue_result(
     session: AsyncSession, task: TaskExecution, change: TerminalChange, moment: datetime, event: TaskEvent
 ) -> None:
-    """JOIN 根把结果交回 Runtime Owner；Task-owned 子 Task 回父 Execution 的收件箱。"""
+    """Run-owned 根任务（JOIN/DETACH）都把结果交回 Runtime；Task-owned 子 Task 回父收件箱。"""
     if task.parent_id is not None:
         if (
             task.source_run_id is not None

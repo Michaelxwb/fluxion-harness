@@ -175,10 +175,14 @@ def test_export_filters_reuse_list_query_shape() -> None:
 def test_types_declare_camel_case_contract() -> None:
     """设计 §3.4 四类类型及其 camelCase 字段。"""
     source = _source(TYPES)
+    assert (
+        "export type AuditType = 'RUN' | 'CONFIG' | 'TOOL' | 'EGRESS' | 'MODEL';"
+        in source
+    ), "列表域须包含 RUN 操作行"
 
     query = _block(source, "export interface AuditListQuery {")
     for field in (
-        "auditType?:'CONFIG'|'TOOL'|'EGRESS'|'MODEL';",
+        "auditType?:AuditType;",
         "resourceType?:string;",
         "resourceId?:string;",
         "actorUserId?:string;",
@@ -196,7 +200,7 @@ def test_types_declare_camel_case_contract() -> None:
     item = _block(source, "export interface AuditListItem {")
     for field in (
         "auditId:string;",
-        "auditType:'CONFIG'|'TOOL'|'EGRESS'|'MODEL';",
+        "auditType:AuditType;",
         "resourceType:string;",
         "resourceId:string;",
         "actorUserId:string;",

@@ -248,7 +248,10 @@ def test_reset_clears_filters_and_refresh_requeries() -> None:
     assert 'action="reset"' in bar and 'action="refresh"' in bar
 
     page = _compact(_read(PAGE))
-    assert "constDEFAULT_QUERY:AuditListQuery={page:1,pageSize:AUDIT_PAGE_SIZE_DEFAULT};" in page
+    assert (
+        "constDEFAULT_QUERY:AuditListQuery={page:1,pageSize:AUDIT_PAGE_SIZE_DEFAULT,"
+        "view:'operation'};" in page
+    )
     assert "setQuery(DEFAULT_QUERY)" in page, "重置须回到不含任何筛选项的初始查询"
     assert "onRefresh={handleRefresh}" in page and "onReset={handleReset}" in page
     assert "handleRefresh" in page and "voidreload()" in page, "刷新须重取当前页"

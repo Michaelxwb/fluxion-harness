@@ -25,7 +25,8 @@
    没有来源 Run 或没有入口归属的 WEBCHAT 投递**显式失败**，不编造会话；
 4. **Worker 重启/重投不重复通知或业务执行**：丢回执后重投命中同一 `delivery_key`
    （`task:{task_id}:final`）的原回执（同 id/seq、feed 水位不变、唯一通知行），Skill 子进程只跑
-   一次、终态事件只有一条；非 WEBCHAT 路由仍走 Gateway 出站，不产生 Runtime 结果发件。
+   一次、终态事件只有一条；非 WEBCHAT 路由仍走 Gateway 出站，Runtime 结果发件保留
+   （任务中心/模型可见），但不产生 WEBCHAT 通知行。
 """
 
 from __future__ import annotations
@@ -848,7 +849,7 @@ async def test_b268_webchat_delivery_without_source_run_or_entry_fails_explicitl
 # --------------------------------------------------------------------------------------
 
 
-async def test_b268_non_webchat_routes_keep_gateway_delivery_without_runtime_publication(
+async def test_b268_non_webchat_routes_keep_gateway_delivery_and_runtime_publication(
     isolated_worker: IsolatedWorker,
     http_client: httpx.AsyncClient,
 ) -> None:
@@ -857,7 +858,9 @@ async def test_b268_non_webchat_routes_keep_gateway_delivery_without_runtime_pub
     seed = await _seed_offline_task(isolated, channel="WECOM")
     await _run_worker_once(isolated, seed)
 
-    assert await _publication(factory, seed.task_id) is None, "企微投递不需要 Runtime 结果发件"
+    assert await _publication(factory, seed.task_id) is not None, (
+        "Run-owned DETACH 结果仍需发 Runtime（任务中心/模型可见）"
+    )
 
     calls: list[httpx.Request] = []
 

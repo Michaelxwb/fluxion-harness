@@ -131,7 +131,8 @@ async def test_admin_list_reports_child_progress_without_n_plus_one(
     """列表页「子任务进度」：整页一次 `GROUP BY` 取回，查询数不随行数增长。
 
     N+1 守卫按语句形状无关的方式判：整请求触及 `task_execution` 的语句数有上界
-    （分页 SELECT + COUNT + 子任务 GROUP BY = 3）。逐行统计会退化成 2 + N 行。
+    （分页 SELECT + COUNT + 子任务 GROUP BY + 产物存在性批量查子任务 = 4）。
+    逐行统计会退化成 4 + N 行。
     """
     parent = await persist_task(tenant, task_type="BATCH", status="RUNNING")
     for item_key, status in (("a", "COMPLETED"), ("b", "FAILED"), ("c", "RUNNING")):
@@ -162,4 +163,4 @@ async def test_admin_list_reports_child_progress_without_n_plus_one(
     assert items[str(solo.id)]["child_finished"] == 0
 
     touching = [statement for statement in statements if "task_execution" in statement]
-    assert len(touching) <= 3, statements
+    assert len(touching) <= 4, statements

@@ -1663,6 +1663,7 @@ class RunService:
     async def _wait_summary(self, run: RunRecord, *, session: AsyncSession | None = None) -> RunWaitSummary:
         """API-05：等待起点/原因与异步操作计数；只读，一次聚合 + 一次检查点读取。"""
         active = session or self._session
+        # pending_join_count 只算 JOIN；pending_submission_count 含 DETACH（提交受理前都属于待提交）。
         join_count, submission_count = (
             await active.execute(
                 sa.select(
@@ -1671,7 +1672,6 @@ class RunService:
                         ToolOperation.status.not_in(OP_TERMINAL),
                     ),
                     sa.func.count().filter(
-                        ToolOperation.completion_mode == CompletionMode.JOIN,
                         ToolOperation.status == OperationStatus.SUBMIT_PENDING,
                     ),
                 ).where(

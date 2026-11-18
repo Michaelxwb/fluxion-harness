@@ -40,6 +40,7 @@ const AUDIT_TYPES = ['RUN', 'CONFIG', 'TOOL', 'EGRESS', 'MODEL'] as const;
  * 呈现历史数据，不新增后端取值。值域开放，未登记的取值由详情行原样展示。
  */
 export const RESOURCE_TYPES = [
+  'RUN',
   'AGENT',
   'AGENT_ACCESS_GRANT',
   'AGENT_SKILL_BINDING',

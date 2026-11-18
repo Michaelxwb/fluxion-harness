@@ -81,7 +81,9 @@ const RESULT_COLORS: Record<string, StatusTagOption['color']> = {
   SUCCESS: 'green',
   FAILED: 'red',
   DENIED: 'red',
-  BLOCKED: 'red'
+  BLOCKED: 'red',
+  RUNNING: 'blue',
+  CANCELLED: 'grey'
 };
 
 /** 登记过词条的资源类型取值（与筛选栏同一登记域），用于判定详情行是否取词条。 */

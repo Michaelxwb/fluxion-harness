@@ -128,6 +128,8 @@ UNIFIED_FIELDS = frozenset(
         "latency_ms",
         "run_id",
         "task_id",
+        # RUN 操作行的用户提问摘要（列表展示用；非 RUN 行为 null）。
+        "summary",
     }
 )
 LEGACY_FIELDS = frozenset({"id", "actor_display_name", "create_time"})

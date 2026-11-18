@@ -16,6 +16,10 @@ export const AUDIT_ACTION_DOMAIN = [
 
 const AUDIT_ACTION_KEYS = new Set<string>(AUDIT_ACTION_DOMAIN);
 
+/** RUN 行入口渠道词条域：后端 action = channel type，未登记取值原样展示。 */
+export const AUDIT_SOURCE_DOMAIN = ['WEBCHAT', 'WECOM'] as const;
+const AUDIT_SOURCE_KEYS = new Set<string>(AUDIT_SOURCE_DOMAIN);
+
 
 function shortId(value: string, size = 8): string {
   return value.length > size ? value.slice(0, size) : value;
@@ -68,9 +72,8 @@ export function auditViewOf(auditType: AuditType | undefined): AuditView {
 /** RUN 行的入口渠道（后端 action = channel type）；未登记的取值原样展示。 */
 export function auditSourceLabel(t: Translate, channel: string | null | undefined): string {
   if (!channel) return '';
-  const key = `audit.source.${channel}`;
-  const label = t(key);
-  return label === key ? channel : label;
+  if (!AUDIT_SOURCE_KEYS.has(channel)) return channel;
+  return t(`audit.source.${channel}`);
 }
 
 export function auditTargetLabel(t: Translate, target: string | null | undefined): string {

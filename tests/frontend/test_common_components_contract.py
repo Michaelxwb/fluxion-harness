@@ -7,9 +7,16 @@ ROOT = Path(__file__).resolve().parents[2]
 FRONTEND = ROOT / "apps/console-platform/frontend/src"
 COMMON = FRONTEND / "components/common"
 
+COMMENT = re.compile(r"/\*[\s\S]*?\*/|//[^\n]*")
+
 
 def _source(name: str) -> str:
     return (COMMON / name).read_text(encoding="utf-8")
+
+
+def _code(name: str) -> str:
+    """去掉注释后再判硬编码文案：注释里的中文不是界面文案。"""
+    return COMMENT.sub("", _source(name))
 
 
 def test_module_toolbar_places_actions_left_and_search_right() -> None:
@@ -65,7 +72,7 @@ def test_common_components_use_i18n_keys_not_hardcoded_copy() -> None:
         "AppProviders.tsx",
     )
     for name in components:
-        source = _source(name)
+        source = _code(name)
         assert not re.search(r"[\u4e00-\u9fff]", source), f"{name} contains hardcoded Chinese copy"
 
 

@@ -129,7 +129,8 @@ function buildIdentityColumns(t: TFunction): AuditTableColumns {
     {
       title: t('audit.columns.auditType'),
       dataIndex: 'auditType',
-      width: 110,
+      // en-US “Config change” + 色点 + 单元格内边距在 110px 下会裁切，按最长文案留足。
+      width: 136,
       render: (value: AuditListItem['auditType']) => (
         <span className="audit-type">
           <span className="audit-type-dot" data-kind={value} />

@@ -419,7 +419,14 @@ const observations = {};
   http.handler = (config) => {
     const params = config.params ?? {};
     if (params.children_page === 2) {
-      return ok(detailOf({ children: childrenOf([child({ task_id: TASK_B, label: '客户 E' })], { page: 2, page_size: 5, total: 7 }) }));
+      return ok(
+        detailOf({
+          children: childrenOf(
+            [child({ task_id: TASK_B, label: '客户 E' })],
+            { page: 2, page_size: 5, total: 7 }
+          )
+        })
+      );
     }
     return ok(detailOf());
   };
@@ -609,8 +616,20 @@ const detail = (overrides = {}) => ({
   result_artifacts: [
     artifact({
       deliveries: [
-        { target_key: 'webchat:conversation', status: 'DELIVERED', error_code: null, retryable: false, fallback_url: null },
-        { target_key: 'wecom:user', status: 'DEGRADED', error_code: 'CHANNEL_UNSUPPORTED', retryable: false, fallback_url: 'https://example.test/f' }
+        {
+          target_key: 'webchat:conversation',
+          status: 'DELIVERED',
+          error_code: null,
+          retryable: false,
+          fallback_url: null
+        },
+        {
+          target_key: 'wecom:user',
+          status: 'DEGRADED',
+          error_code: 'CHANNEL_UNSUPPORTED',
+          retryable: false,
+          fallback_url: 'https://example.test/f'
+        }
       ]
     }),
     artifact({
@@ -773,8 +792,20 @@ DETAIL_OVERRIDES: dict[str, Any] = {
                 "checksum": CHECKSUM,
                 "version": "2",
                 "deliveries": [
-                    {"target_key": "webchat:conversation", "status": "DELIVERED", "error_code": None, "retryable": False, "fallback_url": None},
-                    {"target_key": "wecom:user", "status": "DEGRADED", "error_code": "CHANNEL_UNSUPPORTED", "retryable": False, "fallback_url": "https://example.test/f"},
+                    {
+                        "target_key": "webchat:conversation",
+                        "status": "DELIVERED",
+                        "error_code": None,
+                        "retryable": False,
+                        "fallback_url": None,
+                    },
+                    {
+                        "target_key": "wecom:user",
+                        "status": "DEGRADED",
+                        "error_code": "CHANNEL_UNSUPPORTED",
+                        "retryable": False,
+                        "fallback_url": "https://example.test/f",
+                    },
                 ],
             },
             {

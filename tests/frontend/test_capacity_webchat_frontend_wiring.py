@@ -210,6 +210,8 @@ export const IconCustomerSupport = () => null;
 export const IconInfoCircle = () => null;
 export const IconUser = () => null;
 export const IconPaperclip = () => null;
+export const IconSend = () => null;
+export const IconStop = () => null;
 export const IconDownload = () => null;
 export const IconFile = () => null;
 export const IconImage = () => null;

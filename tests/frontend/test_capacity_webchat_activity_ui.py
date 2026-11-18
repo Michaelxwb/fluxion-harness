@@ -147,6 +147,8 @@ export const IconInfoCircle = () => null;
 export const IconLayers = () => null;
 export const IconMoon = () => null;
 export const IconPaperclip = () => null;
+export const IconSend = () => null;
+export const IconStop = () => null;
 export const IconRefresh = () => null;
 export const IconStopwatchStroked = () => null;
 export const IconSun = () => null;
