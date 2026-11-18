@@ -1,5 +1,8 @@
 ---
-{"description": "部署单元、边界与容量", "next_rule": 1}
+{
+  "description": "部署单元、边界与容量",
+  "next_rule": 3
+}
 ---
 
 # harness-arch
@@ -7,6 +10,10 @@
 ## Rules
 
 - [RULE-arch-001] 固定四个**逻辑业务部署单元**（console-platform / agent-runtime / agent-worker / im-gateway）；`im-gateway` 可拆为无状态 web 与有状态 connector 两个运行时角色，connector 不是第五个业务微服务。Runtime 与 Worker 无状态、可横向扩展，不绑定 Pod、bot_id 或用户；同一会话可被任意 Pod 执行；Connector 只持有 bot 传输所有权与回复上下文，不建立 agent→Pod 映射。
+
+- [RULE-001] `packages/*` 不依赖任何 app 模块；runtime/worker 不得 import `muad_console_platform`，跨部署单元只走 HTTP 契约；`skill-sdk` 不依赖 runtime/console/worker/connector。机检 `tests/architecture/test_import_direction.py`。
+
+- [RULE-002] IM Gateway web 角色不持库（不得 import `sqlalchemy`）；渠道 SDK 只允许出现在 Connector 的 `channels/` 适配器；`iter_events()` 是 IM 入站规范化唯一入口，Connector 只发 `im.inbound`/`im.outbound`，不直接调 Runtime。机检 `tests/architecture/test_im_gateway_boundaries.py`。
 
 ## Conventions
 
@@ -64,3 +71,9 @@
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。
+
+## Applied Deltas
+
+- {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-001","op":"add","rule":"RULE-001","payload_sha256":"6ef0723d530ab01930dfc045910e4d3bae8ab77e860ad175cb5513682a8710b0","at":"2026-11-18T14:06:44.260Z"}
+
+- {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-002","op":"add","rule":"RULE-002","payload_sha256":"a496ba6a6dd49ef5a92bf62b41ff1de102aaba69a75aacee262b83a772d3b8cc","at":"2026-11-18T14:06:44.261Z"}

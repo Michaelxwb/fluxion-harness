@@ -18,6 +18,7 @@ Archive:
 - applies each TASK's Spec Delta in the coordinator worktree;
 - checks any remaining checklist items on done TASKs;
 - clears completed code-flow run ledgers for this requirement;
+- releases session bindings for this requirement best-effort (`released_bindings` / `release_errors`); dry-run only counts;
 - moves the whole requirement directory;
 - does not run tests, E2E, or scenarios.
 

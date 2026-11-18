@@ -1,7 +1,7 @@
 ---
 {
   "description": "Console 视觉与列表",
-  "next_rule": 3
+  "next_rule": 5
 }
 ---
 
@@ -14,6 +14,10 @@
 - [RULE-001] 列表时间范围筛选只有一个实现：所有 Console 列表页复用 `components/common/DateRangeFilter.tsx`，页面与模块不得再声明 `DatePicker type="dateRange"`、日期范围输入框或第二套日期范围组件；共享组件的样式、回显与交互调整即全局调整。筛选顺序固定为「其他筛选 → 时间筛选 → 重置/刷新」，时间筛选排在其它筛选之后。机检：`tests/frontend/test_date_range_filter_contract.py`。
 
 - [RULE-002] 运行审计列表默认按业务操作成行：一次 Run、一次配置变更、一次出网各占一行；模型调用与工具调用的计数在运行详情概览中查看，失败原因与步骤明细在运行详情中定位，列表不重复展示步骤明细。按模型或工具调用筛选时进入步骤明细视图（一行 = 一次调用），列表必须给出当前粒度的可见提示与返回操作视图的入口。审计导出始终输出全量明细，不随列表视图改变粒度。
+
+- [RULE-003] 以「左上操作 + 右上搜索筛选 + 列表 + 右下分页」为形态的模块列表页必须使用 `RemoteTable`；仪表盘/概览页不受该约束，但区块内不得使用 `RemoteTable` 或 `ModuleToolbar`，并由契约测试反查其确实不含列表构件。
+
+- [RULE-004] `/settings` 菜单项只能由 `config/menu.ts` 的 `menuItems` 派生，路由受 `<RequireRole role=ADMIN>` 守卫；`AppLayout` 不得内联第二处导航项数组，`MENU_ICONS` 必须登记对应图标。
 
 ## Conventions
 
@@ -145,3 +149,7 @@ body[theme-mode='dark'] { --semi-color-primary: #4d8dff; }
 - {"source":"2026-11-16/console-list-time-filter/console-list-time-filter.md#TASK-001#DELTA-001","op":"add","rule":"RULE-001","payload_sha256":"985d1eb8941cda481eb94602c7556043367481aeb071b755f98edb488c60c8e0","at":"2026-11-16T07:24:44.084Z"}
 
 - {"source":"2026-11-17/audit-operation-view/audit-operation-view.md#TASK-004#DELTA-001","op":"add","rule":"RULE-002","payload_sha256":"01b2c835f8a4bb6b474469ab0002d115526395cd19e3029baae13b9b63de000e","at":"2026-11-17T12:42:40.449Z"}
+
+- {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-013","op":"add","rule":"RULE-003","payload_sha256":"09a5a6d804cbbd60667629248b4294d7e1f459f64d4eb62bb649636132436df7","at":"2026-11-18T14:06:44.263Z"}
+
+- {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-014","op":"add","rule":"RULE-004","payload_sha256":"b0e7820af491ee118df901929b0ba02336b1a09e2164624caac20c84208c75b3","at":"2026-11-18T14:06:44.263Z"}

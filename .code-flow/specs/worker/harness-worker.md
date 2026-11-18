@@ -1,7 +1,7 @@
 ---
 {
   "description": "任务、调度与投递",
-  "next_rule": 4
+  "next_rule": 6
 }
 ---
 
@@ -11,11 +11,15 @@
 
 - [RULE-worker-001] PostgreSQL 是 Schedule、Fire、Task Execution 与 lease 的唯一权威，Redis 仅作独立 wake-up/cancel hint。任务执行类型与等待状态由共享 contracts 持有，Reminder、Skill、Agentic 与内部 Batch 使用同一执行权模型；等待释放执行 lease，恢复同一 Execution 不消耗业务重试。Scheduler 在锁外准入、锁内复检，原子写唯一 occurrence Fire、冻结 Execution 与调度进度，Fire 不持有第二套 claim/lease。Worker 使用数据库 claim 与 owner/epoch/有效 lease CAS，按 Schedule 策略原子控制根执行并发及顺序；全局遵守 operation→Schedule→Fire→任务树→事件/发件锁序。claim 与收尾均执行绝对 deadline，过期任务不得执行或提交成功；取消、回收、等待续接及终态共享原子状态/事件边界。
 
-- [RULE-001] 异步工具调用以租户、owner 与真实工具调用身份唯一，输入指纹用于同身份冲突判断，不能参与唯一身份以放行变参重试。提交与结果必须可持久重放；等待前检查结果就绪，按每个调用保存独立 receipt 与消费水位，结果乱序或重复不得丢失或重复消费。持久收件箱与数据库补扫保证恢复正确性，独立唤醒 hint 仅降低延迟；终态收到迟到结果只留审计，不得恢复执行。
+- [RULE-001] 异步工具调用以租户、owner 与真实工具调用身份唯一，输入指纹用于同身份冲突判断，不能参与唯一身份以放行变参重试。提交与结果必须可持久重放；等待前检查结果就绪，按每个调用保存独立 receipt 与消费水位，结果乱序或重复不得丢失或重复消费。持久收件箱与数据库补扫保证恢复正确性，独立唤醒 hint 仅降低延迟；终态收到迟到结果不得恢复执行，但可幂等物化为会话事实（`BACKGROUND_RESULT`）供下一轮读取；物化失败、会话已删除或跳过必须显式可观测。
 
 - [RULE-002] 人工交互是 Execution 所属的持久待处理状态；问题、检查点、进入等待与释放执行权必须原子提交，问题有效期不得超出执行 deadline。回答须同时核对交互 OPEN、执行确在等待、取消标记与有效期，再原子保存回答并排队续接；相同回答幂等，变化冲突。仅停止未来调度时保留已开始执行与 OPEN 问题，终止全部或超时时才原子关闭；任何回答或迟到结果都不得复活终态。
 
 - [RULE-003] 投递意图与业务执行状态分离：PUSH 的最终结果及人工问题先持久化独立投递记录，再以稳定业务键、持久尝试和有效发送租约驱动；只有接收方明确证明送达才能确认成功，失败不得改写业务执行终态。NONE 的定时结果与问题只由任务中心读取，禁止产生投递、会话消息或通知未读。投递采用创建时的明确目标，路由失效不得猜测其他会话，跨租户扫描和崩溃恢复必须有界且可前进。
+
+- [RULE-004] 扇出前必须在父任务行锁内同时确认 `status=RUNNING`、`cancel_requested=false`、`lease_until > now`、`lease_owner` 与本执行一致；已取消或已失约的父任务不得创建可执行 Child（`_require_live_owner`）。
+
+- [RULE-005] fan-in 只对 BATCH 父执行生效；请求取消的父任务必须由取消路径收尾为 `CANCELLED`，不得被扇入改写成成功或失败；Agentic ASYNC Skill 子 Task 不是 BATCH 子任务，父 Execution 必须继续等待 operation 结果。
 
 ## Conventions
 
@@ -54,3 +58,9 @@
 - {"source":"2026-11-15/scheduled-task-v2/scheduled-task-v2.md#TASK-021#DELTA-001","op":"add","rule":"RULE-002","payload_sha256":"1973d218b1f6dae1aca038d4aba9d809cef8c8a475dabd19bb4d7a8634e51cff","at":"2026-11-16T05:09:15.751Z"}
 
 - {"source":"2026-11-15/scheduled-task-v2/scheduled-task-v2.md#TASK-022#DELTA-001","op":"add","rule":"RULE-003","payload_sha256":"479c01d3baf5396ab24664d74c31cd4bcb9aed1f2182d97904bfe96bde47c4ff","at":"2026-11-16T05:09:15.751Z"}
+
+- {"source":"2026-11-17/async-skill-background/async-skill-background.md#TASK-003#DELTA-001","op":"update","rule":"RULE-001","payload_sha256":"9a4de02fbd835c4d954fb307e1f1cef91f51f6ef0daafe2197fe65416aadd154","at":"2026-11-18T11:48:11.022Z"}
+
+- {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-009","op":"add","rule":"RULE-004","payload_sha256":"236a93a832a41276e8cdba358a5b28fcc07163604e5814334681a37138a5c671","at":"2026-11-18T14:06:44.262Z"}
+
+- {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-010","op":"add","rule":"RULE-005","payload_sha256":"5cb69af33b6568e148ffea44c7b095941e5888c8b7b0d3def0948b29cb58c2eb","at":"2026-11-18T14:06:44.262Z"}

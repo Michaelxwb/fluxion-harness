@@ -1,5 +1,8 @@
 ---
-{"description": "Skill 产物、缓存与子进程", "next_rule": 1}
+{
+  "description": "Skill 产物、缓存与子进程",
+  "next_rule": 4
+}
 ---
 
 # harness-skill
@@ -7,6 +10,12 @@
 ## Rules
 
 - [RULE-skill-001] Artifact Store 为 **RWX PVC**（硬事实是 `accessModes: ReadWriteMany`，`deploy/k8s/base/pvc-artifacts.yaml`；是否落在 NFS 由部署侧 StorageClass 决定，清单里 `storageClassName` 并未固定；V1 不建 MinIO/S3）；数据库只保存相对 `storage_key`；Runtime/Worker 使用 emptyDir 本地缓存并在校验 checksum 后原子切换 READY；禁止直接从 NFS 目录执行 Python Skill；同一 checksum 并发首次加载必须 singleflight（**限每进程内**：跨 Pod 的正确性由 `os.replace` 幂等与 DB CAS 承载，不得当作跨进程互斥）；Artifact 写入不可变（**目标不存在才发布**：临时文件 + `os.link`，同 `storage_key` 二次写入抛 `FileExistsError`）；导入 DB 事务失败同步删除已写文件，进程级孤儿由 `cleanup-skill-orphans` CLI 宽限期扫描清理（宽限期保护进行中事务）。
+
+- [RULE-001] 技能目录按 `MAX_CATALOG_ENTRIES`/`MAX_CATALOG_BYTES` 取前缀，超限整条丢弃并停止；确实丢弃时必须留 warning 与目录截断指标，并在目录尾部追加 `CATALOG_TRUNCATED_NOTE`；未丢弃时不得出现该提示。
+
+- [RULE-002] 非 Skill 产物必须使用 `skills/` 之外的前缀（导出用 `exports/{tenant}/{export_id}/...`，工具大结果用 `tools/{tenant}/{run_id}/{artifact_id}/result.bin`）；孤儿清理只扫 `skills/**`，禁止复用该前缀。
+
+- [RULE-003] `NfsArtifactStore.resolve` 必须校验解析路径落在 `root` 内且不等于 `root`，否则抛 `ValueError(invalid storage_key)`；禁止用 `root / storage_key` 直接拼接。
 
 ## Conventions
 
@@ -52,3 +61,11 @@
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。
+
+## Applied Deltas
+
+- {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-003","op":"add","rule":"RULE-001","payload_sha256":"0b6fd9c34651601c72166936f4ebcd20f239db25a3e16217b1971530d0f671a3","at":"2026-11-18T14:06:44.261Z"}
+
+- {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-004","op":"add","rule":"RULE-002","payload_sha256":"9e706d1fbd1842dad69a605d1d1904f54c571fd5a2fc28b9c3037a6266fd16dc","at":"2026-11-18T14:06:44.261Z"}
+
+- {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-005","op":"add","rule":"RULE-003","payload_sha256":"36cc951d588e314846b1cc5f21426ac786f18935f1a6ec46471da1d51a66a322","at":"2026-11-18T14:06:44.261Z"}

@@ -25,6 +25,7 @@
 - **浏览器**：按 `scenarios.md` 由人工在真实构建产物、真实浏览器和真实服务上执行并记录；`make acceptance-e2e DOMAIN=<域>` 仅用于本地/按需复跑，**不进 CI**。
 - **不要**共用 dev 库跑验收；跑前先停 dev 服务并查残留进程（`--reload` Worker 会抢任务，表现为 `SKILL_ARTIFACT_UNAVAILABLE` 一类假故障）。
 - **全量校验**：CI 运行 pytest/acceptance/component；浏览器 E2E 由人工独立执行。v1 的 `task finish` 只跑当前 TASK 声明的相关测试，`task archive` 只应用 Spec Delta 并移动需求，不执行测试。
+- `archive` 后 CI 独立执行完整 pytest 回归与 component，不运行浏览器 E2E；浏览器 E2E 按 `scenarios.md` 人工执行。托管块里的“完整回归和 E2E”不改变这条项目策略。
 - **触发词**：用户说“复用 CI 流水线 / 复用 CI 缓存 / 用 CI 跑归档 / 用 CI 结果归档”时，不要直接跑本地全量；先读 `docs/operations/ci-validation-cache.md`，按 runbook 触发 `workflow_dispatch`、下载 artifact，再执行对应验收。**默认用 kimi-webbridge 控制已登录浏览器完成触发和 artifact 下载，不要等用户提供 token/gh。**
 - 隔离机制、残留处理与逃生阀 `MUAD_ACCEPTANCE_SHARED_DB=1` 见 `.code-flow/specs/test/harness-test.md`。
 
@@ -67,7 +68,7 @@
 
 标记完成前，用 `task finish <task-document>.md --task TASK-NNN` 执行声明的测试。测试应限定在有意义的 unit/integration 回归；优先一次框架调用，使用框架自己的 workers。
 
-archive 应用声明的 Spec Delta 并移动需求；CI 独立执行完整 pytest 回归与 component，不运行浏览器 E2E。使用 `cf-task:prd`、`cf-task:align` 和 `cf-task:plan` 处理文档流程；不要为每个 Task 建一个文件。
+archive 应用声明的 Spec Delta 并移动需求；CI 独立执行完整回归和 E2E。使用 `cf-task:prd`、`cf-task:align` 和 `cf-task:plan` 处理文档流程；不要为每个 Task 建一个文件。
 
 Hook 诊断永不阻止工作。缺少绑定时要显式提供任务文档 + TASK ID，或重新执行 task start。
 <!-- code-flow:v1 end -->

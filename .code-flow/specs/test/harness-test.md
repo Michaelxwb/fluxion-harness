@@ -1,5 +1,8 @@
 ---
-{"description": "测试分层、验收隔离与 CI", "next_rule": 1}
+{
+  "description": "测试分层、验收隔离与 CI",
+  "next_rule": 3
+}
 ---
 
 # harness-test
@@ -7,6 +10,10 @@
 ## Rules
 
 - [RULE-test-001] 跨 API/DB/Runtime 的关键流程必须由自动化集成/契约测试覆盖，并明确“不得 mock 的真实边界”（真实 PostgreSQL、真实 Redis 行为、真实 HTTP）；浏览器流程由人工场景（`S-*`/`E-*`/`B-*`）在真实构建产物、真实浏览器和真实服务上验证并记录，E2E 不再是 CI 门禁。单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
+
+- [RULE-001] 验收耗时优化必须由 `pytest --durations` 归因驱动，分别看 `setup` 与 `call`；禁止按主观猜测优化慢点。
+
+- [RULE-002] 被测组件分两步写共享状态时，测试必须对第二步做有界等待后才断言；不得在第一步事实出现时立即断言第二步。
 
 ## Conventions
 
@@ -72,3 +79,9 @@
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。
+
+## Applied Deltas
+
+- {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-011","op":"add","rule":"RULE-001","payload_sha256":"55ca476ebe26dc31f8cf10269b43e5b120223a0ccde66f9311324c5ba76a7ec2","at":"2026-11-18T14:06:44.262Z"}
+
+- {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-012","op":"add","rule":"RULE-002","payload_sha256":"f37c5a83c25dc7eae5fe5a8853a7971f013e0f005b9a50b8509f0e3e0259a6db","at":"2026-11-18T14:06:44.262Z"}

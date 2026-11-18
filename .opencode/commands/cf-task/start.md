@@ -13,6 +13,8 @@ code-flow task start <task-document>.md --task TASK-001 --session <token>
 
 Pass the token from the current Hook so later prompts inherit the Task's `Spec-Refs`. A missing token returns `session_missing`; a done Task automatically falls back to the requirement's Spec-Refs for final verification. If the Hook reports `session_unbound`, start with the current token; without a binding only explicit task refs or prompt paths can inject Specs.
 
+`task start` 是 TASK 的第一个动作：在编辑任何实现文件之前执行，规则才会在编辑期注入。如果声明的 Paths 或测试文件已经有未提交改动，start 会输出 `dirty_before_start` 提示；先 commit/stash，或明确接受这些编辑没有规则注入。需要阻断时加 `--require-clean`。
+
 Before `finish`, update the TASK Checklist to reflect only work that is actually complete. A successful `finish` checks any remaining `- [ ]` items in that TASK section; do not mark work you did not do.
 
 Batch (dependency layer):

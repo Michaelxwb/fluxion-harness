@@ -1,7 +1,7 @@
 ---
 {
   "description": "表设计、迁移与索引",
-  "next_rule": 2
+  "next_rule": 5
 }
 ---
 
@@ -12,6 +12,12 @@
 - [RULE-data-001] 产品表统一 id/is_deleted/create_time/update_time，时间统一 timestamptz，JSON 配置使用 jsonb；普通软删除实体以未删除行建立部分唯一，稳定身份注册表及不可变历史、回执按身份完整唯一。业务归属在同 Owner Schema 内使用物理外键，跨 Owner Schema、操作者及需独立保留的审计来源使用逻辑 UUID；多态审计引用由写入方校验实体归属。同 Owner 的结果发件引用实际事件身份，不能依赖已经失效的任务与事件序号复合关系。关键查询字段、互斥 owner 和业务唯一性必须由共享契约对应的物理列、约束及索引承载。
 
 - [RULE-001] 共享执行基础设施必须使用显式 owner 联合与互斥归属约束；调用方携带服务身份，由资源所有者复核租户、操作者和 Agent，不能把提交结果的 Task 标识复用为 operation owner。Runtime 持有其容量、异步操作、结果收件箱及产物的写入权，Worker 经所有者内部 API 使用 Task 能力；跨 Owner 引用为逻辑身份，禁止直接写入其它 Owner 表。
+
+- [RULE-002] 稳定 key 不因软删除重置：`user_memory(tenant_id,user_id,memory_key)`、`memory_scope(tenant_id,user_id)` 使用完整唯一；历史/receipt/job 的 `is_deleted` 恒为 false；同族新注册表同样使用包含 tombstone 的完整唯一。
+
+- [RULE-003] 产品表的 `id`/`is_deleted`/`create_time`/`update_time` 必须继承 `StandardColumnsMixin`；Console、Worker、Runtime 三份 `models/base.py` 与 `NAMING_CONVENTION` 保持同名同内容。
+
+- [RULE-004] Schema 只允许 `control`/`runtime`/`task`，不得新建框架私有 schema，也不得放入无 ORM 模型的表。
 
 ## Conventions
 
@@ -60,3 +66,9 @@
 - {"source":"2026-11-15/scheduled-task-v2/scheduled-task-v2.md#TASK-002#DELTA-001","op":"update","rule":"RULE-data-001","payload_sha256":"4a0883fb27b107d8bd969e55e87cd49a8f5b53a8f4adacd475f638844d212f37","at":"2026-11-16T05:09:15.750Z"}
 
 - {"source":"2026-11-15/scheduled-task-v2/scheduled-task-v2.md#TASK-006#DELTA-001","op":"add","rule":"RULE-001","payload_sha256":"3324be6789e606aadefc5bd7856ea79d50a5ca83c61fe479213e35dd55a7f910","at":"2026-11-16T05:09:15.750Z"}
+
+- {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-002#DELTA-003","op":"add","rule":"RULE-002","payload_sha256":"f4aea447e1f661ad88a3ba724b06e90d1b5b681dfa6275ff2bef4b60422a45ba","at":"2026-11-18T14:06:44.263Z"}
+
+- {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-002#DELTA-004","op":"add","rule":"RULE-003","payload_sha256":"ce154e3dcab3401bbdf189f9a75d433c8a17fbf77793e1e3ca830c34c73eff36","at":"2026-11-18T14:06:44.263Z"}
+
+- {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-002#DELTA-005","op":"add","rule":"RULE-004","payload_sha256":"ba02c3e8ef86aa917728eda81e6f9d8925886ab8ba13ef932df056ec9742e250","at":"2026-11-18T14:06:44.263Z"}

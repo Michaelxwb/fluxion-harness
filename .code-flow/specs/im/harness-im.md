@@ -1,7 +1,7 @@
 ---
 {
   "description": "IM 网关、通道与 WebChat",
-  "next_rule": 7
+  "next_rule": 10
 }
 ---
 
@@ -19,6 +19,12 @@
 - [RULE-im-005] 会话删除是 Owner 侧的软删：置 `is_deleted` 即可让列表、详情、消息、续聊与产物下载一致不可见；删除请求内先按既有取消语义处理该会话的活跃 Run 再软删，不等 Run 终态；删除幂等，重复删除返回成功；删除同时软删该会话的通知，且通知写入侧对已软删会话不再产出入箱行。
 
 - [RULE-006] 任务中心的服务与响应契约只依赖可信 Principal 和授权 Agent 范围，数据归属为租户、平台用户与 Agent，入口及渠道仅作来源元数据。不同 surface 复用同一读写及分页契约；定时结果和人工待处理由任务实体直接投影，不写会话通知。任务产物按执行 owner 核属并读取请求指定的不可变版本与校验值，不要求会话身份；未授权、软删或内部留档不得暴露。
+
+- [RULE-007] `/internal/deliveries` 只接受带 `X-Internal-Service` 的内部调用；投递 `tenant_id` 必须等于本网关部署租户；产物必须按 `artifact_id` 经 Runtime `/internal/artifacts/{id}` 在本租户解析，调用方 `storage_key` 只能用于比对，不能直接读共享存储。
+
+- [RULE-008] 入口身份必须显式传递 `ChannelContext.entry_id`（= `control.bot_account.id`），随消息、`/new`、`/stop` 全链保留；`bot_id` 只保存平台原值用于连接与路由；禁止用 `uuid.UUID(bot_id)` 或字符串形状推断入口。
+
+- [RULE-009] 绑定码状态映射固定：`USED`/`REVOKED` → `BIND_CODE_INVALID`，`EXPIRED`/过期 → `BIND_CODE_EXPIRED`；带 `Idempotency-Key` 的绑定请求使用共享幂等表 + `pg_advisory_xact_lock`；`identity_key=(channel,bot_id,external_user_id)` 每租户唯一，冲突返回 `IDENTITY_ALREADY_BOUND` 且不消费绑定码。
 
 ## Conventions
 
@@ -94,3 +100,9 @@
 - {"source":"2026-11-12/webchat-conversation-delete-and-attachment-formats/webchat-conversation-delete-and-attachment-formats.md#TASK-005#DELTA-001","op":"add","rule":"RULE-003","payload_sha256":"4f383632fabc8102f4db853af10a64812f26d3549e9e5c933a9090d913590a67","at":"2026-11-12T16:21:37.942Z"}
 
 - {"source":"2026-11-15/scheduled-task-v2/scheduled-task-v2.md#TASK-024#DELTA-001","op":"add","rule":"RULE-006","payload_sha256":"216a49e436a612ba01476fb692ac3613cc8ac14f6b79b203cd8c50e1ab139a9c","at":"2026-11-16T05:09:15.752Z"}
+
+- {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-006","op":"add","rule":"RULE-007","payload_sha256":"753091c49d53e60a209f45597253d19210ed11e292eed48fed09bbad8ba727b4","at":"2026-11-18T14:06:44.261Z"}
+
+- {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-007","op":"add","rule":"RULE-008","payload_sha256":"45f65741f004802cca359dcab10fdef44758601a71a8303c68b1d184246fe7ee","at":"2026-11-18T14:06:44.261Z"}
+
+- {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-008","op":"add","rule":"RULE-009","payload_sha256":"a90b6daddabedfd0ec833cacef85581d56129bcc5371091701764872916d6a98","at":"2026-11-18T14:06:44.262Z"}

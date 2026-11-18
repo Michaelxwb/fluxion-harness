@@ -1,5 +1,8 @@
 ---
-{"description": "密钥归属与脱敏", "next_rule": 1}
+{
+  "description": "密钥归属与脱敏",
+  "next_rule": 3
+}
 ---
 
 # harness-secret
@@ -7,6 +10,10 @@
 ## Rules
 
 - [RULE-secret-001] 密钥明文存于各 Owner 表（模型 `control.model_credential.api_key`、Bot `secret`、MCP `auth_secret`、用户/共享凭据 `credential_json`；平台侧只有历史休眠列 `project_platform.auth_secret`，不得读写），跨表以主键引用，不再使用 `secret_ref`/SecretProvider；密钥不得进入日志、`config_audit_log`、Snapshot、LLM Prompt 或 API 响应（对外以 `*_configured` 表达）；Console 凭据编辑弹窗的**按需回显**是下文列出的受控例外，只允许那一条显式路径回明文。
+
+- [RULE-001] 密钥不得进入 CanonicalEvent、`tool_call_audit`、`egress_audit`、`model_invocation_audit`、IM 出站消息、Skill package 及其 `SKILL.md`；验收以 canary 反查的实际表范围为准。
+
+- [RULE-002] 平台失败原因在离开适配器前必须把本次 `ak`/`sk`/`headers` 的具体值替换为 `***`，再进入 Skill stderr 或工具结果；日志只记 code 与状态，不记原文。
 
 ## Conventions
 
@@ -69,3 +76,9 @@ api_key = model.api_key or os.environ.get("MODEL_API_KEY")   # 密钥清空时�
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。
+
+## Applied Deltas
+
+- {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-002#DELTA-001","op":"add","rule":"RULE-001","payload_sha256":"90929baf37c38af503d5d933c6cdc284719895384ad3d0a87b6fc8f431d83e34","at":"2026-11-18T14:06:44.263Z"}
+
+- {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-002#DELTA-002","op":"add","rule":"RULE-002","payload_sha256":"0dc4d1cfe9328f378c5de37fc135a6a7ea765d4aa5857b764356ba619911b353","at":"2026-11-18T14:06:44.263Z"}
