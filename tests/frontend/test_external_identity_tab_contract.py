@@ -8,22 +8,27 @@ EXTERNAL = ROOT / "apps/console-platform/frontend/src/modules/user-identity/Exte
 SERVICES = ROOT / "apps/console-platform/frontend/src/modules/user-identity/services/users.ts"
 
 
-def test_external_tab_is_registered_behind_admin() -> None:
-    """外部身份 tab 仅管理员可见（与凭据/经验一致），且独立于既有 IM 身份 tab。"""
+def test_external_identities_live_in_the_im_identity_tab() -> None:
+    """外部身份并入「IM 身份」页签，不再单独占一个 tab。"""
     source = USER_DETAIL.read_text(encoding="utf-8")
     assert "ExternalIdentitySection" in source
-    assert 'itemKey="external"' in source
-    guard = source.index("isAdmin && (")
-    assert guard < source.index('itemKey="external"')
+    # 独立 tab 已移除
+    assert 'itemKey="external"' not in source
+    # 挂在 IdentityTab 内部（在 IdentityTab 定义之后出现）
+    identity_tab = source.index("function IdentityTab")
+    assert source.index("<ExternalIdentitySection") > identity_tab
 
 
-def test_external_section_drives_fields_from_identity_keys() -> None:
-    """录入弹窗按平台 `identity_keys` 动态渲染字段，标签取 `identity_field_labels`。"""
+def test_identity_entry_accepts_pasted_claims_json() -> None:
+    """录入改为粘贴 JWT claims JSON，按平台 identity_keys 取交集，不再逐字段渲染输入框。"""
     source = EXTERNAL.read_text(encoding="utf-8")
-    assert "identity_keys" in source
-    assert "identity_field_labels" in source
-    # 必须按 key 逐个渲染表单输入，而不是写死字段。
-    assert ".map(" in source and "Form.Input" in source
+    assert "extractIdentityFromClaims" in source
+    assert "JSON.parse" in source
+    # 仍是多行文本域而非若干 Form.Input
+    assert "Form.TextArea" in source
+    assert "Form.Input" not in source
+    # 交集校验：仅取 identity_keys 里的键
+    assert "for (const key of identityKeys)" in source
 
 
 def test_external_section_requires_explicit_platform_choice() -> None:
@@ -45,14 +50,31 @@ def test_external_section_requires_explicit_platform_choice() -> None:
     assert "values[PLATFORM_FIELD]" in source
 
 
+def test_external_identities_render_as_table_rows() -> None:
+    """外部身份用表格展示，不是自绘卡片。"""
+    source = EXTERNAL.read_text(encoding="utf-8")
+    assert "DataTable" in source
+    assert "user-external-identity__card" not in source
+    assert 'rowKey="identity_id"' in source
+
+
+def test_grant_dialog_lists_entries_with_revoke() -> None:
+    """授权弹窗直接列入口并可撤销授权，不放搜索输入框。"""
+    source = EXTERNAL.read_text(encoding="utf-8")
+    assert "revokeExternalEntry" in source
+    assert "user.external.revoke" in source
+    # 弹窗内不再有搜索输入
+    dialog = source[source.index("function GrantEntryModal") :]
+    assert "<Input" not in dialog
+    assert "searchEntry" not in source
+
+
 def test_external_section_gates_and_banners_by_platform_config() -> None:
-    """平台未配置时给出 Banner；入口授权按服务端分页搜索、前端不本地过滤。"""
+    """平台未配置时给出 Banner；入口列表由服务端返回，不做前端本地过滤。"""
     source = EXTERNAL.read_text(encoding="utf-8")
     assert "platformUnconfigured" in source
     assert "Banner" in source
     assert "listPlatformEntries" in source
-    # 搜索交给服务端：请求带 query 参数，不在前端对已取列表再次过滤。
-    assert "query" in source
 
 
 def test_external_services_target_console_admin_paths() -> None:

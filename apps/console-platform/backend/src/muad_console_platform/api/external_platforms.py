@@ -43,16 +43,22 @@ async def list_platform_entries(
     session: Session,
     request: Request,
     user_id: Annotated[uuid.UUID | None, Query()] = None,
+    identity_id: Annotated[uuid.UUID | None, Query()] = None,
     query: Annotated[str, Query(max_length=128)] = "",
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> ApiResponse[list[ExternalEntryItem]]:
-    """API-19：可绑定入口。服务端分页与过滤，`granted` 表示该用户是否已授权。"""
+    """API-19：可绑定入口。服务端分页与过滤。
+
+    `granted` 表示是否已授权：传 `identity_id` 时只看该身份，否则看该用户名下任一身份。
+    授权弹窗按身份操作，必须传 `identity_id`，否则撤销按钮的判定会跨身份串味。
+    """
     service = ExternalIdentityService(session)
     items = await service.list_entries(
         tenant_id=tenant_id,
         platform_key=platform_key,
         user_id=user_id,
+        identity_id=identity_id,
         query=query,
         page=page,
         page_size=page_size,

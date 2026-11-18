@@ -228,10 +228,16 @@ class ExternalIdentityService:
         query: str,
         page: int,
         page_size: int,
+        identity_id: uuid.UUID | None = None,
     ) -> list[ExternalEntryItem]:
         """API-19：该平台下可绑定的入口，分页搜索。
 
         由服务端分页与过滤；前端不得用本地过滤冒充完整搜索，否则大租户下漏项。
+
+        `granted` 的归属口径：传 `identity_id` 时只看**该身份**是否已授权，否则看该用户
+        名下任一身份。授权弹窗按身份操作，必须传 `identity_id`——否则用户有两个身份时，
+        A 身份已授权的入口在 B 身份下也会显示「已授权」，点撤销会按 B 的身份去删，
+        命中 `grant_id` 不存在而报 404（`revoke_grant` 按 identity 精确查找）。
         """
         self._require_platform(platform_key)
         offset = max(page - 1, 0) * page_size
@@ -243,11 +249,17 @@ class ExternalIdentityService:
             limit=page_size,
         )
         granted: set[uuid.UUID] = set()
-        if user_id is not None:
+        identity_ids: list[uuid.UUID] = []
+        if identity_id is not None:
+            record = await self._repo.get_for_user(tenant_id, user_id, identity_id) if user_id else None
+            if record is not None:
+                identity_ids = [record.id]
+        elif user_id is not None:
             identities = await self._repo.list_for_user(tenant_id, user_id)
-            if identities:
-                entries = await self._repo.list_grants(tenant_id, [record.id for record in identities])
-                granted = {bot.id for _, bot in entries}
+            identity_ids = [record.id for record in identities]
+        if identity_ids:
+            entries = await self._repo.list_grants(tenant_id, identity_ids)
+            granted = {bot.id for _, bot in entries}
         return [
             ExternalEntryItem(
                 entry_id=bot.id,

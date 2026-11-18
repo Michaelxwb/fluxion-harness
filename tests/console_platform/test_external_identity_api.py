@@ -290,6 +290,61 @@ async def test_list_entries_marks_granted(client: AsyncClient, tenant: TenantCon
     assert match and match[0]["granted"] is True
 
 
+async def test_list_entries_scopes_granted_to_the_requested_identity(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    """`granted` 按 `identity_id` 收敛：同一用户的两个身份不能互相串味。
+
+    否则授权弹窗会显示「已授权」，点撤销却按另一个身份去删 grant，
+    命中 `revoke_grant` 的 404 分支。
+    """
+    user_id = await _create_user(client, tenant)
+    entry_id = await _create_entry(client, tenant)
+
+    first = await client.put(
+        f"/api/v1/users/{user_id}/external-identities",
+        json={"platform_key": "mssw", "identity": {"expert_id": _expert_id(), "tenant_id": "t1"}},
+        headers=_headers(tenant),
+    )
+    second = await client.put(
+        f"/api/v1/users/{user_id}/external-identities",
+        json={"platform_key": "mssw", "identity": {"expert_id": _expert_id(), "tenant_id": "t2"}},
+        headers=_headers(tenant),
+    )
+    first_id = first.json()["data"]["identity_id"]
+    second_id = second.json()["data"]["identity_id"]
+    await client.post(
+        f"/api/v1/users/{user_id}/external-identities/{first_id}/grants",
+        json={"channel_account_id": entry_id},
+        headers=_headers(tenant),
+    )
+
+    def _granted(rows: list[dict], target: str) -> bool:
+        return next(row["granted"] for row in rows if row["entry_id"] == target)
+
+    scoped_first = await client.get(
+        "/api/v1/external-platforms/mssw/entries",
+        params={"user_id": user_id, "identity_id": first_id, "page": 1, "page_size": 20},
+        headers=_headers(tenant),
+    )
+    assert _granted(scoped_first.json()["data"], entry_id) is True
+
+    scoped_second = await client.get(
+        "/api/v1/external-platforms/mssw/entries",
+        params={"user_id": user_id, "identity_id": second_id, "page": 1, "page_size": 20},
+        headers=_headers(tenant),
+    )
+    assert _granted(scoped_second.json()["data"], entry_id) is False
+
+    # 不传 identity_id 时退回用户口径：任一身份授权即算已授权。
+    user_wide = await client.get(
+        "/api/v1/external-platforms/mssw/entries",
+        params={"user_id": user_id, "page": 1, "page_size": 20},
+        headers=_headers(tenant),
+    )
+    assert _granted(user_wide.json()["data"], entry_id) is True
+
+
 async def test_identity_is_scoped_to_user(client: AsyncClient, tenant: TenantContext) -> None:
     """身份按 user 定位：拿别人的 user_id 访问同样 404，不泄露存在性。"""
     owner = await _create_user(client, tenant)

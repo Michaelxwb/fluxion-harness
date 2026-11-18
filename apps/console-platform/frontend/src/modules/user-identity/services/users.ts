@@ -365,7 +365,14 @@ export async function listExternalPlatforms(
 
 export async function listPlatformEntries(
   platformKey: string,
-  params: { user_id?: string; query?: string; page?: number; page_size?: number },
+  params: {
+    user_id?: string;
+    /** 传了就只按该身份的授权判定 `granted`；授权弹窗必须传，否则跨身份串味。 */
+    identity_id?: string;
+    query?: string;
+    page?: number;
+    page_size?: number;
+  },
   options: RequestOptions = {}
 ): Promise<ExternalEntryItem[]> {
   return unwrap(

@@ -1,9 +1,14 @@
 /**
- * 外部 IM 平台身份治理：录入/改删外部身份（platform_key 驱动动态字段）、按入口授权（entry）、
+ * 外部 IM 平台身份治理：录入/改删外部身份、按入口授权（entry）、
  * 平台未配置时给出 Banner 提示。数据归属为用户，入口只作授权维度（设计 §外部身份）。
+ *
+ * 录入方式：选平台后粘贴上游签发的 JWT claims JSON，前端只做「字段交集」校验——
+ * 平台 `identity_keys` 里的每个键都必须在 JSON 中存在且为字符串，其它键忽略。
+ * 这与服务端 `_validate_identity` 的松紧度一致：服务端要求字段集合**恰好**等于
+ * `identity_keys`，所以前端先把 JSON 裁剪成只剩这些键再提交。
  */
 
-import { Banner, Button, Form, Input, Spin, Tag } from '@douyinfe/semi-ui';
+import { Banner, Button, Form, Tag } from '@douyinfe/semi-ui';
 import type { FormApi } from '@douyinfe/semi-ui/lib/es/form';
 import { IconPlus } from '@douyinfe/semi-icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -12,9 +17,12 @@ import { useTranslation } from 'react-i18next';
 import { apiErrorBody } from '../../api/client';
 import i18n from '../../i18n';
 import { ConfirmAction } from '../../components/common/ConfirmAction';
+import { DataTable } from '../../components/common/DataTable';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
 import { FormModal } from '../../components/common/FormModal';
+import { TableText } from '../../components/common/TableText';
+import { actionColumn } from '../../components/common/tableLayout';
 import type {
   ExternalEntryItem,
   ExternalIdentityItem,
@@ -33,11 +41,51 @@ import {
 
 /** 录入表单里「平台」字段的 field 名。与 identity_keys 用一个下划线前缀隔开，避免撞名。 */
 const PLATFORM_FIELD = '_platform_key';
+/** 录入表单里「粘贴 JSON」字段的 field 名，同样避开 identity_keys。 */
+const CLAIMS_FIELD = '_claims_json';
 
 /** 卡片上展示平台名：优先 display_name，取不到回落到 key。 */
 function platformName(platformKey: string, platforms: ExternalPlatformItem[]): string {
   const found = platforms.find((item) => item.platform_key === platformKey);
   return found?.display_name || platformKey;
+}
+
+/**
+ * 把粘贴的 JWT claims 裁剪成平台要求的身份字段。
+ *
+ * 返回 `{ identity }` 或 `{ error }`：缺任何一个 `identity_keys` 里的键、
+ * 或对应值不是字符串，都算不合法（与服务端 `_validate_identity` 对齐）。
+ */
+export function extractIdentityFromClaims(
+  raw: string,
+  identityKeys: string[]
+):
+  | { identity: Record<string, string> }
+  | { error: 'invalidJson' | 'missingKeys'; missing: string[] } {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { error: 'invalidJson', missing: [] };
+  }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { error: 'invalidJson', missing: [] };
+  }
+  const claims = parsed as Record<string, unknown>;
+  const identity: Record<string, string> = {};
+  const missing: string[] = [];
+  for (const key of identityKeys) {
+    const value = claims[key];
+    if (typeof value !== 'string' || !value.trim()) {
+      missing.push(key);
+      continue;
+    }
+    identity[key] = value;
+  }
+  if (missing.length > 0) {
+    return { error: 'missingKeys', missing };
+  }
+  return { identity };
 }
 
 export interface ExternalIdentitySectionProps {
@@ -123,13 +171,31 @@ export function ExternalIdentitySection(props: ExternalIdentitySectionProps) {
       return;
     }
     try {
-      const identity: Record<string, string> = {};
-      for (const key of selected.identity_keys) {
-        identity[key] = String(values[key] ?? '').trim();
-      }
+      let identity: Record<string, string>;
       if (editing) {
+        // 编辑时沿用同一套粘贴 JSON 流程，避免两套输入方式并存。
+        const result = extractIdentityFromClaims(
+          String(values[CLAIMS_FIELD] ?? ''),
+          selected.identity_keys
+        );
+        if ('error' in result) {
+          setFormError(claimsErrorText(result));
+          setSubmitting(false);
+          return;
+        }
+        identity = result.identity;
         await updateExternalIdentity(props.userId, editing.identity_id, { identity });
       } else {
+        const result = extractIdentityFromClaims(
+          String(values[CLAIMS_FIELD] ?? ''),
+          selected.identity_keys
+        );
+        if ('error' in result) {
+          setFormError(claimsErrorText(result));
+          setSubmitting(false);
+          return;
+        }
+        identity = result.identity;
         await upsertExternalIdentity(props.userId, {
           platform_key: selected.platform_key,
           identity
@@ -159,7 +225,7 @@ export function ExternalIdentitySection(props: ExternalIdentitySectionProps) {
   };
 
   if (loading && identities.length === 0 && platforms.length === 0) {
-    return <Spin />;
+    return null;
   }
   if (failed) {
     return <ErrorState onRetry={() => void load()} />;
@@ -180,73 +246,110 @@ export function ExternalIdentitySection(props: ExternalIdentitySectionProps) {
         />
       ))}
 
+      <div className="detail-section-title">{t('user.tabs.external')}</div>
       {props.canManage && (
-        <div className="user-external-identity__toolbar">
-          <Button
-            icon={<IconPlus />}
-            theme="solid"
-            disabled={configuredPlatforms.length === 0}
-            onClick={openCreate}
-          >
-            {t('user.external.add')}
-          </Button>
-        </div>
+        <Button
+          icon={<IconPlus />}
+          theme="solid"
+          style={{ marginBottom: 12 }}
+          disabled={configuredPlatforms.length === 0}
+          onClick={openCreate}
+        >
+          {t('user.external.add')}
+        </Button>
       )}
 
       {identities.length === 0 ? (
         <EmptyState title={t('user.external.empty')} />
       ) : (
-        <div className="user-external-identity__list">
-          {identities.map((item) => (
-            <div key={item.identity_id} className="user-external-identity__card">
-              <div className="user-external-identity__head">
-                <strong>{platformName(item.platform_key, platforms)}</strong>
-                <Tag color={item.status === 'ACTIVE' ? 'green' : 'grey'}>{item.status}</Tag>
-              </div>
-              <div className="user-external-identity__fields">
-                {Object.entries(item.identity).map(([key, value]) => (
-                  <span key={key} className="user-external-identity__field">
-                    {key}: {value}
-                  </span>
-                ))}
-              </div>
-              <div className="user-external-identity__grants">
-                {item.grants.length === 0 ? (
+        <DataTable
+          className="app-table-fit user-external-identity-table"
+          scroll={{ x: '100%' }}
+          dataSource={identities}
+          rowKey="identity_id"
+          pagination={false}
+          columns={[
+            {
+              title: t('user.external.platform'),
+              dataIndex: 'platform_key',
+              width: 140,
+              ellipsis: true,
+              render: (value: string) => <TableText>{platformName(value, platforms)}</TableText>
+            },
+            {
+              title: t('user.external.identityFields'),
+              dataIndex: 'identity',
+              width: 'auto',
+              render: (value: Record<string, string>) => (
+                <TableText>
+                  {Object.entries(value)
+                    .map(([key, val]) => `${key}: ${val}`)
+                    .join('  ')}
+                </TableText>
+              )
+            },
+            {
+              title: t('user.external.grantedEntries'),
+              dataIndex: 'grants',
+              width: 220,
+              render: (grants: ExternalIdentityItem['grants'], item: ExternalIdentityItem) =>
+                grants.length === 0 ? (
                   <span className="detail-hint">{t('user.external.noGrants')}</span>
                 ) : (
-                  item.grants.map((grant) => (
+                  grants.map((grant) => (
                     <Tag
                       key={grant.entry_id}
                       closable={props.canManage}
-                      onClose={() => void revokeGrant(item, grant.entry_id)}
+                      onClose={(e) => {
+                        e.preventDefault();
+                        void revokeGrant(item, grant.entry_id);
+                      }}
                     >
                       {grant.name || grant.bot_id}
                     </Tag>
                   ))
-                )}
-              </div>
-              {props.canManage && (
-                <div className="user-external-identity__actions">
-                  <Button size="small" onClick={() => setGrantModal({ visible: true, identity: item })}>
-                    {t('user.external.grantEntry')}
-                  </Button>
-                  <Button size="small" onClick={() => openEdit(item)}>
-                    {t('common.edit')}
-                  </Button>
-                  <ConfirmAction
-                    type="danger"
-                    title={t('user.external.confirmDelete')}
-                    onConfirm={() => void removeIdentity(item)}
-                  >
-                    <Button size="small" type="danger">
-                      {t('common.delete')}
-                    </Button>
-                  </ConfirmAction>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+                )
+            },
+            {
+              title: t('user.columns.status'),
+              dataIndex: 'status',
+              width: 96,
+              render: (value: string) => (
+                <Tag color={value === 'ACTIVE' ? 'green' : 'grey'}>{value}</Tag>
+              )
+            },
+            ...(props.canManage
+              ? [
+                  {
+                    ...actionColumn(220),
+                    title: t('user.columns.action'),
+                    render: (_: unknown, item: ExternalIdentityItem) => (
+                      <>
+                        <Button
+                          size="small"
+                          onClick={() => setGrantModal({ visible: true, identity: item })}
+                        >
+                          {t('user.external.grantEntry')}
+                        </Button>
+                        <Button size="small" onClick={() => openEdit(item)}>
+                          {t('common.edit')}
+                        </Button>
+                        <ConfirmAction
+                          type="danger"
+                          title={t('user.external.confirmDelete')}
+                          onConfirm={() => void removeIdentity(item)}
+                        >
+                          <Button size="small" type="danger">
+                            {t('common.delete')}
+                          </Button>
+                        </ConfirmAction>
+                      </>
+                    )
+                  }
+                ]
+              : [])
+          ]}
+        />
       )}
 
       <FormModal
@@ -260,8 +363,12 @@ export function ExternalIdentitySection(props: ExternalIdentitySectionProps) {
         }}
         initValues={
           editing
-            ? { ...editing.identity, [PLATFORM_FIELD]: editing.platform_key }
-            : { [PLATFORM_FIELD]: identityModal.platformKey }
+            ? {
+                [PLATFORM_FIELD]: editing.platform_key,
+                // 编辑时预填裁剪后的 JSON，用户可在其上改动粘贴的内容。
+                [CLAIMS_FIELD]: JSON.stringify(editing.identity, null, 2)
+              }
+            : { [PLATFORM_FIELD]: identityModal.platformKey, [CLAIMS_FIELD]: '' }
         }
         onOk={() => identityFormApi.current?.submitForm()}
         onCancel={() => setIdentityModal({ visible: false, platformKey: identityModal.platformKey })}
@@ -285,14 +392,18 @@ export function ExternalIdentitySection(props: ExternalIdentitySectionProps) {
             });
           }}
         />
-        {(platform?.identity_keys ?? []).map((key) => (
-          <Form.Input
-            key={key}
-            field={key}
-            label={platform?.identity_field_labels[key] ?? key}
-            rules={[{ required: true, message: t('user.external.fieldRequired') }]}
-          />
-        ))}
+        <div className="detail-hint" style={{ marginBottom: 8 }}>
+          {t('user.external.claimsHint', {
+            keys: (platform?.identity_keys ?? []).join(', ') || '-'
+          })}
+        </div>
+        <Form.TextArea
+          field={CLAIMS_FIELD}
+          label={t('user.external.claimsJson')}
+          placeholder={t('user.external.claimsPlaceholder')}
+          autosize={{ minRows: 6, maxRows: 14 }}
+          rules={[{ required: true, message: t('user.external.fieldRequired') }]}
+        />
         {formError && (
           <div className="detail-hint" data-testid="external-identity-form-error">
             {formError}
@@ -304,11 +415,9 @@ export function ExternalIdentitySection(props: ExternalIdentitySectionProps) {
         visible={grantModal.visible}
         platformKey={grantModal.identity?.platform_key ?? ''}
         userId={props.userId}
-        granted={new Set((grantModal.identity?.grants ?? []).map((grant) => grant.entry_id))}
+        identity={grantModal.identity}
         onCancel={() => setGrantModal({ visible: false, identity: grantModal.identity })}
-        onGrant={async (entryId) => {
-          if (!grantModal.identity) return;
-          await grantExternalEntry(props.userId, grantModal.identity.identity_id, entryId);
+        onChanged={async () => {
           await load();
           props.onMutated?.();
         }}
@@ -317,32 +426,43 @@ export function ExternalIdentitySection(props: ExternalIdentitySectionProps) {
   );
 }
 
+/** 把 `extractIdentityFromClaims` 的错误映射成给用户看的中文提示。 */
+function claimsErrorText(
+  result: { error: 'invalidJson' | 'missingKeys'; missing: string[] }
+): string {
+  if (result.error === 'invalidJson') {
+    return i18n.t('user.external.claimsInvalidJson');
+  }
+  return i18n.t('user.external.claimsMissingKeys', { keys: result.missing.join(', ') });
+}
+
 interface GrantEntryModalProps {
   visible: boolean;
   platformKey: string;
   userId: string;
-  granted: Set<string>;
+  identity: ExternalIdentityItem | null;
   onCancel(): void;
-  onGrant(entryId: string): Promise<void>;
+  onChanged(): Promise<void>;
 }
 
 function GrantEntryModal(props: GrantEntryModalProps) {
   const { t } = useTranslation();
-  const [query, setQuery] = useState('');
   const [entries, setEntries] = useState<ExternalEntryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [busyEntryId, setBusyEntryId] = useState<string | null>(null);
 
-  const search = useCallback(async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      // 服务端分页/搜索：前端不做本地过滤。
+      // 不带搜索词：授权弹窗直接列出该平台全部入口，便于一眼看到已授权/未授权。
+      // identity_id 决定 granted 的归属口径——撤销按身份精确删 grant，不传会跨身份串味。
       const result = await listPlatformEntries(props.platformKey, {
         user_id: props.userId,
-        query,
+        identity_id: props.identity?.identity_id,
         page: 1,
-        page_size: 20
+        page_size: 100
       });
       setEntries(result);
     } catch (cause) {
@@ -350,52 +470,93 @@ function GrantEntryModal(props: GrantEntryModalProps) {
     } finally {
       setLoading(false);
     }
-  }, [props.platformKey, props.userId, query]);
+  }, [props.platformKey, props.userId, props.identity?.identity_id]);
 
   useEffect(() => {
     if (props.visible) {
-      void search();
+      void load();
     }
-  }, [props.visible, search]);
+  }, [props.visible, load]);
+
+  const toggle = async (entry: ExternalEntryItem) => {
+    if (!props.identity) return;
+    setBusyEntryId(entry.entry_id);
+    setError(null);
+    try {
+      if (entry.granted) {
+        await revokeExternalEntry(props.userId, props.identity.identity_id, entry.entry_id);
+      } else {
+        await grantExternalEntry(props.userId, props.identity.identity_id, entry.entry_id);
+      }
+      await load();
+      await props.onChanged();
+    } catch (cause) {
+      setError(apiErrorBody(cause)?.msg ?? i18n.t('user.external.submitFailed'));
+    } finally {
+      setBusyEntryId(null);
+    }
+  };
 
   return (
     <FormModal
       visible={props.visible}
       title={t('user.external.grantEntry')}
-      width={640}
+      width={680}
       okText={t('common.close')}
       onOk={props.onCancel}
       onCancel={props.onCancel}
       getFormApi={() => undefined}
     >
-      <Input
-        value={query}
-        placeholder={t('user.external.searchEntry')}
-        onChange={setQuery}
-        onEnterPress={() => void search()}
-      />
       {error && <div className="detail-hint">{error}</div>}
-      {loading ? (
-        <Spin />
-      ) : entries.length === 0 ? (
+      {loading ? null : entries.length === 0 ? (
         <EmptyState title={t('user.external.noEntries')} />
       ) : (
-        <ul className="user-external-identity__entries">
-          {entries.map((entry) => (
-            <li key={entry.entry_id}>
-              <span>
-                {entry.name || entry.bot_id} ({entry.channel})
-              </span>
-              {props.granted.has(entry.entry_id) ? (
-                <Tag color="green">{t('user.external.granted')}</Tag>
-              ) : (
-                <Button size="small" onClick={() => void props.onGrant(entry.entry_id)}>
-                  {t('user.external.grant')}
+        <DataTable
+          className="app-table-fit"
+          scroll={{ x: '100%' }}
+          dataSource={entries}
+          rowKey="entry_id"
+          pagination={false}
+          columns={[
+            {
+              title: t('user.external.entryName'),
+              dataIndex: 'name',
+              width: 'auto',
+              ellipsis: true,
+              render: (value: string, entry: ExternalEntryItem) => (
+                <TableText>{value || entry.bot_id}</TableText>
+              )
+            },
+            {
+              title: t('user.identities.channel'),
+              dataIndex: 'channel',
+              width: 120,
+              render: (value: string) => <TableText>{value}</TableText>
+            },
+            {
+              title: t('user.external.agent'),
+              dataIndex: 'agent_name',
+              width: 'auto',
+              ellipsis: true,
+              render: (value: string) => <TableText>{value || '-'}</TableText>
+            },
+            {
+              ...actionColumn(110),
+              title: t('user.columns.action'),
+              render: (_: unknown, entry: ExternalEntryItem) => (
+                <Button
+                  size="small"
+                  type={entry.granted ? 'danger' : 'primary'}
+                  loading={busyEntryId === entry.entry_id}
+                  disabled={busyEntryId !== null && busyEntryId !== entry.entry_id}
+                  onClick={() => void toggle(entry)}
+                >
+                  {entry.granted ? t('user.external.revoke') : t('user.external.grant')}
                 </Button>
-              )}
-            </li>
-          ))}
-        </ul>
+              )
+            }
+          ]}
+        />
       )}
     </FormModal>
   );
