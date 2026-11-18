@@ -1179,6 +1179,13 @@ class ToolCallAudit(StandardColumnsMixin, Base):
     error_code: Mapped[str | None] = mapped_column(sa.String(64))
     error_message: Mapped[str | None] = mapped_column(sa.Text())
     artifact_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
+    #: 业务执行字段（TASK-008）：transport `status` 只说明调用是否完成，业务结论看这里。
+    #: 老行迁移为 `UNKNOWN`/`NULL`（不得把 transport OK 回填成业务 SUCCEEDED）。
+    business_status: Mapped[str | None] = mapped_column(sa.String(16))
+    failure_layer: Mapped[str | None] = mapped_column(sa.String(16))
+    exit_code: Mapped[int | None] = mapped_column(sa.Integer())
+    output_truncated: Mapped[bool | None] = mapped_column(sa.Boolean())
+    evidence_preview: Mapped[str | None] = mapped_column(sa.Text())
 
 
 class EgressAudit(StandardColumnsMixin, Base):

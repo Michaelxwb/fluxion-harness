@@ -59,6 +59,8 @@ class WorkspaceShellResult:
     changed_files: tuple[str, ...]
     output_dir: str
     execution_id: str
+    #: stdout/stderr 采集是否被上限截断；结果证据必须可见地标注不完整。
+    output_truncated: bool = False
 
 
 class WorkspaceShellRunner:
@@ -128,6 +130,7 @@ class WorkspaceShellRunner:
                 changed_files=changed,
                 output_dir=lease.output_mount,
                 execution_id=request.execution_id,
+                output_truncated=result.output_truncated,
             )
         finally:
             try:

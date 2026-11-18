@@ -143,6 +143,8 @@ class SkillExecutionResult:
     outputs: tuple[OutputFile, ...] = ()
     #: 产物被拒绝/截断时的可见标记（如 ``SANDBOX_OUTPUT_LIMIT``）；None 表示全部登记。
     output_notice: str | None = None
+    #: stdout/stderr 采集是否被上限截断；证据 preview 必须可见地标注不完整。
+    output_truncated: bool = False
     #: 本次执行实际使用的 workspace（临时目录也会返回，调用方负责后续生命周期）。
     workspace_dir: Path | None = None
 

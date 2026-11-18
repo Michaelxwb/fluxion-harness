@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -212,7 +213,9 @@ class _RaisingExecutor:
 async def test_retry_budget_is_exhausted_exactly_once(tenant: TenantContext) -> None:
     """重试到上限即 FAILED，不会多跑一次。"""
     task = await persist_task(tenant, max_attempts=2, execution_snapshot_json=retry_safe_snapshot())
-    executor = _ScriptedExecutor({"status": "FAILED", "result": None, "stderr": "boom"})
+    # TASK-008：缺少失败信封＝确定性失败；显式 retryable 才消耗重试预算。
+    envelope = json.dumps({"ok": False, "code": "UPSTREAM_5XX", "message": "boom", "retryable": True})
+    executor = _ScriptedExecutor({"status": "FAILED", "result": None, "stderr": envelope})
     worker = WorkerLoop(tenant.session_factory, tenant.settings, executor=executor, instance_id="w1")
 
     await worker.run_once()

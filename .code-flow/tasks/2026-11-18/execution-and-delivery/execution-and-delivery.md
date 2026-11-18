@@ -251,7 +251,7 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
 [
   {
     "id": "schedule-route",
-    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_worker/test_schedule_delivery_target.py", "tests/console_platform/test_schedule_delivery_targets.py"],
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_worker/test_schedule_delivery_target.py", "tests/console_platform/test_schedule_delivery_targets.py", "tests/agent_worker/test_scheduled_v2_wecom_route.py", "tests/agent_worker/test_scheduled_v2_drafts.py"],
     "timeout": 600,
     "parallel": false
   }
@@ -408,7 +408,7 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
   - media PASS exit=0
 ## TASK-008: 业务执行结果契约与失败跟踪
 
-- **Status**: blocked
+- **Status**: done
 - **Depends**: TASK-006, TASK-002
 - **Source**: run-failure-reporting/run-failure-reporting.design.md#4.2, #4.3
 - **Scenarios**: run-failure-reporting:S-01, run-failure-reporting:S-02, run-failure-reporting:S-03, run-failure-reporting:S-10
@@ -437,13 +437,13 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
 
 ### Checklist
 
-- [ ] 定义 `ExecutionOutcome`（business_status/failure_layer/error/retryable/exit_code/evidence）。
-- [ ] `execute(target=skill)`/`execute_skill`/`run_skill_script` 设置 `outcome_parser`；draft/workspace 不设置。
-- [ ] Skill 失败信封解析 `code/retryable`；缺失按确定性；鉴权/凭据立即停止。
-- [ ] `tool_call_audit` 写入 business_status/failure_layer/exit_code/output_truncated/evidence_preview。
-- [ ] runner 失败跟踪消费 outcome；`workspace_shell`/`skill_draft_shell` 退出 1 不触发 `no_progress`。
-- [ ] 证据 preview 有界、脱敏；`output_truncated` 可见。
-- [ ] 补单元/回归用例，覆盖分类矩阵与诊断命令非零退出。
+- [x] 定义 `ExecutionOutcome`（business_status/failure_layer/error/retryable/exit_code/evidence）。
+- [x] `execute(target=skill)`/`execute_skill`/`run_skill_script` 设置 `outcome_parser`；draft/workspace 不设置。
+- [x] Skill 失败信封解析 `code/retryable`；缺失按确定性；鉴权/凭据立即停止。
+- [x] `tool_call_audit` 写入 business_status/failure_layer/exit_code/output_truncated/evidence_preview。
+- [x] runner 失败跟踪消费 outcome；`workspace_shell`/`skill_draft_shell` 退出 1 不触发 `no_progress`。
+- [x] 证据 preview 有界、脱敏；`output_truncated` 可见。
+- [x] 补单元/回归用例，覆盖分类矩阵与诊断命令非零退出。
 
 ### Spec Delta
 
@@ -454,16 +454,19 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18] implemented: ExecutionOutcome parser on skill tools, audit business fields + migration 0055, structured runner failure tracking; workspace/draft exits stay evidence
 - [2026-11-18T12:57:02.425Z] started tests=de6fd0cfc10b
 - [2026-11-18T12:58:38.966Z] block: 等待 unified-artifact-delivery 定稿与联合契约评审后再统一开工
+- [2026-11-18T17:49:35.815Z] started tests=de6fd0cfc10b
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-18T17:49:40.053Z PASS commands=1/1 executed=1 deduped=0 elapsed=4126ms tests=de6fd0cfc10b head=58a5a130fbd7 dirty=1
+  - unit PASS exit=0
 ## TASK-009: 终止快照与统一收尾漏斗
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-008
 - **Source**: run-failure-reporting/run-failure-reporting.design.md#4.3, #4.4
 - **Scenarios**: run-failure-reporting:S-04, run-failure-reporting:S-05, run-failure-reporting:S-08
@@ -492,12 +495,12 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
 
 ### Checklist
 
-- [ ] `AgentRunState` 记录结构化失败状态与 pending calls。
-- [ ] `TerminationSnapshot` 覆盖计数、budget kind、失败状态、pending。
-- [ ] 所有异常/终止出口挂同一 snapshot；挂起不是终止。
-- [ ] `TerminationReason` 映射到现有错误码；budget subtype 从计数器推导。
-- [ ] 取消不写 `RUN_FAILED`；未执行调用不进失败计数。
-- [ ] 补 Runner 用例覆盖所有出口。
+- [x] `AgentRunState` 记录结构化失败状态与 pending calls。
+- [x] `TerminationSnapshot` 覆盖计数、budget kind、失败状态、pending。
+- [x] 所有异常/终止出口挂同一 snapshot；挂起不是终止。
+- [x] `TerminationReason` 映射到现有错误码；budget subtype 从计数器推导。
+- [x] 取消不写 `RUN_FAILED`；未执行调用不进失败计数。
+- [x] 补 Runner 用例覆盖所有出口。
 
 ### Spec Delta
 
@@ -508,14 +511,17 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18] implemented: TerminationSnapshot on all exits, pending calls excluded from failures, cancel RUN_COMPLETED(CANCELLED) without RUN_FAILED
+- [2026-11-18T17:49:44.559Z] started tests=b57adbf9c2b7
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-18T17:49:49.910Z PASS commands=1/1 executed=1 deduped=0 elapsed=5233ms tests=b57adbf9c2b7 head=58a5a130fbd7 dirty=1
+  - runner PASS exit=0
 ## TASK-010: 收尾事实与平台直出
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-009
 - **Source**: run-failure-reporting/run-failure-reporting.design.md#4.4, #4.5, #4.6
 - **Scenarios**: run-failure-reporting:S-01, run-failure-reporting:S-04, run-failure-reporting:S-05, run-failure-reporting:S-06, run-failure-reporting:S-07, run-failure-reporting:S-08, run-failure-reporting:E-01, run-failure-reporting:E-02
@@ -544,13 +550,13 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
 
 ### Checklist
 
-- [ ] `FinalizationFacts` 结构与 `evidence_status` 判定。
-- [ ] 各 `TerminationReason` 的确定性文案；失败+预算以失败为主。
-- [ ] 平台直出；删除 `_conclude` USER 指令与失败后模型收尾。
-- [ ] 完成状态只用现有 `output_contract`；无依据写 UNKNOWN。
-- [ ] 事实块不受压缩影响；压缩失败回退原历史。
-- [ ] 持久化 `RUN_FAILED.finalization` 与 `ASSISTANT_MESSAGE`。
-- [ ] 补 S-01/S-04/S-06/S-08 回归。
+- [x] `FinalizationFacts` 结构与 `evidence_status` 判定。
+- [x] 各 `TerminationReason` 的确定性文案；失败+预算以失败为主。
+- [x] 平台直出；删除 `_conclude` USER 指令与失败后模型收尾。
+- [x] 完成状态只用现有 `output_contract`；无依据写 UNKNOWN。
+- [x] 事实块不受压缩影响；压缩失败回退原历史。
+- [x] 持久化 `RUN_FAILED.finalization` 与 `ASSISTANT_MESSAGE`。
+- [x] 补 S-01/S-04/S-06/S-08 回归。
 
 ### Spec Delta
 
@@ -561,11 +567,14 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18] implemented: FinalizationFacts/renderer, RUN_FAILED.finalization + ASSISTANT_MESSAGE, no model finalization; completion UNKNOWN without contract
+- [2026-11-18T17:49:54.185Z] started tests=9bdd2a4ab35b
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-18T17:50:04.653Z PASS commands=1/1 executed=1 deduped=0 elapsed=10341ms tests=9bdd2a4ab35b head=58a5a130fbd7 dirty=1
+  - facts PASS exit=0
 ## TASK-011: 导出与诊断业务字段
 
 - **Status**: draft

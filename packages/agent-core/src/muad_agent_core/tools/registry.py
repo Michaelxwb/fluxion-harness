@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 from muad_contracts import DEFAULT_TOOL_RETRY_SAFETY, ToolRetrySafety
 
+from .outcome import ExecutionOutcome
+
 if TYPE_CHECKING:
     from ..model.provider import ModelMessage
 
@@ -83,6 +85,10 @@ class ToolDefinition:
     #: Provider-safe function name (OpenAI-compatible `[A-Za-z0-9_-]{1,64}`).
     #: Registry/audit still use `name`; `ToolRegistry.model_tools()` fills this.
     model_name: str = ""
+    #: 业务执行结果解析器（design §4.2）：**适配器拥有的纯函数**，只在业务执行工具上设置。
+    #: `workspace_shell` / `skill_draft_shell` 不设置——退出码是结果证据，不是业务失败。
+    #: 输入是 POST_TOOL_USE 之后的最终工具结果；返回 `None` 表示不是业务执行载荷。
+    outcome_parser: Callable[[str], ExecutionOutcome | None] | None = None
 
 
 class ToolNotFoundError(LookupError):

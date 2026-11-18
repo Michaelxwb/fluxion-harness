@@ -29,7 +29,7 @@ from collections.abc import Callable, Mapping, Sequence
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
-from typing import Protocol
+from typing import Any, Protocol
 
 from muad_platform_sdk.adapter.mss_config import PlatformAuthError
 from muad_platform_sdk.skill_access import SkillPlatformContext
@@ -91,12 +91,16 @@ class DraftShellError(RuntimeError):
 
     def __init__(
         self, code: str, message: str, *,
-        result: SandboxResult | None = None, retryable: bool = False,
+        result: SandboxResult | None = None,
+        retryable: bool = False,
+        data: Mapping[str, Any] | None = None,
     ) -> None:
         self.code = code
         self.message = message
         self.result = result
         self.retryable = retryable
+        #: Console 错误体里的可执行诊断（path/draft_id/repair 等），原样交给模型。
+        self.data = dict(data) if data else {}
         super().__init__(message)
 
 
@@ -104,6 +108,7 @@ class DraftShellError(RuntimeError):
 class DraftShellRequest:
     tenant_id: str
     owner_user_id: str
+    agent_id: str
     draft_id: str
     command: str
     cwd: str = "."
@@ -113,7 +118,7 @@ class DraftShellRequest:
     reset_data: bool = False
 
     def __post_init__(self) -> None:
-        for name in ("tenant_id", "owner_user_id", "draft_id", "command"):
+        for name in ("tenant_id", "owner_user_id", "agent_id", "draft_id", "command"):
             value = str(getattr(self, name)).strip()
             if not value:
                 raise ValueError(f"draft shell {name} must not be empty")
@@ -151,6 +156,8 @@ class DraftShellResult:
     duration_ms: int
     changed_files: tuple[str, ...]
     revision: int
+    #: stdout/stderr 采集是否被上限截断；结果证据必须可见地标注不完整。
+    output_truncated: bool = False
 
 
 class DraftShellStore(Protocol):
@@ -280,6 +287,7 @@ class DraftShellRunner:
             duration_ms=result.duration_ms,
             changed_files=changed_paths,
             revision=revision,
+            output_truncated=result.output_truncated,
         )
 
     async def _execute(

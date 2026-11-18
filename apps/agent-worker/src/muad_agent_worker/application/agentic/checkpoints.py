@@ -48,6 +48,7 @@ def checkpoint_from_state(state: Mapping[str, Any] | None) -> RunnerCheckpoint:
         for entry in state.get("pending_tool_calls") or ()
         if isinstance(entry, Mapping)
     )
+    failure_state = state.get("failure_state")
     return RunnerCheckpoint(
         turns=_count(state.get("turns")),
         tool_calls=_count(state.get("tool_calls")),
@@ -55,6 +56,7 @@ def checkpoint_from_state(state: Mapping[str, Any] | None) -> RunnerCheckpoint:
         output_tokens=_optional_count(state.get("output_tokens")),
         consumed_event_seq=_count(state.get("consumed_event_seq")),
         pending_tool_calls=pending,
+        failure_state=dict(failure_state) if isinstance(failure_state, Mapping) else None,
     )
 
 

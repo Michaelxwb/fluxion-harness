@@ -29,6 +29,8 @@ class RunnerCheckpoint:
     #: 工具级挂起里还没拿到终态结果的异步操作（按 `call_id` 聚合，各带自己的水位）。
     #: 它属于「一次挂起」而不是「一次 Run」：完整模型回合边界的挂起（Human）恒为空。
     pending_tool_calls: tuple[OperationWatermark, ...] = ()
+    #: 失败跟踪的可选持久形态（design §4.3）；旧 checkpoint 缺失时为空，恢复不臆造失败。
+    failure_state: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
         for value in (
@@ -68,6 +70,7 @@ class RunnerCheckpoint:
                 }
                 for watermark in self.pending_tool_calls
             ],
+            "failure_state": self.failure_state,
         }
 
 

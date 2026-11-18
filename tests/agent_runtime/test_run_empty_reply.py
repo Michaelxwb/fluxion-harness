@@ -74,7 +74,7 @@ async def _stream_empty_outcome(async_tool_database, monkeypatch, fake_resolve):
     return factory, run, events
 
 
-async def test_completed_run_without_visible_text_fails_and_stores_no_empty_message(
+async def test_completed_run_without_visible_text_fails_with_platform_finalization(
     async_tool_database, monkeypatch, fake_resolve
 ):
     factory, run, events = await _stream_empty_outcome(
@@ -83,15 +83,16 @@ async def test_completed_run_without_visible_text_fails_and_stores_no_empty_mess
 
     assert events[-1].type == "run.failed"
     assert events[-1].data["error_code"] == "MODEL_EMPTY_REPLY"
+    assert events[-1].data["finalization"]["termination"]["reason"] == "RUN_ERROR"
+    assert events[-1].data["final_text"]
     async with factory() as session:
         saved = await session.get(RunRecord, run.id)
         assert saved.status == RunStatus.FAILED and saved.error_code == "MODEL_EMPTY_REPLY"
-        assert (
-            await session.scalar(
-                select(CanonicalEvent.id).where(
-                    CanonicalEvent.run_id == run.id,
-                    CanonicalEvent.event_type == "ASSISTANT_MESSAGE",
-                )
+        message = await session.scalar(
+            select(CanonicalEvent).where(
+                CanonicalEvent.run_id == run.id,
+                CanonicalEvent.event_type == "ASSISTANT_MESSAGE",
             )
-            is None
-        ), "空的成功回答不得进历史"
+        )
+        assert message is not None, "失败也要有平台直出的可见结论"
+        assert message.payload_json["text"] == events[-1].data["final_text"]

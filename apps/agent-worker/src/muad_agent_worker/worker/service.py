@@ -584,7 +584,11 @@ class WorkerLoop:
             return False
         await self._handle_failure(
             task,
-            TaskExecutionError(outcome.error_code or "SKILL_EXECUTION_FAILED", outcome.error_message),
+            TaskExecutionError(
+                outcome.error_code or "SKILL_EXECUTION_FAILED",
+                outcome.error_message,
+                retryable=outcome.retryable,
+            ),
             now=now,
         )
         return False

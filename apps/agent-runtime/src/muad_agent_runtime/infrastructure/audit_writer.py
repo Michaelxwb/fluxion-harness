@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Any
 
 import sqlalchemy as sa
+from muad_logging.redaction import redact_text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from ..application.egress_spool import EgressAuditSpool
@@ -96,6 +97,11 @@ class RuntimeAuditWriter:
         latency_ms: int | None = None,
         error_code: str | None = None,
         artifact_id: uuid.UUID | None = None,
+        business_status: str | None = None,
+        failure_layer: str | None = None,
+        exit_code: int | None = None,
+        output_truncated: bool | None = None,
+        evidence_preview: str | None = None,
     ) -> None:
         """写一条工具审计；同一 Run 内同一 `tool_call_id` 只保留**首次**行（幂等重放）。
 
@@ -123,6 +129,11 @@ class RuntimeAuditWriter:
             latency_ms=latency_ms,
             error_code=error_code,
             artifact_id=artifact_id,
+            business_status=business_status,
+            failure_layer=failure_layer,
+            exit_code=exit_code,
+            output_truncated=output_truncated,
+            evidence_preview=evidence_preview,
         )
         if inserted is None:
             record_outcome(TOOL_AUDIT_METRIC, "replay_skipped")
@@ -147,6 +158,11 @@ class RuntimeAuditWriter:
         latency_ms: int | None,
         error_code: str | None,
         artifact_id: uuid.UUID | None,
+        business_status: str | None,
+        failure_layer: str | None,
+        exit_code: int | None,
+        output_truncated: bool | None,
+        evidence_preview: str | None,
     ) -> uuid.UUID | None:
         """幂等插入：命中原行（重放）返回 None，新行返回其 id。"""
         async with self._session_factory()() as session:
@@ -168,6 +184,12 @@ class RuntimeAuditWriter:
                     latency_ms=latency_ms,
                     error_code=error_code,
                     artifact_id=artifact_id,
+                    business_status=business_status or "UNKNOWN",
+                    failure_layer=failure_layer,
+                    exit_code=exit_code,
+                    output_truncated=output_truncated,
+                    # skill stdout 不默认可信：写入前必须脱敏（design §4.7）。
+                    evidence_preview=redact_text(evidence_preview) if evidence_preview else None,
                 )
                 .on_conflict_do_nothing(
                     index_elements=["run_id", "tool_call_id"],

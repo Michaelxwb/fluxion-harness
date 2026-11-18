@@ -23,7 +23,6 @@ from muad_agent_core.model import (
     ModelProvider,
     ModelRateLimitedError,
     ModelRequest,
-    ModelRequestError,
     ModelResponse,
     ModelRole,
     ModelToolCall,
@@ -711,9 +710,9 @@ def _error_returning_tool(registry: ToolRegistry) -> None:
 
 
 async def test_deterministic_failure_stops_the_run_immediately() -> None:
-    """平台/环境类确定性失败第一次即进入收尾，不再走正常工具循环。"""
+    """平台/环境类确定性失败第一次即停止，不再发起模型收尾回合。"""
     provider = ScriptedModelProvider(
-        [_tool_call("c1", "failing", {"code": "PLATFORM_AUTH_REJECTED"}), _text("done")]
+        [_tool_call("c1", "failing", {"code": "PLATFORM_AUTH_REJECTED"})]
     )
     registry = ToolRegistry()
     _failing_tool(registry)
@@ -721,23 +720,27 @@ async def test_deterministic_failure_stops_the_run_immediately() -> None:
     result = await AgentRunner(provider=provider, registry=registry).run(_request())
 
     assert result.status is AgentRunStatus.NO_PROGRESS
-    assert len(provider.requests) == 2, "只允许一次收尾回合，不得再走正常工具循环"
+    assert len(provider.requests) == 1, "失败收尾由平台直出，不再调用模型"
     assert result.tool_calls == 1
-    assert provider.requests[1].tools == (), "收尾回合必须禁用工具"
-    assert result.final_text == "done", "终态正文用收尾回合的结论"
+    assert result.final_text == ""
+    assert result.last_failure is not None
+    assert result.last_failure["code"] == "PLATFORM_AUTH_REJECTED"
+    assert result.termination is not None
+    assert result.termination.reason.value == "NO_PROGRESS"
 
 
 async def test_returned_error_body_counts_as_a_failure_too() -> None:
     """工具返回的错误体（status=OK）同样是"环节失败"，不能当成功放过。"""
-    provider = ScriptedModelProvider([_tool_call("c1", "rejecting"), _text("done")])
+    provider = ScriptedModelProvider([_tool_call("c1", "rejecting")])
     registry = ToolRegistry()
     _error_returning_tool(registry)
 
     result = await AgentRunner(provider=provider, registry=registry).run(_request())
 
     assert result.status is AgentRunStatus.NO_PROGRESS
-    assert len(provider.requests) == 2
-    assert result.final_text == "done"
+    assert len(provider.requests) == 1
+    assert result.last_failure is not None
+    assert result.last_failure["code"] == "PLATFORM_AUTH_REJECTED"
 
 
 async def test_retryable_failures_follow_the_configured_threshold() -> None:
@@ -746,7 +749,6 @@ async def test_retryable_failures_follow_the_configured_threshold() -> None:
         [
             _tool_call("c1", "failing", {"code": "NET", "retryable": True}),
             _tool_call("c2", "failing", {"code": "NET", "retryable": True}),
-            _text("done"),
         ]
     )
     registry = ToolRegistry()
@@ -755,7 +757,7 @@ async def test_retryable_failures_follow_the_configured_threshold() -> None:
     result = await AgentRunner(provider=provider, registry=registry).run(_request())
 
     assert result.status is AgentRunStatus.NO_PROGRESS
-    assert len(provider.requests) == 3, "两次真实失败 + 一次收尾回合"
+    assert len(provider.requests) == 2, "两次真实失败后停止，不再有模型收尾回合"
 
 
 async def test_different_retryable_codes_do_not_accumulate() -> None:
@@ -817,32 +819,25 @@ async def test_threshold_comes_from_the_policy() -> None:
     assert len(provider.requests) == 3
 
 
-async def test_conclude_falls_back_to_the_failure_summary() -> None:
-    """收尾回合调用失败也必须给出结论：用最后失败码 + 平台原文兜底，绝不只剩一句提示。"""
-    provider = ScriptedModelProvider(
-        [
-            _tool_call("c1", "rejecting"),
-            ModelRequestError("conclude unavailable"),
-        ]
-    )
+async def test_failure_does_not_append_a_model_finalization_turn() -> None:
+    """失败收尾不追加 USER 指令、不调用模型：事实交给 Runtime 平台直出。"""
+    provider = ScriptedModelProvider([_tool_call("c1", "rejecting")])
     registry = ToolRegistry()
     _error_returning_tool(registry)
 
     result = await AgentRunner(provider=provider, registry=registry).run(_request())
 
     assert result.status is AgentRunStatus.NO_PROGRESS
-    assert "PLATFORM_AUTH_REJECTED" in result.final_text
-    assert "rejected" in result.final_text
+    assert len(provider.requests) == 1
+    user_messages = [m for m in provider.requests[0].messages if m.role is ModelRole.USER]
+    assert [message.content for message in user_messages] == ["hi"], "不得追加收尾 USER 指令"
+    assert result.last_failure is not None
+    assert result.last_failure["code"] == "PLATFORM_AUTH_REJECTED"
 
 
-async def test_policy_denied_tool_gets_a_conclusion_naming_tool_and_code() -> None:
-    """策略拒绝（canonical status=BLOCKED）必须收尾并给出可执行的结论：工具名 + 错误码 + 下一步。"""
-    provider = ScriptedModelProvider(
-        [
-            _tool_call("c1", "echo", {"text": "x"}),
-            ModelRequestError("conclude unavailable"),
-        ]
-    )
+async def test_policy_denied_tool_gets_a_structured_failure() -> None:
+    """策略拒绝（canonical status=BLOCKED）必须记结构化失败：工具名 + 错误码。"""
+    provider = ScriptedModelProvider([_tool_call("c1", "echo", {"text": "x"})])
     registry = ToolRegistry()
     _echo_tool(registry, [])
     pipeline = ToolExecutionPipeline(
@@ -855,9 +850,12 @@ async def test_policy_denied_tool_gets_a_conclusion_naming_tool_and_code() -> No
     ).run(_request(AgentPolicy(max_identical_failures=1)))
 
     assert result.status is AgentRunStatus.NO_PROGRESS
-    assert "echo" in result.final_text
-    assert "POLICY_DENIED" in result.final_text
-    assert "请修正后重试" in result.final_text
+    assert result.last_failure is not None
+    assert result.last_failure["tool"] == "echo"
+    assert result.last_failure["code"] == "POLICY_DENIED"
+    assert result.termination is not None
+    assert result.termination.failure_state.last_failure is not None
+    assert result.termination.failure_state.last_failure.failure_layer == "TOOL"
 
 
 async def test_unknown_tool_is_a_correctable_turn_not_an_empty_stop() -> None:
@@ -881,11 +879,9 @@ async def test_unknown_tool_is_a_correctable_turn_not_an_empty_stop() -> None:
     assert any("unknown tool: ghost" in content for content in tool_messages), tool_messages
 
 
-async def test_turn_budget_exhaustion_also_gets_a_conclusion() -> None:
-    """轮次预算打满也要有收尾结论：一次禁用工具的模型回合，正文作为终态文本。"""
-    provider = ScriptedModelProvider(
-        [_tool_call("c1", "echo"), _text("预算用尽：未能完成执行。")]
-    )
+async def test_turn_budget_exhaustion_records_pending_calls_without_failures() -> None:
+    """轮次打满：未执行调用只进 snapshot 的 pending，不进入失败计数、不再调用模型。"""
+    provider = ScriptedModelProvider([_tool_call("c1", "echo")])
     registry = ToolRegistry()
     calls: list[dict[str, Any]] = []
     _echo_tool(registry, calls)
@@ -895,7 +891,11 @@ async def test_turn_budget_exhaustion_also_gets_a_conclusion() -> None:
     )
 
     assert result.status is AgentRunStatus.BUDGET_EXCEEDED
-    assert result.final_text == "预算用尽：未能完成执行。"
-    assert len(provider.requests) == 2
-    assert provider.requests[1].tools == (), "收尾回合必须禁用工具"
+    assert result.final_text == ""
+    assert len(provider.requests) == 1
     assert calls == [], "轮次打满后不再执行工具"
+    assert result.termination is not None
+    assert result.termination.budget_kind.value == "TURN"
+    assert [call.tool_name for call in result.termination.pending_tool_calls] == ["echo"]
+    assert result.termination.failure_state.last_failure is None
+    assert result.termination.failure_state.identical_failures == {}

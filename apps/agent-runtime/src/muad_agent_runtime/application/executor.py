@@ -44,7 +44,7 @@ from muad_agent_core.model import (
 from muad_agent_core.prompt import PromptSkill, bounded_catalog, prompt_skill
 from muad_agent_core.sandbox import WorkspaceShellRunner, WorkspaceStore, workspace_layout_from_settings
 from muad_agent_core.skill import DraftShellRunner
-from muad_agent_core.tools import DEFAULT_PARALLEL_LIMIT, ToolDefinition, ToolRegistry
+from muad_agent_core.tools import DEFAULT_PARALLEL_LIMIT, ExecutionOutcome, ToolDefinition, ToolRegistry
 from muad_agent_core.tools.pipeline import (
     PreparedToolCall,
     ToolExecutionAudit,
@@ -589,7 +589,13 @@ class AgentRunnerExecutor:
         if result is not None:
             yield ExecutorEvent(
                 type="runner.outcome",
-                data={"status": str(result.status), "final_text": result.final_text},
+                data={
+                    "status": str(result.status),
+                    "final_text": result.final_text,
+                    "termination": (
+                        result.termination.as_payload() if result.termination is not None else None
+                    ),
+                },
             )
 
     @staticmethod
@@ -1667,6 +1673,7 @@ class _RoundCall:
     latency_ms: int
     args_hash: str
     args_preview: dict[str, Any]
+    outcome: ExecutionOutcome | None = None
 
 
 class ToolCallRecorder:
@@ -1744,6 +1751,15 @@ class ToolCallRecorder:
                     end_time=datetime.now(UTC),
                     latency_ms=event.latency_ms,
                     error_code=event.error_code,
+                    business_status=(
+                        str(event.outcome.business_status) if event.outcome else None
+                    ),
+                    failure_layer=str(event.outcome.failure_layer) if event.outcome else None,
+                    exit_code=event.outcome.exit_code if event.outcome else None,
+                    output_truncated=(
+                        event.outcome.evidence.output_truncated if event.outcome else None
+                    ),
+                    evidence_preview=event.outcome.evidence.preview if event.outcome else None,
                 )
             return
         self._round[call.call_id] = _RoundCall(
@@ -1754,6 +1770,7 @@ class ToolCallRecorder:
             latency_ms=event.latency_ms,
             args_hash=call.args_hash,
             args_preview=preview,
+            outcome=event.outcome,
         )
 
     async def finish_round(self, results: Sequence[ModelMessage]) -> Sequence[ModelMessage]:
@@ -1837,6 +1854,7 @@ class ToolCallRecorder:
             if record is None or self._audit is None:
                 continue
             reference = references.get(call_id)
+            outcome = record.outcome
             await self._audit.record_tool_call(
                 tool_call_id=call_id,
                 tool_name=record.definition.name,
@@ -1849,6 +1867,11 @@ class ToolCallRecorder:
                 latency_ms=record.latency_ms,
                 error_code=record.error_code,
                 artifact_id=uuid.UUID(str(reference["artifact_id"])) if reference else None,
+                business_status=str(outcome.business_status) if outcome else None,
+                failure_layer=str(outcome.failure_layer) if outcome else None,
+                exit_code=outcome.exit_code if outcome else None,
+                output_truncated=outcome.evidence.output_truncated if outcome else None,
+                evidence_preview=outcome.evidence.preview if outcome else None,
             )
 
 

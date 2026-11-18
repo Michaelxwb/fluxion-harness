@@ -8,6 +8,7 @@ from enum import StrEnum
 from typing import Any
 
 from muad_agent_core.skill import SkillExecutionStatus
+from muad_agent_core.tools.outcome import ExecutionOutcome, skill_execution_outcome
 from muad_contracts import ToolRetrySafety, WaitKind
 
 from .executor import TaskExecutionError
@@ -67,6 +68,13 @@ class TaskOutcome:
     #: WorkerLoop 把它与 WAITING_* 状态写在同一事务里（design §3.5.8）。
     checkpoint_state: dict[str, Any] | None = None
     human: HumanQuestion | None = None
+    #: 业务执行结果（TASK-008）：失败分类、证据与重试裁决都来自同一份 `ExecutionOutcome`。
+    business_status: str | None = None
+    failure_layer: str | None = None
+    exit_code: int | None = None
+    retryable: bool | None = None
+    evidence_preview: str = ""
+    output_truncated: bool | None = None
 
 
 class FailureDisposition(StrEnum):
@@ -143,12 +151,19 @@ def interpret_execution(execution: Mapping[str, Any], *, now: datetime) -> TaskO
     if not isinstance(status, str):
         raise _invalid(f"execution envelope has no status string: {status!r}")
     if status == SkillExecutionStatus.CANCELLED:
-        return TaskOutcome(kind=OutcomeKind.CANCELLED)
+        return TaskOutcome(kind=OutcomeKind.CANCELLED, **_outcome_fields(execution))
     if status != SkillExecutionStatus.SUCCEEDED:
+        fields = _outcome_fields(execution)
         return TaskOutcome(
             kind=OutcomeKind.RETRYABLE_FAILURE,
-            error_code=status or "SKILL_EXECUTION_FAILED",
-            error_message=str(execution.get("stderr") or ""),
+            error_code=str(fields.get("error_code") or status or "SKILL_EXECUTION_FAILED"),
+            error_message=str(fields.get("error_message") or execution.get("stderr") or ""),
+            business_status=fields.get("business_status"),
+            failure_layer=fields.get("failure_layer"),
+            exit_code=fields.get("exit_code"),
+            retryable=fields.get("retryable"),
+            evidence_preview=fields.get("evidence_preview", ""),
+            output_truncated=fields.get("output_truncated"),
         )
     payload = _result_payload(execution)
     agentic = _agentic_envelope(execution.get(AGENTIC_KEY))
@@ -164,6 +179,23 @@ def interpret_execution(execution: Mapping[str, Any], *, now: datetime) -> TaskO
         result_artifact_id=reference,
         **_agentic_fields(agentic),
     )
+
+
+def _outcome_fields(execution: Mapping[str, Any]) -> dict[str, Any]:
+    """共享的业务判定（TASK-008）：Task 路径与 Runtime 工具路径用同一份 `ExecutionOutcome`。"""
+    outcome: ExecutionOutcome | None = skill_execution_outcome(execution)
+    if outcome is None:
+        return {}
+    return {
+        "error_code": outcome.error_code,
+        "error_message": outcome.error_message,
+        "business_status": str(outcome.business_status),
+        "failure_layer": str(outcome.failure_layer),
+        "exit_code": outcome.exit_code,
+        "retryable": outcome.retryable,
+        "evidence_preview": outcome.evidence.preview,
+        "output_truncated": outcome.evidence.output_truncated,
+    }
 
 
 def _agentic_envelope(raw: Any) -> dict[str, Any] | None:

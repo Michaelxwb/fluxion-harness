@@ -349,6 +349,7 @@ class SandboxedSkillExecutor:
             exit_code=sandbox_result.exit_code,
             outputs=outputs,
             output_notice=output_notice,
+            output_truncated=sandbox_result.output_truncated,
             workspace_dir=workspace,
         )
         self._emit_result(source, result)

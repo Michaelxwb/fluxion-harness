@@ -14,6 +14,15 @@ from muad_logging.redaction import redact_value
 from pydantic import JsonValue, TypeAdapter
 
 from ..hooks.pipeline import HookEvent, HookPipeline
+from .outcome import (
+    BusinessStatus,
+    ExecutionOutcome,
+    FailureLayer,
+    diagnostic_evidence_outcome,
+    policy_denied_outcome,
+    tool_exception_outcome,
+    tool_failure_outcome,
+)
 from .registry import ToolDefinition, ToolNotFoundError, ToolRegistry
 
 JSON_OBJECT = TypeAdapter(dict[str, JsonValue])
@@ -50,6 +59,8 @@ class ToolExecutionResult:
     content: str
     args_hash: str
     error_code: str | None = None
+    #: 业务执行判定（design §4.2）；非业务执行工具为 `NOT_APPLICABLE`。
+    outcome: ExecutionOutcome | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +71,7 @@ class ToolExecutionAudit:
     error_code: str | None
     started_at: datetime
     latency_ms: int
+    outcome: ExecutionOutcome | None = None
 
 
 class AuditPort(Protocol):
@@ -126,11 +138,17 @@ class ToolExecutionPipeline:
             result = self._result(prepared, "FAILED", "invalid tool arguments", "SCHEMA_INVALID")
         except Exception as exc:
             error = str(getattr(exc, "code", "COMMON_INTERNAL_ERROR"))
-            await self._record_audit(prepared, definition, "FAILED", error, started_at, started)
+            await self._record_audit(prepared, definition, "FAILED", error, started_at, started, None)
             raise
         if result is not None:
             await self._record_audit(
-                prepared, definition, result.status, result.error_code, started_at, started
+                prepared,
+                definition,
+                result.status,
+                result.error_code,
+                started_at,
+                started,
+                result.outcome,
             )
             return result
         assert definition is not None  # 校验通过 ⇒ registry.get 已成功
@@ -144,17 +162,28 @@ class ToolExecutionPipeline:
     ) -> ToolExecutionResult:
         """handler IO + POST hook（可并发调用）；审计在本方法内完成。"""
         started_at, started = datetime.now(UTC), monotonic()
-        status, error = "FAILED", None
+        status, error, outcome = "FAILED", None, None
         try:
             result = await self._invoke(runnable.prepared, runnable.definition, on_started)
-            status, error = result.status, result.error_code
+            status, error, outcome = result.status, result.error_code, result.outcome
             return result
         except Exception as exc:
             error = str(getattr(exc, "code", "COMMON_INTERNAL_ERROR"))
+            outcome = tool_exception_outcome(
+                code=error,
+                message=str(exc),
+                retryable=getattr(exc, "retryable", None),
+            )
             raise
         finally:
             await self._record_audit(
-                runnable.prepared, runnable.definition, status, error, started_at, started
+                runnable.prepared,
+                runnable.definition,
+                status,
+                error,
+                started_at,
+                started,
+                outcome,
             )
 
     async def _record_audit(
@@ -165,12 +194,19 @@ class ToolExecutionPipeline:
         error: str | None,
         started_at: datetime,
         started: float,
+        outcome: ExecutionOutcome | None,
     ) -> None:
         if self._audit is None:
             return
         await self._audit.record(
             ToolExecutionAudit(
-                prepared, definition, status, error, started_at, int((monotonic() - started) * 1000)
+                prepared,
+                definition,
+                status,
+                error,
+                started_at,
+                int((monotonic() - started) * 1000),
+                outcome=outcome,
             )
         )
 
@@ -206,8 +242,38 @@ class ToolExecutionPipeline:
         )
         result = context.payload.get("result", content)
         content = result if isinstance(result, str) else content
-        error = _content_error(content)
-        return self._result(call, "FAILED" if error else "SUCCEEDED", content, error)
+        outcome = self._outcome(definition, content)
+        error = (
+            outcome.error_code
+            if outcome is not None
+            and outcome.is_failure
+            and outcome.failure_layer is FailureLayer.TOOL
+            else None
+        )
+        return self._result(
+            call,
+            "FAILED" if error else "SUCCEEDED",
+            content,
+            error,
+            outcome,
+        )
+
+    @staticmethod
+    def _outcome(definition: ToolDefinition, content: str) -> ExecutionOutcome:
+        """判定一次业务执行（只调用一次解析器）；解析器异常降级成 TOOL 失败。"""
+        tool_error = tool_failure_outcome(content)
+        if definition.outcome_parser is None:
+            return tool_error or diagnostic_evidence_outcome(content)
+        try:
+            parsed = definition.outcome_parser(content)
+        except Exception as exc:  # noqa: BLE001 —— 解析器不得让 Run 崩在判定上
+            return tool_exception_outcome(
+                code="COMMON_INTERNAL_ERROR",
+                message=f"outcome parser failed: {type(exc).__name__}",
+            )
+        if parsed is None:
+            return tool_error or diagnostic_evidence_outcome(content)
+        return parsed
 
     async def _validate_and_hook(
         self, call: PreparedToolCall, definition: ToolDefinition
@@ -227,16 +293,58 @@ class ToolExecutionPipeline:
         return final
 
     @staticmethod
-    def _result(call: PreparedToolCall, status: str, content: str, error: str | None) -> ToolExecutionResult:
-        return ToolExecutionResult(call.call_id, call.tool_name, status, content, call.args_hash, error)
+    def _result(
+        call: PreparedToolCall,
+        status: str,
+        content: str,
+        error: str | None,
+        outcome: ExecutionOutcome | None = None,
+    ) -> ToolExecutionResult:
+        if outcome is None:
+            if status == "POLICY_DENIED":
+                outcome = policy_denied_outcome(
+                    error or "FORBIDDEN", _error_message(content) or content
+                )
+            elif status in ("FAILED", "NOT_FOUND"):
+                outcome = tool_exception_outcome(
+                    code=error,
+                    message=_error_message(content) or content,
+                )
+                outcome = ExecutionOutcome(
+                    transport_status="ERROR",
+                    business_status=outcome.business_status,
+                    failure_layer=outcome.failure_layer,
+                    error_code=outcome.error_code,
+                    error_message=outcome.error_message,
+                    retryable=outcome.retryable,
+                    evidence=outcome.evidence,
+                )
+            else:
+                outcome = ExecutionOutcome(business_status=BusinessStatus.NOT_APPLICABLE)
+        resolved = outcome.with_identity(
+            call_id=call.call_id,
+            tool_name=call.tool_name,
+            transport_status={
+                "POLICY_DENIED": "BLOCKED",
+                "NOT_FOUND": "NOT_FOUND",
+                "FAILED": "ERROR",
+                "SUCCEEDED": "OK",
+            }.get(status, outcome.transport_status),
+        )
+        return ToolExecutionResult(
+            call.call_id, call.tool_name, status, content, call.args_hash, error, resolved
+        )
 
 
-def _content_error(content: str) -> str | None:
+def _error_message(content: str) -> str:
     import json
 
     try:
         payload = json.loads(content)
     except ValueError:
-        return None
+        return ""
     error = payload.get("error") if isinstance(payload, dict) else None
-    return str(error["code"]) if isinstance(error, dict) and error.get("code") else None
+    if isinstance(error, dict):
+        message = error.get("message")
+        return message if isinstance(message, str) else ""
+    return error if isinstance(error, str) else ""

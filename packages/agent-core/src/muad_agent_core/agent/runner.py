@@ -59,6 +59,11 @@ from ..model.provider import (
     text_of,
 )
 from ..prompt.builder import DefaultPromptBuilder, PromptBuilder, PromptSkill
+from ..tools.outcome import (
+    BusinessStatus,
+    ExecutionOutcome,
+    tool_exception_outcome,
+)
 from ..tools.pipeline import RunnableToolCall, ToolExecutionPipeline, ToolExecutionResult
 from ..tools.planner import (
     DEFAULT_PARALLEL_LIMIT,
@@ -71,11 +76,18 @@ from ..tools.registry import ToolNotFoundError, ToolRegistry
 from ..tools.round_results import ToolResultRoundPort
 from .continuation import ExecutionEventPort, RunnerCheckpoint, WaitDecision
 from .suspension import SuspensionKind, SuspensionRequest, ToolSuspensionPort
+from .termination import (
+    BudgetKind,
+    FailureEvidence,
+    FailureState,
+    PendingToolCall,
+    TerminationSnapshot,
+    now_iso,
+)
 
 logger = logging.getLogger("muad_agent_core.agent.runner")
 
 NODE_PREPARE_CONTEXT = "prepare_context"
-NODE_CONCLUDE = "conclude"
 NODE_MODEL = "model"
 NODE_TOOLS = "tools"
 NODE_FINALIZE = "finalize"
@@ -92,7 +104,6 @@ TOOL_FAILED_TEMPLATE = "tool failed: {reason}"
 
 def tool_failure_content(exc: BaseException) -> str:
     """工具抛异常 → 喂回模型的工具消息。
-
     **必须与工具自己「返回」的错误体同形**：`skill_tools`/`task_tools`/`memory_tools` 的处理
     器在自己那层就把领域错误转成 `{"error": {"code", "message"}}` 返回，而 attachments/archive
     是**抛出**带 `.code` 的自己人错误类型。后者若只拿到 `tool failed: AttachmentToolError: …`，
@@ -115,72 +126,11 @@ def tool_failure_content(exc: BaseException) -> str:
     return TOOL_FAILED_TEMPLATE.format(reason=f"{type(exc).__name__}: {exc}")
 
 
-#: 属于"环境/平台"的失败前缀：这类失败再试也不会成功，Run 第一次即停。
-_ENVIRONMENT_CODE_PREFIXES = ("PLATFORM_", "CREDENTIAL_", "CONTROL_", "SANDBOX_", "MODEL_")
-
-
-def _failure_info(content: str) -> tuple[str | None, bool]:
-    """工具结果 → (错误码, 是否可重试)。
-
-    失败有**两种形状**：抛异常（工具状态 ERROR）与工具自己返回错误体（状态 OK，
-    `{"error": {...}}`，Skill/附件工具都是这种）。`None` 表示这不是失败体（正常结果）。
-
-    可重试的判定分三类：
-    - 显式 `retryable: true`（网络/超时/5xx/429）→ 按阈值重试；
-    - **平台/环境失败**（带平台 `detail`，或 `PLATFORM_`/`CREDENTIAL_`/`CONTROL_`/`SANDBOX_`/`MODEL_`
-      前缀）→ 确定性，第一次即停；
-    - 其余（工具名拼错、参数/校验错误、策略拦截、未标注异常）→ 模型**自己可以纠正**，按阈值重试。
-    """
-    try:
-        payload = json.loads(content)
-    except (TypeError, ValueError):
-        return None, True
-    error = payload.get("error") if isinstance(payload, dict) else None
-    if isinstance(error, dict):
-        code = error.get("code")
-        code = code if isinstance(code, str) and code else "TOOL_FAILED"
-        if error.get("retryable") is True:
-            return code, True
-        deterministic = isinstance(error.get("detail"), dict) or code.startswith(
-            _ENVIRONMENT_CODE_PREFIXES
-        )
-        return code, not deterministic
-    if isinstance(error, str) and error:
-        return error, not error.startswith(_ENVIRONMENT_CODE_PREFIXES)
-    return None, True
-
-
-def _failure_message(content: str) -> str:
-    """失败体里的可读原因（平台原文/错误文案）；没有就空串。"""
-    try:
-        payload = json.loads(content)
-    except (TypeError, ValueError):
-        return ""
-    error = payload.get("error") if isinstance(payload, dict) else None
-    if isinstance(error, dict):
-        detail = error.get("detail")
-        if isinstance(detail, dict):
-            detail_message = detail.get("message")
-            if isinstance(detail_message, str):
-                return detail_message
-        message = error.get("message")
-        return message if isinstance(message, str) else ""
-    return error if isinstance(error, str) else ""
-
-
-def _failure_summary(last: dict[str, str] | None) -> str:
-    """收尾回合失败/空产出时的兜底：至少把失败码与平台原文交到用户手里。"""
-    if not last:
-        return "执行未能在预算内完成，已停止。"
-    summary = f"执行失败：{last.get('tool', '工具')} 返回 {last.get('code', 'UNKNOWN')}"
-    if last.get("message"):
-        summary += f"（{last['message']}）"
-    return summary + "。请修正后重试。"
-
-
 class RunnerError(RuntimeError):
     def __init__(self, message: str) -> None:
         self.message = message
+        #: 终止快照由 Kernel 顶层边界挂上；Runtime 用同一份事实收尾（design §4.3）。
+        self.termination: TerminationSnapshot | None = None
         super().__init__(message)
 
 
@@ -202,6 +152,10 @@ class RunnerVerificationExhausted(RunnerError):
 
 class RunnerEmptyReply(RunnerError):
     """模型补答后仍没有输出任何正文：空回答不是"完成"，Run 必须以失败收口。"""
+
+
+class RunnerShutdown(RunnerError):
+    """宿主关闭/进程退出：Run 未完成，按 RUN_ERROR 收口。"""
 
 
 class AgentRunStatus(StrEnum):
@@ -272,6 +226,8 @@ class AgentRunResult:
     usage: ModelUsage
     #: 最近一次失败（工具/错误码/消息）；NO_PROGRESS 收尾时用于解释原因。
     last_failure: dict[str, str] | None = None
+    #: 终止事实：Runtime 的 facts/renderer 只读它，不再解析 Kernel 的进程内 state。
+    termination: TerminationSnapshot | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -305,10 +261,10 @@ class AgentRunState(TypedDict):
     identical_failures: dict[str, int]
     #: 失败重复次数达到上限：终态按 NO_PROGRESS 收尾，不再发起模型调用。
     no_progress: bool
-    #: 最近一次失败的事实（工具/错误码/平台原文），收尾回合与兜底文案都读它。
-    last_failure: dict[str, str] | None
-    #: 收尾回合是否已经跑过（只允许一次）。
-    concluded: bool
+    #: 最近一次失败的事实（结构化 evidence），收尾 facts 与兜底文案都读它。
+    last_failure: FailureEvidence | None
+    #: 因预算/终止而未执行的调用：只进 snapshot 的 pending，不进入失败计数。
+    unexecuted_tool_calls: list[PendingToolCall]
     status: str
     started_at: float
     is_cancelled: Callable[[], bool] | None
@@ -367,6 +323,16 @@ class _CallOutcome:
 
     status: str
     content: str
+    outcome: ExecutionOutcome | None = None
+
+
+def _exception_outcome(exc: BaseException) -> ExecutionOutcome:
+    """执行器边界上的异常 → TOOL 失败 outcome（与 `tool_failure_content` 同一错误码来源）。"""
+    return tool_exception_outcome(
+        code=getattr(exc, "code", None),
+        message=str(exc),
+        retryable=getattr(exc, "retryable", None),
+    )
 
 
 def _artifact_ref(content: str) -> str | None:
@@ -425,6 +391,7 @@ class AgentRunner:
         self._event_batch_size = event_batch_size
         self._parallel_limit = validate_parallel_limit(parallel_limit)
         self._stop_emitted = False
+        self._latest_state: AgentRunState | None = None
 
     async def run(
         self,
@@ -450,12 +417,17 @@ class AgentRunner:
             on_tool_completed,
         )
         initial = self._initial_state(request, checkpoint or RunnerCheckpoint(), callbacks, context_cursor)
+        self._latest_state = initial
         try:
             final = await self._execute(initial)
+        except RunnerError as exc:
+            # 所有异常出口挂同一份 snapshot：Runtime 不依赖进程内 state，也不猜失败事实。
+            if exc.termination is None:
+                exc.termination = self._snapshot(self._latest_state)
+            await self._emit_stop_hook(final_text="", turns=self._latest_state["turns"], error=True)
+            raise
         except Exception:
-            if not self._stop_emitted:
-                self._stop_emitted = True
-                await self._hooks.run(HookEvent.STOP, {"final_text": "", "turns": 0, "error": True})
+            await self._emit_stop_hook(final_text="", turns=self._latest_state["turns"], error=True)
             raise
         return AgentRunResult(
             final["final_text"],
@@ -463,8 +435,20 @@ class AgentRunner:
             final["turns"],
             final["tool_calls_used"],
             ModelUsage(input_tokens=final["input_tokens"], output_tokens=final["output_tokens"]),
-            last_failure=final["last_failure"],
+            last_failure=(
+                final["last_failure"].as_legacy_dict() if final["last_failure"] else None
+            ),
+            termination=self._snapshot(final),
         )
+
+    async def _emit_stop_hook(self, *, final_text: str, turns: int, error: bool) -> None:
+        if self._stop_emitted:
+            return
+        self._stop_emitted = True
+        payload: dict[str, Any] = {"final_text": final_text, "turns": turns}
+        if error:
+            payload["error"] = True
+        await self._hooks.run(HookEvent.STOP, payload)
 
     def _initial_state(
         self,
@@ -474,6 +458,7 @@ class AgentRunner:
         context_cursor: int | None,
     ) -> AgentRunState:
         system = self._prompt_builder.build(instructions=request.instructions, skills=request.skills)
+        restored = FailureState.from_payload(progress.failure_state)
         return AgentRunState(
             model_id=request.model_id,
             instructions=request.instructions,
@@ -490,10 +475,10 @@ class AgentRunner:
             input_tokens=progress.input_tokens,
             output_tokens=progress.output_tokens,
             budget_exhausted=False,
-            identical_failures={},
-            no_progress=False,
-            last_failure=None,
-            concluded=False,
+            identical_failures=dict(restored.identical_failures),
+            no_progress=restored.no_progress,
+            last_failure=restored.last_failure,
+            unexecuted_tool_calls=[],
             status=str(AgentRunStatus.COMPLETED),
             started_at=time.monotonic(),
             is_cancelled=callbacks.is_cancelled,
@@ -512,36 +497,35 @@ class AgentRunner:
         )
 
     async def _execute(self, state: AgentRunState) -> AgentRunState:
-        """按阶段推进一次 Run；去向与预算出口全部由既有路由函数决定。"""
+        """按阶段推进一次 Run；去向与预算出口全部由既有路由函数决定。
+
+        失败收尾不再调用模型：所有终止出口都只记录事实，由 Runtime 平台直出（design §4.5）。
+        """
         while True:
-            state = await self._prepare_context(state)
+            state = self._remember(await self._prepare_context(state))
             prepared = self._route_after_prepare(state)
-            if prepared == NODE_CONCLUDE:
-                state = await self._conclude(state)
-                break
             if prepared == NODE_FINALIZE:
                 break
-            state = await self._call_model(state)
+            state = self._remember(await self._call_model(state))
             route = self._route_after_model(state)
-            if route == NODE_CONCLUDE:
-                state = await self._conclude(state)
-                break
             if route == NODE_TOOLS:
-                state = await self._execute_tools(state)
+                state = self._remember(await self._execute_tools(state))
                 after_tools = self._route_after_tools(state)
-                if after_tools == NODE_CONCLUDE:
-                    state = await self._conclude(state)
-                    break
                 if after_tools == NODE_FINALIZE:
                     break
                 continue
             if route == NODE_DECIDE:
-                state = await self._decide_after_model(state)
+                state = self._remember(await self._decide_after_model(state))
                 if state["next_node"] == NODE_FINALIZE:
                     break
                 continue
             break
         return await self._finalize(state)
+
+    def _remember(self, state: AgentRunState) -> AgentRunState:
+        """记录最新状态：异常出口要用它生成 snapshot（state 在循环里被替换成新 dict）。"""
+        self._latest_state = state
+        return state
 
     async def notify_interrupt(self, payload: dict[str, Any]) -> None:
         """澄清/确认暂停等 interrupt 事件：触发 on_interrupt Hook（可观测）。"""
@@ -672,9 +656,10 @@ class AgentRunner:
         # 本回合真正执行过的调用：(消息下标, 调用 id, 工具名, 状态)。整批判定与完成事件都在
         # 回合末一次性收口（ADR-04）——不在循环里逐条报，否则产物 id 赶不上那条事件。
         executed: list[tuple[int, str, str, str]] = []
+        unexecuted = [PendingToolCall(call_id=call.id, tool_name=call.name) for call in exhausted_calls]
         for call in exhausted_calls:
+            # 未执行不是失败：消息必须回给模型（合法的 tool 应答），但不进失败计数/完成事件。
             messages.append(_tool_message(call.id, TOOL_BUDGET_EXHAUSTED))
-            executed.append((len(messages) - 1, call.id, call.name, "ERROR"))
         # 补消息（`ToolDefinition.follow_up_messages`）**攒到回合末再落**，理由见 finally 里的注释。
         followed: list[ModelMessage] = []
         try:
@@ -708,6 +693,7 @@ class AgentRunner:
             "messages": messages,
             "pending_tool_calls": [],
             "tool_calls_used": used,
+            "unexecuted_tool_calls": [*state["unexecuted_tool_calls"], *unexecuted],
             "budget_exhausted": state["budget_exhausted"] or bool(exhausted_calls),
         }
         return await self._checkpoint_tool_round(cast(AgentRunState, complete))
@@ -792,9 +778,11 @@ class AgentRunner:
             )
             outcome = await self._tool_pipeline.prepare_execution(prepared)
         except Exception as exc:
-            return _CallOutcome("ERROR", tool_failure_content(exc))
+            return _CallOutcome("ERROR", tool_failure_content(exc), _exception_outcome(exc))
         if isinstance(outcome, ToolExecutionResult):
-            return _CallOutcome(_TOOL_STATUSES.get(outcome.status, "ERROR"), outcome.content)
+            return _CallOutcome(
+                _TOOL_STATUSES.get(outcome.status, "ERROR"), outcome.content, outcome.outcome
+            )
         return outcome
 
     async def _run_prepared(
@@ -805,8 +793,10 @@ class AgentRunner:
         try:
             result = await self._tool_pipeline.run_prepared(item, on_started=state["on_tool_started"])
         except Exception as exc:
-            return _CallOutcome("ERROR", tool_failure_content(exc))
-        return _CallOutcome(_TOOL_STATUSES.get(result.status, "ERROR"), result.content)
+            return _CallOutcome("ERROR", tool_failure_content(exc), _exception_outcome(exc))
+        return _CallOutcome(
+            _TOOL_STATUSES.get(result.status, "ERROR"), result.content, result.outcome
+        )
 
     async def _follow_up_messages(self, tool_name: str, content: str) -> tuple[ModelMessage, ...]:
         try:
@@ -818,29 +808,55 @@ class AgentRunner:
         return tuple(await definition.follow_up_messages(content))
 
     def _track_failure(self, state: AgentRunState, tool_name: str, outcome: _CallOutcome) -> None:
-        """失败跟进：确定性失败第一次就停；可重试失败按 (工具, 错误码) 计数到阈值。
+        """失败跟进：确定性失败第一次就停；可重试失败按 (工具, 错误码, 层) 计数到阈值。
 
-        判据是**这次失败还值不值得再试**：鉴权被拒/参数错/平台业务码再试也不会成功，
-        继续尝试只会让用户以为卡住；网络/超时/5xx/429 才给配置的重复次数。任何真正成功的
-        工具调用都代表有进展，清零计数。
+        判定只消费 `ToolDefinition.outcome_parser` 给出的结构化 `ExecutionOutcome`：
+        `SUCCEEDED/NOT_APPLICABLE/UNKNOWN` 代表"没有确认失败"（清零计数、保留历史证据）；
+        `FAILED/TIMED_OUT/DENIED` 且 `failure_layer != NONE` 才进入失败跟踪。
         """
-        code, retryable = _failure_info(outcome.content)
-        if code is None and outcome.status != "ERROR":
+        execution = outcome.outcome
+        if execution is None:
+            # 没有业务判定（例如执行器之外的意外）：沿用 transport 状态，不猜业务失败。
+            if outcome.status == "ERROR":
+                execution = _exception_outcome(RuntimeError(outcome.content))
+            else:
+                state["identical_failures"].clear()
+                return
+        if execution.business_status in (
+            BusinessStatus.SUCCEEDED,
+            BusinessStatus.NOT_APPLICABLE,
+            BusinessStatus.UNKNOWN,
+        ):
             state["identical_failures"].clear()
             return
-        state["last_failure"] = {
-            "tool": tool_name,
-            "code": code or "TOOL_FAILED",
-            "message": _failure_message(outcome.content),
-        }
-        if not retryable:
+        if execution.business_status == BusinessStatus.CANCELLED:
+            return
+        if not execution.is_failure:
+            state["identical_failures"].clear()
+            return
+        evidence = FailureEvidence(
+            tool=execution.tool_name or tool_name,
+            tool_call_id=execution.call_id,
+            status=str(execution.business_status),
+            code=execution.error_code or "TOOL_FAILED",
+            message=execution.error_message,
+            failure_layer=str(execution.failure_layer),
+            exit_code=execution.exit_code,
+            retryable=execution.retryable,
+            evidence_preview=execution.evidence.preview,
+            occurred_at=now_iso(),
+        )
+        state["last_failure"] = evidence
+        if not execution.retryable:
             state["no_progress"] = True
+            self._latest_state = state
             return
         counts = state["identical_failures"]
-        key = f"{tool_name}:{code or 'TOOL_FAILED'}"
+        key = f"{evidence.tool}:{evidence.code}:{evidence.failure_layer}"
         counts[key] = counts.get(key, 0) + 1
         if counts[key] >= max(1, state["policy"].max_identical_failures):
             state["no_progress"] = True
+        self._latest_state = state
 
     async def _finish_tool_round(
         self,
@@ -914,48 +930,6 @@ class AgentRunner:
         if callback is not None:
             await callback(call_id, name, status, artifact_id, result_text)
 
-    async def _conclude(self, state: AgentRunState) -> AgentRunState:
-        """失败停止后的**一次性收尾**：禁用工具，让模型把失败原因整理给用户。
-
-        用户要的是"为什么失败"（哪一步、错误码、平台返回什么、下一步怎么做），不是一句系统
-        提示。这一轮不占工具预算、不允许再调工具；模型调用失败或产出空文本时用最后失败码兜底。
-        """
-        instruction = (
-            "工具执行已因失败停止，不得再调用任何工具。请根据上面的失败信息，用简洁的中文告诉用户："
-            "哪一步失败、错误码、平台返回的内容、建议的下一步。"
-        )
-        messages = (*state["messages"], ModelMessage(role=ModelRole.USER, content=instruction))
-        final_text = ""
-        input_tokens, output_tokens = state["input_tokens"], state["output_tokens"]
-        try:
-            response = await self._complete_with_recovery(
-                state,
-                ModelRequest(
-                    model_id=state["model_id"],
-                    messages=messages,
-                    tools=(),
-                    temperature=state["temperature"],
-                    max_tokens=state["max_tokens"],
-                    params=state["params"],
-                    timeout_sec=self._request_timeout_sec(state),
-                ),
-                stream=False,
-            )
-            final_text = response.content.strip()
-            input_tokens = _usage_sum(input_tokens, response.input_tokens)
-            output_tokens = _usage_sum(output_tokens, response.output_tokens)
-        except Exception:  # noqa: BLE001 - 收尾失败不得掩盖原始失败，也不得让 Run 卡死
-            final_text = ""
-        if not final_text:
-            final_text = _failure_summary(state["last_failure"])
-        return {
-            **state,
-            "final_text": final_text,
-            "concluded": True,
-            "input_tokens": input_tokens,
-            "output_tokens": output_tokens,
-        }
-
     async def _finalize(self, state: AgentRunState) -> AgentRunState:
         await self._emit_post_model(state)
         self._stop_emitted = True
@@ -981,14 +955,49 @@ class AgentRunner:
             "status": status,
         }
 
+    def _snapshot(self, state: AgentRunState) -> TerminationSnapshot:
+        """把终止事实冻结成 Runtime 可消费的形状；budget subtype 从计数器推导。"""
+        policy = state["policy"]
+        suspended = state["status"] in _SUSPENDED_STATUSES
+        if suspended or state["no_progress"]:
+            budget_kind = BudgetKind.NONE
+        elif state["turns"] >= policy.max_turns:
+            budget_kind = BudgetKind.TURN
+        elif state["tool_calls_used"] >= policy.max_tool_calls or state["budget_exhausted"]:
+            budget_kind = BudgetKind.TOOL
+        else:
+            budget_kind = BudgetKind.NONE
+        pending = list(state["unexecuted_tool_calls"])
+        seen = {call.call_id for call in pending}
+        for call in state["pending_tool_calls"]:
+            if call.id not in seen:
+                pending.append(PendingToolCall(call_id=call.id, tool_name=call.name))
+                seen.add(call.id)
+        return TerminationSnapshot(
+            status=state["status"],
+            budget_kind=budget_kind,
+            turns_used=state["turns"],
+            turns_limit=policy.max_turns,
+            tool_calls_used=state["tool_calls_used"],
+            tool_calls_limit=policy.max_tool_calls,
+            elapsed_ms=int((time.monotonic() - state["started_at"]) * 1000),
+            deadline_ms=policy.deadline_ms,
+            failure_state=FailureState(
+                last_failure=state["last_failure"],
+                identical_failures=dict(state["identical_failures"]),
+                no_progress=state["no_progress"],
+            ),
+            pending_tool_calls=tuple(pending),
+        )
+
     def _route_after_model(self, state: AgentRunState) -> str:
-        if state["no_progress"] and not state["concluded"]:
-            return NODE_CONCLUDE
+        if state["no_progress"]:
+            return NODE_FINALIZE
         if not state["pending_tool_calls"]:
             return NODE_DECIDE if self._runtime_events is not None else NODE_FINALIZE
         if state["turns"] >= state["policy"].max_turns:
-            # 轮次打满时不再执行这批工具，但**要给用户交代**：先跑一次收尾回合再终止。
-            return NODE_FINALIZE if state["concluded"] else NODE_CONCLUDE
+            # 轮次打满时不再执行这批工具；未执行调用只进 snapshot 的 pending。
+            return NODE_FINALIZE
         return NODE_TOOLS
 
     async def _decide_after_model(self, state: AgentRunState) -> AgentRunState:
@@ -1007,22 +1016,25 @@ class AgentRunner:
 
     @staticmethod
     def _route_after_prepare(state: AgentRunState) -> str:
-        if state["budget_exhausted"] and not state["concluded"]:
-            # 预算打满也要给用户交代：**一次**收尾回合（禁用工具）整理结论，再终止。
-            return NODE_CONCLUDE
         return (
             NODE_FINALIZE if state["budget_exhausted"] or state["no_progress"] else NODE_MODEL
         )
 
-    @staticmethod
     def _checkpoint(
+        self,
         state: AgentRunState, suspension: SuspensionRequest | None = None
     ) -> RunnerCheckpoint:
         """回合 checkpoint；工具级挂起时把待定操作一起写进去（Human 挂起恒为空）。
 
         checkpoint 是恢复的唯一依据：模型回合边界与异步工具挂起**同一形状**，宿主换一份
-        `CheckpointStore` 就能恢复，不需要第二套私有约定。
+        `CheckpointStore` 就能恢复，不需要第二套私有约定。失败状态可选随 checkpoint 持久化，
+        旧 checkpoint 缺失时按空状态恢复，不臆造失败。
         """
+        failure_state = FailureState(
+            last_failure=state["last_failure"],
+            identical_failures=dict(state["identical_failures"]),
+            no_progress=state["no_progress"],
+        )
         return RunnerCheckpoint(
             state["turns"],
             state["tool_calls_used"],
@@ -1030,6 +1042,7 @@ class AgentRunner:
             state["output_tokens"],
             state["consumed_event_seq"],
             suspension.pending_tool_calls if suspension is not None else (),
+            failure_state=failure_state.as_payload(),
         )
 
     async def _drain_events(self, state: AgentRunState) -> AgentRunState:
@@ -1047,9 +1060,6 @@ class AgentRunner:
 
     @staticmethod
     def _route_after_tools(state: AgentRunState) -> str:
-        if state["no_progress"] and not state["concluded"]:
-            # 停止前给模型**一次**收尾：禁用工具，让它把失败原因整理给用户。
-            return NODE_CONCLUDE
         if state["budget_exhausted"] or state["no_progress"] or state["status"] in _SUSPENDED_STATUSES:
             # 两类挂起（等人 / 等外部操作）都在这里收口：继续跑模型回合等于把挂起当没发生。
             return NODE_FINALIZE

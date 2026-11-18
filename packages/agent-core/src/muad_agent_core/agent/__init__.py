@@ -9,6 +9,7 @@ from .runner import (
     RunnerEmptyReply,
     RunnerError,
     RunnerModelError,
+    RunnerShutdown,
     RunnerVerificationExhausted,
 )
 from .suspension import (
@@ -18,6 +19,16 @@ from .suspension import (
     ToolSuspensionPort,
     resume_checkpoint,
 )
+from .termination import (
+    BudgetKind,
+    FailureEvidence,
+    FailureState,
+    PendingToolCall,
+    TerminationReason,
+    TerminationSnapshot,
+    decisive_failure,
+    reason_for_error_code,
+)
 from .verification import VerificationOutcome, VerificationStatus, Verifier, run_verification
 
 __all__ = [
@@ -26,17 +37,26 @@ __all__ = [
     "AgentRunResult",
     "AgentRunner",
     "AgentRunStatus",
+    "BudgetKind",
+    "FailureEvidence",
+    "FailureState",
+    "PendingToolCall",
     "RunnerCancelled",
     "RunnerDeadlineExceeded",
     "RunnerEmptyReply",
     "RunnerError",
     "RunnerModelError",
+    "RunnerShutdown",
     "RunnerVerificationExhausted",
     "SuspensionKind",
     "SuspensionRequest",
     "SuspensionResume",
+    "TerminationReason",
+    "TerminationSnapshot",
     "ToolSuspensionPort",
     "Verifier",
+    "decisive_failure",
+    "reason_for_error_code",
     "resume_checkpoint",
     "VerificationOutcome",
     "VerificationStatus",

@@ -35,7 +35,13 @@ from muad_agent_core.skill import (
     build_sandboxed_skill_executor,
 )
 from muad_agent_core.skill.selection import select_entry_script
-from muad_agent_core.tools import ToolConcurrency, ToolDefinition, ToolEffect, ToolRegistry
+from muad_agent_core.tools import (
+    ToolConcurrency,
+    ToolDefinition,
+    ToolEffect,
+    ToolRegistry,
+    skill_execution_outcome,
+)
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache, SkillArtifactCacheError
@@ -351,6 +357,7 @@ class SkillToolSet:
                         effect=ToolEffect.EXTERNAL,
                         handler=self.execute_skill,
                         retry_safety=self._async_retry_safety,
+                        outcome_parser=skill_execution_outcome,
                     ),
                     ToolDefinition(
                         name=RUN_SKILL_SCRIPT_TOOL,
@@ -366,6 +373,7 @@ class SkillToolSet:
                         ),
                         effect=ToolEffect.EXTERNAL,
                         handler=self.run_skill_script,
+                        outcome_parser=skill_execution_outcome,
                     ),
                 )
             )
@@ -470,6 +478,8 @@ class SkillToolSet:
             effect=ToolEffect.EXTERNAL,
             handler=self.execute,
             retry_safety=self._async_retry_safety,
+            # draft/workspace 的退出码只是证据：解析器返回 None，pipeline 记 NOT_APPLICABLE。
+            outcome_parser=skill_execution_outcome,
         )
 
     async def load_skill(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
@@ -611,6 +621,7 @@ class SkillToolSet:
                 "exit_code": result.exit_code,
                 "duration_ms": result.duration_ms,
                 "changed_files": list(result.changed_files),
+                "output_truncated": result.output_truncated,
             },
             ensure_ascii=False,
         )
@@ -659,7 +670,8 @@ class SkillToolSet:
         except ValueError as exc:
             return _error_result(ErrorCode.COMMON_VALIDATION_ERROR.value, str(exc))
         return json.dumps({"stdout": result.stdout, "stderr": result.stderr, "exit_code": result.exit_code,
-                           "duration_ms": result.duration_ms, "changed_files": list(result.changed_files)},
+                           "duration_ms": result.duration_ms, "changed_files": list(result.changed_files),
+                           "output_truncated": result.output_truncated},
                           ensure_ascii=False)
 
     async def _workspace_platform_scope(
@@ -697,6 +709,7 @@ class SkillToolSet:
                 payload["stdout"] = exc.result.stdout
                 payload["stderr"] = exc.result.stderr
                 payload["exit_code"] = exc.result.exit_code
+                payload["output_truncated"] = exc.result.output_truncated
             return json.dumps(payload, ensure_ascii=False)
         except SkillToolError as exc:
             return _error_result(exc.code, exc.message)
@@ -710,6 +723,7 @@ class SkillToolSet:
                 "duration_ms": result.duration_ms,
                 "changed_files": list(result.changed_files),
                 "revision": result.revision,
+                "output_truncated": result.output_truncated,
             },
             ensure_ascii=False,
         )
@@ -1044,6 +1058,7 @@ def _draft_shell_request(
     return DraftShellRequest(
         tenant_id=context.tenant_id,
         owner_user_id=context.owner_user_id,
+        agent_id=context.agent_id,
         draft_id=_require_string(arguments, "draft_id"),
         command=_require_string(arguments, "command"),
         cwd=cwd,
@@ -1228,6 +1243,7 @@ def _execution_payload(result: SkillExecutionResult, outputs: Sequence[Mapping[s
             "exit_code": result.exit_code,
             "outputs": list(outputs),
             "output_notice": result.output_notice,
+            "output_truncated": result.output_truncated,
         },
         ensure_ascii=False,
     )
