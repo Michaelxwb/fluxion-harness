@@ -460,23 +460,23 @@ apps/agent-runtime/src/muad_agent_runtime/infrastructure/platform_settings_clien
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/platform_settings_client.py,25,RUNTIME_CALLER,'runtime',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/run_admission_store.py,28,SCOPE_USER,'USER',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/run_admission_store.py,29,SCOPE_TENANT,'TENANT',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/main.py,89,SERVICE_NAME,'muad-agent-runtime',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/main.py,92,CONTINUATION_LOOP_NAME,'runtime.continuation',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/main.py,93,MEMORY_LOOP_NAME,'runtime.memory',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/main.py,94,LEARNING_LOOP_NAME,'runtime.learning',python-constant,code,实现常量；不开放任意修改
-apps/agent-runtime/src/muad_agent_runtime/main.py,95,LEARNING_JOBS_LOOP_NAME,'runtime.learning_jobs',python-constant,code,实现常量；由 AST 盘点补录（2026-11-02）
-apps/agent-runtime/src/muad_agent_runtime/main.py,96,DEADLINE_LOOP_NAME,'runtime.deadline',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/main.py,97,CONTROL_LOOP_NAME,'runtime.control',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/main.py,98,REAPER_LOOP_NAME,'runtime.reaper',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/main.py,99,EXECUTION_SLOT_LOOP_NAME,'runtime.execution_slots',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/main.py,100,DELIVERY_LOOP_NAME,'runtime.delivery',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/main.py,101,RETENTION_LOOP_NAME,'runtime.retention',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/main.py,102,CAPACITY_METRICS_LOOP_NAME,'runtime.capacity_metrics',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/main.py,481,_GC_RING_SIZE,256,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/main.py,482,_GC_RING,[0.0] * _GC_RING_SIZE,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/main.py,483,_GC_RING_WRITE,[0],python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/main.py,484,_GC_STARTED,"[0.0, 0.0, 0.0]",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/main.py,485,_GC_TOTALS,"[0, 0, 0]",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/main.py,90,SERVICE_NAME,'muad-agent-runtime',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/main.py,93,CONTINUATION_LOOP_NAME,'runtime.continuation',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/main.py,94,MEMORY_LOOP_NAME,'runtime.memory',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/main.py,95,LEARNING_LOOP_NAME,'runtime.learning',python-constant,code,实现常量；不开放任意修改
+apps/agent-runtime/src/muad_agent_runtime/main.py,96,LEARNING_JOBS_LOOP_NAME,'runtime.learning_jobs',python-constant,code,实现常量；由 AST 盘点补录（2026-11-02）
+apps/agent-runtime/src/muad_agent_runtime/main.py,97,DEADLINE_LOOP_NAME,'runtime.deadline',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/main.py,98,CONTROL_LOOP_NAME,'runtime.control',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/main.py,99,REAPER_LOOP_NAME,'runtime.reaper',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/main.py,100,EXECUTION_SLOT_LOOP_NAME,'runtime.execution_slots',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/main.py,101,DELIVERY_LOOP_NAME,'runtime.delivery',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/main.py,102,RETENTION_LOOP_NAME,'runtime.retention',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/main.py,103,CAPACITY_METRICS_LOOP_NAME,'runtime.capacity_metrics',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/main.py,487,_GC_RING_SIZE,256,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/main.py,488,_GC_RING,[0.0] * _GC_RING_SIZE,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/main.py,489,_GC_RING_WRITE,[0],python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/main.py,490,_GC_STARTED,"[0.0, 0.0, 0.0]",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/main.py,491,_GC_TOTALS,"[0, 0, 0]",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/metrics.py,37,AGENT_RUNS_METRIC,'agent_runs_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/metrics.py,38,MODEL_INVOCATIONS_METRIC,'model_invocations_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/metrics.py,39,TOOL_CALLS_METRIC,'tool_calls_total',python-constant,code,协议标识、枚举、schema、文本或实现常量

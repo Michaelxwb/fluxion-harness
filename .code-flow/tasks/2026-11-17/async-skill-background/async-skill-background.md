@@ -157,7 +157,7 @@
   - outbox-and-dedup PASS exit=0
 ## TASK-003: 迟到结果物化
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-002
 - **Source**: `.code-flow/tasks/2026-11-17/async-skill-background/async-skill-background.design.md#3.5 质量实现方案（LateBackgroundResultPump）`, `#3.3 数据设计`
 - **Scenarios**: S-03, B-02
@@ -192,15 +192,15 @@ Run 已终态后到达的结果，仍要成为下一轮可读的会话事实。`
 
 ### Checklist
 
-- [ ] `receive_result` 不新增文件 IO/Artifact 外置，仍只做 DB 收件与回执
-- [ ] `LateBackgroundResultPump` 有界领取 `late=true AND materialized=false`，使用 `SKIP LOCKED`/行锁，避免并发重复
-- [ ] 事务外准备 Artifact/预览；事务内追加 `BACKGROUND_RESULT`，`source_event_id` 与普通物化同形，保证幂等
-- [ ] 更新 `inbox.materialized=true` 与 `canonical_event_id`；不恢复 Run、不续 lease
-- [ ] 会话已删除/不存在时跳过，记录 `background_result_late_skipped_total{reason}`；不写不可见事件
-- [ ] 接入 Runtime 受监督循环，不新增部署单元
-- [ ] `worker/harness-worker#RULE-001` 的 Spec Delta 已随任务沉淀
-- [ ] [S-03] 迟到失败原文下一轮可读
-- [ ] [B-02] Run 已终态后结果仍进入会话事实，且不重复
+- [x] `receive_result` 不新增文件 IO/Artifact 外置，仍只做 DB 收件与回执
+- [x] `LateBackgroundResultPump` 有界领取 `late=true AND materialized=false`，使用 `SKIP LOCKED`/行锁，避免并发重复
+- [x] 事务外准备 Artifact/预览；事务内追加 `BACKGROUND_RESULT`，`source_event_id` 与普通物化同形，保证幂等
+- [x] 更新 `inbox.materialized=true` 与 `canonical_event_id`；不恢复 Run、不续 lease
+- [x] 会话已删除/不存在时跳过，记录 `background_result_late_skipped_total{reason}`；不写不可见事件
+- [x] 接入 Runtime 受监督循环，不新增部署单元
+- [x] `worker/harness-worker#RULE-001` 的 Spec Delta 已随任务沉淀
+- [x] [S-03] 迟到失败原文下一轮可读
+- [x] [B-02] Run 已终态后结果仍进入会话事实，且不重复
 
 ### Spec Delta
 
@@ -221,13 +221,15 @@ Run 已终态后到达的结果，仍要成为下一轮可读的会话事实。`
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18T00:20:39.046Z] started tests=bb194d9eb4dd
 
 ### Verification
 
 - 尚未执行
 
 ---
-
+- 2026-11-18T00:20:44.336Z PASS commands=1/1 executed=1 deduped=0 elapsed=5178ms tests=bb194d9eb4dd head=74c3a11ed63d dirty=1
+  - late-result PASS exit=0
 ## TASK-004: 任务中心后台读契约与接口
 
 - **Status**: draft
