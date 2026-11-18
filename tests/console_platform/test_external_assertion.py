@@ -395,3 +395,29 @@ def test_session_expiry_ignores_non_positive_exp() -> None:
     expires = _session_expires_at({"login_time": str(issued_ms), "exp": -1}, max_session_age_sec=600)
     # 落在 login_time + 600s 附近，且显然在「现在」之后（-1 没把会话判死）
     assert expires > now + timedelta(seconds=500)
+
+
+def test_session_expiry_without_age_cap_only_honours_positive_exp() -> None:
+    """`max_session_age_sec` 为 0 / None 时关闭年龄闸，与 settings 注释和 `_check_max_age` 一致。
+
+    此前的实现会回退到硬编码的 300 秒，使「不配置」的实际语义变成 5 分钟：验签放行，
+    但 SSE 订阅时早已过期，网关抛 `CHAT_SESSION_EXPIRED`，而报错发生在响应头发出之后，
+    前端只看到事件流突然断开。设计文档从未规定这个 300 秒默认值。
+    """
+    from datetime import UTC, datetime, timedelta
+
+    from muad_console_platform.application.external_assertion_service import _session_expires_at
+
+    now = datetime.now(tz=UTC)
+    stale_login_ms = int((now - timedelta(hours=8)).timestamp() * 1000)
+    claims = {"login_time": str(stale_login_ms), "time": stale_login_ms, "exp": -1}
+
+    # 关闭年龄闸：登录已过去 8 小时也不再因年龄被判过期。
+    for disabled in (0, None):
+        expires = _session_expires_at(claims, max_session_age_sec=disabled)
+        assert expires > now + timedelta(days=365), "关闭年龄闸后不应设任何年龄上限"
+
+    # 但上游若给了正数 exp，仍要尊重它——闸关闭 ≠ 无视一切约束。
+    exp = int((now + timedelta(minutes=30)).timestamp())
+    bounded = _session_expires_at({**claims, "exp": exp}, max_session_age_sec=0)
+    assert abs((bounded - datetime.fromtimestamp(exp, tz=UTC)).total_seconds()) < 1

@@ -214,9 +214,26 @@ kubectl exec -n muad deploy/muad-console-platform -- \
 
 第 3 步期望返回 `data` 里有 `"platform_key": "mssw"` 且 `"configured": true`。返回空数组说明 Secret 没读到；503 是因子未配置；401 是 token 不对。
 
-### 4.6 常见坑
+### 4.6 会话最大年龄（必须配）
+
+`EXTERNAL_ASSERTION_MAX_SESSION_AGE_SEC` 决定一张断言最多能用多久，配在 **console-platform**（Gateway 不读它，只消费 Console 算出的 `expires_at`）。
+
+这个值不是可选项。上游 token 的 `login_time` 是**用户登录的时刻**，`exp` 恒为 `-1`；上游靠 Redis 的滑动 TTL 维持会话，但续期不重签 JWT，所以 `login_time` 不会随使用前进。我们的到期时刻是 `min(now + max_age, login_time + max_age, 正数 exp)`，**从登录起算、不滑动**——配得太小，活跃用户到点就会被 SSE 复核以 `CHAT_SESSION_EXPIRED` 中断。
+
+**配 `0` 等于关闭该闸**（只保留上游正数 `exp`），会话不再有绝对上限。此前实现会在此处回退到 300 秒，使「不配置」的实际语义变成 5 分钟，且验签放行、SSE 拒绝——报错发生在响应头发出后，前端只见事件流断开，极难定位。
+
+chart 默认值见 `build/helm-build/muad-console-platform/values.yaml` 的 `externalAssertion.maxSessionAgeSec`（覆盖一个工作日）。要改就改 values 后 `helm upgrade`，不要手工 `kubectl set env`——否则下次发布会被 chart 覆盖回去。
+
+验证：
+
+```bash
+kubectl exec -n muad deploy/muad-console-platform -- printenv EXTERNAL_ASSERTION_MAX_SESSION_AGE_SEC
+```
+
+### 4.7 常见坑
 
 - **改了 `deploy/k8s/base` 不生效**：CD 读 `build/helm-build`，确认改的是 chart template 而不是 raw 清单。
+- **用到一半 `CHAT_SESSION_EXPIRED`、前端只看到流断开**：`EXTERNAL_ASSERTION_MAX_SESSION_AGE_SEC` 偏小或为 `0`（历史实现等价 300 秒）。按 §4.6 配成覆盖工作日的值。
 - **Secret 改完不重启**：`printenv` 仍是旧值/空，因为因子是启动时缓存的。
 - **`identity_keys` 写成 `expert_id`**：验签后取不到身份，真实 token 全部 401。必须是 `_id`。
 - **`public_key` 换行写成真换行**：JSON 非法，Pod 启动期抛 `PlatformConfigError` 并 CrashLoop。

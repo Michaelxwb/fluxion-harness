@@ -63,3 +63,7 @@ autoscaling:
   memoryUtilization: 80
 console:
   workers: 4
+externalAssertion:
+  # 外部断言最大会话年龄（秒）。86400 = 一天，覆盖一个工作日。
+  # 上游 login_time 不随使用滑动，设得过小会在用户活跃时被 SSE 复核中断；0 表示关闭该闸。
+  maxSessionAgeSec: 86400

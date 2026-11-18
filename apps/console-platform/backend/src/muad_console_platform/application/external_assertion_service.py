@@ -193,10 +193,6 @@ def _verify(assertion: str, config: ExternalPlatformConfig, platform_key: str, s
         ) from exc
 
 
-#: 断言未声明 `exp` 时的会话最长时限兜底（仅在配置未给最大会话年龄时使用）。
-_DEFAULT_SESSION_TTL_SEC = 300
-
-
 def _session_expires_at(claims: dict[str, object], max_session_age_sec: int | None) -> datetime:
     """断言会话的权威到期时刻：`min(now + max_age, login_time + max_age, 正数 exp)`。
 
@@ -205,16 +201,27 @@ def _session_expires_at(claims: dict[str, object], max_session_age_sec: int | No
     - `login_time + max_age`：真正的绝对上限，阻止 `exp=-1` 的 token 无限续订；
     - 正数 `exp`：上游若给了可信到期时间就尊重它（-1 等非正数一律忽略）。
 
+    `max_session_age_sec` 未配置或不大于 0 时，前两路都不加入约束——与
+    `settings.external_assertion_max_session_age_sec` 的「≤0 关闭该闸」以及验签侧
+    `_check_max_age` 的处理保持一致。此前的实现会在此处回退到一个 300 秒常量，
+    导致「不配置」的真实语义变成 5 分钟：验签放行（认为不限制），SSE 订阅时却因
+    早已过期被网关以 `CHAT_SESSION_EXPIRED` 中断，且报错发生在响应头发出之后，
+    前端只看到流突然断开，无从定位。设计文档从未规定过这个默认值。
+
     `login_time` 的取值与单位换算由 `_issued_at_seconds` 统一处理；那边在配置了最大会话
     年龄时会拒绝缺失，所以走到这里 `login_time` 可能有值也可能为 None，按缺一路处理。
     """
-    ttl = max_session_age_sec if max_session_age_sec and max_session_age_sec > 0 else _DEFAULT_SESSION_TTL_SEC
     now = datetime.now(tz=UTC)
-    candidates = [now + timedelta(seconds=ttl)]
-    issued_at = _issued_at_seconds(claims)
-    if issued_at is not None:
-        candidates.append(datetime.fromtimestamp(issued_at, tz=UTC) + timedelta(seconds=ttl))
+    candidates: list[datetime] = []
+    if max_session_age_sec and max_session_age_sec > 0:
+        candidates.append(now + timedelta(seconds=max_session_age_sec))
+        issued_at = _issued_at_seconds(claims)
+        if issued_at is not None:
+            candidates.append(
+                datetime.fromtimestamp(issued_at, tz=UTC) + timedelta(seconds=max_session_age_sec)
+            )
     raw_exp = claims.get("exp")
     if isinstance(raw_exp, (int, float)) and not isinstance(raw_exp, bool) and raw_exp > 0:
         candidates.append(datetime.fromtimestamp(float(raw_exp), tz=UTC))
-    return min(candidates)
+    # 年龄闸关闭且上游未给正数 exp 时无任何上限，用一个远超业务寿命的时刻表示「不限制」。
+    return min(candidates) if candidates else datetime.max.replace(tzinfo=UTC)

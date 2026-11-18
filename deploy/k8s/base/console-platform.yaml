@@ -68,6 +68,11 @@ spec:
                   name: muad-external
                   key: EXTERNAL_ASSERTION_PLATFORMS_JSON
                   optional: true
+            # 外部断言的最大会话年龄（秒）。上游 login_time 是登录时刻、不随使用滑动
+            # （Redis TTL 续期不重签 JWT），SSE 复核按 login_time + 本值中断，需覆盖一个工作日；
+            # 0 表示关闭该闸（只保留上游正数 exp 约束）。与 build/helm-build 的 chart 保持一致。
+            - name: EXTERNAL_ASSERTION_MAX_SESSION_AGE_SEC
+              value: "86400"
             # —— 分池 HTTP 连接预算（每进程；池名与 infrastructure/http_clients.py 的
             # httpx.Limits 构造点一致）——只声明本进程真实消费的池：control（续租/认证/
             # 内部短控制、容量端口）与 model（物理 Key 外部探测）。别的单元才建的池不写。

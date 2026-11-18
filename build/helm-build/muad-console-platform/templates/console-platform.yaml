@@ -86,6 +86,11 @@ spec:
                   name: {{ .Values.global.existingSecret }}
                   key: EXTERNAL_ASSERTION_PLATFORMS_JSON
                   optional: true
+            # 外部断言的最大会话年龄（秒）。上游 token 的 login_time 是登录时刻、随使用不滑动
+            # （Redis TTL 续期不重签 JWT），SSE 复核按 login_time + 本值中断会话，因此必须覆盖
+            # 一个完整工作日；配 0 等于关闭该闸（只保留上游正数 exp 约束）。
+            - name: EXTERNAL_ASSERTION_MAX_SESSION_AGE_SEC
+              value: {{ .Values.externalAssertion.maxSessionAgeSec | quote }}
             - name: CONTROL_HTTP_MAX_CONNECTIONS
               value: "32"
             - name: CONTROL_HTTP_MAX_KEEPALIVE
