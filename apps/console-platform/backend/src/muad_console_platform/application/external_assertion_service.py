@@ -6,10 +6,13 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 
+from muad_common.auth_cache import AuthCacheStore
+from muad_common.session_store import hash_session_token
 from muad_common.settings import process_settings
 from muad_contracts.webchat import ChatPrincipal
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,9 +25,14 @@ from .external_assertion.config import (
     PlatformConfigError,
     load_platform_configs,
 )
-from .external_assertion.principal import GrantView, resolve_principal
+from .external_assertion.principal import (
+    GrantView,
+    ResolvedPrincipal,
+    resolve_principal,
+)
 from .external_assertion.verifier import (
     AssertionRejected,
+    VerifiedClaims,
     _issued_at_seconds,
     verify_assertion,
 )
@@ -55,8 +63,12 @@ class ExternalAssertionRejected(Exception):
 
 
 class ExternalAssertionService:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(
+        self, session: AsyncSession, *, cache: AuthCacheStore | None = None
+    ) -> None:
         self._repository = ExternalIdentityRepository(session)
+        #: 凭证层/权限层写入用；未装配（测试/无 Redis）时不写，网关照旧每次回源验签。
+        self._cache = cache
 
     async def resolve(
         self,
@@ -95,6 +107,19 @@ class ExternalAssertionService:
             else None
         )
         expires_at = _session_expires_at(verified.claims, settings.external_assertion_max_session_age_sec)
+        # 只在「验签通过 + 身份已绑定且用户可用」时写凭证层：未绑定/停用的断言缓存了也没有用，
+        # 且会把一次拒绝结论固化。授权不写进来——网关命中凭证后仍要读权限层，撤权才即时生效。
+        if self._cache is not None and resolved.allowed and principal is not None:
+            await self._write_credential(
+                tenant_id, platform_key, assertion, principal, expires_at
+            )
+        if self._cache is not None and principal is not None and entry_id is None:
+            # 权限层缓存的是**全量**授权结论，因此只在未指定 `entry_id` 时写：
+            # 指定入口的 `grants` 是收敛子集，写进同一个键会让其它入口读到残缺授权。
+            # allowed=false 也照写——它是权威结论，撤权时会被 invalidate 删除。
+            await self._write_permission(
+                tenant_id, principal.platform_user_id, resolved, expires_at
+            )
         # 只回 `ExternalPrincipalResult` 声明的字段：契约 `extra="forbid"`，多带一个键
         # 会让网关反序列化失败并把**每一条**拒绝路径打成 500（E-02/E-04 实测）。错误码由
         # 调用方按 `reason` 自行映射（`chat_principal._EXTERNAL_DENIAL_CODES`）。
@@ -142,6 +167,86 @@ class ExternalAssertionService:
             else None,
         }
 
+    async def _write_credential(
+        self,
+        tenant_id: str,
+        platform_key: str,
+        assertion: str,
+        principal: ChatPrincipal,
+        expires_at: datetime,
+    ) -> None:
+        """把「验签通过 → 主体身份」写进凭证层。
+
+        只存重建 ``ChatPrincipal`` 所需的字段与绝对到期时间；**不含任何授权信息**。
+        写入失败不阻断请求（Redis 抖动时网关回源即可），但记 WARNING 保持可见。
+        """
+        now = datetime.now(tz=UTC)
+        payload = json.dumps(
+            {
+                "platform_user_id": str(principal.platform_user_id),
+                "session_id": str(principal.session_id),
+                "expires_at_epoch": expires_at.timestamp(),
+            },
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        cache = self._cache
+        if cache is None:  # pragma: no cover - 调用方已判空
+            return
+        try:
+            await cache.write_credential_plain(
+                tenant_id,
+                platform_key,
+                hash_session_token(assertion),
+                principal.platform_user_id,
+                payload,
+                expires_at_epoch=expires_at.timestamp(),
+                now_epoch=now.timestamp(),
+            )
+        except Exception as exc:  # noqa: BLE001 - 缓存层边界
+            _LOGGER.warning(
+                "external assertion credential write failed (%s); gateway will re-verify",
+                type(exc).__name__,
+            )
+
+    async def _write_permission(
+        self,
+        tenant_id: str,
+        user_id: uuid.UUID,
+        resolved: ResolvedPrincipal,
+        expires_at: datetime,
+    ) -> None:
+        """把全量授权结论写进权限层。
+
+        payload 与 ``/external-principal`` 的响应同形（``allowed``/``reason``/``agents``/
+        ``grants``/``expires_at``），网关命中后可直接反序列化并走同一套判定，无需再调
+        Console。任何授权变更都会经 `AuthCacheDirectory.invalidate` 删除该键，因此不需要
+        在 payload 里带版本。
+        """
+        payload = json.dumps(
+            {
+                "allowed": resolved.allowed,
+                "reason": resolved.reason,
+                "agents": [
+                    agent.model_dump(mode="json") for agent in resolved.agents
+                ],
+                "grants": [_grant_payload(view) for view in resolved.grants],
+                "expires_at": expires_at.isoformat(),
+            },
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        cache = self._cache
+        if cache is None:  # pragma: no cover - 调用方已判空
+            return
+        try:
+            await cache.write_permission_plain(tenant_id, user_id, payload)
+        except Exception as exc:  # noqa: BLE001 - 缓存层边界
+            _LOGGER.warning(
+                "external assertion permission write failed (%s); gateway will re-resolve",
+                type(exc).__name__,
+            )
+
 
 def _as_str(value: uuid.UUID | None) -> str | None:
     return str(value) if value is not None else None
@@ -179,7 +284,12 @@ def _require_config(platform_key: str) -> ExternalPlatformConfig:
     return config
 
 
-def _verify(assertion: str, config: ExternalPlatformConfig, platform_key: str, settings: object):
+def _verify(
+    assertion: str,
+    config: ExternalPlatformConfig,
+    platform_key: str,
+    settings: object,
+) -> VerifiedClaims:
     try:
         return verify_assertion(
             assertion,

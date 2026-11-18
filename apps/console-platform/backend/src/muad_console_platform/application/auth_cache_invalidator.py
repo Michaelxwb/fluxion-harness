@@ -37,10 +37,12 @@ from __future__ import annotations
 import hashlib
 import logging
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
 import sqlalchemy as sa
+from muad_common.auth_cache import AuthCacheStore
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -72,8 +74,15 @@ class InvalidationPlan:
     """
 
     user_ids: tuple[uuid.UUID, ...] = ()
-    delete_credentials: bool = False
+    #: 逐用户指定要清理的平台凭证：``{user_id: (platform_key, ...)}``。凭证索引按平台拆分，
+    #: 删除必须知道平台；不同用户的平台集合可能不同（删除入口时），故按用户给出。
+    #: 非空即表示"连凭证一起删"；为空表示只删权限层。
+    delete_credentials_for: Mapping[uuid.UUID, tuple[str, ...]] | None = None
     bump_revision: bool = True
+
+    @property
+    def delete_credentials(self) -> bool:
+        return bool(self.delete_credentials_for)
 
     def is_empty(self) -> bool:
         return not self.user_ids
@@ -94,7 +103,9 @@ def auth_cache_directory(session: AsyncSession, app_state: object) -> AuthCacheD
 class AuthCacheDirectory:
     """把一次授权变更同步进分层认证缓存；无 Redis 时是空操作（fail-open 于装配缺失）。"""
 
-    def __init__(self, session: AsyncSession, *, cache) -> None:
+    def __init__(
+        self, session: AsyncSession, *, cache: AuthCacheStore | None
+    ) -> None:
         self._session = session
         self._cache = cache
 
@@ -112,18 +123,33 @@ class AuthCacheDirectory:
         versions = await self._phase_prepare(tenant_id, fence, plan)
         await self._phase_publish_and_ready(tenant_id, fence, versions)
 
+    def _require_cache(self) -> AuthCacheStore:
+        """`invalidate` 已保证非 None；子阶段用它收窄类型。"""
+        cache = self._cache
+        if cache is None:  # pragma: no cover - 由 `invalidate` 的前置检查保证
+            raise AuthCacheInvalidationUnavailable("cache_unavailable")
+        return cache
+
     async def _phase_prepare(
         self, tenant_id: str, fence: str, plan: InvalidationPlan
     ) -> dict[uuid.UUID, int]:
-        cache = self._cache
+        cache = self._require_cache()
         try:
             # 阶段 1：关屏障 + 换 fence（BLOCKED 不放行、拒绝旧回填）。
             await cache.set_blocked(tenant_id, fence)
             # 定向删除权限缓存（必要时连凭证一起删）。
             await cache.delete_users_permissions(tenant_id, list(plan.user_ids))
-            if plan.delete_credentials:
-                for uid in plan.user_ids:
-                    await cache.delete_credentials(tenant_id, uid)
+            # 只有显式要求「连凭证一起删」的用户才删凭证；纯权限层失效（授权增删、
+            # 解绑入口）不碰凭证，否则会把仍有效的会话一并踢掉。
+            scopes = plan.delete_credentials_for or {}
+            for uid, platforms in scopes.items():
+                if not platforms:
+                    # 要删凭证却没给平台：宁可失败回滚，也不静默跳过
+                    # （跳过会让「停用用户后旧 token 仍放行」）。
+                    raise AuthCacheInvalidationUnavailable("missing_platform_keys")
+                await cache.delete_credentials(
+                    tenant_id, uid, platform_keys=list(platforms)
+                )
         except Exception as exc:  # noqa: BLE001 - Redis 客户端边界
             record_reason(AUTH_CACHE_INVALIDATION_METRIC, "prepare_failed", {})
             raise AuthCacheInvalidationUnavailable(type(exc).__name__) from exc
@@ -155,7 +181,7 @@ class AuthCacheDirectory:
     async def _phase_publish_and_ready(
         self, tenant_id: str, fence: str, versions: dict[uuid.UUID, int]
     ) -> None:
-        cache = self._cache
+        cache = self._require_cache()
         try:
             for uid, version in versions.items():
                 await cache.set_user_version(tenant_id, uid, version)

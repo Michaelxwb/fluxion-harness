@@ -11,7 +11,6 @@ import pytest
 from httpx import AsyncClient
 from muad_console_platform.application.external_assertion import config as assertion_config
 from muad_console_platform.infrastructure.db import get_session_factory
-from muad_console_platform.infrastructure.models.channel import EntryAccessGrant
 from muad_console_platform.infrastructure.models.control import ConfigAuditLog
 from sqlalchemy import select
 
@@ -20,27 +19,6 @@ from console_platform.conftest import TenantContext
 
 def _headers(tenant: TenantContext) -> dict[str, str]:
     return {"X-Tenant-Id": tenant.tenant_id}
-
-
-async def _grant_primary_key(tenant: TenantContext, identity_id: str, entry_id: str) -> str:
-    """按「租户 + 身份 + 入口」回库取授权的真实主键。
-
-    列表接口只回 `entry_id`，不回 `grant_id`（API-24 的事实）；解绑路由按主键匹配，
-    拿 `entry_id` 冒充会让解绑静默 404，测试却因为只断言「204 或 404」而变绿。
-    查询带租户条件，避免跨租户同名业务键把测试引到别人的行上。
-    """
-    session_factory = get_session_factory()
-    async with session_factory() as session:
-        row = await session.scalar(
-            select(EntryAccessGrant.id).where(
-                EntryAccessGrant.tenant_id == tenant.tenant_id,
-                EntryAccessGrant.external_identity_id == uuid.UUID(identity_id),
-                EntryAccessGrant.bot_account_id == uuid.UUID(entry_id),
-                EntryAccessGrant.is_deleted.is_(False),
-            )
-        )
-    assert row is not None, "授权行不存在，前置步骤失败"
-    return str(row)
 
 
 def _expert_id() -> str:
@@ -217,12 +195,12 @@ async def test_grant_and_revoke_entry(client: AsyncClient, tenant: TenantContext
 
     listed = await client.get(f"/api/v1/users/{user_id}/external-identities", headers=_headers(tenant))
     assert listed.json()["data"][0]["grants"][0]["entry_id"] == entry_id
-    revoke_id = await _grant_primary_key(tenant, identity_id, entry_id)
+    # 前端用列表里的 `entry_id` 直接解绑（与授权参数对称），无需回库取 grant 主键。
     revoked = await client.delete(
-        f"/api/v1/users/{user_id}/external-identities/{identity_id}/grants/{revoke_id}",
+        f"/api/v1/users/{user_id}/external-identities/{identity_id}/grants/{entry_id}",
         headers=_headers(tenant),
     )
-    # 主键正确时必须真的删掉：断言 204 而不是「204 或 404」，后者会掩盖解绑失败。
+    # 断言 204 而不是「204 或 404」，后者会掩盖解绑失败。
     assert revoked.status_code == 204, revoked.text
     after_revoke = await client.get(f"/api/v1/users/{user_id}/external-identities", headers=_headers(tenant))
     # 授权没了，身份还在——解绑的是入口，不是身份。
@@ -418,9 +396,8 @@ async def test_identity_and_grant_changes_are_audited(client: AsyncClient, tenan
     assert granted.status_code in (200, 201), granted.text
     assert "GRANT_ENTRY" in await _actions(), "授权必须留审计"
 
-    revoke_id = await _grant_primary_key(tenant, identity_id, entry_id)
     revoked = await client.delete(
-        f"/api/v1/users/{user_id}/external-identities/{identity_id}/grants/{revoke_id}",
+        f"/api/v1/users/{user_id}/external-identities/{identity_id}/grants/{entry_id}",
         headers=_headers(tenant),
     )
     assert revoked.status_code == 204, revoked.text

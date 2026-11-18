@@ -58,16 +58,15 @@ class AdminApi:
         raise AssertionError(f"identity {identity_id} not found")
 
     def delete_grant(
-        self, identity_id: uuid.UUID, grant_id: uuid.UUID, *, user_id: uuid.UUID | None = None
+        self, identity_id: uuid.UUID, entry_id: uuid.UUID, *, user_id: uuid.UUID | None = None
     ) -> None:
         """撤销入口授权（API-23）。
 
-        `grant_id` 必须由调用方给出：`GET .../external-identities` 返回的授权项只有
-        `entry_id / bot_id / name`，**不含 grant id**（API-24 的事实）。种子持有该 id，
-        验收用它；这不是绕过 API，而是 API 目前确实不提供反查。
+        路由按入口（`entry_id`）匹配，与授权接口的 `channel_account_id` 同口径；
+        列表接口返回的 `entry_id` 可直接用于解绑。
         """
         response = self.client.delete(
-            self._url(f"{self._identity_path(identity_id, user_id)}/grants/{grant_id}"),
+            self._url(f"{self._identity_path(identity_id, user_id)}/grants/{entry_id}"),
             headers=self._write_headers(),
         )
         assert response.status_code < 400, response.text

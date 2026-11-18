@@ -16,13 +16,13 @@ from muad_api import (
 )
 from muad_artifact_store import NfsArtifactStore
 from muad_common import SharedSettings
+from muad_common.auth_cache import AuthCacheStore
 from muad_common.db_counters import db_stage, publish_db_counters
 from muad_common.redis_client import (
     RedisTopologyMismatch,
     create_redis_client,
     verify_redis_topology,
 )
-from muad_common.auth_cache import AuthCacheStore
 from muad_common.session_store import RedisSessionStore
 from muad_logging import configure_logging
 from redis.exceptions import RedisError as RedisErrorType
@@ -37,13 +37,13 @@ from .application.auth_service import AuthService
 from .application.model_probe_service import ProbeCapacityClient
 from .application.platform_adapter_service import build_default_registry
 from .infrastructure.db import dispose_engine, get_engine, get_session_factory
-from .infrastructure.models.control import AuthCacheSyncState
 from .infrastructure.http_clients import (
     ProbeCapacityUnconfigured,
     build_probe_capacity_client,
     build_probe_http_client,
     probe_budget,
 )
+from .infrastructure.models.control import AuthCacheSyncState
 from .infrastructure.settings import process_settings
 from .metrics import CONFIG_FAILURE_METRIC, install_console_metrics, record_reason
 from .spa import install_spa

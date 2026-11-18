@@ -33,6 +33,9 @@ from ..application.memory_service import MemoryAdminService, MemoryService
 from ..application.user_service import UserService
 from ..infrastructure.db import get_session
 from ..infrastructure.models.control import PlatformUser
+from ..infrastructure.repositories.external_identity_repository import (
+    ExternalIdentityRepository,
+)
 from .deps import (
     AccountTenantId,
     AdminAccount,
@@ -376,9 +379,16 @@ async def update_user(
     )
     if payload.status is not None and payload.status != "ACTIVE":
         await directory.invalidate_user(tenant_id, user_id)
-        # 停用用户：连凭证一起失效（不得让旧 token 继续放行）。
+        # 停用用户：连凭证一起失效（不得让旧 token 继续放行）。用户可能绑定多个平台，
+        # 凭证索引按平台拆分，故先从身份行取平台列表。
+        identities = await ExternalIdentityRepository(session).list_for_user(tenant_id, user_id)
+        platforms = tuple({record.platform_key for record in identities})
         await auth_cache_directory(session, request.app.state).invalidate(
-            tenant_id, plan=InvalidationPlan(user_ids=(user_id,), delete_credentials=True)
+            tenant_id,
+            plan=InvalidationPlan(
+                user_ids=(user_id,),
+                delete_credentials_for={user_id: platforms} if platforms else None,
+            ),
         )
     elif payload.status is not None:
         await directory.refresh_user(tenant_id, user_id)
@@ -541,7 +551,9 @@ async def update_external_identity(
     await auth_cache_directory(session, request.app.state).invalidate(
         tenant_id,
         plan=InvalidationPlan(
-            user_ids=(user_id,), delete_credentials=True, bump_revision=False
+            user_ids=(user_id,),
+            delete_credentials_for={user_id: (item.platform_key,)},
+            bump_revision=False,
         ),
     )
     await session.commit()
@@ -559,7 +571,7 @@ async def delete_external_identity(
 ) -> None:
     """解绑身份（同时软删其授入口权）。"""
     service = ExternalIdentityService(session)
-    await service.delete_identity(
+    platform_key = await service.delete_identity(
         tenant_id=tenant_id,
         user_id=user_id,
         identity_id=identity_id,
@@ -568,7 +580,9 @@ async def delete_external_identity(
     await auth_cache_directory(session, request.app.state).invalidate(
         tenant_id,
         plan=InvalidationPlan(
-            user_ids=(user_id,), delete_credentials=True, bump_revision=False
+            user_ids=(user_id,),
+            delete_credentials_for={user_id: (platform_key,)},
+            bump_revision=False,
         ),
     )
     await session.commit()
@@ -605,13 +619,13 @@ async def grant_external_entry(
 
 
 @router.delete(
-    "/{user_id}/external-identities/{identity_id}/grants/{grant_id}",
+    "/{user_id}/external-identities/{identity_id}/grants/{entry_id}",
     status_code=204,
 )
 async def revoke_external_entry(
     user_id: uuid.UUID,
     identity_id: uuid.UUID,
-    grant_id: uuid.UUID,
+    entry_id: uuid.UUID,
     admin: AdminAccount,
     tenant_id: TenantId,
     session: Session,
@@ -623,7 +637,7 @@ async def revoke_external_entry(
         tenant_id=tenant_id,
         user_id=user_id,
         identity_id=identity_id,
-        grant_id=grant_id,
+        entry_id=entry_id,
         actor=_actor(admin, request),
     )
     await auth_cache_directory(session, request.app.state).invalidate(

@@ -8,6 +8,7 @@ from .auth import public_router as auth_public_router
 from .auth import router as auth_router
 from .credentials import router as credentials_router
 from .deps import get_current_account, require_admin
+from .external_platforms import router as external_platforms_router
 from .internal_artifacts import router as internal_artifacts_router
 from .internal_channel import router as internal_channel_router
 from .internal_platform_settings import router as internal_platform_settings_router
@@ -17,7 +18,6 @@ from .learning import router as learning_router
 from .mcp_servers import router as mcp_servers_router
 from .model_resources import quota_router as model_quota_groups_router
 from .model_resources import router as model_resources_router
-from .external_platforms import router as external_platforms_router
 from .models import router as models_router
 from .overview import router as overview_router
 from .platform_adapters import router as platform_adapters_router

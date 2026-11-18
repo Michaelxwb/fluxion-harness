@@ -69,13 +69,25 @@ def permission_key(tenant_id: str, user_id: uuid.UUID) -> str:
     return f"{AUTH_CACHE_ROOT}:{_tag(tenant_id)}:perm:{user_id}"
 
 
-def credential_key(tenant_id: str, token_hash: str) -> str:
-    return f"{AUTH_CACHE_ROOT}:{_tag(tenant_id)}:cred:{token_hash}"
+def credential_key(
+    tenant_id: str, platform_key: str, token_hash: str
+) -> str:
+    """凭证键：``{tenant}`` hash tag 之后先平台段再 token 哈希。
+
+    平台段必须在 hash tag **之后**：放前面会打散同租户槽位，破坏多 key 原子操作与批量删除。
+    不同平台即使 token 哈希偶然相同也不会互相命中。
+    """
+    return f"{AUTH_CACHE_ROOT}:{_tag(tenant_id)}:cred:{platform_key}:{token_hash}"
 
 
-def user_reverse_index_key(tenant_id: str, user_id: uuid.UUID) -> str:
-    """user → 该用户名下凭证 key 的反向索引（有界集合，用于定向批量删除）。"""
-    return f"{AUTH_CACHE_ROOT}:{_tag(tenant_id)}:useridx:{user_id}"
+def user_reverse_index_key(
+    tenant_id: str, platform_key: str, user_id: uuid.UUID
+) -> str:
+    """user → 该用户名下**同一平台**凭证 key 的反向索引（有界集合，用于定向批量删除）。
+
+    按平台拆分，避免解绑某平台身份时连带清掉同一用户其它平台的凭证。
+    """
+    return f"{AUTH_CACHE_ROOT}:{_tag(tenant_id)}:useridx:{platform_key}:{user_id}"
 
 
 def new_fence() -> str:
@@ -281,13 +293,13 @@ class AuthCacheStore:
         token_hash: str,
         user_id: uuid.UUID,
         *,
+        platform_key: str,
         expected_user_version: int,
-        platform_key: str | None = None,
         expected_epoch: str | None = None,
     ) -> CacheReadResult:
         return await self._read(
             tenant_id,
-            credential_key(tenant_id, token_hash),
+            credential_key(tenant_id, platform_key, token_hash),
             user_version_key(tenant_id, user_id),
             expected_user_version=expected_user_version,
             platform_key=platform_key,
@@ -360,14 +372,15 @@ class AuthCacheStore:
         token_hash: str,
         payload: dict[str, Any],
         *,
+        platform_key: str,
         start_fence: str | None,
         expected_user_version: int,
-        platform_key: str | None = None,
         expected_epoch: str | None = None,
     ) -> bool:
+        key = credential_key(tenant_id, platform_key, token_hash)
         ok = await self._write_cas(
             tenant_id,
-            credential_key(tenant_id, token_hash),
+            key,
             user_version_key(tenant_id, user_id),
             payload,
             start_fence=start_fence,
@@ -376,7 +389,7 @@ class AuthCacheStore:
             expected_epoch=expected_epoch,
         )
         if ok:
-            await self._add_reverse_index(tenant_id, user_id, credential_key(tenant_id, token_hash))
+            await self._add_reverse_index(tenant_id, platform_key, user_id, key, self._ttl)
         return ok
 
     async def _write_cas(
@@ -412,6 +425,113 @@ class AuthCacheStore:
             raise AuthCacheUnavailable(type(exc).__name__) from exc
         return bool(result)
 
+    # -- 精简读写（无屏障/无 fence/无版本）---------------------------------
+    #
+    # 供外部断言（MSSWWEB）读路径使用：凭证层只缓存「验签结论」，安全性来自键是断言原文的
+    # SHA-256（任何改动都会 miss 并回源完整验签），不依赖屏障协议。**权限层不得走这里**——
+    # 授权必须经 `read_permission` / `write_permission` 的版本/fence 校验，保证撤权即时生效。
+    # Redis 异常一律转 `AuthCacheUnavailable`；调用方（Gateway 读侧）据此回源，不 fail closed。
+
+    async def read_credential_plain(
+        self, tenant_id: str, platform_key: str, token_hash: str
+    ) -> str | None:
+        """读取凭证原文；未命中返回 ``None``。不校验屏障/版本/epoch。"""
+        try:
+            raw = await self._client.get(credential_key(tenant_id, platform_key, token_hash))
+        except Exception as exc:  # noqa: BLE001
+            raise AuthCacheUnavailable(type(exc).__name__) from exc
+        if raw is None:
+            return None
+        return raw.decode() if isinstance(raw, (bytes, bytearray)) else str(raw)
+
+    async def write_credential_plain(
+        self,
+        tenant_id: str,
+        platform_key: str,
+        token_hash: str,
+        user_id: uuid.UUID,
+        payload: str,
+        *,
+        expires_at_epoch: float,
+        now_epoch: float,
+    ) -> None:
+        """写入凭证并按平台登记反向索引。
+
+        TTL = ``max(0, min(闲置窗口, expires_at - now))``：闲置窗口取 Store 构造时的
+        `ttl_sec`（既有 `external_assertion_cache_ttl_sec`），绝对到期是硬封顶。
+        """
+        remaining = int(expires_at_epoch - now_epoch)
+        ttl_sec = max(0, min(self._ttl, remaining))
+        if ttl_sec <= 0:
+            return
+        key = credential_key(tenant_id, platform_key, token_hash)
+        try:
+            await self._client.set(key, payload, ex=ttl_sec)
+        except Exception as exc:  # noqa: BLE001
+            raise AuthCacheUnavailable(type(exc).__name__) from exc
+        await self._add_reverse_index(tenant_id, platform_key, user_id, key, ttl_sec)
+
+    async def read_permission_plain(
+        self, tenant_id: str, user_id: uuid.UUID
+    ) -> str | None:
+        """读取权限层原文；未命中返回 ``None``。不校验屏障/版本/epoch。
+
+        安全性来自：任何授权变更都会经 `AuthCacheDirectory.invalidate` 删除该键，
+        故 miss 必然回源 PG；命中即「自上次变更以来未变」。
+        """
+        try:
+            raw = await self._client.get(permission_key(tenant_id, user_id))
+        except Exception as exc:  # noqa: BLE001
+            raise AuthCacheUnavailable(type(exc).__name__) from exc
+        if raw is None:
+            return None
+        return raw.decode() if isinstance(raw, (bytes, bytearray)) else str(raw)
+
+    async def write_permission_plain(
+        self, tenant_id: str, user_id: uuid.UUID, payload: str
+    ) -> None:
+        """写入权限层，TTL 用 Store 的闲置窗口。"""
+        if self._ttl <= 0:
+            return
+        try:
+            await self._client.set(permission_key(tenant_id, user_id), payload, ex=self._ttl)
+        except Exception as exc:  # noqa: BLE001
+            raise AuthCacheUnavailable(type(exc).__name__) from exc
+
+    async def touch_permission(self, tenant_id: str, user_id: uuid.UUID) -> bool:
+        """命中后续期闲置窗口。"""
+        if self._ttl <= 0:
+            return False
+        try:
+            return bool(await self._client.expire(permission_key(tenant_id, user_id), self._ttl))
+        except Exception as exc:  # noqa: BLE001
+            raise AuthCacheUnavailable(type(exc).__name__) from exc
+
+    async def touch_credential(
+        self,
+        tenant_id: str,
+        platform_key: str,
+        token_hash: str,
+        *,
+        expires_at_epoch: float,
+        now_epoch: float,
+    ) -> bool:
+        """命中后延长闲置窗口，但**绝不越过绝对到期**。
+
+        TTL = ``max(0, min(闲置窗口, expires_at - now))``——闲置窗口取 Store 构造时的
+        `ttl_sec`，与 `RedisSessionStore._ttl_seconds` 同口径。键已消失返回 ``False``。
+        """
+        remaining = int(expires_at_epoch - now_epoch)
+        ttl = max(0, min(self._ttl, remaining))
+        if ttl <= 0:
+            return False
+        try:
+            return bool(
+                await self._client.expire(credential_key(tenant_id, platform_key, token_hash), ttl)
+            )
+        except Exception as exc:  # noqa: BLE001
+            raise AuthCacheUnavailable(type(exc).__name__) from exc
+
     # -- 定向删除 -----------------------------------------------------------
 
     async def delete_permission(self, tenant_id: str, user_id: uuid.UUID) -> None:
@@ -420,17 +540,32 @@ class AuthCacheStore:
         except Exception as exc:  # noqa: BLE001
             raise AuthCacheUnavailable(type(exc).__name__) from exc
 
-    async def delete_credentials(self, tenant_id: str, user_id: uuid.UUID) -> None:
-        """按 user→凭证反查索引批量删除该用户所有凭证项（有界：索引本身有容量约束）。"""
+    async def delete_credentials(
+        self, tenant_id: str, user_id: uuid.UUID, *, platform_keys: list[str]
+    ) -> None:
+        """删除该用户在这些平台下的全部凭证项。
+
+        索引按平台拆开后每个平台一个 set，直接 ``SMEMBERS`` 即可，不 ``SCAN``：
+        Redis Cluster 下 ``SCAN`` 无法跨节点枚举，因此调用方须给出平台列表
+        （「停用用户」由 PG 的身份行反查得到）。
+        """
+        if not platform_keys:
+            return
         try:
-            index = user_reverse_index_key(tenant_id, user_id)
-            members = await self._client.smembers(index)
+            async with self._client.pipeline(transaction=False) as pipe:
+                for platform_key in platform_keys:
+                    pipe.smembers(user_reverse_index_key(tenant_id, platform_key, user_id))
+                member_sets = await pipe.execute()
             cred_keys = [
-                m.decode() if isinstance(m, (bytes, bytearray)) else str(m) for m in members
+                m.decode() if isinstance(m, (bytes, bytearray)) else str(m)
+                for members in member_sets
+                for m in members
             ]
             if cred_keys:
                 await self._client.delete(*cred_keys)
-            await self._client.delete(index)
+            await self._client.delete(
+                *[user_reverse_index_key(tenant_id, pk, user_id) for pk in platform_keys]
+            )
         except Exception as exc:  # noqa: BLE001
             raise AuthCacheUnavailable(type(exc).__name__) from exc
 
@@ -445,9 +580,24 @@ class AuthCacheStore:
         except Exception as exc:  # noqa: BLE001
             raise AuthCacheUnavailable(type(exc).__name__) from exc
 
-    async def _add_reverse_index(self, tenant_id: str, user_id: uuid.UUID, cache_key: str) -> None:
+    async def _add_reverse_index(
+        self,
+        tenant_id: str,
+        platform_key: str,
+        user_id: uuid.UUID,
+        cache_key: str,
+        ttl_sec: int,
+    ) -> None:
+        """登记反向索引并为其续期。
+
+        Set 无法给单个成员设 TTL，改为给整个索引续期：只要该用户还有活凭证，索引就
+        持续存活（每次写入刷新）；凭证全部过期后索引整体过期，不会无界增长。
+        """
+        if ttl_sec <= 0:
+            return
         try:
-            index = user_reverse_index_key(tenant_id, user_id)
+            index = user_reverse_index_key(tenant_id, platform_key, user_id)
             await self._client.sadd(index, cache_key)
+            await self._client.expire(index, ttl_sec)
         except Exception as exc:  # noqa: BLE001
             raise AuthCacheUnavailable(type(exc).__name__) from exc

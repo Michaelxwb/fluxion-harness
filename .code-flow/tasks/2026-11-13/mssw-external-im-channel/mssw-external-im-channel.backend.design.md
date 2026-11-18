@@ -201,7 +201,7 @@ design_template: full
 8. **来源保留在后台**：会话来源是创建时入口；每个 Run 来源是本次实际入口；通知/交付跟随来源 Run。页面不强制增加来源标签，来源不参与共享资源授权。
 9. **立即失效的边界**：管理端成功响应前完成失效；其后新认证决策不能使用旧授权。既有长流收到通知后重查，且有截止时间兜底；缓存删除不等于撤销已受理 Run 的执行快照或回滚已经发生的副作用。
 
-#### 3.1.2 外部断言会话缓存（2026-11-18 定稿，待实现）
+#### 3.1.2 外部断言会话缓存（2026-11-18 定稿，已实现）
 
 **范围**：MSSWWEB（`EXTERNAL_ASSERTION`）认证面。**复用 `muad_common.auth_cache` 的分层结构**（凭证层 `cred:` / 权限层 `perm:`），不做自建缓存。
 
@@ -214,7 +214,7 @@ design_template: full
 | 凭证层 | `muad:authcache:{<tenant>}:cred:<platform_key>:<token_hash>`（tenant 由 Redis Cluster hash tag 包裹） | 验签结论：`platform_user_id`、`external_identity_id`、`expires_at`、`auth_method="EXTERNAL_ASSERTION"`。**不含任何 Agent/grant** | 自然到期（`expires_at`）或闲置超时；停用用户/删除身份时连同凭证批量删 |
 | 权限层 | `muad:authcache:{<tenant>}:perm:<user_id>` | 该用户当前可用的 Agent 与入口授权 | **任何授权/身份/入口/用户变化**（既有失效链路 `AuthCacheDirectory.invalidate`，含撤销入口授权） |
 
-**反向索引已存在**：凭证写入后由 `_add_reverse_index` 记入 `muad:authcache:{<tenant>}:useridx:<platform_key>:<user_id>`（Set，**需按平台拆分**，见「平台隔离」），`delete_credentials(tenant_id, user_id)` 先 `SMEMBERS` 再逐个删凭证键。**注意**：索引目前只有 `SADD`，**没有容量上限、没有 `SREM` 回收**，所属用户凭证长期累积会无界增长——接入前须补容量控制或改为带过期时间的索引结构。
+**反向索引已存在**：凭证写入后由 `_add_reverse_index` 记入 `muad:authcache:{<tenant>}:useridx:<platform_key>:<user_id>`（Set，**需按平台拆分**，见「平台隔离」），`delete_credentials(tenant_id, user_id, *, platform_keys)` 先逐平台 `SMEMBERS` 再删凭证键（必须给平台：集群下 `SCAN` 不能跨节点枚举）**并删除索引本身**。**索引带 TTL**：Set 无法逐成员过期，写入时对索引整体 `EXPIRE`（取凭证的同口径 TTL），只要该用户还有活凭证索引就持续续期，凭证全部过期后索引整体消失，不会无界增长。
 
 **各变更点的实际失效范围**（已核实）：
 
@@ -246,7 +246,7 @@ design_template: full
 
 | 项 | 口径 |
 |---|---|
-| 写入方 | 凭证层**仅 Console**（验签只在 Console，RULE-02）。Gateway 只读凭证层，不写。现成的读取接口是 `AuthCacheStore.read_credential(tenant_id, token_hash, user_id, *, expected_user_version, platform_key, expected_epoch)`，写入是 `write_credential(tenant_id, user_id, token_hash, payload, *, start_fence, expected_user_version, ...)`——参数带 fence 与版本号，对应 §3.1.1 的完整形态；本期若要跳过屏障协议，需要**新增一个不带 barrier 的精简读写入口**，而不是直接调用这两个方法 |
+| 写入方 | 凭证层与权限层**均仅 Console 写**（验签与授权解析都只在 Console，RULE-02）。Gateway 只读两层、只做续期，从不写入——这样「权威结论」只有一个来源。现成的读取接口是 `AuthCacheStore.read_credential(tenant_id, token_hash, user_id, *, expected_user_version, platform_key, expected_epoch)`，写入是 `write_credential(tenant_id, user_id, token_hash, payload, *, start_fence, expected_user_version, ...)`——参数带 fence 与版本号，对应 §3.1.1 的完整形态；本期若要跳过屏障协议，需要**新增一个不带 barrier 的精简读写入口**，而不是直接调用这两个方法 |
 | 续期 | 凭证层只重置**闲置窗口**，永不越过 `expires_at`。**注意 `auth_cache` 现有原语不提供 `touch`**（`RedisSessionStore` 才有）；本期需新增「重设 TTL 且取 `min(external_assertion_cache_ttl_sec, expires_at - now)`」的能力，TTL 计算可直接复用 `RedisSessionStore._ttl_seconds` 的口径 |
 | 绝对上限 | `expires_at = min(now + max_session_age_sec, login_time + max_session_age_sec, 正数 exp)`，首次算出后不变。`external_assertion_max_session_age_sec` 的字段约束是 `ge=0`（负数在启动即被拒），因此**只有 `= 0` 能表示关闭**该路约束（与验签侧 `_check_max_age` 一致），此时 `expires_at` 仅由上游正数 `exp` 决定 |
 | 会话上下文 | **凭证层不校验** `session_id`：同一断言可打开多个会话，凭证不绑定 `conversation_id`。注意不能照搬 WebChat 的命中分支——它强制 `session_id == X-Chat-Context`（否则 `AUTH_CONTEXT_CHANGED`）且要求 `auth_method == "USER_TOKEN"`，两条对断言面都不成立，实现时须按认证方式分流 |
@@ -259,7 +259,7 @@ design_template: full
 
 1. **绝对上限关闭时的长期凭据**：`max_session_age_sec = 0` 且上游 `exp = -1` 时凭证层无时间上限，只能靠 `external_assertion_cache_ttl_sec` 的闲置窗口清理（**持续活跃的断言永不失效**，因为每次命中都续期）。这是「关闭绝对上限」的必然结果，但**权限层仍随授权变化即时失效**，故安全影响限于「凭证本身不过期」，不是「撤权失效」。
 1.1 **未接 `policy_epoch`（平台公钥轮换缺口）**：平台更换验签公钥后，用旧私钥签发的断言在缓存里仍会被接受，直到自然过期（闲置窗口或 `expires_at`）。`auth_cache` 已有 `platform:` 键承载 `policy_epoch`，本期不启用。若要求「轮换即时失效」，需在写入时带 epoch、读取时比对，并在轮换时递增；否则须在验收中明确接受该窗口。
-1.2 **反向索引无界增长**：`useridx` 仅 `SADD`，无容量上限、无 `SREM` 回收（`auth_cache.py` 的「有界集合」只在 docstring 中声明）。凭证频繁创建的用户会持续累积索引成员。接入前须补容量控制（超限淘汰或改用带 TTL 的结构）。
+1.2 **反向索引增长（已缓解）**：`useridx` 写入时对索引整体 `EXPIRE`，随凭证 TTL 续期、凭证全过期后整体消失；`delete_credentials` 显式删索引。残留风险仅剩「同一用户在同一平台反复新建凭证、索引成员在两次删除之间累积」——成员数量受该平台活跃 token 数约束，不再是无限增长。
 2. **Redis 成为认证依赖**：与 WebChat 一致，Redis 不可用触发全量回源，Console + PG 需承受该峰值。
 3. **NFR-PERF-01 的时延目标须在接入后实测**，不在设计阶段承诺数值。
 
@@ -269,8 +269,9 @@ design_template: full
 
 ##### 实现清单（本节的落地范围）
 
-1. `auth_cache.py`：`credential_key(tenant_id, token_hash, *, platform_key)` 与 `user_reverse_index_key(tenant_id, user_id, *, platform_key)` 增加 `platform_key` 参数（置于 `{tenant}` 之后），新增精简读写 `read_credential_plain` / `write_credential_plain` / `touch_credential`（无 fence、无屏障，维护按平台划分的 `useridx`）。**现有调用点必须同步改签名**：`tests/console_platform/test_auth_cache_invalidation.py` 直接调用了 `credential_key(tenant, "hash")`。
-2. Console `ExternalAssertionService.resolve()`：验签+查库成功后写凭证层；`describe()` 同。
+1. `auth_cache.py`：`credential_key(tenant_id, platform_key, token_hash)` 与 `user_reverse_index_key(tenant_id, platform_key, user_id)` 增加 `platform_key` 参数（置于 `{tenant}` 之后），新增精简读写 `read_credential_plain` / `write_credential_plain` / `touch_credential` 与权限层对应的 `read_permission_plain` / `write_permission_plain` / `touch_permission`（无 fence、无屏障，维护按平台划分的 `useridx`）；`delete_credentials` 改为必须给 `platform_keys`（集群下不能 `SCAN` 跨节点枚举）。**现有调用点必须同步改签名**：`tests/console_platform/test_auth_cache_invalidation.py` 直接调用了 `credential_key(tenant, "hash")`。
+2. Console `ExternalAssertionService.resolve()`：验签+查库成功后写凭证层；**同时写权限层**（存 `allowed`/`reason`/`agents`/`grants`/`expires_at`，与内部主体端点响应同形），未指定 `entry_id` 时才写——收敛子集不能覆盖全量结论。`describe()` 不写缓存（它要回最新状态）。写入失败只记 WARNING，不影响本次结果。
+   - **这是实现阶段才发现的前置条件**：权限层原本没有任何生产写入者，不补这一项，网关闭中后永远 miss 回源，「读权限层」形同虚设。
 3. Gateway `ChatPrincipalGate.resolve_external()`：加「读凭证层 → 命中则 touch 并跳过验签 → 再读权限层 → 未命中回源」分支；Redis 故障时直接回源。
 4. **不新增配置项**：闲置窗口复用既有 `external_assertion_cache_ttl_sec`（`AuthCacheStore` 的写入 TTL），绝对上限复用既有 `external_assertion_max_session_age_sec`；chart 若需调值只改现有键，不引入 `external_assertion_idle_ttl_sec`。
 5. 测试：命中跳过验签、`expires_at` 封顶、`max_session_age_sec=0` 时不设年龄上限、解绑入口后权限层即时失效、删除入口后凭证层同步失效、Redis 故障回源、篡改断言 miss；并修正第 1 项提到的既有 `credential_key` 调用点。

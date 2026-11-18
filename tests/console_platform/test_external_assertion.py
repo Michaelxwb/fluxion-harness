@@ -421,3 +421,117 @@ def test_session_expiry_without_age_cap_only_honours_positive_exp() -> None:
     exp = int((now + timedelta(minutes=30)).timestamp())
     bounded = _session_expires_at({**claims, "exp": exp}, max_session_age_sec=0)
     assert abs((bounded - datetime.fromtimestamp(exp, tz=UTC)).total_seconds()) < 1
+
+
+# --- 凭证层/权限层写入：Console 是唯一的写入者 ----------------------------------------
+
+
+class _FakeCache:
+    def __init__(self) -> None:
+        self.credentials: dict[tuple[str, str, str], str] = {}
+        self.permissions: dict[tuple[str, str], str] = {}
+        self.fail = False
+
+    async def write_credential_plain(
+        self,
+        tenant_id: str,
+        platform_key: str,
+        token_hash: str,
+        user_id: object,
+        payload: str,
+        *,
+        expires_at_epoch: float,
+        now_epoch: float,
+    ) -> None:
+        if self.fail:
+            raise RuntimeError("redis down")
+        self.credentials[(tenant_id, platform_key, token_hash)] = payload
+
+    async def write_permission_plain(
+        self, tenant_id: str, user_id: object, payload: str
+    ) -> None:
+        if self.fail:
+            raise RuntimeError("redis down")
+        self.permissions[(tenant_id, str(user_id))] = payload
+
+
+def _principal(user_id: object) -> object:
+    import uuid as _uuid
+
+    from muad_contracts.webchat import ChatPrincipal
+
+    return ChatPrincipal(
+        tenant_id="t1",
+        platform_user_id=user_id,
+        session_id=_uuid.uuid4(),
+        auth_method="EXTERNAL_ASSERTION",
+    )
+
+
+def _resolved(msg) -> object:  # noqa: ANN001 - 测试内联结构
+    from muad_console_platform.application.external_assertion.principal import ResolvedPrincipal
+
+    return ResolvedPrincipal(
+        allowed=True,
+        reason=None,
+        platform_user_id=msg,
+        agents=(),
+        grants=(),
+    )
+
+
+async def test_write_credential_stores_only_identity_and_expiry() -> None:
+    """凭证层只存重建主体所需字段 + 绝对到期；**不含任何授权**。"""
+    import uuid as _uuid
+    from datetime import UTC, datetime, timedelta
+
+    from muad_console_platform.application import external_assertion_service as svc_mod
+
+    cache = _FakeCache()
+    service = svc_mod.ExternalAssertionService(session=None, cache=cache)  # type: ignore[arg-type]
+    uid = _uuid.uuid4()
+    expires = datetime.now(tz=UTC) + timedelta(hours=1)
+    await service._write_credential("t1", "mssw", "assertion.x", _principal(uid), expires)
+
+    payloads = list(cache.credentials.values())
+    assert len(payloads) == 1
+    stored = json.loads(payloads[0])
+    assert set(stored) == {"platform_user_id", "session_id", "expires_at_epoch"}
+    assert stored["platform_user_id"] == str(uid)
+
+
+async def test_write_permission_stores_full_conclusion_with_expiry() -> None:
+    """权限层存 allowed/reason/agents/grants/expires_at，网关可原样还原并复用判定。"""
+    import uuid as _uuid
+    from datetime import UTC, datetime, timedelta
+
+    from muad_console_platform.application import external_assertion_service as svc_mod
+
+    cache = _FakeCache()
+    service = svc_mod.ExternalAssertionService(session=None, cache=cache)  # type: ignore[arg-type]
+    uid = _uuid.uuid4()
+    expires = datetime.now(tz=UTC) + timedelta(hours=2)
+    await service._write_permission("t1", uid, _resolved(uid), expires)
+
+    stored = json.loads(cache.permissions[("t1", str(uid))])
+    assert stored["allowed"] is True
+    assert stored["agents"] == []
+    assert stored["grants"] == []
+    assert stored["expires_at"] == expires.isoformat()
+
+
+async def test_cache_failure_does_not_break_resolution() -> None:
+    """Redis 抖动时写入失败只记日志，不影响本次验签结果（网关回源即可）。"""
+    import uuid as _uuid
+    from datetime import UTC, datetime, timedelta
+
+    from muad_console_platform.application import external_assertion_service as svc_mod
+
+    cache = _FakeCache()
+    cache.fail = True
+    service = svc_mod.ExternalAssertionService(session=None, cache=cache)  # type: ignore[arg-type]
+    uid = _uuid.uuid4()
+    expires = datetime.now(tz=UTC) + timedelta(hours=1)
+    # 不抛异常即为通过。
+    await service._write_credential("t1", "mssw", "a.b", _principal(uid), expires)
+    await service._write_permission("t1", uid, _resolved(uid), expires)

@@ -17,6 +17,7 @@ from muad_api import (
 from muad_api.catalog import MessageCatalog
 from muad_artifact_store import NfsArtifactStore
 from muad_common import SharedSettings
+from muad_common.auth_cache import AuthCacheStore
 from muad_common.redis_client import (
     RedisClient,
     RedisTopologyMismatch,
@@ -38,8 +39,6 @@ from .api.health import readiness_checks, readiness_detail
 from .api.task_center import build_task_center_router
 from .api.webchat import notification_router as webchat_notification_router
 from .api.webchat import router as webchat_router
-from .application.webchat_core import ChatSurface
-from .channels.registry import external_platforms_enabled as _external_platforms_configured
 from .api.webhook import router as webhook_router
 from .application.channel_delivery import ActiveChannelDelivery, ConsoleDeliveryPermission
 from .application.connector_outbound import ConnectorOutboundCommands
@@ -51,10 +50,12 @@ from .application.inbound_streams import InboundStreamConsumer
 from .application.notification_streams import NotificationStreamHub
 from .application.runtime_client import RuntimeClient
 from .application.task_center import WEBCHAT_SURFACE
+from .application.webchat_core import ChatSurface
 from .application.webchat_streams import SseBufferLedger
 from .application.worker_client import WorkerClient
 from .channels.base import ChannelRegistry
 from .channels.registry import build_channel_registry, dispatch_snapshot
+from .channels.registry import external_platforms_enabled as _external_platforms_configured
 from .channels.routed import parse_routed_channels
 from .channels.webhook import parse_webhook_channels
 from .infrastructure.artifact_resolver import HttpArtifactResolver
@@ -110,6 +111,8 @@ class _GatewayResources:
     #: 本部署是否声明了经 Redis Stream 的通道面（远程 Connector / webhook）：决定 Redis 是否
     #: 是就绪硬依赖（WebChat-only 部署不经过 Stream）。
     stream_reliant: bool
+    #: 外部断言的凭证层/权限层缓存（只读）；None 时每次回源 Console 完整验签。
+    auth_cache: AuthCacheStore | None = None
 
     def publish(self, app: FastAPI) -> None:
         """初始化成功后才公开运行时状态：探针与投递/聊天 API 都从这里读依赖。"""
@@ -128,6 +131,7 @@ class _GatewayResources:
         app.state.inbound_publisher = self.inbound_publisher
         app.state.notification_hub = self.notification_hub
         app.state.session_store = self.session_store
+        app.state.auth_cache = self.auth_cache
         app.state.stream_reliant = self.stream_reliant
         # Webchat 路由（TASK-052/054/055/057/061）消费的状态值：装配根是唯一发布点，
         # 值来自同一个 SharedSettings（预算/上限的唯一来源，不在路由层另抄一份默认值）。
@@ -381,6 +385,10 @@ async def _build_resources(
         )
         notification_hub = NotificationStreamHub(pubsub_redis, key_client=redis)
         session_store = RedisSessionStore(redis)
+        # 只读凭证层/权限层：TTL 用与 Console 相同的闲置窗口配置，网关只做读取与续期。
+        auth_cache = AuthCacheStore(
+            redis, ttl_sec=settings.external_assertion_cache_ttl_sec
+        )
         return _GatewayResources(
             registry=registry,
             dedupe=dedupe,
@@ -407,6 +415,7 @@ async def _build_resources(
                 parse_routed_channels(settings.gateway_routed_channels)
                 or parse_webhook_channels(settings.gateway_webhook_channels)
             ),
+            auth_cache=auth_cache,
         )
     except BaseException:
         # 半初始化不发布、也不留资源：自有的 dedupe/streams（Redis 连接）在这里回收；HTTP

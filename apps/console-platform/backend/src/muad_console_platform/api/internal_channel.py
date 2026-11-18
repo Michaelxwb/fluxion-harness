@@ -178,7 +178,9 @@ async def external_principal(
     三类结果：平台未配置 → 503 `EXTERNAL_PLATFORM_UNAVAILABLE`；断言不可信 → 401；
     身份未绑定 / 无入口授权 / 用户停用 → 200 + `allowed=false` + `reason`。
     """
-    service = ExternalAssertionService(session)
+    service = ExternalAssertionService(
+        session, cache=getattr(request.app.state, "auth_cache", None)
+    )
     try:
         resolved = await service.resolve(
             tenant_id,

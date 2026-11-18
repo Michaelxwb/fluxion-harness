@@ -15,7 +15,7 @@ from __future__ import annotations
 import uuid
 
 import pytest
-
+from httpx import AsyncClient
 from muad_common.auth_cache import (
     AUTH_CACHE_ROOT,
     READY_PREFIX,
@@ -50,7 +50,7 @@ def test_keys_share_tenant_hash_tag() -> None:
         barrier_key(tenant),
         user_version_key(tenant, uid),
         permission_key(tenant, uid),
-        credential_key(tenant, "hash"),
+        credential_key(tenant, "mssw", "hash"),
         platform_state_key(tenant, "mssw"),
     ]
     for key in keys:
@@ -104,13 +104,25 @@ async def wired_auth_cache():
     """
     from muad_common import SharedSettings
     from muad_common.auth_cache import AuthCacheStore
+    from muad_common.redis_client import create_redis_client
     from muad_console_platform.main import app
-    from redis.asyncio import Redis
 
     settings = SharedSettings()
     if not settings.redis_url:
         pytest.skip("需要真实 Redis")
-    client = Redis.from_url(settings.redis_url, decode_responses=True)
+    # 与生产同构：standalone 返回 `Redis`，cluster 返回 `RedisCluster`。裸 `Redis.from_url` 在
+    # 集群模式下多 key 的 EVAL/DEL 会被 MOVED 打回（`AuthCacheUnavailable('MovedError')`）。
+    seeds = [
+        item.strip()
+        for item in (settings.redis_cluster_seeds or "").split(",")
+        if item.strip()
+    ]
+    client = create_redis_client(
+        settings.redis_url,
+        mode=settings.redis_mode,
+        seeds=seeds,
+        decode_responses=True,
+    )
     app.state.auth_cache = AuthCacheStore(client, ttl_sec=60)
     try:
         yield client

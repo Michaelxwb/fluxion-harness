@@ -209,14 +209,17 @@ class ExternalIdentityService:
         identity_id: uuid.UUID,
         *,
         actor: AuditActor,
-    ) -> None:
+    ) -> str:
+        """解绑身份并返回其 ``platform_key``——调用方据此定向清理该平台凭证。"""
         record = await self._repo.get_for_user(tenant_id, user_id, identity_id)
         if record is None:
             raise AppError(ErrorCode.COMMON_NOT_FOUND)
+        platform_key = record.platform_key
         before = identity_snapshot(record)
         await self._repo.soft_delete_identity(tenant_id, identity_id)
         await self._record_audit(tenant_id, actor, "DELETE", user_id, before, None)
         await self._touch_auth_revision(tenant_id, user_id)
+        return platform_key
 
     # ------------------------------------------------------------------ 入口授权
 
@@ -237,7 +240,7 @@ class ExternalIdentityService:
         `granted` 的归属口径：传 `identity_id` 时只看**该身份**是否已授权，否则看该用户
         名下任一身份。授权弹窗按身份操作，必须传 `identity_id`——否则用户有两个身份时，
         A 身份已授权的入口在 B 身份下也会显示「已授权」，点撤销会按 B 的身份去删，
-        命中 `grant_id` 不存在而报 404（`revoke_grant` 按 identity 精确查找）。
+        命中入口不存在而报 404（`revoke_grant` 按 (identity, entry) 精确查找）。
         """
         self._require_platform(platform_key)
         offset = max(page - 1, 0) * page_size
@@ -320,7 +323,7 @@ class ExternalIdentityService:
         tenant_id: str,
         user_id: uuid.UUID,
         identity_id: uuid.UUID,
-        grant_id: uuid.UUID,
+        entry_id: uuid.UUID,
         *,
         actor: AuditActor,
     ) -> None:
@@ -328,7 +331,7 @@ class ExternalIdentityService:
         record = await self._repo.get_for_user(tenant_id, user_id, identity_id)
         if record is None:
             raise AppError(ErrorCode.COMMON_NOT_FOUND)
-        grant = await self._repo.get_grant_for_identity(tenant_id, identity_id, grant_id)
+        grant = await self._repo.get_grant_for_identity(tenant_id, identity_id, entry_id)
         if grant is None:
             raise AppError(ErrorCode.COMMON_NOT_FOUND)
         before = {"identity_id": str(identity_id), **grant_snapshot(grant)}

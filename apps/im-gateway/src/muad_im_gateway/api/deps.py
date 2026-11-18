@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import Depends, Header, Request
+from fastapi import Depends, Request
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_im_core import InboundPublisher
@@ -102,6 +102,7 @@ def get_chat_principal_gate(
         console,
         tenant_id=tenant,
         session_store=getattr(request.app.state, "session_store", None),
+        auth_cache=getattr(request.app.state, "auth_cache", None),
     )
 
 

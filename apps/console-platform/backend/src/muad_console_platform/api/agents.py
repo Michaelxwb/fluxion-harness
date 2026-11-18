@@ -416,14 +416,16 @@ async def remove_agent_channel(
     tenant_id: TenantId,
     session: Session,
 ) -> ApiResponse[Any]:
-    user_ids = await ExternalIdentityRepository(session).list_user_ids_for_bot(
-        tenant_id, channel_account_id
-    )
+    repository = ExternalIdentityRepository(session)
+    user_ids = await repository.list_user_ids_for_bot(tenant_id, channel_account_id)
+    # 必须在 soft-delete 授权前取「用户→平台」，否则删完就查不到该入口关联的平台。
+    platform_scopes = await repository.list_platform_keys_for_users(tenant_id, user_ids)
     data = await ChannelAdminService(session).remove_channel(
         tenant_id, agent_id, channel_account_id, _actor(account, request)
     )
     if user_ids:
         await auth_cache_directory(session, request.app.state).invalidate(
-            tenant_id, plan=InvalidationPlan(user_ids=user_ids, delete_credentials=True)
+            tenant_id,
+            plan=InvalidationPlan(user_ids=user_ids, delete_credentials_for=platform_scopes),
         )
     return ok(request.app.state.message_catalog, data)

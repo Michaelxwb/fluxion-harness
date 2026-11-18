@@ -272,7 +272,7 @@ def test_e05_revoked_agent_grant_hides_entry_immediately(
         expert_id=mssw_stack.seed.expert_id,
         tenant_id=mssw_stack.seed.platform_tenant_id,
     )
-    admin_api.delete_grant(mssw_stack.seed.identity_id, mssw_stack.seed.grant_id)
+    admin_api.delete_grant(mssw_stack.seed.identity_id, mssw_stack.seed.entry_id)
     try:
         response = gateway_client.get(
             f"{mssw_stack.gateway_url}{ENTRIES_PATH}",

@@ -4,6 +4,7 @@
 不扫用户表；入口反查按 ``(tenant, bot_account_id)`` 走 grant 的复合索引。
 """
 
+import collections.abc
 import uuid
 
 from sqlalchemy import or_, select
@@ -210,6 +211,29 @@ class ExternalIdentityRepository:
         )
         return list(rows)
 
+    async def list_platform_keys_for_users(
+        self,
+        tenant_id: str,
+        user_ids: collections.abc.Iterable[uuid.UUID],
+    ) -> dict[uuid.UUID, tuple[str, ...]]:
+        """``user_id → 其存在的平台列表``，用于停用用户/删除入口时定向清理凭证。"""
+        ids = list(user_ids)
+        if not ids:
+            return {}
+        rows = await self._session.execute(
+            select(ExternalIdentity.platform_user_id, ExternalIdentity.platform_key)
+            .where(
+                ExternalIdentity.tenant_id == tenant_id,
+                ExternalIdentity.platform_user_id.in_(ids),
+                ExternalIdentity.is_deleted.is_(False),
+            )
+            .distinct()
+        )
+        grouped: dict[uuid.UUID, list[str]] = {}
+        for user_id, platform_key in rows:
+            grouped.setdefault(user_id, []).append(platform_key)
+        return {user_id: tuple(keys) for user_id, keys in grouped.items()}
+
     async def list_user_ids_for_bot(
         self,
         tenant_id: str,
@@ -241,14 +265,18 @@ class ExternalIdentityRepository:
         self,
         tenant_id: str,
         identity_id: uuid.UUID,
-        grant_id: uuid.UUID,
+        entry_id: uuid.UUID,
     ) -> EntryAccessGrant | None:
-        """按 grant 主键取，同时核身份 —— 防止拿别的身份的 grant id 来解绑。"""
+        """按入口（`bot_account_id`）取授权，同时核身份。
+
+        入口是授权接口（`channel_account_id`）使用的自然键，解绑沿用同一口径，
+        调用方无需先知道 grant 行主键。核身份仍能防止拿别的身份的入口来解绑。
+        """
         grant: EntryAccessGrant | None = await self._session.scalar(
             select(EntryAccessGrant).where(
                 EntryAccessGrant.tenant_id == tenant_id,
                 EntryAccessGrant.external_identity_id == identity_id,
-                EntryAccessGrant.id == grant_id,
+                EntryAccessGrant.bot_account_id == entry_id,
                 EntryAccessGrant.is_deleted.is_(False),
             )
         )

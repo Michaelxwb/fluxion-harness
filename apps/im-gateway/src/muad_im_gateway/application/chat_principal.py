@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from collections.abc import AsyncIterator, Callable
@@ -33,6 +34,7 @@ from uuid import UUID
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_common.auth_cache import AuthCacheStore, AuthCacheUnavailable
 from muad_common.session_store import (
     RedisSessionStore,
     SessionStoreUnavailable,
@@ -44,6 +46,7 @@ from muad_contracts.webchat import (
     ChatPrincipal,
     ExternalIdentityGrant,
     ExternalIdentityView,
+    ExternalPrincipalResult,
 )
 from pydantic import SecretStr
 
@@ -121,10 +124,13 @@ class ChatPrincipalGate:
         *,
         tenant_id: str,
         session_store: RedisSessionStore | None = None,
+        auth_cache: AuthCacheStore | None = None,
     ) -> None:
         self._console = console
         self._tenant_id = tenant_id
         self._session_store = session_store
+        #: 外部断言的凭证层/权限层；未装配时每次都回源 Console 完整验签。
+        self._auth_cache = auth_cache
 
     async def resolve_credentials(
         self,
@@ -222,11 +228,16 @@ class ChatPrincipalGate:
         本层不做二次放宽。这意味着 Agent 被停用后，旧授权**不再**能放行——这是有意的收口，
         详见 `resolve_principal` 的 docstring。
         """
-        result = await self._console.external_principal(
-            assertion,
-            tenant_id=self._tenant_id,
-            platform_key=platform_key,
-            channel=channel,
+        cached = await self._try_cached_external(assertion, platform_key=platform_key)
+        result = (
+            cached
+            if cached is not None
+            else await self._console.external_principal(
+                assertion,
+                tenant_id=self._tenant_id,
+                platform_key=platform_key,
+                channel=channel,
+            )
         )
         # 「身份级不可用」才拦在这里：查无此人（UNBOUND）、用户停用（USER_DISABLED）。
         #
@@ -247,6 +258,105 @@ class ChatPrincipalGate:
             agents=tuple(result.agents),
             grants=tuple(result.grants),
         )
+
+    async def _try_cached_external(
+        self, assertion: SecretStr, *, platform_key: str
+    ) -> ExternalPrincipalResult | None:
+        """凭证层命中 → 读权限层 → 构造主体。任一环节 miss / Redis 故障都返回 ``None``
+        （调用方回源 Console 完整验签），不 fail closed——可用性优先。
+
+        **凭证命中不代表权限可信**：授权只从权限层读，权限层被 `invalidate` 删除后必然
+        回源，因此撤权即时生效。凭证无关的授权窗口由设计 §3.1.2 的「已知取舍」界定。
+        """
+        cache = self._auth_cache
+        if cache is None:
+            return None
+        token_hash = hash_session_token(assertion.get_secret_value())
+        now = _utc_now()
+        try:
+            raw = await cache.read_credential_plain(
+                self._tenant_id, platform_key, token_hash
+            )
+        except AuthCacheUnavailable:
+            return None
+        if raw is None:
+            return None
+        try:
+            record = json.loads(raw)
+            expires_at_epoch = float(record["expires_at_epoch"])
+            platform_user_id = UUID(record["platform_user_id"])
+            session_id = UUID(record["session_id"])
+        except (ValueError, KeyError, TypeError):
+            # 缓存内容损坏：当作 miss，回源重建。
+            return None
+        if now.timestamp() >= expires_at_epoch:
+            return None
+        try:
+            alive = await cache.touch_credential(
+                self._tenant_id,
+                platform_key,
+                token_hash,
+                expires_at_epoch=expires_at_epoch,
+                now_epoch=now.timestamp(),
+            )
+        except AuthCacheUnavailable:
+            return None
+        if not alive:
+            return None
+        permission = await self._read_cached_permission(
+            cache, platform_user_id, session_id=session_id
+        )
+        if permission is None:
+            return None
+        return permission
+
+    async def _read_cached_permission(
+        self,
+        cache: AuthCacheStore,
+        platform_user_id: UUID,
+        *,
+        session_id: UUID,
+    ) -> ExternalPrincipalResult | None:
+        """读权限层并还原成 `ExternalPrincipalResult`。
+
+        还原后交由调用方走**与回源完全相同**的判定，因此 `allowed=false` 的缓存结论
+        （含 USER_DISABLED 等身份级拒绝）不会被当成放行——权限层缓存的是结论，不是豁免。
+        miss / 损坏 / Redis 故障都返回 ``None``（回源）。
+        """
+        try:
+            raw = await cache.read_permission_plain(self._tenant_id, platform_user_id)
+        except AuthCacheUnavailable:
+            return None
+        if raw is None:
+            return None
+        try:
+            data = json.loads(raw)
+        except ValueError:
+            return None
+        try:
+            result = ExternalPrincipalResult.model_validate(
+                {
+                    "allowed": data["allowed"],
+                    "reason": data.get("reason"),
+                    "principal": {
+                        "tenant_id": self._tenant_id,
+                        "platform_user_id": str(platform_user_id),
+                        "session_id": str(session_id),
+                        "auth_method": "EXTERNAL_ASSERTION",
+                    },
+                    "agents": data["agents"],
+                    "grants": data["grants"],
+                    "expires_at": data["expires_at"],
+                }
+            )
+        except (KeyError, TypeError, ValueError):
+            return None
+        try:
+            await cache.touch_permission(self._tenant_id, platform_user_id)
+        except AuthCacheUnavailable:
+            # 续期失败不影响本次结论；下次命中自然回源。
+            logger.warning("external_permission_touch_failed")
+        return result
 
     async def describe_external(
         self,
