@@ -123,7 +123,7 @@ def visible_attachment_ids(rows: Sequence[CanonicalRow]) -> list[uuid.UUID]:
     """可见用户消息载荷里的附件 id（去重保序）——附件元信息按页批量取，不逐条回查。"""
     ids: list[uuid.UUID] = []
     for row in rows:
-        if PUBLIC_ROLE_BY_EVENT_TYPE.get(row.event_type) != "USER":
+        if PUBLIC_ROLE_BY_EVENT_TYPE.get(row.event_type) not in ("USER", "ASSISTANT"):
             continue
         payload = _payload(row)
         raw = payload.get("attachments")
@@ -158,7 +158,9 @@ def _project_message(
     else:
         text = payload.get("text")
     attachments = (
-        _project_attachments(payload.get("attachments"), artifacts) if role == "USER" else []
+        _project_attachments(payload.get("attachments"), artifacts)
+        if role in ("USER", "ASSISTANT")
+        else []
     )
     return WebchatHistoryMessage(
         event_id=row.id,

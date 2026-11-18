@@ -33,9 +33,11 @@ class DeliveryMessage(ContractModel):
     `status`/`error_code` 用消息目录渲染），但必须给出终态 `status`。
     """
 
-    type: Literal["text", "artifact", "image", "terminal"] = "text"
+    type: Literal["text", "artifact", "image", "terminal", "message"] = "text"
     text: str = ""
     artifact: AttachmentRef | None = None
+    #: 一条消息多个附件；Web pull 与 push 共用同一列表。
+    attachments: list[AttachmentRef] = Field(default_factory=list)
     #: 仅 terminal：Run 终态（COMPLETED/FAILED/CANCELLED），网关据此渲染空正文的终态文案。
     status: str = ""
     #: 仅 terminal：失败码（消息目录的 code），用于渲染用户可见的错误文案。
@@ -49,6 +51,9 @@ class DeliveryMessage(ContractModel):
         elif self.type == "terminal":
             if not self.status:
                 raise ValueError("type=terminal 时 status 必填")
+        elif self.type == "message":
+            if not self.text and not self.attachments:
+                raise ValueError("type=message 时 text 或 attachments 至少一个非空")
         elif self.artifact is None:
             raise ValueError(f"type={self.type} 时 artifact 必填")
         return self

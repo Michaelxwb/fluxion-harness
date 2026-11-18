@@ -726,3 +726,48 @@ async def test_b251_known_public_events_fail_explicitly_on_malformed_payloads(
             public_events.project_public_stream_event(row, {})
         assert failure.value.code == ErrorCode.COMMON_INTERNAL_ERROR
         assert "secret" not in str(failure.value)  # 原始坏载荷不回显
+
+
+async def test_b251_assistant_terminal_message_projects_its_attachments(
+    client: AsyncClient, projection_tenant: TenantContext
+) -> None:
+    """Run 终态 assistant 消息的 attachments 与 USER 消息共用同一投影/安全校验。"""
+    tenant = projection_tenant
+    conversation_id = await _seed_conversation(tenant)
+    run_id = await _seed_run(tenant, conversation_id)
+    artifact_id = await _seed_artifact(
+        tenant,
+        conversation_id,
+        run_id=run_id,
+        artifact_type="OUTPUT",
+        filename="report.md",
+    )
+
+    await _append_event(
+        tenant.tenant_id,
+        conversation_id,
+        run_id=run_id,
+        event_type="ASSISTANT_MESSAGE",
+        payload={
+            "text": "报告已生成",
+            "attachments": [
+                {
+                    "artifact_id": str(artifact_id),
+                    "kind": "DOCUMENT",
+                    "media_type": "text/plain",
+                    "filename": "report.md",
+                    "size": 3,
+                }
+            ],
+        },
+    )
+
+    rows = await _load_rows(tenant.tenant_id, conversation_id)
+    artifacts = await _load_artifacts(tenant.tenant_id, [artifact_id])
+    fact = public_events.project_public_fact(rows[0], artifacts)
+
+    assert isinstance(fact, WebchatHistoryMessage)
+    assert fact.role == "ASSISTANT"
+    assert [_attachment_wire(attachment) for attachment in fact.attachments] == [
+        (artifact_id, True, "report.md")
+    ]

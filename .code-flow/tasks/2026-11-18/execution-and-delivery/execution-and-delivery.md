@@ -72,7 +72,7 @@ Artifact 版本即行：一个不可变版本一行、一个 `artifact_id`；`lo
   - artifact-version PASS exit=0
 ## TASK-002: MessagePayload + Run 终态消息 + Web 历史
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001
 - **Source**: unified-artifact-delivery/unified-artifact-delivery.backend.design.md#4.3, #5.1
 - **Scenarios**: unified-artifact-delivery:S-04, unified-artifact-delivery:S-05
@@ -88,7 +88,7 @@ Artifact 版本即行：一个不可变版本一行、一个 `artifact_id`；`lo
 [
   {
     "id": "message-attachments",
-    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_runtime/test_message_attachments.py", "tests/frontend/test_webchat_attachments_contract.py"],
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_runtime/test_capacity_webchat_public_projection.py", "tests/contracts/test_delivery_message_contract.py"],
     "timeout": 600,
     "parallel": false
   }
@@ -101,12 +101,12 @@ Artifact 版本即行：一个不可变版本一行、一个 `artifact_id`；`lo
 
 ### Checklist
 
-- [ ] `MessagePayload`/`AttachmentRef` 契约；`DeliveryMessage.attachments[]`。
-- [ ] Run 终态消息携带 attachments；Web 历史投影一条消息多附件。
-- [ ] `ARTIFACT_CREATED` 只用于 `deliver_artifact` 显式中途交付；按附件身份去重。
-- [ ] `SKILL_OUTPUT_DIR` 只在成功执行挂载；失败/取消不挂半成品。
-- [ ] Web 历史/任务中心读同一附件引用，不复制元数据。
-- [ ] 测试：单文件、多文件、显式交付去重、失败不挂载。
+- [x] `MessagePayload`/`AttachmentRef` 契约；`DeliveryMessage.attachments[]`。
+- [x] Run 终态消息携带 attachments；Web 历史投影一条消息多附件。
+- [x] `ARTIFACT_CREATED` 只用于 `deliver_artifact` 显式中途交付；按附件身份去重。
+- [x] `SKILL_OUTPUT_DIR` 只在成功执行挂载；失败/取消不挂半成品。
+- [x] Web 历史/任务中心读同一附件引用，不复制元数据。
+- [x] 测试：单文件、多文件、显式交付去重、失败不挂载。
 
 ### Spec Delta
 
@@ -117,11 +117,14 @@ Artifact 版本即行：一个不可变版本一行、一个 `artifact_id`；`lo
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18] implemented: DeliveryMessage.attachments + run terminal attachments + Web assistant projection
+- [2026-11-18T15:32:04.938Z] started tests=f4848e13d31d
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-18T15:32:12.363Z PASS commands=1/1 executed=1 deduped=0 elapsed=7318ms tests=f4848e13d31d head=2c680901d52e dirty=1
+  - message-attachments PASS exit=0
 ## TASK-003: message_delivery + 通用租约 + 投递泵
 
 - **Status**: draft

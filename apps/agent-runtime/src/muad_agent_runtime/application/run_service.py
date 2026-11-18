@@ -83,6 +83,8 @@ from ..infrastructure.models.runtime import (
     RuntimeSnapshot,
 )
 from ..infrastructure.notification_publisher import get_notification_publisher
+from .attachments.output_service import OUTPUT_ARTIFACT_TYPE
+from .attachments.reference import attachment_ref
 from ..metrics import (
     AGENT_RUNS_METRIC,
     CONTEXT_SUMMARY_METRIC,
@@ -3385,6 +3387,12 @@ class RunService:
             # 业务事实行（ContextBuilder 读取）与对外 SSE 行分开，保证重放与历史互不混淆；
             # 两条事件同一会话、同一事务，用一次 seq 区间分配（assistant 在前、终态在后）。
             assistant_payload: dict[str, Any] = {"reason": "cancelled"} if cancelled else {"text": final_text}
+            if not cancelled:
+                attachments = await self._run_output_attachments(
+                    session, tenant_id=row.tenant_id, run_id=row.id
+                )
+                if attachments:
+                    assistant_payload["attachments"] = attachments
             payload: dict[str, Any] = {"status": str(target), "final_text": final_text}
             if cancelled:
                 payload["reason"] = "cancelled"
@@ -3622,6 +3630,27 @@ class RunService:
             events=self._replay_events(submission),
             execution_status=project_execution_status(run),
         )
+
+    async def _run_output_attachments(
+        self, session: AsyncSession, *, tenant_id: str, run_id: uuid.UUID
+    ) -> list[dict[str, Any]]:
+        """Run 终态消息的附件：每个逻辑文件只挂最新版本，且只挂成功 Run 的 OUTPUT。"""
+        rows = (
+            await session.execute(
+                sa.select(Artifact)
+                .where(
+                    Artifact.tenant_id == tenant_id,
+                    Artifact.run_id == run_id,
+                    Artifact.artifact_type == OUTPUT_ARTIFACT_TYPE,
+                    Artifact.is_deleted.is_(False),
+                )
+                .order_by(Artifact.logical_file_id, Artifact.version.desc())
+            )
+        ).scalars()
+        latest: dict[uuid.UUID, Artifact] = {}
+        for row in rows:
+            latest.setdefault(row.logical_file_id, row)
+        return [attachment_ref(row).model_dump(mode="json") for row in latest.values()]
 
     def _terminal_start(self, run: RunRecord) -> RunStart:
         # 事件生成器在响应开始后才消费，此时请求级 Session 已释放：先把身份抄成普通值，
