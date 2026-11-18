@@ -24,6 +24,7 @@ from muad_agent_core.agent import (
 from muad_agent_core.agent.continuation import RunnerCheckpoint
 from muad_agent_core.agent.runner import AgentRunStatus, RunnerDeadlineExceeded
 from muad_agent_core.model import ModelMessage
+from muad_agent_core.sandbox.workspace import workspace_layout_from_settings
 from muad_api import AppError
 from muad_api.context import current_trace_id
 from muad_api.error_codes import ErrorCode
@@ -108,6 +109,7 @@ from .async_tools.continuation_service import (
     renew_execution,
 )
 from .async_tools.supervisor import ExecutionSupervisor
+from .attachments.final_media import FinalMediaRegistrar
 from .attachments.immutable_store import discard_written
 from .attachments.inbound import (
     INBOUND_DOCUMENT,
@@ -119,7 +121,12 @@ from .attachments.inbound import (
     persist_inbound_attachments,
     persist_staged_inbound_attachments,
 )
-from .attachments.output_service import OUTPUT_ARTIFACT_TYPE
+from .attachments.output_service import (
+    OUTPUT_ARTIFACT_TYPE,
+    OutputArtifactWriter,
+    OutputScope,
+    SkillOutputArtifactRegistrar,
+)
 from .attachments.reference import attachment_ref
 from .channel_conversations import (
     CONVERSATION_ARCHIVED,
@@ -3269,8 +3276,11 @@ class RunService:
                     run, submission_id, RunnerEmptyReply("empty reply"), agent_key=agent_key
                 )
             )
+        final_text = result.final_text
+        if result.outcome == AgentRunStatus.COMPLETED:
+            final_text = await self._apply_final_media(run, final_text)
         return await self._timed_finalize(
-            self._finalize_run(run, submission_id, result.final_text, agent_key=agent_key)
+            self._finalize_run(run, submission_id, final_text, agent_key=agent_key)
         )
 
     async def _wake_tail(self, tenant_id: str, conversation_id: uuid.UUID) -> None:
@@ -3617,6 +3627,32 @@ class RunService:
             events=self._replay_events(submission),
             execution_status=project_execution_status(run),
         )
+
+    async def _apply_final_media(self, run: RunRecord, text: str) -> str:
+        """只处理最终助手文本；工具/Skill stdout 不经过这里。"""
+        settings = self._settings
+        layout = workspace_layout_from_settings(settings)
+        workspace = layout.workspace_dir(
+            tenant_id=run.tenant_id,
+            user_id=str(run.user_id),
+            agent_id=str(run.agent_id),
+        )
+        writer = OutputArtifactWriter(
+            artifact_root=self._artifact_root,
+            session_factory=get_session_factory,
+            scope=OutputScope(
+                tenant_id=run.tenant_id,
+                run_id=run.id,
+                conversation_id=run.conversation_id,
+                agent_id=run.agent_id,
+                user_id=run.user_id,
+            ),
+        )
+        registrar = FinalMediaRegistrar(
+            workspace_dir=workspace,
+            registrar=SkillOutputArtifactRegistrar(writer),
+        )
+        return await registrar.apply(text)
 
     async def _run_output_attachments(
         self, session: AsyncSession, *, tenant_id: str, run_id: uuid.UUID

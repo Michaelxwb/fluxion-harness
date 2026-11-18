@@ -719,52 +719,76 @@ async def test_agentic_draft_previews_allowlist_and_budget(
     await assert_no_schedule_side_effects(tenant)
 
 
-async def test_push_delivery_needs_a_push_capable_surface(
+async def test_push_target_is_independent_of_the_creation_entry(
     client: AsyncClient, tenant: TenantContext, install: Any
 ) -> None:
+    """入口只作来源元数据：Web 入口也能推企微，企微入口也能只留 Web。"""
     install(FakeMaterials(reminder_materials()))
     owner, agent = uuid.uuid4(), uuid.uuid4()
 
-    webchat = await client.post(
+    webchat_push = await client.post(
         "/internal/schedule-drafts",
         json=draft_body(delivery_intent="PUSH"),
         headers=headers(tenant, actor=owner, agent=agent, **{"X-Entry-Channel": "WEBCHAT"}),
     )
-    unknown = await client.post(
+    wecom_none = await client.post(
+        "/internal/schedule-drafts",
+        json=draft_body(delivery_intent="NONE"),
+        headers=headers(tenant, actor=owner, agent=agent, **{"X-Entry-Channel": "WECOM"}),
+    )
+    unknown_push = await client.post(
         "/internal/schedule-drafts",
         json=draft_body(delivery_intent="PUSH"),
         headers=headers(tenant, actor=owner, agent=agent),
     )
-    wecom = await client.post(
-        "/internal/schedule-drafts",
-        json=draft_body(delivery_intent="PUSH"),
-        headers=headers(tenant, actor=owner, agent=agent, **{"X-Entry-Channel": "WECOM"}),
-    )
 
-    assert webchat.status_code == 422
-    assert webchat.json()["code"] == "SCHEDULE_DELIVERY_UNSUPPORTED"
-    assert webchat.json()["data"]["reason"] == "DELIVERY_INTENT_MISMATCH"
-    assert unknown.status_code == 422
-    assert unknown.json()["data"]["reason"] == "ENTRY_CHANNEL_UNKNOWN"
-    assert wecom.status_code == 200, wecom.text
-    assert wecom.json()["data"]["preview"]["delivery"] == "PUSH"
-    assert await count_rows(tenant, "task_schedule_draft") == 1
+    assert webchat_push.status_code == 200, webchat_push.text
+    assert webchat_push.json()["data"]["preview"]["delivery"] == "PUSH"
+    assert wecom_none.status_code == 200, wecom_none.text
+    assert wecom_none.json()["data"]["preview"]["delivery"] == "NONE"
+    assert unknown_push.status_code == 200, unknown_push.text
+    assert await count_rows(tenant, "task_schedule_draft") == 3
 
 
-async def test_entry_channel_capability_cannot_be_overridden_by_the_body(
+async def test_push_to_a_non_outbound_channel_is_rejected(
     client: AsyncClient, tenant: TenantContext, install: Any
 ) -> None:
+    """PUSH 只能选真实可出站的通道；WebChat 是 pull 面，不是投递目标。"""
     install(FakeMaterials(reminder_materials()))
     response = await client.post(
         "/internal/schedule-drafts",
-        json=draft_body(delivery_intent="NONE"),
+        json=draft_body(
+            delivery_intent="PUSH",
+            delivery_route={
+                "channel": "WEBCHAT",
+                "bot_id": "bot-demo",
+                "external_user_id": "web-user",
+            },
+        ),
         headers=headers(
             tenant, actor=uuid.uuid4(), agent=uuid.uuid4(), **{"X-Entry-Channel": "WECOM"}
         ),
     )
 
     assert response.status_code == 422
-    assert response.json()["data"]["reason"] == "DELIVERY_INTENT_MISMATCH"
+    assert response.json()["code"] == "SCHEDULE_DELIVERY_UNSUPPORTED"
+    assert await count_rows(tenant, "task_schedule_draft") == 0
+
+
+async def test_push_without_a_target_is_rejected_by_the_contract(
+    client: AsyncClient, tenant: TenantContext, install: Any
+) -> None:
+    install(FakeMaterials(reminder_materials()))
+    body = draft_body(delivery_intent="PUSH")
+    body.pop("delivery_route")
+    response = await client.post(
+        "/internal/schedule-drafts",
+        json=body,
+        headers=headers(tenant, actor=uuid.uuid4(), agent=uuid.uuid4()),
+    )
+
+    assert response.status_code == 400
+    assert await count_rows(tenant, "task_schedule_draft") == 0
 
 
 async def test_secret_in_the_instruction_is_rejected_without_echo(

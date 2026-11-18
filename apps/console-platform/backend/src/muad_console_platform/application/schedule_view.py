@@ -53,9 +53,16 @@ def schedule_item(item: Mapping[str, Any]) -> dict[str, Any]:
     return payload
 
 
+#: Worker 的冻结目标只用于执行；Console 只展示投递意图，不暴露内部路由主键/外部会话 ID。
+_INTERNAL_DELIVERY_FIELDS = ("delivery_route_id", "delivery_route")
+
+
 def schedule_detail(detail: Mapping[str, Any]) -> dict[str, Any]:
     """详情 = 列表项 + 当前 Revision/依赖/投递意图/策略/预算/结束原因。"""
-    return schedule_item(detail)
+    payload = schedule_item(detail)
+    for field in _INTERNAL_DELIVERY_FIELDS:
+        payload.pop(field, None)
+    return payload
 
 
 def fire_history(page: Mapping[str, Any]) -> dict[str, Any]:

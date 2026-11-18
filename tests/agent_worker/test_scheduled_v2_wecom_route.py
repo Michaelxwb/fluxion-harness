@@ -2,8 +2,8 @@
 
 真实边界：真实 PostgreSQL、真实 FastAPI 路由与受信身份头。断言只看行：
 
-- PUSH Draft 确认后，不可变 Revision 带着**创建时的那个会话**（DeliveryRoute 行 + route_id），
-  最终结果与 Human 问题都按它推送（TASK-022 用同一列）；
+- PUSH Draft 确认后，不可变 Revision 带着**显式选择的目标**（DeliveryRoute 行 + route_id），
+  与创建入口无关；最终结果与 Human 问题都按它推送（TASK-022 用同一列）；
 - 聊天入口按 id 读 Draft 时只拿得到自己的（跨用户/跨 agent 一律 404），hash 由服务端提供；
 - 待处理读面按 `channel/bot/会话` 收窄时，只返回**推到这个会话**的 OPEN 提问。
 """
@@ -174,7 +174,7 @@ async def test_push_draft_without_a_route_is_refused_before_any_side_effect(
         )
 
 
-async def test_draft_route_must_match_the_creating_entry(
+async def test_draft_route_must_be_an_outbound_channel(
     client: AsyncClient, tenant: TenantContext
 ) -> None:
     response = await client.post(
@@ -193,7 +193,7 @@ async def test_draft_route_must_match_the_creating_entry(
 
     assert response.status_code == 422
     assert response.json()["code"] == "SCHEDULE_DELIVERY_UNSUPPORTED"
-    assert response.json()["data"]["reason"] == "DELIVERY_ROUTE_MISMATCH"
+    assert response.json()["data"]["reason"] == "ENTRY_CHANNEL_UNSUPPORTED"
 
 
 # --------------------------------------------------------------- Draft 读面

@@ -264,23 +264,34 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
 
 ### Checklist
 
-- [ ] 删除入口相等限制；确认时按显式目标解析。
-- [ ] 只读目标列表 API；前端不展示内部 ID，只显示安全标签。
-- [ ] 路由校验：tenant/user/agent、`OUTBOUND_CHANNELS`、绑定有效；失败 `SCHEDULE_DELIVERY_UNSUPPORTED`。
-- [ ] Revision 冻结 `delivery_intent`/`delivery_route_id`；执行按冻结路由 push。
-- [ ] Web pull 不是 `delivery_intent`；有 Web 入口任务中心始终可读。
-- [ ] Spec Delta：`worker/harness-worker#RULE-003` 明确“Schedule push 目标独立于创建入口；无绑定 NONE；任务中心 pull 始终可用”。
-- [ ] 测试：Web 创建推企微、企微创建 Web 可读、无绑定 NONE、路由失效 NEEDS_ATTENTION。
+- [x] 删除入口相等限制；确认时按显式目标解析。
+- [x] 只读目标列表 API（Worker `/internal/schedules/delivery-targets`）；Console 投影剔除 `delivery_route_id`/`delivery_route`，只保留 `delivery_intent`。
+- [x] 路由校验：Draft owner 绑定、`OUTBOUND_CHANNELS`；非出站通道失败 `SCHEDULE_DELIVERY_UNSUPPORTED`。
+- [x] Revision 冻结 `delivery_intent`/`delivery_route_id`；执行按冻结路由 push。
+- [x] Web pull 不是 `delivery_intent`；有 Web 入口任务中心始终可读。
+- [x] Spec Delta：`worker/harness-worker#RULE-003` 明确“Schedule push 目标独立于创建入口；无绑定 NONE；任务中心 pull 始终可用”。
+- [x] 测试：Web 创建推企微、企微创建 Web 可读、无绑定 NONE、路由失效 NEEDS_ATTENTION（`test_scheduled_v2_delivery` 已覆盖）。
 
 ### Spec Delta
 
 ```json
-[]
+[
+  {
+    "id": "DELTA-001",
+    "op": "update",
+    "target": "worker/harness-worker",
+    "ref": "RULE-003",
+    "before": "投递意图与业务执行状态分离：PUSH 的最终结果及人工问题先持久化独立投递记录，再以稳定业务键、持久尝试和有效发送租约驱动；只有接收方明确证明送达才能确认成功，失败不得改写业务执行终态。NONE 的定时结果与问题只由任务中心读取，禁止产生投递、会话消息或通知未读。投递采用创建时的明确目标，路由失效不得猜测其他会话，跨租户扫描和崩溃恢复必须有界且可前进。",
+    "rule": "投递意图与业务执行状态分离：PUSH 的最终结果及人工问题先持久化独立投递记录，再以稳定业务键、持久尝试和有效发送租约驱动；只有接收方明确证明送达才能确认成功，失败不得改写业务执行终态。NONE 的定时结果与问题只由任务中心读取，禁止产生投递、会话消息或通知未读。投递采用创建时的明确目标，路由失效不得猜测其他会话，跨租户扫描和崩溃恢复必须有界且可前进。Schedule 的 PUSH 目标是 Schedule 的显式配置，独立于创建入口；没有有效目标时为 NONE，任务中心 pull 始终可用。",
+    "evidence": "TASK-005 移除入口相等限制，Web 入口可选企微目标、企微入口可选仅 Web；目标列表见 /internal/schedules/delivery-targets，测试见 tests/agent_worker/test_schedule_delivery_target.py 与 tests/console_platform/test_schedule_delivery_targets.py"
+  }
+]
 ```
 
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18] implemented: removed entry equality, simplified delivery resolution, delivery-targets endpoint, Console route redaction
 
 ### Verification
 
@@ -342,7 +353,7 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
   - execute-workspace PASS exit=0
 ## TASK-007: MEDIA: 兼容层（P1）
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-002, TASK-003
 - **Source**: unified-artifact-delivery/unified-artifact-delivery.backend.design.md#4.8
 - **Scenarios**: unified-artifact-delivery:S-04
@@ -371,12 +382,12 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
 
 ### Checklist
 
-- [ ] 独立行、非代码块、workspace 路径。
-- [ ] 拒绝绝对越界/`..`/symlink/无权限。
-- [ ] 无效引用可见，不静默丢弃。
-- [ ] 不解析工具 stdout/流式块。
-- [ ] 与输出目录/显式交付去重。
-- [ ] 测试：合法/非法/代码块/工具输出。
+- [x] 独立行、非代码块、workspace 路径。
+- [x] 拒绝绝对越界/`..`/symlink/无权限。
+- [x] 无效引用可见，不静默丢弃。
+- [x] 不解析工具 stdout/流式块。
+- [x] 与输出目录/显式交付去重。
+- [x] 测试：合法/非法/代码块/工具输出。
 
 ### Spec Delta
 
@@ -387,11 +398,14 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18] implemented: final-media parser + registrar wired only into successful finalization; code fences/inline/tool output untouched
+- [2026-11-18T17:12:06.745Z] started tests=c65a1f3a7d00
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-18T17:12:13.141Z PASS commands=1/1 executed=1 deduped=0 elapsed=6285ms tests=c65a1f3a7d00 head=541b1fb7b4fd dirty=1
+  - media PASS exit=0
 ## TASK-008: 业务执行结果契约与失败跟踪
 
 - **Status**: blocked

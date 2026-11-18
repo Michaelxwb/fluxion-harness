@@ -10,9 +10,8 @@
 3. **可预览、可重放**：`draft_hash` 是规范化 JSON 的 SHA-256，覆盖 mode/recurrence/context/
    execution_spec/delivery_intent；预览给出做什么、何时、时区、首次触发、在哪看、依赖与预算。
 
-`delivery_intent` 由入口 surface 的静态能力决定（能力词表归契约的通道定义处，核心域不点名
-任何渠道），不由客户端 body 单方面指定：body 与 surface 能力不一致即拒绝，缺入口通道时
-PUSH 无法验证。
+`delivery_intent` 是 Schedule 的显式选择，独立于创建入口：PUSH 必须带一条当前用户的有效
+出站路由，NONE 只读任务中心；入口通道只作来源元数据，不决定也不限制投递目标。
 """
 
 from __future__ import annotations
@@ -43,7 +42,7 @@ from muad_contracts import (
     ToolAllowlistEntry,
     canonical_json,
 )
-from muad_contracts.enums import LOCAL_STREAM_CHANNELS, OUTBOUND_CHANNELS
+from muad_contracts.enums import OUTBOUND_CHANNELS
 from muad_contracts.platform_settings import PlatformSettings
 from muad_logging.redaction import redact_text
 from pydantic import ValidationError
@@ -173,43 +172,18 @@ def scan_draft_secrets(body: ScheduleDraftRequest) -> None:
             )
 
 
-def entry_delivery_capability(channel: str | None) -> DeliveryIntent | None:
-    """入口通道的静态投递能力；词表由契约的通道定义处拥有，核心域不点名任何渠道。"""
-    if channel is None:
-        return None
-    if channel in OUTBOUND_CHANNELS:
-        return DeliveryIntent.PUSH
-    if channel in LOCAL_STREAM_CHANNELS:
-        return DeliveryIntent.NONE
-    # 未登记的通道显式拒绝（与通道能力谓词同一口径），不猜它能不能 push。
-    return None
+def resolve_delivery_intent(requested: DeliveryIntent) -> DeliveryIntent:
+    """PUSH 是用户/Schedule 的显式目标，不再由创建入口决定；入口只作来源元数据。"""
+    return requested
 
 
-def resolve_delivery_intent(
-    requested: DeliveryIntent, entry_channel: str | None
-) -> DeliveryIntent:
-    """投递意图由入口 surface 决定；body 不能凭空承诺一个渠道做不到的投递。"""
-    if entry_channel is None:
-        if requested is DeliveryIntent.PUSH:
-            raise _delivery_error("ENTRY_CHANNEL_UNKNOWN")
-        return requested
-    capability = entry_delivery_capability(entry_channel)
-    if capability is None:
-        raise _delivery_error("ENTRY_CHANNEL_UNSUPPORTED")
-    if requested is not capability:
-        raise _delivery_error("DELIVERY_INTENT_MISMATCH")
-    return capability
-
-
-def ensure_delivery_target(body: ScheduleDraftRequest, entry_channel: str | None) -> None:
-    """PUSH 的投递目标必须与创建入口一致：跨入口的 route 不是这条 Draft 的事实。"""
+def ensure_delivery_target(body: ScheduleDraftRequest) -> None:
+    """PUSH 的 route 必须是本平台可出站通道；是否属于本用户/Agent 在确认边界复核。"""
     route = body.delivery_route
     if route is None:
         return
-    if entry_channel is None:
-        raise _delivery_error("ENTRY_CHANNEL_UNKNOWN")
-    if route.channel != entry_channel:
-        raise _delivery_error("DELIVERY_ROUTE_MISMATCH")
+    if route.channel not in OUTBOUND_CHANNELS:
+        raise _delivery_error("ENTRY_CHANNEL_UNSUPPORTED")
 
 
 def _delivery_error(reason: str) -> AppError:
@@ -361,8 +335,8 @@ class ScheduleDraftPreflight:
         rule = recurrence_rule(body)
         first_fire_at = _first_fire(rule, self._now)
         check_min_interval(rule, first_fire_at, self._quota)
-        delivery = resolve_delivery_intent(body.delivery_intent, identity.entry_channel)
-        ensure_delivery_target(body, identity.entry_channel)
+        delivery = resolve_delivery_intent(body.delivery_intent)
+        ensure_delivery_target(body)
         check_agentic_shape(body)
         materials = await self._materials(body, identity)
         dependencies = check_mode_materials(body, materials)
@@ -677,7 +651,6 @@ __all__ = [
     "draft_what",
     "draft_when",
     "ensure_delivery_target",
-    "entry_delivery_capability",
     "load_draft",
     "materials_error",
     "parse_draft_request",

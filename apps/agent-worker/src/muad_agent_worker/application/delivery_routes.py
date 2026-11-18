@@ -83,3 +83,23 @@ async def upsert_delivery_route(
 
 def _route_json(route: DeliveryRouteInput) -> dict[str, Any]:
     return route.model_dump(mode="json")
+
+
+async def list_active_delivery_routes(
+    session: AsyncSession,
+    *,
+    tenant_id: str,
+    platform_user_id: uuid.UUID,
+) -> list[DeliveryRoute]:
+    """当前用户的有效出站路由；只返回安全投影，调用方不得据此读取外部会话 ID。"""
+    rows = await session.scalars(
+        select(DeliveryRoute)
+        .where(
+            DeliveryRoute.tenant_id == tenant_id,
+            DeliveryRoute.platform_user_id == platform_user_id,
+            DeliveryRoute.status == "ACTIVE",
+            DeliveryRoute.is_deleted.is_(False),
+        )
+        .order_by(DeliveryRoute.create_time.desc(), DeliveryRoute.id)
+    )
+    return list(rows)

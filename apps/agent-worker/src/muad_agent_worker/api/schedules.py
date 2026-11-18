@@ -23,6 +23,7 @@ from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..application.delivery_routes import list_active_delivery_routes
 from ..application.platform_settings import resolve_platform_settings
 from ..application.ports import PlatformSettingsClient
 from ..application.remote_cancellation import ToolOperationCanceller, dispatch_remote_cancels
@@ -183,6 +184,30 @@ async def page_schedules(
         or 0
     )
     return list(items), int(total)
+
+
+@router.get("/delivery-targets")
+async def delivery_targets(
+    request: Request,
+    tenant_id: TenantId,
+    actor_user_id: RequiredActorUserId,
+    session: Session,
+) -> ApiResponse[Any]:
+    """Web Schedule 表单的只读目标列表：只暴露安全标签与路由形状，不暴露内部 ID。"""
+    routes = await list_active_delivery_routes(
+        session, tenant_id=tenant_id, platform_user_id=actor_user_id
+    )
+    items = []
+    for route in routes:
+        payload = dict(route.route_json or {})
+        items.append(
+            {
+                "label": route.channel,
+                "channel": route.channel,
+                "route": payload,
+            }
+        )
+    return ok(request.app.state.message_catalog, {"items": items})
 
 
 async def page_fires(
