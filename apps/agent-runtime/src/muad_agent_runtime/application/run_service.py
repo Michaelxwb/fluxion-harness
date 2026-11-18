@@ -36,7 +36,6 @@ from muad_contracts import (
     CancelSource,
     ChannelContext,
     CompletionMode,
-    DeliveryRouteInput,
     OperationStatus,
     ResolvedAgent,
     ResolveDefinitionRequest,
@@ -83,8 +82,6 @@ from ..infrastructure.models.runtime import (
     RuntimeSnapshot,
 )
 from ..infrastructure.notification_publisher import get_notification_publisher
-from .attachments.output_service import OUTPUT_ARTIFACT_TYPE
-from .attachments.reference import attachment_ref
 from ..metrics import (
     AGENT_RUNS_METRIC,
     CONTEXT_SUMMARY_METRIC,
@@ -122,6 +119,8 @@ from .attachments.inbound import (
     persist_inbound_attachments,
     persist_staged_inbound_attachments,
 )
+from .attachments.output_service import OUTPUT_ARTIFACT_TYPE
+from .attachments.reference import attachment_ref
 from .channel_conversations import (
     CONVERSATION_ARCHIVED,
     ConversationScope,
@@ -169,6 +168,7 @@ from .conversation_policy import (
     assert_conversation_live,
     conversation_policy_from_settings,
 )
+from .delivery_routes import delivery_route_of
 from .dto import RunWaitSummary
 from .event_batcher import EventBatchEntry, get_event_batcher
 from .event_tail_hub import CanonicalEventView, EventTailHub, TailBatch, get_event_tail_hub
@@ -676,24 +676,6 @@ def entry_id_of(channel_json: dict[str, Any] | None) -> uuid.UUID | None:
         return None
 
 
-def delivery_route_of(channel_json: dict[str, Any] | None) -> DeliveryRouteInput | None:
-    """从 Run 持久化的入站渠道构建后台任务投递路由；缺接收方时返回 None（不投递）。"""
-    if not channel_json:
-        return None
-    try:
-        channel = ChannelContext.model_validate(channel_json)
-    except ValidationError:
-        return None
-    if not channel.external_user_id:
-        return None
-    return DeliveryRouteInput(
-        channel=channel.type,
-        bot_id=channel.bot_id,
-        external_user_id=channel.external_user_id,
-        external_conversation_id=channel.external_conversation_id,
-    )
-
-
 def _snapshot_model(model: Any) -> dict[str, Any]:
     """Snapshot/hash 中的模型信息剥离认证字段（api_key 只走 API-09 实时读取）。"""
     data: dict[str, Any] = model.model_dump(mode="json")
@@ -788,6 +770,7 @@ async def _reap_one(factory: async_sessionmaker[AsyncSession], candidate: RunRec
             kind=KIND_RUN_COMPLETED,
             delivery_key=run_terminal_delivery_key(run.id),
             event_id=terminal_event_id,
+            push_messages=True,
         )
     return 1
 
@@ -885,6 +868,7 @@ async def _close_queued_run(session: AsyncSession, run: RunRecord) -> None:
         kind=KIND_RUN_COMPLETED,
         delivery_key=run_terminal_delivery_key(run.id),
         event_id=terminal_event_id,
+        push_messages=True,
     )
     submission_id = await session.scalar(
         sa.select(RunSubmission.id).where(
@@ -2802,6 +2786,7 @@ class RunService:
             kind=KIND_RUN_COMPLETED,
             delivery_key=run_terminal_delivery_key(run.id),
             event_id=terminal_event_id,
+            push_messages=True,
         )
 
     async def _safe_set_cancel_hint(self, run_id: uuid.UUID) -> None:
@@ -3440,6 +3425,7 @@ class RunService:
                 delivery_key=run_terminal_delivery_key(row.id),
                 event_id=terminal_event_id,
                 delivery_state=DELIVERY_NOT_REQUIRED if detached else None,
+                push_messages=not detached,
             )
             marker = mark("notification", marker)
             if target == RunStatus.COMPLETED:
@@ -3571,6 +3557,7 @@ class RunService:
                 kind=KIND_RUN_COMPLETED,
                 delivery_key=run_terminal_delivery_key(current.id),
                 event_id=terminal_event_id,
+                push_messages=True,
             )
             await session.commit()
         await self._wake_tail(run.tenant_id, run.conversation_id)  # 提交后唤醒（ADR-02）

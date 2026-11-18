@@ -67,7 +67,7 @@ from ..metrics import (
 )
 from .channel_delivery import DeliveryConfirmation, DeliveryLease
 from .channel_notifications import DELIVERY_PENDING, KIND_RUN_COMPLETED
-from .run_service import delivery_route_of
+from .delivery_routes import delivery_route_of
 
 logger = logging.getLogger(__name__)
 

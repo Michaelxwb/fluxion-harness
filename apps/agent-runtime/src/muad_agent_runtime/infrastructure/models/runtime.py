@@ -241,6 +241,127 @@ class ChannelNotification(StandardColumnsMixin, Base):
     delivery_result: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
 
+class MessageDelivery(StandardColumnsMixin, Base):
+    """消息级 push 状态（design §4.5）：一个稳定消息对一个目标一条意图。
+
+    替代 Run 终态/等待在 `channel_notification` 上的 push 分支：`message_key` 是跨重试
+    稳定的消息身份，`target_key` 是渠道中立的路由身份；`payload_json` 冻结正文与附件
+    引用（有界快照），重试/接管只读这份快照，不重新执行产出。
+
+    `DELIVERED`/`DEGRADED` 是用户可见成功（后者带取件链接）；`UNKNOWN` 保留核实、不自动
+    重发；`FAILED` 是显式终态。租约字段与 `channel_notification` 共用同一套 reserve/renew/ack
+    语义，旧 epoch 的回执不得落库。
+    """
+
+    __tablename__ = "message_delivery"
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "tenant_id",
+            "message_key",
+            "target_key",
+            name="uq_message_delivery_tenant_key_target",
+        ),
+        sa.Index(
+            "ix_message_delivery_due",
+            "tenant_id",
+            "next_attempt_at",
+            postgresql_where=sa.text("status = 'PENDING'"),
+        ),
+        sa.Index(
+            "ix_message_delivery_lease",
+            "tenant_id",
+            "lease_until",
+            postgresql_where=sa.text("status = 'DELIVERING'"),
+        ),
+        sa.Index(
+            "ix_message_delivery_owner", "tenant_id", "owner_type", "owner_id"
+        ),
+        sa.CheckConstraint("owner_type IN ('RUN','TASK')", name="owner_type"),
+        sa.CheckConstraint(
+            "kind IN ('TERMINAL','ARTIFACT','HUMAN_QUESTION','TASK_RESULT')", name="kind"
+        ),
+        sa.CheckConstraint(
+            "status IN ('PENDING','DELIVERING','DELIVERED','DEGRADED','UNKNOWN','FAILED')",
+            name="status",
+        ),
+        sa.CheckConstraint("attempt_count >= 0 AND lease_epoch >= 0", name="counters"),
+        {"schema": "runtime"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    owner_type: Mapped[str] = mapped_column(sa.String(8), nullable=False)
+    owner_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    message_key: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    kind: Mapped[str] = mapped_column(sa.String(16), nullable=False)
+    target_key: Mapped[str] = mapped_column(sa.String(256), nullable=False)
+    route_json: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")
+    )
+    payload_json: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")
+    )
+    message_id: Mapped[str | None] = mapped_column(sa.String(256))
+    #: 受理时的 Agent/接收者身份：Gateway 发送前按原入口复核，撤权/换人即不发。
+    agent_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
+    platform_user_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
+    status: Mapped[str] = mapped_column(
+        sa.String(16), nullable=False, server_default=sa.text("'PENDING'")
+    )
+    attempt_count: Mapped[int] = mapped_column(
+        sa.SmallInteger(), nullable=False, server_default=sa.text("0")
+    )
+    next_attempt_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")
+    )
+    lease_owner: Mapped[str | None] = mapped_column(sa.String(128))
+    lease_epoch: Mapped[int] = mapped_column(
+        sa.BigInteger(), nullable=False, server_default=sa.text("0")
+    )
+    lease_until: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    last_error_code: Mapped[str | None] = mapped_column(sa.String(64))
+    last_error_message: Mapped[str | None] = mapped_column(sa.Text())
+    fallback_url: Mapped[str | None] = mapped_column(sa.Text())
+    #: 首次 ack 回执：重放读取它，不重发、不重写。
+    delivery_result: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    delivered_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+
+
+class MessageDeliveryAttempt(StandardColumnsMixin, Base):
+    """一条消息的一次租约尝试（design §4.5）：消息级状态权威，尝试回执保留错误细节。"""
+
+    __tablename__ = "message_delivery_attempt"
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "tenant_id",
+            "delivery_id",
+            "attempt_no",
+            name="uq_message_delivery_attempt_tenant_delivery_attempt",
+        ),
+        sa.Index(
+            "ix_message_delivery_attempt_delivery", "tenant_id", "delivery_id"
+        ),
+        sa.CheckConstraint("attempt_no > 0 AND lease_epoch > 0", name="counters"),
+        sa.CheckConstraint(
+            "status IN ('PENDING','DELIVERING','DELIVERED','DEGRADED','UNKNOWN','FAILED')",
+            name="status",
+        ),
+        {"schema": "runtime"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    delivery_id: Mapped[uuid.UUID] = mapped_column(
+        sa.Uuid(), sa.ForeignKey("runtime.message_delivery.id"), nullable=False
+    )
+    attempt_no: Mapped[int] = mapped_column(sa.SmallInteger(), nullable=False)
+    lease_epoch: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False)
+    status: Mapped[str] = mapped_column(sa.String(16), nullable=False)
+    error_code: Mapped[str | None] = mapped_column(sa.String(64))
+    error_message: Mapped[str | None] = mapped_column(sa.Text())
+    result_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    started_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+
+
 class RunRecord(StandardColumnsMixin, Base):
     __tablename__ = "run_record"
     __table_args__ = (

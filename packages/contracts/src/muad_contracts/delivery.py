@@ -12,15 +12,26 @@ from .tasks import ContractModel, DeliveryRouteInput
 #: 后台任务最终结果键：`execution:{execution_id}:final`（design §3.3.10「一条 Execution
 #: 一份结果」；重投命中同一回执）。
 EXECUTION_DELIVERY_KEY = re.compile(r"^execution:[0-9a-fA-F-]{36}:final$")
+#: 消息级交付键：`execution:{task_id}:message:{message_id}`（设计 §4.5；显式重发用新
+#: message_id 生成新键，允许再次发送）。
+EXECUTION_MESSAGE_DELIVERY_KEY = re.compile(
+    r"^execution:[0-9a-fA-F-]{36}:message:[0-9a-fA-F-]{36}$"
+)
 #: 人工问题键：`human:{interaction_id}`（design §3.3.10「一个问题一份投递」；问题不属于
 #: 任何 Conversation，按 interaction 身份而不是 execution 记账）。
 HUMAN_DELIVERY_KEY = re.compile(r"^human:[0-9a-fA-F-]{36}$")
 #: 会话内交付键：`run:{run_id}:{artifact_id}`（TASK-006 新增，设计 §3.4 API-01）
 RUN_DELIVERY_KEY = re.compile(r"^run:[0-9a-fA-F-]{36}:[0-9a-fA-F-]{36}$")
+#: 消息级交付键：`run:{run_id}:message:{message_id}`（设计 §4.5；正文 + 多附件的唯一单元）。
+RUN_MESSAGE_DELIVERY_KEY = re.compile(
+    r"^run:[0-9a-fA-F-]{36}:message:[0-9a-fA-F-]{36}$"
+)
 #: Run 终态兜底交付键：与 `runtime.channel_notification.delivery_key` **同一个稳定键**
 #: （TASK-063 的 `run:{run_id}:terminal`；设计 §3.6「活跃回复会话的收尾与兜底主动交付使用
 #: 同一稳定 delivery_key」）。TASK-066 的 Runtime 投递泵按它经 `/internal/deliveries` 主动交付。
 TERMINAL_DELIVERY_KEY = re.compile(r"^run:[0-9a-fA-F-]{36}:terminal$")
+#: 所有 Run 作用域投递键的公共前缀；`run_id` 由此导出，不为同一事实新增字段。
+_RUN_SCOPED_KEY = re.compile(r"^run:([0-9a-fA-F-]{36}):")
 
 
 class DeliveryMessage(ContractModel):
@@ -97,10 +108,8 @@ class DeliveryRequest(ContractModel):
         由交付键导出，不新增字段：键和 Run 是**同一条事实**，多一个字段就会有两种说法。
         适配器按它把产物回到起这个 Run 的那条消息（同路由可能有多条入站消息）。
         """
-        for pattern in (RUN_DELIVERY_KEY, TERMINAL_DELIVERY_KEY):
-            if pattern.match(self.delivery_key):
-                return self.delivery_key.split(":")[1]
-        return None
+        matched = _RUN_SCOPED_KEY.match(self.delivery_key)
+        return matched.group(1) if matched else None
 
     @model_validator(mode="after")
     def _delivery_key_matches_scope(self) -> Self:
@@ -121,16 +130,24 @@ class DeliveryRequest(ContractModel):
                     raise ValueError(
                         "最终结果键必须为 execution:{task_id}:final 且与 task_id 一致"
                     )
+            elif EXECUTION_MESSAGE_DELIVERY_KEY.match(self.delivery_key):
+                if not self.delivery_key.startswith(f"execution:{self.task_id}:message:"):
+                    raise ValueError(
+                        "消息键必须为 execution:{task_id}:message:{message_id} 且与 task_id 一致"
+                    )
             elif not HUMAN_DELIVERY_KEY.match(self.delivery_key):
                 raise ValueError(
-                    "有 task_id 时 delivery_key 必须为 execution:{task_id}:final 或 human:{interaction_id}"
+                    "有 task_id 时 delivery_key 必须为 execution:{task_id}:final、"
+                    "execution:{task_id}:message:{message_id} 或 human:{interaction_id}"
                 )
         elif not (
             RUN_DELIVERY_KEY.match(self.delivery_key)
+            or RUN_MESSAGE_DELIVERY_KEY.match(self.delivery_key)
             or TERMINAL_DELIVERY_KEY.match(self.delivery_key)
         ):
             raise ValueError(
-                "无 task_id 时 delivery_key 必须为 run:{run_id}:{artifact_id} 或 run:{run_id}:terminal"
+                "无 task_id 时 delivery_key 必须为 run:{run_id}:{artifact_id}、"
+                "run:{run_id}:message:{message_id} 或 run:{run_id}:terminal"
             )
         return self
 

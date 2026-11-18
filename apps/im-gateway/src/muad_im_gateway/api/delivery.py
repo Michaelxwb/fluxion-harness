@@ -14,6 +14,7 @@ from muad_api.catalog import MessageCatalog
 from muad_api.context import current_trace_id
 from muad_contracts import (
     ArtifactDeliveryAuditRequest,
+    AttachmentRef,
     DeliveryAuditOutcome,
     DeliveryRequest,
     canonical_json,
@@ -223,6 +224,15 @@ def _fingerprint(body: DeliveryRequest) -> str:
         "artifact_ids": sorted(str(value) for value in body.artifact_ids),
         "artifact_id": str(artifact.artifact_id) if artifact is not None else None,
         "artifact_storage_key": artifact.storage_key if artifact is not None else None,
+        # 多附件消息的交付身份必须包含每一条附件；否则同键换附件会被当成无害重试。
+        "attachments": sorted(
+            [
+                str(item.artifact_id),
+                item.storage_key,
+                item.checksum,
+            ]
+            for item in body.message.attachments
+        ),
     }
     canonical = canonical_json(identity)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
@@ -374,10 +384,8 @@ def _build_command(body: DeliveryRequest, catalog: MessageCatalog) -> DeliveryCo
     message = _render_message(message, catalog)
     if message.type == "terminal":
         kind = DeliveryKind.TERMINAL
-        text = message.text
     else:
         kind = DeliveryKind.ARTIFACT if artifact is not None else DeliveryKind.TEXT
-        text = message.text
     return DeliveryCommand(
         command_id=uuid4(),
         channel=body.route.channel,
@@ -388,8 +396,9 @@ def _build_command(body: DeliveryRequest, catalog: MessageCatalog) -> DeliveryCo
         external_conversation_id=body.route.external_conversation_id,
         external_user_id=body.route.external_user_id,
         kind=kind,
-        text=text,
+        text=message.text,
         artifact=artifact,
+        attachments=tuple(message.attachments),
         delivery_key=body.delivery_key,
         delivery_attempt_id=body.delivery_attempt_id,
         delivery_epoch=body.delivery_epoch,
@@ -477,8 +486,12 @@ async def _audit_delivery(
     经 `im.outbound` 交付时由 Connector 侧适配器在结果里回传。两处都拿不到就跳过并留痕，
     不自己拼一个"看起来像"的串。
     """
-    artifact = body.message.artifact
-    if body.message.type == "text" or artifact is None or artifact.artifact_id is None:
+    artifacts = [
+        item
+        for item in (body.message.artifact, *body.message.attachments)
+        if item is not None and item.artifact_id is not None
+    ]
+    if not artifacts:
         return
     if route_key is None:
         if registry is None:
@@ -493,23 +506,29 @@ async def _audit_delivery(
             logger.warning("delivery_audit_skipped_no_capability delivery_key=%s", body.delivery_key)
             return
         route_key = adapter.route_key(body.route)
-    try:
-        await console.delivery_audit(
-            ArtifactDeliveryAuditRequest(
-                artifact_id=artifact.artifact_id,
-                channel=body.route.channel,
-                route_key=route_key,
-                delivery_key=body.delivery_key,
-                outcome=outcome,
-                reason_code=reason_code,
-                trace_id=trace_id or None,
-            ),
-            body.tenant_id,
-        )
-    except AppError as exc:
-        logger.error(
-            "delivery_audit_write_failed delivery_key=%s code=%s", body.delivery_key, exc.code
-        )
+    for artifact in artifacts:
+        artifact_id = artifact.artifact_id
+        if artifact_id is None:  # 上面的过滤已保证；这里给类型检查一个明确收窄
+            continue
+        try:
+            await console.delivery_audit(
+                ArtifactDeliveryAuditRequest(
+                    artifact_id=artifact_id,
+                    channel=body.route.channel,
+                    route_key=route_key,
+                    delivery_key=body.delivery_key,
+                    outcome=outcome,
+                    reason_code=reason_code,
+                    trace_id=trace_id or None,
+                ),
+                body.tenant_id,
+            )
+        except AppError as exc:
+            logger.error(
+                "delivery_audit_write_failed delivery_key=%s code=%s",
+                body.delivery_key,
+                exc.code,
+            )
 
 
 def _result(outcome: ArtifactDeliveryOutcome | None) -> dict[str, Any]:
@@ -638,14 +657,45 @@ async def _verified_body(body: DeliveryRequest, resolver: ArtifactResolverPort) 
     权利交付的东西。文本形态原样返回（没有产物就没有可校验的东西）。
     """
     message = body.message
-    if message.type in ("text", "terminal"):
+    resolved_artifact = message.artifact
+    if resolved_artifact is not None:
+        resolved_artifact = await _resolve_attachment(
+            resolved_artifact, resolver=resolver, tenant_id=body.tenant_id, body=body
+        )
+    resolved_attachments = [
+        await _resolve_attachment(
+            item, resolver=resolver, tenant_id=body.tenant_id, body=body
+        )
+        for item in message.attachments
+    ]
+    if resolved_artifact is message.artifact and not message.attachments:
         return body
-    artifact = message.artifact
-    if artifact is None or artifact.artifact_id is None:
+    # 用**解析出来的**引用往下走：存储键、类型、文件名从此只有一个来源（Runtime 的解析端点）
+    return body.model_copy(
+        update={
+            "message": message.model_copy(
+                update={
+                    "artifact": resolved_artifact,
+                    "attachments": resolved_attachments,
+                }
+            )
+        }
+    )
+
+
+async def _resolve_attachment(
+    artifact: AttachmentRef,
+    *,
+    resolver: ArtifactResolverPort,
+    tenant_id: str,
+    body: DeliveryRequest,
+) -> AttachmentRef:
+    """产物/附件归属校验：必须带 `artifact_id`，存储键以解析结果为准。"""
+    if artifact.artifact_id is None:
         # 契约允许 artifact_id 为空（入站方向就没有），但**交付方向必须有**：没有它就无法
         # 证明这份字节属于本租户，而降级取件链接也拼不出来。
         raise ArtifactGoneError("artifact delivery requires artifact_id")
-    resolved = await resolver.resolve(artifact.artifact_id, tenant_id=body.tenant_id)
+    resolved = await resolver.resolve(artifact.artifact_id, tenant_id=tenant_id)
     if resolved.storage_key != artifact.storage_key:
         logger.warning(
             "delivery_artifact_storage_key_mismatch delivery_key=%s artifact_id=%s",
@@ -653,8 +703,7 @@ async def _verified_body(body: DeliveryRequest, resolver: ArtifactResolverPort) 
             artifact.artifact_id,
         )
         raise ArtifactGoneError("declared storage_key does not belong to the artifact")
-    # 用**解析出来的**引用往下走：存储键、类型、文件名从此只有一个来源（Runtime 的解析端点）
-    return body.model_copy(update={"message": message.model_copy(update={"artifact": resolved})})
+    return resolved
 
 
 async def _deliver(
@@ -667,6 +716,8 @@ async def _deliver(
     `DEGRADED` + `fallback_url`），不是这里的兜底。
     """
     message = _render_message(body.message, catalog)
+    if message.attachments:
+        return await _deliver_with_attachments(adapter, body, message)
     if message.type in ("text", "terminal"):
         await adapter.send(body.route, message)
         return None
@@ -678,6 +729,45 @@ async def _deliver(
     return await adapter.deliver_artifact(
         body.route, artifact, tenant_id=body.tenant_id, run_id=body.run_id
     )
+
+
+async def _deliver_with_attachments(
+    adapter: ChannelAdapter, body: DeliveryRequest, message: Any
+) -> ArtifactDeliveryOutcome | None:
+    """一条消息多个附件：先发正文，再逐条发附件；部分降级仍是 `DEGRADED`。
+
+    消息级状态由 Runtime `message_delivery` 归类：全部成功 ⇒ DELIVERED；任一附件降级为
+    取件链接 ⇒ DEGRADED + 首个链接；任一附件失败 ⇒ 显式异常（不谎报成功）。
+    """
+    if not isinstance(adapter, OutboundArtifactDelivery):
+        raise ArtifactDeliveryError("ARTIFACT_DELIVERY_FAILED")
+    if message.text or message.type == "terminal":
+        await adapter.send(
+            body.route,
+            message.model_copy(
+                update={
+                    "type": "terminal" if message.type == "terminal" else "text",
+                    "attachments": [],
+                }
+            ),
+        )
+    degraded: list[ArtifactDeliveryOutcome] = []
+    for attachment in message.attachments:
+        outcome = await adapter.deliver_artifact(
+            body.route,
+            attachment,
+            tenant_id=body.tenant_id,
+            run_id=body.run_id,
+        )
+        if outcome.outcome == "DEGRADED":
+            degraded.append(outcome)
+    if degraded:
+        return ArtifactDeliveryOutcome(
+            outcome="DEGRADED",
+            fallback_url=degraded[0].fallback_url,
+            reason_code=degraded[0].reason_code,
+        )
+    return None
 
 
 async def _release(held: _Held | None, delivery_key: str) -> None:

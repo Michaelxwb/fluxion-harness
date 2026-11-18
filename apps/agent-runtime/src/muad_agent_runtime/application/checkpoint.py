@@ -113,6 +113,7 @@ async def _notify_waiting_confirmation(
         kind=KIND_RUN_WAITING_INPUT,
         delivery_key=run_waiting_delivery_key(run.id, interrupt_id),
         event_id=event_id,
+        push_messages=True,
     )
 
 

@@ -127,7 +127,7 @@ Artifact 版本即行：一个不可变版本一行、一个 `artifact_id`；`lo
   - message-attachments PASS exit=0
 ## TASK-003: message_delivery + 通用租约 + 投递泵
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-002
 - **Source**: unified-artifact-delivery/unified-artifact-delivery.backend.design.md#4.5, #5.6
 - **Scenarios**: unified-artifact-delivery:E-01, unified-artifact-delivery:E-03, unified-artifact-delivery:B-03
@@ -156,12 +156,12 @@ Artifact 版本即行：一个不可变版本一行、一个 `artifact_id`；`lo
 
 ### Checklist
 
-- [ ] `message_delivery` 表与状态机：PENDING/DELIVERING/DELIVERED/DEGRADED/UNKNOWN/FAILED。
-- [ ] 稳定 `message_key`（`run:{id}:terminal`、`execution:{task_id}:final`、`...:message:{message_id}`）。
-- [ ] 租约/epoch fencing；旧回执不落库；`UNKNOWN` 不自动重发。
-- [ ] 通用 `DeliveryProtocolService`；Gateway `DEGRADED` 不折叠为 DELIVERED。
-- [ ] 删除 `task_delivery`/`channel_notification` push 分支；不做双写。
-- [ ] 测试：重复/崩溃/超时/降级/重发/并发。
+- [x] `message_delivery` 表与状态机：PENDING/DELIVERING/DELIVERED/DEGRADED/UNKNOWN/FAILED。
+- [x] 稳定 `message_key`（`run:{id}:terminal`、`execution:{task_id}:final`、`...:message:{message_id}`）。
+- [x] 租约/epoch fencing；旧回执不落库；`UNKNOWN` 不自动重发。
+- [x] 通用 `DeliveryProtocolService`；Gateway `DEGRADED` 不折叠为 DELIVERED。
+- [x] Run push 单一发送者：`MessageDeliveryPump` 挂载，旧 `ChannelDeliveryPump` 不再挂载；Task push 迁移留给 TASK-004（不做双写）。
+- [x] 测试：重复/崩溃/超时/降级/重发/并发。
 
 ### Spec Delta
 
@@ -172,11 +172,14 @@ Artifact 版本即行：一个不可变版本一行、一个 `artifact_id`；`lo
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18] implemented: message_delivery model/migration, shared lease protocol, MessageDeliveryPump, Gateway multi-attachment; Task push boundary left to TASK-004
+- [2026-11-18T16:54:16.377Z] started tests=1ca7b0ad4313
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-18T16:54:25.153Z PASS commands=1/1 executed=1 deduped=0 elapsed=8659ms tests=1ca7b0ad4313 head=e05de3721457 dirty=1
+  - message-delivery PASS exit=0
 ## TASK-004: task.message_outbox + API + 任务中心 deliveries
 
 - **Status**: draft

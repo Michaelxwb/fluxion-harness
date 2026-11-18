@@ -102,6 +102,9 @@ class DeliveryCommand(ContractModel):
     payload: dict[str, Any] = Field(default_factory=dict)
     #: 产物命令必填：与文本同样从受信解析结果构造，不含渠道取件凭据。
     artifact: AttachmentRef | None = None
+    #: 一条消息多个附件：Connector 逐条发送/降级，消息级状态由 Runtime `message_delivery`
+    #: 按“全部成功/部分降级/失败”归类；这里只表达渠道中立的附件引用。
+    attachments: tuple[AttachmentRef, ...] = ()
     #: 会话内回复目标；epoch/过期不匹配时 Connector 必须降级主动发送并回报 DEGRADED。
     reply_ref: str | None = None
     stream_id: str | None = None

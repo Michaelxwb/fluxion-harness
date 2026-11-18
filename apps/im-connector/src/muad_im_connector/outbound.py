@@ -231,6 +231,10 @@ class CommandExecutor:
         reply_ref, reply_problem = await self._usable_reply(command, lease)
         route = route_of(command)
         try:
+            if command.attachments:
+                return await self._message(
+                    command, route, reply_ref, reply_problem, lease
+                )
             if command.kind is DeliveryKind.TEXT:
                 return await self._text(command, route, reply_ref, reply_problem, lease)
             if command.kind is DeliveryKind.DELTA:
@@ -493,6 +497,61 @@ class CommandExecutor:
             code=reply_problem,
             detail="active send (terminal)",
             epoch=lease.epoch,
+        )
+
+    async def _message(
+        self,
+        command: DeliveryCommand,
+        route: DeliveryRouteInput,
+        reply_ref: str | None,
+        reply_problem: str,
+        lease: BotLease,
+    ) -> CommandResult:
+        """一条消息多个附件：正文按既有语义发送，附件逐条发送/降级。
+
+        消息级状态由 Runtime `message_delivery` 判定；这里只如实回报：任一附件可降级 ⇒
+        DEGRADED（带首个取件链接），任一附件失败 ⇒ FAILED（不谎报成功）。
+        """
+        text_result: CommandResult | None = None
+        if command.kind is DeliveryKind.TERMINAL:
+            text_result = await self._terminal(
+                command, route, reply_ref, reply_problem, lease
+            )
+        elif command.text.strip():
+            text_result = await self._text(
+                command, route, reply_ref, reply_problem, lease
+            )
+        if text_result is not None and text_result.status is CommandStatus.FAILED:
+            return text_result
+        degraded = (
+            text_result is not None and text_result.status is CommandStatus.DEGRADED
+        )
+        fallback_url = text_result.fallback_url if text_result is not None else None
+        code = text_result.code if text_result is not None else ""
+        for attachment in command.attachments:
+            scoped = command.model_copy(
+                update={
+                    "kind": DeliveryKind.ARTIFACT,
+                    "artifact": attachment,
+                    "attachments": (),
+                }
+            )
+            result = await self._artifact(
+                scoped, route, reply_ref, reply_problem, lease
+            )
+            if result.status is CommandStatus.FAILED:
+                return result
+            if result.status is CommandStatus.DEGRADED:
+                degraded = True
+                fallback_url = fallback_url or result.fallback_url
+                code = code or result.code
+        return self._result(
+            command,
+            CommandStatus.DEGRADED if degraded else CommandStatus.DELIVERED,
+            code=code,
+            detail="message with attachments",
+            epoch=lease.epoch,
+            fallback_url=fallback_url,
         )
 
     async def _artifact(

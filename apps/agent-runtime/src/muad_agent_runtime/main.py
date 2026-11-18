@@ -43,12 +43,7 @@ from .application.async_tools.runtime import set_control_dispatcher
 from .application.async_tools.supervisor import ExecutionSupervisor, reclaim_stale_executions
 from .application.attachments.tool_results import ArtifactResultWriter
 from .application.capacity_metrics import capacity_metrics_loop
-from .application.channel_delivery import TenantChannelDelivery
-from .application.channel_delivery_pump import (
-    ChannelDeliveryPump,
-    DeliveryPumpPolicy,
-    GatewayDeliverySender,
-)
+from .application.channel_delivery_pump import DeliveryPumpPolicy
 from .application.channel_retention import retention_policy_from_settings, run_retention_sweep
 from .application.continuation_execution import continuation_executor
 from .application.executor import ExecutorFactory, default_executor_factory
@@ -61,6 +56,11 @@ from .application.learning_scheduler import LearningSupervisor
 from .application.memory_consolidation import ConsolidationInvoker
 from .application.memory_consolidation_effects import ConsolidationWorker
 from .application.memory_supervisor import MemorySupervisor
+from .application.message_delivery import TenantMessageDelivery
+from .application.message_delivery_pump import (
+    GatewayMessageDeliverySender,
+    MessageDeliveryPump,
+)
 from .application.run_deadline import expire_runs
 from .application.run_service import expire_queued_runs, reap_abandoned_runs
 from .application.task_artifact_retention import run_task_artifact_retention
@@ -217,11 +217,12 @@ def _mount_delivery_pump(
     settings: SharedSettings,
     platform_settings_client: ConsolePlatformSettingsClient,
     pools: RuntimeHttpPools,
-) -> ChannelDeliveryPump:
-    """出站投递泵的装配：独立于请求/执行路径（不占执行槽），交付经既有 Gateway 适配器。
+) -> MessageDeliveryPump:
+    """消息级出站投递泵的装配：独立于请求/执行路径（不占执行槽）。
 
-    只重试**已持久**结果（TASK-063 的 PENDING 意图），不重新执行任何外部写任务；泵由 lifespan
-    收尾（先停循环再关在飞投递），交付客户端借用装配根的业务池（TASK-094：预算唯一来源）。
+    Run 终态/等待在终态事务里写 `message_delivery`，本泵只重试**已持久**消息，不重新执行
+    任何外部写任务；泵由 lifespan 收尾（先停循环再关在飞投递），交付客户端借用装配根的
+    业务池（TASK-094：预算唯一来源）。Task 侧 outbox 迁移属 TASK-004。
     """
     client = GatewayDeliveryClient(
         settings.im_gateway_url,
@@ -229,10 +230,10 @@ def _mount_delivery_pump(
         timeout_sec=settings.channel_delivery_timeout_sec,
         client=pools.egress,
     )
-    return ChannelDeliveryPump(
+    return MessageDeliveryPump(
         get_session_factory,
-        TenantChannelDelivery(get_session_factory, platform_settings_client),
-        GatewayDeliverySender(client),
+        TenantMessageDelivery(get_session_factory, platform_settings_client),
+        GatewayMessageDeliverySender(client),
         DeliveryPumpPolicy.from_settings(settings),
     )
 

@@ -100,6 +100,7 @@ async def _expire_one(
             kind=KIND_RUN_COMPLETED,
             delivery_key=run_terminal_delivery_key(run.id),
             event_id=terminal_event_id,
+            push_messages=True,
         )
     # 提交后唤醒追尾订阅者：和其它事件写入方一致。提示失败只降级为 5s PG 补查，
     # 不影响已经提交的终态；否则正在看的 UI 只能等下一次补查/用户下次发消息才发现 Run 已失败。

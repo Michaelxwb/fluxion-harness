@@ -34,16 +34,29 @@ from typing import Literal
 import sqlalchemy as sa
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts import OUTBOUND_CHANNELS, ChannelContext
+from muad_contracts import OUTBOUND_CHANNELS, AttachmentRef, ChannelContext
 from pydantic import ValidationError
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.runtime import (
+    CanonicalEvent,
     ChannelNotification,
     ChannelNotificationFeed,
     Conversation,
     RunRecord,
+)
+from .delivery_routes import delivery_route_of
+from .message_delivery import (
+    MAX_DELIVERY_ATTACHMENTS,
+    MAX_DELIVERY_TEXT_CHARS,
+    MESSAGE_KIND_HUMAN_QUESTION,
+    MESSAGE_KIND_TERMINAL,
+    MessageDeliveryPayload,
+    delivery_target_key,
+    enqueue_message_delivery,
+    run_terminal_message_key,
+    run_waiting_message_key,
 )
 
 logger = logging.getLogger(__name__)
@@ -133,6 +146,7 @@ async def write_run_notification(
     delivery_state: str | None = None,
     task_id: uuid.UUID | None = None,
     artifact_ids: Sequence[uuid.UUID] = (),
+    push_messages: bool = True,
 ) -> RunNotificationReceipt | None:
     """事务内写一条 Run 用户通知（调用方负责提交；失败即与终态一起整体回滚）。
 
@@ -141,6 +155,11 @@ async def write_run_notification(
     `delivery_state=None` 时按**通知类别 + 入口通道**选择（design §3.6）：Run 终态/待确认在
     机器人入口写 `PENDING` 出站意图，其余写网页持久入箱 `NOT_REQUIRED`。显式传值时以调用方
     选择为准（本模块不覆盖调用方的判断）。
+
+    `push_messages=True` 是 Run 终态/等待的**默认生产路径**：先在同事务写 `message_delivery`
+    （唯一 push 状态机），入箱行收窄为 `NOT_REQUIRED`（Web 收件箱）。显式传入
+    `delivery_state=DELIVERY_PENDING` 是旧 channel push 协议的兼容入口（历史协议测试/迁移期），
+    此时不会同时写 message_delivery——新旧两条 push 路径不会在同一次调用里同时生效。
     """
     state = delivery_state
     if state is None:
@@ -160,6 +179,21 @@ async def write_run_notification(
         # 新会话必带入口；命中这里只可能是历史未归属会话（明确留痕，不静默）。
         logger.warning("run_notification_without_entry run_id=%s kind=%s", run.id, kind)
         return None
+    if (
+        push_messages
+        and delivery_state != DELIVERY_PENDING
+        and state != DELIVERY_NOT_REQUIRED
+        and kind in (KIND_RUN_COMPLETED, KIND_RUN_WAITING_INPUT)
+    ):
+        await _enqueue_run_push(
+            session,
+            run=run,
+            kind=kind,
+            delivery_key=delivery_key,
+            event_id=event_id,
+        )
+        # push 已由 message_delivery 接手；网页收件箱行不再产生出站意图。
+        state = DELIVERY_NOT_REQUIRED
     feed_id = await _lock_feed(session, run.tenant_id, run.user_id)
     existing = await _existing_receipt(session, run.tenant_id, delivery_key)
     if existing is not None:
@@ -195,6 +229,122 @@ async def write_run_notification(
         task_id=row.task_id,
         created_at=row.create_time or datetime.now(UTC),
     )
+
+
+async def _enqueue_run_push(
+    session: AsyncSession,
+    *,
+    run: RunRecord,
+    kind: str,
+    delivery_key: str,
+    event_id: uuid.UUID | None,
+) -> None:
+    """把 Run 终态/等待写进消息级 push 表（同事务；无有效企微路由则不产生 push）。"""
+    route = delivery_route_of(run.channel_json)
+    if route is None or route.channel not in OUTBOUND_CHANNELS:
+        return
+    if event_id is None:
+        logger.error("run_push_event_missing run_id=%s kind=%s", run.id, kind)
+        return
+    event = await session.scalar(
+        sa.select(CanonicalEvent).where(
+            CanonicalEvent.id == event_id,
+            CanonicalEvent.tenant_id == run.tenant_id,
+        )
+    )
+    if event is None:
+        logger.error("run_push_event_not_found run_id=%s event_id=%s", run.id, event_id)
+        return
+    payload = event.payload_json or {}
+    if kind == KIND_RUN_WAITING_INPUT:
+        try:
+            interrupt_id = uuid.UUID(delivery_key.rsplit(":", 1)[-1])
+        except ValueError:
+            logger.error("run_waiting_key_invalid run_id=%s key=%s", run.id, delivery_key)
+            return
+        message_key = run_waiting_message_key(run.id, interrupt_id)
+        text = str(
+            payload.get("text_prompt")
+            or payload.get("prompt")
+            or _deliverable_text(payload)
+        )
+        status, error_code = "", None
+        attachments: tuple[AttachmentRef, ...] = ()
+    else:
+        message_key = run_terminal_message_key(run.id)
+        text = _deliverable_text(payload)
+        attachments = await _terminal_attachments(session, run)
+        status = str(payload.get("status") or "")
+        code = payload.get("error_code")
+        error_code = code if isinstance(code, str) and code else None
+    if len(text) > MAX_DELIVERY_TEXT_CHARS:
+        logger.warning("run_push_text_truncated run_id=%s kind=%s", run.id, kind)
+        text = text[:MAX_DELIVERY_TEXT_CHARS]
+    if len(attachments) > MAX_DELIVERY_ATTACHMENTS:
+        logger.warning("run_push_attachments_truncated run_id=%s kind=%s", run.id, kind)
+        attachments = attachments[:MAX_DELIVERY_ATTACHMENTS]
+    try:
+        message_payload = MessageDeliveryPayload(
+            text=text,
+            attachments=attachments,
+            status=status,
+            error_code=error_code,
+        )
+    except ValueError:
+        logger.error("run_push_payload_invalid run_id=%s kind=%s", run.id, kind)
+        return
+    await enqueue_message_delivery(
+        session,
+        tenant_id=run.tenant_id,
+        owner_type="RUN",
+        owner_id=run.id,
+        message_key=message_key,
+        kind=(
+            MESSAGE_KIND_HUMAN_QUESTION
+            if kind == KIND_RUN_WAITING_INPUT
+            else MESSAGE_KIND_TERMINAL
+        ),
+        target_key=delivery_target_key(route),
+        route=route,
+        payload=message_payload,
+        message_id=run.input_message_id,
+        agent_id=run.agent_id,
+        platform_user_id=run.user_id,
+    )
+
+
+def _deliverable_text(payload: dict[str, object]) -> str:
+    for key in ("final_text", "prompt", "text"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+async def _terminal_attachments(
+    session: AsyncSession, run: RunRecord
+) -> tuple[AttachmentRef, ...]:
+    """终态消息附件与 Web 历史同源：最新 ASSISTANT_MESSAGE 的 `attachments`。"""
+    event = await session.scalar(
+        sa.select(CanonicalEvent)
+        .where(
+            CanonicalEvent.tenant_id == run.tenant_id,
+            CanonicalEvent.run_id == run.id,
+            CanonicalEvent.event_type == "ASSISTANT_MESSAGE",
+        )
+        .order_by(CanonicalEvent.seq.desc())
+        .limit(1)
+    )
+    raw = (event.payload_json or {}).get("attachments") if event is not None else None
+    if not isinstance(raw, list):
+        return ()
+    attachments: list[AttachmentRef] = []
+    for item in raw:
+        try:
+            attachments.append(AttachmentRef.model_validate(item))
+        except (ValidationError, TypeError):
+            logger.warning("run_push_attachment_invalid run_id=%s", run.id)
+    return tuple(attachments)
 
 
 def _validate(*, kind: str, delivery_state: str, task_id: uuid.UUID | None) -> None:

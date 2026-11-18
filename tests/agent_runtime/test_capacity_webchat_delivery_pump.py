@@ -586,6 +586,7 @@ async def test_b266_pending_intent_is_delivered_to_the_original_entry_over_real_
         "type": "terminal",
         "text": FINAL_TEXT,
         "artifact": None,
+        "attachments": [],
         "status": "COMPLETED",
         "error_code": None,
     }
@@ -870,7 +871,9 @@ async def test_b266_lifespan_mounts_the_pump_with_startup_budgets(
 
     async with main.lifespan(main.app):
         pump = main.app.state.delivery_pump
-        assert isinstance(pump, ChannelDeliveryPump)
+        from muad_agent_runtime.application.message_delivery_pump import MessageDeliveryPump
+
+        assert isinstance(pump, MessageDeliveryPump)
         assert pump.policy.concurrency == 3 and pump.policy.lease_sec == 20
         assert pump.policy.timeout_sec == 3 and pump.policy.poll_sec == 0.5
         task = main.app.state.delivery_pump_task
