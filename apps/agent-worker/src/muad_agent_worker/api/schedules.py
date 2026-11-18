@@ -198,11 +198,16 @@ async def delivery_targets(
         session, tenant_id=tenant_id, platform_user_id=actor_user_id
     )
     items = []
-    for route in routes:
+    labels = [
+        f"{route.channel}:{route.external_user_id}" for route in routes
+    ]
+    for route, base in zip(routes, labels, strict=True):
         payload = dict(route.route_json or {})
+        # 同一用户可能有多个同通道目标：只有重名时才加不透明短后缀，避免模型猜。
+        label = base if labels.count(base) == 1 else f"{base}#{route.route_hash[-6:]}"
         items.append(
             {
-                "label": route.channel,
+                "label": label,
                 "channel": route.channel,
                 "route": payload,
             }

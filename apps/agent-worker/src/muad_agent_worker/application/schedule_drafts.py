@@ -508,6 +508,16 @@ def update_diff(
     ]
 
 
+def delivery_target_label(body: ScheduleDraftRequest) -> str | None:
+    """PUSH 的安全目标标签；不退化成内部 route id。"""
+    route = body.delivery.route
+    if route is None:
+        return None
+    if route.external_user_id:
+        return f"{route.channel}:{route.external_user_id}"
+    return route.channel
+
+
 def build_preview(
     body: ScheduleDraftRequest,
     result: PreflightResult,
@@ -524,6 +534,7 @@ def build_preview(
         "when": draft_when(body, result.first_fire_at),
         "first_fire_at": result.first_fire_at.isoformat(),
         "delivery": str(result.delivery),
+        "push_target_label": delivery_target_label(body),
         "tools_allow": list(tools.tools_allow),
         "budget_source": result.budget_source,
         "dependencies": list(result.dependencies),

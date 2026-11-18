@@ -503,6 +503,7 @@ export interface SchedulePreview {
   when: string;
   first_fire_at: string;
   delivery: DeliveryIntent;
+  push_target_label?: string | null;
   tools_allow: string[];
   /** `PLATFORM` = 平台设置；`NONE` = 该 payload 不消费模型预算。 */
   budget_source: 'PLATFORM' | 'NONE';

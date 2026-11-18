@@ -128,7 +128,7 @@ async def test_delivery_targets_endpoint_returns_safe_items(
     items = response.json()["data"]["items"]
     assert items == [
         {
-            "label": "WECOM",
+            "label": "WECOM:user-1",
             "channel": "WECOM",
             "route": {"channel": "WECOM", "bot_id": "bot-1", "external_user_id": "user-1"},
         }

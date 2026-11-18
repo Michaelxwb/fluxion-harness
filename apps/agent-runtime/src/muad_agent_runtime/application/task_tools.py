@@ -66,6 +66,7 @@ logger = logging.getLogger(__name__)
 
 DRAFT_SCHEDULE_TOOL = "draft_schedule"
 DRAFT_SCHEDULE_UPDATE_TOOL = "draft_schedule_update"
+LIST_DELIVERY_TARGETS_TOOL = "list_delivery_targets"
 PROMOTE_RUN_TOOL = "promote_run"
 LIST_SCHEDULES_TOOL = "list_schedules"
 GET_SCHEDULE_TOOL = "get_schedule"
@@ -460,6 +461,17 @@ class BackgroundTaskToolSet:
         update_schema["required"] = ["instruction", "payload", "timezone", "recurrence"]
         return (
             (
+                LIST_DELIVERY_TARGETS_TOOL,
+                "List the user's safe outbound push targets. Call it before choosing "
+                "delivery.intent=PUSH when the user wants an external channel; never invent a "
+                "target label. Web-only tasks use intent=NONE and need no target.",
+                _schema({}, ()),
+                ToolEffect.READ,
+                self._list_delivery_targets,
+                ToolConcurrency.SERIAL,
+                None,
+            ),
+            (
                 DRAFT_SCHEDULE_TOOL,
                 "Prepare a NEW scheduled task for the user to confirm. It only creates a draft: "
                 "nothing runs and nothing is saved until the user confirms the card in the chat. "
@@ -593,6 +605,16 @@ class BackgroundTaskToolSet:
         )
 
     # ---------------------------------------------------------------- Draft
+
+    async def _list_delivery_targets(
+        self, arguments: Mapping[str, Any], *, call_id: str
+    ) -> dict[str, Any]:
+        targets = await self._delivery_targets()
+        return {
+            "targets": [
+                {"label": target.label, "channel": target.route.channel} for target in targets
+            ]
+        }
 
     async def _draft_schedule(self, arguments: Mapping[str, Any], *, call_id: str) -> dict[str, Any]:
         return await self._draft(arguments, kind=DraftKind.CREATE)

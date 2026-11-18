@@ -34,6 +34,7 @@ from muad_agent_runtime.application.task_client import TaskSubmissionContext, Wo
 from muad_agent_runtime.application.task_tools import (
     DRAFT_SCHEDULE_TOOL,
     DRAFT_SCHEDULE_UPDATE_TOOL,
+    LIST_DELIVERY_TARGETS_TOOL,
     PAUSE_SCHEDULE_TOOL,
     RESUME_SCHEDULE_TOOL,
     BackgroundTaskToolSet,
@@ -553,6 +554,7 @@ async def test_web_entry_can_push_to_an_explicit_owner_target(
     client = _client()
     try:
         registry = _registry(_context(tenant, conversation), client)
+        targets = await _invoke(registry, LIST_DELIVERY_TARGETS_TOOL, {})
         result = await _invoke(
             registry,
             DRAFT_SCHEDULE_TOOL,
@@ -561,6 +563,7 @@ async def test_web_entry_can_push_to_an_explicit_owner_target(
     finally:
         await client.aclose()
 
+    assert targets["targets"] == [{"label": "WECOM:ext-1", "channel": "WECOM"}]
     assert result["delivery"] == "PUSH"
     draft = (await _draft_payloads(tenant.tenant_id))[0]
     assert draft["delivery"]["route"] == route

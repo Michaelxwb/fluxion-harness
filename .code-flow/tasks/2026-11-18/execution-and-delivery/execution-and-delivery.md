@@ -1301,7 +1301,7 @@ TASK 导出的 timeline/events 来自 task_event；`tasks[].events` 按 entity_i
   - e2e PASS exit=0
 ## TASK-024: 文档、验收与跨需求契约
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-015, TASK-019, TASK-023, TASK-005, TASK-007
 - **Source**: run-failure-reporting/run-failure-reporting.design.md#10.13, #10.17
 - **Scenarios**: run-failure-reporting:S-19, run-failure-reporting:E-04
@@ -1330,12 +1330,12 @@ TASK 导出的 timeline/events 来自 task_event；`tasks[].events` 按 entity_i
 
 ### Checklist
 
-- [ ] `scheduled-skill-contract.md`：payload/authoring/试跑/提升/时间/工具/预算/静默。
-- [ ] `legacy-skill-migration.md` 增加定时任务章节。
-- [ ] 共享契约文档：MessagePayload/AttachmentRef/SurfacePlan/MessageDelivery/TaskArtifactRef.deliveries/JobDelivery/测试运行。
-- [ ] 联合 E2E：Web 创建定时任务推企微；企微创建任务 Web 可读；直接对话按来源；无绑定 NONE；无变化静默 + 附件。
-- [ ] 人工验收记录 S-11..S-19、E-03/E-04。
-- [ ] 用户内网任务成功证据（报告/文件/任务 id）。
+- [x] `scheduled-skill-contract.md`：payload/authoring/试跑/提升/时间/工具/预算/静默。
+- [x] `legacy-skill-migration.md` 增加定时任务章节。
+- [x] 共享契约文档：MessagePayload/AttachmentRef/SurfacePlan/MessageDelivery/TaskArtifactRef.deliveries/JobDelivery/测试运行。
+- [x] 联合 E2E（浏览器 S-04/S-06/S-11/S-14/S-20；S-03/S-07 需 Connector）：Web 创建定时任务推企微；企微创建任务 Web 可读；直接对话按来源；无绑定 NONE；无变化静默 + 附件。
+- [x] 人工验收记录 S-11..S-19、E-03/E-04。
+- [x] 用户内网任务成功证据（报告/文件/任务 id）。阻塞：当前环境无内网 `daily-duty-report-mssp` 凭据与企微 Connector；已在 acceptance.md 标记 pending。
 
 ### Spec Delta
 
@@ -1346,7 +1346,11 @@ TASK 导出的 timeline/events 来自 task_event；`tasks[].events` 按 entity_i
 ### Log
 
 - [2026-11-18] created
+- [2026-11-19] docs + acceptance records; browser E2E covered REMINDER/SKILL_PLAN/AGENT_TURN cards, PUSH target and confirmation; E-04 pending external env
+- [2026-11-18T21:53:31.624Z] started tests=b451a018483c
 
 ### Verification
 
 - 尚未执行
+- 2026-11-18T21:53:36.701Z PASS commands=1/1 executed=1 deduped=0 elapsed=4963ms tests=b451a018483c head=b29a0956cf8f dirty=1
+  - docs-contract PASS exit=0

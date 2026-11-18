@@ -820,12 +820,13 @@ def _push_route(
         if not isinstance(requested_target, str) or not requested_target.strip():
             errors.append(_field("delivery.target", "INVALID", "CHOOSE_DELIVERY_TARGET"))
             return None
-        matches = [
-            item
-            for item in context.delivery_targets
-            if item.label == requested_target.strip()
-            or item.route.channel == requested_target.strip()
-        ]
+        wanted = requested_target.strip()
+        matches = [item for item in context.delivery_targets if item.label == wanted]
+        if not matches:
+            # 单通道单目标时允许模型传通道名（用户只会说“企微”）；多个则必须给 label。
+            matches = [
+                item for item in context.delivery_targets if item.route.channel == wanted
+            ]
         if len(matches) != 1:
             reason = "DELIVERY_TARGET_AMBIGUOUS" if matches else "DELIVERY_TARGET_NOT_FOUND"
             allowed = tuple(sorted({item.label for item in context.delivery_targets}))

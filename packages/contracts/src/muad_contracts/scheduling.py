@@ -489,6 +489,8 @@ class SchedulePreview(ContractModel):
     when: str = Field(min_length=1)
     first_fire_at: AwareDatetime
     delivery: DeliveryIntent
+    #: PUSH 的安全目标标签（不暴露内部 route id）；NONE 为 null。
+    push_target_label: str | None = Field(default=None, max_length=320)
     tools_allow: list[str] = Field(default_factory=list)
     #: 预算来源：`PLATFORM` = 平台设置；`NONE` = 该 payload 不消费模型预算。
     budget_source: Literal["PLATFORM", "NONE"] = "NONE"

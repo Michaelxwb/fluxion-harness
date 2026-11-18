@@ -7,6 +7,7 @@ from typing import Any
 from muad_contracts import ChannelName, DeliveryRouteInput, canonical_json
 from sqlalchemy import false, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from muad_contracts.enums import OUTBOUND_CHANNELS
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.task import DeliveryRoute
@@ -99,6 +100,7 @@ async def list_active_delivery_routes(
             DeliveryRoute.platform_user_id == platform_user_id,
             DeliveryRoute.status == "ACTIVE",
             DeliveryRoute.is_deleted.is_(False),
+            DeliveryRoute.channel.in_(sorted(OUTBOUND_CHANNELS)),
         )
         .order_by(DeliveryRoute.create_time.desc(), DeliveryRoute.id)
     )
