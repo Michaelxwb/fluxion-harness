@@ -12,6 +12,7 @@ zip 是**构建产物**，不进版本库：先跑 `./skills/package.sh`（无�
 | `self-skill-review.zip` | 只读确定性审查（`scripts/check.py` + 规则参考） |
 | `self-skill-upload.zip` | 把草稿提交为 PENDING artifact（`skill_draft` 的 review/submit action） |
 | `smoke-platform-sample.zip` | `smoke_platform` 验证样例（健康检查、CSRF 业务接口、Traceid） |
+| `fake-platform-async-batch.zip` | ASYNC + BATCH 样例：读取 fake platform 目标，生成多个子任务，每个子任务产出 JSON/CSV |
 
 打包脚本：
 
@@ -34,6 +35,7 @@ Skill key 由 `SKILL.md` 的 `name` 生成，默认脚本取 manifest 的 `entry
 |---|---|
 | `_templates/business-skill-python` | 新平台业务 Skill 模板（session-manager + requests + `SKILL_OUTPUT_DIR`） |
 | `smoke-platform-sample` | 上表 zip 的源目录；本地端到端见 `tools/fake-business-platform/smoke_check.py` |
+| `fake-platform-async-batch` | ASYNC 批量报表样例；本地端到端见 `tools/fake-business-platform/async_batch_check.py` |
 | `self-skill-creator` / `self-skill-review` / `self-skill-upload` | 自建 Skill 三件套源目录 |
 
 ## 自建 Skill 三件套说明
