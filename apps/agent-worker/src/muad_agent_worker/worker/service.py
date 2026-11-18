@@ -318,6 +318,7 @@ class WorkerLoop:
                     workspace_store=workspace_store,
                     sessions=self._session_factory,
                     settings=self._settings,
+                    artifacts=self._artifacts,
                 ),
                 agentic=self._agentic,
             )

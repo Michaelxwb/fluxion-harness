@@ -124,6 +124,29 @@ def _file_entries(result_json: Any) -> list[dict[str, Any]]:
     return [item for item in files if isinstance(item, dict)]
 
 
+def _artifacts(live_stack: LiveStack, task_id: str) -> list[Any]:
+    async def query(factory: Any) -> Any:
+        async with factory() as session:
+            return list(
+                (
+                    await session.execute(
+                        text(
+                            "SELECT a.task_id, a.artifact_type, "
+                            "a.metadata_json->>'filename' AS filename, a.size "
+                            "FROM runtime.artifact a "
+                            "JOIN task.task_execution e ON e.id = a.task_id "
+                            "WHERE e.parent_id = :parent_id AND a.is_deleted = false "
+                            "AND a.artifact_type = 'TASK_OUTPUT' "
+                            "ORDER BY a.task_id, filename"
+                        ),
+                        {"parent_id": uuid.UUID(task_id)},
+                    )
+                ).all()
+            )
+
+    return cast(list[Any], run_db(query))
+
+
 def test_async_fake_platform_batch_fans_out_and_writes_files(
     live_stack: LiveStack, http: httpx.Client
 ) -> None:
@@ -149,6 +172,10 @@ def test_async_fake_platform_batch_fans_out_and_writes_files(
         assert child[3]["target"] in TARGETS, child[3]
         by_target[child[3]["target"]] = child
 
+    artifacts_by_task: dict[uuid.UUID, set[str]] = {}
+    for row in _artifacts(live_stack, task_id):
+        artifacts_by_task.setdefault(row[0], set()).add(str(row[2]))
+
     for target in TARGETS:
         child = by_target[target]
         files = _file_entries(child[4])
@@ -157,3 +184,4 @@ def test_async_fake_platform_batch_fans_out_and_writes_files(
         for item in files:
             assert item["size"] > 0
             assert item["checksum"].startswith("sha256:")
+        assert artifacts_by_task.get(child[0]) == names, "子任务文件必须登记为 TASK_OUTPUT"
