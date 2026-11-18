@@ -445,7 +445,8 @@ class SkillToolSet:
                 "background tasks and return an acceptance receipt; their results appear in the task center "
                 "and are delivered to the conversation. "
                 "Set target=draft with draft_id and command to test the draft copy. "
-                "Set target=workspace with command and optional platforms to access platform sessions. "
+                "Set target=workspace with command; the execution always provides session-manager and "
+                "optional platforms only narrow its allowed scope. "
                 "Workspace files are shared across the user's runs for this Agent. Test draft code with "
                 "target=draft, never by writing under skill-drafts/ in the workspace. "
                 "Draft commands run against a copy, with revision-checked writes; SKILL_DATA_DIR persists "
@@ -454,7 +455,8 @@ class SkillToolSet:
                 "target=skill accepts only skill_key, input, argv, timeout_sec and script; "
                 "command, cwd and reset_data belong to target=workspace or target=draft. "
                 "For instructions-only or MCP-only skills, load the skill and use its MCP tools directly. "
-                "Use session-manager get-state --skill-name workspace from workspace commands. "
+                "Use session-manager list-platforms first, then get-state --platform <key> or "
+                "refresh --platform <key>. "
                 "Do not output or persist credentials."
             ),
             input_schema=_input_schema({
@@ -593,6 +595,7 @@ class SkillToolSet:
                     cwd=cwd.strip(),
                     timeout_sec=timeout_sec,
                     run_id=context.run_id,
+                    platform_context=self._platform_context,
                 )
             )
         except (WorkspaceError, SandboxError) as exc:
