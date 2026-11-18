@@ -1,12 +1,19 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import uuid
+import zipfile
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
+from muad_agent_worker.application.ports import PlatformSettingsSnapshot
 from muad_agent_worker.application.task_events import EntityType
 from muad_agent_worker.infrastructure.models.task import TaskEvent, TaskExecution, TaskSchedule
+from muad_agent_worker.worker.service import WorkerLoop
 from muad_contracts import (
     TASK_SNAPSHOT_SCHEMA_VERSION,
     CreateScheduleRequest,
@@ -16,6 +23,9 @@ from muad_contracts import (
     ResolveDefinitionResponse,
     ResolvedModel,
     ResolvedSkill,
+    ScheduleAdmissionMaterials,
+    ScheduleAdmissionRequest,
+    ScheduleMode,
     ScheduleSpec,
     SkillExecutionMode,
     TaskStatus,
@@ -65,6 +75,44 @@ def sample_route(external_user_id: str = "wotv-001") -> DeliveryRouteInput:
         bot_id="bot-demo",
         external_user_id=external_user_id,
     )
+
+
+@dataclass(slots=True)
+class FakeMaterialsClient:
+    """Console materials boundary: the read-only network edge only.
+
+    Returns one fixture or a per-mode fixture set, and records every request so callers
+    can prove the Draft/Fire path actually resolved (and did not fabricate) materials.
+    """
+
+    materials: ScheduleAdmissionMaterials | None = None
+    by_mode: Mapping[ScheduleMode, ScheduleAdmissionMaterials] | None = None
+    error: Exception | None = None
+    calls: list[tuple[str, ScheduleAdmissionRequest]] = field(default_factory=list)
+
+    async def resolve_schedule_materials(
+        self, tenant_id: str, payload: ScheduleAdmissionRequest
+    ) -> ScheduleAdmissionMaterials:
+        self.calls.append((tenant_id, payload))
+        if self.error is not None:
+            raise self.error
+        if self.by_mode is not None:
+            return self.by_mode[ScheduleMode(payload.mode)]
+        assert self.materials is not None, "fake materials without a result"
+        return self.materials
+
+
+@dataclass(frozen=True, slots=True)
+class FakePlatformSettingsClient:
+    """Platform settings snapshot source used by Draft/trial/Fire tests."""
+
+    settings: dict[str, Any] = field(default_factory=dict)
+    revision: int = 1
+
+    async def fetch_snapshot(
+        self, *, tenant_id: str, trace_id: str = ""
+    ) -> PlatformSettingsSnapshot:
+        return PlatformSettingsSnapshot(revision=self.revision, settings=dict(self.settings))
 
 
 def create_task_payload(
@@ -232,6 +280,60 @@ def _fill_execution_snapshot_contract(values: dict[str, Any]) -> None:
                 "agent_id": str(values["agent_id"]),
             },
         )
+
+
+def write_skill_archive(
+    store_root: Path,
+    storage_key: str,
+    source_dir: Path,
+    *,
+    overrides: Mapping[str, str | bytes] | None = None,
+) -> str:
+    """Package a skill fixture into NFS storage; return its ``sha256:<hex>`` checksum.
+
+    Relative paths are preserved and interpreter caches are skipped. ``overrides`` replaces
+    or adds files by POSIX relative path (for example a fixture's config/manifest) so tests
+    can point the same real package at a local fake platform without rewriting the fixture.
+    """
+    files: dict[str, bytes] = {}
+    for path in sorted(source_dir.rglob("*")):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(source_dir)
+        if "__pycache__" in relative.parts or relative.suffix == ".pyc":
+            continue
+        files[relative.as_posix()] = path.read_bytes()
+    for relative, content in (overrides or {}).items():
+        files[relative] = content.encode("utf-8") if isinstance(content, str) else content
+    destination = store_root / storage_key
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for relative, content in sorted(files.items()):
+            archive.writestr(relative, content)
+    return "sha256:" + hashlib.sha256(destination.read_bytes()).hexdigest()
+
+
+async def run_worker_once(
+    tenant: TenantContext,
+    executor: Any,
+    *,
+    now: datetime | None = None,
+    instance_id: str = "test-worker",
+    timeout_sec: float = 60.0,
+) -> uuid.UUID | None:
+    """Claim and finish one execution through the real WorkerLoop, bounded by a timeout.
+
+    ``now`` is the WorkerLoop test clock (claim/lease/terminal moment); real time is used
+    when omitted, so callers that fire a past occurrence slot can still run the worker on
+    that occurrence's frozen clock.
+    """
+    worker = WorkerLoop(
+        tenant.session_factory,
+        tenant.settings,
+        executor=executor,
+        instance_id=instance_id,
+    )
+    return await asyncio.wait_for(worker.run_once(now=now), timeout=timeout_sec)
 
 
 async def persist_task(tenant: TenantContext, **overrides: Any) -> TaskExecution:

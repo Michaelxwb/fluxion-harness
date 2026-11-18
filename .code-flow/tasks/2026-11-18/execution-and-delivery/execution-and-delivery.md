@@ -1244,7 +1244,7 @@ TASK 导出的 timeline/events 来自 task_event；`tasks[].events` 按 entity_i
   - local-skill PASS exit=0
 ## TASK-023: 定时路径端到端回归
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-013, TASK-014, TASK-016, TASK-017, TASK-018, TASK-022, TASK-005, TASK-007
 - **Source**: run-failure-reporting/run-failure-reporting.design.md#10.14, #10.15
 - **Scenarios**: run-failure-reporting:S-11, run-failure-reporting:S-12, run-failure-reporting:S-13, run-failure-reporting:S-14, run-failure-reporting:S-16, run-failure-reporting:S-17, run-failure-reporting:S-18, run-failure-reporting:E-03
@@ -1273,14 +1273,14 @@ TASK 导出的 timeline/events 来自 task_event；`tasks[].events` 按 entity_i
 
 ### Checklist
 
-- [ ] 从业务意图生成计划，不选 mode。
-- [ ] 试跑真实产出；失败不建 Job。
-- [ ] SKILL_PLAN argv/stdin 成功；重试幂等。
-- [ ] AGENT_TURN 时间/工具/session/静默成功。
-- [ ] promotion 复用成功 Run。
-- [ ] 09:00 窗口、延迟/重试、DST 边界。
-- [ ] 预算/工具策略来自设置。
-- [ ] 测试可重复，不访问内网。
+- [x] 从业务意图生成计划，不选 mode。
+- [x] 试跑真实产出；失败不建 Job。
+- [x] SKILL_PLAN argv/stdin 成功；重试幂等。
+- [x] AGENT_TURN 时间/工具/session/静默成功。
+- [x] promotion 复用成功 Run。
+- [x] 09:00 窗口、延迟/重试、DST 边界。
+- [x] 预算/工具策略来自设置。
+- [x] 测试可重复，不访问内网。
 
 ### Spec Delta
 
@@ -1291,11 +1291,14 @@ TASK 导出的 timeline/events 来自 task_event；`tasks[].events` 按 entity_i
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18] implemented: SKILL_PLAN/AGENT_TURN/authoring E2E with local regression skill + fake MSSP, trial/promotion, 09:00/DST/misfire/retry, policy and budget facts
+- [2026-11-18T21:38:02.175Z] started tests=ce08afd59a0c
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-18T21:38:11.668Z PASS commands=1/1 executed=1 deduped=0 elapsed=9381ms tests=ce08afd59a0c head=3ac5c3f85a82 dirty=1
+  - e2e PASS exit=0
 ## TASK-024: 文档、验收与跨需求契约
 
 - **Status**: draft

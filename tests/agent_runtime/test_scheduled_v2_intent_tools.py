@@ -42,6 +42,7 @@ from muad_agent_runtime.infrastructure.db import get_session_factory as runtime_
 from muad_agent_runtime.infrastructure.models.runtime import CanonicalEvent, Conversation
 from muad_agent_worker.application.ports import PlatformSettingsSnapshot
 from muad_agent_worker.infrastructure.db import get_session_factory as worker_session_factory
+from muad_agent_worker.infrastructure.models.task import DeliveryRoute
 from muad_agent_worker.main import app as worker_app
 from muad_contracts import (
     DeliveryRouteInput,
@@ -523,6 +524,46 @@ async def test_current_session_draft_freezes_the_creator_conversation(
     draft = (await _draft_payloads(tenant.tenant_id))[0]
     # current 的会话身份只来自可信 Run 上下文，模型/用户不能自报。
     assert draft["context"]["session_conversation_id"] == str(conversation)
+
+
+async def test_web_entry_can_push_to_an_explicit_owner_target(
+    tenant: TenantContext, conversation: uuid.UUID
+) -> None:
+    route = {
+        "channel": "WECOM",
+        "bot_id": "bot-1",
+        "external_user_id": "ext-1",
+        "external_conversation_id": "conv-1",
+    }
+    async with worker_session_factory()() as session, session.begin():
+        session.add(
+            DeliveryRoute(
+                id=uuid.uuid4(),
+                tenant_id=tenant.tenant_id,
+                channel="WECOM",
+                bot_id="bot-1",
+                platform_user_id=tenant.platform_user_id,
+                external_user_id="ext-1",
+                external_conversation_id="conv-1",
+                route_json=route,
+                route_hash=f"sha256:{uuid.uuid4().hex}{uuid.uuid4().hex}",
+                status="ACTIVE",
+            )
+        )
+    client = _client()
+    try:
+        registry = _registry(_context(tenant, conversation), client)
+        result = await _invoke(
+            registry,
+            DRAFT_SCHEDULE_TOOL,
+            _draft_args(delivery={"intent": "PUSH", "target": "WECOM"}),
+        )
+    finally:
+        await client.aclose()
+
+    assert result["delivery"] == "PUSH"
+    draft = (await _draft_payloads(tenant.tenant_id))[0]
+    assert draft["delivery"]["route"] == route
 
 
 async def test_chat_entry_tells_the_model_the_confirm_command(

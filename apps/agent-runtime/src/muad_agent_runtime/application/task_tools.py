@@ -32,6 +32,7 @@ from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import (
     SCHEDULE_CONFIRM_COMMAND,
+    DeliveryRouteInput,
     DraftKind,
     ResolvedSkill,
     SchedulePreview,
@@ -42,6 +43,7 @@ from pydantic import ValidationError
 
 from ..infrastructure.db import SessionFactoryProvider
 from .schedule_authoring import (
+    DeliveryTargetOption,
     ScheduleAuthoringContext,
     ScheduleAuthoringError,
     ScheduleAuthoringResult,
@@ -182,10 +184,19 @@ _DRAFT_ARGS: Mapping[str, Any] = {
     },
     "delivery": {
         "type": "object",
-        "properties": {"intent": {"type": "string", "enum": ["NONE", "PUSH"]}},
+        "properties": {
+            "intent": {"type": "string", "enum": ["NONE", "PUSH"]},
+            "target": {
+                **_STRING,
+                "description": (
+                    "PUSH only: a safe target label from list_delivery_targets (for example WECOM). "
+                    "Omit to use the source chat route when it is already an outbound channel."
+                ),
+            },
+        },
         "required": ["intent"],
         "additionalProperties": False,
-        "description": "Where the result goes; PUSH uses the source chat route when available.",
+        "description": "Where the result goes; PUSH uses an explicit owner-scoped target.",
     },
     "timezone": {
         **_STRING,
@@ -372,12 +383,16 @@ def _multi_target_guard(parameters: Mapping[str, Any]) -> dict[str, Any]:
     return dict(parameters)
 
 
-def _authoring_context(context: TaskSubmissionContext) -> ScheduleAuthoringContext:
+def _authoring_context(
+    context: TaskSubmissionContext,
+    targets: Sequence[DeliveryTargetOption] = (),
+) -> ScheduleAuthoringContext:
     return ScheduleAuthoringContext(
         skills={skill.key: skill for skill in context.skills},
         mcp_servers=context.mcp_servers,
         entry_channel=context.entry_channel,
         delivery_route=context.delivery_route,
+        delivery_targets=targets,
         conversation_id=context.conversation_id,
     )
 
@@ -596,7 +611,7 @@ class BackgroundTaskToolSet:
         kind: DraftKind,
         target: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
-        authoring = self._authoring(arguments)
+        authoring = await self._authoring(arguments)
         if authoring.clarification is not None:
             return self._clarification(authoring)
         return await self._submit_draft(arguments, kind=kind, target=target, authoring=authoring)
@@ -627,7 +642,7 @@ class BackgroundTaskToolSet:
             arguments,
             timezone=timezone if isinstance(timezone, str) else "UTC",
         )
-        authoring = self._authoring(proposal.arguments)
+        authoring = await self._authoring(proposal.arguments)
         if authoring.clarification is not None:
             return self._clarification(authoring)
         return await self._submit_draft(
@@ -729,13 +744,43 @@ class BackgroundTaskToolSet:
             receipt.update(extra)
         return receipt
 
-    def _authoring(self, arguments: Mapping[str, Any]) -> ScheduleAuthoringResult:
+    async def _authoring(self, arguments: Mapping[str, Any]) -> ScheduleAuthoringResult:
+        targets = await self._delivery_targets()
         try:
             return compile_schedule_plan(
-                arguments, context=_authoring_context(self._context)
+                arguments, context=_authoring_context(self._context, targets)
             )
         except ScheduleAuthoringError as exc:
             raise TaskToolError(exc.code, exc.message, exc.data) from exc
+
+    async def _delivery_targets(self) -> tuple[DeliveryTargetOption, ...]:
+        """Read the owner's outbound targets; an unavailable list is an empty list, not a guess."""
+        try:
+            data = await self._client.list_delivery_targets(
+                tenant_id=self._context.tenant_id,
+                actor_user_id=self._context.actor_user_id,
+                trace_id=self._context.trace_id,
+            )
+        except AppError:
+            logger.warning("schedule_delivery_targets_unavailable")
+            return ()
+        options: list[DeliveryTargetOption] = []
+        items = data.get("items") if isinstance(data, Mapping) else None
+        if not isinstance(items, list):
+            return ()
+        for item in items:
+            if not isinstance(item, Mapping):
+                continue
+            label = item.get("label")
+            route = item.get("route")
+            if not isinstance(label, str) or not isinstance(route, Mapping):
+                continue
+            try:
+                parsed = DeliveryRouteInput.model_validate(route)
+            except ValidationError:
+                continue
+            options.append(DeliveryTargetOption(label=label, route=parsed))
+        return tuple(options)
 
     def _clarification(self, authoring: ScheduleAuthoringResult) -> dict[str, Any]:
         clarification = authoring.clarification

@@ -137,6 +137,14 @@ class ScheduleClarification:
 
 
 @dataclass(frozen=True, slots=True)
+class DeliveryTargetOption:
+    """One owner-scoped outbound target; only the safe label and route shape."""
+
+    label: str
+    route: DeliveryRouteInput
+
+
+@dataclass(frozen=True, slots=True)
 class ScheduleAuthoringContext:
     """Resolved Run materials the compiler may inspect without another resolver round trip."""
 
@@ -144,6 +152,7 @@ class ScheduleAuthoringContext:
     mcp_servers: Sequence[ResolvedMcpServer] = ()
     entry_channel: str | None = None
     delivery_route: DeliveryRouteInput | None = None
+    delivery_targets: Sequence[DeliveryTargetOption] = ()
     conversation_id: uuid.UUID | None = None
 
 
@@ -806,6 +815,35 @@ def _push_route(
     context: ScheduleAuthoringContext,
     errors: list[ScheduleFieldError],
 ) -> DeliveryRouteInput | None:
+    requested_target = raw.get("target")
+    if requested_target is not None:
+        if not isinstance(requested_target, str) or not requested_target.strip():
+            errors.append(_field("delivery.target", "INVALID", "CHOOSE_DELIVERY_TARGET"))
+            return None
+        matches = [
+            item
+            for item in context.delivery_targets
+            if item.label == requested_target.strip()
+            or item.route.channel == requested_target.strip()
+        ]
+        if len(matches) != 1:
+            reason = "DELIVERY_TARGET_AMBIGUOUS" if matches else "DELIVERY_TARGET_NOT_FOUND"
+            allowed = tuple(sorted({item.label for item in context.delivery_targets}))
+            errors.append(
+                _field("delivery.target", reason, "LIST_DELIVERY_TARGETS", allowed)
+            )
+            return None
+        if matches[0].route.channel not in OUTBOUND_CHANNELS:
+            errors.append(
+                _field(
+                    "delivery.target",
+                    "DELIVERY_CHANNEL_UNSUPPORTED",
+                    "CHOOSE_OUTBOUND_CHANNEL",
+                    tuple(sorted(OUTBOUND_CHANNELS)),
+                )
+            )
+            return None
+        return matches[0].route
     supplied = raw.get("route")
     route: DeliveryRouteInput | None
     if supplied is not None:
