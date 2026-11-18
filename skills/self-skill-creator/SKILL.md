@@ -22,6 +22,7 @@ description: 指导用户写一个符合本平台格式的自建 Skill。用户�
 |---|---|
 | `skill_draft`（action=`create`） | 按 `key` 创建（或复用）当前用户的草稿，返回 `draft_id` 与 `revision` |
 | `skill_draft`（action=`write`） | 写一个文件；必须带当前 `expected_revision`（revision CAS） |
+| `skill_draft`（action=`import`） | 把用户上传的代码包（zip）整个导入草稿：字节级复制，含二进制成员，不经模型转写 |
 | `skill_draft`（action=`read`） | 读文件或列目录 |
 | `skill_draft`（action=`delete`） | 删文件；不带 `path` 时删整个草稿 |
 | `skill_draft`（action=`review`） | 只读确定性校验，返回 pass/warn/error 明细 |
@@ -30,6 +31,8 @@ description: 指导用户写一个符合本平台格式的自建 Skill。用户�
 | `skill_draft`（action=`submit`） | 打包并提交，生成 PENDING artifact 等管理员审批 |
 
 草稿文件是 UTF-8 文本；二进制文件不要通过 `skill_draft`（action=`write`） 写。
+
+用户已经上传了整个代码包时，**不要逐个文件转写**：用 `skill_draft`（action=`import`）把包原样导入草稿，再只改需要改的文件。导入只在用户明确要求「基于这个包写/改 skill」时做；图片、PDF、数据文件这类普通附件不属于草稿，照常用 `read_attachment` 阅读，不要导入。
 
 ## 格式硬约束
 
@@ -60,6 +63,18 @@ description: 指导用户写一个符合本平台格式的自建 Skill。用户�
 ```
 skill_draft {"action": "create", "key": "<skill名>"}
 ```
+
+### Step 2b：基于用户上传的代码包（仅当用户明确要求）
+
+用户上传了 skill 代码包，并明确说「基于这个包写 / 改一个 skill」时：
+
+```
+skill_draft {"action": "import", "key": "<skill名>", "artifact_id": "<附件id>"}
+```
+
+- 包内文件原样进草稿（含二进制成员），同名文件被覆盖，草稿里其它文件保留；
+- 非压缩包附件会被拒绝——那不是「基于代码写 skill」的场景；
+- 导入后从 `muad.skill.json` / `SKILL.md` 起按下面的步骤修改，不要重写整个包。
 
 ### Step 3：写 `muad.skill.json`
 

@@ -255,6 +255,28 @@ class ConsoleSkillDraftClient:
             },
         )
 
+    async def apply(
+        self,
+        draft_id: str,
+        *,
+        tenant_id: str,
+        owner_user_id: str,
+        expected_revision: int,
+        changes: Sequence[DraftShellChange],
+    ) -> dict[str, Any]:
+        """一次批量写入 + revision CAS：草稿导入走这里（二进制成员由 `_encoded_change` 转 base64）。"""
+        return await self._call(
+            "POST",
+            f"/internal/skills/drafts/{draft_id}/apply",
+            json={
+                "tenant_id": tenant_id,
+                "owner_user_id": owner_user_id,
+                "expected_revision": expected_revision,
+                "changes": [_encoded_change(change) for change in changes],
+                "deletions": [],
+            },
+        )
+
     async def delete_file(
         self,
         draft_id: str,
