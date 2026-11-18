@@ -1,0 +1,30 @@
+{
+  "_comment": "本地回归 Skill 的 MSSP 端点配置。base_url / Host / 固定 CSRF 可用环境变量覆盖，默认指向本仓库的 fake MSSP。",
+  "base_url": "http://127.0.0.1:18083",
+  "host_header": "soar-inner.sangfor.com.cn",
+  "fixed_csrf_token": "6c5c52cd-3ebb-47e2-946c-15c2569836e7",
+  "referer_path": "/index.html",
+  "endpoints": {
+    "company_list": "/order/v1/user/company_simple_info",
+    "service_info": "/gateway/customer-mgr-service/order/v1/project/service_info/company_id",
+    "ck_table_query": "/gateway/log-search-center-service/datalake/v1/ckTableQuery",
+    "ck_count": "/gateway/log-search-center-service/datalake/v1/ckCount",
+    "ck_query_list": "/gateway/log-search-center-service/datalake/v1/ckQueryList",
+    "event_table": "/gateway/event-mgr/external/event_table",
+    "event_remark": "/gateway/event-mgr/external/event_table/remark?_method=GET",
+    "event_detail": "/gateway/event-mgr/external/event_table/event?_method=GET",
+    "event_grading_type": "/gateway/event-mgr/external/event_grading_type",
+    "manage_type": "/gateway/event-mgr/external/manage_type",
+    "whitelist_list": "/order/v1/whitelist/alert_filter_list",
+    "asset_query": "/gateway/asset-mgr-service/order/v1/asset?_method=GET",
+    "branch_dev": "/gateway/customer-mgr-service/order/v1/branch/dev?_method=GET",
+    "threat_response_mode": "/gateway/api-proxy/api/apex/linkage/v1/autodispose/config/getresponsemode",
+    "threat_entity_statistics": "/gateway/api-proxy/api/apex/linkage/v1/threatentity/statistics",
+    "threat_objects": "/gateway/api-proxy/api/apex/linkage/v1/threatobjects",
+    "wechat_group_query": "/gateway/flow/external/action/param/actual_data",
+    "wechat_group_message": "/gateway/flow/external/action/wechat_group_message",
+    "attachment_upload": "/gateway/flow/external/attachments?_method=POST",
+    "xdr_alert_table": "/gateway/api-proxy/ngsoc/INCIDENT/api/v1/table/query/alertTableQueryHandler",
+    "xdr_alert_count": "/gateway/api-proxy/ngsoc/INCIDENT/api/v1/table/count/alertTableQueryHandler"
+  }
+}

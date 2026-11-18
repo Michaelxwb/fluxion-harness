@@ -1,0 +1,13 @@
+{
+  "name": "daily-duty-report-mssp-local",
+  "author": "fluxion-harness",
+  "description": "本地回归用值守日报 Skill：与 daily-duty-report-mssp 同形态，读取 fake MSSP 的只读端点，输出简化日报与附件占位。",
+  "platforms": [
+    "mssp"
+  ],
+  "runtime": "script",
+  "version": "0.1.0",
+  "capabilities": [],
+  "longTask": false,
+  "entrypoint": "scripts/run.py"
+}

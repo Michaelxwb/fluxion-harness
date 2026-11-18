@@ -1,0 +1,501 @@
+{
+  "version": 1,
+  "report_date": "2026-11-18",
+  "description": "Deterministic fake MSSP data. Dates are fixed on purpose: 2026-11-18 is the current period and 2026-11-17 is the previous period for every scene fixture.",
+  "defaults": {
+    "full_asset": true,
+    "logs": {"network": 1200, "endpoint": 800},
+    "services": [
+      {
+        "service_name": "托管检测与响应服务（MDR / SaaS XDR）",
+        "main_service_code": "S-01-01-020",
+        "service_code": "S-01-01-020-001",
+        "auth_status": 1,
+        "service_status": "running",
+        "start_time": "2025-01-01",
+        "end_time": "2027-12-31"
+      }
+    ],
+    "events": [],
+    "alerts": {"default": {"count": 0}},
+    "entities": {
+      "mode": "security",
+      "stats": {"total": 12, "banned": 6, "allowed": 4, "monitored": 2}
+    },
+    "whitelist": [],
+    "devices": [],
+    "assets": []
+  },
+  "companies": {
+    "1001": {
+      "name": "全资产客户（示例）",
+      "full_asset": true,
+      "logs": {"network": 1200, "endpoint": 800},
+      "events": [
+        {
+          "count": 3,
+          "event_name": "外网暴力破解攻击",
+          "manage_type": "INTERNET_THREAT",
+          "service_status": 0,
+          "event_status": "finished",
+          "host_ip": "10.10.1.11",
+          "risk_level": "high"
+        },
+        {
+          "count": 1,
+          "event_name": "未公开威胁精准通告",
+          "manage_type": "UNDECLARED_THREAT",
+          "service_status": 1,
+          "event_status": "disposal",
+          "host_ip": "10.10.1.14",
+          "push_tag": 1,
+          "risk_level": "medium"
+        },
+        {
+          "count": 1,
+          "event_name": "AF存在直通策略",
+          "manage_type": "STRATEGY_OPTIMIZE",
+          "service_status": 1,
+          "event_status": "finished",
+          "host_ip": "10.10.1.12",
+          "risk_level": "high"
+        },
+        {
+          "count": 1,
+          "event_name": "可疑外联行为",
+          "manage_type": "EMERGENCY_RESPONSE",
+          "service_status": 0,
+          "event_status": "accept_risk",
+          "host_ip": "10.10.1.13",
+          "risk_level": "low",
+          "remark": "技术误报，已确认"
+        }
+      ],
+      "alerts": {
+        "default": {"count": 0},
+        "days": {
+          "2026-11-18": {
+            "count": 24,
+            "types": {"Web攻击": 24},
+            "sources": ["203.0.113.10"],
+            "host_ips": ["10.10.1.11"],
+            "dev_sources": ["AF (af-demo-AF100100)"]
+          },
+          "2026-11-17": {
+            "count": 12,
+            "types": {"Web攻击": 12},
+            "sources": ["203.0.113.10"],
+            "host_ips": ["10.10.1.11"],
+            "dev_sources": ["AF (af-demo-AF100100)"]
+          }
+        }
+      },
+      "entities": {
+        "mode": "security",
+        "stats": {"total": 12, "banned": 6, "allowed": 4, "monitored": 2}
+      },
+      "group": {
+        "_id": "wg-1001",
+        "group_name": "【示例】全资产客户服务群",
+        "company_name": "全资产客户（示例）"
+      }
+    },
+    "1002": {
+      "name": "非全资产客户（示例）",
+      "full_asset": false,
+      "logs": {"network": 320, "endpoint": 80},
+      "services": [
+        {
+          "service_name": "基础安全托管服务",
+          "main_service_code": "S-02-01-001",
+          "service_code": "S-02-01-001-001",
+          "auth_status": 1,
+          "service_status": "running",
+          "start_time": "2025-03-01",
+          "end_time": "2027-03-01"
+        }
+      ],
+      "events": [
+        {
+          "count": 2,
+          "event_name": "终端木马处置",
+          "manage_type": "INTERNET_THREAT",
+          "service_status": 0,
+          "event_status": "finished",
+          "host_ip": "10.20.1.21",
+          "risk_level": "high"
+        },
+        {
+          "count": 1,
+          "event_name": "AF设备离线",
+          "manage_type": "STRATEGY_OPTIMIZE",
+          "manage_sub_type": "DEVICE_OFFLINE",
+          "service_status": 1,
+          "event_status": "finished",
+          "host_ip": "10.20.1.22",
+          "risk_level": "medium"
+        },
+        {
+          "count": 1,
+          "event_name": "威胁情报命中",
+          "manage_type": "UNDECLARED_THREAT",
+          "service_status": 3,
+          "event_status": "finished",
+          "host_ip": "10.20.1.23",
+          "risk_level": "high"
+        },
+        {
+          "count": 1,
+          "event_name": "弱口令排查",
+          "manage_type": "EMERGENCY_RESPONSE",
+          "service_status": 3,
+          "event_status": "inited",
+          "host_ip": "10.20.1.24",
+          "risk_level": "low"
+        },
+        {
+          "count": 1,
+          "event_name": "误报告警",
+          "manage_type": "OTHER",
+          "service_status": 0,
+          "event_status": "accept_risk",
+          "host_ip": "10.20.1.25",
+          "risk_level": "low",
+          "remark": "误推送"
+        },
+        {
+          "count": 1,
+          "event_name": "漏洞扫描",
+          "manage_type": "VULNERABILITY",
+          "service_status": 0,
+          "event_status": "finished",
+          "host_ip": "10.20.1.26",
+          "risk_level": "medium"
+        }
+      ],
+      "alerts": {
+        "default": {"count": 0},
+        "days": {
+          "2026-11-18": {
+            "count": 8,
+            "types": {"扫描探测": 8},
+            "sources": ["198.51.100.20"],
+            "host_ips": ["10.20.1.21"],
+            "dev_sources": ["SIP (sip-demo-SIP100200)"]
+          },
+          "2026-11-17": {
+            "count": 8,
+            "types": {"扫描探测": 8},
+            "sources": ["198.51.100.20"],
+            "host_ips": ["10.20.1.21"],
+            "dev_sources": ["SIP (sip-demo-SIP100200)"]
+          }
+        }
+      },
+      "entities": {
+        "mode": "mock",
+        "stats": {"total": 20, "banned": 9, "allowed": 8, "monitored": 3}
+      },
+      "group": {
+        "_id": "wg-1002",
+        "group_name": "【示例】非全资产客户服务群",
+        "company_name": "非全资产客户（示例）"
+      }
+    },
+    "1003": {
+      "name": "空数据客户（示例）",
+      "full_asset": true,
+      "logs": {"network": 0, "endpoint": 0},
+      "events": [],
+      "alerts": {
+        "default": {"count": 0},
+        "days": {
+          "2026-11-18": {"count": 0},
+          "2026-11-17": {"count": 0}
+        }
+      },
+      "entities": {
+        "mode": "security",
+        "stats": {"total": 0, "banned": 0, "allowed": 0, "monitored": 0}
+      }
+    },
+    "1004": {
+      "name": "未开通智能对抗客户（示例）",
+      "full_asset": false,
+      "logs": {"network": 10, "endpoint": 0},
+      "services": [
+        {
+          "service_name": "基础安全托管服务",
+          "main_service_code": "S-02-01-001",
+          "service_code": "S-02-01-001-002",
+          "auth_status": 1,
+          "service_status": "running",
+          "start_time": "2025-04-01",
+          "end_time": "2027-04-01"
+        }
+      ],
+      "events": [],
+      "alerts": {"default": {"count": 0}},
+      "entities": {"mode": "disabled", "stats": {"total": 0, "banned": 0, "allowed": 0, "monitored": 0}}
+    },
+    "2101": {
+      "name": "场景01-新增资产（示例）",
+      "full_asset": true,
+      "alerts": {
+        "default": {"count": 0},
+        "days": {
+          "2026-11-18": {
+            "count": 30,
+            "types": {"Web攻击": 30},
+            "sources": ["203.0.113.10"],
+            "host_ips": ["10.20.1.10"]
+          },
+          "2026-11-17": {
+            "count": 10,
+            "types": {"Web攻击": 10},
+            "sources": ["203.0.113.10"],
+            "host_ips": ["10.10.1.11"]
+          }
+        }
+      },
+      "assets": [
+        {
+          "asset_id": "asset-2101-new",
+          "asset": "10.20.1.10",
+          "business_name": "新增业务系统",
+          "hostname": "app-2101",
+          "asset_group_name": "新增资产组",
+          "asset_type": "server",
+          "authorization_type": [1],
+          "service_status": 1,
+          "is_alive": 1,
+          "first_time": "2026-11-18T09:00:00+08:00",
+          "update_time": "2026-11-18T09:10:00+08:00"
+        }
+      ]
+    },
+    "2102": {
+      "name": "场景02-新增组件（示例）",
+      "full_asset": true,
+      "alerts": {
+        "default": {"count": 0},
+        "days": {
+          "2026-11-18": {
+            "count": 30,
+            "types": {"暴力破解": 30},
+            "sources": ["203.0.113.10"],
+            "host_ips": ["10.10.1.11"],
+            "dev_sources": ["AF (af-scene2-AF210200)"]
+          },
+          "2026-11-17": {
+            "count": 10,
+            "types": {"暴力破解": 10},
+            "sources": ["203.0.113.10"],
+            "host_ips": ["10.10.1.11"],
+            "dev_sources": []
+          }
+        }
+      },
+      "devices": [
+        {
+          "dev_id": "dev-2102-new",
+          "gateway_id": "AF210200",
+          "dev_name": "af-scene2",
+          "dev_type": 3,
+          "type_name": "AF",
+          "dev_status": 1,
+          "platform_status": "online",
+          "branch_name": "示例分支",
+          "create_time": "2026-11-18T09:30:00+08:00"
+        }
+      ]
+    },
+    "2103": {
+      "name": "场景03-原有攻击源（示例）",
+      "full_asset": true,
+      "alerts": {
+        "default": {"count": 0},
+        "days": {
+          "2026-11-18": {
+            "count": 30,
+            "types": {"Web攻击": 30},
+            "sources": ["198.51.100.20"],
+            "host_ips": ["10.10.1.11"]
+          },
+          "2026-11-17": {
+            "count": 10,
+            "types": {"Web攻击": 10},
+            "sources": ["198.51.100.20"],
+            "host_ips": ["10.10.1.11"]
+          }
+        }
+      }
+    },
+    "2104": {
+      "name": "场景04-新增攻击源（示例）",
+      "full_asset": true,
+      "alerts": {
+        "default": {"count": 0},
+        "days": {
+          "2026-11-18": {
+            "count": 30,
+            "types": {"Web攻击": 30},
+            "sources": ["203.0.113.99"],
+            "host_ips": ["10.10.1.11"]
+          },
+          "2026-11-17": {
+            "count": 10,
+            "types": {"Web攻击": 10},
+            "sources": ["203.0.113.10"],
+            "host_ips": ["10.10.1.11"]
+          }
+        }
+      }
+    },
+    "2105": {
+      "name": "场景05-类型基本延续（示例）",
+      "full_asset": true,
+      "alerts": {
+        "default": {"count": 0},
+        "days": {
+          "2026-11-18": {
+            "count": 32,
+            "types": {"Web攻击": 32},
+            "sources": ["203.0.113.10"],
+            "host_ips": ["10.10.1.11"]
+          },
+          "2026-11-17": {
+            "count": 30,
+            "types": {"Web攻击": 30},
+            "sources": ["203.0.113.10"],
+            "host_ips": ["10.10.1.11"]
+          }
+        }
+      }
+    },
+    "2106": {
+      "name": "场景06-类型明显变化（示例）",
+      "full_asset": true,
+      "alerts": {
+        "default": {"count": 0},
+        "days": {
+          "2026-11-18": {
+            "count": 30,
+            "types": {"Web攻击": 5, "暴力破解": 25},
+            "sources": ["203.0.113.10"],
+            "host_ips": ["10.10.1.11"]
+          },
+          "2026-11-17": {
+            "count": 30,
+            "types": {"Web攻击": 30},
+            "sources": ["203.0.113.10"],
+            "host_ips": ["10.10.1.11"]
+          }
+        }
+      }
+    },
+    "2107": {
+      "name": "场景07-组件离线（示例）",
+      "full_asset": true,
+      "events": [
+        {
+          "count": 1,
+          "event_name": "AF设备离线",
+          "manage_type": "STRATEGY_OPTIMIZE",
+          "manage_sub_type": "DEVICE_OFFLINE",
+          "service_status": 0,
+          "event_status": "finished",
+          "host_ip": "10.30.7.10",
+          "dev_name": "AF-2107",
+          "risk_level": "high"
+        }
+      ],
+      "alerts": {
+        "default": {"count": 0},
+        "days": {
+          "2026-11-18": {"count": 0},
+          "2026-11-17": {"count": 0}
+        }
+      }
+    },
+    "2108": {
+      "name": "场景08-新增白名单（示例）",
+      "full_asset": true,
+      "whitelist": [
+        {
+          "_id": "wl-2108-1",
+          "name": "示例业务白名单",
+          "valid_time": "2026-11-18T10:00:00+08:00",
+          "end_time": "2027-11-18T10:00:00+08:00",
+          "online": 1,
+          "hit_count": 0
+        }
+      ],
+      "alerts": {
+        "default": {"count": 0},
+        "days": {
+          "2026-11-18": {"count": 0},
+          "2026-11-17": {"count": 0}
+        }
+      }
+    },
+    "2109": {
+      "name": "场景09-下降主因（示例）",
+      "full_asset": true,
+      "alerts": {
+        "default": {"count": 0},
+        "days": {
+          "2026-11-18": {
+            "count": 5,
+            "types": {"Web攻击": 5},
+            "sources": ["203.0.113.10"],
+            "host_ips": ["10.10.1.11"]
+          },
+          "2026-11-17": {
+            "count": 30,
+            "types": {"Web攻击": 30},
+            "sources": ["203.0.113.10"],
+            "host_ips": ["10.10.1.11"]
+          }
+        }
+      }
+    },
+    "2110": {
+      "name": "场景10-上期为零（示例）",
+      "full_asset": true,
+      "alerts": {
+        "default": {"count": 0},
+        "days": {
+          "2026-11-18": {
+            "count": 25,
+            "types": {"Web攻击": 25},
+            "sources": ["203.0.113.10"],
+            "host_ips": ["10.10.1.11"]
+          },
+          "2026-11-17": {"count": 0}
+        }
+      }
+    },
+    "2111": {
+      "name": "场景11-原因不足（示例）",
+      "full_asset": true,
+      "alerts": {
+        "default": {"count": 0},
+        "days": {
+          "2026-11-18": {
+            "count": 15,
+            "types": {"Web攻击": 15},
+            "sources": ["203.0.113.10"],
+            "host_ips": ["10.10.1.11"]
+          },
+          "2026-11-17": {
+            "count": 10,
+            "types": {"Web攻击": 10},
+            "sources": ["203.0.113.10"],
+            "host_ips": ["10.10.1.11"]
+          }
+        }
+      }
+    }
+  }
+}

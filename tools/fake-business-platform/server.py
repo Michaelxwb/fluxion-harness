@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Standalone business-platform simulator for session/SDK smoke tests.
 
-Two modes:
+Three modes:
 
 - ``smoke_platform`` (default): cookie-based login used by the legacy
   session-manager smoke tests. Behaviour is unchanged.
@@ -9,6 +9,12 @@ Two modes:
   real ``MSSWSessionAdapter`` (SigV4-style AK/SK login, CSRF cookie/header,
   health endpoint) and the Runtime Guard ``requests`` compat layer
   (Cookie/CSRF/Host/static headers/Traceid).
+- ``mssp``: models the MSSP/SOAR gateway used by ``daily-duty-report-mssp``:
+  Host routing, the fixed ``X-CSRFToken`` header, ``X-MSSW-Company-Id`` on
+  api-proxy calls, the data-lake/event/asset endpoints and XDR alert
+  table/count through ``/gateway/api-proxy``. Fixtures live in
+  ``fixtures/mssp.json``; WeCom write endpoints are disabled unless
+  ``--enable-wecom-write`` is passed.
 
 Independently of the platform mode, ``POST /mcp`` exposes a Streamable HTTP
 JSON-RPC subset (initialize / notifications/initialized / tools/list /
@@ -33,7 +39,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import urlparse
 
+import mssp as mssp_platform
+
 MAX_BODY_BYTES = 8192
+MSSP_MAX_BODY_BYTES = 8 * 1024 * 1024
 GATEWAY_PREFIX = "/gateway/"
 MSSW_LOGIN_PATH = "/gateway/mss-auth-acl-service/v1/certification/login_agent"
 MSSW_GET_TOKEN_PATH = "/v1/certification/get_token"
@@ -166,6 +175,15 @@ class FakeBusinessPlatform(ThreadingHTTPServer):
             name.lower() for name, _ in self.mcp_headers
         )
         self.mcp_sessions: set[str] = set()
+        self.mssp: mssp_platform.MsspService | None = None
+        if self.platform == "mssp":
+            self.mssp = mssp_platform.MsspService(
+                args.mssp_fixtures,
+                host_header=args.mssp_host_header,
+                csrf_token=args.mssp_csrf_token,
+                default_company=args.mssp_default_company,
+                wecom_write=args.enable_wecom_write,
+            )
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -187,6 +205,9 @@ class Handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         if path == self.server.mcp_path:
             self._mcp_post()
+            return
+        if self.server.platform == "mssp":
+            self._mssp_request("POST")
             return
         if self.server.platform == "mssw":
             self._mssw_login(path)
@@ -228,6 +249,9 @@ class Handler(BaseHTTPRequestHandler):
             # Streamable HTTP MCP is POST-only in this subset; GET (SSE stream)
             # is not implemented, so advertise the allowed method explicitly.
             self._send_json(405, {"error": "method_not_allowed"}, [("Allow", "POST")])
+            return
+        if self.server.platform == "mssp":
+            self._mssp_request("GET")
             return
         if self.server.platform == "mssw":
             self._mssw_get(path)
@@ -330,6 +354,26 @@ class Handler(BaseHTTPRequestHandler):
             )
             return
         self._send_json(200, rpc_result(request_id, result))
+
+    # ------------------------------------------------------------------ #
+    # MSSP mode
+    # ------------------------------------------------------------------ #
+
+    def _mssp_request(self, method: str) -> None:
+        parsed = urlparse(self.path)
+        body = b""
+        if method == "POST":
+            raw = self._read_body_bytes(MSSP_MAX_BODY_BYTES)
+            if raw is None:
+                self._send_json(400, {"code": 1001, "msg": "unreadable body"})
+                return
+            body = raw
+        headers = {key.lower(): value for key, value in self.headers.items()}
+        assert self.server.mssp is not None
+        response = self.server.mssp.handle(
+            method, parsed.path, parsed.query, headers, body
+        )
+        self._send_json(response.status, response.payload, list(response.headers))
 
     # ------------------------------------------------------------------ #
     # MSSW mode
@@ -498,6 +542,18 @@ class Handler(BaseHTTPRequestHandler):
         except UnicodeDecodeError:
             return None
 
+    def _read_body_bytes(self, limit: int) -> bytes | None:
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            return None
+        if length < 0 or length > limit:
+            return None
+        try:
+            return self.rfile.read(length)
+        except OSError:
+            return None
+
     def _read_json_body(self) -> dict[str, Any] | None:
         text = self._read_body_text()
         if text is None:
@@ -652,13 +708,28 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run a fake business platform.")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=0)
-    parser.add_argument("--platform", choices=("smoke_platform", "mssw"), default="smoke_platform")
+    parser.add_argument(
+        "--platform", choices=("smoke_platform", "mssw", "mssp"), default="smoke_platform"
+    )
     parser.add_argument("--cookie-name", default="fake_session")
     parser.add_argument("--session-ttl", type=int, default=900)
     parser.add_argument("--ak", default="test-ak")
     parser.add_argument("--sk", default="test-sk")
     parser.add_argument("--no-csrf", action="store_true", help="Disable CSRF validation in mssw mode")
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument("--mssp-host-header", default=mssp_platform.DEFAULT_HOST_HEADER)
+    parser.add_argument("--mssp-csrf-token", default=mssp_platform.FIXED_CSRF_TOKEN)
+    parser.add_argument(
+        "--mssp-fixtures",
+        default=str(mssp_platform.FIXTURES_PATH),
+        help="Deterministic MSSP fixture JSON",
+    )
+    parser.add_argument("--mssp-default-company", default=mssp_platform.DEFAULT_COMPANY_ID)
+    parser.add_argument(
+        "--enable-wecom-write",
+        action="store_true",
+        help="Enable fake WeCom query/upload/send endpoints (off by default)",
+    )
     parser.add_argument("--mcp-auth", choices=("none", "bearer", "headers"), default="none")
     parser.add_argument("--mcp-token", default="", help="Bearer token required by --mcp-auth bearer")
     parser.add_argument(
@@ -709,7 +780,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    server = FakeBusinessPlatform((args.host, args.port), Handler, args)
+    try:
+        server = FakeBusinessPlatform((args.host, args.port), Handler, args)
+    except mssp_platform.MsspFixtureError as exc:
+        sys.stderr.write(f"fake mssp fixtures invalid: {exc}\n")
+        return 2
     host = "127.0.0.1" if args.host in ("", "0.0.0.0", "::") else args.host
     base_url = f"http://{host}:{server.server_port}"
     ready: dict[str, Any] = {
@@ -728,6 +803,18 @@ def main() -> int:
             "sessionEndpoint": MSSW_LOGIN_PATH,
             "healthEndpoint": MSSW_HEALTH_PATH,
             "pingEndpoint": MSSW_PING_PATH,
+        })
+    if args.platform == "mssp":
+        assert server.mssp is not None
+        ready.update({
+            "hostHeader": args.mssp_host_header,
+            "csrfHeader": "X-CSRFToken",
+            "csrfToken": args.mssp_csrf_token,
+            "companyHeader": "X-MSSW-Company-Id",
+            "fixtures": args.mssp_fixtures,
+            "companies": server.mssp.fixture_summary()["companies"],
+            "wecomWrite": args.enable_wecom_write,
+            "endpoints": dict(mssp_platform.ENDPOINTS),
         })
     print(json.dumps(ready), flush=True)
     try:

@@ -6,8 +6,10 @@
 - `smoke_platform`（默认）：Cookie 登录（`POST /login`、`GET /api/me`、`GET /health/session`），对应旧版 Cookie 会话。
 - `mssw`：贴近 MSS ADS/gateway 契约，驱动真实的 `MSSAdapter`
   （`packages/platform-sdk/src/muad_platform_sdk/adapter/mss.py`）：SigV4 风格 AK/SK 登录、CSRF cookie/header、健康检查、Traceid 回显。
+- `mssp`：贴近 MSSP/SOAR 网关，驱动 `daily-duty-report-mssp` 同形态的 Skill：
+  Host 路由、固定 `X-CSRFToken`、`X-MSSW-Company-Id`，以及数据湖/事件/资产/XDR 端点。
 
-两种模式下 `POST /mcp` 都额外提供 Streamable HTTP MCP 子集。
+三种模式下 `POST /mcp` 都额外提供 Streamable HTTP MCP 子集。
 
 ## 一键启停
 
@@ -41,9 +43,13 @@
 python3 tools/fake-business-platform/server.py \
   --platform mssw --host 0.0.0.0 --port 18080 \
   --ak test-ak --sk test-sk
+
+# mssp 模式（本地回归 Skill / fake MSSP 用这条；写操作默认关闭）
+python3 tools/fake-business-platform/server.py \
+  --platform mssp --host 127.0.0.1 --port 18083
 ```
 
-stdout 首行是 JSON 就绪信息（`baseUrl`、AK/SK、`csrfEnabled`、`sessionEndpoint`、`healthEndpoint`）。
+stdout 首行是 JSON 就绪信息（`baseUrl`、`hostHeader`/`csrfToken`、`companies`、`endpoints` 等）。
 
 Runtime 在容器/Pod 内时，`baseUrl` 必须在该网络命名空间可达：用 `host.docker.internal`
 （Docker/OrbStack）或节点 IP / 集群别名。该值属于部署环境，配在 Console 平台设置里，不写进 Skill。
@@ -127,6 +133,89 @@ Bearer（无 `auth_config`，密钥存 MCP Server secret）：
 
 `auth_secret` 是平台侧的 MCP 密钥：不得写入 Skill、README 副本、日志或快照。
 
+## mssp 端点
+
+`--platform mssp` 模拟 `daily-duty-report-mssp` 使用的 MSSP/SOAR 网关。数据来自
+`fixtures/mssp.json`，不访问内网。
+
+```bash
+python3 tools/fake-business-platform/server.py \
+  --platform mssp --host 127.0.0.1 --port 18083
+
+# 需要测试企微上传/发送时显式开启（默认关闭）
+python3 tools/fake-business-platform/server.py \
+  --platform mssp --host 127.0.0.1 --port 18083 --enable-wecom-write
+```
+
+其它参数：`--mssp-fixtures`（fixture JSON）、`--mssp-default-company`、`--mssp-host-header`、
+`--mssp-csrf-token`。
+
+### 请求头
+
+| 头 | 要求 | 说明 |
+|---|---|---|
+| `Host` | 必填 | 默认 `soar-inner.sangfor.com.cn`，可用 `--mssp-host-header` 改；不匹配返回 HTTP 404 / `code=4004` |
+| `X-CSRFToken` | POST 必填 | 固定值 `6c5c52cd-3ebb-47e2-946c-15c2569836e7`（可用 `--mssp-csrf-token` 改）；缺失/错误返回 HTTP 403 / `code=9451` |
+| `X-MSSW-Company-Id` | api-proxy 必填 | `/gateway/api-proxy/*` 缺失返回 HTTP 400 / `code=1003` |
+| `Cookie` | 不需要 | fake 只模拟只读业务面，不实现 MSSP 登录态 |
+
+业务码与 HTTP 状态分离：参数类错误用 HTTP 200 + `code=9064/9001/1001`；
+网关/路由/鉴权失败才用 4xx。apex/linkage 成功码是字符串 `"Success"`，XDR 响应没有
+顶层 `code`，与真实平台一致。
+
+### 只读端点
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | `/order/v1/user/company_simple_info` | 客户列表（`keyword` 过滤） |
+| POST | `/gateway/customer-mgr-service/order/v1/project/service_info/company_id` | 服务项；全资产判定 |
+| POST | `/gateway/log-search-center-service/datalake/v1/ckTableQuery` | 表清单（6408/6409/6410） |
+| POST | `/gateway/log-search-center-service/datalake/v1/ckCount` | 日志/告警计数 |
+| POST | `/gateway/log-search-center-service/datalake/v1/ckQueryList` | 明细分页（缺 `pageNo/pageSize/fieldList` → 9001） |
+| POST | `/gateway/log-search-center-service/datalake/v1/ckQuery` | 固定 9002（真实平台权限不足） |
+| POST | `/gateway/event-mgr/external/event_table` | 事件分页/状态/场景/服务类型过滤 |
+| POST | `/gateway/event-mgr/external/event_table/remark` | 事件备注（含「技术误报」样例） |
+| POST | `/gateway/event-mgr/external/event_table/event` | 事件详情 |
+| POST | `/gateway/event-mgr/external/event_grading_type` | 风险等级 facet（带分页参数 → 9064） |
+| POST | `/gateway/event-mgr/external/manage_type` | 一级场景 facet（带 `manage_type` → 9064） |
+| POST | `/gateway/asset-mgr-service/order/v1/asset` | 资产台账（`first_time` 毫秒窗口） |
+| POST | `/gateway/customer-mgr-service/order/v1/branch/dev` | 组件清单（`type`/`status`） |
+| POST | `/order/v1/whitelist/alert_filter_list` | 白名单（`valid_time` 毫秒窗口） |
+| GET | `/gateway/api-proxy/api/apex/linkage/v1/autodispose/config/getresponsemode` | security / mock / disabled 三态 |
+| POST | `/gateway/api-proxy/api/apex/linkage/v1/threatentity/statistics` | 威胁实体四项统计 |
+| POST | `/gateway/api-proxy/api/apex/linkage/v1/threatobjects` | 威胁实体明细（`blockStatus`/`gptBlockResult`，pageSize>100 → `InternalError.InvalidParameter`） |
+| POST | `/gateway/api-proxy/ngsoc/INCIDENT/api/v1/table/query/alertTableQueryHandler` | XDR 告警明细 |
+| POST | `/gateway/api-proxy/ngsoc/INCIDENT/api/v1/table/count/alertTableQueryHandler` | XDR 告警计数 |
+
+### fixtures
+
+| 客户 ID | 用途 |
+|---|---|
+| `1001` | 全资产；日志 2000；告警 24（上期 12）；有效事件 5；security 威胁实体 |
+| `1002` | 非全资产；日志 400；告警 8（持平）；有效事件 5；mock 威胁实体 |
+| `1003` | 空数据：计数/事件/实体全 0，报告仍可生成 |
+| `1004` | 智能对抗未开通（disabled） |
+| `2101`..`2111` | 场景 1-11：新增资产/组件、原有/新增攻击源、平稳、类型变化、组件离线、新增白名单、下降、上期为零、原因不足 |
+
+fixtures 的 `report_date` 固定为 `2026-11-18`（上期 `2026-11-17`）。场景 1/2 的
+资产 `first_time`、组件 `create_time` 也落在该日，便于确定性断言。
+
+### 控制面（测试用）
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/__stats` | 按路径请求计数、上传/发送/重复发送记录 |
+| GET | `/__fixtures` | fixture 客户清单 |
+| POST | `/__control/faults` | 注入 `{path, http_status, business_code, msg, delay_ms, times}`；`times=-1` 常驻 |
+| POST | `/__control/wecom` | `{"enabled": true/false}` 运行时开关企微写操作 |
+| POST | `/__control/reset` | 清空计数、fault、上传/发送记录 |
+
+写操作默认关闭：企微 query/upload/send 都返回 HTTP 403 / `code=40300`。开启后：
+
+- 上传按内容 sha256 去重，同一文件重复上传返回同一个 `_id`；
+- 发送按 `Traceid`（优先）或 payload 指纹幂等，同一键只记录一次发送；
+- 发送响应里的 `code=0` 只代表平台受理，不代表已送达。
+
 ## mssw 端点
 
 | 方法 | 路径 | 说明 |
@@ -195,6 +284,18 @@ uv run python tools/fake-business-platform/async_batch_check.py
 ## 文件
 
 - `server.py` — 模拟器（仅标准库）。
+- `mssp.py` — MSSP 模式的路由/鉴权/fixtures/故障注入实现。
+- `fixtures/mssp.json` — MSSP 确定性 fixtures（全资产/非全资产/空数据/场景 1-11）。
 - `smoke_check.py` — 上节的本地端到端冒烟。
 - `async_batch_check.py` — ASYNC BATCH Skill 的本地端到端（父计划 + 子文件）。
 - `services.sh` — 本地启停脚本（platform / mcp / mcp-headers，以及 `async-batch` 端到端命令）。
+
+MSSP 模式的回归用例：
+
+```bash
+uv run python -m pytest -q tests/tools/test_fake_mssp_platform.py tests/tools/test_fake_mssp_scenarios.py
+uv run python -m pytest -q tests/agent_worker/test_local_report_skill.py
+```
+
+本地回归 Skill 在 `tests/fixtures/skills/daily-duty-report-mssp-local/`（SKILL.md 内有
+argv/stdin 双入口与 fixtures 说明）。

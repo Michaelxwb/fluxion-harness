@@ -57,7 +57,7 @@ jobs:
       matrix:
         shard:
           - name: fast
-            command: 'uv run python -m pytest --tb=short -q -m "not capacity_load" --durations=30 tests/contracts tests/frontend tests/architecture tests/agent_core tests/test_*.py'
+            command: 'uv run python -m pytest --tb=short -q -m "not capacity_load" --durations=30 tests/contracts tests/frontend tests/architecture tests/agent_core tests/tools tests/test_*.py'
           - name: runtime
             command: 'uv run python -m pytest --tb=short -q -m "not capacity_load" --durations=30 tests/agent_runtime tests/sdk'
           - name: console

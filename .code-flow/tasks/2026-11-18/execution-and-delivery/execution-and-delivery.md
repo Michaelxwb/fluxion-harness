@@ -1028,7 +1028,7 @@ TASK 导出的 timeline/events 来自 task_event；`tasks[].events` 按 entity_i
   - task-export PASS exit=0
 ## TASK-020: Fake MSSP 平台模式与只读端点
 
-- **Status**: draft
+- **Status**: done
 - **Depends**:
 - **Source**: run-failure-reporting/run-failure-reporting.design.md#10.14
 - **Scenarios**: run-failure-reporting:E-03
@@ -1057,12 +1057,12 @@ TASK 导出的 timeline/events 来自 task_event；`tasks[].events` 按 entity_i
 
 ### Checklist
 
-- [ ] `--platform mssp` 启动与就绪信息。
-- [ ] 只读端点：company/service/ck/event/asset/threat/wecom query。
-- [ ] XDR 代理端点：alert_table/alert_count。
-- [ ] 认证与 Host/CSRF/Company-Id 校验；业务码与 HTTP 状态分离。
-- [ ] README 更新启动示例与端点表。
-- [ ] 测试：真实 HTTP 请求覆盖端点与认证失败。
+- [x] `--platform mssp` 启动与就绪信息。
+- [x] 只读端点：company/service/ck/event/asset/threat/wecom query。
+- [x] XDR 代理端点：alert_table/alert_count。
+- [x] 认证与 Host/CSRF/Company-Id 校验；业务码与 HTTP 状态分离。
+- [x] README 更新启动示例与端点表。
+- [x] 测试：真实 HTTP 请求覆盖端点与认证失败。
 
 ### Spec Delta
 
@@ -1073,14 +1073,17 @@ TASK 导出的 timeline/events 来自 task_event；`tasks[].events` 按 entity_i
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18] implemented: fake MSSP mode, auth, read-only endpoints, XDR proxy
+- [2026-11-18T16:54:43.932Z] started tests=13f4cfe10177
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-18T16:54:52.838Z PASS commands=1/1 executed=1 deduped=0 elapsed=8792ms tests=13f4cfe10177 head=4cc2ee12b89a dirty=1
+  - fake-mssp PASS exit=0
 ## TASK-021: Fake MSSP 业务场景与 fixtures
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-020
 - **Source**: run-failure-reporting/run-failure-reporting.design.md#10.14
 - **Scenarios**: run-failure-reporting:E-03
@@ -1109,12 +1112,12 @@ TASK 导出的 timeline/events 来自 task_event；`tasks[].events` 按 entity_i
 
 ### Checklist
 
-- [ ] 全资产客户：service_info 命中 codes；计数/场景/实体/事件有值。
-- [ ] 非全资产客户：无全资产服务项；事件/实体有值。
-- [ ] 空数据客户：计数 0；报告仍可生成。
-- [ ] 失败注入：401/500/超时；业务码与 HTTP 状态分离。
-- [ ] 写操作默认关闭；开启后按幂等键只发一次。
-- [ ] 测试：fixtures 可重复、场景矩阵断言。
+- [x] 全资产客户：service_info 命中 codes；计数/场景/实体/事件有值。
+- [x] 非全资产客户：无全资产服务项；事件/实体有值。
+- [x] 空数据客户：计数 0；报告仍可生成。
+- [x] 失败注入：401/500/超时；业务码与 HTTP 状态分离。
+- [x] 写操作默认关闭；开启后按幂等键只发一次。
+- [x] 测试：fixtures 可重复、场景矩阵断言。
 
 ### Spec Delta
 
@@ -1125,15 +1128,18 @@ TASK 导出的 timeline/events 来自 task_event；`tasks[].events` 按 entity_i
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18] implemented: full/non-full/empty fixtures, scene matrix, fault injection, WeCom write lock
+- [2026-11-18T16:54:59.709Z] started tests=3922a9b2e1b3
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-18T16:55:12.046Z PASS commands=1/1 executed=1 deduped=0 elapsed=12221ms tests=3922a9b2e1b3 head=4cc2ee12b89a dirty=1
+  - scenarios PASS exit=0
 ## TASK-022: 本地回归 Skill（argv + stdin 双入口）
 
-- **Status**: draft
-- **Depends**: TASK-016, TASK-021
+- **Status**: done
+- **Depends**: TASK-021
 - **Source**: run-failure-reporting/run-failure-reporting.design.md#10.14
 - **Scenarios**: run-failure-reporting:E-03
 - **Spec-Refs**: artifact/harness-skill#RULE-skill-001, time/harness-time#RULE-time-001, artifact/harness-skill#RULE-002, artifact/harness-skill#RULE-003
@@ -1161,11 +1167,11 @@ TASK 导出的 timeline/events 来自 task_event；`tasks[].events` 按 entity_i
 
 ### Checklist
 
-- [ ] `SKILL.md`/`muad.skill.json`/`scripts/run.py`/`scripts/cron_entry.py`。
-- [ ] `run.py` 支持 `--company-id/--date/--no-wecom-push`。
-- [ ] `cron_entry.py` 读 `payload["input"]`，兼容顶层字段。
-- [ ] 报告结构含头三项、场景判定、实体、事件、附件占位。
-- [ ] 测试：argv 入口、stdin 入口、空数据、401/500。
+- [x] `SKILL.md`/`muad.skill.json`/`scripts/run.py`/`scripts/cron_entry.py`。
+- [x] `run.py` 支持 `--company-id/--date/--no-wecom-push`。
+- [x] `cron_entry.py` 读 `payload["input"]`，兼容顶层字段。
+- [x] 报告结构含头三项、场景判定、实体、事件、附件占位。
+- [x] 测试：argv 入口、stdin 入口、空数据、401/500。
 
 ### Spec Delta
 
@@ -1176,11 +1182,14 @@ TASK 导出的 timeline/events 来自 task_event；`tasks[].events` 按 entity_i
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18] implemented: local regression skill with run.py + cron_entry.py
+- [2026-11-18T16:55:18.789Z] started tests=f16f7b59bcd5
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-18T16:55:27.872Z PASS commands=1/1 executed=1 deduped=0 elapsed=8951ms tests=f16f7b59bcd5 head=4cc2ee12b89a dirty=1
+  - local-skill PASS exit=0
 ## TASK-023: 定时路径端到端回归
 
 - **Status**: draft
