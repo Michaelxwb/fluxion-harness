@@ -140,8 +140,20 @@ class SharedRedisMeter:
     async def _eval(self, script: str, keys: list[str], args: list[str]) -> list[str]:
         try:
             result = await self._redis.execute_command("EVAL", script, len(keys), *keys, *args)
+            result_code = ""
+            if isinstance(result, (list, tuple)) and result:
+                result_code = result[0].decode() if isinstance(result[0], bytes) else str(result[0])
+            if result_code in {"OK", "DUPLICATE"}:
+                info = await self._redis.execute_command("INFO", "server")
+                info_text = info.decode() if isinstance(info, bytes) else str(info)
+                if "redis_mode:cluster" in info_text:
+                    acknowledged = await self._redis.execute_command("WAIT", 1, 1000)
+                    if int(acknowledged) < 1:
+                        raise MeteringUnavailable("cluster metering write is not replicated")
         except (RedisError, RedisClusterException) as exc:
             raise MeteringUnavailable("shared metering unavailable") from exc
+        except (TypeError, ValueError) as exc:
+            raise MeteringUnavailable("invalid cluster replication acknowledgement") from exc
         if not isinstance(result, (list, tuple)) or not result:
             raise MeteringUnavailable("invalid metering response")
         return [part.decode() if isinstance(part, bytes) else str(part) for part in result]
