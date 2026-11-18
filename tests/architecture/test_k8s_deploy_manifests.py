@@ -210,3 +210,43 @@ def test_connector_has_pdb_and_no_public_ingress_route() -> None:
         for entry in ((rule.get("http") or {}).get("paths") or [])
     }
     assert "muad-connector" not in backend_services, "Connector 不得有公开入口（不暴露业务路由）"
+
+
+def test_external_platform_routes_reach_the_gateway() -> None:
+    """MSSWWEB 面必须路由到 Gateway。
+
+    漏了会落到兜底 /api 规则被送到 console-platform，该前缀在 Console 上不存在，
+    表现为 404——webchat 当初也踩过这个坑。不校验书写顺序：ingress 控制器按最长前缀
+    匹配，项目既有做法是把 /runs 规则统一放在文件末尾（webchat/runs 同样如此）。
+    """
+    ingress = [
+        doc for doc in yaml.safe_load_all(
+            (BASE / "ingress.yaml").read_text(encoding="utf-8")
+        ) if isinstance(doc, dict)
+    ]
+    paths = [
+        (entry.get("path"), ((entry.get("backend") or {}).get("service") or {}).get("name"))
+        for doc in ingress
+        for rule in (doc.get("spec", {}).get("rules") or [])
+        for entry in ((rule.get("http") or {}).get("paths") or [])
+    ]
+    assert ("/api/v1/msswwweb", "muad-im-gateway") in paths
+    assert ("/api/v1/msswwweb/runs", "muad-im-gateway") in paths
+    # 反向：不能有任何 /api 规则把 msswwweb 抢到 Console
+    assert not [
+        (path, name)
+        for path, name in paths
+        if path.startswith("/api/v1/msswwweb") and name != "muad-im-gateway"
+    ]
+
+
+def test_nginx_routes_external_platform_prefix_to_the_gateway() -> None:
+    """nginx 侧同样要显式转发，否则落到 location /api 的 Console 上游。"""
+    conf = Path("build/nginx-build/nginx.conf").read_text(encoding="utf-8")
+    assert "location /api/v1/msswwweb {" in conf
+    assert "location /api/v1/msswwweb/runs {" in conf
+    # 两个 location 都必须指向 gateway_upstream
+    for header in ("location /api/v1/msswwweb {", "location /api/v1/msswwweb/runs {"):
+        block = conf[conf.index(header) :]
+        block = block[: block.index("}")]
+        assert "gateway_upstream" in block, f"{header} 必须转发到 gateway_upstream"

@@ -33,6 +33,15 @@ spec:
                 name: muad-im-gateway
                 port:
                   number: {{ .Values.ingress.gatewayPort }}
+          # MSSWWEB 外部断言面：与 webchat 共享 handler，仅认证方式不同，同样路由到 Gateway。
+          # 必须列在 /api 之前，否则被普通 Console API 规则吞掉。
+          - path: /api/v1/msswwweb
+            pathType: Prefix
+            backend:
+              service:
+                name: muad-im-gateway
+                port:
+                  number: {{ .Values.ingress.gatewayPort }}
           - path: /api
             pathType: Prefix
             backend:
@@ -86,6 +95,13 @@ spec:
       http:
         paths:
           - path: /api/v1/webchat/runs
+            pathType: Prefix
+            backend:
+              service:
+                name: muad-im-gateway
+                port:
+                  number: {{ .Values.ingress.gatewayPort }}
+          - path: /api/v1/msswwweb/runs
             pathType: Prefix
             backend:
               service:
