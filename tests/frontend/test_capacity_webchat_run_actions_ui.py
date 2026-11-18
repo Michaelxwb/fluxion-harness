@@ -878,7 +878,7 @@ import { createInstance } from 'i18next';
 import { initReactI18next, I18nextProvider } from 'react-i18next';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-import { RunActions } from '__RUN_ACTIONS__';
+import { RunActions, RunStopRegion, runStopView } from '__RUN_ACTIONS__';
 import { ConfirmationCard } from '__CONFIRMATION__';
 import { api } from '__CLIENT__';
 import zh from '__ZH__';
@@ -945,13 +945,18 @@ function runActionsProps(scenario) {
     status: scenario.status,
     executionStatus: scenario.executionStatus === null ? null : stageOf(scenario.executionStatus.stage, scenario.executionStatus.extra ?? {}),
     connection: connectionOf(scenario.connection, scenario.connectionExtra ?? {}),
-    stop: stopState(scenario.stop ?? {}),
+    onRetry: () => {},
+    onRecover: () => {}
+  };
+}
+
+function stopRegionProps(scenario) {
+  return {
+    view: runStopView(scenario.status, stopState(scenario.stop ?? {})),
     onRequestStop: () => {},
     onConfirmStop: () => {},
     onDismissStop: () => {},
-    onRetryStop: () => {},
-    onRetry: () => {},
-    onRecover: () => {}
+    onRetryStop: () => {}
   };
 }
 
@@ -988,7 +993,9 @@ export async function renderScenarios(scenarios) {
     const node =
       scenario.kind === 'confirmation'
         ? React.createElement(ConfirmationCard, confirmationProps(scenario))
-        : React.createElement(RunActions, runActionsProps(scenario));
+        : scenario.kind === 'stop'
+          ? React.createElement(RunStopRegion, stopRegionProps(scenario))
+          : React.createElement(RunActions, runActionsProps(scenario));
     markup[scenario.id] = renderToStaticMarkup(React.createElement(I18nextProvider, { i18n }, node));
   }
   return { markup, requests: renderRequests };
@@ -1057,7 +1064,7 @@ SCENARIOS: tuple[dict[str, Any], ...] = (
     {
         "id": "run-confirming-zh",
         "locale": "zh-CN",
-        "kind": "run",
+        "kind": "stop",
         "status": "RUNNING",
         "executionStatus": {"stage": "RUNNING", "extra": {"started_at": STARTED_AT}},
         "connection": "open",
@@ -1066,7 +1073,7 @@ SCENARIOS: tuple[dict[str, Any], ...] = (
     {
         "id": "run-stopping-zh",
         "locale": "zh-CN",
-        "kind": "run",
+        "kind": "stop",
         "status": "RUNNING",
         "executionStatus": {"stage": "RUNNING", "extra": {"started_at": STARTED_AT}},
         "connection": "open",
@@ -1075,7 +1082,7 @@ SCENARIOS: tuple[dict[str, Any], ...] = (
     {
         "id": "run-stopped-zh",
         "locale": "zh-CN",
-        "kind": "run",
+        "kind": "stop",
         "status": "CANCELLED",
         "executionStatus": {"stage": "CANCELLED", "extra": {}},
         "connection": "closed",
@@ -1084,7 +1091,7 @@ SCENARIOS: tuple[dict[str, Any], ...] = (
     {
         "id": "run-stop-failed-zh",
         "locale": "zh-CN",
-        "kind": "run",
+        "kind": "stop",
         "status": "RUNNING",
         "executionStatus": {"stage": "RUNNING", "extra": {"started_at": STARTED_AT}},
         "connection": "open",
@@ -1093,7 +1100,7 @@ SCENARIOS: tuple[dict[str, Any], ...] = (
     {
         "id": "run-stop-unknown-zh",
         "locale": "zh-CN",
-        "kind": "run",
+        "kind": "stop",
         "status": "RUNNING",
         "executionStatus": {"stage": "RUNNING", "extra": {"started_at": STARTED_AT}},
         "connection": "open",
@@ -1651,8 +1658,7 @@ def test_b283_run_actions_render_phases_connection_and_stop_states(
     assert "排队期限" in deadline or "排队期限" in queued
     assert re.search(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", queued), "期限经 DateTimeText 展示"
     assert 'data-connection-state="connecting"' in _tag(queued, "chat-run-connection")
-    assert _contains(queued, "chat-run-stop-action"), "活跃 Run 提供停止动作"
-    assert "停止" in _element_text(queued, "chat-run-stop-action")
+    assert not _contains(queued, "chat-run-stop"), "停止动作已移到输入区，不在顶部状态卡"
     assert 'aria-label="运行状态与操作"' in queued, "操作面有可访问标签"
 
     model = markup["run-model-en"]
@@ -1670,11 +1676,12 @@ def test_b283_run_actions_render_phases_connection_and_stop_states(
         "连接状态是独立事实"
     )
     assert "已重连 2 次" in running
+    assert _contains(running, "chat-run-elapsed"), "顶部运行卡展示已用时"
 
     waiting_input = markup["run-waiting-input-zh"]
     assert 'data-phase="waiting-input"' in _tag(waiting_input, "chat-run-activity")
     assert "等待你的确认" in waiting_input
-    assert _contains(waiting_input, "chat-run-stop-action"), "忙碌时展示原 Run 的停止动作"
+    assert not _contains(waiting_input, "chat-run-stop"), "停止动作只在输入区"
 
     confirming = markup["run-confirming-zh"]
     assert 'data-stop-view="confirming"' in _tag(confirming, "chat-run-stop")

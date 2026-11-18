@@ -2,8 +2,8 @@
  * 输入区（design frontend §3.3 `ChatComposer`、§3.4 组件接口契约、§3.6 发送/回复/附件、
  * §3.7 样式方案、§3.8 可访问性；TASK-081）。
  *
- * 底部输入区：文本 + 附件选择 + 发送，按真实阶段展示「上传中 / 待受理 / 失败可重试」，附件逐件给出
- * 状态与移除动作。文本与附件由 `usePendingSend` 持有的状态提供（附件用 state，不塞未注册 Form 字段、
+ * 底部输入区：文本 + 附件选择 + 发送/停止同一位图标按钮，按真实阶段展示「上传中 / 待受理 /
+ * 失败可重试」，附件逐件给出状态与移除动作。文本与附件由 `usePendingSend` 持有的状态提供（附件用 state，不塞未注册 Form 字段、
  * 不用 `FormData` 收集输入），本组件只收 typed props 与事件。
  *
  * 1. **限额只来自投影**：数量/单件大小/文本字节三个上限都来自 API-19 投影（`attachmentPolicy`），
@@ -20,8 +20,8 @@
  */
 
 import { Button } from '@douyinfe/semi-ui';
-import { IconPaperclip } from '@douyinfe/semi-icons';
-import type { ChangeEvent, ClipboardEvent, KeyboardEvent, RefObject } from 'react';
+import { IconPaperclip, IconSend, IconStop } from '@douyinfe/semi-icons';
+import type { ChangeEvent, ClipboardEvent, KeyboardEvent, ReactNode, RefObject } from 'react';
 import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -232,17 +232,21 @@ interface ComposerActionsProps {
   busy: boolean;
   disabled: boolean;
   canSend: boolean;
+  runActive: boolean;
+  stopDisabled: boolean;
   /** 主操作文案词条（与 `onPrimary` 同一处推导，标签与行为不会分叉）。 */
   primaryLabel: string;
+  frozenRetry: boolean;
   fileInputRef: RefObject<HTMLInputElement>;
   /** 文件选择器过滤（扩展名清单，来自 API-19 投影）。 */
   accept: string;
   onAddFiles(files: readonly File[]): void;
   onPrimary(): void;
   onCancel(): void;
+  onStop(): void;
 }
 
-/** 动作行：真实文件选择（多选）+ 在途取消 + 发送/重试主操作。 */
+/** 动作行：文件选择 + 在途取消 + 发送/停止/重试主操作（发送与停止共用同一图标位）。 */
 function ComposerActions(props: ComposerActionsProps) {
   const { t } = useTranslation();
   const handleFiles = (event: ChangeEvent<HTMLInputElement>): void => {
@@ -284,14 +288,29 @@ function ComposerActions(props: ComposerActionsProps) {
         disabled={props.disabled}
         onClick={() => props.fileInputRef.current?.click()}
       />
-      <Button
-        className="chat-composer-send"
-        data-testid="chat-composer-send"
-        disabled={!props.canSend}
-        onClick={props.onPrimary}
-      >
-        {t(props.primaryLabel)}
-      </Button>
+      {props.frozenRetry ? (
+        <Button
+          className="chat-composer-send chat-composer-retry"
+          data-testid="chat-composer-send"
+          disabled={!props.canSend}
+          onClick={props.onPrimary}
+        >
+          {t(props.primaryLabel)}
+        </Button>
+      ) : (
+        <Button
+          theme="solid"
+          type="primary"
+          className="chat-composer-send"
+          data-testid={props.runActive ? 'chat-composer-stop' : 'chat-composer-send'}
+          data-mode={props.runActive ? 'stop' : 'send'}
+          icon={props.runActive ? <IconStop /> : <IconSend />}
+          aria-label={t(props.runActive ? 'chat.composer.stop' : 'chat.composer.send')}
+          title={t(props.runActive ? 'chat.composer.stop' : 'chat.composer.send')}
+          disabled={props.runActive ? props.stopDisabled : !props.canSend}
+          onClick={props.runActive ? props.onStop : props.onPrimary}
+        />
+      )}
     </div>
   );
 }
@@ -365,7 +384,11 @@ function composerFlags(props: ChatComposerProps): ComposerFlags {
   const frozenRetry = props.phase === 'FAILED' && props.inputFrozen;
   const inputDisabled = props.disabled || props.inputFrozen;
   const empty = props.text.trim() === '' && props.attachments.length === 0;
-  const canSubmit = !props.disabled && !busy && (frozenRetry || (!inputDisabled && !empty));
+  const canSubmit =
+    !props.runActive &&
+    !props.disabled &&
+    !busy &&
+    (frozenRetry || (!inputDisabled && !empty));
   return {
     busy,
     frozenRetry,
@@ -404,12 +427,18 @@ export interface ChatComposerProps {
   outcomeUnknown: boolean;
   /** 输入冻结：在途发送或已提交待重试。 */
   inputFrozen: boolean;
+  /** 有活跃 Run 时主操作切换为停止；输入区不再显示独立停止按钮。 */
+  runActive: boolean;
+  stopDisabled: boolean;
+  /** 停止确认/停止中/失败提示；由页面持有的停止状态机投影。 */
+  stopNotice?: ReactNode;
   onAddFiles(files: readonly File[]): void;
   onRemoveAttachment(localId: string): void;
   onSend(): void;
   onRetry(): void;
   onDiscard(): void;
   onCancel(): void;
+  onStop(): void;
 }
 
 /**
@@ -461,14 +490,19 @@ export function ChatComposer(props: ChatComposerProps) {
           busy={flags.busy}
           disabled={flags.inputDisabled}
           canSend={flags.canSubmit}
+          runActive={props.runActive}
+          stopDisabled={props.stopDisabled}
           primaryLabel={flags.primaryLabel}
+          frozenRetry={flags.frozenRetry}
           fileInputRef={fileInputRef}
           accept={acceptExtensions}
           onAddFiles={props.onAddFiles}
           onPrimary={flags.primaryAction}
           onCancel={props.onCancel}
+          onStop={props.onStop}
         />
       </div>
+      {props.stopNotice}
       <ComposerNotices
         phase={props.phase}
         policy={props.attachmentPolicy}

@@ -61,8 +61,10 @@ import {
 } from './components/MessageThread';
 import {
   RunActions,
+  RunStopRegion,
   createRunStopController,
   runActivityPhase,
+  runStopView,
   type RunStopController,
   type RunStopState
 } from './components/RunActions';
@@ -1035,7 +1037,6 @@ function ChatNewConversationNotice() {
 interface ChatRunActionsProps {
   run: ActiveRunState | null;
   connection: RunConnectionSnapshot;
-  stop: RunStopBinding;
   runEvents: RunEventsController;
 }
 
@@ -1043,18 +1044,12 @@ interface ChatRunActionsProps {
 function ChatRunActions(props: ChatRunActionsProps) {
   const run = props.run;
   if (run === null) return null;
-  const controller = props.stop.controller;
   return (
     <RunActions
       status={run.status}
       executionStatus={run.executionStatus}
       tool={run.tool}
       connection={props.connection}
-      stop={props.stop.snapshot}
-      onRequestStop={() => controller.requestStop(run.runId)}
-      onConfirmStop={() => controller.confirmStop()}
-      onDismissStop={() => controller.dismissStop()}
-      onRetryStop={() => controller.retryStop()}
       onRetry={() => props.runEvents.retry()}
       onRecover={() => props.runEvents.recover()}
     />
@@ -1094,7 +1089,6 @@ interface ChatMessageAreaProps {
   run: ActiveRunState | null;
   streaming: StreamingReplyProps | null;
   connection: RunConnectionSnapshot;
-  stop: RunStopBinding;
   confirmation: ConfirmationBinding;
   confirmationMessageId: string | null;
   draftConfirmation: DraftConfirmationBinding;
@@ -1144,7 +1138,7 @@ function ChatMessageArea(props: ChatMessageAreaProps) {
         onDownloadAttachment={props.onDownloadAttachment}
         draftConfirmation={props.draftConfirmation}
       />
-      {thinkingAnchor === undefined ? null : <ChatThinking anchor={thinkingAnchor} />}
+      {thinkingAnchor === undefined ? null : <ChatThinking />}
       <ChatStreamingReply
         streaming={props.streaming}
         drafts={liveDrafts}
@@ -1154,7 +1148,6 @@ function ChatMessageArea(props: ChatMessageAreaProps) {
       <ChatRunActions
         run={props.run}
         connection={props.connection}
-        stop={props.stop}
         runEvents={props.runEvents}
       />
       <ChatConfirmation
@@ -1192,11 +1185,41 @@ function ChatComposerSurface(props: {
   loading: boolean;
   policy: ComposerAttachmentPolicy | null;
   pendingSend: PendingSendHookResult;
+  run: ActiveRunState | null;
+  stop: RunStopBinding;
   onTextChange(value: string): void;
   onSend(): void;
 }) {
   const { t } = useTranslation();
   const pendingSend = props.pendingSend;
+  const run = props.run;
+  const runActive = run !== null && !isTerminalRunStatus(run.status);
+  const stopView = run === null ? null : runStopView(run.status, props.stop.snapshot);
+  const stopDisabled =
+    stopView !== null &&
+    (stopView.kind === 'confirming' ||
+      stopView.kind === 'stopping' ||
+      stopView.kind === 'stopped' ||
+      stopView.kind === 'unavailable');
+  const handleStop = (): void => {
+    if (run === null || stopView === null) return;
+    if (stopView.kind === 'unknown' || stopView.kind === 'failed') {
+      props.stop.controller.retryStop();
+      return;
+    }
+    if (stopView.kind === 'idle') props.stop.controller.requestStop(run.runId);
+  };
+  const stopNotice =
+    runActive && stopView !== null && stopView.kind !== 'idle' ? (
+      <RunStopRegion
+        view={stopView}
+        showAction={false}
+        onRequestStop={() => props.stop.controller.requestStop(run?.runId ?? '')}
+        onConfirmStop={() => props.stop.controller.confirmStop()}
+        onDismissStop={() => props.stop.controller.dismissStop()}
+        onRetryStop={() => props.stop.controller.retryStop()}
+      />
+    ) : null;
   return (
     <>
       {props.loading ? (
@@ -1227,6 +1250,10 @@ function ChatComposerSurface(props: {
         }}
         onDiscard={pendingSend.discard}
         onCancel={pendingSend.cancel}
+        runActive={runActive}
+        stopDisabled={stopDisabled}
+        stopNotice={stopNotice}
+        onStop={handleStop}
       />
     </>
   );
@@ -1492,7 +1519,6 @@ export function ChatWorkspace(props: ChatWorkspaceProps) {
             run={state.run}
             streaming={state.streaming}
             connection={state.connection}
-            stop={state.stop}
             confirmation={state.confirmation}
             confirmationMessageId={state.confirmationMessageId}
             draftConfirmation={state.draftConfirmation}
@@ -1507,6 +1533,8 @@ export function ChatWorkspace(props: ChatWorkspaceProps) {
             loading={selectionLoading && hasMessages}
             policy={props.config.snapshot.webchat}
             pendingSend={props.pendingSend}
+            run={state.run}
+            stop={state.stop}
             onTextChange={state.changeDraft}
             onSend={state.actions.sendNow}
           />
