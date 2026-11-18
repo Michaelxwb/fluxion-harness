@@ -19,11 +19,12 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Protocol
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from muad_agent_core.tools import (
     PreparedToolCall,
@@ -32,10 +33,16 @@ from muad_agent_core.tools import (
     ToolPolicyDecision,
     ToolRegistry,
 )
-from muad_contracts import SnapshotSkill, SnapshotTool, ToolRetrySafety
+from muad_contracts import (
+    SnapshotSkill,
+    SnapshotTool,
+    ToolRetrySafety,
+)
+from muad_contracts.skill_invocation import validate_skill_argv
 
 from .mcp import McpToolBox, frozen_mcp_tool_schema, mcp_tool_name, mcp_tool_trust
 from .snapshot import FrozenAgenticExecution
+from .turn_result import RECORD_RESULT_ALLOWLIST_KEY, RECORD_RESULT_TOOL, ResultRecorder
 
 TOOL_NOT_ALLOWED = "TOOL_NOT_ALLOWED"
 #: Skill 工具没有服务端 input schema：入参是任意 JSON，不能把“未知 schema”当成“禁止参数”。
@@ -54,11 +61,29 @@ ASK_USER_SCHEMA: dict[str, Any] = {
 
 
 class SkillToolRunner(Protocol):
-    """SYNC/ASYNC Skill 工具的执行者（异步提交与挂起由它自己完成）。"""
+    """SYNC/ASYNC Skill 工具的执行者（异步提交与挂起由它自己完成）。
+
+    `input` 只走 stdin，`argv` 追加到脚本；两者在工具边界就分开，执行者不得再从 `input`
+    里猜参数。
+    """
 
     async def call(
-        self, skill: SnapshotSkill, tool_name: str, arguments: Mapping[str, Any], *, call_id: str
+        self,
+        skill: SnapshotSkill,
+        tool_name: str,
+        input: Mapping[str, Any],
+        argv: Sequence[str],
+        *,
+        call_id: str,
     ) -> str: ...
+
+
+class TaskQueryPort(Protocol):
+    """Read-only task facts for the scheduled agent; already owner/agent scoped."""
+
+    async def list_tasks(self, *, limit: int) -> list[dict[str, Any]]: ...
+
+    async def get_task(self, task_id: UUID) -> dict[str, Any] | None: ...
 
 
 class HumanInputPort(Protocol):
@@ -104,12 +129,135 @@ class AgenticToolRegistry:
         return ToolPolicyDecision(True)
 
 
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
+@dataclass(frozen=True, slots=True)
+class ScheduledPlatformTools:
+    """AGENT_TURN 的定时上下文平台工具：可信时间 + 结构化结果记录。
+
+    `zone` 来自冻结 Revision 的 IANA 时区；`clock` 只用于测试注入，生产走系统时钟。
+    """
+
+    zone: ZoneInfo
+    result_recorder: ResultRecorder
+    clock: Callable[[], datetime] = _utc_now
+    task_query: TaskQueryPort | None = None
+
+    def register(
+        self,
+        registry: ToolRegistry,
+        allowed: dict[str, RegisteredTool],
+        *,
+        current_time: bool,
+        task_query: bool = False,
+    ) -> None:
+        if current_time:
+            _register_current_time(registry, allowed, self)
+        if task_query and self.task_query is not None:
+            _register_task_query(registry, allowed, self.task_query)
+        self.result_recorder.register(registry)
+        allowed[RECORD_RESULT_TOOL] = RegisteredTool(
+            RECORD_RESULT_TOOL, RECORD_RESULT_ALLOWLIST_KEY, "PLATFORM"
+        )
+
+
+def _register_current_time(
+    registry: ToolRegistry, allowed: dict[str, RegisteredTool], platform: ScheduledPlatformTools
+) -> None:
+    async def current_time(arguments: Mapping[str, Any], *, call_id: str) -> str:
+        now = platform.clock().astimezone(platform.zone)
+        return f"{now.isoformat(timespec='seconds')} ({platform.zone.key})"
+
+    registry.register(
+        ToolDefinition(
+            name="current_time",
+            description=(
+                "Get the current date and time in this schedule's IANA time zone. Call it before "
+                "reasoning about 'now' or relative dates instead of guessing."
+            ),
+            input_schema={"type": "object", "properties": {}, "additionalProperties": False},
+            effect=ToolEffect.READ,
+            handler=current_time,
+        )
+    )
+    allowed["current_time"] = RegisteredTool("current_time", "PLATFORM:current_time", "PLATFORM")
+
+
+def _register_task_query(
+    registry: ToolRegistry,
+    allowed: dict[str, RegisteredTool],
+    query: TaskQueryPort,
+) -> None:
+    """Owner-scoped read-only task facts; list is bounded, get is exact-id only."""
+
+    async def list_tasks(arguments: Mapping[str, Any], *, call_id: str) -> str:
+        raw_limit = arguments.get("limit", 10)
+        if isinstance(raw_limit, bool) or not isinstance(raw_limit, int):
+            return json.dumps({"status": "INVALID", "error": "limit must be an integer"})
+        limit = max(1, min(raw_limit, 20))
+        items = await query.list_tasks(limit=limit)
+        return json.dumps({"tasks": items}, ensure_ascii=False, default=str)
+
+    async def get_task(arguments: Mapping[str, Any], *, call_id: str) -> str:
+        raw = arguments.get("task_id")
+        try:
+            task_id = UUID(str(raw))
+        except (TypeError, ValueError):
+            return json.dumps({"status": "INVALID", "error": "task_id must be a UUID"})
+        item = await query.get_task(task_id)
+        return json.dumps(
+            {"status": "FOUND", "task": item} if item is not None else {"status": "NOT_FOUND"},
+            ensure_ascii=False,
+            default=str,
+        )
+
+    for name, description, schema, handler in (
+        (
+            "list_tasks",
+            "List this creator's recent tasks (bounded, newest first). Use it to inspect "
+            "previous scheduled executions; task summaries only.",
+            {
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 20},
+                },
+                "additionalProperties": False,
+            },
+            list_tasks,
+        ),
+        (
+            "get_task",
+            "Read one task by id, scoped to this creator and agent. Returns a bounded summary.",
+            {
+                "type": "object",
+                "properties": {"task_id": {"type": "string"}},
+                "required": ["task_id"],
+                "additionalProperties": False,
+            },
+            get_task,
+        ),
+    ):
+        registry.register(
+            ToolDefinition(
+                name=name,
+                description=description,
+                input_schema=schema,
+                effect=ToolEffect.READ,
+                handler=handler,
+            )
+        )
+        allowed[name] = RegisteredTool(name, f"PLATFORM:{name}", "PLATFORM")
+
+
 def build_registry(
     frozen: FrozenAgenticExecution,
     *,
     mcp: McpToolBox | None,
     skills: SkillToolRunner | None,
     human: HumanInputPort | None = None,
+    platform: ScheduledPlatformTools | None = None,
 ) -> AgenticToolRegistry:
     """按快照构造注册表；未注册 = 模型看不到、调用即 `unknown tool`。"""
     snapshot = frozen.snapshot
@@ -123,6 +271,16 @@ def build_registry(
     mcp_ids = set(grants.mcp_grants)
     _register_mcp(frozen, registry, allowed, allowlist, mcp_ids, mcp)
     _register_skills(frozen, registry, allowed, allowlist, skill_ids, skills)
+    if platform is not None and frozen.scheduled:
+        configured = frozen.tools_allow
+        follows_owner = not configured or "*" in configured
+        current_time = follows_owner or "PLATFORM:current_time" in configured
+        task_query = follows_owner or any(
+            f"PLATFORM:{name}" in configured for name in ("list_tasks", "get_task")
+        )
+        platform.register(
+            registry, allowed, current_time=current_time, task_query=task_query
+        )
     if human is not None:
         _register_human(registry, allowed, human, deadline_at=frozen.deadline_at)
     return AgenticToolRegistry(registry, allowed)
@@ -246,7 +404,7 @@ def _register_skills(
             ToolDefinition(
                 name=name,
                 description=f"skill {skill.skill_id} tool {tool.tool_name}",
-                input_schema=dict(tool.input_schema) or FREE_FORM_TOOL_SCHEMA,
+                input_schema=_skill_tool_schema(tool),
                 effect=ToolEffect.EXTERNAL if skill.execution_mode == "ASYNC" else ToolEffect.WRITE,
                 retry_safety=_retry_safety(tool),
                 handler=_skill_handler(skills, skill, tool.tool_name),
@@ -255,9 +413,52 @@ def _register_skills(
         allowed[name] = RegisteredTool(name, key, "SKILL", skill_id=tool.skill_id)
 
 
+def _skill_tool_schema(tool: SnapshotTool) -> dict[str, Any]:
+    """Skill 工具的入参信封：`input` 只写 stdin，`argv` 追加到脚本。
+
+    `input` 保留冻结的业务 schema；没有 schema 时是任意 JSON 对象。两者分开是因为
+    argparse 参数与 stdin 文档是两种契约，混在一起时脚本无法区分。
+    """
+    business = dict(tool.input_schema) or dict(FREE_FORM_TOOL_SCHEMA)
+    return {
+        "type": "object",
+        "properties": {
+            "input": business,
+            "argv": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Business CLI arguments appended after the script.",
+            },
+        },
+        "additionalProperties": False,
+    }
+
+
+def _parse_skill_arguments(
+    arguments: Mapping[str, Any],
+) -> tuple[dict[str, Any], tuple[str, ...]] | str:
+    """把模型参数拆成 `(input, argv)`；形状不对时返回给模型的错误正文。"""
+    if "input" in arguments:
+        raw_input = arguments["input"]
+    else:
+        raw_input = {}
+    if not isinstance(raw_input, Mapping):
+        return '{"status":"INVALID","error":"input must be an object"}'
+    raw_argv = arguments.get("argv", [])
+    try:
+        argv = validate_skill_argv(raw_argv)
+    except ValueError as exc:
+        return json.dumps({"status": "INVALID", "error": str(exc)}, ensure_ascii=False)
+    return dict(raw_input), argv
+
+
 def _skill_handler(runner: SkillToolRunner, skill: SnapshotSkill, tool_name: str) -> Any:
     async def call(arguments: Mapping[str, Any], *, call_id: str) -> str:
-        return await runner.call(skill, tool_name, arguments, call_id=call_id)
+        parsed = _parse_skill_arguments(arguments)
+        if isinstance(parsed, str):
+            return parsed
+        input_value, argv = parsed
+        return await runner.call(skill, tool_name, input_value, argv, call_id=call_id)
 
     return call
 
@@ -282,6 +483,7 @@ def policy_for(agentic: AgenticToolRegistry) -> Callable[[PreparedToolCall], Too
 __all__ = [
     "AgenticToolRegistry",
     "RegisteredTool",
+    "ScheduledPlatformTools",
     "SkillToolRunner",
     "TOOL_NOT_ALLOWED",
     "allowlist_key",

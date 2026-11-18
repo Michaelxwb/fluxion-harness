@@ -32,6 +32,7 @@ import type {
   ScheduleDraftStatus,
   ScheduleMode,
   SchedulePreview,
+  ScheduleTrialFact,
   WebchatScheduleDraftReady,
   WebchatWriteOptions
 } from '../types';
@@ -405,6 +406,56 @@ function DraftDiff(props: { entries: readonly ScheduleDiffEntry[] }) {
   );
 }
 
+function DraftTrial(props: { trial: ScheduleTrialFact }) {
+  const { t } = useTranslation();
+  const { trial } = props;
+  const finished =
+    trial.status === 'COMPLETED' || trial.status === 'FAILED' || trial.status === 'CANCELLED';
+  return (
+    <div
+      className="chat-draft-trial"
+      data-testid="chat-draft-trial"
+      data-status={trial.status}
+      data-execution-id={trial.execution_id}
+    >
+      <span className="chat-draft-section-label">{t('chat.draft.trial.title')}</span>
+      <p data-testid="chat-draft-trial-execution" data-execution-id={trial.execution_id}>
+        {t('chat.draft.trial.execution', { id: trial.execution_id })}
+      </p>
+      <p data-testid="chat-draft-trial-status">
+        {t('chat.draft.trial.status', { status: trial.status })}
+      </p>
+      {trial.result_summary ? (
+        <p data-testid="chat-draft-trial-result">
+          {t('chat.draft.trial.result')}: {trial.result_summary}
+        </p>
+      ) : null}
+      {trial.artifacts.length === 0 ? null : (
+        <ul className="chat-draft-trial-artifacts" data-testid="chat-draft-trial-artifacts">
+          {trial.artifacts.map((artifact) => (
+            <li key={artifact.artifact_id} data-artifact-id={artifact.artifact_id}>
+              {t('chat.draft.trial.artifact', { name: artifact.name })}
+            </li>
+          ))}
+        </ul>
+      )}
+      {trial.error_code ? (
+        <p data-testid="chat-draft-trial-error" data-error-code={trial.error_code}>
+          {t('chat.draft.trial.failure', { code: trial.error_code })}
+        </p>
+      ) : null}
+      {trial.repair_hint ? (
+        <p data-testid="chat-draft-trial-repair">
+          {t('chat.draft.trial.repair', { hint: trial.repair_hint })}
+        </p>
+      ) : null}
+      {finished ? null : (
+        <p data-testid="chat-draft-trial-running">{t('chat.draft.trial.running')}</p>
+      )}
+    </div>
+  );
+}
+
 function DraftPreviewBody(props: { draft: WebchatScheduleDraftReady; preview: SchedulePreview }) {
   const { t } = useTranslation();
   const { preview, draft } = props;
@@ -451,6 +502,19 @@ function DraftPreviewBody(props: { draft: WebchatScheduleDraftReady; preview: Sc
             </dd>
           </div>
         )}
+        <div className="chat-draft-fact">
+          <dt>{t('chat.draft.budgetSource')}</dt>
+          <dd
+            data-testid="chat-draft-budget-source"
+            data-budget-source={preview.budget_source}
+          >
+            {t(
+              preview.budget_source === 'PLATFORM'
+                ? 'chat.draft.budgetSource.PLATFORM'
+                : 'chat.draft.budgetSource.NONE'
+            )}
+          </dd>
+        </div>
         {budget.length === 0 ? null : (
           <div className="chat-draft-fact">
             <dt>{t('chat.draft.budget')}</dt>
@@ -473,6 +537,7 @@ function DraftPreviewBody(props: { draft: WebchatScheduleDraftReady; preview: Sc
           </div>
         ) : null}
       </dl>
+      {preview.trial ? <DraftTrial trial={preview.trial} /> : null}
       {draft.kind === 'UPDATE' ? <DraftDiff entries={preview.diff} /> : null}
     </div>
   );

@@ -522,7 +522,7 @@ class WorkerAdapterHarness:
         )
 
     def staging_call(self, call_id: str = "call-1") -> ModelToolCall:
-        return ModelToolCall(call_id, STAGING_TOOL, {"q": "本周"})
+        return ModelToolCall(call_id, STAGING_TOOL, {"input": {"q": "本周"}, "argv": []})
 
     def _skill_runner(self, task: TaskExecution, suspension: Any) -> Any:
         return AgenticSkillTools(
@@ -820,7 +820,15 @@ class _HumanSkillRunner:
         runner = self
 
         class _Runner:
-            async def call(self, skill: Any, tool_name: str, arguments: Any, *, call_id: str) -> str:
+            async def call(
+                self,
+                skill: Any,
+                tool_name: str,
+                input: Any,
+                argv: Any,
+                *,
+                call_id: str,
+            ) -> str:
                 suspension.stage_human(
                     question="请确认客户名单",
                     input_schema={"type": "object"},
@@ -905,7 +913,7 @@ async def test_registry_only_contains_allowlisted_and_granted_tools(
 async def test_skill_tool_without_input_schema_accepts_free_form_arguments(
     worker_adapter: WorkerAdapterHarness,
 ) -> None:
-    """Skill 没有服务端 input schema：工具必须接受任意 JSON，不能把参数挡成 {}。"""
+    """Skill 没有服务端 input schema：`input` 仍是任意 JSON，不能把参数挡成 {}。"""
     from muad_agent_worker.application.agentic.snapshot import load_frozen_execution
 
     snapshot = agentic_snapshot()
@@ -916,7 +924,10 @@ async def test_skill_tool_without_input_schema_accepts_free_form_arguments(
     frozen = load_frozen_execution(task)
     registry = build_registry(frozen, mcp=None, skills=object())  # type: ignore[arg-type]
     definition = registry.registry.get(STAGING_TOOL)
-    assert definition.input_schema == {"type": "object", "additionalProperties": True}
+    schema = dict(definition.input_schema)
+    assert schema["properties"]["input"] == {"type": "object", "additionalProperties": True}
+    assert schema["properties"]["argv"]["type"] == "array"
+    assert schema["additionalProperties"] is False
 
 
 async def test_unknown_tool_never_produces_an_external_request(

@@ -198,8 +198,14 @@ def build_schedule_snapshot(
     prompt_template: Mapping[str, Any] | None = None,
     context: Mapping[str, Any] | None = None,
     grants: SnapshotGrants | None = None,
+    plan_input: Mapping[str, Any] | None = None,
+    argv: Sequence[str] = (),
+    window: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """组装并封存 Snapshot v4：模式形状、无密钥、规范字节数一次校验。
+
+    `plan_input`/`argv`/`window` 是 SKILL_PLAN 本次 occurrence 的渲染事实（design §10.6）：
+    与依赖材料一起封存，`snapshot_bytes` 与 hash 都覆盖它们。其它模式保持空值。
 
     纯函数：不查库、不联网、无副作用，静态 Preflight 与 Fire Admission 共用同一口径。
     超限抛 `ScheduleSnapshotTooLarge`（`SNAPSHOT_TOO_LARGE`），不做截断。
@@ -218,6 +224,9 @@ def build_schedule_snapshot(
         prompt_template=prompt_template,
         context=context,
         grants=grants,
+        plan_input=plan_input,
+        argv=argv,
+        window=window,
     )
     document = snapshot.model_dump(mode="json")
     document["snapshot_bytes"] = 0
@@ -245,6 +254,9 @@ def _validate_schedule_snapshot(
     prompt_template: Mapping[str, Any] | None,
     context: Mapping[str, Any] | None,
     grants: SnapshotGrants | None,
+    plan_input: Mapping[str, Any] | None,
+    argv: Sequence[str],
+    window: Mapping[str, Any] | None,
 ) -> TaskExecutionSnapshotV4:
     """结构/模式/密钥校验的唯一入口：非法一律 `ScheduleSnapshotInvalid`，不外泄裸校验错。"""
     try:
@@ -262,6 +274,9 @@ def _validate_schedule_snapshot(
             prompt_template=dict(prompt_template or {}),
             context=dict(context or {}),
             grants=grants or SnapshotGrants(),
+            input=dict(plan_input or {}),
+            argv=list(argv),
+            window=dict(window) if window is not None else None,
         )
     except ValidationError as exc:
         raise ScheduleSnapshotInvalid(str(exc)) from exc

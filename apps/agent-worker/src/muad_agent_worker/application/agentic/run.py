@@ -30,7 +30,7 @@ from muad_agent_core.agent import (
 from muad_agent_core.agent.continuation import RunnerCheckpoint
 from muad_agent_core.hooks import HookPipeline
 from muad_agent_core.model import ModelMessage, ModelRole, ModelToolCall, ModelUsage
-from muad_agent_core.prompt import PromptSkill
+from muad_agent_core.prompt import PromptSkill, resolve_zone
 from muad_agent_core.sandbox import WorkspaceStore
 from muad_agent_core.skill import SkillArtifactResolver, SkillExecutor
 from muad_agent_core.tools import ToolExecutionPipeline
@@ -58,11 +58,20 @@ from .compaction import SummaryGenerator, TaskContextCompactor, compaction_setti
 from .errors import AgenticError
 from .events import TaskEventSink
 from .mcp import McpServerRuntime, McpToolBox
-from .memory import frozen_memory_message
 from .model import CapacityModelPool, ModelTarget
+from .scheduled_turn import base_messages, load_scheduled_turn
+from .session_context import SessionContextReader
 from .snapshot import FrozenAgenticExecution, load_frozen_execution
 from .suspension import AgenticSuspension, SuspensionBoundary
-from .tools import AgenticToolRegistry, SkillToolRunner, build_registry, skill_tool_name
+from .task_query import DbTaskQuery
+from .tools import (
+    AgenticToolRegistry,
+    ScheduledPlatformTools,
+    SkillToolRunner,
+    build_registry,
+    skill_tool_name,
+)
+from .turn_result import NO_CHANGE, ResultRecorder, user_visible_text
 
 logger = logging.getLogger("muad_agent_worker.application.agentic.run")
 
@@ -86,6 +95,10 @@ class AgenticDependencies:
     artifacts: TaskArtifactClient | None = None
     mcp_http: httpx.AsyncClient | None = None
     workspace_store: WorkspaceStore | None = None
+    #: 会话目标上下文（`current`/`session:<id>`/`main`）；缺席时只执行 isolated 语义并留痕。
+    session_context: SessionContextReader | None = None
+    #: `current_time` 的时钟注入点（生产走系统时钟）。
+    clock: Callable[[], datetime] | None = None
     #: 模型传输缝（生产留空 = OpenAI 兼容 provider）；契约/单测注入脚本化 provider。
     provider_factory: Any = None
     #: 中断事件观察者（`ON_INTERRUPT` Hook）：挂起事实的可观测出口，不改变 Kernel 行为。
@@ -103,30 +116,30 @@ class AgenticOutcome:
     usage: ModelUsage
     boundary: SuspensionBoundary | None = None
     last_failure: dict[str, str] | None = None
+    #: `record_result` 的结构化结论（`no_change/progress/done/blocked/needs_attention`）。
+    result_status: str | None = None
 
 
 def agent_policy(frozen: FrozenAgenticExecution) -> AgentPolicy:
-    """预算映射：快照 `max_steps/max_tool_calls` 是硬上限，期限是剩余绝对时间。"""
+    """只读冻结快照：`PlatformSettings.agent` 的值已在 admission 写入 budget。
+
+    期限取「agent 预算」与「Task 绝对 deadline」的较早值；运行时配置不覆盖冻结值。
+    """
     budget = frozen.snapshot.budget
-    config = frozen.runtime_config
     defaults = AgentPolicy()
     remaining_ms = max(1, int((frozen.deadline_at - datetime.now(UTC)).total_seconds() * 1000))
+    budget_ms = budget.deadline_ms or remaining_ms
     return AgentPolicy(
         max_turns=budget.max_steps or defaults.max_turns,
         max_tool_calls=budget.max_tool_calls or defaults.max_tool_calls,
-        deadline_ms=remaining_ms,
-        max_model_retries=_runtime_limit(config, "max_model_retries", defaults.max_model_retries),
-        max_identical_failures=_runtime_limit(
-            config, "max_identical_failures", defaults.max_identical_failures
-        ),
+        deadline_ms=min(remaining_ms, budget_ms),
+        max_model_retries=budget.max_model_retries or defaults.max_model_retries,
+        max_identical_failures=budget.max_identical_failures or defaults.max_identical_failures,
     )
 
 
-def _runtime_limit(config: Mapping[str, Any], key: str, default: int) -> int:
-    value = config.get(key)
-    if isinstance(value, int) and not isinstance(value, bool) and value > 0:
-        return value
-    return default
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
 
 
 def prompt_skills(frozen: FrozenAgenticExecution) -> tuple[PromptSkill, ...]:
@@ -145,13 +158,6 @@ def prompt_skills(frozen: FrozenAgenticExecution) -> tuple[PromptSkill, ...]:
             )
         )
     return tuple(skills)
-
-
-def base_messages(frozen: FrozenAgenticExecution) -> tuple[ModelMessage, ...]:
-    """起点消息：只读记忆块（若有）+ 本次目标。目标来自 Fire 冻结的输入。"""
-    memory = frozen_memory_message(frozen.memory_block)
-    goal = ModelMessage(role=ModelRole.USER, content=frozen.goal)
-    return (memory, goal) if memory is not None else (goal,)
 
 
 def build_verifier(contract: Mapping[str, Any]) -> Verifier | None:
@@ -240,6 +246,23 @@ async def execute_agentic(
         model_id=target.model_name,
     )
     checkpoints = TaskCheckpointStore(deps.sessions, identity)
+    scheduled = await load_scheduled_turn(deps.sessions, frozen, deps.session_context)
+    recorder = ResultRecorder()
+    platform = (
+        ScheduledPlatformTools(
+            zone=resolve_zone(scheduled.timezone),
+            result_recorder=recorder,
+            clock=deps.clock or _utc_now,
+            task_query=DbTaskQuery(
+                deps.sessions,
+                tenant_id=frozen.tenant_id,
+                actor_user_id=frozen.task.actor_user_id,
+                agent_id=frozen.task.agent_id,
+            ),
+        )
+        if scheduled is not None
+        else None
+    )
     mcp_servers = await _mcp_servers(frozen, deps)
     mcp_box = (
         McpToolBox(mcp_servers, deps.mcp_http)
@@ -249,8 +272,10 @@ async def execute_agentic(
     # 执行器与工具执行者必须拿到**同一个**挂起端口：否则工具已经暂存了异步提交，
     # Kernel 在回合收口时看不到它，会继续跑下一个模型回合（实测会把一次提交跑成 N 轮）。
     skill_runner = skill_runner_factory(suspension) if skill_runner_factory is not None else None
+    # 定时任务没有人可回答：不注册 ask_user，避免模型挂起等待到 deadline。
+    human = None if frozen.scheduled else suspension
     agentic_tools: AgenticToolRegistry = build_registry(
-        frozen, mcp=mcp_box, skills=skill_runner, human=suspension
+        frozen, mcp=mcp_box, skills=skill_runner, human=human, platform=platform
     )
     hooks = HookPipeline()
     _observe_interrupts(hooks, deps)
@@ -271,7 +296,7 @@ async def execute_agentic(
     request = AgentRunRequest(
         model_id=target.model_name,
         instructions=frozen.instructions,
-        messages=resume.messages if resume is not None else base_messages(frozen),
+        messages=resume.messages if resume is not None else base_messages(frozen, scheduled),
         skills=prompt_skills(frozen),
         policy=agent_policy(frozen),
         temperature=_float_param(target.params, "temperature"),
@@ -291,14 +316,23 @@ async def execute_agentic(
         result = await _run_kernel(
             runner, request, events, probe, resume.checkpoint if resume is not None else None
         )
+    final_text = result.final_text
+    final_status = recorder.status
+    if result.status is AgentRunStatus.COMPLETED:
+        final_text = user_visible_text(result.final_text, status=final_status)
+        if not final_text.strip() and final_status != NO_CHANGE:
+            raise AgenticError("AGENTIC_EMPTY_RESULT", "agentic execution produced no answer")
+        if final_status is None and scheduled is not None:
+            final_status = "done"
     return AgenticOutcome(
         status=result.status,
-        final_text=result.final_text,
+        final_text=final_text,
         turns=result.turns,
         tool_calls=result.tool_calls,
         usage=result.usage,
         boundary=suspension.take(),
         last_failure=result.last_failure,
+        result_status=final_status if result.status is AgentRunStatus.COMPLETED else None,
     )
 
 
@@ -339,8 +373,6 @@ async def _run_kernel(
         on_tool_completed=events.on_tool_completed,
         checkpoint=checkpoint,
     )
-    if not result.final_text.strip() and result.status is AgentRunStatus.COMPLETED:
-        raise AgenticError("AGENTIC_EMPTY_RESULT", "agentic execution produced no answer")
     return result
 
 
@@ -455,6 +487,7 @@ async def load_resume_state(
     task: TaskExecution,
     *,
     operations: OperationSubmitter | None,
+    session_context: SessionContextReader | None = None,
 ) -> ResumeState | None:
     """没有 checkpoint 就是首次执行；有则重建历史并把已就绪的异步结果放回原位。
 
@@ -478,8 +511,9 @@ async def load_resume_state(
         return None
     checkpoint = checkpoint_from_state(row.state_json)
     frozen = load_frozen_execution(task)
+    scheduled = await load_scheduled_turn(sessions, frozen, session_context)
     folded = await _history_from_events(sessions, task)
-    messages = [*base_messages(frozen), *folded.messages]
+    messages = [*base_messages(frozen, scheduled), *folded.messages]
     pending = checkpoint.pending_tool_calls
     if operations is not None and (pending or folded.declared):
         try:

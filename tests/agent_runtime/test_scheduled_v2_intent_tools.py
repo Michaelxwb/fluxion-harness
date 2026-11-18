@@ -503,6 +503,28 @@ async def test_wecom_entry_requests_push_delivery(
     assert draft["context"]["source"]["origin_channel"] == "WECOM"
 
 
+async def test_current_session_draft_freezes_the_creator_conversation(
+    tenant: TenantContext, conversation: uuid.UUID
+) -> None:
+    client = _client()
+    try:
+        registry = _registry(_context(tenant, conversation), client)
+        await _invoke(
+            registry,
+            DRAFT_SCHEDULE_TOOL,
+            _draft_args(
+                session_target="current",
+                payload={"kind": "REMINDER", "text": "开周会"},
+            ),
+        )
+    finally:
+        await client.aclose()
+
+    draft = (await _draft_payloads(tenant.tenant_id))[0]
+    # current 的会话身份只来自可信 Run 上下文，模型/用户不能自报。
+    assert draft["context"]["session_conversation_id"] == str(conversation)
+
+
 async def test_chat_entry_tells_the_model_the_confirm_command(
     tenant: TenantContext, conversation: uuid.UUID
 ) -> None:

@@ -747,7 +747,7 @@ Agent 输出结构化 `SchedulePlan`（kind/skill/input/argv/window/session/deli
   - authoring PASS exit=0
 ## TASK-014: 真实试跑与从成功执行提升
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-013, TASK-002, TASK-004, TASK-005
 - **Source**: run-failure-reporting/run-failure-reporting.design.md#10.5, #10.15
 - **Scenarios**: run-failure-reporting:S-12, run-failure-reporting:S-13
@@ -776,12 +776,12 @@ Agent 输出结构化 `SchedulePlan`（kind/skill/input/argv/window/session/deli
 
 ### Checklist
 
-- [ ] 试跑走真实 Skill/Agent、真实产物、真实投递；不是渲染预览。
-- [ ] 试跑失败不建 Job；展示失败事实与修复建议。
-- [ ] promotion 从成功 Run 的 `execute(target=skill)` 复用真实参数。
-- [ ] 日期参数绑定 `{{previous_day}}` 等；用户确认后创建。
-- [ ] Job 创建后默认 enabled；失败由通知/退避/自动停用兜底。
-- [ ] 卡片展示试跑结果、计划、预算来源、下次触发。
+- [x] 试跑走真实 Skill/Agent、真实产物、真实投递；不是渲染预览。
+- [x] 试跑失败不建 Job；展示失败事实与修复建议。
+- [x] promotion 从成功 Run 的 `execute(target=skill)` 复用真实参数。
+- [x] 日期参数绑定 `{{previous_day}}` 等；用户确认后创建。
+- [x] Job 创建后默认 enabled；失败由通知/退避/自动停用兜底。
+- [x] 卡片展示试跑结果、计划、预算来源、下次触发。
 
 ### Spec Delta
 
@@ -792,11 +792,14 @@ Agent 输出结构化 `SchedulePlan`（kind/skill/input/argv/window/session/deli
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18] implemented: real draft trial run (no Schedule/Fire/Revision), trial receipt/artifacts, promotion from recorded successful skill call with date bindings; AGENT_TURN trial uses the same unattended prompt
+- [2026-11-18T21:01:35.794Z] started tests=18c785774247
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-18T21:01:47.218Z PASS commands=1/1 executed=1 deduped=0 elapsed=11314ms tests=18c785774247 head=3517aa34bcc2 dirty=1
+  - test-run PASS exit=0
 ## TASK-015: 草稿诊断、版本与作用域
 
 - **Status**: done
@@ -855,7 +858,7 @@ Agent 输出结构化 `SchedulePlan`（kind/skill/input/argv/window/session/deli
   - draft PASS exit=0
 ## TASK-016: SKILL_PLAN 确定性运行时
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-012, TASK-013, TASK-001, TASK-002, TASK-004
 - **Source**: run-failure-reporting/run-failure-reporting.design.md#10.3, #10.6
 - **Scenarios**: run-failure-reporting:S-16, run-failure-reporting:E-03
@@ -884,12 +887,12 @@ SKILL_PLAN 在 fire 时渲染 `input`/`argv`/window 并冻结进 execution snaps
 
 ### Checklist
 
-- [ ] `SkillExecutionSpec`/payload 增加 `argv_template` 与 window。
-- [ ] fire 渲染并写 `execution_snapshot_json["argv"]`，纳入 hash。
-- [ ] `_skill_request` 只传 `input_json["input"]`。
-- [ ] 重试复用同一 argv/input；时间窗口不变。
-- [ ] 旧 Revision 无 argv 视为空；旧包走 stdin。
-- [ ] 测试：argv、stdin、时间窗口、重试、真实 Fire 形状。
+- [x] `SkillExecutionSpec`/payload 增加 `argv_template` 与 window。
+- [x] fire 渲染并写 `execution_snapshot_json["argv"]`，纳入 hash。
+- [x] `_skill_request` 只传 `input_json["input"]`。
+- [x] 重试复用同一 argv/input；时间窗口不变。
+- [x] 旧 Revision 无 argv 视为空；旧包走 stdin。
+- [x] 测试：argv、stdin、时间窗口、重试、真实 Fire 形状。
 
 ### Spec Delta
 
@@ -900,14 +903,17 @@ SKILL_PLAN 在 fire 时渲染 `input`/`argv`/window 并冻结进 execution snaps
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18] implemented: fire-time timezone rendering, frozen snapshot input/argv/window, stdin business-only, retry reuse, legacy empty argv
+- [2026-11-18T20:48:12.571Z] started tests=0f9257645e5a
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-18T20:49:00.743Z PASS commands=1/1 executed=1 deduped=0 elapsed=48055ms tests=0f9257645e5a head=3517aa34bcc2 dirty=1
+  - skill-plan PASS exit=0
 ## TASK-017: AGENT_TURN prompt 模式
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-012, TASK-013, TASK-002, TASK-003, TASK-004
 - **Source**: run-failure-reporting/run-failure-reporting.design.md#10.3, #10.7, #10.8
 - **Scenarios**: run-failure-reporting:S-14, run-failure-reporting:S-17, run-failure-reporting:E-03
@@ -936,14 +942,14 @@ AGENT_TURN 是完整的 prompt 模式：prompt + 时间行 + 窗口 + 无人值�
 
 ### Checklist
 
-- [ ] prompt 构造：时间行、窗口、无人值守契约、上次结果、scratch。
-- [ ] `current_time` 注册；调度时区；重试使用冻结窗口。
-- [ ] skill 工具 `{input, argv}`；平台只读工具可注册。
-- [ ] session 目标 isolated/current/session/main；current 读取有界上下文。
-- [ ] 无变化用 `record_result(no_change)`；平台抑制文本，不向用户发送内部 token；任务中心仍记录。
-- [ ] 附件仍进入消息，Web 任务中心可读，企微 push 按 delivery_intent；用户可见文本必须直白。
-- [ ] 失败沿用 finalization funnel。
-- [ ] 测试：prompt、时间、工具、session、静默、失败。
+- [x] prompt 构造：时间行、窗口、无人值守契约、上次结果、scratch。
+- [x] `current_time` 注册；调度时区；重试使用冻结窗口。
+- [x] skill 工具 `{input, argv}`；平台只读工具可注册。
+- [x] session 目标 isolated/current/session/main；current 读取有界上下文。
+- [x] 无变化用 `record_result(no_change)`；平台抑制文本，不向用户发送内部 token；任务中心仍记录。
+- [x] 附件仍进入消息，Web 任务中心可读，企微 push 按 delivery_intent；用户可见文本必须直白。
+- [x] 失败沿用 finalization funnel。
+- [x] 测试：prompt、时间、工具、session、静默、失败。
 
 ### Spec Delta
 
@@ -954,14 +960,17 @@ AGENT_TURN 是完整的 prompt 模式：prompt + 时间行 + 窗口 + 无人值�
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18] implemented: scheduled prompt/time/window/unattended, record_result + no_change suppression, session tail + frozen creator conversation, skill input/argv, ask_user disabled
+- [2026-11-18T20:59:10.589Z] started tests=e483179e6ee4
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-18T20:59:14.760Z PASS commands=1/1 executed=1 deduped=0 elapsed=4059ms tests=e483179e6ee4 head=3517aa34bcc2 dirty=1
+  - agent-turn PASS exit=0
 ## TASK-018: 预算与工具策略来自平台设置
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-012, TASK-017, TASK-002
 - **Source**: run-failure-reporting/run-failure-reporting.design.md#10.9
 - **Scenarios**: run-failure-reporting:S-18
@@ -990,12 +999,12 @@ AGENT_TURN 是完整的 prompt 模式：prompt + 时间行 + 窗口 + 无人值�
 
 ### Checklist
 
-- [ ] 预算映射 `max_turns`/`max_tool_calls`/`deadline_ms`/`max_model_retries`/`max_identical_failures`。
-- [ ] `agent_policy(frozen)` 只读快照；旧 budget 不消费。
-- [ ] `tools_allow` 默认 `*` 跟随 owner；agent 创建任务不越权。
-- [ ] `current_time`/任务查询等平台只读工具可注册。
-- [ ] 卡片显示系统默认来源；`max_tokens=0` 显示“不限制”。
-- [ ] 测试：设置映射、冻结、旧 budget、工具收紧、撤权。
+- [x] 预算映射 `max_turns`/`max_tool_calls`/`deadline_ms`/`max_model_retries`/`max_identical_failures`。
+- [x] `agent_policy(frozen)` 只读快照；旧 budget 不消费。
+- [x] `tools_allow` 默认 `*` 跟随 owner；agent 创建任务不越权。
+- [x] `current_time`/任务查询等平台只读工具可注册。
+- [x] 卡片显示系统默认来源；`max_tokens=0` 显示“不限制”。
+- [x] 测试：设置映射、冻结、旧 budget、工具收紧、撤权。
 
 ### Spec Delta
 
@@ -1006,11 +1015,14 @@ AGENT_TURN 是完整的 prompt 模式：prompt + 时间行 + 窗口 + 无人值�
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18] implemented: snapshot budget from PlatformSettings.agent, policy reads frozen values, current_time/record_result/list_tasks/get_task scoped read-only tools, card budget source
+- [2026-11-18T21:06:40.632Z] started tests=46c62b942b1e
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-18T21:06:47.958Z PASS commands=1/1 executed=1 deduped=0 elapsed=7204ms tests=46c62b942b1e head=3517aa34bcc2 dirty=1
+  - budget-tools PASS exit=0
 ## TASK-019: 定时任务导出与失败诊断
 
 - **Status**: done

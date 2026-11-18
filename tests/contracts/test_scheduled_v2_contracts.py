@@ -41,6 +41,9 @@ from muad_contracts import (
     SchedulePolicy,
     ScheduleStatus,
     SkillPlanPayload,
+    SnapshotAgent,
+    SnapshotModel,
+    SnapshotSkill,
     TaskArtifactRef,
     TaskArtifactWriteRequest,
     TaskCapacityOwner,
@@ -51,7 +54,9 @@ from muad_contracts import (
     TaskToolOperationSubmitRequest,
     TaskType,
     WaitKind,
+    build_schedule_snapshot,
     derive_schedule_mode,
+    schedule_snapshot_hash,
 )
 from muad_contracts.model_pool import (
     MemoryJobCallOwner,
@@ -103,6 +108,23 @@ def _skill() -> dict[str, Any]:
         "source": "ADMIN",
         "execution_mode": "SYNC",
     }
+
+
+def _built_snapshot(**overrides: Any) -> dict[str, Any]:
+    values: dict[str, Any] = {
+        "mode": "SKILL",
+        "agent": SnapshotAgent(
+            id=uuid.uuid4(), key="agent", revision=1, instructions="prompt"
+        ),
+        "model": SnapshotModel(id=uuid.uuid4(), revision=1),
+        "max_snapshot_bytes": 262144,
+        "skills": [SnapshotSkill(**_skill())],
+        "plan_input": {"report_day": "2026-03-07"},
+        "argv": ["--date", "2026-03-07"],
+        "window": {"kind": "DAY", "offset": -1},
+    }
+    values.update(overrides)
+    return build_schedule_snapshot(**values)
 
 
 class TestRecurrence:
@@ -487,6 +509,54 @@ class TestSnapshotV4:
             TaskExecutionSnapshotV4(
                 **_snapshot(mode="AGENTIC", memory={**memory, "mode": "WRITE"})
             )
+
+    def test_skill_plan_freezes_input_argv_and_window(self) -> None:
+        snapshot = TaskExecutionSnapshotV4(
+            **_snapshot(
+                mode="SKILL",
+                skills=[_skill()],
+                input={"report_day": "2026-03-07"},
+                argv=["--date", "2026-03-07"],
+                window={"kind": "DAY", "offset": -1},
+            )
+        )
+        assert snapshot.input == {"report_day": "2026-03-07"}
+        assert snapshot.argv == ["--date", "2026-03-07"]
+        assert snapshot.window == {"kind": "DAY", "offset": -1}
+        rebuilt = TaskExecutionSnapshotV4.model_validate(snapshot.model_dump(mode="json"))
+        assert rebuilt == snapshot
+
+    def test_old_snapshot_without_plan_facts_reads_empty(self) -> None:
+        snapshot = TaskExecutionSnapshotV4(**_snapshot(mode="SKILL", skills=[_skill()]))
+        assert snapshot.input == {}
+        assert snapshot.argv == []
+        assert snapshot.window is None
+
+    def test_plan_argv_and_input_are_validated(self) -> None:
+        with pytest.raises(ValidationError):
+            TaskExecutionSnapshotV4(
+                **_snapshot(mode="SKILL", skills=[_skill()], argv=["bad\0argument"])
+            )
+        with pytest.raises(ValidationError):
+            TaskExecutionSnapshotV4(
+                **_snapshot(
+                    mode="SKILL",
+                    skills=[_skill()],
+                    input={"value": float("nan")},
+                )
+            )
+
+    def test_snapshot_hash_covers_skill_plan_facts(self) -> None:
+        base = _built_snapshot()
+        assert base["argv"] == ["--date", "2026-03-07"]
+        assert base["input"] == {"report_day": "2026-03-07"}
+        assert base["window"] == {"kind": "DAY", "offset": -1}
+        for changed in (
+            {**base, "argv": [*base["argv"], "--extra", "1"]},
+            {**base, "input": {**base["input"], "report_day": "2026-03-08"}},
+            {**base, "window": {"kind": "DAY", "offset": 0}},
+        ):
+            assert schedule_snapshot_hash(changed) != schedule_snapshot_hash(base)
 
 
 class TestAsyncWaitWatermarks:

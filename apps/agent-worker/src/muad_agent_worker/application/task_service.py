@@ -130,50 +130,13 @@ class TaskService:
         if task is None:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
         if route_id is not None:
-            await self._enqueue_delivery(payload.tenant_id, task.id, route_id)
+            await enqueue_execution_delivery(
+                self._session, tenant_id=payload.tenant_id, task_id=task.id, route_id=route_id
+            )
         if operation is not None:
             operation.task_id = task.id
             await self._session.flush()
         return task
-
-    async def _enqueue_delivery(
-        self, tenant_id: str, task_id: uuid.UUID, route_id: uuid.UUID
-    ) -> None:
-        """立即任务的投递意图：创建时的 route 落成独立投递记录（design §3.2.11）。
-
-        执行终态由投递边界读取，不写回 Execution；`PUSH` 只对创建时给了 route 的立即任务生效。
-        稳定键归 `delivery.records`——与终态入队同一份口径，同键重放不新增。
-        """
-        delivery_id = (
-            await self._session.execute(
-                pg_insert(TaskDelivery)
-                .values(
-                    id=uuid.uuid4(),
-                    tenant_id=tenant_id,
-                    execution_id=task_id,
-                    delivery_route_id=route_id,
-                    delivery_kind=str(DeliveryKind.PUSH),
-                    delivery_key=execution_delivery_key(task_id),
-                    status=str(DeliveryState.PENDING),
-                    attempt_count=0,
-                )
-                .on_conflict_do_nothing(
-                    index_elements=[TaskDelivery.tenant_id, TaskDelivery.delivery_key],
-                    index_where=TaskDelivery.is_deleted == false(),
-                )
-                .returning(TaskDelivery.id)
-            )
-        ).scalar_one_or_none()
-        if delivery_id is None:
-            return
-        await append_event(
-            self._session,
-            tenant_id=tenant_id,
-            entity_type=EntityType.DELIVERY,
-            entity_id=delivery_id,
-            event_type=TaskEventType.ENQUEUED,
-            payload={"kind": str(DeliveryKind.PUSH), "execution_id": str(task_id)},
-        )
 
     def _creation_values(
         self,
@@ -501,6 +464,51 @@ class TaskService:
             platform_user_id=payload.actor_user_id,
             route=payload.delivery_route,
         )
+
+
+async def enqueue_execution_delivery(
+    session: AsyncSession,
+    *,
+    tenant_id: str,
+    task_id: uuid.UUID,
+    route_id: uuid.UUID,
+) -> None:
+    """立即任务的投递意图：创建时的 route 落成独立投递记录（design §3.2.11）。
+
+    执行终态由投递边界读取，不写回 Execution；`PUSH` 只对创建时给了 route 的立即任务生效。
+    稳定键归 `delivery.records`——与终态入队同一份口径，同键重放不新增。
+    试跑执行与普通立即任务共用这一条边界，不另建投递状态机。
+    """
+    delivery_id = (
+        await session.execute(
+            pg_insert(TaskDelivery)
+            .values(
+                id=uuid.uuid4(),
+                tenant_id=tenant_id,
+                execution_id=task_id,
+                delivery_route_id=route_id,
+                delivery_kind=str(DeliveryKind.PUSH),
+                delivery_key=execution_delivery_key(task_id),
+                status=str(DeliveryState.PENDING),
+                attempt_count=0,
+            )
+            .on_conflict_do_nothing(
+                index_elements=[TaskDelivery.tenant_id, TaskDelivery.delivery_key],
+                index_where=TaskDelivery.is_deleted == false(),
+            )
+            .returning(TaskDelivery.id)
+        )
+    ).scalar_one_or_none()
+    if delivery_id is None:
+        return
+    await append_event(
+        session,
+        tenant_id=tenant_id,
+        entity_type=EntityType.DELIVERY,
+        entity_id=delivery_id,
+        event_type=TaskEventType.ENQUEUED,
+        payload={"kind": str(DeliveryKind.PUSH), "execution_id": str(task_id)},
+    )
 
 
 def _creation_snapshot(

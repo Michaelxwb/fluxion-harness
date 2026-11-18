@@ -65,7 +65,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..infrastructure.models.task import ScheduleFire, TaskSchedule, TaskScheduleRevision
 from ..metrics import TASK_SNAPSHOT_BYTES_METRIC, record_gauge
 from ..scheduler.client import ScheduleMaterialsError, ScheduleMaterialsProtocol
-from ..scheduler.templates import validate_input_template
+from ..scheduler.templates import render_argv, render_input_template, validate_input_template
 
 logger = logging.getLogger(__name__)
 
@@ -159,6 +159,12 @@ class AdmissionRequest:
     #: 调用方解析出的投递事实：`delivery_channel` 来自 `task.delivery_route.channel`。
     delivery_intent: str | None = None
     delivery_channel: str | None = None
+    #: SKILL_PLAN 本次 occurrence 的渲染事实（design §10.6）：`input` 只走 stdin，`argv`
+    #: 追加到脚本，`window` 是数据窗口。只有 Fire 传入 `scheduled_at` 时才会渲染；生命周期
+    #: 的准入只校验依赖，不落快照。
+    plan_input: dict[str, Any] = field(default_factory=dict)
+    argv: tuple[str, ...] = ()
+    window: dict[str, Any] | None = None
 
 
 def classify_failure(code: str, data: dict[str, Any] | None = None) -> AdmissionError:
@@ -209,8 +215,13 @@ def admission_request_from_revision(
     agent_id: UUID,
     actor_user_id: UUID,
     deadline_at: datetime | None = None,
+    scheduled_at: datetime | None = None,
 ) -> AdmissionRequest:
-    """把不可变 Revision 的 payload 解析成准入请求；结构不合法即 `SCHEMA_INCOMPATIBLE`。"""
+    """把不可变 Revision 的 payload 解析成准入请求；结构不合法即 `SCHEMA_INCOMPATIBLE`。
+
+    `scheduled_at` 是本次 occurrence 的计划时刻：SKILL_PLAN 用它按 Revision 的 IANA 时区渲染
+    `{{fire_date}}` 等变量，然后随快照一起冻结。生命周期准入不落快照，因此不传。
+    """
     incompatible = AdmissionError(
         "SCHEMA_INCOMPATIBLE", True, REPAIR_ACTIONS["SCHEMA_INCOMPATIBLE"]
     )
@@ -237,7 +248,18 @@ def admission_request_from_revision(
             validate_input_template({"input": payload.input, "argv": list(payload.argv)})
         except AppError as exc:
             raise AdmissionRejected(incompatible) from exc
-        return AdmissionRequest(**base, skill_id=payload.skill_id)
+        plan_input = dict(payload.input)
+        argv = tuple(payload.argv)
+        if scheduled_at is not None:
+            plan_input = render_input_template(payload.input, scheduled_at, revision.timezone)
+            argv = tuple(render_argv(list(payload.argv), scheduled_at, revision.timezone))
+        return AdmissionRequest(
+            **base,
+            skill_id=payload.skill_id,
+            plan_input=plan_input,
+            argv=argv,
+            window=payload.window.model_dump(mode="json"),
+        )
     assert isinstance(payload, AgentTurnPayload)
     return AdmissionRequest(
         **base,
@@ -380,11 +402,19 @@ def _snapshot_budget(
     request: AdmissionRequest,
     settings: PlatformSettings,
 ) -> SnapshotBudget:
+    """预算唯一来源是 `PlatformSettings.agent`；旧 payload/Revision budget 不参与。
+
+    `max_tokens=0` 表示执行级累计不限制；单次请求仍由模型参数约束。
+    """
+    agent = settings.agent
     retry_safety = frozen_retry_safety(materials.agent.runtime_config.get("budget", {}))
     return SnapshotBudget(
-        max_steps=request.budget.get("max_steps"),
-        max_tool_calls=request.budget.get("max_tool_calls"),
-        max_tokens=request.budget.get("max_tokens"),
+        max_steps=agent.max_turns,
+        max_tool_calls=agent.max_tool_calls,
+        max_tokens=0,
+        max_model_retries=agent.max_model_retries,
+        max_identical_failures=agent.max_identical_failures,
+        deadline_ms=agent.deadline_ms,
         execution_timeout_sec=settings.task.execution_timeout_sec,
         deadline_at=request.deadline_at,
         retry_safety=str(retry_safety),
@@ -447,6 +477,9 @@ def build_snapshot(
                 skill_grants=list(materials.grants.skill_ids),
                 mcp_grants=list(materials.grants.mcp_server_ids),
             ),
+            plan_input=request.plan_input,
+            argv=request.argv,
+            window=request.window,
         )
     except ScheduleSnapshotTooLarge as exc:
         logger.warning("schedule_snapshot_too_large", extra={"reason": str(exc)})

@@ -20,6 +20,7 @@ from muad_contracts import (
     ScheduleMode,
     ScheduleSnapshotInvalid,
     TaskExecutionSnapshotV4,
+    TriggerType,
     load_schedule_snapshot,
     schedule_snapshot_hash,
 )
@@ -79,6 +80,19 @@ class FrozenAgenticExecution:
     @property
     def allowlist(self) -> tuple[str, ...]:
         return tuple(self.snapshot.allowlist)
+
+    @property
+    def tools_allow(self) -> tuple[str, ...]:
+        """per-job `PLATFORM:`/`SKILL:`/`MCP:` policy; empty means follow the owner."""
+        payload = self.task.input_json if isinstance(self.task.input_json, Mapping) else {}
+        raw = payload.get("tools_allow")
+        if not isinstance(raw, list) or not raw:
+            return ()
+        return tuple(str(entry) for entry in raw)
+
+    @property
+    def scheduled(self) -> bool:
+        return self.task.trigger_type == str(TriggerType.SCHEDULED)
 
     @property
     def memory_block(self) -> str:

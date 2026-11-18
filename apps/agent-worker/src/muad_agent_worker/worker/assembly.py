@@ -13,6 +13,7 @@ from muad_common import SharedSettings
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..application.agentic.run import AgenticDependencies
+from ..application.agentic.session_context import DbSessionContextReader
 from ..application.ports import PlatformSettingsClient
 from ..infrastructure.console_credentials import ConsoleCredentialClient
 from ..infrastructure.http_clients import WorkerHttpPools
@@ -91,6 +92,7 @@ def build_agentic_executor(
         artifacts=artifacts,
         mcp_http=mcp_http,
         workspace_store=workspace_store,
+        session_context=DbSessionContextReader(sessions),
     )
 
     def skill_runner(task, suspension):  # type: ignore[no-untyped-def]

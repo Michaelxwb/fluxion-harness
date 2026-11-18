@@ -289,7 +289,10 @@ def test_agentic_snapshot_freezes_dependencies_and_readonly_memory() -> None:
     assert "中文" in memory["block"]["rendered_text"]
     assert memory["payload_hash"].startswith("sha256:")
 
-    assert snapshot["budget"]["max_steps"] == 12
+    expected = default_platform_settings().agent
+    assert snapshot["budget"]["max_steps"] == expected.max_turns
+    assert snapshot["budget"]["max_tool_calls"] == expected.max_tool_calls
+    assert snapshot["budget"]["max_tokens"] == 0
     assert snapshot["budget"]["retry_safety"] == "IDEMPOTENT"
 
 

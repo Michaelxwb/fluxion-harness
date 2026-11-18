@@ -99,7 +99,10 @@ class AgenticTaskExecutor:
             # 恢复的唯一依据是 checkpoint：`load_resume_state` 在没有 checkpoint 时返回 None。
             # 首跑、外部续接、Human 续接、崩后重试都走同一条读历史的路，不靠 resume_reason 猜。
             resume = await load_resume_state(
-                self._deps.sessions, task, operations=self._deps.operations
+                self._deps.sessions,
+                task,
+                operations=self._deps.operations,
+                session_context=self._deps.session_context,
             )
             # Human 续接的答案不是持久事件：恢复后按 resolved_at 注入成本轮的一条 USER 消息。
             if resume is not None and task.last_resume_reason == HUMAN_RESUME_REASON:
@@ -209,6 +212,11 @@ def _envelope(outcome: AgenticOutcome, task: TaskExecution) -> dict[str, Any]:
                 "input_tokens": outcome.usage.input_tokens,
                 "output_tokens": outcome.usage.output_tokens,
             },
+            **(
+                {"result_status": outcome.result_status}
+                if outcome.result_status is not None
+                else {}
+            ),
         },
         "stdout": "",
         "stderr": "",

@@ -28,7 +28,7 @@ from muad_agent_core.skill import (
 )
 from muad_artifact_store import SkillArtifactCacheError
 from muad_common import SharedSettings, process_settings
-from muad_contracts import WaitKind
+from muad_contracts import PayloadKind, ScheduleMode, TriggerType, WaitKind
 from muad_contracts.skill_invocation import validate_skill_argv
 from muad_contracts.snapshot import task_execution_timeout
 from muad_platform_sdk.platform_transport import PlatformBudgetScope
@@ -141,6 +141,35 @@ def frozen_argv(task: TaskExecution) -> tuple[str, ...]:
         return validate_skill_argv(task.execution_snapshot_json.get("argv", ()))
     except ValueError as exc:
         raise TaskExecutionError("SKILL_SNAPSHOT_INVALID", str(exc), retryable=False) from exc
+
+
+def frozen_skill_input(task: TaskExecution) -> dict[str, Any]:
+    """本次执行只把**业务 input** 交给 stdin（design §10.6）。
+
+    Fire 写下的 SKILL_PLAN 信封（`kind/mode/skill_id/context/window`）是控制字段，业务
+    payload 在 `input`；立即任务的 `input_json` 本身就是业务 payload。试跑与 Fire 共用同一
+    份信封形状（`trigger_type=IMMEDIATE`），因此除触发类型外还要按 `kind` 识别。旧 Scheduled
+    任务的 `input` 缺省按空对象处理，不回退成整个信封。
+    """
+    payload = task.input_json if isinstance(task.input_json, Mapping) else {}
+    kind = payload.get("kind")
+    envelope = (
+        task.trigger_type == str(TriggerType.SCHEDULED)
+        or kind == str(PayloadKind.SKILL_PLAN)
+        or (payload.get("mode") == str(ScheduleMode.SKILL) and "input" in payload)
+    )
+    if not envelope:
+        return dict(payload)
+    business = payload.get("input")
+    if business is None:
+        return {}
+    if not isinstance(business, Mapping):
+        raise TaskExecutionError(
+            "SKILL_SNAPSHOT_INVALID",
+            "scheduled execution input must be a JSON object",
+            retryable=False,
+        )
+    return dict(business)
 
 
 def frozen_source(skill: Mapping[str, Any]) -> str:
@@ -281,7 +310,7 @@ class SkillTaskExecutor:
     def _skill_request(self, task: TaskExecution, skill: Mapping[str, Any], source: str,
                        workspace: Path, ready_dir: Path) -> SkillExecutionRequest:
         return SkillExecutionRequest(
-            ready_dir=ready_dir, input=task.input_json or {}, argv=frozen_argv(task),
+            ready_dir=ready_dir, input=frozen_skill_input(task), argv=frozen_argv(task),
             timeout_sec=self._execution_timeout(task), source=source, workspace_dir=workspace,
             execution_id=str(task.id), env=task_env(task),
             platform_context=task_platform_context(task, skill, settings=self._settings),

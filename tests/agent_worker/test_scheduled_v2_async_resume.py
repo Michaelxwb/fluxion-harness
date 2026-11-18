@@ -83,7 +83,7 @@ RECEIPT = '{"async_operation": {"operation_id": "00000000-0000-4000-8000-0000000
 
 
 def staging_call(call_id: str, query: str = "本周") -> ModelToolCall:
-    return ModelToolCall(call_id, STAGING_TOOL, {"q": query})
+    return ModelToolCall(call_id, STAGING_TOOL, {"input": {"q": query}, "argv": []})
 
 
 # ---------------------------------------------------------------------------
@@ -362,7 +362,13 @@ async def seed_turn_boundary(
         ModelMessage(
             role=ModelRole.ASSISTANT,
             content="",
-            tool_calls=(ModelToolCall(call_id, STAGING_TOOL, dict(arguments or {"q": "本周"})),),
+            tool_calls=(
+                ModelToolCall(
+                    call_id,
+                    STAGING_TOOL,
+                    dict(arguments or {"input": {"q": "本周"}, "argv": []}),
+                ),
+            ),
         )
     )
     if receipt is not None:
@@ -614,7 +620,9 @@ async def test_crash_before_checkpoint_refinds_the_operation_by_call_identity(
 
     outcome = await harness.outcome(crashed)
     assert outcome.kind is OutcomeKind.WAITING
-    assert harness.operations.submits == [("call-1", STAGING_TOOL, {"q": "本周"})]
+    assert harness.operations.submits == [
+        ("call-1", STAGING_TOOL, {"input": {"q": "本周"}, "argv": []})
+    ]
     assert len(harness.operations.operations) == 1
     assert harness.model_calls == 0, "还有未终态调用时不得发起模型回合"
 
@@ -645,7 +653,7 @@ async def test_crash_after_the_receipt_replaces_it_without_resubmitting(
         execution_id=task.id,
         call_id="call-1",
         tool_name=STAGING_TOOL,
-        arguments={"q": "本周"},
+        arguments={"input": {"q": "本周"}, "argv": []},
     )
     harness.operations.complete("call-1", "真实结果")
     harness.operations.submits.clear()
@@ -668,10 +676,10 @@ async def test_recovery_with_changed_arguments_fails_explicitly(harness: AsyncHa
         execution_id=task.id,
         call_id="call-1",
         tool_name=STAGING_TOOL,
-        arguments={"q": "崩溃前的参数"},
+        arguments={"input": {"q": "崩溃前的参数"}, "argv": []},
     )
     harness.operations.submits.clear()
-    crashed = await seed_turn_boundary(tenant, task, arguments={"q": "换过的参数"})
+    crashed = await seed_turn_boundary(tenant, task, arguments={"input": {"q": "换过的参数"}, "argv": []})
 
     with pytest.raises(TaskExecutionError) as failure:
         await harness.executor.execute(crashed)
@@ -689,7 +697,7 @@ async def test_resume_state_reports_pending_and_ready_per_call(harness: AsyncHar
         execution_id=task.id,
         call_id="call-1",
         tool_name=STAGING_TOOL,
-        arguments={"q": "A"},
+        arguments={"input": {"q": "A"}, "argv": []},
     )
     await harness.operations.submit(
         tenant_id=tenant.tenant_id,
@@ -697,10 +705,10 @@ async def test_resume_state_reports_pending_and_ready_per_call(harness: AsyncHar
         execution_id=task.id,
         call_id="call-2",
         tool_name=STAGING_TOOL,
-        arguments={"q": "B"},
+        arguments={"input": {"q": "B"}, "argv": []},
     )
     harness.operations.complete("call-1", "结果A")
-    crashed = await seed_turn_boundary(tenant, task, arguments={"q": "A"})
+    crashed = await seed_turn_boundary(tenant, task, arguments={"input": {"q": "A"}, "argv": []})
     checkpoint = RunnerCheckpoint(
         turns=1,
         tool_calls=2,
@@ -748,7 +756,7 @@ async def test_late_result_after_terminal_execution_is_recorded_never_resumed(
         execution_id=task.id,
         call_id="call-1",
         tool_name=STAGING_TOOL,
-        arguments={"q": "本周"},
+        arguments={"input": {"q": "本周"}, "argv": []},
     )
     operation_id = harness.operations.operations["call-1"].operation_id
     payload = payload_from_watermarks(
@@ -810,7 +818,7 @@ async def test_concurrent_sweeps_advance_a_shared_row_exactly_once(
             execution_id=uuid.uuid4(),
             call_id=call_id,
             tool_name=STAGING_TOOL,
-            arguments={"q": call_id},
+            arguments={"input": {"q": call_id}, "argv": []},
         )
         harness.operations.complete(call_id, f"{call_id}-结果")
         calls.append(

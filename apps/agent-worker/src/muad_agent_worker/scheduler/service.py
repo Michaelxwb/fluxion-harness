@@ -318,6 +318,7 @@ class SchedulerLoop:
         revision: TaskScheduleRevision,
         *,
         deadline_at: datetime,
+        scheduled_at: datetime | None,
         settings: PlatformSettings,
     ) -> AdmissionOutcome:
         """锁外的一次性准入；ONCE 的有界重试只发生在这一次调用内。"""
@@ -328,6 +329,7 @@ class SchedulerLoop:
                 agent_id=due.agent_id,
                 actor_user_id=due.owner_user_id,
                 deadline_at=deadline_at,
+                scheduled_at=scheduled_at,
             )
         except AdmissionRejected as exc:
             return AdmissionOutcome(error=exc.error)
@@ -393,7 +395,11 @@ class SchedulerLoop:
         if plan.action is PlanAction.FIRE:
             deadline_at = moment + timedelta(hours=settings.task.default_deadline_hours)
             admission = await self._admit(
-                due, revision, deadline_at=deadline_at, settings=settings
+                due,
+                revision,
+                deadline_at=deadline_at,
+                scheduled_at=plan.scheduled_at,
+                settings=settings,
             )
         async with self._session_factory() as session, session.begin():
             schedule = await self._lock_schedule(session, due, revision)

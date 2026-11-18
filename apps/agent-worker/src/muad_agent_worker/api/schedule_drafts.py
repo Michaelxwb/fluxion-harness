@@ -15,11 +15,11 @@ from __future__ import annotations
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from muad_api import ApiResponse, AppError, ok
 from muad_api.error_codes import ErrorCode
 from muad_api.security import require_internal_service
-from muad_contracts import ScheduleDraftConfirmRequest
+from muad_contracts import ScheduleDraftConfirmRequest, ScheduleDraftRequest
 from muad_contracts.platform_settings import PlatformSettings
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,6 +31,15 @@ from ..application.schedule_drafts import (
     ScheduleDraftService,
     load_draft,
     parse_draft_request,
+)
+from ..application.schedule_read import ScheduleReadService
+from ..application.schedule_trial_run import (
+    ScheduleTrialRunService,
+    load_trial_draft,
+    load_trial_execution,
+    next_fire_at,
+    trial_fact,
+    trial_response,
 )
 from ..application.submissions import (
     IDEMPOTENCY_HEADER,
@@ -156,6 +165,66 @@ def _parse_confirm(body: dict[str, Any]) -> ScheduleDraftConfirmRequest:
         return ScheduleDraftConfirmRequest.model_validate(body)
     except ValidationError as exc:
         raise AppError(ErrorCode.COMMON_VALIDATION_ERROR) from exc
+
+
+@router.post("/{draft_id}/test-run")
+async def test_run_schedule_draft(
+    draft_id: uuid.UUID,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    actor_user_id: RequiredActorUserId,
+    agent_id: RequiredAgentId,
+    materials_client: ScheduleMaterialsClientDep,
+    settings_client: PlatformSettingsClientDep,
+) -> ApiResponse[Any]:
+    """S-12：从 Draft 立即真实执行一次；不建 Schedule/Fire/Revision，也不消耗 Draft。"""
+    idempotency_key = resolve_idempotency_key(request.headers.get(IDEMPOTENCY_HEADER), None)
+    identity = DraftIdentity(
+        tenant_id=tenant_id, owner_user_id=actor_user_id, agent_id=agent_id
+    )
+    draft = await load_trial_draft(session, draft_id, identity=identity)
+    service = ScheduleTrialRunService(
+        session,
+        materials=materials_client,
+        settings=await _settings(settings_client, tenant_id),
+        now=await database_now(session),
+    )
+    response = await service.start(draft, idempotency_key=idempotency_key)
+    await session.commit()
+    return ok(request.app.state.message_catalog, response)
+
+
+@router.get("/{draft_id}/test-run")
+async def read_schedule_draft_trial(
+    draft_id: uuid.UUID,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    actor_user_id: RequiredActorUserId,
+    agent_id: RequiredAgentId,
+    execution_id: Annotated[uuid.UUID | None, Query()] = None,
+) -> ApiResponse[Any]:
+    """试跑回执：真实执行状态/结果/产物（卡片据此展示，不用渲染预览冒充）。"""
+    identity = DraftIdentity(
+        tenant_id=tenant_id, owner_user_id=actor_user_id, agent_id=agent_id
+    )
+    draft = await load_trial_draft(session, draft_id, identity=identity)
+    execution = await load_trial_execution(session, draft, execution_id=execution_id)
+    if execution is None:
+        raise AppError(ErrorCode.COMMON_NOT_FOUND, data={"reason": "TRIAL_NOT_FOUND"})
+    detail = await ScheduleReadService(session).execution_detail(execution=execution)
+    parsed = ScheduleDraftRequest.model_validate(dict(draft.payload_json))
+    fact = trial_fact(execution, artifacts=detail.result_artifacts)
+    return ok(
+        request.app.state.message_catalog,
+        trial_response(
+            draft,
+            execution,
+            fact,
+            next_fire_at=next_fire_at(parsed, await database_now(session)),
+        ),
+    )
 
 
 @router.post("/{draft_id}/confirm")

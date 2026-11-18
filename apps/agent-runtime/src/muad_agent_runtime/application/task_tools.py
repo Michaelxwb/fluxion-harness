@@ -48,6 +48,12 @@ from .schedule_authoring import (
     compile_schedule_plan,
 )
 from .schedule_draft_events import publish_schedule_draft_ready
+from .schedule_promotion import (
+    PromotionError,
+    PromotionFacts,
+    load_promotion_facts,
+    promotion_proposal,
+)
 from .task_client import (
     TaskSubmissionContext,
     WorkerTaskClient,
@@ -58,6 +64,7 @@ logger = logging.getLogger(__name__)
 
 DRAFT_SCHEDULE_TOOL = "draft_schedule"
 DRAFT_SCHEDULE_UPDATE_TOOL = "draft_schedule_update"
+PROMOTE_RUN_TOOL = "promote_run"
 LIST_SCHEDULES_TOOL = "list_schedules"
 GET_SCHEDULE_TOOL = "get_schedule"
 PAUSE_SCHEDULE_TOOL = "pause_schedule"
@@ -207,6 +214,36 @@ _DRAFT_ARGS: Mapping[str, Any] = {
             "request; shown on the confirmation card."
         ),
     },
+}
+
+
+_PROMOTE_ARGS: Mapping[str, Any] = {
+    "run_id": {
+        **_STRING,
+        "description": "The id of a completed Run whose successful skill call is reused.",
+    },
+    "instruction": {
+        **_STRING,
+        "description": "The user's original request for turning the run into a schedule.",
+    },
+    "timezone": _DRAFT_ARGS["timezone"],
+    "recurrence": _RECURRENCE,
+    "name": _STRING,
+    "session_target": _DRAFT_ARGS["session_target"],
+    "delivery": _DRAFT_ARGS["delivery"],
+    "window": {
+        "type": "object",
+        "properties": {
+            "kind": {"type": "string", "enum": ["DAY"]},
+            "offset": {"type": "integer", "minimum": -31, "maximum": 31},
+        },
+        "additionalProperties": False,
+        "description": (
+            "Optional data window. Defaults to the bound date: previous_day -> offset -1, "
+            "otherwise 0."
+        ),
+    },
+    "reason": _DRAFT_ARGS["reason"],
 }
 
 
@@ -437,6 +474,21 @@ class BackgroundTaskToolSet:
                 None,
             ),
             (
+                PROMOTE_RUN_TOOL,
+                "Turn one of the user's completed Runs into a NEW scheduled task draft. It reuses "
+                "the exact skill, stdin input and argv recorded from a successful "
+                "execute(target=skill) call in that run, binds date values to scheduler "
+                "variables such as {{previous_day}}, and only creates a draft: nothing runs and "
+                "nothing is saved until the user confirms the card. Use this instead of asking "
+                "the user to restate parameters. Provide the schedule time, timezone and the "
+                "user's instruction; never invent skill parameters from prose.",
+                _schema(_PROMOTE_ARGS, ("run_id", "instruction", "timezone", "recurrence")),
+                ToolEffect.WRITE,
+                self._promote_run,
+                ToolConcurrency.SERIAL,
+                None,
+            ),
+            (
                 LIST_SCHEDULES_TOOL,
                 "List the current user's schedules, newest first.",
                 _schema({"status": _STRING, "page": _PAGE}, ()),
@@ -547,6 +599,69 @@ class BackgroundTaskToolSet:
         authoring = self._authoring(arguments)
         if authoring.clarification is not None:
             return self._clarification(authoring)
+        return await self._submit_draft(arguments, kind=kind, target=target, authoring=authoring)
+
+    async def _promote_run(
+        self, arguments: Mapping[str, Any], *, call_id: str
+    ) -> dict[str, Any]:
+        """S-13：从一次成功运行的真实 skill 调用提升为 Draft（参数不复推）。"""
+        if self._session_factory is None:
+            raise TaskToolError(
+                ErrorCode.COMMON_INTERNAL_ERROR.value,
+                "run history is unavailable in this execution context",
+            )
+        run_id = _uuid_arg(arguments, "run_id")
+        try:
+            facts = await load_promotion_facts(
+                self._session_factory,
+                tenant_id=self._context.tenant_id,
+                actor_user_id=self._context.actor_user_id,
+                agent_id=self._context.agent.id,
+                run_id=run_id,
+            )
+        except PromotionError as exc:
+            raise TaskToolError(exc.code, exc.message, exc.data) from exc
+        timezone = arguments.get("timezone")
+        proposal = promotion_proposal(
+            facts,
+            arguments,
+            timezone=timezone if isinstance(timezone, str) else "UTC",
+        )
+        authoring = self._authoring(proposal.arguments)
+        if authoring.clarification is not None:
+            return self._clarification(authoring)
+        return await self._submit_draft(
+            proposal.arguments,
+            kind=DraftKind.CREATE,
+            target=None,
+            authoring=authoring,
+            extra={"promotion": self._promotion_payload(proposal.facts)},
+        )
+
+    def _promotion_payload(self, facts: PromotionFacts) -> dict[str, Any]:
+        """Tool receipt facts: what was copied and which dates were bound."""
+        return {
+            "run_id": str(facts.run_id),
+            "tool_call_id": facts.tool_call_id,
+            "skill_key": facts.skill_key,
+            "skill_id": facts.skill_id,
+            "executed_at": facts.executed_at.isoformat(),
+            "input": dict(facts.input),
+            "argv": list(facts.argv),
+            "bindings": dict(facts.bindings),
+            "source": "RECORDED_SKILL_CALL",
+        }
+
+    async def _submit_draft(
+        self,
+        arguments: Mapping[str, Any],
+        *,
+        kind: DraftKind,
+        target: Mapping[str, Any] | None,
+        authoring: ScheduleAuthoringResult,
+        extra: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Draft 的唯一下游：body → Worker API-01 → 同回合卡片 → 工具回执。"""
         plan = authoring.plan
         assert plan is not None
         body = self._draft_body(arguments, kind=kind, target=target, authoring=authoring)
@@ -572,11 +687,24 @@ class BackgroundTaskToolSet:
             }
         )
         seq = await self._publish_card(card)
-        return {
+        return self._draft_receipt(card, response, authoring=authoring, seq=seq, extra=extra)
+
+    def _draft_receipt(
+        self,
+        card: WebchatScheduleDraftReady,
+        response: Mapping[str, Any],
+        *,
+        authoring: ScheduleAuthoringResult,
+        seq: int | None,
+        extra: Mapping[str, Any] | None,
+    ) -> dict[str, Any]:
+        plan = authoring.plan
+        assert plan is not None
+        receipt = {
             "draft_id": str(card.draft_id),
             "draft_hash": card.draft_hash,
             "status": response.get("status"),
-            "kind": kind.value,
+            "kind": card.kind.value,
             "mode": card.mode.value,
             "preview": card.preview.model_dump(mode="json"),
             "resolved_plan": plan.model_dump(mode="json"),
@@ -597,6 +725,9 @@ class BackgroundTaskToolSet:
                 else None
             ),
         }
+        if extra:
+            receipt.update(extra)
+        return receipt
 
     def _authoring(self, arguments: Mapping[str, Any]) -> ScheduleAuthoringResult:
         try:
@@ -656,6 +787,12 @@ class BackgroundTaskToolSet:
             ),
             "origin_channel": self._context.entry_channel,
         }
+        if (
+            plan.session_target.kind in ("current", "main")
+            and self._context.conversation_id is not None
+        ):
+            # current/main 的会话身份来自可信 Run 上下文，不让模型自报。
+            context["session_conversation_id"] = str(self._context.conversation_id)
         body: dict[str, Any] = {
             "kind": kind.value,
             "instruction": _instruction_arg(arguments),
@@ -880,6 +1017,7 @@ __all__ = [
     "LIST_SCHEDULES_TOOL",
     "LIST_TASKS_TOOL",
     "PAUSE_SCHEDULE_TOOL",
+    "PROMOTE_RUN_TOOL",
     "RESUME_SCHEDULE_TOOL",
     "BackgroundTaskToolSet",
 ]

@@ -444,10 +444,18 @@ def _as_utc_iso(value: Any) -> Any:
 
 
 def _config_context(value: Any) -> Any:
-    """`context.source` 是来源审计，不是用户配置：不进差异、也不触发执行取消。"""
+    """`context.source` 是来源审计，不是用户配置：不进差异、也不触发执行取消。
+
+    `session_conversation_id=None` 只是缺省值；不能让空值在 UPDATE 差异里制造一条假变更。
+    """
     if not isinstance(value, Mapping):
         return value
-    return {key: item for key, item in value.items() if key != "source"}
+    return {
+        key: item
+        for key, item in value.items()
+        if key != "source"
+        and not (key == "session_conversation_id" and item is None)
+    }
 
 
 def _payload_tools(value: Any) -> dict[str, Any]:
@@ -545,7 +553,7 @@ async def load_draft(
     确认端点需要 Draft 的 hash 与预览：聊天入口只拿到用户给的 id，必须由服务端按
     同一条事实读出 hash，绝不接受客户端自报 hash。
     """
-    draft = await _owned_draft(
+    draft = await owned_draft(
         session,
         draft_id,
         tenant_id=identity.tenant_id,
@@ -556,7 +564,7 @@ async def load_draft(
     return draft_response(draft)
 
 
-async def _owned_draft(
+async def owned_draft(
     session: AsyncSession,
     draft_id: uuid.UUID,
     *,
@@ -710,6 +718,7 @@ __all__ = [
     "ensure_delivery_target",
     "load_draft",
     "materials_error",
+    "owned_draft",
     "parse_draft_request",
     "recurrence_rule",
     "resolve_delivery_intent",

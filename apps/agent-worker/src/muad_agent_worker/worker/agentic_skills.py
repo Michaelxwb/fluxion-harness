@@ -1,7 +1,8 @@
 """Agentic 的 Skill 工具执行者：SYNC 直接跑沙箱，ASYNC 走 Task-owned 操作协议。
 
 - **SYNC**：与 Skill 任务同一条执行边界（冻结 artifact → 本地缓存校验 → 沙箱子进程 → egress
-  预算/审计）。工具参数就是 Skill 的 `input`，返回值取结构化 result（缺省回落 stdout）。
+  预算/审计）。工具参数在边界就拆成 `input`（只走 stdin）与 `argv`（追加到脚本）；返回值取
+  结构化 result（缺省回落 stdout）。
 - **ASYNC**：提交给 Runtime API-30（调用身份 `(tenant, execution, call_id)` 唯一），先做
   ready-check；未就绪才把水位交给挂起端口——**结果先到、等待后到**的丢唤醒由这一步消除。
 - 工具失败带稳定 `code`（`TaskExecutionError`），由 Kernel 转成同形的工具错误消息；未授权/未知
@@ -12,7 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
@@ -102,13 +103,21 @@ class AgenticSkillTools:
         self._create_async_child = create_async_child
 
     async def call(
-        self, skill: SnapshotSkill, tool_name: str, arguments: Mapping[str, Any], *, call_id: str
+        self,
+        skill: SnapshotSkill,
+        tool_name: str,
+        input: Mapping[str, Any],
+        argv: Sequence[str],
+        *,
+        call_id: str,
     ) -> str:
         if skill.execution_mode == "ASYNC":
-            return await self._submit(skill, tool_name, arguments, call_id)
-        return await self._execute(skill, arguments)
+            return await self._submit(skill, tool_name, input, argv, call_id)
+        return await self._execute(skill, input, argv)
 
-    async def _execute(self, skill: SnapshotSkill, arguments: Mapping[str, Any]) -> str:
+    async def _execute(
+        self, skill: SnapshotSkill, input: Mapping[str, Any], argv: Sequence[str]
+    ) -> str:
         source = skill.source.strip().upper()
         if source not in VALID_SKILL_SOURCES:
             raise TaskExecutionError("SKILL_SOURCE_INVALID", f"invalid frozen skill source: {source!r}")
@@ -118,7 +127,8 @@ class AgenticSkillTools:
             ready_dir = await self._ready(skill)
             request = SkillExecutionRequest(
                 ready_dir=ready_dir,
-                input=dict(arguments),
+                input=dict(input),
+                argv=tuple(argv),
                 timeout_sec=self._timeout(),
                 source=source,
                 workspace_dir=workspace,
@@ -152,7 +162,8 @@ class AgenticSkillTools:
         self,
         skill: SnapshotSkill,
         tool_name: str,
-        arguments: Mapping[str, Any],
+        input: Mapping[str, Any],
+        argv: Sequence[str],
         call_id: str,
     ) -> str:
         if self._operations is None:
@@ -166,7 +177,7 @@ class AgenticSkillTools:
                 execution_id=self._task.id,
                 call_id=call_id,
                 tool_name=tool_name,
-                arguments=dict(arguments),
+                arguments={"input": dict(input), "argv": list(argv)},
                 completion_mode=CompletionMode.JOIN,
             )
         except TaskOperationError as exc:
@@ -177,7 +188,7 @@ class AgenticSkillTools:
             return operation_result_content(view.result)
         if self._create_async_child:
             await self._ensure_child_task(
-                skill, arguments, call_id=call_id, operation_id=view.operation_id
+                skill, input, argv, call_id=call_id, operation_id=view.operation_id
             )
         self._suspension.stage_operation(
             OperationWatermark(
@@ -202,7 +213,8 @@ class AgenticSkillTools:
     async def _ensure_child_task(
         self,
         skill: SnapshotSkill,
-        arguments: Mapping[str, Any],
+        input: Mapping[str, Any],
+        argv: Sequence[str],
         *,
         call_id: str,
         operation_id: UUID,
@@ -218,7 +230,7 @@ class AgenticSkillTools:
             )
         child_id = uuid4()
         idempotency_key = f"task-operation:{operation_id}:submit"
-        snapshot = _child_task_snapshot(self._task, skill)
+        snapshot = _child_task_snapshot(self._task, skill, argv)
         now = datetime.now(UTC)
         values = {
             "id": child_id,
@@ -236,7 +248,7 @@ class AgenticSkillTools:
             "skill_execution_mode": skill.execution_mode,
             "trigger_type": TriggerType.IMMEDIATE.value,
             "status": TaskStatus.QUEUED.value,
-            "input_json": dict(arguments),
+            "input_json": dict(input),
             "execution_snapshot_schema_version": snapshot["schema_version"],
             "execution_snapshot_json": snapshot,
             "snapshot_hash": snapshot_hash(snapshot),
@@ -365,7 +377,9 @@ def _mapping(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
 
-def _child_task_snapshot(task: TaskExecution, skill: SnapshotSkill) -> dict[str, Any]:
+def _child_task_snapshot(
+    task: TaskExecution, skill: SnapshotSkill, argv: Sequence[str]
+) -> dict[str, Any]:
     """子 Task 的 SKILL 快照：单 Skill + 冻结 workspace，与立即 Skill 任务同形。"""
     raw = _mapping(task.execution_snapshot_json)
     agent_raw = _mapping(raw.get("agent"))
@@ -409,6 +423,7 @@ def _child_task_snapshot(task: TaskExecution, skill: SnapshotSkill) -> dict[str,
             user_id=task.actor_user_id,
             agent_id=task.agent_id,
         ),
+        argv=tuple(argv),
     )
 
 

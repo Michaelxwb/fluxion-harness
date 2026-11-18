@@ -8,7 +8,7 @@ parent`。立即任务没有 operation 之外的调度行，就从 operation 开
 import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from hashlib import sha256
 from typing import Any
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
@@ -60,6 +60,10 @@ NON_TERMINAL = (
 )
 DELIVERY_INTENT_PUSH = str(DeliveryIntent.PUSH)
 JSON_OBJECT = TypeAdapter(dict[str, JsonValue])
+RESULT_STATUS_KEY = "result_status"
+RESULT_TEXT_KEY = "text"
+NO_CHANGE_STATUS = "no_change"
+MAX_REMEMBERED_RESULT_CHARS = 4000
 
 
 @dataclass(frozen=True, slots=True)
@@ -286,8 +290,10 @@ async def write_terminal(
                 "task_message_outbox_write_failed",
                 extra={"task_id": str(task.id), "error_type": type(exc).__name__},
             )
-    if not outbox_written:
+    if not outbox_written and _result_status(change.result) != NO_CHANGE_STATUS:
         await _enqueue_push_delivery(session, task)
+    if change.status is TerminalStatus.COMPLETED:
+        await _remember_meaningful_result(session, task, change)
     await session.flush()
     record_outcome(TASKS_METRIC, change.status.value, {"type": task.task_type})
     if task.started_at is not None:
@@ -297,6 +303,66 @@ async def write_terminal(
             {"type": task.task_type},
         )
     return True
+
+
+def _result_status(result: Mapping[str, JsonValue] | None) -> str | None:
+    if not isinstance(result, Mapping):
+        return None
+    value = result.get(RESULT_STATUS_KEY)
+    return value if isinstance(value, str) and value else None
+
+
+async def _remember_meaningful_result(
+    session: AsyncSession, task: TaskExecution, change: TerminalChange
+) -> None:
+    """Persist the last meaningful scheduled result; ``no_change`` never overwrites it.
+
+    The Schedule row is already locked by ``lock_task_tree``. Older occurrences finishing
+    later must not replace a newer recorded result, so ``scheduled_at`` is monotonic.
+    """
+    if task.schedule_id is None or change.status is not TerminalStatus.COMPLETED:
+        return
+    status = _result_status(change.result)
+    if status is None or status == NO_CHANGE_STATUS:
+        return
+    result = change.result or {}
+    text = result.get(RESULT_TEXT_KEY)
+    if not isinstance(text, str):
+        text = ""
+    if len(text) > MAX_REMEMBERED_RESULT_CHARS:
+        text = text[: MAX_REMEMBERED_RESULT_CHARS - 1] + "…"
+    stored = {
+        "status": status,
+        "text": text,
+        "scheduled_at": (
+            task.scheduled_at.astimezone(UTC).isoformat()
+            if task.scheduled_at is not None
+            else None
+        ),
+    }
+    previous = await session.scalar(
+        select(TaskSchedule.last_result_json).where(
+            TaskSchedule.id == task.schedule_id,
+            TaskSchedule.tenant_id == task.tenant_id,
+            TaskSchedule.is_deleted.is_(False),
+        )
+    )
+    previous_at = previous.get("scheduled_at") if isinstance(previous, Mapping) else None
+    if (
+        isinstance(previous_at, str)
+        and isinstance(stored["scheduled_at"], str)
+        and previous_at >= stored["scheduled_at"]
+    ):
+        return
+    await session.execute(
+        update(TaskSchedule)
+        .where(
+            TaskSchedule.id == task.schedule_id,
+            TaskSchedule.tenant_id == task.tenant_id,
+            TaskSchedule.is_deleted.is_(False),
+        )
+        .values(last_result_json=stored)
+    )
 
 
 async def _enqueue_result(

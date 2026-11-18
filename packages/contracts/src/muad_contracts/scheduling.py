@@ -140,6 +140,9 @@ class DraftContext(ContractModel):
     parameters: dict[str, Any] = Field(default_factory=dict)
     output: dict[str, Any] = Field(default_factory=dict)
     source: DraftSource = Field(default_factory=DraftSource)
+    #: `session_target=current|main` 时冻结创建会话；由 Runtime 从可信 Run 上下文写入，
+    #: 不接受模型/用户自报。执行时只读它取有界尾部上下文。
+    session_conversation_id: UUID | None = None
 
     @field_validator("parameters", "output", mode="before")
     @classmethod
@@ -428,6 +431,53 @@ class ScheduleDiffEntry(ContractModel):
     after: Any = None
 
 
+class TaskArtifactDeliveryRef(ContractModel):
+    """产物对一个目标的交付状态（统一 Artifact 投递契约的读投影）。
+
+    `target_key` 只用于后端定位；用户界面只展示 `target_label`（如“企微”），不暴露路由
+    身份里的内部 ID。旧读投影没有标签时保留 `None`，新投影一律填写。
+    """
+
+    target_key: str = Field(min_length=1, max_length=256)
+    target_label: str | None = Field(default=None, max_length=64)
+    status: Literal["PENDING", "DELIVERED", "DEGRADED", "UNKNOWN", "FAILED"]
+    error_code: str | None = None
+    retryable: bool = True
+    fallback_url: str | None = None
+
+
+class TaskArtifactRef(ContractModel):
+    """任务产物的不可变版本引用；下载必须带 version + checksum。"""
+
+    artifact_id: UUID
+    name: str
+    media_type: str
+    size: int = Field(ge=0)
+    checksum: str = Field(pattern=SNAPSHOT_HASH_PATTERN)
+    version: str = Field(min_length=1, max_length=64)
+    deliveries: list[TaskArtifactDeliveryRef] = Field(default_factory=list)
+
+
+class ScheduleTrialFact(ContractModel):
+    """一次真实试跑的执行事实（卡片/Console 展示）。
+
+    它不是配置：不进入 `ScheduleJob`，也不进入不可变 Revision；Draft 的 `payload`/`hash`
+    不受试跑影响。
+    """
+
+    execution_id: UUID
+    status: TaskStatus
+    #: 失败时的稳定错误码与修复动作；成功时为空。
+    error_code: str | None = Field(default=None, max_length=64)
+    repair: str | None = Field(default=None, max_length=128)
+    repair_hint: str | None = Field(default=None, max_length=500)
+    #: 结果摘要（真实执行结果的文本视图）与真实产物引用。
+    result_summary: str | None = Field(default=None, max_length=4000)
+    artifacts: list[TaskArtifactRef] = Field(default_factory=list)
+    started_at: AwareDatetime | None = None
+    finished_at: AwareDatetime | None = None
+
+
 class SchedulePreview(ContractModel):
     """确认卡片上的事实：做什么、何时、在哪看、依赖、预算（UPDATE 另带前后差异）。"""
 
@@ -450,6 +500,8 @@ class SchedulePreview(ContractModel):
     budget: dict[str, Any] = Field(default_factory=dict)
     #: 只有 UPDATE Draft 才有：CREATE 没有「之前」，空列表就是「没有旧配置可比」。
     diff: list[ScheduleDiffEntry] = Field(default_factory=list)
+    #: 试跑事实（只有真的跑过一次才有）：真实执行 id/状态/结果/产物，不是渲染预览。
+    trial: ScheduleTrialFact | None = None
 
 
 class ScheduleDraftResponse(ContractModel):
@@ -585,33 +637,6 @@ class FireHistoryPage(ContractModel):
     page_size: int = Field(ge=1, le=100)
     total: int = Field(ge=0)
     retention: HistoryRetention | None = None
-
-
-class TaskArtifactDeliveryRef(ContractModel):
-    """产物对一个目标的交付状态（统一 Artifact 投递契约的读投影）。
-
-    `target_key` 只用于后端定位；用户界面只展示 `target_label`（如“企微”），不暴露路由
-    身份里的内部 ID。旧读投影没有标签时保留 `None`，新投影一律填写。
-    """
-
-    target_key: str = Field(min_length=1, max_length=256)
-    target_label: str | None = Field(default=None, max_length=64)
-    status: Literal["PENDING", "DELIVERED", "DEGRADED", "UNKNOWN", "FAILED"]
-    error_code: str | None = None
-    retryable: bool = True
-    fallback_url: str | None = None
-
-
-class TaskArtifactRef(ContractModel):
-    """任务产物的不可变版本引用；下载必须带 version + checksum。"""
-
-    artifact_id: UUID
-    name: str
-    media_type: str
-    size: int = Field(ge=0)
-    checksum: str = Field(pattern=SNAPSHOT_HASH_PATTERN)
-    version: str = Field(min_length=1, max_length=64)
-    deliveries: list[TaskArtifactDeliveryRef] = Field(default_factory=list)
 
 
 class TaskResultCounts(ContractModel):
@@ -1093,9 +1118,16 @@ class SnapshotMemory(ContractModel):
 
 
 class SnapshotBudget(ContractModel):
+    """执行预算：admission 从 `PlatformSettings.agent` 冻结，执行期不再读运行时配置。"""
+
     max_steps: int | None = Field(default=None, ge=1)
     max_tool_calls: int | None = Field(default=None, ge=1)
+    #: 0 = 不限制执行级累计 tokens；单次请求仍取模型参数。
     max_tokens: int | None = Field(default=None, ge=0)
+    max_model_retries: int | None = Field(default=None, ge=1)
+    max_identical_failures: int | None = Field(default=None, ge=1)
+    #: agentic 期限；与 Task 绝对 deadline 取较早值。
+    deadline_ms: int | None = Field(default=None, ge=1)
     #: 执行超时：定时任务在 Fire Admission 时冻结，Worker 只读快照。
     execution_timeout_sec: int | None = Field(default=None, ge=1)
     deadline_at: AwareDatetime | None = None
@@ -1130,6 +1162,33 @@ class TaskExecutionSnapshotV4(ContractModel):
     prompt_template: dict[str, Any] = Field(default_factory=dict)
     context: dict[str, Any] = Field(default_factory=dict)
     grants: SnapshotGrants = Field(default_factory=SnapshotGrants)
+    #: SKILL_PLAN 本次 occurrence 的冻结事实（design §10.6）：`input` 只进 stdin、`argv`
+    #: 追加到脚本、`window` 是数据窗口。三者随 Fire 文本一起进入快照 hash；旧快照没有这些
+    #: 键时按空值读取（不重新渲染）。
+    input: dict[str, Any] = Field(default_factory=dict)
+    argv: list[str] = Field(default_factory=list)
+    window: dict[str, Any] | None = None
+
+    @field_validator("input", mode="before")
+    @classmethod
+    def _strict_input(cls, value: object) -> object:
+        return ensure_strict_json(value)
+
+    @field_validator("argv", mode="before")
+    @classmethod
+    def _argv_shape(cls, value: object) -> tuple[str, ...]:
+        return validate_skill_argv(value)
+
+    @field_validator("argv")
+    @classmethod
+    def _argv_list(cls, value: list[str]) -> list[str]:
+        # 保留 Pydantic 的 list 公开形状（tuple 只用于边界校验）。
+        return list(value)
+
+    @field_validator("window", mode="before")
+    @classmethod
+    def _strict_window(cls, value: object) -> object:
+        return ensure_strict_json(value)
 
     @model_validator(mode="after")
     def _skills_by_mode(self) -> Self:
@@ -1187,6 +1246,7 @@ __all__ = [
     "SchedulePlan",
     "SchedulePolicy",
     "SchedulePreview",
+    "ScheduleTrialFact",
     "ScheduleWindow",
     "SessionTarget",
     "SkillPlanPayload",
