@@ -5,7 +5,7 @@
 - 快照自 Admission 起不可变：本模块只读取 `task.execution_snapshot_json`，不查 Agent/Model/Skill/MCP
   的当前定义；配置或授权变更只影响后续新 Execution。
 - 落库哈希必须与快照文本一致：不一致就是"冻结事实被改写"，按确定性失败拒绝，不猜测。
-- 本次要执行什么（goal/output_contract）来自 Fire 冻结的 `input_json`，同样不是当前配置。
+- 本次要执行什么（prompt/output_contract）来自 Fire 冻结的 `input_json`，同样不是当前配置。
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ from muad_contracts import (
 from ...infrastructure.models.task import TaskExecution
 
 #: 执行输入（Fire 冻结）的键；缺一个就是确定性失败，不从快照或当前配置猜。
-GOAL_KEY = "goal"
+PROMPT_KEY = "prompt"
 MODE_KEY = "mode"
 OUTPUT_CONTRACT_KEY = "output_contract"
 CONTEXT_KEY = "context"
@@ -136,10 +136,10 @@ def _goal(payload: Any) -> str:
         raise FrozenExecutionError("AGENTIC_INPUT_INVALID", "execution input must be an object")
     if payload.get(MODE_KEY) != AGENTIC_MODE:
         raise FrozenExecutionError("AGENTIC_INPUT_INVALID", "execution input mode is not AGENTIC")
-    goal = payload.get(GOAL_KEY)
-    if not isinstance(goal, str) or not goal.strip():
-        raise FrozenExecutionError("AGENTIC_INPUT_INVALID", "execution input has no goal")
-    return goal.strip()
+    prompt = payload.get(PROMPT_KEY)
+    if not isinstance(prompt, str) or not prompt.strip():
+        raise FrozenExecutionError("AGENTIC_INPUT_INVALID", "execution input has no prompt")
+    return prompt.strip()
 
 
 def _mapping_input(payload: Any, key: str) -> dict[str, Any]:

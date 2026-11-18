@@ -465,11 +465,14 @@ async def test_b123_draft_tool_uses_run_actor_and_never_creates_a_schedule(
     registry = _task_tools(client, context, skill)
     arguments: dict[str, Any] = {
         "instruction": "每天 9 点用策略检查 Skill 跑一次",
-        "mode": "SKILL",
         "timezone": "Asia/Shanghai",
         "recurrence": {"kind": "CRON", "cron": "0 9 * * 1"},
-        "skill_key": skill.key,
-        "input_template": {"day": "{{previous_day}}"},
+        "payload": {
+            "kind": "SKILL_PLAN",
+            "skill_key": skill.key,
+            "input": {"day": "{{previous_day}}"},
+            "argv": [],
+        },
     }
     try:
         first = await _invoke(registry, DRAFT_SCHEDULE_TOOL, arguments)
@@ -486,7 +489,7 @@ async def test_b123_draft_tool_uses_run_actor_and_never_creates_a_schedule(
     assert draft is not None
     assert draft.owner_user_id == actor
     assert draft.agent_id == context.agent.id
-    assert draft.payload_json["execution_spec"]["skill_id"] == str(skill.skill_id)
+    assert draft.payload_json["payload"]["skill_id"] == str(skill.skill_id)
 async def test_b123_draft_tool_asks_for_the_user_timezone() -> None:
     """缺少用户 IANA 时区就问用户，绝不回退服务端默认时区。"""
     skill = _async_skill()
@@ -498,9 +501,8 @@ async def test_b123_draft_tool_asks_for_the_user_timezone() -> None:
             DRAFT_SCHEDULE_TOOL,
             {
                 "instruction": "每天 9 点提醒我开会",
-                "mode": "REMINDER",
                 "recurrence": {"kind": "CRON", "cron": "0 9 * * *"},
-                "reminder_text": "开会",
+                "payload": {"kind": "REMINDER", "text": "开会"},
             },
         )
     finally:
@@ -528,10 +530,9 @@ async def test_b123_tools_cannot_touch_other_users_schedule(
             DRAFT_SCHEDULE_TOOL,
             {
                 "instruction": "每天 9 点用策略检查 Skill 跑一次",
-                "mode": "SKILL",
                 "timezone": "Asia/Shanghai",
                 "recurrence": {"kind": "CRON", "cron": "0 9 * * *"},
-                "skill_key": skill.key,
+                "payload": {"kind": "SKILL_PLAN", "skill_key": skill.key, "input": {}, "argv": []},
             },
         )
         schedule = await _confirm_draft(client, actor=owner, draft=draft)

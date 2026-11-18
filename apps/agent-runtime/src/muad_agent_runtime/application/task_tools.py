@@ -97,16 +97,56 @@ _RECURRENCE: Mapping[str, Any] = {
     "required": ["kind"],
     "additionalProperties": False,
 }
-_ALLOWLIST_ENTRY: Mapping[str, Any] = {
+_PAYLOAD_KIND = {"type": "string", "enum": ["REMINDER", "SKILL_PLAN", "AGENT_TURN"]}
+_PAYLOAD: Mapping[str, Any] = {
     "type": "object",
     "properties": {
-        "source": {"type": "string", "enum": ["MCP", "SKILL"]},
-        "tool_name": _STRING,
-        # SKILL 用本 Run 的有效 skill key（Run 里没有 UUID 目录）；MCP 用 server_key。
-        "skill_key": _STRING,
-        "server_key": _STRING,
+        "kind": _PAYLOAD_KIND,
+        # REMINDER
+        "text": {**_STRING, "description": "REMINDER only: the fixed text to deliver."},
+        # SKILL_PLAN：input 只走 stdin，argv 追加到脚本。
+        "skill_key": {**_STRING, "description": "SKILL_PLAN only: effective skill key of this run."},
+        "skill_id": {**_STRING, "description": "SKILL_PLAN only: skill UUID when already known."},
+        "input": {
+            "type": "object",
+            "description": "SKILL_PLAN only: JSON written to stdin; no control fields.",
+        },
+        "argv": {
+            "type": "array",
+            "items": _STRING,
+            "description": "SKILL_PLAN only: extra CLI arguments (supported in the schedule timezone).",
+        },
+        "window": {
+            "type": "object",
+            "properties": {
+                "kind": {"type": "string", "enum": ["DAY"]},
+                "offset": {"type": "integer", "minimum": -31, "maximum": 31},
+            },
+            "additionalProperties": False,
+        },
+        # AGENT_TURN
+        "prompt": {
+            **_STRING,
+            "description": (
+                "AGENT_TURN only: the complete business prompt. Nobody can answer questions "
+                "during a scheduled run; state the expected deliverable."
+            ),
+        },
+        "model_ref": {**_STRING, "description": "AGENT_TURN only: optional model reference."},
+        "tools_allow": {
+            "type": "array",
+            "items": _STRING,
+            "description": (
+                "AGENT_TURN only: tool policy such as SKILL:<skill_key>:<tool>, "
+                "MCP:<server>:<tool>, PLATFORM:current_time. Empty means follow the owner."
+            ),
+        },
+        "budget_ref": {
+            **_STRING,
+            "description": "AGENT_TURN only: budget source; the platform is the only source.",
+        },
     },
-    "required": ["source", "tool_name"],
+    "required": ["kind"],
     "additionalProperties": False,
 }
 _DRAFT_ARGS: Mapping[str, Any] = {
@@ -114,53 +154,38 @@ _DRAFT_ARGS: Mapping[str, Any] = {
         **_STRING,
         "description": "The user's original request, verbatim (max 4000 chars).",
     },
-    "mode": {"type": "string", "enum": ["REMINDER", "SKILL", "AGENTIC"]},
+    "payload": _PAYLOAD,
+    "session_target": {
+        **_STRING,
+        "description": (
+            "Context target: isolated (default), current (creator conversation tail), "
+            "session:<id> (persistent session) or main. Delivery is a separate choice."
+        ),
+    },
+    "delivery": {
+        "type": "object",
+        "properties": {"intent": {"type": "string", "enum": ["NONE", "PUSH"]}},
+        "required": ["intent"],
+        "additionalProperties": False,
+        "description": "Where the result goes; PUSH uses the source chat route when available.",
+    },
     "timezone": {
         **_STRING,
         "description": "IANA time zone confirmed by the user, e.g. Asia/Shanghai. Never guess.",
     },
     "recurrence": _RECURRENCE,
     "name": _STRING,
-    "reminder_text": {**_STRING, "description": "REMINDER only: the fixed text to deliver."},
-    "skill_key": {**_STRING, "description": "SKILL only: effective skill key of this run."},
-    "input_template": {
-        "type": "object",
-        "description": "SKILL only. May use {{fire_date}}, {{previous_day}}, {{fire_time}}.",
-    },
-    "goal": {
-        **_STRING,
-        "description": (
-            "AGENTIC only: the business goal. The scheduled execution can call the platform "
-            "built-in `ask_user` tool to pause and wait for the user's answer in the task "
-            "center; `ask_user` never belongs in `tool_allowlist`."
-        ),
-    },
-    "tool_allowlist": {
-        "type": "array",
-        "items": _ALLOWLIST_ENTRY,
-        "description": "AGENTIC only: explicit tools (non-empty). No wildcard tools.",
-    },
-    "budget": {
-        "type": "object",
-        "properties": {
-            "max_steps": {"type": "integer", "minimum": 1},
-            "max_tool_calls": {"type": "integer", "minimum": 1},
-            "max_tokens": {"type": "integer", "minimum": 0},
-        },
-        "required": ["max_steps", "max_tool_calls"],
-        "additionalProperties": False,
-    },
     "context": {
         "type": "object",
         "properties": {"parameters": _OBJECT, "output": _OBJECT},
         "additionalProperties": False,
     },
 }
-#: 各模式专属字段：出现别的模式的专属字段就是模型理解错了，显式拒绝而不是静默丢。
-MODE_ONLY_FIELDS = {
-    "REMINDER": ("reminder_text",),
-    "SKILL": ("skill_key", "input_template"),
-    "AGENTIC": ("goal", "tool_allowlist", "budget"),
+#: payload 各 kind 的专属字段：出现别的 kind 的字段就是模型理解错了，显式拒绝。
+PAYLOAD_ONLY_FIELDS = {
+    "REMINDER": ("text",),
+    "SKILL_PLAN": ("skill_key", "skill_id", "input", "argv", "window"),
+    "AGENT_TURN": ("prompt", "model_ref", "tools_allow", "budget_ref"),
 }
 
 
@@ -264,6 +289,19 @@ def _timezone_arg(arguments: Mapping[str, Any]) -> str:
         ) from exc
 
 
+def _session_target_arg(arguments: Mapping[str, Any]) -> str:
+    """会话目标与投递分离；形状由 Worker 契约再次校验。"""
+    value = arguments.get("session_target")
+    if value is None:
+        return "isolated"
+    if not isinstance(value, str) or not value.strip():
+        raise TaskToolError(
+            ErrorCode.COMMON_VALIDATION_ERROR.value,
+            "session_target must be isolated, current, main or session:<id>",
+        )
+    return value.strip()
+
+
 def _instruction_arg(arguments: Mapping[str, Any]) -> str:
     value = arguments.get("instruction")
     if not isinstance(value, str) or not value.strip():
@@ -274,10 +312,9 @@ def _instruction_arg(arguments: Mapping[str, Any]) -> str:
 
 
 def _delivery_intent(entry_channel: str | None) -> str:
-    """投递能力只由入口 surface 决定（共享通道词表判能力，核心域不点名渠道）。
+    """未显式选择 delivery 时的默认值：入口能推就 PUSH，否则只读任务中心。
 
-    Runtime 先算好再发：Worker 会核对 body 的 delivery_intent 与入口能力一致，
-    两边都用同一份共享词表，因此不会出现「核心域自己编一个投递承诺」。
+    显式 `delivery.intent` 优先；入口只提供默认能力，不是限制（TASK-005）。
     """
     if entry_channel is None:
         return DeliveryIntent.NONE.value
@@ -346,100 +383,101 @@ def _recurrence_arg(arguments: Mapping[str, Any], timezone: str) -> dict[str, An
     return recurrence
 
 
-def _execution_spec(
-    arguments: Mapping[str, Any], mode: str, skills: Mapping[str, ResolvedSkill]
+def _payload_arg(
+    arguments: Mapping[str, Any], skills: Mapping[str, ResolvedSkill]
 ) -> dict[str, Any]:
-    """按模式组装执行规格：Skill 只认本 Run 的有效 key，AGENTIC 必须显式非空 allowlist。"""
-    for other, fields in MODE_ONLY_FIELDS.items():
-        if other == mode:
+    """payload 是唯一的执行选择；`mode` 不在这里出现（服务端派生）。"""
+    payload = _object_arg(arguments, "payload")
+    if payload is None:
+        raise TaskToolError(
+            ErrorCode.SCHEDULE_PARAMETER_INCOMPLETE.value,
+            "payload is required; choose REMINDER, SKILL_PLAN or AGENT_TURN and fill its fields",
+            {"fields": ["payload"]},
+        )
+    kind = payload.get("kind")
+    if kind not in PAYLOAD_ONLY_FIELDS:
+        raise TaskToolError(
+            ErrorCode.COMMON_VALIDATION_ERROR.value,
+            "payload.kind must be one of REMINDER, SKILL_PLAN, AGENT_TURN",
+        )
+    for other, fields in PAYLOAD_ONLY_FIELDS.items():
+        if other == kind:
             continue
-        present = [name for name in fields if arguments.get(name) is not None]
+        present = [name for name in fields if payload.get(name) is not None]
         if present:
             raise TaskToolError(
                 ErrorCode.COMMON_VALIDATION_ERROR.value,
-                f"{', '.join(present)} only apply to mode {other}",
+                f"{', '.join(present)} only apply to payload kind {other}",
             )
-    if mode == "REMINDER":
-        text = arguments.get("reminder_text")
-        if not isinstance(text, str) or not text.strip():
+    if kind == "REMINDER":
+        return {"kind": "REMINDER", "text": _required_text(payload, "text", "REMINDER")}
+    if kind == "SKILL_PLAN":
+        argv = payload.get("argv") or []
+        if not isinstance(argv, list) or any(not isinstance(item, str) for item in argv):
             raise TaskToolError(
-                ErrorCode.SCHEDULE_PARAMETER_INCOMPLETE.value,
-                "reminder_text is required for REMINDER",
-                {"fields": ["reminder_text"]},
+                ErrorCode.COMMON_VALIDATION_ERROR.value, "payload.argv must be an array of strings"
             )
-        return {"mode": "REMINDER", "reminder_text": text.strip()}
-    if mode == "SKILL":
         return {
-            "mode": "SKILL",
-            "skill_id": str(_skill(arguments, skills).skill_id),
-            "input_template": _object_arg(arguments, "input_template") or {},
+            "kind": "SKILL_PLAN",
+            "skill_id": str(_skill(payload, skills).skill_id),
+            "input": _object_arg(payload, "input") or {},
+            "argv": list(argv),
+            "window": _object_arg(payload, "window") or {},
         }
-    return _agentic_spec(arguments, skills)
-
-
-def _skill(arguments: Mapping[str, Any], skills: Mapping[str, ResolvedSkill]) -> ResolvedSkill:
-    key = arguments.get("skill_key")
-    skill = skills.get(key.strip()) if isinstance(key, str) else None
-    if skill is None:
-        raise TaskToolError("SKILL_NOT_EFFECTIVE", f"skill is not effective for this run: {key}")
-    return skill
-
-
-def _agentic_spec(arguments: Mapping[str, Any], skills: Mapping[str, ResolvedSkill]) -> dict[str, Any]:
-    goal = arguments.get("goal")
-    allowlist = arguments.get("tool_allowlist")
-    budget = _object_arg(arguments, "budget")
-    if not isinstance(goal, str) or not goal.strip():
-        raise TaskToolError(
-            ErrorCode.SCHEDULE_PARAMETER_INCOMPLETE.value,
-            "goal is required for AGENTIC",
-            {"fields": ["goal"]},
-        )
-    if not isinstance(allowlist, list) or not allowlist:
-        raise TaskToolError(
-            ErrorCode.SCHEDULE_PARAMETER_INCOMPLETE.value,
-            "tool_allowlist must be a non-empty list for AGENTIC; arbitrary tools are not allowed",
-            {"fields": ["execution_spec.tool_allowlist"]},
-        )
-    if not budget or budget.get("max_steps") is None or budget.get("max_tool_calls") is None:
-        raise TaskToolError(
-            ErrorCode.SCHEDULE_PARAMETER_INCOMPLETE.value,
-            "budget.max_steps and budget.max_tool_calls are required for AGENTIC",
-            {"fields": ["budget"]},
-        )
     return {
-        "mode": "AGENTIC",
-        "goal": goal.strip(),
-        "tool_allowlist": [_allowlist_entry(item, skills) for item in allowlist],
-        "budget": {
-            "max_steps": budget["max_steps"],
-            "max_tool_calls": budget["max_tool_calls"],
-            "max_tokens": budget.get("max_tokens", 0),
-        },
+        "kind": "AGENT_TURN",
+        "prompt": _required_text(payload, "prompt", "AGENT_TURN"),
+        "model_ref": payload.get("model_ref"),
+        "tools_allow": _tools_allow_arg(payload.get("tools_allow"), skills),
+        "budget_ref": payload.get("budget_ref") or "platform",
     }
 
 
-def _allowlist_entry(item: Any, skills: Mapping[str, ResolvedSkill]) -> dict[str, Any]:
-    if not isinstance(item, Mapping):
-        raise TaskToolError(ErrorCode.COMMON_VALIDATION_ERROR.value, "tool_allowlist entries must be objects")
-    source = item.get("source")
-    tool_name = item.get("tool_name")
-    if not isinstance(tool_name, str) or not tool_name.strip():
-        raise TaskToolError(ErrorCode.COMMON_VALIDATION_ERROR.value, "tool_allowlist.tool_name is required")
-    if source == "SKILL":
-        return {
-            "source": "SKILL",
-            "tool_name": tool_name.strip(),
-            "skill_id": str(_skill(item, skills).skill_id),
-        }
-    if source == "MCP":
-        server_key = item.get("server_key")
-        if not isinstance(server_key, str) or not server_key.strip():
-            raise TaskToolError(
-                ErrorCode.COMMON_VALIDATION_ERROR.value, "MCP allowlist entries need server_key"
-            )
-        return {"source": "MCP", "tool_name": tool_name.strip(), "server_key": server_key.strip()}
-    raise TaskToolError(ErrorCode.COMMON_VALIDATION_ERROR.value, "tool_allowlist.source must be MCP or SKILL")
+def _required_text(payload: Mapping[str, Any], key: str, kind: str) -> str:
+    value = payload.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise TaskToolError(
+            ErrorCode.SCHEDULE_PARAMETER_INCOMPLETE.value,
+            f"payload.{key} is required for {kind}",
+            {"fields": [f"payload.{key}"]},
+        )
+    return value.strip()
+
+
+def _skill(payload: Mapping[str, Any], skills: Mapping[str, ResolvedSkill]) -> ResolvedSkill:
+    """Skill 只认本 Run 的有效 key；已给 UUID 时按 UUID 找同一份有效定义。"""
+    key = payload.get("skill_key")
+    if isinstance(key, str) and key.strip():
+        skill = skills.get(key.strip())
+    else:
+        raw_id = payload.get("skill_id")
+        skill = next(
+            (item for item in skills.values() if str(item.skill_id) == str(raw_id)),
+            None,
+        ) if raw_id is not None else None
+    if skill is None:
+        raise TaskToolError(
+            "SKILL_NOT_EFFECTIVE", f"skill is not effective for this run: {key or payload.get('skill_id')}"
+        )
+    return skill
+
+
+def _tools_allow_arg(value: Any, skills: Mapping[str, ResolvedSkill]) -> list[str]:
+    """工具策略字符串；`SKILL:<skill_key>:<tool>` 编译成本 Run 的 skill UUID。"""
+    if value is None:
+        return []
+    if not isinstance(value, list) or any(not isinstance(item, str) or not item.strip() for item in value):
+        raise TaskToolError(
+            ErrorCode.COMMON_VALIDATION_ERROR.value, "payload.tools_allow must be an array of strings"
+        )
+    compiled: list[str] = []
+    for raw in value:
+        parts = raw.strip().split(":", 2)
+        if parts[0] == "SKILL" and len(parts) == 3 and parts[1] in skills:
+            compiled.append(f"SKILL:{skills[parts[1]].skill_id}:{parts[2]}")
+        else:
+            compiled.append(raw.strip())
+    return compiled
 
 
 class BackgroundTaskToolSet:
@@ -491,26 +529,27 @@ class BackgroundTaskToolSet:
         )
 
     def _schedule_specs(self) -> tuple[ToolSpec, ...]:
-        draft_schema = _schema(_DRAFT_ARGS, ("instruction", "mode", "timezone", "recurrence"))
+        draft_schema = _schema(_DRAFT_ARGS, ("instruction", "payload", "timezone", "recurrence"))
         update_schema = _schema(
             {**_DRAFT_ARGS, "schedule_id": _STRING, "query": _STRING},
             (
                 "instruction",
-                "mode",
+                "payload",
                 "timezone",
                 "recurrence",
                 "schedule_id|query",
             ),
         )
-        update_schema["required"] = ["instruction", "mode", "timezone", "recurrence"]
+        update_schema["required"] = ["instruction", "payload", "timezone", "recurrence"]
         return (
             (
                 DRAFT_SCHEDULE_TOOL,
                 "Prepare a NEW scheduled task for the user to confirm. It only creates a draft: "
                 "nothing runs and nothing is saved until the user confirms the card in the chat. "
-                "Pick mode REMINDER for fixed text, SKILL when the skill and inputs are fixed, "
-                "AGENTIC for a natural-language goal over explicit tools. Call it once per "
-                "independent customer/target. Ask the user for their IANA time zone when unknown.",
+                "Choose the payload kind: REMINDER for fixed text, SKILL_PLAN when the skill and "
+                "inputs are fixed, AGENT_TURN for a natural-language prompt over a tool policy. "
+                "Session and delivery are separate choices. Call it once per independent "
+                "customer/target. Ask the user for their IANA time zone when unknown.",
                 draft_schema,
                 ToolEffect.WRITE,
                 self._draft_schedule,
@@ -691,14 +730,18 @@ class BackgroundTaskToolSet:
         kind: DraftKind,
         target: Mapping[str, Any] | None,
     ) -> dict[str, Any]:
-        mode = arguments.get("mode")
-        if mode not in MODE_ONLY_FIELDS:
+        timezone = _timezone_arg(arguments)
+        delivery = _object_arg(arguments, "delivery") or {}
+        requested = delivery.get("intent")
+        if requested is not None and requested not in (
+            DeliveryIntent.NONE.value,
+            DeliveryIntent.PUSH.value,
+        ):
             raise TaskToolError(
                 ErrorCode.COMMON_VALIDATION_ERROR.value,
-                "mode must be one of REMINDER, SKILL, AGENTIC",
+                "delivery.intent must be NONE or PUSH",
             )
-        timezone = _timezone_arg(arguments)
-        intent = _delivery_intent(self._context.entry_channel)
+        intent = requested or _delivery_intent(self._context.entry_channel)
         context = _context_arg(arguments)
         # 入口只作审计（design §2.3.6）：入口不是数据隔离边界，可见性仍按 user+agent。
         context["source"] = {
@@ -707,15 +750,7 @@ class BackgroundTaskToolSet:
             ),
             "origin_channel": self._context.entry_channel,
         }
-        body: dict[str, Any] = {
-            "kind": kind.value,
-            "mode": mode,
-            "instruction": _instruction_arg(arguments),
-            "recurrence": _recurrence_arg(arguments, timezone),
-            "context": context,
-            "execution_spec": _execution_spec(arguments, mode, self._skills),
-            "delivery_intent": intent,
-        }
+        delivery_plan: dict[str, Any] = {"intent": intent}
         if intent == DeliveryIntent.PUSH.value:
             route = self._context.delivery_route
             if route is None:
@@ -725,7 +760,16 @@ class BackgroundTaskToolSet:
                     "this chat surface cannot provide a delivery route for the schedule",
                     {"reason": "DELIVERY_ROUTE_UNAVAILABLE"},
                 )
-            body["delivery_route"] = route.model_dump(mode="json")
+            delivery_plan["route"] = route.model_dump(mode="json")
+        body: dict[str, Any] = {
+            "kind": kind.value,
+            "instruction": _instruction_arg(arguments),
+            "recurrence": _recurrence_arg(arguments, timezone),
+            "context": context,
+            "payload": _payload_arg(arguments, self._skills),
+            "session_target": _session_target_arg(arguments),
+            "delivery": delivery_plan,
+        }
         name = arguments.get("name")
         if isinstance(name, str) and name.strip():
             body["name"] = name.strip()

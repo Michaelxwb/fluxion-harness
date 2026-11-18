@@ -165,18 +165,18 @@ PUSH_ROUTE = {
 
 
 def _with_push_route(body: dict[str, Any]) -> dict[str, Any]:
-    """PUSH 必带目标：与契约的 `delivery_route must be present exactly when PUSH` 同一口径。"""
-    if body.get("delivery_intent") == "PUSH" and "delivery_route" not in body:
-        body["delivery_route"] = dict(PUSH_ROUTE)
+    """PUSH 必带目标：与 `delivery.route must be present exactly when intent is PUSH` 同一口径。"""
+    delivery = body.setdefault("delivery", {"intent": "NONE"})
+    if delivery.get("intent") == "PUSH" and "route" not in delivery:
+        delivery["route"] = dict(PUSH_ROUTE)
     return body
 
 
 def draft_body(**overrides: Any) -> dict[str, Any]:
     body: dict[str, Any] = {
-        "mode": "REMINDER",
         "instruction": "每天 8 点提醒我开会",
         "recurrence": {"kind": "CRON", "cron": "0 8 * * *", "timezone": TZ},
-        "execution_spec": {"mode": "REMINDER", "reminder_text": "开会"},
+        "payload": {"kind": "REMINDER", "text": "开会"},
     }
     body.update(overrides)
     return _with_push_route(body)
@@ -184,29 +184,26 @@ def draft_body(**overrides: Any) -> dict[str, Any]:
 
 def skill_body(**overrides: Any) -> dict[str, Any]:
     body = {
-        "mode": "SKILL",
         "instruction": "每天 9 点用周报 Skill 生成简报",
         "recurrence": {"kind": "CRON", "cron": "0 9 * * *", "timezone": TZ},
-        "execution_spec": {
-            "mode": "SKILL",
+        "payload": {
+            "kind": "SKILL_PLAN",
             "skill_id": str(SKILL_ID),
-            "input_template": {"body": "{{fire_date}} 的客户简报"},
+            "input": {"body": "{{fire_date}} 的客户简报"},
         },
     }
     body.update(overrides)
     return _with_push_route(body)
 
 
-def agentic_body(*, allowlist: list[dict[str, Any]] | None = None, **overrides: Any) -> dict[str, Any]:
+def agentic_body(*, allowlist: list[str] | None = None, **overrides: Any) -> dict[str, Any]:
     body = {
-        "mode": "AGENTIC",
         "instruction": "每周一 9 点汇总 A 客户数据",
         "recurrence": {"kind": "CRON", "cron": "0 9 * * 1", "timezone": TZ},
-        "execution_spec": {
-            "mode": "AGENTIC",
-            "goal": "汇总 A 客户上周数据并生成周报",
-            "tool_allowlist": [MCP_TOOL] if allowlist is None else allowlist,
-            "budget": {"max_steps": 6, "max_tool_calls": 8},
+        "payload": {
+            "kind": "AGENT_TURN",
+            "prompt": "汇总 A 客户上周数据并生成周报",
+            "tools_allow": ["MCP:crm:customer.report"] if allowlist is None else allowlist,
         },
     }
     body.update(overrides)
@@ -316,7 +313,9 @@ async def seed_schedule(
             timezone=timezone,
             # 与 Draft 载荷同形：差异预览只应报出真正改动的那一项。
             context_json={"parameters": {}, "output": {}},
-            execution_spec={"mode": "REMINDER", "reminder_text": "开会"},
+            payload_kind="REMINDER", payload_json={"kind": "REMINDER", "text": "开会"},
+            session_target="isolated",
+            tools_policy_json={"tools_allow": []},
             created_by=owner,
         )
         session.add(revision)
@@ -347,6 +346,7 @@ async def test_create_draft_is_pending_with_a_preview_and_no_side_effects(
     assert data["draft_hash"].startswith("sha256:")
     assert len(data["preview"]["dependencies"]) == 0  # REMINDER 不依赖 Skill/Model
     assert data["preview"]["budget"] == {}
+    assert data["preview"]["budget_source"] == "NONE"
     assert data["preview"]["mode"] == "REMINDER"
     assert data["preview"]["what"] == "开会"
     assert data["preview"]["when"] == f"CRON 0 8 * * * ({TZ})"
@@ -364,7 +364,7 @@ async def test_create_draft_is_pending_with_a_preview_and_no_side_effects(
     assert draft.idempotency_key
     # draft_hash 与落库载荷是同一份事实：从 payload_json 重算必须一致。
     assert schedule_draft_hash(draft.payload_json) == draft.draft_hash == data["draft_hash"]
-    assert draft.payload_json["delivery_intent"] == "NONE"
+    assert draft.payload_json["delivery"]["intent"] == "NONE"
     assert draft.preview_json == data["preview"]
     # expires_at 来自配置的确认有效期，不是写死的常量。
     ttl = (draft.expires_at - draft.create_time).total_seconds()
@@ -508,7 +508,7 @@ async def test_missing_required_parameter_lists_what_is_missing(
 ) -> None:
     install(FakeMaterials(reminder_materials()))
     body = draft_body()
-    body.pop("execution_spec")
+    body.pop("payload")
 
     response = await client.post(
         "/internal/schedule-drafts",
@@ -518,7 +518,7 @@ async def test_missing_required_parameter_lists_what_is_missing(
 
     assert response.status_code == 422
     assert response.json()["code"] == "SCHEDULE_PARAMETER_INCOMPLETE"
-    assert response.json()["data"]["fields"] == ["execution_spec"]
+    assert response.json()["data"]["fields"] == ["payload"]
 
 
 async def test_skill_unknown_template_variable_lists_the_variable(
@@ -526,7 +526,7 @@ async def test_skill_unknown_template_variable_lists_the_variable(
 ) -> None:
     install(FakeMaterials(skill_materials()))
     body = skill_body()
-    body["execution_spec"]["input_template"] = {"body": "{{custom}} 的简报"}
+    body["payload"]["input"] = {"body": "{{custom}} 的简报"}
 
     response = await client.post(
         "/internal/schedule-drafts",
@@ -668,9 +668,10 @@ async def test_missing_dependency_source_fails_explicitly(
     assert await count_rows(tenant, "task_schedule_draft") == 0
 
 
-async def test_agentic_requires_a_non_empty_allowlist(
+async def test_agent_turn_without_tools_follows_the_owner(
     client: AsyncClient, tenant: TenantContext, install: Any
 ) -> None:
+    """空 `tools_allow` = 跟随 owner，不再要求模型先列一份 allowlist。"""
     materials = install(FakeMaterials(agentic_materials([])))
     response = await client.post(
         "/internal/schedule-drafts",
@@ -678,10 +679,11 @@ async def test_agentic_requires_a_non_empty_allowlist(
         headers=headers(tenant, actor=uuid.uuid4(), agent=uuid.uuid4()),
     )
 
-    assert response.status_code == 422
-    assert response.json()["code"] == "SCHEDULE_PARAMETER_INCOMPLETE"
-    assert materials.calls == []  # 结构不合格就不去打 Console
-    assert await count_rows(tenant, "task_schedule_draft") == 0
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["preview"]["tools_allow"] == ["*"]
+    assert response.json()["data"]["preview"]["dependencies"] == []
+    assert materials.calls[0][1].tool_allowlist == []
+    assert await count_rows(tenant, "task_schedule_draft") == 1
 
 
 async def test_agentic_allowlist_must_be_resolved_by_materials(
@@ -714,7 +716,8 @@ async def test_agentic_draft_previews_allowlist_and_budget(
     assert response.status_code == 200, response.text
     preview = response.json()["data"]["preview"]
     assert preview["dependencies"] == ["MCP:crm:customer.report"]
-    assert preview["budget"] == {"max_steps": 6, "max_tool_calls": 8, "max_tokens": 0}
+    assert preview["budget"] == {}
+    assert preview["budget_source"] == "PLATFORM"
     assert preview["what"] == "汇总 A 客户上周数据并生成周报"
     await assert_no_schedule_side_effects(tenant)
 
@@ -728,17 +731,17 @@ async def test_push_target_is_independent_of_the_creation_entry(
 
     webchat_push = await client.post(
         "/internal/schedule-drafts",
-        json=draft_body(delivery_intent="PUSH"),
+        json=draft_body(delivery={"intent": "PUSH"}),
         headers=headers(tenant, actor=owner, agent=agent, **{"X-Entry-Channel": "WEBCHAT"}),
     )
     wecom_none = await client.post(
         "/internal/schedule-drafts",
-        json=draft_body(delivery_intent="NONE"),
+        json=draft_body(delivery={"intent": "NONE"}),
         headers=headers(tenant, actor=owner, agent=agent, **{"X-Entry-Channel": "WECOM"}),
     )
     unknown_push = await client.post(
         "/internal/schedule-drafts",
-        json=draft_body(delivery_intent="PUSH"),
+        json=draft_body(delivery={"intent": "PUSH"}),
         headers=headers(tenant, actor=owner, agent=agent),
     )
 
@@ -758,12 +761,14 @@ async def test_push_to_a_non_outbound_channel_is_rejected(
     response = await client.post(
         "/internal/schedule-drafts",
         json=draft_body(
-            delivery_intent="PUSH",
-            delivery_route={
-                "channel": "WEBCHAT",
-                "bot_id": "bot-demo",
-                "external_user_id": "web-user",
-            },
+            delivery={
+                "intent": "PUSH",
+                "route": {
+                    "channel": "WEBCHAT",
+                    "bot_id": "bot-demo",
+                    "external_user_id": "web-user",
+                },
+            }
         ),
         headers=headers(
             tenant, actor=uuid.uuid4(), agent=uuid.uuid4(), **{"X-Entry-Channel": "WECOM"}
@@ -779,8 +784,8 @@ async def test_push_without_a_target_is_rejected_by_the_contract(
     client: AsyncClient, tenant: TenantContext, install: Any
 ) -> None:
     install(FakeMaterials(reminder_materials()))
-    body = draft_body(delivery_intent="PUSH")
-    body.pop("delivery_route")
+    body = draft_body(delivery={"intent": "PUSH"})
+    body["delivery"].pop("route")
     response = await client.post(
         "/internal/schedule-drafts",
         json=body,
@@ -1001,20 +1006,20 @@ async def test_body_cannot_carry_an_owner_and_is_rejected(
 
 def test_draft_hash_covers_every_field_that_changes_meaning() -> None:
     """同一份规范化载荷 → 同一 hash；预算/时间/delivery 任一变化 → 不同 hash。"""
-    base = ScheduleDraftRequest.model_validate(agentic_body(delivery_intent="PUSH"))
-    same = ScheduleDraftRequest.model_validate(agentic_body(delivery_intent="PUSH"))
+    base = ScheduleDraftRequest.model_validate(agentic_body(delivery={"intent": "PUSH"}))
+    same = ScheduleDraftRequest.model_validate(agentic_body(delivery={"intent": "PUSH"}))
     assert schedule_draft_hash(draft_payload(base)) == schedule_draft_hash(draft_payload(same))
     variants = [
-        agentic_body(delivery_intent="PUSH", recurrence={
+        agentic_body(delivery={"intent": "PUSH"}, recurrence={
             "kind": "CRON", "cron": "0 10 * * 1", "timezone": TZ,
         }),
-        agentic_body(delivery_intent="PUSH", execution_spec={
-            "mode": "AGENTIC",
-            "goal": "汇总 A 客户上周数据并生成周报",
-            "tool_allowlist": [MCP_TOOL],
-            "budget": {"max_steps": 7, "max_tool_calls": 8},
+        agentic_body(delivery={"intent": "PUSH"}, payload={
+            "kind": "AGENT_TURN",
+            "prompt": "汇总 A 客户上周数据并生成周报",
+            "tools_allow": ["MCP:crm:customer.report"],
+            "budget_ref": "other",
         }),
-        agentic_body(delivery_intent="NONE"),
+        agentic_body(delivery={"intent": "NONE"}),
     ]
     hashes = {schedule_draft_hash(draft_payload(base))}
     for variant in variants:

@@ -113,7 +113,7 @@ async def seed_schedule(
                 timezone=TZ,
                 schedule_policy={},
                 context_json={},
-                execution_spec={"mode": "REMINDER", "reminder_text": "开会"},
+                payload_kind="REMINDER", payload_json={"kind": "REMINDER", "text": "开会"},
                 delivery_intent=delivery_intent,
                 preflight_json={},
                 created_by=OWNER,
@@ -1023,10 +1023,9 @@ async def test_pause_then_update_keeps_paused_and_new_revision(
         schedule=schedule,
         base_config_version=1,
         body={
-            "mode": "REMINDER",
             "instruction": "每天 9 点提醒我开会",
             "recurrence": {"kind": "CRON", "cron": "0 9 * * *", "timezone": TZ},
-            "execution_spec": {"mode": "REMINDER", "reminder_text": "开会"},
+            "payload": {"kind": "REMINDER", "text": "开会"},
         },
     )
 

@@ -89,14 +89,38 @@ export interface SchedulePolicy {
   dst_fold_policy: DstFoldPolicy;
 }
 
+export type SchedulePayload =
+  | { kind: 'REMINDER'; text: string }
+  | {
+      kind: 'SKILL_PLAN';
+      skill_id: string;
+      input: Record<string, unknown>;
+      argv: string[];
+      window: { kind: 'DAY'; offset: number };
+    }
+  | {
+      kind: 'AGENT_TURN';
+      prompt: string;
+      model_ref: string | null;
+      tools_allow: string[];
+      budget_ref: string;
+    };
+
+export type SessionTarget = 'isolated' | 'current' | `session:${string}` | 'main';
+
 export interface ScheduleDetail extends ScheduleListItem {
   revision_no: number;
   instruction: string;
   normalized_goal: string;
   context: DraftContext;
-  /** SKILL 模式是 `SKILL:<id>`，AGENTIC 是工具白名单条目；REMINDER 为空。 */
+  payload: SchedulePayload;
+  session_target: SessionTarget;
+  /** SKILL_PLAN 是 `SKILL:<id>`，AGENT_TURN 是工具策略条目；REMINDER 为空。 */
   dependencies: string[];
   delivery_intent: DeliveryIntent;
+  tools_allow: string[];
+  /** `PLATFORM` = 平台设置；`NONE` = 该 payload 不消费模型预算。 */
+  budget_source: 'PLATFORM' | 'NONE';
   policy: SchedulePolicy;
   budget: AgenticBudget | null;
   memory_mode: MemoryMode | null;

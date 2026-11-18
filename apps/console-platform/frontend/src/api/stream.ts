@@ -708,6 +708,8 @@ export function createReplyStreamCollector(
 
 const SCHEDULE_MODES = new Set<string>(['REMINDER', 'SKILL', 'AGENTIC']);
 const DELIVERY_INTENTS = new Set<string>(['PUSH', 'NONE']);
+const PAYLOAD_KINDS = new Set<string>(['REMINDER', 'SKILL_PLAN', 'AGENT_TURN']);
+const BUDGET_SOURCES = new Set<string>(['PLATFORM', 'NONE']);
 
 function readStringList(source: Record<string, unknown>, key: string): string[] {
   const value = source[key];
@@ -757,6 +759,23 @@ function readScheduleDraft(source: Record<string, unknown>): WebchatScheduleDraf
   if (!DELIVERY_INTENTS.has(delivery)) {
     throw new WebchatStreamError('MALFORMED_FRAME', `unknown delivery intent: ${delivery}`);
   }
+  const payload = readObject(previewSource, 'payload');
+  const payloadKind = readString(payload, 'kind');
+  if (!PAYLOAD_KINDS.has(payloadKind)) {
+    throw new WebchatStreamError('MALFORMED_FRAME', `unknown schedule payload kind: ${payloadKind}`);
+  }
+  const sessionTarget = readString(previewSource, 'session_target');
+  if (!['isolated', 'current', 'main'].includes(sessionTarget) && !sessionTarget.startsWith('session:')) {
+    throw new WebchatStreamError('MALFORMED_FRAME', `unknown session target: ${sessionTarget}`);
+  }
+  const toolsAllow = readStringList(previewSource, 'tools_allow');
+  const budgetSourceLabel = readString(previewSource, 'budget_source');
+  if (!BUDGET_SOURCES.has(budgetSourceLabel)) {
+    throw new WebchatStreamError(
+      'MALFORMED_FRAME',
+      `unknown schedule budget source: ${budgetSourceLabel}`
+    );
+  }
   const dependencies = readStringList(previewSource, 'dependencies');
   const budgetSource = previewSource['budget'];
   if (typeof budgetSource !== 'object' || budgetSource === null || Array.isArray(budgetSource)) {
@@ -769,10 +788,14 @@ function readScheduleDraft(source: Record<string, unknown>): WebchatScheduleDraf
     mode: mode as WebchatScheduleDraftReady['mode'],
     preview: {
       mode: previewMode as WebchatScheduleDraftReady['mode'],
+      payload: payload as WebchatScheduleDraftReady['preview']['payload'],
+      session_target: sessionTarget as WebchatScheduleDraftReady['preview']['session_target'],
       what: readString(previewSource, 'what'),
       when: readString(previewSource, 'when'),
       first_fire_at: readString(previewSource, 'first_fire_at'),
       delivery: delivery as WebchatScheduleDraftReady['preview']['delivery'],
+      tools_allow: toolsAllow,
+      budget_source: budgetSourceLabel as WebchatScheduleDraftReady['preview']['budget_source'],
       dependencies,
       budget: budgetSource as Record<string, unknown>,
       diff: readScheduleDiff(previewSource)

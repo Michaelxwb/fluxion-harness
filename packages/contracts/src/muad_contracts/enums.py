@@ -128,9 +128,19 @@ class ScheduleEndReason(StrEnum):
 
 
 class ScheduleMode(StrEnum):
+    """内部派生模式；用户/模型从不选择它，只选择 PayloadKind。"""
+
     REMINDER = "REMINDER"
     SKILL = "SKILL"
     AGENTIC = "AGENTIC"
+
+
+class PayloadKind(StrEnum):
+    """定时任务的执行载荷种类（design §10.2 / §10.3）。"""
+
+    REMINDER = "REMINDER"
+    SKILL_PLAN = "SKILL_PLAN"
+    AGENT_TURN = "AGENT_TURN"
 
 
 class RecurrenceKind(StrEnum):

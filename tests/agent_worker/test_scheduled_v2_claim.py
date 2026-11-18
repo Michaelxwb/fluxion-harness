@@ -64,7 +64,14 @@ async def _schedule(
             cron_expr="0 * * * *",
             timezone="Asia/Shanghai",
             schedule_policy=dict(policy or QUEUE_POLICY),
-            execution_spec={},
+            payload_kind="SKILL_PLAN",
+            payload_json={
+                "kind": "SKILL_PLAN",
+                "skill_id": str(uuid.uuid4()),
+                "input": {},
+                "argv": [],
+                "window": {"kind": "DAY", "offset": 0},
+            },
             delivery_intent="NONE",
             created_by=uuid.uuid4(),
         )

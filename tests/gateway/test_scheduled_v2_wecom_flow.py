@@ -165,10 +165,14 @@ def _draft() -> dict[str, Any]:
         "status": "PENDING",
         "preview": {
             "mode": "REMINDER",
+            "payload": {"kind": "REMINDER", "text": "每天 9 点提醒"},
+            "session_target": "isolated",
             "what": "每天 9 点提醒",
             "when": "CRON 0 1 * * * (Asia/Shanghai)",
             "first_fire_at": NEXT_FIRE_AT,
             "delivery": "PUSH",
+            "tools_allow": [],
+            "budget_source": "NONE",
         },
         "expires_at": "2026-11-15T13:00:00+00:00",
     }

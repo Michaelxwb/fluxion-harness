@@ -298,10 +298,9 @@ async def _confirm(tenant: TenantContext, draft: dict[str, Any]) -> dict[str, An
 def _draft_args(**overrides: Any) -> dict[str, Any]:
     args: dict[str, Any] = {
         "instruction": "每天 9 点提醒我开周会",
-        "mode": "REMINDER",
         "timezone": TZ,
         "recurrence": {"kind": "CRON", "cron": "0 9 * * *"},
-        "reminder_text": "开周会",
+        "payload": {"kind": "REMINDER", "text": "开周会"},
         "name": "周会提醒",
     }
     args.update(overrides)
@@ -410,11 +409,12 @@ async def test_skill_draft_resolves_the_effective_skill(
             registry,
             DRAFT_SCHEDULE_TOOL,
             _draft_args(
-                mode="SKILL",
                 instruction="每天 9 点用周报 Skill 生成简报",
-                skill_key="weekly-report",
-                input_template={"body": "{{fire_date}} 的客户简报"},
-                reminder_text=None,
+                payload={
+                    "kind": "SKILL_PLAN",
+                    "skill_key": "weekly-report",
+                    "input": {"body": "{{fire_date}} 的客户简报"},
+                },
             ),
         )
     finally:
@@ -422,8 +422,8 @@ async def test_skill_draft_resolves_the_effective_skill(
 
     assert result["mode"] == "SKILL"
     payload = (await _draft_payloads(tenant.tenant_id))[0]
-    assert payload["execution_spec"]["skill_id"] == str(SKILL_ID)
-    assert payload["execution_spec"]["input_template"] == {"body": "{{fire_date}} 的客户简报"}
+    assert payload["payload"]["skill_id"] == str(SKILL_ID)
+    assert payload["payload"]["input"] == {"body": "{{fire_date}} 的客户简报"}
 
 
 async def test_agentic_draft_maps_skill_allowlist_and_keeps_budget(
@@ -447,31 +447,27 @@ async def test_agentic_draft_maps_skill_allowlist_and_keeps_budget(
             registry,
             DRAFT_SCHEDULE_TOOL,
             _draft_args(
-                mode="AGENTIC",
                 instruction="每周一 9 点汇总 A 客户数据",
-                reminder_text=None,
-                goal="汇总 A 客户上周数据并生成周报",
-                tool_allowlist=[
-                    {"source": "SKILL", "skill_key": "weekly-report", "tool_name": "weekly-report"},
-                    {"source": "MCP", "server_key": "crm", "tool_name": "customer.report"},
-                ],
-                budget={"max_steps": 6, "max_tool_calls": 8},
+                payload={
+                    "kind": "AGENT_TURN",
+                    "prompt": "汇总 A 客户上周数据并生成周报",
+                    "tools_allow": [
+                        "SKILL:weekly-report:weekly-report",
+                        "MCP:crm:customer.report",
+                    ],
+                },
             ),
         )
     finally:
         await client.aclose()
 
     assert result["mode"] == "AGENTIC"
-    assert result["preview"]["budget"] == {"max_steps": 6, "max_tool_calls": 8, "max_tokens": 0}
-    spec = (await _draft_payloads(tenant.tenant_id))[0]["execution_spec"]
-    assert spec["tool_allowlist"] == [
-        {
-            "source": "SKILL",
-            "skill_id": str(SKILL_ID),
-            "tool_name": "weekly-report",
-            "server_key": None,
-        },
-        {"source": "MCP", "server_key": "crm", "tool_name": "customer.report", "skill_id": None},
+    assert result["preview"]["budget"] == {}
+    assert result["preview"]["budget_source"] == "PLATFORM"
+    spec = (await _draft_payloads(tenant.tenant_id))[0]["payload"]
+    assert spec["tools_allow"] == [
+        f"SKILL:{SKILL_ID}:weekly-report",
+        "MCP:crm:customer.report",
     ]
 
 
@@ -487,7 +483,7 @@ async def test_wecom_entry_requests_push_delivery(
     assert result["preview"]["delivery"] == "PUSH"
     draft = (await _draft_payloads(tenant.tenant_id))[0]
     # 冻结创建时的目标（会话级），并记下入口只作审计的 source。
-    assert draft["delivery_route"] == {
+    assert draft["delivery"]["route"] == {
         "channel": "WECOM",
         "bot_id": "bot-1",
         "external_user_id": "ext-1",

@@ -105,7 +105,7 @@ async def test_reminder_executes_without_model_skill_or_tool(tenant: TenantConte
         task_type="REMINDER",
         skill_id=None,
         skill_artifact_id=None,
-        input_json={"mode": "REMINDER", "reminder_text": text, "context": {}},
+        input_json={"kind": "REMINDER", "mode": "REMINDER", "text": text, "context": {}},
     )
     poisoned = _PoisonedExecutor()
     worker = WorkerLoop(
@@ -164,7 +164,7 @@ async def test_reminder_text_is_taken_verbatim_without_reinterpretation(
     """固定文本可能像指令：执行器原样返回，不解析、不补全。"""
     text = "请让模型总结今天的日报并发送到群里"
     outcome = await ReminderExecutor().execute(
-        TaskExecution(task_type="REMINDER", input_json={"reminder_text": text})
+        TaskExecution(task_type="REMINDER", input_json={"text": text})
     )
 
     assert outcome["result"] == {"text": text}

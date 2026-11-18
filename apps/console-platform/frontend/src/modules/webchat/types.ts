@@ -470,10 +470,15 @@ export interface ScheduleDiffEntry {
 /** 确认卡片事实：做什么、何时（含 IANA 时区）、结果去哪看、依赖（AGENTIC 即工具 allowlist）、预算。 */
 export interface SchedulePreview {
   mode: ScheduleMode;
+  payload: Record<string, unknown> & { kind: 'REMINDER' | 'SKILL_PLAN' | 'AGENT_TURN' };
+  session_target: 'isolated' | 'current' | 'main' | `session:${string}`;
   what: string;
   when: string;
   first_fire_at: string;
   delivery: DeliveryIntent;
+  tools_allow: string[];
+  /** `PLATFORM` = 平台设置；`NONE` = 该 payload 不消费模型预算。 */
+  budget_source: 'PLATFORM' | 'NONE';
   dependencies: string[];
   budget: Record<string, unknown>;
   /** 只有 UPDATE Draft 才有：CREATE 没有「之前」，空列表就是没有旧配置可比。 */

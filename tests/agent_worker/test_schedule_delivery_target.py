@@ -20,7 +20,6 @@ from muad_contracts import (
     DraftKind,
     Recurrence,
     RecurrenceKind,
-    ReminderExecutionSpec,
     ScheduleDraftRequest,
 )
 
@@ -35,16 +34,14 @@ def _body(
 ) -> ScheduleDraftRequest:
     return ScheduleDraftRequest(
         kind=DraftKind.CREATE,
-        mode="REMINDER",
         instruction="提醒",
         recurrence=Recurrence(
             kind=RecurrenceKind.ONCE,
             run_at=datetime.now(UTC) + timedelta(hours=1),
             timezone="Asia/Shanghai",
         ),
-        execution_spec=ReminderExecutionSpec(reminder_text="提醒"),
-        delivery_intent=intent,
-        delivery_route=route,
+        payload={"kind": "REMINDER", "text": "提醒"},
+        delivery={"intent": intent, "route": route},
     )
 
 
@@ -52,13 +49,13 @@ def test_web_entry_can_push_to_wecom() -> None:
     route = DeliveryRouteInput(channel="WECOM", bot_id="bot-1", external_user_id="user-1")
     body = _body(intent=DeliveryIntent.PUSH, route=route)
 
-    assert resolve_delivery_intent(body.delivery_intent) is DeliveryIntent.PUSH
+    assert resolve_delivery_intent(body.delivery.intent) is DeliveryIntent.PUSH
     ensure_delivery_target(body)  # 不再要求 route.channel == entry_channel
 
 
 def test_web_entry_can_choose_none() -> None:
     body = _body(intent=DeliveryIntent.NONE, route=None)
-    assert resolve_delivery_intent(body.delivery_intent) is DeliveryIntent.NONE
+    assert resolve_delivery_intent(body.delivery.intent) is DeliveryIntent.NONE
     ensure_delivery_target(body)
 
 

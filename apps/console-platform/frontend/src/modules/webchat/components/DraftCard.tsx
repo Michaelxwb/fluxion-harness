@@ -348,11 +348,12 @@ const BUDGET_KEYS: Record<string, string> = {
 
 const FIELD_KEYS: Record<string, string> = {
   name: 'chat.draft.field.name',
-  mode: 'chat.draft.field.mode',
+  payload: 'chat.draft.field.payload',
+  session_target: 'chat.draft.field.sessionTarget',
   delivery_intent: 'chat.draft.field.delivery',
   recurrence: 'chat.draft.field.recurrence',
   context: 'chat.draft.field.context',
-  execution_spec: 'chat.draft.field.executionSpec'
+  tools: 'chat.draft.field.tools'
 };
 
 /** 差异值只做文本化：对象原样 JSON 化（不解析、不猜测语义）。 */

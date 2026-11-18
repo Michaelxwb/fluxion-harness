@@ -45,9 +45,7 @@ INSTRUCTION = "每周一 9 点提醒我发周报"
 
 
 def payload_of(body: dict[str, Any]) -> dict[str, Any]:
-    payload = ScheduleDraftRequest.model_validate(body).model_dump(mode="json")
-    payload["delivery_intent"] = "NONE"
-    return payload
+    return ScheduleDraftRequest.model_validate(body).model_dump(mode="json")
 
 
 async def seed_schedule(
@@ -89,7 +87,10 @@ async def seed_schedule(
             timezone=TZ,
             schedule_policy=SchedulePolicy().model_dump(mode="json"),
             context_json={"parameters": {}, "output": {}},
-            execution_spec={"mode": "REMINDER", "reminder_text": reminder_text},
+            payload_kind="REMINDER",
+            payload_json={"kind": "REMINDER", "text": reminder_text},
+            session_target="isolated",
+            tools_policy_json={"tools_allow": []},
             delivery_intent="NONE",
             preflight_json={},
             created_by=owner,
@@ -111,10 +112,9 @@ def update_body(
 ) -> dict[str, Any]:
     return {
         "kind": "UPDATE",
-        "mode": "REMINDER",
         "instruction": INSTRUCTION,
         "recurrence": {"kind": "CRON", "cron": cron, "timezone": TZ},
-        "execution_spec": {"mode": "REMINDER", "reminder_text": reminder_text},
+        "payload": {"kind": "REMINDER", "text": reminder_text},
         "base_schedule_id": str(schedule.id),
         "base_config_version": base_config_version,
         "name": name,
@@ -142,11 +142,15 @@ async def seed_draft(
         draft_hash=schedule_draft_hash(payload),
         payload_json=payload,
         preview_json={
-            "mode": payload["mode"],
+            "mode": "REMINDER",
+            "payload": payload["payload"],
+            "session_target": payload["session_target"],
             "what": "发周报",
             "when": f"CRON {payload['recurrence']['cron']} ({TZ})",
             "first_fire_at": (now + timedelta(hours=1)).isoformat(),
             "delivery": "NONE",
+            "tools_allow": [],
+            "budget_source": "NONE",
             "dependencies": [],
             "budget": {},
         },
@@ -351,7 +355,7 @@ async def test_update_appends_a_revision_and_bumps_config_version(
     assert updated.next_fire_at.astimezone(ZoneInfo(TZ)).hour == 10
     assert revisions[0].cron_expr == "0 9 * * 1"
     assert revisions[0].context_json == {"parameters": {}, "output": {}}
-    assert revisions[0].execution_spec == {"mode": "REMINDER", "reminder_text": "发周报"}
+    assert revisions[0].payload_json == {"kind": "REMINDER", "text": "发周报"}
     assert (await load_draft(tenant, draft.id)).schedule_id == schedule.id
     assert (await load_draft(tenant, draft.id)).status == "CONFIRMED"
 
@@ -498,7 +502,7 @@ async def test_execution_affecting_update_cancels_only_not_started_executions(
     assert await count_rows(tenant, ScheduleFire) == fires_before
     revisions = await revisions_of(tenant, schedule.id)
     assert [item.revision_no for item in revisions] == [1, 2]
-    assert revisions[1].execution_spec == {"mode": "REMINDER", "reminder_text": "发新周报"}
+    assert revisions[1].payload_json == {"kind": "REMINDER", "text": "发新周报"}
 
     assert [item.event_type for item in await events_for(tenant, queued.id)] == [
         TaskEventType.CANCELLED.value
@@ -610,7 +614,7 @@ async def test_revisions_are_append_only_across_updates(
     original = {
         "cron_expr": first.cron_expr,
         "context_json": first.context_json,
-        "execution_spec": first.execution_spec,
+        "payload_json": first.payload_json,
         "instruction_raw": first.instruction_raw,
         "update_time": first.update_time,
     }
@@ -632,7 +636,7 @@ async def test_revisions_are_append_only_across_updates(
     assert [item.revision_no for item in revisions] == [1, 2, 3]
     assert revisions[0].cron_expr == original["cron_expr"]
     assert revisions[0].context_json == original["context_json"]
-    assert revisions[0].execution_spec == original["execution_spec"]
+    assert revisions[0].payload_json == original["payload_json"]
     assert revisions[0].instruction_raw == original["instruction_raw"]
     assert revisions[0].update_time == original["update_time"]
     assert revisions[1].cron_expr == "0 10 * * 1"

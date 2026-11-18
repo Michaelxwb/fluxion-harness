@@ -108,6 +108,14 @@ class TaskSchedule(StandardColumnsMixin, Base):
     attention_since: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     ended_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     end_reason: Mapped[str | None] = mapped_column(sa.String(32))
+    #: 有界的最近一次 meaningful result 与 automation scratch（state，不是配置）。
+    last_result_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    scratch_json: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")
+    )
+    scratch_revision: Mapped[int] = mapped_column(
+        sa.BigInteger(), nullable=False, server_default=sa.text("0")
+    )
     created_by: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
 
 
@@ -148,7 +156,17 @@ class TaskScheduleRevision(StandardColumnsMixin, Base):
     context_json: Mapped[dict[str, Any]] = mapped_column(
         JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")
     )
-    execution_spec: Mapped[dict[str, Any]] = mapped_column(
+    #: `mode` 是内部派生字段；用户/模型只写 payload。
+    payload_kind: Mapped[str] = mapped_column(
+        sa.String(16), nullable=False, server_default=sa.text("'REMINDER'")
+    )
+    payload_json: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")
+    )
+    session_target: Mapped[str] = mapped_column(
+        sa.String(128), nullable=False, server_default=sa.text("'isolated'")
+    )
+    tools_policy_json: Mapped[dict[str, Any]] = mapped_column(
         JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")
     )
     delivery_intent: Mapped[str] = mapped_column(

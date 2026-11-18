@@ -66,3 +66,12 @@ def render_input_template(
     if not isinstance(rendered, dict):
         raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
     return rendered
+
+
+def render_argv(argv: list[str], fire_at: datetime, timezone: str) -> list[str]:
+    """`argv` 的时间变量与 stdin 模板同口径渲染；参数边界保持不变。"""
+    variables = template_variables(fire_at, timezone)
+    return [
+        VARIABLE_PATTERN.sub(lambda match: variables.get(match.group(1), match.group(0)), argument)
+        for argument in argv
+    ]

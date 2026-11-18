@@ -33,23 +33,24 @@ from datetime import datetime
 from typing import Any, Final
 
 from muad_contracts import (
+    AgentTurnPayload,
     ConcurrencyPolicy,
     DstResolution,
     FireStatus,
-    ModeExecutionSpec,
     RecurrenceKind,
-    ReminderExecutionSpec,
+    ReminderPayload,
     ScheduleEndReason,
     SchedulePolicy,
     ScheduleStatus,
-    SkillExecutionSpec,
+    SkillPlanPayload,
     SkipReason,
     TaskStatus,
     TaskType,
     TriggerType,
+    derive_schedule_mode,
+    parse_schedule_payload,
 )
 from muad_contracts.platform_settings import TaskSettings
-from pydantic import TypeAdapter
 from sqlalchemy import false, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -70,7 +71,7 @@ from ..infrastructure.models.task import (
 )
 from ..metrics import SCHEDULE_FIRE_DUPLICATE_METRIC, increment
 from .recurrence import OccurrencePlan, PlanAction, execution_key, to_utc
-from .templates import render_input_template
+from .templates import render_argv, render_input_template
 
 logger = logging.getLogger(__name__)
 
@@ -86,9 +87,6 @@ BLOCKING_ROOT_STATUSES: Final = (
 #: 连续多少次临时准入失败才把 CRON 升级到 `NEEDS_ATTENTION`（design §3.5.5 的「连续 N 次」）。
 #: 永久错误立即升级；这里防的是网络抖动把用户任务直接判死。
 TRANSIENT_FAILURES_BEFORE_ATTENTION: Final = 5
-
-_SPEC_ADAPTER: TypeAdapter[Any] = TypeAdapter(ModeExecutionSpec)
-
 
 @dataclass(frozen=True, slots=True)
 class FireOutcome:
@@ -691,28 +689,37 @@ def _execution_values(
 
 
 def _fire_input(revision: TaskScheduleRevision, scheduled_at: datetime) -> dict[str, Any]:
-    """本次执行的输入/参数：按本次计划时刻在 Revision 时区渲染，配置上下文一并冻结。
+    """本次执行的冻结输入：payload 的本次渲染 + 派生 mode + 上下文。
 
-    `execution_spec` 在 Revision 里不可变，准入时已校验过模板语法；这里渲染的是**本次时刻**
-    的动态变量（`{{fire_date}}` 等），不是配置来源。
+    配置本身（payload）在 Revision 里不可变，准入时已校验过模板语法；这里渲染的是**本次
+    时刻**的动态变量（`{{fire_date}}` 等），不是配置来源。TASK-016/017 直接消费该形状。
     """
-    spec = _SPEC_ADAPTER.validate_python(revision.execution_spec)
+    payload = parse_schedule_payload(revision.payload_json)
     context = dict(revision.context_json or {})
-    if isinstance(spec, ReminderExecutionSpec):
-        return {"mode": "REMINDER", "reminder_text": spec.reminder_text, "context": context}
-    if isinstance(spec, SkillExecutionSpec):
-        return {
-            "mode": "SKILL",
-            "skill_id": str(spec.skill_id),
-            "input": render_input_template(spec.input_template, scheduled_at, revision.timezone),
-            "context": context,
-        }
-    return {
-        "mode": "AGENTIC",
-        "goal": spec.goal,
-        "budget": spec.budget.model_dump(mode="json"),
-        "output_contract": spec.output_contract,
+    base: dict[str, Any] = {
+        "kind": str(payload.kind),
+        "mode": str(derive_schedule_mode(payload)),
+        "session_target": revision.session_target,
         "context": context,
+    }
+    if isinstance(payload, ReminderPayload):
+        return {**base, "text": payload.text}
+    if isinstance(payload, SkillPlanPayload):
+        return {
+            **base,
+            "skill_id": str(payload.skill_id),
+            "input": render_input_template(payload.input, scheduled_at, revision.timezone),
+            "argv": render_argv(payload.argv, scheduled_at, revision.timezone),
+            "window": payload.window.model_dump(mode="json"),
+        }
+    assert isinstance(payload, AgentTurnPayload)
+    return {
+        **base,
+        "prompt": payload.prompt,
+        "model_ref": payload.model_ref,
+        "tools_allow": list(payload.tools_allow),
+        "budget_ref": payload.budget_ref,
+        "output_contract": {},
     }
 
 

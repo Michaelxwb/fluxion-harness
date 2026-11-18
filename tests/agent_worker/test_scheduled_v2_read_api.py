@@ -55,17 +55,22 @@ async def seed_schedule(
     attention_reason: str | None = None,
 ) -> tuple[uuid.UUID, uuid.UUID]:
     schedule_id, revision_id = uuid.uuid4(), uuid.uuid4()
-    spec: dict[str, Any] = {
-        "mode": "AGENTIC",
-        "goal": "汇总客户数据",
-        "tool_allowlist": ["MCP:crm:customer.report"],
-        "budget": {"max_steps": 12, "max_tool_calls": 20, "max_tokens": 0},
-        "memory_mode": "READ_ONLY",
+    payload: dict[str, Any] = {
+        "kind": "AGENT_TURN",
+        "prompt": "汇总客户数据",
+        "tools_allow": ["MCP:crm:customer.report"],
+        "budget_ref": "platform",
     }
     if mode == "REMINDER":
-        spec = {"mode": "REMINDER", "reminder_text": "开会"}
+        payload = {"kind": "REMINDER", "text": "开会"}
     elif mode == "SKILL":
-        spec = {"mode": "SKILL", "skill_id": str(uuid.uuid4()), "input_template": {}}
+        payload = {
+            "kind": "SKILL_PLAN",
+            "skill_id": str(uuid.uuid4()),
+            "input": {},
+            "argv": [],
+            "window": {"kind": "DAY", "offset": 0},
+        }
     async with tenant.session_factory() as session, session.begin():
         schedule = TaskSchedule(
             id=schedule_id,
@@ -96,7 +101,12 @@ async def seed_schedule(
                 timezone="Asia/Shanghai",
                 schedule_policy={"concurrency_policy": "QUEUE"},
                 context_json={"parameters": {"customer": "A"}, "output": {"format": "markdown"}},
-                execution_spec=spec,
+                payload_kind={"REMINDER": "REMINDER", "SKILL": "SKILL_PLAN", "AGENTIC": "AGENT_TURN"}[mode],
+                payload_json=payload,
+                session_target="isolated",
+                tools_policy_json={
+                    "tools_allow": payload.get("tools_allow", []) if mode == "AGENTIC" else []
+                },
                 delivery_intent=delivery_intent,
                 preflight_json={},
                 created_by=owner,
@@ -196,7 +206,11 @@ async def test_detail_projects_the_current_revision(tenant: TenantContext, clien
     assert data["timezone"] == "Asia/Shanghai"
     assert data["config_version"] == 3
     assert data["dependencies"] == ["MCP:crm:customer.report"]
-    assert data["budget"] == {"max_steps": 12, "max_tool_calls": 20, "max_tokens": 0}
+    assert data["payload"]["kind"] == "AGENT_TURN"
+    assert data["session_target"] == "isolated"
+    assert data["tools_allow"] == ["MCP:crm:customer.report"]
+    assert data["budget_source"] == "PLATFORM"
+    assert data["budget"] is None, "预算数值来自平台设置，不在 Revision 里复制"
     assert data["memory_mode"] == "READ_ONLY"
     assert data["delivery_intent"] == "NONE"
     assert data["policy"]["concurrency_policy"] == "QUEUE"

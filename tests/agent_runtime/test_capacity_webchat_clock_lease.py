@@ -923,10 +923,13 @@ async def _seed_schedule(
                 timezone="UTC",
                 schedule_policy={},
                 context_json={},
-                execution_spec={
-                    "mode": "SKILL",
+                payload_kind="SKILL_PLAN",
+                payload_json={
+                    "kind": "SKILL_PLAN",
                     "skill_id": str(skill_id),
-                    "input_template": {},
+                    "input": {},
+                    "argv": [],
+                    "window": {"kind": "DAY", "offset": 0},
                 },
                 delivery_intent="NONE",
                 preflight_json={},

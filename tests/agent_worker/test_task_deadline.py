@@ -230,7 +230,7 @@ async def _push_revision(tenant: TenantContext) -> uuid.UUID:
             cron_expr="0 9 * * *",
             timezone="Asia/Shanghai",
             schedule_policy={"concurrency_policy": "QUEUE", "max_concurrency": 1},
-            execution_spec={"mode": "REMINDER", "reminder_text": "开会"},
+            payload_kind="REMINDER", payload_json={"kind": "REMINDER", "text": "开会"},
             delivery_intent="PUSH",
             delivery_route_id=route_id,
             created_by=uuid.uuid4(),

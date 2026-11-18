@@ -89,19 +89,22 @@ def test_b141_schedule_creation_replays_without_duplicate(live_stack: LiveStack,
         "X-Entry-Channel": "WECOM",
     }
     body = {
-        "mode": "SKILL",
         "instruction": "e2e idempotent schedule",
         "recurrence": {"kind": "CRON", "cron": "0 9 * * *", "timezone": "Asia/Shanghai"},
-        "execution_spec": {
-            "mode": "SKILL",
+        "payload": {
+            "kind": "SKILL_PLAN",
             "skill_id": str(live_stack.skill_id),
-            "input_template": {"customer": "A"},
+            "input": {"customer": "A"},
+            "argv": [],
+            "window": {"kind": "DAY", "offset": 0},
         },
-        "delivery_intent": "PUSH",
-        "delivery_route": {
-            "channel": "WECOM",
-            "bot_id": live_stack.bot_id,
-            "external_user_id": "e2e-external-user",
+        "delivery": {
+            "intent": "PUSH",
+            "route": {
+                "channel": "WECOM",
+                "bot_id": live_stack.bot_id,
+                "external_user_id": "e2e-external-user",
+            },
         },
     }
     draft_headers = {**identity, "Idempotency-Key": draft_key}

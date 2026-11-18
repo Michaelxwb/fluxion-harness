@@ -96,7 +96,11 @@ async def test_console_list_detail_carry_worker_v2_facts(
     assert data["revision_no"] == 2
     assert data["dependencies"] == ["MCP:crm:customer.report"]
     assert data["delivery_intent"] == "NONE"
-    assert data["budget"] == {"max_steps": 12, "max_tool_calls": 20, "max_tokens": 0}
+    assert data["payload"]["kind"] == "AGENT_TURN"
+    assert data["session_target"] == "isolated"
+    assert data["tools_allow"] == ["MCP:crm:customer.report"]
+    assert data["budget_source"] == "PLATFORM"
+    assert data["budget"] is None
     assert data["memory_mode"] == "READ_ONLY"
     assert data["policy"]["concurrency_policy"] == "QUEUE"
     assert data["end_reason"] is None

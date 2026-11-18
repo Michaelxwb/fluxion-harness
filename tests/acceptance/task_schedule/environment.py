@@ -308,10 +308,12 @@ def seed_v2_schedule(
         "external_user_id": "e2e-external-user",
         "external_conversation_id": "e2e-conversation",
     }
-    execution_spec = {
-        "mode": "SKILL",
+    payload = {
+        "kind": "SKILL_PLAN",
         "skill_id": str(live_stack.skill_id),
-        "input_template": input_template or {"case": "schedule"},
+        "input": input_template or {"case": "schedule"},
+        "argv": [],
+        "window": {"kind": "DAY", "offset": 0},
     }
 
     async def seed(factory: Any) -> None:
@@ -354,11 +356,13 @@ def seed_v2_schedule(
                     "INSERT INTO task.task_schedule_revision "
                     "(id, tenant_id, schedule_id, revision_no, mode, instruction_raw, normalized_goal, "
                     " recurrence_kind, cron_expr, run_at, timezone, schedule_policy, context_json, "
-                    " execution_spec, delivery_intent, delivery_route_id, preflight_json, created_by, "
+                    " payload_kind, payload_json, session_target, tools_policy_json, delivery_intent, "
+                    " delivery_route_id, preflight_json, created_by, "
                     " is_deleted) "
                     "VALUES (:id, :tenant, :schedule_id, 1, 'SKILL', 'e2e schedule', 'e2e schedule', "
                     " :recurrence_kind, :cron, :run_at, 'Asia/Shanghai', '{}'::jsonb, '{}'::jsonb, "
-                    " CAST(:execution_spec AS jsonb), 'PUSH', :route_id, '{}'::jsonb, :owner, false)"
+                    " 'SKILL_PLAN', CAST(:payload AS jsonb), 'isolated', '{}'::jsonb, 'PUSH', "
+                    " :route_id, '{}'::jsonb, :owner, false)"
                 ),
                 {
                     "id": revision_id,
@@ -367,7 +371,7 @@ def seed_v2_schedule(
                     "recurrence_kind": recurrence_kind,
                     "cron": cron,
                     "run_at": run_at,
-                    "execution_spec": json.dumps(execution_spec),
+                    "payload": json.dumps(payload),
                     "route_id": route_id,
                     "owner": live_stack.platform_user_id,
                 },

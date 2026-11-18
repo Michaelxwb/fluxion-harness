@@ -637,12 +637,12 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
   - export PASS exit=0
 ## TASK-012: Job/Payload 模型与旧模式迁移
 
-- **Status**: draft
+- **Status**: done
 - **Depends**:
 - **Source**: run-failure-reporting/run-failure-reporting.design.md#10.2, #10.3, #10.12
 - **Scenarios**: run-failure-reporting:S-11, run-failure-reporting:S-14, run-failure-reporting:S-16
 - **Spec-Refs**: worker/harness-worker#RULE-worker-001, snapshot/harness-snapshot#RULE-snapshot-001, time/harness-time#RULE-time-001, worker/harness-worker#RULE-005, persistence/harness-data#RULE-003
-- **Paths**: packages/contracts/src/muad_contracts/scheduling.py, packages/contracts/src/muad_contracts/snapshot.py, apps/agent-worker/src/muad_agent_worker/infrastructure/models/task.py, apps/agent-worker/src/muad_agent_worker/application/schedule_*.py, apps/agent-worker/src/muad_agent_worker/scheduler/fire.py, apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py, tests/contracts/test_scheduled_job_payload.py, tests/agent_worker/test_scheduled_v2_fire.py, tests/agent_worker/test_scheduled_v2_contracts.py
+- **Paths**: packages/contracts/src/muad_contracts/scheduling.py, packages/contracts/src/muad_contracts/snapshot.py, apps/agent-worker/src/muad_agent_worker/infrastructure/models/task.py, apps/agent-worker/src/muad_agent_worker/application/schedule_*.py, apps/agent-worker/src/muad_agent_worker/scheduler/fire.py, apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py, tests/contracts/test_scheduled_job_payload.py, tests/agent_worker/test_scheduled_v2_fire.py, tests/contracts/test_scheduled_v2_contracts.py
 - **E2E**:
 - **Skip-Tests**: false
 - **Skip-Reason**:
@@ -653,7 +653,7 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
 [
   {
     "id": "contracts",
-    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/contracts/test_scheduled_job_payload.py", "tests/agent_worker/test_scheduled_v2_fire.py", "tests/agent_worker/test_scheduled_v2_contracts.py"],
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/contracts/test_scheduled_job_payload.py", "tests/agent_worker/test_scheduled_v2_fire.py", "tests/contracts/test_scheduled_v2_contracts.py"],
     "timeout": 600,
     "parallel": false
   }
@@ -666,12 +666,12 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
 
 ### Checklist
 
-- [ ] 契约定义 `ScheduleJob`/`PayloadKind`/`SessionTarget`/`DeliveryPlan`/`ToolPolicy`。
-- [ ] DB 迁移：payload kind、session target、`delivery_intent`/`delivery_route_id`、tools policy、last result/scratch 字段。
-- [ ] 旧 `mode=SKILL/AGENTIC/REMINDER` 开发期直接迁移为 `SKILL_PLAN/AGENT_TURN/REMINDER`。
-- [ ] `draft_schedule` 接受 `SchedulePlan`，不再把 mode 作为用户选项。
-- [ ] `get_schedule` 返回 resolved payload/plan/session/delivery_intent/tools/budget source；Web pull 不是 delivery_intent。
-- [ ] 测试：旧数据迁移、payload 形状、session/delivery 分离。
+- [x] 契约定义 `ScheduleJob`/`PayloadKind`/`SessionTarget`/`DeliveryPlan`/`ToolPolicy`。
+- [x] DB 迁移：payload kind、session target、`delivery_intent`/`delivery_route_id`、tools policy、last result/scratch 字段。
+- [x] 旧 `mode=SKILL/AGENTIC/REMINDER` 开发期直接迁移为 `SKILL_PLAN/AGENT_TURN/REMINDER`。
+- [x] `draft_schedule` 接受 `SchedulePlan`，不再把 mode 作为用户选项。
+- [x] `get_schedule` 返回 resolved payload/plan/session/delivery_intent/tools/budget source；Web pull 不是 delivery_intent。
+- [x] 测试：旧数据迁移、payload 形状、session/delivery 分离。
 
 ### Spec Delta
 
@@ -682,11 +682,14 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18] implemented: payload contracts, 0056 migration, payload-based draft/confirm/read/fire, Runtime draft_schedule args
+- [2026-11-18T19:54:06.548Z] started tests=224648b9984b
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-18T19:54:44.366Z PASS commands=1/1 executed=1 deduped=0 elapsed=37684ms tests=224648b9984b head=6b57b343987b dirty=1
+  - contracts PASS exit=0
 ## TASK-013: Authoring 编译器与意图识别
 
 - **Status**: draft

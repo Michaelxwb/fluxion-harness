@@ -43,25 +43,30 @@ async def seed_schedule(
     delivery_intent: str = "NONE",
     schedule_policy: dict[str, Any] | None = None,
     context_json: dict[str, Any] | None = None,
-    execution_spec: dict[str, Any] | None = None,
+    payload: dict[str, Any] | None = None,
 ) -> tuple[uuid.UUID, uuid.UUID]:
     """写一条「已确认」的 Schedule + 当前 Revision（v2 配置只在 Revision 里）。"""
     owner = owner_user_id or uuid.uuid4()
     agent = agent_id or uuid.uuid4()
     schedule_id, revision_id = uuid.uuid4(), uuid.uuid4()
-    spec = execution_spec
-    if spec is None:
+    frozen = payload
+    if frozen is None:
         if mode == "REMINDER":
-            spec = {"mode": "REMINDER", "reminder_text": "开会"}
+            frozen = {"kind": "REMINDER", "text": "开会"}
         elif mode == "SKILL":
-            spec = {"mode": "SKILL", "skill_id": str(uuid.uuid4()), "input_template": {}}
+            frozen = {
+                "kind": "SKILL_PLAN",
+                "skill_id": str(uuid.uuid4()),
+                "input": {},
+                "argv": [],
+                "window": {"kind": "DAY", "offset": 0},
+            }
         else:
-            spec = {
-                "mode": "AGENTIC",
-                "goal": "汇总 A 客户上周数据",
-                "tool_allowlist": ["MCP:crm:customer.report"],
-                "budget": {"max_steps": 12, "max_tool_calls": 20, "max_tokens": 0},
-                "memory_mode": "READ_ONLY",
+            frozen = {
+                "kind": "AGENT_TURN",
+                "prompt": "汇总 A 客户上周数据",
+                "tools_allow": ["MCP:crm:customer.report"],
+                "budget_ref": "platform",
             }
     async with get_session_factory()() as session, session.begin():
         session.add(
@@ -96,7 +101,12 @@ async def seed_schedule(
                 schedule_policy=schedule_policy or {"concurrency_policy": "QUEUE"},
                 context_json=context_json
                 or {"parameters": {"customer": "A"}, "output": {"format": "markdown"}},
-                execution_spec=spec,
+                payload_kind={"REMINDER": "REMINDER", "SKILL": "SKILL_PLAN", "AGENTIC": "AGENT_TURN"}[mode],
+                payload_json=frozen,
+                session_target="isolated",
+                tools_policy_json={
+                    "tools_allow": frozen.get("tools_allow", []) if mode == "AGENTIC" else []
+                },
                 delivery_intent=delivery_intent,
                 preflight_json={},
                 created_by=owner,

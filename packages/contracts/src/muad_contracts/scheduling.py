@@ -12,11 +12,19 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, Self
+from typing import Annotated, Any, Literal, Self, cast
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import AwareDatetime, Field, field_validator, model_validator
+from pydantic import (
+    AwareDatetime,
+    ConfigDict,
+    Field,
+    RootModel,
+    TypeAdapter,
+    field_validator,
+    model_validator,
+)
 
 from .canonical import ensure_strict_json
 from .enums import (
@@ -37,6 +45,7 @@ from .enums import (
     HumanRouteOutcome,
     MemoryMode,
     OperationStatus,
+    PayloadKind,
     RecurrenceKind,
     ScheduleEndReason,
     ScheduleMode,
@@ -53,6 +62,7 @@ from .model_pool import (
     SettlementOutcome,
     _require_settlement_shape,
 )
+from .skill_invocation import validate_skill_argv
 from .tasks import ContractModel, DeliveryRouteInput
 from .tool_runtime import TaskToolOperationOwner
 
@@ -137,24 +147,8 @@ class DraftContext(ContractModel):
         return ensure_strict_json(value)
 
 
-class ReminderExecutionSpec(ContractModel):
-    mode: Literal["REMINDER"] = "REMINDER"
-    reminder_text: str = Field(min_length=1, max_length=2048)
-
-
-class SkillExecutionSpec(ContractModel):
-    mode: Literal["SKILL"] = "SKILL"
-    skill_id: UUID
-    input_template: dict[str, Any] = Field(default_factory=dict)
-
-    @field_validator("input_template", mode="before")
-    @classmethod
-    def _strict_json(cls, value: object) -> object:
-        return ensure_strict_json(value)
-
-
 class ToolAllowlistEntry(ContractModel):
-    """AGENTIC 的允许工具：MCP 按 server_key+tool，Skill 按 skill_id+tool。"""
+    """AGENT_TURN 的允许工具：MCP 按 server_key+tool，Skill 按 skill_id+tool。"""
 
     source: ToolSource
     tool_name: str = Field(min_length=1, max_length=200)
@@ -177,57 +171,247 @@ class AgenticBudget(ContractModel):
     max_tokens: int = Field(default=0, ge=0)
 
 
-class AgenticExecutionSpec(ContractModel):
-    mode: Literal["AGENTIC"] = "AGENTIC"
-    goal: str = Field(min_length=1, max_length=4000)
-    tool_allowlist: list[ToolAllowlistEntry] = Field(default_factory=list, max_length=64)
-    output_contract: dict[str, Any] = Field(default_factory=dict)
-    budget: AgenticBudget
-    #: 定时任务只能只读记忆：准入时冻结注入块，任务本身不得写长期记忆。
-    memory_mode: MemoryMode = MemoryMode.READ_ONLY
+def _validate_tool_entry(entry: str) -> None:
+    """工具策略条目只接受平台词表；未知前缀是理解错误，不静默丢弃。"""
+    if entry == "*":
+        return
+    parts = entry.split(":", 2)
+    if parts[0] == "PLATFORM" and len(parts) == 2 and parts[1]:
+        return
+    if parts[0] == "MCP" and len(parts) == 3 and parts[1] and parts[2]:
+        return
+    if parts[0] == "SKILL" and len(parts) == 3 and parts[2]:
+        try:
+            UUID(parts[1])
+        except ValueError as exc:
+            raise ValueError("SKILL tools_allow entries must carry a skill UUID") from exc
+        return
+    raise ValueError(
+        "tools_allow entries must be '*', PLATFORM:<tool>, MCP:<server>:<tool> "
+        "or SKILL:<uuid>:<tool>"
+    )
 
-    @field_validator("output_contract", mode="before")
+
+class ScheduleWindow(ContractModel):
+    """SKILL_PLAN 的数据窗口；具体渲染在 fire 时冻结（design §10.3）。"""
+
+    kind: Literal["DAY"] = "DAY"
+    offset: int = Field(default=0, ge=-31, le=31)
+
+
+class ReminderPayload(ContractModel):
+    """纯通知：无模型、无工具，结果就是固定文本。"""
+
+    kind: Literal["REMINDER"] = "REMINDER"
+    text: str = Field(min_length=1, max_length=2048)
+
+
+class SkillPlanPayload(ContractModel):
+    """固定 Skill 调用：`input` 只走 stdin，`argv` 追加到脚本（design §10.3 / §10.6）。"""
+
+    kind: Literal["SKILL_PLAN"] = "SKILL_PLAN"
+    skill_id: UUID
+    input: dict[str, Any] = Field(default_factory=dict)
+    argv: list[str] = Field(default_factory=list)
+    window: ScheduleWindow = Field(default_factory=ScheduleWindow)
+
+    @field_validator("input", mode="before")
     @classmethod
     def _strict_json(cls, value: object) -> object:
         return ensure_strict_json(value)
 
+    @field_validator("argv", mode="before")
+    @classmethod
+    def _argv_shape(cls, value: object) -> tuple[str, ...]:
+        return validate_skill_argv(value)
 
-ModeExecutionSpec = Annotated[
-    ReminderExecutionSpec | SkillExecutionSpec | AgenticExecutionSpec, Field(discriminator="mode")
+    @field_validator("argv")
+    @classmethod
+    def _argv_list(cls, value: list[str]) -> list[str]:
+        # 保留 Pydantic 的 list 公开形状（tuple 只用于边界校验）。
+        return list(value)
+
+
+class AgentTurnPayload(ContractModel):
+    """完整 prompt 模式：prompt + 可选模型 + 工具面 + 预算引用（design §10.3 / §10.7）."""
+
+    kind: Literal["AGENT_TURN"] = "AGENT_TURN"
+    prompt: str = Field(min_length=1, max_length=8000)
+    model_ref: str | None = Field(default=None, min_length=1, max_length=128)
+    #: 空列表 = 跟随 owner（`ToolPolicy` 解析为 `*`）；平台只读工具用 `PLATFORM:<tool>`。
+    tools_allow: list[str] = Field(default_factory=list, max_length=64)
+    #: 预算唯一来源是 `PlatformSettings.agent`；引用是稳定键而不是数值。
+    budget_ref: str = Field(default="platform", min_length=1, max_length=64)
+
+    @field_validator("tools_allow")
+    @classmethod
+    def _tools_shape(cls, value: list[str]) -> list[str]:
+        entries = [entry.strip() for entry in value]
+        if any(not entry for entry in entries):
+            raise ValueError("tools_allow entries must be non-empty")
+        if len(set(entries)) != len(entries):
+            raise ValueError("tools_allow entries must be unique")
+        if "*" in entries and len(entries) > 1:
+            raise ValueError("tools_allow '*' cannot be combined with explicit tools")
+        for entry in entries:
+            _validate_tool_entry(entry)
+        return entries
+
+    def allowlist_entries(self) -> list[ToolAllowlistEntry]:
+        """`SKILL:`/`MCP:` 字符串 → 结构化条目；平台工具不是材料依赖，由运行时注册。"""
+        entries: list[ToolAllowlistEntry] = []
+        for raw in self.tools_allow:
+            parts = raw.split(":", 2)
+            if parts[0] == "SKILL" and len(parts) == 3:
+                entries.append(
+                    ToolAllowlistEntry(source="SKILL", skill_id=UUID(parts[1]), tool_name=parts[2])
+                )
+            elif parts[0] == "MCP" and len(parts) == 3:
+                entries.append(
+                    ToolAllowlistEntry(source="MCP", server_key=parts[1], tool_name=parts[2])
+                )
+        return entries
+
+
+SchedulePayload = Annotated[
+    ReminderPayload | SkillPlanPayload | AgentTurnPayload, Field(discriminator="kind")
 ]
 
+_PAYLOAD_ADAPTER: TypeAdapter[SchedulePayload] = TypeAdapter(SchedulePayload)
 
-class ScheduleDraftRequest(ContractModel):
-    """API-01：创建 Draft（CREATE 新建，UPDATE 绑定 base_config_version 做 CAS）。"""
+#: PayloadKind → 内部派生的 ScheduleMode；调度器/Snapshot 只读这一份映射。
+PAYLOAD_MODE: dict[PayloadKind, ScheduleMode] = {
+    PayloadKind.REMINDER: ScheduleMode.REMINDER,
+    PayloadKind.SKILL_PLAN: ScheduleMode.SKILL,
+    PayloadKind.AGENT_TURN: ScheduleMode.AGENTIC,
+}
 
-    kind: DraftKind = DraftKind.CREATE
-    mode: ScheduleMode
+
+def parse_schedule_payload(raw: object) -> SchedulePayload:
+    """载荷边界：未知 kind/形状显式失败，不做猜测或降级。"""
+    return _PAYLOAD_ADAPTER.validate_python(raw)
+
+
+def derive_schedule_mode(payload: SchedulePayload) -> ScheduleMode:
+    """`mode` 是内部派生字段，不是用户可写选项。"""
+    return PAYLOAD_MODE[PayloadKind(payload.kind)]
+
+
+class SessionTarget(RootModel[str]):
+    """`isolated | current | session:<id> | main` 的类型化字符串（design §10.8）。"""
+
+    model_config = ConfigDict(frozen=True)
+
+    root: str
+
+    @field_validator("root")
+    @classmethod
+    def _shape(cls, value: str) -> str:
+        if value in ("isolated", "current", "main"):
+            return value
+        prefix, _, session_id = value.partition(":")
+        if prefix != "session" or not session_id:
+            raise ValueError("session_target must be isolated, current, main or session:<id>")
+        try:
+            UUID(session_id)
+        except ValueError as exc:
+            raise ValueError("session_target session id must be a UUID") from exc
+        return value
+
+    @property
+    def kind(self) -> Literal["isolated", "current", "session", "main"]:
+        if self.root.startswith("session:"):
+            return "session"
+        return cast(
+            Literal["isolated", "current", "session", "main"],
+            self.root,
+        )
+
+    @property
+    def session_id(self) -> UUID | None:
+        if not self.root.startswith("session:"):
+            return None
+        return UUID(self.root.partition(":")[2])
+
+    def __str__(self) -> str:
+        return self.root
+
+
+class DeliveryPlan(ContractModel):
+    """结果去哪：只有 NONE 与 PUSH；Web pull 不是投递意图（design §10.2 / §10.13）。"""
+
+    intent: DeliveryIntent = DeliveryIntent.NONE
+    #: PUSH 的冻结目标；NONE 不得携带（否则等于承诺一条不存在的投递）。
+    route: DeliveryRouteInput | None = None
+
+    @model_validator(mode="after")
+    def _target_shape(self) -> Self:
+        push = self.intent is DeliveryIntent.PUSH
+        if push != (self.route is not None):
+            raise ValueError("delivery.route must be present exactly when intent is PUSH")
+        return self
+
+
+class ToolPolicy(ContractModel):
+    """per-job 工具面；空/`*` = 跟随 owner（design §10.9）。"""
+
+    tools_allow: list[str] = Field(default_factory=lambda: ["*"], max_length=64)
+
+    @field_validator("tools_allow")
+    @classmethod
+    def _tools_shape(cls, value: list[str]) -> list[str]:
+        entries = [entry.strip() for entry in value]
+        if any(not entry for entry in entries):
+            raise ValueError("tools_allow entries must be non-empty")
+        if len(set(entries)) != len(entries):
+            raise ValueError("tools_allow entries must be unique")
+        if "*" in entries and len(entries) > 1:
+            raise ValueError("tools_allow '*' cannot be combined with explicit tools")
+        return entries
+
+    @property
+    def follows_owner(self) -> bool:
+        return self.tools_allow == ["*"]
+
+
+class SchedulePlan(ContractModel):
+    """一次定时任务的可执行配置：payload + session + delivery，`mode` 只读派生。"""
+
+    payload: SchedulePayload
+    session_target: SessionTarget = Field(default_factory=lambda: SessionTarget("isolated"))
+    delivery: DeliveryPlan = Field(default_factory=DeliveryPlan)
+
+    @property
+    def derived_mode(self) -> ScheduleMode:
+        return derive_schedule_mode(self.payload)
+
+    def resolved_tools(self) -> ToolPolicy:
+        """AGENT_TURN 的工具面来自 payload；无模型载荷没有工具。"""
+        if isinstance(self.payload, AgentTurnPayload):
+            return ToolPolicy(tools_allow=self.payload.tools_allow or ["*"])
+        return ToolPolicy(tools_allow=[])
+
+
+class ScheduleJob(SchedulePlan):
+    """Job 的权威配置形状：schedule + plan；创建后由不可变 Revision 冻结。"""
+
     #: 用户原始自然语言，原样保留。
     instruction: str = Field(min_length=1, max_length=4000)
     recurrence: Recurrence
     context: DraftContext = Field(default_factory=DraftContext)
-    execution_spec: ModeExecutionSpec
-    delivery_intent: DeliveryIntent = DeliveryIntent.NONE
-    #: PUSH 的冻结目标（创建时的那一个会话）：缺失即无法兑现投递承诺，Worker 显式拒绝。
-    #: 它是投递事实而不是用户配置，但仍随 Draft 一起确认——用户确认的就是"结果回到这个会话"。
-    delivery_route: DeliveryRouteInput | None = None
     #: 展示名；CREATE 可空（确认时必填或由 instruction 派生），UPDATE 缺省沿用原名。
     name: str | None = Field(default=None, min_length=1, max_length=160)
+
+
+class ScheduleDraftRequest(ScheduleJob):
+    """API-01：创建 Draft（CREATE 新建，UPDATE 绑定 base_config_version 做 CAS）。"""
+
+    kind: DraftKind = DraftKind.CREATE
     base_schedule_id: UUID | None = None
     base_config_version: int | None = Field(default=None, ge=1)
 
     @model_validator(mode="after")
-    def _delivery_target_shape(self) -> Self:
-        """PUSH 恰好带一个投递目标；NONE 不得携带（否则等于偷偷承诺一条不存在的投递）。"""
-        push = self.delivery_intent is DeliveryIntent.PUSH
-        if push != (self.delivery_route is not None):
-            raise ValueError("delivery_route must be present exactly when delivery_intent is PUSH")
-        return self
-
-    @model_validator(mode="after")
-    def _mode_and_kind_shape(self) -> Self:
-        if self.execution_spec.mode != self.mode.value:
-            raise ValueError("execution_spec.mode must match request mode")
+    def _kind_shape(self) -> Self:
         update = self.kind is DraftKind.UPDATE
         if update != (self.base_schedule_id is not None):
             raise ValueError("UPDATE requires base_schedule_id; CREATE forbids it")
@@ -247,11 +431,17 @@ class ScheduleDiffEntry(ContractModel):
 class SchedulePreview(ContractModel):
     """确认卡片上的事实：做什么、何时、在哪看、依赖、预算（UPDATE 另带前后差异）。"""
 
+    #: 内部派生展示值；用户输入的只有 payload。
     mode: ScheduleMode
+    payload: SchedulePayload
+    session_target: SessionTarget
     what: str = Field(min_length=1)
     when: str = Field(min_length=1)
     first_fire_at: AwareDatetime
     delivery: DeliveryIntent
+    tools_allow: list[str] = Field(default_factory=list)
+    #: 预算来源：`PLATFORM` = 平台设置；`NONE` = 该 payload 不消费模型预算。
+    budget_source: Literal["PLATFORM", "NONE"] = "NONE"
     dependencies: list[str] = Field(default_factory=list)
     budget: dict[str, Any] = Field(default_factory=dict)
     #: 只有 UPDATE Draft 才有：CREATE 没有「之前」，空列表就是「没有旧配置可比」。
@@ -332,8 +522,12 @@ class ScheduleDetail(ScheduleListItem):
     instruction: str
     normalized_goal: str
     context: DraftContext
+    payload: SchedulePayload
+    session_target: SessionTarget
     dependencies: list[str] = Field(default_factory=list)
     delivery_intent: DeliveryIntent
+    tools_allow: list[str] = Field(default_factory=list)
+    budget_source: Literal["PLATFORM", "NONE"] = "NONE"
     policy: SchedulePolicy
     budget: AgenticBudget | None = None
     memory_mode: MemoryMode | None = None
@@ -956,9 +1150,10 @@ class TaskExecutionSnapshotV4(ContractModel):
 
 __all__ = [
     "AgenticBudget",
-    "AgenticExecutionSpec",
+    "AgentTurnPayload",
     "AsyncWaitPayload",
     "ConfirmScope",
+    "DeliveryPlan",
     "DraftContext",
     "DstEvent",
     "ExecutionDetail",
@@ -967,14 +1162,14 @@ __all__ = [
     "HumanRespondRequest",
     "HumanRespondResponse",
     "LastFireSummary",
-    "ModeExecutionSpec",
     "OperationWatermark",
+    "PAYLOAD_MODE",
     "PendingAttentionItem",
     "PendingHumanItem",
     "PendingItem",
     "PendingPage",
     "Recurrence",
-    "ReminderExecutionSpec",
+    "ReminderPayload",
     "ScheduleActionRequest",
     "ScheduleDetail",
     "ScheduleDraftConfirmRequest",
@@ -982,10 +1177,15 @@ __all__ = [
     "ScheduleDraftRequest",
     "ScheduleDraftResponse",
     "ScheduleDiffEntry",
+    "ScheduleJob",
     "ScheduleListItem",
+    "SchedulePayload",
+    "SchedulePlan",
     "SchedulePolicy",
     "SchedulePreview",
-    "SkillExecutionSpec",
+    "ScheduleWindow",
+    "SessionTarget",
+    "SkillPlanPayload",
     "SNAPSHOT_HASH_PATTERN",
     "TaskArtifactRef",
     "TaskArtifactWriteRequest",
@@ -1000,6 +1200,9 @@ __all__ = [
     "TaskToolOperationOwner",
     "TaskToolOperationSubmitRequest",
     "ToolAllowlistEntry",
+    "ToolPolicy",
+    "derive_schedule_mode",
+    "parse_schedule_payload",
     "FORBIDDEN_SNAPSHOT_KEYS",
     "SCHEDULE_SNAPSHOT_SCHEMA_VERSION",
     "SnapshotAgent",

@@ -107,7 +107,7 @@ async def seed_schedule(
             recurrence_kind="CRON",
             cron_expr="0 9 * * *",
             timezone=TZ,
-            execution_spec={"mode": "REMINDER", "reminder_text": "开会"},
+            payload_kind="REMINDER", payload_json={"kind": "REMINDER", "text": "开会"},
             delivery_intent=intent,
             delivery_route_id=route_id,
             created_by=owner,
@@ -129,7 +129,7 @@ async def scheduled_execution(
         schedule_id=schedule.id,
         schedule_revision_id=revision.id,
         trigger_type="SCHEDULED",
-        input_json={"mode": "REMINDER", "reminder_text": "开会"},
+        input_json={"kind": "REMINDER", "mode": "REMINDER", "text": "开会"},
         **overrides,
     )
 

@@ -1,4 +1,4 @@
-"""API-01：创建可预览、无副作用的 Schedule Draft（design §2.3.3 / §3.3.4 / §3.5.4）。
+"""API-01：创建可预览、无副作用的 Schedule Draft（design §2.3.3 / §3.3.4 / §10.2）。
 
 三条硬约束：
 
@@ -6,11 +6,14 @@
    UPDATE 还要复核目标 Schedule 的 owner/agent，跨用户/跨租户一律 404（不暴露存在性）。
 2. **无副作用**：Preflight 只做静态可执行性校验（复用 Admission 的依赖解析与失败分类），
    本模块只写一条 PENDING Draft；不建 ACTIVE Schedule，不建 Fire/Execution/Delivery。
-   确认与生效是另一个入口（API-27 / TASK-012）。
-3. **可预览、可重放**：`draft_hash` 是规范化 JSON 的 SHA-256，覆盖 mode/recurrence/context/
-   execution_spec/delivery_intent；预览给出做什么、何时、时区、首次触发、在哪看、依赖与预算。
+   确认与生效是另一个入口（API-27）。
+3. **可预览、可重放**：`draft_hash` 是规范化 JSON 的 SHA-256，覆盖 payload/session/delivery/
+   recurrence/context；预览给出做什么、何时、时区、首次触发、在哪看、依赖与预算。
 
-`delivery_intent` 是 Schedule 的显式选择，独立于创建入口：PUSH 必须带一条当前用户的有效
+用户与模型只选择 **payload**（REMINDER / SKILL_PLAN / AGENT_TURN），`mode` 是服务端内部
+派生字段；`session_target` 决定上下文，`delivery` 决定结果去哪，两者分离。
+
+`delivery.intent` 是 Schedule 的显式选择，独立于创建入口：PUSH 必须带一条当前用户的有效
 出站路由，NONE 只读任务中心；入口通道只作来源元数据，不决定也不限制投递目标。
 """
 
@@ -28,19 +31,22 @@ from zoneinfo import ZoneInfo
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import (
-    AgenticExecutionSpec,
+    AgentTurnPayload,
     DeliveryIntent,
     DraftKind,
     DraftStatus,
     RecurrenceKind,
-    ReminderExecutionSpec,
+    ReminderPayload,
     ScheduleAdmissionMaterials,
     ScheduleAdmissionRequest,
     ScheduleDraftRequest,
+    SchedulePayload,
     ScheduleToolMaterials,
-    SkillExecutionSpec,
+    SkillPlanPayload,
     ToolAllowlistEntry,
     canonical_json,
+    derive_schedule_mode,
+    parse_schedule_payload,
 )
 from muad_contracts.enums import OUTBOUND_CHANNELS
 from muad_contracts.platform_settings import PlatformSettings
@@ -52,7 +58,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..infrastructure.models.task import TaskSchedule, TaskScheduleDraft, TaskScheduleRevision
 from ..scheduler.client import ScheduleMaterialsError, ScheduleMaterialsProtocol
 from ..scheduler.recurrence import RecurrenceRule, build_rule, initial_fire_at, next_slot
-from ..scheduler.templates import ALLOWED_VARIABLES, VARIABLE_PATTERN, validate_input_template
+from ..scheduler.templates import (
+    ALLOWED_VARIABLES,
+    VARIABLE_PATTERN,
+    validate_input_template,
+)
 from .schedule_admission import REPAIR_ACTIONS, allowlist_key, classify_failure
 from .schedule_quota import ScheduleQuota, ensure_min_interval, ensure_schedule_capacity
 
@@ -61,6 +71,10 @@ DRAFT_STATUS_PENDING = str(DraftStatus.PENDING)
 
 #: 授权类失败（其余永久失败一律按「依赖缺失」上报，精确原因走 `data.admission_code`）。
 _GRANT_ADMISSION_CODES = frozenset({"GRANT_REVOKED", "TOOL_REVOKED"})
+
+#: 预算来源：AGENT_TURN 只引用平台设置；其它 payload 不消费模型预算。
+BUDGET_SOURCE_PLATFORM = "PLATFORM"
+BUDGET_SOURCE_NONE = "NONE"
 
 #: Secret 形状：只判类别，绝不回显命中内容。
 _SECRET_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
@@ -72,7 +86,15 @@ _SECRET_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
 )
 
 #: UPDATE 预览的差异字段：只比配置事实，不比运行时进度。
-DIFF_FIELDS = ("name", "mode", "delivery_intent", "recurrence", "context", "execution_spec")
+DIFF_FIELDS = (
+    "name",
+    "payload",
+    "session_target",
+    "delivery_intent",
+    "tools",
+    "recurrence",
+    "context",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,13 +115,14 @@ class PreflightResult:
     delivery: DeliveryIntent
     dependencies: tuple[str, ...] = ()
     budget: dict[str, Any] = field(default_factory=dict)
+    budget_source: str = BUDGET_SOURCE_NONE
 
 
 def draft_payload(body: ScheduleDraftRequest, *, delivery: DeliveryIntent | None = None) -> dict[str, Any]:
     """Draft 的规范载荷：`draft_hash` 与 `payload_json` 是同一份事实。"""
     payload = body.model_dump(mode="json")
     if delivery is not None:
-        payload["delivery_intent"] = str(delivery)
+        payload["delivery"]["intent"] = str(delivery)
     return payload
 
 
@@ -107,6 +130,25 @@ def schedule_draft_hash(payload: Mapping[str, Any]) -> str:
     """canonical JSON（键序无关）的 sha256；与 `draft_hash` 列 CHECK 同格式。"""
     canonical = canonical_json(dict(payload))
     return DRAFT_HASH_PREFIX + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _normalize_plan_envelope(raw: Mapping[str, Any]) -> dict[str, Any]:
+    """允许 `plan` 直接作为 SchedulePlan 对象提交（契约 §10.11 的入参形状）。"""
+    data = dict(raw)
+    plan = data.pop("plan", None)
+    if plan is None:
+        return data
+    if any(key in data for key in ("payload", "session_target", "delivery")):
+        raise AppError(
+            ErrorCode.SCHEDULE_DRAFT_INVALID,
+            data={"reason": "PLAN_ENVELOPE_CONFLICT", "fields": ["plan"]},
+        )
+    if not isinstance(plan, Mapping):
+        raise AppError(
+            ErrorCode.SCHEDULE_DRAFT_INVALID, data={"reason": "PLAN_ENVELOPE_INVALID"}
+        )
+    data.update(plan)
+    return data
 
 
 def parse_draft_request(raw: Mapping[str, Any]) -> ScheduleDraftRequest:
@@ -117,7 +159,7 @@ def parse_draft_request(raw: Mapping[str, Any]) -> ScheduleDraftRequest:
         # 服务器时区不是答案（E-01）：宁可直接问用户要 IANA 时区。
         raise AppError(ErrorCode.SCHEDULE_TIMEZONE_REQUIRED)
     try:
-        return ScheduleDraftRequest.model_validate(dict(raw))
+        return ScheduleDraftRequest.model_validate(_normalize_plan_envelope(raw))
     except ValidationError as exc:
         errors = exc.errors()
         # 模型级校验（跨字段）没有字段路径：`loc` 可能是空元组，不能下标取。
@@ -156,12 +198,12 @@ def secret_category(value: Any) -> str | None:
 
 
 def scan_draft_secrets(body: ScheduleDraftRequest) -> None:
-    """instruction/context/execution_spec 不落 Secret：命中即明确拒绝（design §3.5.13）。"""
+    """instruction/context/payload 不落 Secret：命中即明确拒绝（design §3.5.13）。"""
     fields = {
         "instruction": body.instruction,
         "name": body.name,
         "context": body.context.model_dump(mode="json"),
-        "execution_spec": body.execution_spec.model_dump(mode="json"),
+        "payload": body.payload.model_dump(mode="json"),
     }
     for name, value in fields.items():
         category = secret_category(value)
@@ -179,7 +221,7 @@ def resolve_delivery_intent(requested: DeliveryIntent) -> DeliveryIntent:
 
 def ensure_delivery_target(body: ScheduleDraftRequest) -> None:
     """PUSH 的 route 必须是本平台可出站通道；是否属于本用户/Agent 在确认边界复核。"""
-    route = body.delivery_route
+    route = body.delivery.route
     if route is None:
         return
     if route.channel not in OUTBOUND_CHANNELS:
@@ -230,28 +272,20 @@ def check_min_interval(rule: RecurrenceRule, first_fire_at: datetime, quota: Sch
     ensure_min_interval(occurrences, quota=quota)
 
 
-def check_agentic_shape(body: ScheduleDraftRequest) -> None:
-    """AGENTIC 必须有非空 allowlist（design §2.3.3）；空 allowlist 等于要求任意工具。"""
-    spec = body.execution_spec
-    if isinstance(spec, AgenticExecutionSpec) and not spec.tool_allowlist:
-        raise AppError(
-            ErrorCode.SCHEDULE_PARAMETER_INCOMPLETE, data={"fields": ["execution_spec.tool_allowlist"]}
-        )
-
-
 def _unknown_template_variables(template: Mapping[str, Any]) -> list[str]:
     found = set(VARIABLE_PATTERN.findall(canonical_json(dict(template))))
     return sorted(name for name in found if name not in ALLOWED_VARIABLES)
 
 
-def check_skill_template(spec: SkillExecutionSpec) -> None:
-    """P0 只校验模板语法/变量，不虚构 input_schema，也不提前执行业务（§2.3.3）。"""
+def check_skill_plan(payload: SkillPlanPayload) -> None:
+    """只校验模板语法/变量，不虚构 input_schema，也不提前执行业务（§2.3.3）。"""
+    template = {"input": payload.input, "argv": list(payload.argv)}
     try:
-        validate_input_template(spec.input_template)
+        validate_input_template(template)
     except AppError as exc:
         raise AppError(
             ErrorCode.SCHEDULE_PARAMETER_INCOMPLETE,
-            data={"unknown_variables": _unknown_template_variables(spec.input_template)},
+            data={"unknown_variables": _unknown_template_variables(template)},
         ) from exc
 
 
@@ -263,13 +297,12 @@ def _tool_matches(entry: ToolAllowlistEntry, tool: ScheduleToolMaterials) -> boo
     return bool(tool.skill_id == entry.skill_id)
 
 
-def check_mode_materials(
-    body: ScheduleDraftRequest, materials: ScheduleAdmissionMaterials
+def check_plan_materials(
+    payload: SchedulePayload, materials: ScheduleAdmissionMaterials
 ) -> tuple[str, ...]:
-    """按模式核对已解析的材料，返回预览用的依赖摘要。"""
-    spec = body.execution_spec
-    if isinstance(spec, SkillExecutionSpec):
-        skill = next((item for item in materials.skills if item.skill_id == spec.skill_id), None)
+    """按 payload 核对已解析的材料，返回预览用的依赖摘要。"""
+    if isinstance(payload, SkillPlanPayload):
+        skill = next((item for item in materials.skills if item.skill_id == payload.skill_id), None)
         if skill is None:
             raise AppError(
                 ErrorCode.SCHEDULE_DEPENDENCY_MISSING,
@@ -278,12 +311,13 @@ def check_mode_materials(
                     "repair": REPAIR_ACTIONS["SKILL_MISSING"],
                 },
             )
-        check_skill_template(spec)
+        check_skill_plan(payload)
         return (f"SKILL:{skill.skill_id}:{skill.key}",)
-    if isinstance(spec, AgenticExecutionSpec):
+    if isinstance(payload, AgentTurnPayload):
+        entries = payload.allowlist_entries()
         missing = [
             allowlist_key(entry)
-            for entry in spec.tool_allowlist
+            for entry in entries
             if not any(_tool_matches(entry, tool) for tool in materials.tools)
         ]
         if missing:
@@ -295,7 +329,7 @@ def check_mode_materials(
                     "dependencies": missing,
                 },
             )
-        return tuple(allowlist_key(entry) for entry in spec.tool_allowlist)
+        return tuple(allowlist_key(entry) for entry in entries)
     return ()
 
 
@@ -335,16 +369,17 @@ class ScheduleDraftPreflight:
         rule = recurrence_rule(body)
         first_fire_at = _first_fire(rule, self._now)
         check_min_interval(rule, first_fire_at, self._quota)
-        delivery = resolve_delivery_intent(body.delivery_intent)
+        delivery = resolve_delivery_intent(body.delivery.intent)
         ensure_delivery_target(body)
-        check_agentic_shape(body)
         materials = await self._materials(body, identity)
-        dependencies = check_mode_materials(body, materials)
+        dependencies = check_plan_materials(body.payload, materials)
+        source = budget_source(body.payload)
         return PreflightResult(
             first_fire_at=first_fire_at,
             delivery=delivery,
             dependencies=dependencies,
             budget=_budget(body),
+            budget_source=source,
         )
 
     async def _materials(
@@ -356,33 +391,37 @@ class ScheduleDraftPreflight:
                 ErrorCode.SCHEDULE_ADMISSION_FAILED,
                 data={"admission_code": "RESOLVE_UNAVAILABLE", "repair": "RETRY_LATER"},
             )
-        spec = body.execution_spec
-        payload = ScheduleAdmissionRequest(
+        payload = body.payload
+        request = ScheduleAdmissionRequest(
             agent_id=identity.agent_id,
             actor_user_id=identity.owner_user_id,
-            mode=body.mode,
-            skill_id=spec.skill_id if isinstance(spec, SkillExecutionSpec) else None,
-            tool_allowlist=list(spec.tool_allowlist) if isinstance(spec, AgenticExecutionSpec) else [],
+            mode=derive_schedule_mode(payload),
+            skill_id=payload.skill_id if isinstance(payload, SkillPlanPayload) else None,
+            tool_allowlist=(
+                payload.allowlist_entries() if isinstance(payload, AgentTurnPayload) else []
+            ),
         )
         try:
-            return await self._client.resolve_schedule_materials(identity.tenant_id, payload)
+            return await self._client.resolve_schedule_materials(identity.tenant_id, request)
         except ScheduleMaterialsError as exc:
             raise materials_error(exc) from exc
 
 
+def budget_source(payload: SchedulePayload) -> str:
+    return BUDGET_SOURCE_PLATFORM if isinstance(payload, AgentTurnPayload) else BUDGET_SOURCE_NONE
+
+
 def _budget(body: ScheduleDraftRequest) -> dict[str, Any]:
-    spec = body.execution_spec
-    if isinstance(spec, AgenticExecutionSpec):
-        return spec.budget.model_dump(mode="json")
+    """具体数值在 admission 时从 PlatformSettings 解析；Draft 阶段不写猜测值。"""
     return {}
 
 
 def draft_what(body: ScheduleDraftRequest) -> str:
-    spec = body.execution_spec
-    if isinstance(spec, ReminderExecutionSpec):
-        return spec.reminder_text
-    if isinstance(spec, AgenticExecutionSpec):
-        return spec.goal
+    payload = body.payload
+    if isinstance(payload, ReminderPayload):
+        return payload.text
+    if isinstance(payload, AgentTurnPayload):
+        return payload.prompt
     return body.instruction
 
 
@@ -411,6 +450,14 @@ def _config_context(value: Any) -> Any:
     return {key: item for key, item in value.items() if key != "source"}
 
 
+def _payload_tools(value: Any) -> dict[str, Any]:
+    """从 payload 派生工具面：AGENT_TURN 空列表 = 跟随 owner；其它 kind 没有工具。"""
+    payload = parse_schedule_payload(value)
+    if isinstance(payload, AgentTurnPayload):
+        return {"tools_allow": list(payload.tools_allow) or ["*"]}
+    return {"tools_allow": []}
+
+
 def update_diff(
     payload: Mapping[str, Any], *, schedule: TaskSchedule, revision: TaskScheduleRevision | None
 ) -> list[dict[str, Any]]:
@@ -420,8 +467,10 @@ def update_diff(
     after = payload.get("recurrence") or {}
     before: dict[str, Any] = {
         "name": schedule.name,
-        "mode": revision.mode,
+        "payload": revision.payload_json,
+        "session_target": revision.session_target,
         "delivery_intent": revision.delivery_intent,
+        "tools": revision.tools_policy_json,
         "recurrence": {
             "kind": revision.recurrence_kind,
             "cron": revision.cron_expr,
@@ -429,12 +478,13 @@ def update_diff(
             "timezone": revision.timezone,
         },
         "context": _config_context(revision.context_json),
-        "execution_spec": revision.execution_spec,
     }
     current: dict[str, Any] = {
         "name": payload.get("name") or schedule.name,
-        "mode": payload.get("mode"),
-        "delivery_intent": payload.get("delivery_intent"),
+        "payload": payload.get("payload"),
+        "session_target": payload.get("session_target"),
+        "delivery_intent": (payload.get("delivery") or {}).get("intent"),
+        "tools": _payload_tools(payload.get("payload")),
         "recurrence": {
             "kind": after.get("kind"),
             "cron": after.get("cron"),
@@ -442,7 +492,6 @@ def update_diff(
             "timezone": after.get("timezone"),
         },
         "context": _config_context(payload.get("context")),
-        "execution_spec": payload.get("execution_spec"),
     }
     return [
         {"field": name, "before": before[name], "after": current[name]}
@@ -457,13 +506,18 @@ def build_preview(
     *,
     diff: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """确认卡片数据：做什么、何时、时区、首次触发、在哪看、依赖、预算（+ UPDATE 差异）。"""
+    """确认卡片数据：payload/session/投递/工具/预算来源 + 何时、首次触发、依赖。"""
+    tools = body.resolved_tools()
     preview: dict[str, Any] = {
-        "mode": str(body.mode),
+        "mode": str(derive_schedule_mode(body.payload)),
+        "payload": body.payload.model_dump(mode="json"),
+        "session_target": str(body.session_target),
         "what": draft_what(body),
         "when": draft_when(body, result.first_fire_at),
         "first_fire_at": result.first_fire_at.isoformat(),
         "delivery": str(result.delivery),
+        "tools_allow": list(tools.tools_allow),
+        "budget_source": result.budget_source,
         "dependencies": list(result.dependencies),
         "budget": dict(result.budget),
     }
@@ -635,6 +689,8 @@ class ScheduleDraftService:
 
 
 __all__ = [
+    "BUDGET_SOURCE_NONE",
+    "BUDGET_SOURCE_PLATFORM",
     "DIFF_FIELDS",
     "DRAFT_HASH_PREFIX",
     "DRAFT_STATUS_PENDING",
@@ -642,10 +698,11 @@ __all__ = [
     "PreflightResult",
     "ScheduleDraftPreflight",
     "ScheduleDraftService",
+    "budget_source",
     "build_preview",
-    "check_agentic_shape",
     "check_min_interval",
-    "check_mode_materials",
+    "check_plan_materials",
+    "check_skill_plan",
     "draft_payload",
     "draft_response",
     "draft_what",

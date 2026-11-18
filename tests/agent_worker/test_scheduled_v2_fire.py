@@ -116,21 +116,22 @@ class Seeded:
     owner_user_id: uuid.UUID
 
 
-def execution_spec_for(mode: str, *, skill_id: uuid.UUID = SKILL, input_template=None) -> dict[str, Any]:
+def payload_for(mode: str, *, skill_id: uuid.UUID = SKILL, input_template=None) -> dict[str, Any]:
     if mode == "REMINDER":
-        return {"mode": "REMINDER", "reminder_text": "开会"}
+        return {"kind": "REMINDER", "text": "开会"}
     if mode == "SKILL":
         return {
-            "mode": "SKILL",
+            "kind": "SKILL_PLAN",
             "skill_id": str(skill_id),
-            "input_template": input_template or {"report_day": "{{previous_day}}"},
+            "input": input_template or {"report_day": "{{previous_day}}"},
+            "argv": [],
+            "window": {"kind": "DAY", "offset": -1},
         }
     return {
-        "mode": "AGENTIC",
-        "goal": "检查一次",
-        "tool_allowlist": [],
-        "output_contract": {},
-        "budget": {"max_steps": 4, "max_tool_calls": 4, "max_tokens": 0},
+        "kind": "AGENT_TURN",
+        "prompt": "检查一次",
+        "tools_allow": [],
+        "budget_ref": "platform",
     }
 
 
@@ -148,7 +149,7 @@ async def seed(
     next_fire_at: datetime | None = None,
     occurrence_count: int = 0,
     schedule_policy: dict[str, Any] | None = None,
-    execution_spec: dict[str, Any] | None = None,
+    payload: dict[str, Any] | None = None,
     status: str = "ACTIVE",
     context: dict[str, Any] | None = None,
 ) -> Seeded:
@@ -186,7 +187,8 @@ async def seed(
                 timezone=timezone,
                 schedule_policy=schedule_policy or {},
                 context_json=context or {},
-                execution_spec=execution_spec or execution_spec_for(mode),
+                payload_kind={"REMINDER": "REMINDER", "SKILL": "SKILL_PLAN", "AGENTIC": "AGENT_TURN"}[mode],
+                payload_json=payload or payload_for(mode),
                 delivery_intent="NONE",
                 preflight_json={},
                 created_by=owner,
@@ -307,9 +309,13 @@ async def test_fire_freezes_execution_and_advances_progress(tenant: TenantContex
     assert execution.snapshot_hash.startswith("sha256:") and execution.snapshot_bytes > 0
     assert "sk-" not in str(execution.execution_snapshot_json)
     assert execution.input_json == {
+        "kind": "SKILL_PLAN",
         "mode": "SKILL",
+        "session_target": "isolated",
         "skill_id": str(SKILL),
         "input": {"report_day": "2026-03-07"},
+        "argv": [],
+        "window": {"kind": "DAY", "offset": -1},
         "context": {},
     }
 
@@ -351,7 +357,7 @@ async def test_reminder_and_agentic_executions_bind_no_skill(
 ) -> None:
     """只有 SKILL 模式绑定 Skill 列；REMINDER/AGENTIC 的 task_type 就是各自模式。"""
     seeded = await seed(
-        tenant, mode=mode, next_fire_at=SLOT, execution_spec=execution_spec_for(mode)
+        tenant, mode=mode, next_fire_at=SLOT, payload=payload_for(mode)
     )
     materials = make_materials(mode=ScheduleMode(mode), skill_id=SKILL)
     loop = loop_for(tenant, MaterialsClient(materials))
@@ -396,7 +402,8 @@ async def test_fire_identity_ignores_revision_and_never_executes_twice(
                 timezone=SHANGHAI,
                 schedule_policy={},
                 context_json={},
-                execution_spec=execution_spec_for("SKILL"),
+                payload_kind="SKILL_PLAN",
+                payload_json=payload_for("SKILL"),
                 delivery_intent="NONE",
                 preflight_json={},
                 created_by=seeded.owner_user_id,

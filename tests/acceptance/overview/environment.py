@@ -341,7 +341,14 @@ async def _insert_task_rows(
                         delivery_intent="NONE",
                         schedule_policy={},
                         context_json={},
-                        execution_spec={"mode": "SKILL", "skill_id": str(uuid.uuid4())},
+                        payload_kind="SKILL_PLAN",
+                        payload_json={
+                "kind": "SKILL_PLAN",
+                "skill_id": str(uuid.uuid4()),
+                "input": {},
+                "argv": [],
+                "window": {"kind": "DAY", "offset": 0},
+            },
                         preflight_json={},
                         created_by=actor_id,
                     )

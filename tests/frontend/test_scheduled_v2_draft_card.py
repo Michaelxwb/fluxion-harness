@@ -161,10 +161,20 @@ const draftOf = (overrides = {}) => ({
   mode: 'AGENTIC',
   preview: {
     mode: 'AGENTIC',
+    payload: {
+      kind: 'AGENT_TURN',
+      prompt: WHAT_TEXT,
+      model_ref: null,
+      tools_allow: [],
+      budget_ref: 'platform'
+    },
+    session_target: 'isolated',
     what: WHAT_TEXT,
     when: WHEN_TEXT,
     first_fire_at: FIRST_FIRE,
     delivery: 'NONE',
+    tools_allow: [],
+    budget_source: 'PLATFORM',
     dependencies: [DEPENDENCY],
     budget: { max_steps: 3, max_tool_calls: 5, max_tokens: 1024 },
     diff: []
@@ -615,10 +625,20 @@ const createDraft = {
   mode: 'AGENTIC',
   preview: {
     mode: 'AGENTIC',
+    payload: {
+      kind: 'AGENT_TURN',
+      prompt: WHAT_TEXT,
+      model_ref: null,
+      tools_allow: [],
+      budget_ref: 'platform'
+    },
+    session_target: 'isolated',
     what: WHAT_TEXT,
     when: WHEN_TEXT,
     first_fire_at: FIRST_FIRE,
     delivery: 'NONE',
+    tools_allow: [],
+    budget_source: 'PLATFORM',
     dependencies: [DEPENDENCY],
     budget: { max_steps: 3, max_tool_calls: 5, max_tokens: 1024 },
     diff: []

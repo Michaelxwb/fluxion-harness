@@ -13,8 +13,7 @@ from typing import Any
 import pytest
 from muad_api.error_codes import ErrorCode
 from muad_contracts import (
-    AgenticBudget,
-    AgenticExecutionSpec,
+    AgentTurnPayload,
     AsyncWaitPayload,
     CancelScope,
     ConfirmationSurface,
@@ -31,16 +30,17 @@ from muad_contracts import (
     PendingAttentionItem,
     PendingPage,
     Recurrence,
-    ReminderExecutionSpec,
+    ReminderPayload,
     RuntimeExecutionRef,
     ScheduleActionRequest,
     ScheduleDraftConfirmRequest,
     ScheduleDraftRequest,
     ScheduleEndReason,
     ScheduleMode,
+    SchedulePlan,
     SchedulePolicy,
     ScheduleStatus,
-    SkillExecutionSpec,
+    SkillPlanPayload,
     TaskArtifactRef,
     TaskArtifactWriteRequest,
     TaskCapacityOwner,
@@ -51,6 +51,7 @@ from muad_contracts import (
     TaskToolOperationSubmitRequest,
     TaskType,
     WaitKind,
+    derive_schedule_mode,
 )
 from muad_contracts.model_pool import (
     MemoryJobCallOwner,
@@ -69,15 +70,13 @@ HASH = "sha256:" + "a" * 64
 
 def _draft(**overrides: Any) -> dict[str, Any]:
     payload: dict[str, Any] = {
-        "mode": "AGENTIC",
         "instruction": "每周一 9 点给 A 客户发周报",
         "recurrence": {"kind": "CRON", "cron": "0 9 * * 1", "timezone": "Asia/Shanghai"},
         "context": {"parameters": {"customer": "A"}},
-        "execution_spec": {
-            "mode": "AGENTIC",
-            "goal": "汇总 A 客户上周数据",
-            "tool_allowlist": [{"source": "MCP", "server_key": "crm", "tool_name": "customer.report"}],
-            "budget": {"max_steps": 12, "max_tool_calls": 20},
+        "payload": {
+            "kind": "AGENT_TURN",
+            "prompt": "汇总 A 客户上周数据",
+            "tools_allow": ["MCP:crm:customer.report"],
         },
     }
     payload.update(overrides)
@@ -161,13 +160,16 @@ class TestScheduleDraftRequest:
         )
         assert request.base_config_version == 3
 
-    def test_execution_spec_mode_must_match(self) -> None:
+    def test_payload_kind_is_the_only_execution_selector(self) -> None:
+        """`mode` 不是用户选项：出现即拒绝，派生值只来自 payload.kind。"""
         with pytest.raises(ValidationError):
             ScheduleDraftRequest(**_draft(mode="SKILL"))
+        request = ScheduleDraftRequest(
+            **_draft(payload={"kind": "REMINDER", "text": "喝水"})
+        )
+        assert derive_schedule_mode(request.payload) == "REMINDER"
         with pytest.raises(ValidationError):
-            ScheduleDraftRequest(
-                **_draft(execution_spec={"mode": "REMINDER", "reminder_text": "喝水"})
-            )
+            ScheduleDraftRequest(**_draft(payload={"kind": "REPORT"}))
 
     def test_unknown_extra_field_is_rejected(self) -> None:
         with pytest.raises(ValidationError):
@@ -177,35 +179,23 @@ class TestScheduleDraftRequest:
         with pytest.raises(ValidationError):
             ScheduleDraftRequest(**_draft(context={"parameters": {"budget": float("nan")}}))
 
-    def test_agentic_tool_allowlist_source_shape(self) -> None:
+    def test_agent_turn_tool_policy_shape(self) -> None:
+        payload = AgentTurnPayload(prompt="g", tools_allow=["MCP:crm:customer.report"])
+        assert payload.allowlist_entries()[0].server_key == "crm"
         with pytest.raises(ValidationError):
-            AgenticExecutionSpec(
-                goal="g",
-                tool_allowlist=[{"source": "MCP", "tool_name": "t"}],
-                budget=AgenticBudget(max_steps=1, max_tool_calls=1),
-            )
+            AgentTurnPayload(prompt="g", tools_allow=["*", "MCP:crm:customer.report"])
         with pytest.raises(ValidationError):
-            AgenticExecutionSpec(
-                goal="g",
-                tool_allowlist=[
-                    {"source": "SKILL", "skill_id": uuid.uuid4(), "server_key": "crm", "tool_name": "t"}
-                ],
-                budget=AgenticBudget(max_steps=1, max_tool_calls=1),
-            )
+            AgentTurnPayload(prompt="g", tools_allow=["SKILL:not-a-uuid:t"])
 
-    def test_memory_mode_is_read_only(self) -> None:
-        spec = AgenticExecutionSpec(
-            goal="g", budget=AgenticBudget(max_steps=1, max_tool_calls=1), memory_mode="READ_ONLY"
-        )
-        assert spec.memory_mode == "READ_ONLY"
+    def test_memory_mode_is_not_a_payload_option(self) -> None:
         with pytest.raises(ValidationError):
-            AgenticExecutionSpec(
-                goal="g", budget=AgenticBudget(max_steps=1, max_tool_calls=1), memory_mode="WRITE"
-            )
+            AgentTurnPayload(prompt="g", memory_mode="READ_ONLY")
 
-    def test_reminder_and_skill_specs_are_mode_tagged(self) -> None:
-        assert ReminderExecutionSpec(reminder_text="喝水").mode == "REMINDER"
-        assert SkillExecutionSpec(skill_id=uuid.uuid4()).mode == "SKILL"
+    def test_payload_kinds_are_mode_tagged(self) -> None:
+        assert ReminderPayload(text="喝水").kind == "REMINDER"
+        assert derive_schedule_mode(SkillPlanPayload(skill_id=uuid.uuid4())) == "SKILL"
+        assert derive_schedule_mode(AgentTurnPayload(prompt="g")) == "AGENTIC"
+        assert str(SchedulePlan(payload={"kind": "REMINDER", "text": "x"}).session_target) == "isolated"
 
 
 class TestConfirmAndActions:

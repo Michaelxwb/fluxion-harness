@@ -49,7 +49,7 @@ from muad_console_platform.main import app as console_app
 from muad_contracts import ScheduleAdmissionMaterials, ScheduleAdmissionRequest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from agent_worker.test_scheduled_v2_fire import SettingsClient, execution_spec_for
+from agent_worker.test_scheduled_v2_fire import SettingsClient, payload_for
 from tests.internal_service import TOKEN
 
 CONSOLE_URL = "http://console"
@@ -242,7 +242,8 @@ async def _seed(stack: TriggerStack, *, next_fire_at: datetime) -> uuid.UUID:
                 timezone="Asia/Shanghai",
                 schedule_policy={},
                 context_json={},
-                execution_spec=execution_spec_for("SKILL", skill_id=stack.skill_id),
+                payload_kind="SKILL_PLAN",
+                payload_json=payload_for("SKILL", skill_id=stack.skill_id),
                 delivery_intent="NONE",
                 preflight_json={},
                 created_by=stack.actor_user_id,

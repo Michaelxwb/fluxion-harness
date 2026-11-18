@@ -13,7 +13,7 @@ from muad_agent_core.skill import SkillExecutionStatus
 from ..infrastructure.models.task import TaskExecution
 from .executor import TaskExecutionError
 
-REMINDER_TEXT_KEY = "reminder_text"
+REMINDER_TEXT_KEY = "text"
 REMINDER_RESULT_TEXT_KEY = "text"
 
 

@@ -56,10 +56,9 @@ CONFIRM_ENDPOINT = "schedule-confirm"
 
 def reminder_body(**overrides: Any) -> dict[str, Any]:
     body: dict[str, Any] = {
-        "mode": "REMINDER",
         "instruction": "每天 8 点提醒我开会",
         "recurrence": {"kind": "CRON", "cron": "0 8 * * *", "timezone": TZ},
-        "execution_spec": {"mode": "REMINDER", "reminder_text": "开会"},
+        "payload": {"kind": "REMINDER", "text": "开会"},
     }
     body.update(overrides)
     return body
@@ -69,15 +68,13 @@ def once_body(run_at: datetime) -> dict[str, Any]:
     return reminder_body(
         instruction="2 小时后提醒我回电话",
         recurrence={"kind": "ONCE", "run_at": run_at.isoformat(), "timezone": TZ},
-        execution_spec={"mode": "REMINDER", "reminder_text": "回电话"},
+        payload={"kind": "REMINDER", "text": "回电话"},
     )
 
 
 def payload_of(body: dict[str, Any]) -> dict[str, Any]:
     """Draft 载荷与 `draft_hash` 同源：与 API-01 落库的形状一致。"""
-    payload = ScheduleDraftRequest.model_validate(body).model_dump(mode="json")
-    payload["delivery_intent"] = "NONE"
-    return payload
+    return ScheduleDraftRequest.model_validate(body).model_dump(mode="json")
 
 
 async def seed_draft(
@@ -106,11 +103,15 @@ async def seed_draft(
         draft_hash=schedule_draft_hash(payload),
         payload_json=payload,
         preview_json={
-            "mode": payload["mode"],
+            "mode": "REMINDER",
+            "payload": payload["payload"],
+            "session_target": payload["session_target"],
             "what": "开会",
             "when": f"CRON 0 8 * * * ({TZ})",
             "first_fire_at": (now + timedelta(hours=1)).isoformat(),
             "delivery": "NONE",
+            "tools_allow": [],
+            "budget_source": "NONE",
             "dependencies": [],
             "budget": {},
         },
@@ -282,7 +283,8 @@ async def test_confirm_create_writes_confirmation_schedule_revision_and_receipt_
     assert revision.normalized_goal == "开会"
     assert revision.recurrence_kind == "CRON" and revision.cron_expr == "0 8 * * *"
     assert revision.timezone == TZ
-    assert revision.execution_spec == {"mode": "REMINDER", "reminder_text": "开会"}
+    assert revision.payload_kind == "REMINDER"
+    assert revision.payload_json == {"kind": "REMINDER", "text": "开会"}
     assert revision.delivery_intent == "NONE"
     assert revision.preflight_json == draft.preview_json
 

@@ -32,15 +32,14 @@ from muad_api import AppError
 from muad_contracts import (
     SCHEDULE_SNAPSHOT_SCHEMA_VERSION,
     TASK_PROMPT_TEMPLATE_VERSION,
-    AgenticExecutionSpec,
-    ModeExecutionSpec,
-    ReminderExecutionSpec,
+    AgentTurnPayload,
+    ReminderPayload,
     ScheduleAdmissionMaterials,
     ScheduleAdmissionRequest,
     ScheduleMode,
     ScheduleSnapshotInvalid,
     ScheduleSnapshotTooLarge,
-    SkillExecutionSpec,
+    SkillPlanPayload,
     SnapshotAgent,
     SnapshotBudget,
     SnapshotGrants,
@@ -52,13 +51,15 @@ from muad_contracts import (
     ToolAllowlistEntry,
     build_schedule_snapshot,
     canonical_json,
+    derive_schedule_mode,
     frozen_retry_safety,
+    parse_schedule_payload,
     schedule_snapshot_hash,
 )
 from muad_contracts.enums import OUTBOUND_CHANNELS
 from muad_contracts.memory import MemoryCardinality, MemoryPriority, ScopeState
 from muad_contracts.platform_settings import PlatformSettings
-from pydantic import TypeAdapter, ValidationError
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.task import ScheduleFire, TaskSchedule, TaskScheduleRevision
@@ -117,7 +118,6 @@ REPAIR_ACTIONS: dict[str, str] = {
 #: 记忆 taxonomy 的版本身份（本仓所有写入点都用 1）。
 MEMORY_TAXONOMY_VERSION = 1
 SNAPSHOT_HASH_PREFIX = "sha256:"
-_EXECUTION_SPEC_ADAPTER: TypeAdapter[Any] = TypeAdapter(ModeExecutionSpec)
 
 
 @dataclass(frozen=True, slots=True)
@@ -210,44 +210,41 @@ def admission_request_from_revision(
     actor_user_id: UUID,
     deadline_at: datetime | None = None,
 ) -> AdmissionRequest:
-    """把不可变 Revision 解析成准入请求；配置结构不合法即 `SCHEMA_INCOMPATIBLE`。"""
+    """把不可变 Revision 的 payload 解析成准入请求；结构不合法即 `SCHEMA_INCOMPATIBLE`。"""
+    incompatible = AdmissionError(
+        "SCHEMA_INCOMPATIBLE", True, REPAIR_ACTIONS["SCHEMA_INCOMPATIBLE"]
+    )
     try:
-        spec = _EXECUTION_SPEC_ADAPTER.validate_python(revision.execution_spec)
+        payload = parse_schedule_payload(revision.payload_json)
     except ValidationError as exc:
-        raise AdmissionRejected(
-            AdmissionError("SCHEMA_INCOMPATIBLE", True, REPAIR_ACTIONS["SCHEMA_INCOMPATIBLE"])
-        ) from exc
-    if spec.mode != revision.mode:
-        raise AdmissionRejected(
-            AdmissionError("SCHEMA_INCOMPATIBLE", True, REPAIR_ACTIONS["SCHEMA_INCOMPATIBLE"])
-        )
+        raise AdmissionRejected(incompatible) from exc
+    mode = derive_schedule_mode(payload)
+    if payload.kind != revision.payload_kind or mode.value != revision.mode:
+        raise AdmissionRejected(incompatible)
     base: dict[str, Any] = {
         "tenant_id": tenant_id,
         "agent_id": agent_id,
         "actor_user_id": actor_user_id,
-        "mode": ScheduleMode(revision.mode),
+        "mode": mode,
         "schedule_revision_id": revision.id,
         "deadline_at": deadline_at,
         "delivery_intent": revision.delivery_intent,
     }
-    if isinstance(spec, ReminderExecutionSpec):
+    if isinstance(payload, ReminderPayload):
         return AdmissionRequest(**base)
-    if isinstance(spec, SkillExecutionSpec):
+    if isinstance(payload, SkillPlanPayload):
         try:
-            validate_input_template(spec.input_template)
+            validate_input_template({"input": payload.input, "argv": list(payload.argv)})
         except AppError as exc:
-            raise AdmissionRejected(
-                AdmissionError(
-                    "SCHEMA_INCOMPATIBLE", True, REPAIR_ACTIONS["SCHEMA_INCOMPATIBLE"]
-                )
-            ) from exc
-        return AdmissionRequest(**base, skill_id=spec.skill_id)
-    assert isinstance(spec, AgenticExecutionSpec)
+            raise AdmissionRejected(incompatible) from exc
+        return AdmissionRequest(**base, skill_id=payload.skill_id)
+    assert isinstance(payload, AgentTurnPayload)
     return AdmissionRequest(
         **base,
-        tool_allowlist=tuple(spec.tool_allowlist),
-        budget=spec.budget.model_dump(mode="json"),
-        context={"goal_hash": _canonical_hash({"goal": spec.goal})},
+        tool_allowlist=tuple(payload.allowlist_entries()),
+        # 具体预算在 admission 时从 PlatformSettings.agent 解析；payload 只引用来源。
+        budget={},
+        context={"prompt_hash": _canonical_hash({"prompt": payload.prompt})},
     )
 
 

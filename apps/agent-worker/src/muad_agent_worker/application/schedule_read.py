@@ -11,11 +11,11 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import sqlalchemy as sa
 from muad_contracts import (
-    AgenticBudget,
+    AgentTurnPayload,
     DeliveryIntent,
     DraftContext,
     DstEvent,
@@ -26,14 +26,19 @@ from muad_contracts import (
     FireItem,
     HistoryRetention,
     LastFireSummary,
+    MemoryMode,
     PendingAttentionItem,
     PendingHumanItem,
     PendingPage,
+    ReminderPayload,
     ScheduleDetail,
     ScheduleEndReason,
     ScheduleListItem,
     ScheduleMode,
+    SchedulePayload,
     SchedulePolicy,
+    SessionTarget,
+    SkillPlanPayload,
     TaskArtifactDeliveryRef,
     TaskArtifactRef,
     TaskCenterBadges,
@@ -43,6 +48,7 @@ from muad_contracts import (
     TaskStatus,
     TaskType,
     WaitKind,
+    parse_schedule_payload,
 )
 from muad_contracts.enums import ScheduleStatus
 from sqlalchemy import func, select
@@ -193,26 +199,22 @@ class DeliveryRouteScope:
     external_conversation_id: str | None = None
 
 
-def _dependencies(mode: str, execution_spec: dict[str, Any]) -> list[str]:
-    if mode == ScheduleMode.REMINDER.value:
+def _dependencies(payload: SchedulePayload) -> list[str]:
+    if isinstance(payload, ReminderPayload):
         return []
-    if mode == ScheduleMode.SKILL.value:
-        skill_id = execution_spec.get("skill_id")
-        return [f"SKILL:{skill_id}"] if skill_id else []
-    allowlist: Sequence[Any] = execution_spec.get("tool_allowlist") or []
-    return [str(entry) for entry in allowlist]
+    if isinstance(payload, SkillPlanPayload):
+        return [f"SKILL:{payload.skill_id}"]
+    return list(payload.tools_allow)
 
 
-def _budget(mode: str, execution_spec: dict[str, Any]) -> AgenticBudget | None:
-    if mode != ScheduleMode.AGENTIC.value:
-        return None
-    raw = execution_spec.get("budget")
-    if not isinstance(raw, dict):
-        return None
-    try:
-        return AgenticBudget.model_validate(raw)
-    except ValueError:
-        return None
+def _budget_source(payload: SchedulePayload) -> Literal["PLATFORM", "NONE"]:
+    """预算来源：AGENT_TURN 跟随平台设置；其余 payload 不消费模型预算。"""
+    return "PLATFORM" if isinstance(payload, AgentTurnPayload) else "NONE"
+
+
+def _tools_allow(tools_policy: dict[str, Any]) -> list[str]:
+    raw = tools_policy.get("tools_allow") if isinstance(tools_policy, dict) else None
+    return [str(entry) for entry in raw] if isinstance(raw, list) else []
 
 
 def _context(context_json: dict[str, Any]) -> DraftContext:
@@ -368,8 +370,8 @@ class ScheduleReadService:
     async def detail(self, *, schedule: TaskSchedule, revision: TaskScheduleRevision) -> ScheduleDetail:
         last = (await self._last_fires([schedule.id])).get(schedule.id)
         waiting = await self._pending_human_schedule_ids([schedule.id])
+        payload = parse_schedule_payload(revision.payload_json)
         mode = ScheduleMode(revision.mode)
-        spec = dict(revision.execution_spec or {})
         return ScheduleDetail(
             schedule_id=schedule.id,
             agent_id=schedule.agent_id,
@@ -387,11 +389,17 @@ class ScheduleReadService:
             instruction=revision.instruction_raw,
             normalized_goal=revision.normalized_goal,
             context=_context(revision.context_json or {}),
-            dependencies=_dependencies(mode.value, spec),
+            payload=payload,
+            session_target=SessionTarget(revision.session_target),
+            dependencies=_dependencies(payload),
             delivery_intent=DeliveryIntent(revision.delivery_intent),
+            tools_allow=_tools_allow(revision.tools_policy_json or {}),
+            budget_source=_budget_source(payload),
             policy=SchedulePolicy.model_validate(revision.schedule_policy or {}),
-            budget=_budget(mode.value, spec),
-            memory_mode=spec.get("memory_mode"),
+            budget=None,
+            memory_mode=(
+                MemoryMode.READ_ONLY if isinstance(payload, AgentTurnPayload) else None
+            ),
             end_reason=ScheduleEndReason(schedule.end_reason) if schedule.end_reason else None,
             attention_reason=schedule.attention_reason,
         )

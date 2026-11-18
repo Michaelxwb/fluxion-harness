@@ -27,10 +27,10 @@ from agent_worker.test_scheduled_v2_fire import (
     SLOT,
     MaterialsClient,
     SettingsClient,
-    execution_spec_for,
     fires,
     loop_for,
     materials_for,
+    payload_for,
     seed,
 )
 
@@ -82,7 +82,7 @@ async def test_fire_renders_input_template_variables_in_schedule_timezone(
         next_fire_at=fire_at,
         cron="0 1 * * *",
         timezone="Asia/Shanghai",
-        execution_spec=execution_spec_for(
+        payload=payload_for(
             "SKILL", input_template={"report_day": "{{previous_day}}", "nested": ["on {{fire_date}}"]}
         ),
         context={"output": {"format": "markdown"}},
@@ -93,14 +93,18 @@ async def test_fire_renders_input_template_variables_in_schedule_timezone(
 
     [execution] = await _executions(tenant, seeded.schedule_id)
     assert execution.input_json == {
+        "kind": "SKILL_PLAN",
         "mode": "SKILL",
-        "skill_id": str(uuid.UUID(execution_spec_for("SKILL")["skill_id"])),
+        "session_target": "isolated",
+        "skill_id": str(uuid.UUID(payload_for("SKILL")["skill_id"])),
         "input": {"report_day": "2026-02-28", "nested": ["on 2026-03-01"]},
+        "argv": [],
+        "window": {"kind": "DAY", "offset": -1},
         "context": {"output": {"format": "markdown"}},
     }
     # Revision 上的模板本身不被改写。
     refreshed = await _revision(tenant, seeded.revision_id)
-    assert refreshed.execution_spec["input_template"]["report_day"] == "{{previous_day}}"
+    assert refreshed.payload_json["input"]["report_day"] == "{{previous_day}}"
 
 
 async def test_invalid_template_is_a_permanent_admission_failure(tenant: TenantContext) -> None:
@@ -108,7 +112,7 @@ async def test_invalid_template_is_a_permanent_admission_failure(tenant: TenantC
     seeded = await seed(
         tenant,
         next_fire_at=SLOT,
-        execution_spec=execution_spec_for("SKILL", input_template={"day": "{{tomorrow}}"}),
+        payload=payload_for("SKILL", input_template={"day": "{{tomorrow}}"}),
     )
     client = MaterialsClient(materials_for())
     loop = loop_for(tenant, client)

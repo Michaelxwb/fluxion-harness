@@ -219,11 +219,13 @@ def agentic_snapshot(
     )
 
 
-def input_payload(goal: str = "整理本周客户报告") -> dict[str, Any]:
+def input_payload(prompt: str = "整理本周客户报告") -> dict[str, Any]:
     return {
+        "kind": "AGENT_TURN",
         "mode": "AGENTIC",
-        "goal": goal,
-        "budget": {"max_steps": 4, "max_tool_calls": 4, "max_tokens": 100_000},
+        "prompt": prompt,
+        "tools_allow": [f"SKILL:{SKILL_ID}:deliver_report", "MCP:crm:customer.report"],
+        "budget_ref": "platform",
         "output_contract": {},
         "context": {},
     }
@@ -233,7 +235,7 @@ async def insert_task(
     tenant: TenantContext,
     snapshot: dict[str, Any] | None = None,
     *,
-    goal: str = "整理本周客户报告",
+    prompt: str = "整理本周客户报告",
     status: TaskStatus = TaskStatus.RUNNING,
     **overrides: Any,
 ) -> TaskExecution:
@@ -247,7 +249,7 @@ async def insert_task(
         "trigger_type": "IMMEDIATE",
         "task_type": "AGENTIC",
         "status": str(status),
-        "input_json": input_payload(goal),
+        "input_json": input_payload(prompt),
         "execution_snapshot_schema_version": 4,
         "execution_snapshot_json": frozen,
         "snapshot_hash": schedule_snapshot_hash(frozen),

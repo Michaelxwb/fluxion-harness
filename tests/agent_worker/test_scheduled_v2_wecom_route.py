@@ -51,12 +51,10 @@ OTHER_ROUTE = {
 
 def push_body(**overrides: Any) -> dict[str, Any]:
     body: dict[str, Any] = {
-        "mode": "REMINDER",
         "instruction": "每天 8 点提醒我开会",
         "recurrence": {"kind": "CRON", "cron": "0 8 * * *", "timezone": TZ},
-        "execution_spec": {"mode": "REMINDER", "reminder_text": "开会"},
-        "delivery_intent": "PUSH",
-        "delivery_route": dict(PUSH_ROUTE),
+        "payload": {"kind": "REMINDER", "text": "开会"},
+        "delivery": {"intent": "PUSH", "route": dict(PUSH_ROUTE)},
     }
     body.update(overrides)
     return body
@@ -85,11 +83,15 @@ async def seed_draft(
         draft_hash=schedule_draft_hash(payload),
         payload_json=payload,
         preview_json={
-            "mode": payload["mode"],
+            "mode": "REMINDER",
+            "payload": payload["payload"],
+            "session_target": payload["session_target"],
             "what": "开会",
             "when": f"CRON 0 8 * * * ({TZ})",
             "first_fire_at": (now + timedelta(hours=1)).isoformat(),
             "delivery": "PUSH",
+            "tools_allow": [],
+            "budget_source": "NONE",
             "dependencies": [],
             "budget": {},
         },
@@ -146,7 +148,7 @@ async def test_push_draft_without_a_route_is_refused_before_any_side_effect(
     client: AsyncClient, tenant: TenantContext
 ) -> None:
     body = push_body()
-    body.pop("delivery_route")
+    body["delivery"].pop("route")
     response = await client.post(
         "/internal/schedule-drafts",
         json=body,
@@ -179,7 +181,7 @@ async def test_draft_route_must_be_an_outbound_channel(
 ) -> None:
     response = await client.post(
         "/internal/schedule-drafts",
-        json=push_body(delivery_route={**PUSH_ROUTE, "channel": "WEBCHAT"}),
+        json=push_body(delivery={"intent": "PUSH", "route": {**PUSH_ROUTE, "channel": "WEBCHAT"}}),
         headers=internal_service_headers(
             tenant.tenant_id,
             **{

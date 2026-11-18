@@ -111,9 +111,9 @@ def future_fire_at(rule: RecurrenceRule, now: datetime) -> Advance:
 
 def ensure_delivery_supported(body: ScheduleDraftRequest) -> None:
     """PUSH 必须带着创建时冻结的目标；没有目标的投递承诺绝不落成 Revision。"""
-    if body.delivery_intent is not DeliveryIntent.PUSH:
+    if body.delivery.intent is not DeliveryIntent.PUSH:
         return
-    route = body.delivery_route
+    route = body.delivery.route
     if route is None:
         raise AppError(
             ErrorCode.SCHEDULE_DELIVERY_UNSUPPORTED,
@@ -154,11 +154,13 @@ def revision_values(
     """不可变 Revision 的字段：配置全部来自 Draft 载荷，不复制到 Schedule。"""
     recurrence = body.recurrence
     once = recurrence.kind is RecurrenceKind.ONCE
+    tools = body.resolved_tools()
     return {
         "tenant_id": draft.tenant_id,
         "schedule_id": schedule_id,
         "revision_no": revision_no,
-        "mode": str(body.mode),
+        # mode 只随不可变 Revision 冻结，供 Snapshot/Executor 内部使用。
+        "mode": str(body.derived_mode),
         "instruction_raw": body.instruction,
         "normalized_goal": draft_what(body),
         "recurrence_kind": str(recurrence.kind),
@@ -167,8 +169,11 @@ def revision_values(
         "timezone": recurrence.timezone,
         "schedule_policy": SchedulePolicy().model_dump(mode="json"),
         "context_json": body.context.model_dump(mode="json"),
-        "execution_spec": body.execution_spec.model_dump(mode="json"),
-        "delivery_intent": str(body.delivery_intent),
+        "payload_kind": str(body.payload.kind),
+        "payload_json": body.payload.model_dump(mode="json"),
+        "session_target": str(body.session_target),
+        "tools_policy_json": tools.model_dump(mode="json"),
+        "delivery_intent": str(body.delivery.intent),
         "delivery_route_id": delivery_route_id,
         "preflight_json": dict(draft.preview_json),
         "created_by": created_by,
@@ -253,7 +258,7 @@ class ScheduleConfirmService:
         self, draft: TaskScheduleDraft, body: ScheduleDraftRequest
     ) -> uuid.UUID | None:
         """冻结创建时的投递目标（owner 就是 Draft owner）：同一 route 复用同一行。"""
-        route = body.delivery_route
+        route = body.delivery.route
         if route is None:
             return None
         return await upsert_delivery_route(

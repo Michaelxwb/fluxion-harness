@@ -214,7 +214,7 @@ def _agentic_request(skill_id: uuid.UUID) -> AdmissionRequest:
             _allowlist("SKILL", str(skill_id), "run_report"),
         ),
         budget={"max_steps": 12, "max_tool_calls": 20, "max_tokens": 0},
-        context={"goal_hash": "sha256:" + "e" * 64},
+        context={"prompt_hash": "sha256:" + "e" * 64},
     )
 
 
@@ -388,7 +388,7 @@ async def _seed_fire(
     *,
     mode: str = "AGENTIC",
     recurrence_kind: str = "CRON",
-    execution_spec: dict[str, Any] | None = None,
+    payload: dict[str, Any] | None = None,
 ) -> Seeded:
     now = datetime.now(UTC).replace(microsecond=0)
     factory = tenant.session_factory
@@ -419,13 +419,13 @@ async def _seed_fire(
             run_at=None if recurrence_kind == "CRON" else now,
             timezone="Asia/Shanghai",
             schedule_policy={},
-            execution_spec=execution_spec
+            payload_kind={"REMINDER": "REMINDER", "SKILL": "SKILL_PLAN", "AGENTIC": "AGENT_TURN"}[mode],
+            payload_json=payload
             or {
-                "mode": "AGENTIC",
-                "goal": "检查一次",
-                "tool_allowlist": [],
-                "output_contract": {},
-                "budget": {"max_steps": 4, "max_tool_calls": 4, "max_tokens": 0},
+                "kind": "AGENT_TURN",
+                "prompt": "检查一次",
+                "tools_allow": [],
+                "budget_ref": "platform",
             },
             delivery_intent="NONE",
             created_by=uuid.uuid4(),
@@ -624,13 +624,13 @@ async def test_admission_requests_the_materials_once_and_accepts(
 async def test_revision_spec_is_parsed_or_rejected(tenant: TenantContext) -> None:
     seeded = await _seed_fire(tenant)
     assert seeded.request.mode is ScheduleMode.AGENTIC
-    assert seeded.request.budget["max_steps"] == 4
-    assert seeded.request.context["goal_hash"].startswith("sha256:")
+    assert seeded.request.budget == {}, "预算数值只在 admission 时从平台设置解析"
+    assert seeded.request.context["prompt_hash"].startswith("sha256:")
 
     async with tenant.session_factory() as session, session.begin():
         revision = await session.get(TaskScheduleRevision, seeded.revision_id)
         assert revision is not None
-        revision.execution_spec = {"mode": "REMINDER", "reminder_text": "mismatch"}
+        revision.payload_json = {"kind": "REMINDER", "text": "mismatch"}
     async with tenant.session_factory() as session:
         revision = await session.get(TaskScheduleRevision, seeded.revision_id)
         assert revision is not None

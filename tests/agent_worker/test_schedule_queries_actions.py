@@ -66,7 +66,7 @@ async def _seed_schedule(tenant: TenantContext) -> uuid.UUID:
                 timezone="UTC",
                 schedule_policy={},
                 context_json={},
-                execution_spec={"mode": "REMINDER", "reminder_text": "开会"},
+                payload_kind="REMINDER", payload_json={"kind": "REMINDER", "text": "开会"},
                 delivery_intent="NONE",
                 preflight_json={},
                 created_by=OWNER,
