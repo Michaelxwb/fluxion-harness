@@ -450,7 +450,7 @@ Run 侧 ASYNC 提交恒为后台任务：`execute_skill` handler 固定 `Complet
   - background-semantics PASS exit=0
 ## TASK-007: 回归、配置清单与需求收口
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005, TASK-006
 - **Source**: `.code-flow/tasks/2026-11-17/async-skill-background/async-skill-background.design.md#4.5 实施批次`, `#6 需求追溯矩阵`; `async-skill-background.scenarios.md`; `.code-flow/specs/test/harness-test.md`
 - **Scenarios**: S-01, S-02, S-03, S-04, S-05, S-06, S-07, E-01, E-02, E-03, E-04, B-01, B-02, B-03
@@ -486,13 +486,13 @@ Run 侧 ASYNC 提交恒为后台任务：`execute_skill` handler 固定 `Complet
 
 ### Checklist
 
-- [ ] 新增 `tests/async_skill_background_inventory.py`，按真实盘面核对 TASK/测试/Spec-Refs/Scenarios，不依赖自查断言
-- [ ] 为每个 TASK、Spec-Ref、Scenario 留下可失败的行；`-k`/路径必须真实命中
-- [ ] 若修改了模块级常量，重生成 `docs/configuration-inventory.csv` 并跑 `tests/test_configuration_inventory.py`
-- [ ] 复核 `async-skill-background.design.md`、`frontend.design.md`、`scenarios.md` 与实现一致
-- [ ] 复核 `unified-artifact-delivery` 的 `OUTPUT`/`deliveries[]` 依赖已满足或明确标记未合入
-- [ ] 复核交互稿路径和前端设计 §6 引用仍有效
-- [ ] 汇总本需求声明的测试命令与真实执行结果
+- [x] 新增 `tests/async_skill_background_inventory.py`，按真实盘面核对 TASK/测试/Spec-Refs/Scenarios，不依赖自查断言
+- [x] 为每个 TASK、Spec-Ref、Scenario 留下可失败的行；`-k`/路径必须真实命中
+- [x] 若修改了模块级常量，重生成 `docs/configuration-inventory.csv` 并跑 `tests/test_configuration_inventory.py`
+- [x] 复核 `async-skill-background.design.md`、`frontend.design.md`、`scenarios.md` 与实现一致
+- [x] 复核 `unified-artifact-delivery` 的 `OUTPUT`/`deliveries[]` 依赖已满足或明确标记未合入
+- [x] 复核交互稿路径和前端设计 §6 引用仍有效
+- [x] 汇总本需求声明的测试命令与真实执行结果
 
 ### Spec Delta
 
@@ -503,7 +503,11 @@ Run 侧 ASYNC 提交恒为后台任务：`execute_skill` handler 固定 `Complet
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18] implemented: 盘面 inventory、配置清单重生成、设计/场景/交互稿/依赖复核；80 passed
+- [2026-11-18T00:58:50.213Z] started tests=029310eef650
 
 ### Verification
 
 - 尚未执行
+- 2026-11-18T00:59:21.884Z PASS commands=1/1 executed=1 deduped=0 elapsed=31533ms tests=029310eef650 head=7bfdac242f53 dirty=1
+  - inventory PASS exit=0
