@@ -190,7 +190,7 @@ _DRAFT_ARGS: Mapping[str, Any] = {
             "target": {
                 **_STRING,
                 "description": (
-                    "PUSH only: a safe target label from list_delivery_targets (for example WECOM). "
+                    "PUSH only: a safe target label returned by list_delivery_targets. "
                     "Omit to use the source chat route when it is already an outbound channel."
                 ),
             },

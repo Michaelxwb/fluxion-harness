@@ -14,9 +14,14 @@ from muad_agent_runtime.application.attachments.output_service import (
 )
 from muad_agent_runtime.application.attachments.tools import AttachmentToolSet
 from muad_agent_runtime.infrastructure.db import get_session_factory
-from muad_agent_runtime.infrastructure.models.runtime import Artifact, Conversation, RunRecord
+from muad_agent_runtime.infrastructure.models.runtime import (
+    Artifact,
+    CanonicalEvent,
+    Conversation,
+    RunRecord,
+)
 from muad_contracts import DeliveryResponse, DeliveryRouteInput, RunStatus
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.acceptance.user_skill_sandbox.sandboxed_support import run_probe
@@ -130,8 +135,16 @@ async def test_s47_registered_output_is_deliverable_through_existing_artifact_pa
     )
     delivered = await tools.deliver_artifact({"artifact_id": artifact_id}, call_id="s47-deliver")
     assert "已交付" in delivered or artifact_id in delivered
-    assert len(client.requests) == 1
-    assert client.requests[0].delivery_key == f"run:{run.id}:{artifact_id}"
+    # WebChat 是 pull 面：交付 = 目标会话的持久产物事实，不经过 Gateway push。
+    assert client.requests == []
+    publication = await session.scalar(
+        select(CanonicalEvent).where(
+            CanonicalEvent.run_id == run.id,
+            CanonicalEvent.event_type == "ARTIFACT_CREATED",
+        )
+    )
+    assert publication is not None
+    assert publication.payload_json["artifact_id"] == artifact_id
 
     await session.execute(delete(Artifact).where(Artifact.run_id == run.id))
     await session.execute(delete(RunRecord).where(RunRecord.id == run.id))

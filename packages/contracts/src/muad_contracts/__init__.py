@@ -43,6 +43,7 @@ from .delivery import (
 from .enums import (
     BUILTIN_CHANNEL_NAMES,
     LOCAL_STREAM_CHANNELS,
+    CHANNEL_DISPLAY_LABELS,
     OUTBOUND_CHANNELS,
     ArtifactValidationStatus,
     CancelScope,
@@ -276,6 +277,7 @@ __all__ = [
     "MAX_TOOL_RESULT_BYTES",
     "OperationErrorPhase",
     "LOCAL_STREAM_CHANNELS",
+    "CHANNEL_DISPLAY_LABELS",
     "OUTBOUND_CHANNELS",
     "OperationStatus",
     "PAYLOAD_MODE",

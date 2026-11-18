@@ -15,6 +15,7 @@ from typing import Any, Literal, cast
 
 import sqlalchemy as sa
 from muad_contracts import (
+    CHANNEL_DISPLAY_LABELS,
     AgentTurnPayload,
     DeliveryIntent,
     DraftContext,
@@ -81,7 +82,6 @@ DELIVERY_STATUS_MAP = {
     "FAILED": "FAILED",
 }
 #: 安全标签：只显示通道名，不拼接 bot/user/conversation 等内部 ID。
-TARGET_LABELS = {"WECOM": "企微", "WEBCHAT": "Web"}
 UNKNOWN_TARGET_LABEL = "未知目标"
 
 
@@ -138,7 +138,7 @@ def _target_label(route_json: Any) -> str:
     channel = route_json.get("channel") if isinstance(route_json, dict) else None
     if not isinstance(channel, str) or not channel:
         return UNKNOWN_TARGET_LABEL
-    return TARGET_LABELS.get(channel, channel)
+    return CHANNEL_DISPLAY_LABELS.get(channel, channel)
 
 
 def _payload_artifact_ids(payload_json: Any) -> list[uuid.UUID]:

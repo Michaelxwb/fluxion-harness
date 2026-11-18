@@ -359,6 +359,9 @@ DEFAULT_CHANNEL: ChannelName = "WECOM"
 #: 核心域按通道分支。
 OUTBOUND_CHANNELS: frozenset[ChannelName] = frozenset({"WECOM"})
 
+#: 安全展示标签：渠道词表只在此定义处出现，核心域只读映射，不写渠道字面量。
+CHANNEL_DISPLAY_LABELS: dict[ChannelName, str] = {"WECOM": "企微", "WEBCHAT": "Web"}
+
 #: 出站由**本进程的持久会话流**完成的通道（站内入口）：产物不经过 IM 出站管道，直接落目标
 #: 会话的 canonical 流（`artifact.created`），由该会话的订阅面与历史面读取同一事实。
 #: 与 `OUTBOUND_CHANNELS` 一起覆盖内建通道；不属于任一组的未知通道必须显式拒绝，不猜。

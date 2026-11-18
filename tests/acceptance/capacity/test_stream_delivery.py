@@ -931,8 +931,15 @@ def _drop_reply_targets(redis_url: str, tenant_id: str) -> None:
 def _wecom_notification(database_url: str, run_id: str) -> Mapping[str, Any] | None:
     rows = db_rows(
         database_url,
-        "SELECT id, delivery_key, delivery_state, attempt, delivery_result, event_id"
-        " FROM runtime.channel_notification WHERE delivery_key = $1",
+        "SELECT d.id, d.message_key AS delivery_key, d.status AS delivery_state,"
+        " d.attempt_count AS attempt, a.result_json AS delivery_result,"
+        " d.lease_until, d.target_key"
+        " FROM runtime.message_delivery d"
+        " LEFT JOIN LATERAL ("
+        "   SELECT result_json FROM runtime.message_delivery_attempt"
+        "    WHERE delivery_id = d.id ORDER BY attempt_no DESC LIMIT 1"
+        " ) a ON true"
+        " WHERE d.message_key = $1",
         f"run:{run_id}:terminal",
     )
     return dict(rows[0]) if rows else None
@@ -1125,10 +1132,10 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
         # 持久意图重投，而不是把 UNKNOWN 当成已送达或自动重发。
         db_execute(
             stack.database_url,
-            "UPDATE runtime.channel_notification"
-            " SET delivery_state = 'PENDING', next_attempt_at = now(),"
-            " lease_owner = NULL, lease_until = NULL, update_time = now()"
-            " WHERE delivery_key = $1",
+            "UPDATE runtime.message_delivery"
+            " SET status = 'PENDING', next_attempt_at = now(), lease_owner = NULL,"
+            "     lease_until = NULL, update_time = now()"
+            " WHERE message_key = $1",
             f"run:{first_run}:terminal",
         )
 
@@ -1241,10 +1248,10 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
         # 与 ④ 段同口径：模拟运维核实后放回 PENDING，再验证恢复后的重投。
         db_execute(
             stack.database_url,
-            "UPDATE runtime.channel_notification"
-            " SET delivery_state = 'PENDING', next_attempt_at = now(),"
-            " lease_owner = NULL, lease_until = NULL, update_time = now()"
-            " WHERE delivery_key = $1",
+            "UPDATE runtime.message_delivery"
+            " SET status = 'PENDING', next_attempt_at = now(), lease_owner = NULL,"
+            "     lease_until = NULL, update_time = now()"
+            " WHERE message_key = $1",
             f"run:{second_run}:terminal",
         )
 
