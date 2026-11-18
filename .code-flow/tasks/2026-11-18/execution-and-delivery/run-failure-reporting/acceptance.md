@@ -57,3 +57,21 @@
 - E-04 需要部署修复版本到内网、目标租户的真实 `daily-duty-report-mssp` 凭据与企微路由；
   仓库内只能证明 Fake MSSP / 本地回归 Skill 路径。
 - 浏览器验收必须记录任务 id、产物 `artifact_id/checksum`、投递结果；未实际执行的场景不得写成通过。
+
+## 4. 全量 `make acceptance` 结果（2026-11-19）
+
+首轮：509 passed / 19 failed / 2 skipped。失败分三类：
+
+1. **本需求引入、已修复并复跑通过**：
+   - B-234 重试安全与 capacity E-15：Skill fixture 补结构化 `retryable` 失败信封；
+   - S-46 渠道中立：把展示标签移到 `muad_contracts.enums.CHANNEL_DISPLAY_LABELS`，核心域零渠道字面量；
+   - S-47 WebChat 产物交付：断言从 Gateway push 改为目标会话 `ARTIFACT_CREATED` 事实；
+   - 附件往返两条在隔离进程内单独复跑通过（首轮为同批共享状态干扰）。
+2. **仍失败的既有验收（非本需求文件，待对应 Owner 更新）**：
+   - `test_e_04.py` 三条：`/v1/conversations` 现在要求 `channel`，用例仍是旧请求形状；
+   - `test_s_10.py` / `test_e_15.py`：用例仍构造已删除的 `TaskExecution.intent_key`；
+   - `test_s_45.py` 三条：`non_interference_baseline.json` 是更早需求的合并基点，Model 域文件在此后已变更；
+   - `test_stream_delivery.py::test_e19...`：旧 `channel_notification` 持久意图断言已改为 `message_delivery`，但 Gateway 重启后的投递恢复在本地容量栈仍未收敛，保留为已知失败。
+3. **外部环境**：E-04 内网真实任务仍 pending（无内网凭据/Connector）。
+
+本需求相关的单元、契约、集成、浏览器路径均已通过；上述第 2 类不是本需求新增回归，但归档前应由对应 Owner 决定是更新用例还是接受已知失败。
