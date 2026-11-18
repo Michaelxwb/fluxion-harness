@@ -1,18 +1,27 @@
 /**
- * WebChat 定时任务中心页面（design frontend §3.2、§3.3 CMP-02、§3.5；TASK-027）。
+ * WebChat 任务中心页面（design frontend §3.2、§3.3 CMP-01/CMP-02、§3.5；TASK-027/TASK-005）。
  *
- * 容器职责：把同一份 typed client 注入到列表/详情/产物三个控制器，把路由（深链
- * `/chat/tasks/:scheduleId`）与用户动作接到控制器上。展示层不碰 HTTP、不读 URL。
+ * 容器职责：把同一份 typed client 注入到定时任务/后台任务/产物控制器，把路由
+ * （`/chat/tasks/:scheduleId`、`?view=pending`、`?view=background&taskId=`）与用户动作接到
+ * 控制器上。展示层不碰 HTTP、不读 URL。
  *
  * 读取时机：本组件只在任务 Tab 可见时挂载（TASK-026 的 Tab 壳保证），首屏读取是「用户切到
- * 任务 Tab」的直接结果；其余读取都由用户动作触发（翻页、打开执行、点下载、点刷新）——
- * 没有定时器、没有 SSE、切走即卸载。
+ * 任务 Tab」的直接结果；其余读取都由用户动作触发（切分组、翻页、打开详情、子任务翻页、
+ * 点下载、点刷新）——没有定时器、没有 SSE、切走即卸载。
  */
 
+import { Typography } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 import { createActionsController, type ActionsPort } from './actionsState';
+import { BackgroundTaskDetailPanel } from './BackgroundTaskDetailPanel';
+import { BackgroundTaskListPanel } from './BackgroundTaskListPanel';
+import {
+  createBackgroundTaskDetailController,
+  createBackgroundTaskListController
+} from './backgroundState';
 import { createPendingController, type PendingPort } from './pendingState';
 import { PendingPanel } from './PendingPanel';
 import { createTaskCenterClient } from '../services/taskCenterApi';
@@ -27,6 +36,7 @@ import {
   createScheduleDetailController,
   createScheduleListController
 } from './taskCenterState';
+import { parseTaskCenterQuery } from './taskCenterRoute';
 
 export interface WebchatTaskCenterPageProps {
   /** `/chat/tasks/:scheduleId` 的深链目标；列表态为 null。 */
@@ -37,12 +47,46 @@ export interface WebchatTaskCenterPageProps {
   view?: 'pending' | null;
 }
 
+type TaskCenterGroup = 'schedule' | 'background';
+
+/** 两个分组共用同一条 `/chat/tasks` 路由；分组只是页面内视图，不是新路由。 */
+function TaskCenterGroups(props: {
+  active: TaskCenterGroup;
+  onSelect(group: TaskCenterGroup): void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div
+      className="chat-task-center-groupbar"
+      role="tablist"
+      aria-label={t('chat.taskCenter.label')}
+    >
+      {(['schedule', 'background'] as const).map((group) => (
+        <button
+          key={group}
+          type="button"
+          role="tab"
+          aria-selected={props.active === group}
+          className={`chat-task-center-group${props.active === group ? ' is-active' : ''}`}
+          data-testid={`chat-task-center-group-${group}`}
+          onClick={() => props.onSelect(group)}
+        >
+          {t(`chat.taskCenter.group.${group}`)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function WebchatTaskCenterPage(props: WebchatTaskCenterPageProps): ReactNode {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  // `?view=pending` 是待处理过滤视图；列表/详情仍是同一条路由的两个投影。
-  const pendingView = new URLSearchParams(location.search).get('view') === 'pending';
   const scheduleId = props.scheduleId ?? null;
+  const route = parseTaskCenterQuery(location.search, scheduleId);
+  const pendingView = route.pending || props.view === 'pending';
+  const backgroundView = route.background;
+  const backgroundTaskId = route.backgroundTaskId;
   const clientRef = useRef<TaskCenterClient | null>(null);
   if (clientRef.current === null) clientRef.current = createTaskCenterClient();
   const client = clientRef.current;
@@ -55,6 +99,14 @@ export function WebchatTaskCenterPage(props: WebchatTaskCenterPageProps): ReactN
     () => createScheduleDetailController({ port: client }),
     [client]
   );
+  const backgroundList = useMemo(
+    () => createBackgroundTaskListController({ port: client }),
+    [client]
+  );
+  const backgroundDetail = useMemo(
+    () => createBackgroundTaskDetailController({ port: client }),
+    [client]
+  );
   const pending = useMemo(
     () => createPendingController({ port: client as PendingPort }),
     [client]
@@ -65,6 +117,11 @@ export function WebchatTaskCenterPage(props: WebchatTaskCenterPageProps): ReactN
   );
   const pendingState = useSyncExternalStore(pending.subscribe, pending.snapshot);
   const actionsState = useSyncExternalStore(actions.subscribe, actions.snapshot);
+  const backgroundListState = useSyncExternalStore(backgroundList.subscribe, backgroundList.snapshot);
+  const backgroundDetailState = useSyncExternalStore(
+    backgroundDetail.subscribe,
+    backgroundDetail.snapshot
+  );
   const downloads = useMemo(
     () =>
       createArtifactDownloadController({
@@ -82,11 +139,13 @@ export function WebchatTaskCenterPage(props: WebchatTaskCenterPageProps): ReactN
     () => () => {
       list.dispose();
       detail.dispose();
+      backgroundList.dispose();
+      backgroundDetail.dispose();
       downloads.dispose();
       pending.dispose();
       actions.dispose();
     },
-    [list, detail, downloads, pending, actions]
+    [list, detail, backgroundList, backgroundDetail, downloads, pending, actions]
   );
 
   // 待处理视图：与列表同一 Agent 范围，独立分页；切走时不轮询。
@@ -97,9 +156,21 @@ export function WebchatTaskCenterPage(props: WebchatTaskCenterPageProps): ReactN
 
   // 列表态：进入/返回列表时读取当前筛选；详情态不读列表（避免两套事实互相覆盖）。
   useEffect(() => {
-    if (scheduleId !== null) return;
+    if (pendingView || backgroundView || scheduleId !== null) return;
     void list.load();
-  }, [scheduleId, list]);
+  }, [pendingView, backgroundView, scheduleId, list]);
+
+  // 后台列表：只在分组可见且没有详情目标时读取一次；翻页/过滤才再读。
+  useEffect(() => {
+    if (!backgroundView || backgroundTaskId !== null) return;
+    void backgroundList.load();
+  }, [backgroundView, backgroundTaskId, backgroundList]);
+
+  // 后台详情：深链与列表点击走同一入口；换目标时丢弃旧目标的在途响应。
+  useEffect(() => {
+    if (!backgroundView || backgroundTaskId === null) return;
+    void backgroundDetail.open(backgroundTaskId);
+  }, [backgroundView, backgroundTaskId, backgroundDetail]);
 
   // 详情态：深链或列表点击都走同一入口；换 Schedule 时丢弃旧目标的在途响应。
   const agentId = listState.filters.agentId;
@@ -169,6 +240,63 @@ export function WebchatTaskCenterPage(props: WebchatTaskCenterPageProps): ReactN
     [downloads]
   );
 
+  const handleSelectGroup = useCallback(
+    (group: TaskCenterGroup) => {
+      navigate(group === 'background' ? '/chat/tasks?view=background' : '/chat/tasks');
+    },
+    [navigate]
+  );
+
+  const handleBackgroundOpen = useCallback(
+    (taskId: string) => {
+      downloads.reset();
+      navigate(`/chat/tasks?view=background&taskId=${encodeURIComponent(taskId)}`);
+    },
+    [downloads, navigate]
+  );
+
+  const handleBackgroundBack = useCallback(() => {
+    downloads.reset();
+    navigate('/chat/tasks?view=background');
+  }, [downloads, navigate]);
+
+  const handleBackgroundParent = useCallback(
+    (parentId: string) => {
+      downloads.reset();
+      navigate(`/chat/tasks?view=background&taskId=${encodeURIComponent(parentId)}`);
+    },
+    [downloads, navigate]
+  );
+
+  const handleBackgroundRefresh = useCallback(() => {
+    if (backgroundTaskId === null) {
+      void backgroundList.refresh();
+      return;
+    }
+    void backgroundDetail.refresh();
+  }, [backgroundTaskId, backgroundList, backgroundDetail]);
+
+  const handleBackgroundPage = useCallback(
+    (page: number) => {
+      void backgroundList.setPage(page);
+    },
+    [backgroundList]
+  );
+
+  const handleBackgroundAgentChange = useCallback(
+    (nextAgentId: string | null) => {
+      void backgroundList.setFilter({ agentId: nextAgentId });
+    },
+    [backgroundList]
+  );
+
+  const handleBackgroundChildPage = useCallback(
+    (page: number) => {
+      void backgroundDetail.loadChildrenPage(page);
+    },
+    [backgroundDetail]
+  );
+
   const navigateToPending = useCallback(() => {
     navigate('/chat/tasks?view=pending');
   }, [navigate]);
@@ -200,18 +328,58 @@ export function WebchatTaskCenterPage(props: WebchatTaskCenterPageProps): ReactN
     );
   }
 
+  if (backgroundView) {
+    if (backgroundTaskId !== null) {
+      return (
+        <BackgroundTaskDetailPanel
+          state={backgroundDetailState}
+          downloads={downloadState}
+          agents={props.agents}
+          onBack={handleBackgroundBack}
+          onBackToParent={handleBackgroundParent}
+          onRefresh={handleBackgroundRefresh}
+          onChildPage={handleBackgroundChildPage}
+          onOpenChild={handleBackgroundOpen}
+          onDownloadArtifact={handleDownloadArtifact}
+        />
+      );
+    }
+    return (
+      <div className="chat-task-center-shell">
+        <header className="chat-task-center-page-header">
+          <Typography.Title heading={4}>{t('chat.taskCenter.label')}</Typography.Title>
+        </header>
+        <TaskCenterGroups active="background" onSelect={handleSelectGroup} />
+        <BackgroundTaskListPanel
+          state={backgroundListState}
+          agents={props.agents}
+          onOpen={handleBackgroundOpen}
+          onPage={handleBackgroundPage}
+          onAgentChange={handleBackgroundAgentChange}
+          onRefresh={handleBackgroundRefresh}
+        />
+      </div>
+    );
+  }
+
   if (scheduleId === null) {
     return (
-      <ScheduleListPanel
-        onOpenPending={() => navigate('/chat/tasks?view=pending')}
-        pendingCount={listState.badges?.pending_human ?? 0}
-        state={listState}
-        agents={props.agents}
-        onRefresh={handleRefresh}
-        onOpen={handleOpen}
-        onAgentChange={handleAgentChange}
-        onPageChange={handlePageChange}
-      />
+      <div className="chat-task-center-shell">
+        <header className="chat-task-center-page-header">
+          <Typography.Title heading={4}>{t('chat.taskCenter.label')}</Typography.Title>
+        </header>
+        <TaskCenterGroups active="schedule" onSelect={handleSelectGroup} />
+        <ScheduleListPanel
+          onOpenPending={() => navigate('/chat/tasks?view=pending')}
+          pendingCount={listState.badges?.pending_human ?? 0}
+          state={listState}
+          agents={props.agents}
+          onRefresh={handleRefresh}
+          onOpen={handleOpen}
+          onAgentChange={handleAgentChange}
+          onPageChange={handlePageChange}
+        />
+      </div>
     );
   }
 

@@ -24,7 +24,7 @@ import type {
   DstEvent,
   FireItem,
   HistoryRetention,
-  ScheduleExecutionDetail,
+  ExecutionDetail,
   TaskArtifact
 } from '../types';
 import type { ArtifactDownloadState } from './artifactDownload';
@@ -44,6 +44,7 @@ import {
 } from './taskCenterState';
 import { ScheduleActionsBar } from './ScheduleActionsBar';
 import { formatBytes, TaskArtifactList } from './TaskArtifactList';
+import { formatResult } from './taskResult';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -63,16 +64,6 @@ const DST_EVENT_KEYS: Record<string, string> = {
   DST_GAP_SKIPPED: 'chat.taskCenter.fire.dstEvent.DST_GAP_SKIPPED',
   DST_FOLD_SECOND_SKIPPED: 'chat.taskCenter.fire.dstEvent.DST_FOLD_SECOND_SKIPPED'
 };
-
-/** 结果只做文本化：对象 JSON 化，`null` 显示占位，不解析语义。 */
-export function formatResult(result: Record<string, unknown> | null): string {
-  if (result === null) return '';
-  try {
-    return JSON.stringify(result, null, 2);
-  } catch (error) {
-    return String(result);
-  }
-}
 
 function skipReasonLabel(t: Translate, reason: string): string {
   const key = SKIP_REASON_KEYS[reason];
@@ -309,7 +300,7 @@ function DstEventList(props: { events: readonly DstEvent[]; retention: HistoryRe
 }
 
 /** 等待是状态而不是失败：三类 wait_kind 各有明确文案，WAITING_HUMAN 也不显示为失败。 */
-function ExecutionWait(props: { detail: ScheduleExecutionDetail }) {
+function ExecutionWait(props: { detail: ExecutionDetail }) {
   const { t } = useTranslation();
   const detail = props.detail;
   if (detail.status === 'WAITING_HUMAN') {
@@ -332,7 +323,7 @@ function ExecutionWait(props: { detail: ScheduleExecutionDetail }) {
 }
 
 function ExecutionBody(props: {
-  detail: ScheduleExecutionDetail;
+  detail: ExecutionDetail;
   downloads: ArtifactDownloadState;
   onDownloadArtifact(artifact: TaskArtifact): void;
 }) {

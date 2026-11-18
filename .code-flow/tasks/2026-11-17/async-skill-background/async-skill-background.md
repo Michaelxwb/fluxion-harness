@@ -304,12 +304,12 @@ Run 已终态后到达的结果，仍要成为下一轮可读的会话事实。`
   - task-center-read PASS exit=0
 ## TASK-005: WebChat 后台任务分组与详情
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-004
 - **Source**: `.code-flow/tasks/2026-11-17/async-skill-background/async-skill-background.frontend.design.md#2.2 功能方案`, `#3.2 页面与路由结构`, `#3.4 组件接口契约`, `#3.6 UI 状态`, `#6 交互稿`; `async-skill-background.mock.html`
 - **Scenarios**: S-01, S-02, S-03, S-05, S-06, S-07, E-03, E-04
 - **Spec-Refs**: frontend/harness-frontend, ui/harness-ui, i18n/harness-i18n, im/harness-im#RULE-006, test/harness-test#RULE-test-001
-- **Paths**: apps/console-platform/frontend/src/modules/webchat/task-center/**, apps/console-platform/frontend/src/modules/webchat/types.ts, apps/console-platform/frontend/src/modules/webchat/services/taskCenterApi.ts, apps/console-platform/frontend/src/modules/webchat/components/WebchatWorkspaceTabs.tsx, apps/console-platform/frontend/src/locales/zh-CN.json, apps/console-platform/frontend/src/locales/en-US.json, tests/frontend/test_async_skill_background_task_center_ui.py, tests/frontend/test_scheduled_v2_task_center_ui.py
+- **Paths**: apps/console-platform/frontend/src/modules/webchat/task-center/**, apps/console-platform/frontend/src/modules/webchat/types.ts, apps/console-platform/frontend/src/modules/webchat/services/taskCenterApi.ts, apps/console-platform/frontend/src/modules/webchat/components/WebchatWorkspaceTabs.tsx, apps/console-platform/frontend/src/locales/zh-CN.json, apps/console-platform/frontend/src/locales/en-US.json, tests/frontend/test_async_skill_background_task_center_ui.py, tests/frontend/test_scheduled_v2_task_center_ui.py, tests/frontend/test_scheduled_v2_workspace.py
 - **E2E**:
 - **Skip-Tests**:
 - **Skip-Reason**:
@@ -326,7 +326,8 @@ Run 已终态后到达的结果，仍要成为下一轮可读的会话事实。`
       "pytest",
       "-q",
       "tests/frontend/test_async_skill_background_task_center_ui.py",
-      "tests/frontend/test_scheduled_v2_task_center_ui.py"
+      "tests/frontend/test_scheduled_v2_task_center_ui.py",
+      "tests/frontend/test_scheduled_v2_workspace.py"
     ],
     "timeout": 300,
     "parallel": false
@@ -340,24 +341,24 @@ Run 已终态后到达的结果，仍要成为下一轮可读的会话事实。`
 
 ### Checklist
 
-- [ ] 工作区 Tab `chat.tabs.tasks` →「任务」；页面标题 `chat.taskCenter.label` →「任务中心」；中英文词条同步
-- [ ] `TaskCenterPage` 增加「定时任务 / 后台任务」分组；定时任务列表/详情组件原样
-- [ ] `TaskCenterClient` 增加 `listTasks`；`getExecution` 增加可选 `childrenPage`，不新增详情 client
-- [ ] `BackgroundTaskListPanel` 消费 `TaskCenterTaskItem`：Skill 名、状态、部分失败计数、子任务进度、含产物
-- [ ] `BackgroundTaskDetailPanel` 消费扩展后的 `ExecutionDetail`：结果、失败原文、产物、子任务
-- [ ] `TaskArtifactList` 展示 `deliveries[]`：已交付/已降级/待投递/失败；字段缺失隐藏徽标，空数组显示未请求推送
-- [ ] 子任务表分页、标签可辨认、失败摘要首行 ≤200，点开看完整原文
-- [ ] 长错误默认折叠、可展开/复制；产物超 100 个显示总数与截断提示
-- [ ] `?view=background&taskId=` 刷新/重进保持同一详情；`/chat/tasks/:scheduleId` 路径优先，不改 `parseChatTabs`
-- [ ] 无轮询、无 SSE；切 Tab 读取一次，翻页/开详情/子任务翻页才再读
-- [ ] [S-01] 本轮回复结束后会话可继续；后台任务在任务中心可见
-- [ ] [S-02] 成功结果/产物在后台详情可取；聊天时间线不注入结果
-- [ ] [S-03] 失败原文在后台详情/子任务可读
-- [ ] [S-05] 两个分组互不混排，深链正确
-- [ ] [S-06] 批量失败项可定位，标签不是哈希
-- [ ] [S-07] 部分失败计数在列表与详情一致
-- [ ] [E-03] 撤销 Agent 后列表/详情/下载按不存在处理
-- [ ] [E-04] 长错误/大结果不显示为一直运行，正文有截断提示
+- [x] 工作区 Tab `chat.tabs.tasks` →「任务」；页面标题 `chat.taskCenter.label` →「任务中心」；中英文词条同步
+- [x] `TaskCenterPage` 增加「定时任务 / 后台任务」分组；定时任务列表/详情组件原样
+- [x] `TaskCenterClient` 增加 `listTasks`；`getExecution` 增加可选 `childrenPage`，不新增详情 client
+- [x] `BackgroundTaskListPanel` 消费 `TaskCenterTaskItem`：Skill 名、状态、部分失败计数、子任务进度、含产物
+- [x] `BackgroundTaskDetailPanel` 消费扩展后的 `ExecutionDetail`：结果、失败原文、产物、子任务
+- [x] `TaskArtifactList` 展示 `deliveries[]`：已交付/已降级/待投递/失败；字段缺失隐藏徽标，空数组显示未请求推送
+- [x] 子任务表分页、标签可辨认、失败摘要首行 ≤200，点开看完整原文
+- [x] 长错误默认折叠、可展开/复制；产物超 100 个显示总数与截断提示
+- [x] `?view=background&taskId=` 刷新/重进保持同一详情；`/chat/tasks/:scheduleId` 路径优先，不改 `parseChatTabs`
+- [x] 无轮询、无 SSE；切 Tab 读取一次，翻页/开详情/子任务翻页才再读
+- [x] [S-01] 本轮回复结束后会话可继续；后台任务在任务中心可见
+- [x] [S-02] 成功结果/产物在后台详情可取；聊天时间线不注入结果
+- [x] [S-03] 失败原文在后台详情/子任务可读
+- [x] [S-05] 两个分组互不混排，深链正确
+- [x] [S-06] 批量失败项可定位，标签不是哈希
+- [x] [S-07] 部分失败计数在列表与详情一致
+- [x] [E-03] 撤销 Agent 后列表/详情/下载按不存在处理
+- [x] [E-04] 长错误/大结果不显示为一直运行，正文有截断提示
 
 ### Spec Delta
 
@@ -368,13 +369,16 @@ Run 已终态后到达的结果，仍要成为下一轮可读的会话事实。`
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18] implemented: 分组/列表/详情/子任务/产物交付状态/i18n；组件回归 57 passed
+- [2026-11-18T00:32:27.222Z] started tests=4e828c9d2bc4
 
 ### Verification
 
 - 尚未执行
 
 ---
-
+- 2026-11-18T00:45:56.137Z PASS commands=1/1 executed=1 deduped=0 elapsed=23398ms tests=a087520d920c head=73c8cfa7f223 dirty=1 tests-changed
+  - background-task-center-ui PASS exit=0
 ## TASK-006: Run 侧后台语义与容量
 
 - **Status**: draft

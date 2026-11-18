@@ -20,7 +20,7 @@ import type {
   FireItem,
   HistoryRetention,
   ScheduleDetail,
-  ScheduleExecutionDetail,
+  ExecutionDetail,
   ScheduleListItem,
   ScheduleListPage,
   ScheduleMode,
@@ -67,7 +67,7 @@ export type ExecutionPhase = 'IDLE' | 'LOADING' | 'READY' | 'ERROR';
 export interface ExecutionState {
   phase: ExecutionPhase;
   executionId: string | null;
-  detail: ScheduleExecutionDetail | null;
+  detail: ExecutionDetail | null;
   errorCode: string | null;
 }
 
