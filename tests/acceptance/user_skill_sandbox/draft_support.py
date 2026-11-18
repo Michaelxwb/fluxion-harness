@@ -46,12 +46,14 @@ async def write_file(
     path: str,
     content: str,
     expected_revision: int,
+    agent_id: uuid.UUID | None = None,
 ) -> Response:
     return await client.put(
         f"/internal/skills/drafts/{draft_id}/files",
         json={
             "tenant_id": tenant_id,
             "owner_user_id": str(owner_user_id),
+            "agent_id": str(agent_id or DEFAULT_AGENT),
             "path": path,
             "content": content,
             "expected_revision": expected_revision,
@@ -66,12 +68,14 @@ async def read_file(
     owner_user_id: uuid.UUID,
     draft_id: str,
     path: str,
+    agent_id: uuid.UUID | None = None,
 ) -> Response:
     return await client.get(
         f"/internal/skills/drafts/{draft_id}/files",
         params={
             "tenant_id": tenant_id,
             "owner_user_id": str(owner_user_id),
+            "agent_id": str(agent_id or DEFAULT_AGENT),
             "path": path,
         },
     )
@@ -85,12 +89,14 @@ async def delete_file(
     draft_id: str,
     path: str,
     expected_revision: int,
+    agent_id: uuid.UUID | None = None,
 ) -> Response:
     return await client.delete(
         f"/internal/skills/drafts/{draft_id}/files",
         params={
             "tenant_id": tenant_id,
             "owner_user_id": str(owner_user_id),
+            "agent_id": str(agent_id or DEFAULT_AGENT),
             "path": path,
             "expected_revision": expected_revision,
         },
@@ -103,10 +109,15 @@ async def draft_metadata(
     tenant_id: str,
     owner_user_id: uuid.UUID,
     draft_id: str,
+    agent_id: uuid.UUID | None = None,
 ) -> Response:
     return await client.get(
         f"/internal/skills/drafts/{draft_id}",
-        params={"tenant_id": tenant_id, "owner_user_id": str(owner_user_id)},
+        params={
+            "tenant_id": tenant_id,
+            "owner_user_id": str(owner_user_id),
+            "agent_id": str(agent_id or DEFAULT_AGENT),
+        },
     )
 
 
@@ -117,10 +128,12 @@ async def review_draft(
     owner_user_id: uuid.UUID,
     draft_id: str,
     default_script: str | None = None,
+    agent_id: uuid.UUID | None = None,
 ) -> Response:
     body: dict[str, Any] = {
         "tenant_id": tenant_id,
         "owner_user_id": str(owner_user_id),
+        "agent_id": str(agent_id or DEFAULT_AGENT),
     }
     if default_script is not None:
         body["default_script"] = default_script
@@ -139,10 +152,12 @@ async def submit_draft(
     submitted_agent_id: uuid.UUID | None = None,
     submitted_channel: str | None = None,
     idempotency_key: str | None = None,
+    agent_id: uuid.UUID | None = None,
 ) -> Response:
     body: dict[str, Any] = {
         "tenant_id": tenant_id,
         "owner_user_id": str(owner_user_id),
+        "agent_id": str(agent_id or DEFAULT_AGENT),
         "expected_revision": expected_revision,
     }
     if version is not None:
@@ -165,10 +180,15 @@ async def draft_status(
     tenant_id: str,
     owner_user_id: uuid.UUID,
     draft_id: str,
+    agent_id: uuid.UUID | None = None,
 ) -> Response:
     return await client.get(
         f"/internal/skills/drafts/{draft_id}/status",
-        params={"tenant_id": tenant_id, "owner_user_id": str(owner_user_id)},
+        params={
+            "tenant_id": tenant_id,
+            "owner_user_id": str(owner_user_id),
+            "agent_id": str(agent_id or DEFAULT_AGENT),
+        },
     )
 
 

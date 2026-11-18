@@ -401,6 +401,18 @@ codes:
       zh-CN: Skill 草稿不存在
       en-US: Skill draft not found
 
+  DRAFT_FILE_NOT_FOUND:
+    http_status: 404
+    messages:
+      zh-CN: 草稿文件不存在
+      en-US: Draft file not found
+
+  DRAFT_STORAGE_MISSING:
+    http_status: 500
+    messages:
+      zh-CN: 草稿文件存储缺失，需要从制品恢复或重建草稿
+      en-US: Draft file storage is missing; restore it from an artifact or recreate the draft
+
   DRAFT_REVISION_CONFLICT:
     http_status: 409
     retryable: true

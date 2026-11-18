@@ -53,7 +53,11 @@ class ConsoleDraftShellClient:
         response = await self._request(
             "GET",
             path,
-            params={"tenant_id": request.tenant_id, "owner_user_id": request.owner_user_id},
+            params={
+                "tenant_id": request.tenant_id,
+                "owner_user_id": request.owner_user_id,
+                "agent_id": request.agent_id,
+            },
             accept="application/zip",
         )
         if response.status_code >= 400:
@@ -85,6 +89,7 @@ class ConsoleDraftShellClient:
         body: dict[str, Any] = {
             "tenant_id": request.tenant_id,
             "owner_user_id": request.owner_user_id,
+            "agent_id": request.agent_id,
             "expected_revision": expected_revision,
             "changes": [_encoded_change(change) for change in changes],
             "deletions": list(deletions),
@@ -169,9 +174,11 @@ def _response_error(response: httpx.Response) -> DraftShellError:
         payload = {}
     code = payload.get("code") if isinstance(payload, dict) else None
     message = payload.get("msg") if isinstance(payload, dict) else None
+    data = payload.get("data") if isinstance(payload, dict) else None
     return DraftShellError(
         code if isinstance(code, str) and code else "COMMON_INTERNAL_ERROR",
         message if isinstance(message, str) and message else f"console returned HTTP {response.status_code}",
+        data=data if isinstance(data, dict) else None,
     )
 
 
@@ -216,21 +223,36 @@ class ConsoleSkillDraftClient:
         )
 
     async def metadata(
-        self, draft_id: str, *, tenant_id: str, owner_user_id: str
+        self, draft_id: str, *, tenant_id: str, owner_user_id: str, agent_id: str
     ) -> dict[str, Any]:
         return await self._call(
             "GET",
             f"/internal/skills/drafts/{draft_id}",
-            params={"tenant_id": tenant_id, "owner_user_id": owner_user_id},
+            params={
+                "tenant_id": tenant_id,
+                "owner_user_id": owner_user_id,
+                "agent_id": agent_id,
+            },
         )
 
     async def read(
-        self, draft_id: str, *, tenant_id: str, owner_user_id: str, path: str
+        self,
+        draft_id: str,
+        *,
+        tenant_id: str,
+        owner_user_id: str,
+        agent_id: str,
+        path: str,
     ) -> dict[str, Any]:
         return await self._call(
             "GET",
             f"/internal/skills/drafts/{draft_id}/files",
-            params={"tenant_id": tenant_id, "owner_user_id": owner_user_id, "path": path},
+            params={
+                "tenant_id": tenant_id,
+                "owner_user_id": owner_user_id,
+                "agent_id": agent_id,
+                "path": path,
+            },
         )
 
     async def write(
@@ -239,6 +261,7 @@ class ConsoleSkillDraftClient:
         *,
         tenant_id: str,
         owner_user_id: str,
+        agent_id: str,
         path: str,
         content: str,
         expected_revision: int,
@@ -249,6 +272,7 @@ class ConsoleSkillDraftClient:
             json={
                 "tenant_id": tenant_id,
                 "owner_user_id": owner_user_id,
+                "agent_id": agent_id,
                 "path": path,
                 "content": content,
                 "expected_revision": expected_revision,
@@ -261,6 +285,7 @@ class ConsoleSkillDraftClient:
         *,
         tenant_id: str,
         owner_user_id: str,
+        agent_id: str,
         expected_revision: int,
         changes: Sequence[DraftShellChange],
     ) -> dict[str, Any]:
@@ -271,6 +296,7 @@ class ConsoleSkillDraftClient:
             json={
                 "tenant_id": tenant_id,
                 "owner_user_id": owner_user_id,
+                "agent_id": agent_id,
                 "expected_revision": expected_revision,
                 "changes": [_encoded_change(change) for change in changes],
                 "deletions": [],
@@ -283,12 +309,14 @@ class ConsoleSkillDraftClient:
         *,
         tenant_id: str,
         owner_user_id: str,
+        agent_id: str,
         path: str,
         expected_revision: int | None,
     ) -> dict[str, Any]:
         params: dict[str, Any] = {
             "tenant_id": tenant_id,
             "owner_user_id": owner_user_id,
+            "agent_id": agent_id,
             "path": path,
         }
         if expected_revision is not None:
@@ -298,30 +326,42 @@ class ConsoleSkillDraftClient:
         )
 
     async def delete(
-        self, draft_id: str, *, tenant_id: str, owner_user_id: str
+        self, draft_id: str, *, tenant_id: str, owner_user_id: str, agent_id: str
     ) -> dict[str, Any]:
         return await self._call(
             "DELETE",
             f"/internal/skills/drafts/{draft_id}",
-            params={"tenant_id": tenant_id, "owner_user_id": owner_user_id},
+            params={
+                "tenant_id": tenant_id,
+                "owner_user_id": owner_user_id,
+                "agent_id": agent_id,
+            },
         )
 
     async def review(
-        self, draft_id: str, *, tenant_id: str, owner_user_id: str
+        self, draft_id: str, *, tenant_id: str, owner_user_id: str, agent_id: str
     ) -> dict[str, Any]:
         return await self._call(
             "POST",
             f"/internal/skills/drafts/{draft_id}/review",
-            json={"tenant_id": tenant_id, "owner_user_id": owner_user_id},
+            json={
+                "tenant_id": tenant_id,
+                "owner_user_id": owner_user_id,
+                "agent_id": agent_id,
+            },
         )
 
     async def status(
-        self, draft_id: str, *, tenant_id: str, owner_user_id: str
+        self, draft_id: str, *, tenant_id: str, owner_user_id: str, agent_id: str
     ) -> dict[str, Any]:
         return await self._call(
             "GET",
             f"/internal/skills/drafts/{draft_id}/status",
-            params={"tenant_id": tenant_id, "owner_user_id": owner_user_id},
+            params={
+                "tenant_id": tenant_id,
+                "owner_user_id": owner_user_id,
+                "agent_id": agent_id,
+            },
         )
 
     async def submit(
@@ -330,6 +370,7 @@ class ConsoleSkillDraftClient:
         *,
         tenant_id: str,
         owner_user_id: str,
+        agent_id: str,
         expected_revision: int,
         version: str | None,
         default_script: str | None,
@@ -339,6 +380,7 @@ class ConsoleSkillDraftClient:
         body: dict[str, Any] = {
             "tenant_id": tenant_id,
             "owner_user_id": owner_user_id,
+            "agent_id": agent_id,
             "expected_revision": expected_revision,
         }
         if version is not None:

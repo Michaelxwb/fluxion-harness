@@ -43,6 +43,9 @@ DRAFT_TOOL_DESCRIPTION = (
     "review(draft_id|key), status(draft_id|key), "
     "import(draft_id|key, artifact_id[, expected_revision]), "
     "submit(draft_id|key[, expected_revision, version, default_script]). "
+    "All paths are relative to the draft root (the directory that holds SKILL.md); "
+    'read with path="" (or no path) lists the draft root. get/status report '
+    "has_unsubmitted_changes and the effective artifact id/version. "
     "import copies an uploaded archive (zip) into the draft from the artifact, byte for byte: "
     "use it only when the user explicitly asks to create or modify a skill from an uploaded "
     "package (binary files included; upload and extraction limits still apply). "
@@ -61,8 +64,9 @@ DRAFT_TOOL_DESCRIPTION = (
     "execute target=workspace `pwd`): show the error/warning summary to the user and fix errors "
     "first. If the draft changed since that review (its revision moved), review again "
     "before submitting. The review is advisory and never blocks submit. "
-    "submit publishes the draft for approval. Identity comes from the run; "
-    "never pass tenant/user/agent."
+    "submit publishes the draft for approval but does not release or delete it: the draft "
+    "and its files remain available for further edits and another submit. Identity comes "
+    "from the run; never pass tenant/user/agent."
 )
 
 _STRING = {"type": "string"}
@@ -103,8 +107,13 @@ def _optional_int(arguments: Mapping[str, Any], key: str) -> int | None:
     return int(value)
 
 
-def _error_result(code: str, message: str) -> str:
-    return json.dumps({"error": {"code": code, "message": message}}, ensure_ascii=False)
+def _error_result(
+    code: str, message: str, data: Mapping[str, Any] | None = None
+) -> str:
+    error: dict[str, Any] = {"code": code, "message": message}
+    if data:
+        error["data"] = dict(data)
+    return json.dumps({"error": error}, ensure_ascii=False)
 
 
 class SkillDraftTools:
@@ -166,32 +175,52 @@ class SkillDraftTools:
         """draft_id 或 key 二选一；key 走幂等 create 解析成 draft_id 与当前 revision。
 
         模型说“weather-query 草稿”时手里通常只有 key：让它为了拿 UUID 先失败一次再自查，
-        等于给流程加一道无意义的路障。
+        等于给流程加一道无意义的路障。同时给出 draft_id 与 key 时必须指向同一份草稿，
+        不一致要显式报错，不能静默用其中一个。
         """
-        explicit = _optional_string(arguments, "draft_id")
-        if explicit and explicit.strip():
-            return explicit.strip(), None
-        key = _optional_string(arguments, "key")
-        if not key or not key.strip():
+        explicit_raw = _optional_string(arguments, "draft_id")
+        explicit = explicit_raw.strip() if explicit_raw else ""
+        key_raw = _optional_string(arguments, "key")
+        key = key_raw.strip() if key_raw else ""
+        if not explicit and not key:
             raise DraftShellError(
                 "COMMON_VALIDATION_ERROR",
                 "pass draft_id (UUID) or key (the skill name); create(key) returns draft_id",
             )
         tenant_id, owner_user_id = self._identity
+        agent_id = str(self._context.agent_id)
+        if explicit and not key:
+            return explicit, None
+        if explicit:
+            data = await self._client.metadata(
+                explicit,
+                tenant_id=tenant_id,
+                owner_user_id=owner_user_id,
+                agent_id=agent_id,
+            )
+            actual_key = data.get("key")
+            if not isinstance(actual_key, str) or actual_key != key:
+                raise DraftShellError(
+                    "COMMON_VALIDATION_ERROR",
+                    f"draft_id {explicit!r} and key {key!r} identify different drafts; "
+                    "pass only one",
+                )
+            return explicit, self._revision_of(data)
         data = await self._client.create(
             tenant_id=tenant_id,
             owner_user_id=owner_user_id,
-            agent_id=str(self._context.agent_id),
-            key=key.strip(),
+            agent_id=agent_id,
+            key=key,
         )
         draft_id = str(data.get("draft_id") or data.get("id") or "")
         if not draft_id:
-            raise DraftShellError(
-                "COMMON_CONFLICT", f"draft {key.strip()!r} could not be resolved"
-            )
+            raise DraftShellError("COMMON_CONFLICT", f"draft {key!r} could not be resolved")
+        return draft_id, self._revision_of(data)
+
+    @staticmethod
+    def _revision_of(data: Mapping[str, Any]) -> int | None:
         revision = data.get("revision")
-        resolved = int(revision) if isinstance(revision, int) and revision > 0 else None
-        return draft_id, resolved
+        return int(revision) if isinstance(revision, int) and revision > 0 else None
 
     async def create(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         try:
@@ -203,7 +232,7 @@ class SkillDraftTools:
                 key=_require_string(arguments, "key"),
             )
         except DraftShellError as exc:
-            return _error_result(exc.code, exc.message)
+            return _error_result(exc.code, exc.message, getattr(exc, "data", None))
         return json.dumps(_with_draft_id(data), ensure_ascii=False)
 
     async def get(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
@@ -214,9 +243,10 @@ class SkillDraftTools:
                 draft_id,
                 tenant_id=tenant_id,
                 owner_user_id=owner_user_id,
+                agent_id=str(self._context.agent_id),
             )
         except DraftShellError as exc:
-            return _error_result(exc.code, exc.message)
+            return _error_result(exc.code, exc.message, getattr(exc, "data", None))
         return json.dumps(_with_draft_id(data), ensure_ascii=False)
 
     async def read(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
@@ -227,10 +257,11 @@ class SkillDraftTools:
                 draft_id,
                 tenant_id=tenant_id,
                 owner_user_id=owner_user_id,
+                agent_id=str(self._context.agent_id),
                 path=_optional_string(arguments, "path") or "",
             )
         except DraftShellError as exc:
-            return _error_result(exc.code, exc.message)
+            return _error_result(exc.code, exc.message, getattr(exc, "data", None))
         return json.dumps(data, ensure_ascii=False)
 
     async def write(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
@@ -246,12 +277,13 @@ class SkillDraftTools:
                 draft_id,
                 tenant_id=tenant_id,
                 owner_user_id=owner_user_id,
+                agent_id=str(self._context.agent_id),
                 path=_require_string(arguments, "path"),
                 content=_optional_string(arguments, "content") or "",
                 expected_revision=revision,
             )
         except DraftShellError as exc:
-            return _error_result(exc.code, exc.message)
+            return _error_result(exc.code, exc.message, getattr(exc, "data", None))
         return json.dumps(data, ensure_ascii=False)
 
     async def delete(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
@@ -261,18 +293,22 @@ class SkillDraftTools:
             path = _optional_string(arguments, "path")
             if path is None:
                 data = await self._client.delete(
-                    draft_id, tenant_id=tenant_id, owner_user_id=owner_user_id
+                    draft_id,
+                    tenant_id=tenant_id,
+                    owner_user_id=owner_user_id,
+                    agent_id=str(self._context.agent_id),
                 )
             else:
                 data = await self._client.delete_file(
                     draft_id,
                     tenant_id=tenant_id,
                     owner_user_id=owner_user_id,
+                    agent_id=str(self._context.agent_id),
                     path=path,
                     expected_revision=_optional_int(arguments, "expected_revision") or resolved,
                 )
         except DraftShellError as exc:
-            return _error_result(exc.code, exc.message)
+            return _error_result(exc.code, exc.message, getattr(exc, "data", None))
         return json.dumps(data, ensure_ascii=False)
 
     async def review(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
@@ -283,9 +319,10 @@ class SkillDraftTools:
                 draft_id,
                 tenant_id=tenant_id,
                 owner_user_id=owner_user_id,
+                agent_id=str(self._context.agent_id),
             )
         except DraftShellError as exc:
-            return _error_result(exc.code, exc.message)
+            return _error_result(exc.code, exc.message, getattr(exc, "data", None))
         return json.dumps(data, ensure_ascii=False)
 
     async def status(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
@@ -296,9 +333,10 @@ class SkillDraftTools:
                 draft_id,
                 tenant_id=tenant_id,
                 owner_user_id=owner_user_id,
+                agent_id=str(self._context.agent_id),
             )
         except DraftShellError as exc:
-            return _error_result(exc.code, exc.message)
+            return _error_result(exc.code, exc.message, getattr(exc, "data", None))
         return json.dumps(data, ensure_ascii=False)
 
     async def submit(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
@@ -314,6 +352,7 @@ class SkillDraftTools:
                 draft_id,
                 tenant_id=tenant_id,
                 owner_user_id=owner_user_id,
+                agent_id=str(self._context.agent_id),
                 expected_revision=revision,
                 version=_optional_string(arguments, "version"),
                 default_script=_optional_string(arguments, "default_script"),
@@ -321,7 +360,7 @@ class SkillDraftTools:
                 submitted_channel=None,
             )
         except DraftShellError as exc:
-            return _error_result(exc.code, exc.message)
+            return _error_result(exc.code, exc.message, getattr(exc, "data", None))
         return json.dumps(data, ensure_ascii=False)
 
     async def import_package(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
@@ -336,7 +375,12 @@ class SkillDraftTools:
             draft_id, resolved = await self._resolve_draft(arguments)
             revision = _optional_int(arguments, "expected_revision") or resolved
             if revision is None:
-                revision = await self._current_revision(draft_id, tenant_id, owner_user_id)
+                revision = await self._current_revision(
+                    draft_id,
+                    tenant_id,
+                    owner_user_id,
+                    str(self._context.agent_id),
+                )
             raw = await self._packages.read(
                 artifact_id, tenant_id=tenant_id, owner_user_id=owner_user_id
             )
@@ -359,11 +403,12 @@ class SkillDraftTools:
                 draft_id,
                 tenant_id=tenant_id,
                 owner_user_id=owner_user_id,
+                agent_id=str(self._context.agent_id),
                 expected_revision=revision,
                 changes=changes,
             )
         except (DraftShellError, PackageImportError) as exc:
-            return _error_result(exc.code, exc.message)
+            return _error_result(exc.code, exc.message, getattr(exc, "data", None))
         return json.dumps(
             {
                 **data,
@@ -375,11 +420,14 @@ class SkillDraftTools:
         )
 
     async def _current_revision(
-        self, draft_id: str, tenant_id: str, owner_user_id: str
+        self, draft_id: str, tenant_id: str, owner_user_id: str, agent_id: str
     ) -> int:
         """模型没给 expected_revision 时取当前值；真正的并发保护仍是 apply 的 CAS。"""
         data = await self._client.metadata(
-            draft_id, tenant_id=tenant_id, owner_user_id=owner_user_id
+            draft_id,
+            tenant_id=tenant_id,
+            owner_user_id=owner_user_id,
+            agent_id=agent_id,
         )
         revision = data.get("revision")
         if not isinstance(revision, int) or revision < 1:

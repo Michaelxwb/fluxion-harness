@@ -112,6 +112,10 @@ def render_json(report: Mapping[str, Any]) -> bytes:
     return (json.dumps(masked, ensure_ascii=False, indent=2, default=str) + "\n").encode("utf-8")
 
 
+_NOT_A_FAILURE = frozenset({"UNKNOWN", "NOT_APPLICABLE"})
+_TRANSPORT_FAILURES = frozenset({"ERROR", "FAILED", "DENY", "DENIED"})
+
+
 def _failure_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
     diagnosis = _mapping(report.get("diagnosis"))
     rows: list[dict[str, Any]] = []
@@ -121,7 +125,13 @@ def _failure_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
     for item in _list(diagnosis.get("contributing_failures")):
         if isinstance(item, Mapping):
             rows.append({**dict(item), "is_primary": False})
-    return rows
+    # 业务 UNKNOWN/NOT_APPLICABLE 不是 confirmed 失败；transport 失败仍然列出。
+    return [
+        row
+        for row in rows
+        if str(row.get("business_status") or "") not in _NOT_A_FAILURE
+        or str(row.get("status") or "") in _TRANSPORT_FAILURES
+    ]
 
 
 def render_markdown(report: Mapping[str, Any]) -> str:
@@ -165,6 +175,34 @@ def render_markdown(report: Mapping[str, Any]) -> str:
             f"| {item.get('node_type')} | {item.get('seq') or '-'} | {item.get('status') or '-'} | "
             f"{item.get('error_code') or '-'} | {item.get('service') or '-'} |"
         )
+    finalization = _mapping(execution.get("finalization"))
+    if finalization:
+        termination = _mapping(finalization.get("termination"))
+        usage = _mapping(finalization.get("usage"))
+        lines.extend(["", "## 收尾事实", ""])
+        lines.append(f"- 终止原因: {termination.get('reason') or '-'}")
+        if termination.get("error_code"):
+            lines.append(f"- 终止错误码: {termination.get('error_code')}")
+        lines.append(
+            "- 用量: 轮次 {turns}/{turns_limit}，工具 {tools}/{tools_limit}，耗时 {elapsed}ms".format(
+                turns=usage.get("turns_used", "-"),
+                turns_limit=usage.get("turns_limit") or "-",
+                tools=usage.get("tool_calls_used", "-"),
+                tools_limit=usage.get("tool_calls_limit") or "-",
+                elapsed=usage.get("elapsed_ms", "-"),
+            )
+        )
+        lines.append(f"- 证据状态: {finalization.get('evidence_status') or '-'}")
+        if finalization.get("evidence_incomplete"):
+            lines.append("- 证据可能不完整：输出被截断")
+        evidence = _mapping(finalization.get("business_failure_evidence"))
+        for item in _list(evidence.get("failures")):
+            if isinstance(item, Mapping):
+                lines.append(
+                    f"- 业务失败: {item.get('tool') or '?'} / layer={item.get('failure_layer') or '-'}"
+                    f" / code={item.get('error_code') or '-'}"
+                    f" / evidence={item.get('evidence_preview') or '-'}"
+                )
     lines.extend(["", "## 耗时", ""])
     timing = _mapping(summary.get("timing"))
     if timing:
@@ -184,9 +222,11 @@ def render_markdown(report: Mapping[str, Any]) -> str:
     quality = _mapping(report.get("data_quality"))
     truncation = _mapping(report.get("truncation"))
     lines.extend(["", "## 数据范围", ""])
-    lines.append(f"- 完整: {quality.get('complete')}")
+    lines.append(f"- 数据库完整: {quality.get('db_complete')}")
+    lines.append(f"- 导出包截断: {quality.get('export_truncated')}")
+    lines.append(f"- 证据可能不完整: {quality.get('evidence_incomplete')}")
     if truncation.get("truncated"):
-        lines.append(f"- 已截断: {truncation}")
+        lines.append(f"- 截断详情: {truncation}")
     warnings = _list(quality.get("warnings"))
     for warning in warnings:
         lines.append(f"- 不可读段: {warning}")
@@ -243,6 +283,11 @@ def render_failures_csv(report: Mapping[str, Any]) -> str:
             "seq",
             "occurred_at",
             "status",
+            "business_status",
+            "failure_layer",
+            "exit_code",
+            "output_truncated",
+            "evidence_preview",
             "error_code",
             "error_message",
             "service",
@@ -272,6 +317,11 @@ def render_calls_csv(report: Mapping[str, Any]) -> str:
             "target",
             "status",
             "result_status",
+            "business_status",
+            "failure_layer",
+            "exit_code",
+            "output_truncated",
+            "evidence_preview",
             "error_code",
             "error_message",
             "latency_ms",
@@ -341,6 +391,16 @@ def render_zip(report: Mapping[str, Any]) -> bytes:
     return buffer.getvalue()
 
 
+def _mark_truncated(result: dict[str, Any]) -> None:
+    truncation = dict(result.get("truncation") or {})
+    truncation["truncated"] = True
+    result["truncation"] = truncation
+    quality = dict(result.get("data_quality") or {})
+    quality["export_truncated"] = True
+    quality["complete"] = False
+    result["data_quality"] = quality
+
+
 def fit_report(report: Mapping[str, Any], max_bytes: int, *, max_events: int | None = None) -> dict[str, Any]:
     """Keep the package bounded while preserving the primary failure and a timeline window."""
     result = dict(report)
@@ -364,17 +424,16 @@ def fit_report(report: Mapping[str, Any], max_bytes: int, *, max_events: int | N
                 deduped.append(item)
         result["timeline"] = deduped
         truncation = dict(result.get("truncation") or {})
-        truncation.update(truncated=True, omitted_events=len(timeline) - len(deduped))
+        truncation.update(omitted_events=len(timeline) - len(deduped))
         result["truncation"] = truncation
+        _mark_truncated(result)
     while len(render_json(result)) > max_bytes and isinstance(result.get("supplemental"), Mapping):
         supplemental = _mapping(result.get("supplemental"))
         if not supplemental:
             break
         supplemental.pop(next(iter(supplemental)))
         result["supplemental"] = supplemental
-        truncation = dict(result.get("truncation") or {})
-        truncation["truncated"] = True
-        result["truncation"] = truncation
+        _mark_truncated(result)
     return result
 
 

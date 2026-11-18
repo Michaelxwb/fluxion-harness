@@ -188,6 +188,64 @@ async def test_missing_draft_id_and_key_names_both_options() -> None:
     assert "draft_id" in payload["error"]["message"] and "key" in payload["error"]["message"]
 
 
+def test_description_states_path_base_and_submit_keeps_the_draft() -> None:
+    description = _tools(_FakeClient()).definitions()[0].description
+    assert "relative to the draft root" in description
+    assert 'path=""' in description
+    assert "does not release or delete" in description
+
+
+async def test_read_defaults_to_the_draft_root_listing() -> None:
+    client = _FakeClient()
+    await _tools(client).read({"draft_id": "draft-1"}, call_id="c1")
+    _, _, kwargs = client.calls[0]
+    assert kwargs["path"] == ""
+    assert kwargs["agent_id"] == _Context().agent_id
+
+
+async def test_get_and_status_use_the_run_agent_scope() -> None:
+    client = _FakeClient()
+    tools = _tools(client)
+    await tools.get({"draft_id": "draft-1"}, call_id="c1")
+    await tools.status({"draft_id": "draft-1"}, call_id="c2")
+    assert [call[0] for call in client.calls] == ["metadata", "status"]
+    for _, _, kwargs in client.calls:
+        assert kwargs["tenant_id"] == "tenant-a"
+        assert kwargs["owner_user_id"] == _Context().owner_user_id
+        assert kwargs["agent_id"] == _Context().agent_id
+
+
+async def test_draft_id_and_key_must_identify_the_same_draft() -> None:
+    """同时给出 draft_id 与 key 时先校验归属；不一致显式报错，不静默选一个。"""
+
+    class _Keyed(_FakeClient):
+        async def metadata(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+            self.calls.append(("metadata", args, kwargs))
+            draft_id = str(args[0]) if args else ""
+            key = "weather-query" if draft_id == "draft-1" else "other-skill"
+            return {"id": draft_id, "key": key, "revision": 3}
+
+    client = _Keyed()
+    payload = json.loads(
+        await _tools(client).get(
+            {"draft_id": "draft-2", "key": "weather-query"}, call_id="c1"
+        )
+    )
+    assert payload["error"]["code"] == "COMMON_VALIDATION_ERROR"
+    assert "draft-2" in payload["error"]["message"]
+    assert "weather-query" in payload["error"]["message"]
+    assert [call[0] for call in client.calls] == ["metadata"]
+
+    client = _Keyed()
+    matched = json.loads(
+        await _tools(client).get(
+            {"draft_id": "draft-1", "key": "weather-query"}, call_id="c2"
+        )
+    )
+    assert matched["draft_id"] == "draft-1"
+    assert [call[0] for call in client.calls] == ["metadata", "metadata"]
+
+
 async def test_submit_binds_agent_and_passes_version() -> None:
     client = _FakeClient()
     tools = _tools(client)
@@ -205,7 +263,11 @@ async def test_submit_binds_agent_and_passes_version() -> None:
 async def test_draft_errors_surface_as_stable_error_results() -> None:
     class _Conflict(_FakeClient):
         async def write(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
-            raise DraftShellError("DRAFT_REVISION_CONFLICT", "stale revision")
+            raise DraftShellError(
+                "DRAFT_FILE_NOT_FOUND",
+                "draft file not found",
+                data={"path": "SKILL.md", "draft_id": "d", "repair": "read the root"},
+            )
 
     payload = json.loads(
         await _tools(_Conflict()).write(
@@ -213,7 +275,12 @@ async def test_draft_errors_surface_as_stable_error_results() -> None:
             call_id="c1",
         )
     )
-    assert payload["error"]["code"] == "DRAFT_REVISION_CONFLICT"
+    assert payload["error"]["code"] == "DRAFT_FILE_NOT_FOUND"
+    assert payload["error"]["data"] == {
+        "path": "SKILL.md",
+        "draft_id": "d",
+        "repair": "read the root",
+    }
 
 
 async def test_write_requires_expected_revision() -> None:
@@ -238,11 +305,12 @@ async def test_client_uses_internal_service_header_and_contract_paths() -> None:
             "d-1",
             tenant_id="t",
             owner_user_id="u",
+            agent_id="a",
             path="SKILL.md",
             content="hello",
             expected_revision=1,
         )
-        await client.status("d-1", tenant_id="t", owner_user_id="u")
+        await client.status("d-1", tenant_id="t", owner_user_id="u", agent_id="a")
 
     write, status = seen
     assert write.method == "PUT"
@@ -252,6 +320,7 @@ async def test_client_uses_internal_service_header_and_contract_paths() -> None:
     assert status.method == "GET"
     assert status.url.path == "/internal/skills/drafts/d-1/status"
     assert status.url.params["owner_user_id"] == "u"
+    assert status.url.params["agent_id"] == "a"
 
 
 async def test_client_apply_encodes_binary_members_and_keeps_text_members() -> None:
@@ -267,6 +336,7 @@ async def test_client_apply_encodes_binary_members_and_keeps_text_members() -> N
             "d-1",
             tenant_id="t",
             owner_user_id="u",
+            agent_id="a",
             expected_revision=1,
             changes=(
                 DraftShellChange(path="SKILL.md", content="中文".encode()),
@@ -283,7 +353,12 @@ async def test_client_apply_encodes_binary_members_and_keeps_text_members() -> N
 async def test_client_maps_console_error_envelope() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
-            409, json={"code": "DRAFT_REVISION_CONFLICT", "msg": "stale", "data": {}}
+            409,
+            json={
+                "code": "DRAFT_REVISION_CONFLICT",
+                "msg": "stale",
+                "data": {"draft_id": "d-1", "repair": "refresh and retry"},
+            },
         )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
@@ -293,6 +368,7 @@ async def test_client_maps_console_error_envelope() -> None:
                 "d-1",
                 tenant_id="t",
                 owner_user_id="u",
+                agent_id="a",
                 expected_revision=1,
                 version=None,
                 default_script=None,
@@ -300,6 +376,7 @@ async def test_client_maps_console_error_envelope() -> None:
                 submitted_channel=None,
             )
     assert caught.value.code == "DRAFT_REVISION_CONFLICT"
+    assert caught.value.data == {"draft_id": "d-1", "repair": "refresh and retry"}
 
 
 class _FakePackages:

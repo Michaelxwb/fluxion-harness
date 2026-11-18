@@ -9,8 +9,13 @@ from muad_common import SharedSettings
 def test_draft_platform_context_uses_parent_run() -> None:
     runner = build_draft_shell_runner(SharedSettings())
     request = DraftShellRequest(
-        tenant_id="tenant", owner_user_id="user", draft_id="draft", command="true",
-        execution_id="tool-call", run_id="parent-run",
+        tenant_id="tenant",
+        owner_user_id="user",
+        agent_id="agent",
+        draft_id="draft",
+        command="true",
+        execution_id="tool-call",
+        run_id="parent-run",
     )
     context = runner._platform_context_factory(request, ("mssp",))
     assert context is not None
@@ -22,7 +27,11 @@ def test_draft_platform_context_uses_parent_run() -> None:
 def test_draft_platform_context_requires_parent_run() -> None:
     runner = build_draft_shell_runner(SharedSettings())
     request = DraftShellRequest(
-        tenant_id="tenant", owner_user_id="user", draft_id="draft", command="true",
+        tenant_id="tenant",
+        owner_user_id="user",
+        agent_id="agent",
+        draft_id="draft",
+        command="true",
     )
     with pytest.raises(ValueError, match="run identity"):
         runner._platform_context_factory(request, ("mssp",))

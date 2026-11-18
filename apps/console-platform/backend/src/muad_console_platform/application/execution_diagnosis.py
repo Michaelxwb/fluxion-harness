@@ -50,6 +50,12 @@ class FailureCandidate:
     status: str | None = None
     error_code: str | None = None
     error_message: str | None = None
+    #: 业务判定（transport OK 但内容失败时，status 仍是 OK）。
+    business_status: str | None = None
+    failure_layer: str | None = None
+    exit_code: int | None = None
+    output_truncated: bool | None = None
+    evidence_preview: str | None = None
     is_retry: bool = False
     related_ids: Mapping[str, str] = field(default_factory=dict)
 
@@ -64,6 +70,11 @@ class FailureCandidate:
             "status": self.status,
             "error_code": self.error_code,
             "error_message": self.error_message,
+            "business_status": self.business_status,
+            "failure_layer": self.failure_layer,
+            "exit_code": self.exit_code,
+            "output_truncated": self.output_truncated,
+            "evidence_preview": self.evidence_preview,
             "is_retry": self.is_retry,
             "related_ids": dict(self.related_ids),
         }
@@ -187,6 +198,11 @@ def _candidate(
     status: Any = None,
     error_code: Any = None,
     error_message: Any = None,
+    business_status: Any = None,
+    failure_layer: Any = None,
+    exit_code: Any = None,
+    output_truncated: Any = None,
+    evidence_preview: Any = None,
     occurred_at: Any = None,
     seq: Any = None,
     related: Mapping[str, Any] | None = None,
@@ -206,6 +222,11 @@ def _candidate(
         status=status_text,
         error_code=code_text,
         error_message=str(error_message) if error_message not in (None, "") else None,
+        business_status=str(business_status) if business_status not in (None, "") else None,
+        failure_layer=str(failure_layer) if failure_layer not in (None, "") else None,
+        exit_code=exit_code if isinstance(exit_code, int) and not isinstance(exit_code, bool) else None,
+        output_truncated=output_truncated if isinstance(output_truncated, bool) else None,
+        evidence_preview=str(evidence_preview) if evidence_preview not in (None, "") else None,
         is_retry=is_retry,
         related_ids=related_ids,
     )
@@ -267,16 +288,32 @@ def _model_candidates(bundle: ExecutionExportBundle) -> list[FailureCandidate]:
 def _tool_candidates(bundle: ExecutionExportBundle) -> list[FailureCandidate]:
     found: list[FailureCandidate] = []
     for row in _rows(bundle, "runtime.tool_call_audit"):
-        if str(row.get("status")) not in FAILURE_STATUSES:
+        transport_failed = str(row.get("status")) in FAILURE_STATUSES
+        business_failed = (
+            str(row.get("business_status")) in FAILURE_STATUSES
+            and str(row.get("failure_layer")) in {"TOOL", "CONTENT"}
+        )
+        if not transport_failed and not business_failed:
             continue
+        # transport OK + business FAILED 是内容层失败：导出必须能看见，不能只看 status。
+        basis = (
+            "BUSINESS_CONTENT_FAILURE"
+            if business_failed and not transport_failed
+            else "EARLIEST_TERMINAL_FAILURE"
+        )
         found.append(
             _candidate(
                 node_type="TOOL_CALL",
                 node_id=row.get("id"),
-                basis="EARLIEST_TERMINAL_FAILURE",
+                basis=basis,
                 status=row.get("status"),
                 error_code=row.get("error_code"),
                 error_message=row.get("error_message"),
+                business_status=row.get("business_status"),
+                failure_layer=row.get("failure_layer"),
+                exit_code=row.get("exit_code"),
+                output_truncated=row.get("output_truncated"),
+                evidence_preview=row.get("evidence_preview"),
                 occurred_at=row.get("create_time") or row.get("start_time"),
                 related={
                     "tool_call_id": row.get("tool_call_id"),

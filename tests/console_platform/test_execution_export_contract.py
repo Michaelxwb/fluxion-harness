@@ -30,6 +30,7 @@ def test_report_contract_has_all_top_level_sections() -> None:
         "operations",
         "tasks",
         "links",
+        "failure_evidence",
         "supplemental",
         "truncation",
         "data_quality",

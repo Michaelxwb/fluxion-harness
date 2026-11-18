@@ -577,7 +577,7 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
   - facts PASS exit=0
 ## TASK-011: 导出与诊断业务字段
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-008, TASK-010
 - **Source**: run-failure-reporting/run-failure-reporting.design.md#4.7
 - **Scenarios**: run-failure-reporting:E-01, run-failure-reporting:S-16
@@ -606,12 +606,12 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
 
 ### Checklist
 
-- [ ] `calls.csv`/report.json 暴露业务字段。
-- [ ] `execution_diagnosis` 收内容层失败候选。
-- [ ] `failures.csv` 过滤 UNKNOWN/NOT_APPLICABLE。
-- [ ] failure evidence 在截断时保留首个/最后/confirmed 摘要。
-- [ ] `data_quality` 区分 DB 完整与包截断。
-- [ ] 补导出/诊断用例。
+- [x] `calls.csv`/report.json 暴露业务字段。
+- [x] `execution_diagnosis` 收内容层失败候选。
+- [x] `failures.csv` 过滤 UNKNOWN/NOT_APPLICABLE。
+- [x] failure evidence 在截断时保留首个/最后/confirmed 摘要。
+- [x] `data_quality` 区分 DB 完整与包截断。
+- [x] 补导出/诊断用例。
 
 ### Spec Delta
 
@@ -622,11 +622,14 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18] implemented: business fields in calls/failures/report.json, content-layer diagnosis, split data_quality, failure_evidence survives truncation
+- [2026-11-18T17:54:14.537Z] started tests=ed8682cda229
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-18T17:54:22.804Z PASS commands=1/1 executed=1 deduped=0 elapsed=8148ms tests=ed8682cda229 head=63d5f49b0de3 dirty=1
+  - export PASS exit=0
 ## TASK-012: Job/Payload 模型与旧模式迁移
 
 - **Status**: draft
@@ -785,7 +788,7 @@ Agent 输出结构化 `SchedulePlan`（kind/skill/input/argv/window/session/deli
 
 ## TASK-015: 草稿诊断、版本与作用域
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-013
 - **Source**: run-failure-reporting/run-failure-reporting.design.md#10.4
 - **Scenarios**: run-failure-reporting:S-12, run-failure-reporting:S-13
@@ -814,13 +817,13 @@ Agent 输出结构化 `SchedulePlan`（kind/skill/input/argv/window/session/deli
 
 ### Checklist
 
-- [ ] 新错误码与 data（path/draft_id/repair）。
-- [ ] 根目录列表与工具描述（路径基准）。
-- [ ] `has_unsubmitted_changes`/`effective_artifact_version`/`effective_artifact_id`。
-- [ ] `get`/`get_for_update` 按 tenant+owner+agent；key 解析不一致显式报错。
-- [ ] 目录缺失恢复动作（import artifact）；`get/read` 刷新活动标记。
-- [ ] 工具描述写明 submit 不释放草稿。
-- [ ] 测试：get/read 区分、根列表、agent 作用域、目录缺失、版本字段。
+- [x] 新错误码与 data（path/draft_id/repair）。
+- [x] 根目录列表与工具描述（路径基准）。
+- [x] `has_unsubmitted_changes`/`effective_artifact_version`/`effective_artifact_id`。
+- [x] `get`/`get_for_update` 按 tenant+owner+agent；key 解析不一致显式报错。
+- [x] 目录缺失恢复动作（import artifact）；`get/read` 刷新活动标记。
+- [x] 工具描述写明 submit 不释放草稿。
+- [x] 测试：get/read 区分、根列表、agent 作用域、目录缺失、版本字段。
 
 ### Spec Delta
 
@@ -831,11 +834,14 @@ Agent 输出结构化 `SchedulePlan`（kind/skill/input/argv/window/session/deli
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18] implemented: draft error split + actionable data, root listing, version/change fields, tenant/owner/agent scope, artifact restore, activity refresh
+- [2026-11-18T17:55:39.014Z] started tests=5056ae298eda
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-18T17:55:54.447Z PASS commands=1/1 executed=1 deduped=0 elapsed=15321ms tests=5056ae298eda head=63d5f49b0de3 dirty=1
+  - draft PASS exit=0
 ## TASK-016: SKILL_PLAN 确定性运行时
 
 - **Status**: draft

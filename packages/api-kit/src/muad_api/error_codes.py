@@ -55,7 +55,12 @@ class ErrorCode(StrEnum):
     SKILL_PACKAGE_INVALID = "SKILL_PACKAGE_INVALID"
     SKILL_VERSION_EXISTS = "SKILL_VERSION_EXISTS"
     # 用户 Skill 草稿（user-skill-sandbox TASK-008）
+    #: 草稿元数据不存在（draft_id/tenant/owner/agent 不匹配或已删除）。
     DRAFT_NOT_FOUND = "DRAFT_NOT_FOUND"
+    #: 草稿存在，但请求的文件路径不存在。
+    DRAFT_FILE_NOT_FOUND = "DRAFT_FILE_NOT_FOUND"
+    #: 草稿元数据存在，但文件目录缺失且无法从制品恢复。
+    DRAFT_STORAGE_MISSING = "DRAFT_STORAGE_MISSING"
     DRAFT_REVISION_CONFLICT = "DRAFT_REVISION_CONFLICT"
     DRAFT_TEST_BUSY = "DRAFT_TEST_BUSY"
     DRAFT_QUOTA_EXCEEDED = "DRAFT_QUOTA_EXCEEDED"

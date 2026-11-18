@@ -96,12 +96,29 @@ async def test_skill_draft_revision_cas_and_owner_scope(skill_env: SkillContext)
             await session.commit()
             draft_id = draft.id
             assert draft.revision == 1
-            assert await repo.get(skill_env.tenant_id, skill_env.other_user_id, draft.id) is None
-            assert await repo.get(skill_env.other_tenant_id, owner, draft.id) is None
+            assert (
+                await repo.get(
+                    skill_env.tenant_id,
+                    skill_env.other_user_id,
+                    skill_env.agent_id,
+                    draft.id,
+                )
+                is None
+            )
+            assert (
+                await repo.get(
+                    skill_env.other_tenant_id,
+                    owner,
+                    skill_env.agent_id,
+                    draft.id,
+                )
+                is None
+            )
 
             updated = await repo.advance_revision(
                 skill_env.tenant_id,
                 owner,
+                skill_env.agent_id,
                 draft.id,
                 expected_revision=1,
                 file_count=2,
@@ -116,6 +133,7 @@ async def test_skill_draft_revision_cas_and_owner_scope(skill_env: SkillContext)
             stale = await repo.advance_revision(
                 skill_env.tenant_id,
                 owner,
+                skill_env.agent_id,
                 draft.id,
                 expected_revision=1,
                 file_count=3,
@@ -125,9 +143,14 @@ async def test_skill_draft_revision_cas_and_owner_scope(skill_env: SkillContext)
 
         async with factory() as session:
             repo = SkillDraftRepository(session)
-            assert await repo.soft_delete(skill_env.tenant_id, owner, draft_id) is True
+            assert (
+                await repo.soft_delete(skill_env.tenant_id, owner, skill_env.agent_id, draft_id)
+                is True
+            )
             await session.commit()
-            assert await repo.get(skill_env.tenant_id, owner, draft_id) is None
+            assert (
+                await repo.get(skill_env.tenant_id, owner, skill_env.agent_id, draft_id) is None
+            )
     finally:
         if draft_id is not None:
             async with factory() as session:

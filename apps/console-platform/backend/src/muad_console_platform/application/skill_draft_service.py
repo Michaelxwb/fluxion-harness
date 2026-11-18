@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -27,14 +28,18 @@ from ..infrastructure.models.control import (
 from ..infrastructure.repositories.skill_draft_repository import SkillDraftRepository
 from ..infrastructure.repositories.skill_repository import SkillRepository
 from ..infrastructure.skill_artifact_store import (
+    artifact_path,
     artifact_storage_key,
     remove_artifact,
     write_artifact,
 )
 from ..infrastructure.skill_draft_store import (
     DraftFile,
+    DraftRestoreError,
     SkillDraftStore,
+    file_not_found,
     normalize_relative_path,
+    storage_missing,
     validate_draft_key,
 )
 from ..infrastructure.skill_validator import (
@@ -51,6 +56,11 @@ AUDIT_ARTIFACT = "SKILL_ARTIFACT"
 AUDIT_SKILL = "SKILL"
 ENDPOINT_SUBMIT = "draft_submit"
 VALIDATION_READY = "READY"
+DRAFT_NOT_FOUND_REPAIR = (
+    "check draft_id for this tenant, owner and agent; create the draft again with action=create key=<key> "
+    "if it was deleted"
+)
+logger = logging.getLogger(__name__)
 
 
 def draft_view(draft: SkillDraft) -> dict[str, Any]:
@@ -120,10 +130,10 @@ class SkillDraftService:
         validate_draft_key(key)
         existing = await self._drafts.find_by_key(tenant_id, owner_user_id, agent_id, key)
         if existing is not None:
-            self._store.ensure(existing)
+            await self._ensure_storage(existing)
             return draft_view(existing)
         draft = await self._insert_draft(tenant_id, owner_user_id, agent_id, key)
-        self._store.ensure(draft)
+        await self._ensure_storage(draft)
         await self._audit_draft(tenant_id, owner_user_id, "CREATE", draft, {"key": draft.key})
         return draft_view(draft)
 
@@ -144,26 +154,38 @@ class SkillDraftService:
             return existing
 
     async def metadata(
-        self, tenant_id: str, owner_user_id: uuid.UUID, draft_id: uuid.UUID
+        self,
+        tenant_id: str,
+        owner_user_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        draft_id: uuid.UUID,
     ) -> dict[str, Any]:
-        draft = await self._require(tenant_id, owner_user_id, draft_id)
-        return draft_view(draft)
+        draft = await self._require(tenant_id, owner_user_id, agent_id, draft_id)
+        await self._ensure_storage(draft)
+        return {**draft_view(draft), **await self._diagnostics(draft)}
 
     async def archive(
-        self, tenant_id: str, owner_user_id: uuid.UUID, draft_id: uuid.UUID
+        self,
+        tenant_id: str,
+        owner_user_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        draft_id: uuid.UUID,
     ) -> tuple[dict[str, Any], bytes]:
         """草稿 Shell 取件：zip 与 revision 必须在同一响应里返回，避免取件/执行间漂移。"""
-        draft = await self._require(tenant_id, owner_user_id, draft_id)
+        draft = await self._require(tenant_id, owner_user_id, agent_id, draft_id)
+        await self._ensure_storage(draft)
         return draft_view(draft), self._store.export_zip(draft)
 
     async def read(
         self,
         tenant_id: str,
         owner_user_id: uuid.UUID,
+        agent_id: uuid.UUID,
         draft_id: uuid.UUID,
         path: str,
     ) -> dict[str, Any]:
-        draft = await self._require(tenant_id, owner_user_id, draft_id)
+        draft = await self._require(tenant_id, owner_user_id, agent_id, draft_id)
+        await self._ensure_storage(draft, path)
         result = self._store.read(draft, path)
         if isinstance(result, DraftFile):
             return {
@@ -179,13 +201,15 @@ class SkillDraftService:
         self,
         tenant_id: str,
         owner_user_id: uuid.UUID,
+        agent_id: uuid.UUID,
         draft_id: uuid.UUID,
         *,
         path: str,
         content: str,
         expected_revision: int,
     ) -> dict[str, Any]:
-        draft = await self._require_for_update(tenant_id, owner_user_id, draft_id)
+        draft = await self._require_for_update(tenant_id, owner_user_id, agent_id, draft_id)
+        await self._ensure_storage(draft, path)
         if draft.revision != expected_revision:
             raise AppError(ErrorCode.DRAFT_REVISION_CONFLICT)
         relative = normalize_relative_path(path)
@@ -197,6 +221,7 @@ class SkillDraftService:
         advanced = await self._drafts.advance_revision(
             tenant_id,
             owner_user_id,
+            agent_id,
             draft_id,
             expected_revision=expected_revision,
             file_count=file_count,
@@ -224,6 +249,7 @@ class SkillDraftService:
         self,
         tenant_id: str,
         owner_user_id: uuid.UUID,
+        agent_id: uuid.UUID,
         draft_id: uuid.UUID,
         *,
         expected_revision: int,
@@ -234,7 +260,8 @@ class SkillDraftService:
 
         先校验全部路径与配额，再推进 revision，最后落盘；任一校验失败不会推进 revision。
         """
-        draft = await self._require_for_update(tenant_id, owner_user_id, draft_id)
+        draft = await self._require_for_update(tenant_id, owner_user_id, agent_id, draft_id)
+        await self._ensure_storage(draft)
         if draft.revision != expected_revision:
             raise AppError(ErrorCode.DRAFT_REVISION_CONFLICT)
         file_count = draft.file_count
@@ -265,7 +292,7 @@ class SkillDraftService:
             seen.add(key)
             old_size = self._store.existing_size(draft, key)
             if old_size is None:
-                raise AppError(ErrorCode.DRAFT_NOT_FOUND)
+                raise file_not_found(draft, key)
             file_count -= 1
             total_size -= old_size
             normalized_deletions.append(key)
@@ -282,6 +309,7 @@ class SkillDraftService:
         advanced = await self._drafts.advance_revision(
             tenant_id,
             owner_user_id,
+            agent_id,
             draft_id,
             expected_revision=expected_revision,
             file_count=file_count,
@@ -318,23 +346,26 @@ class SkillDraftService:
         self,
         tenant_id: str,
         owner_user_id: uuid.UUID,
+        agent_id: uuid.UUID,
         draft_id: uuid.UUID,
         *,
         path: str,
         expected_revision: int | None,
     ) -> dict[str, Any]:
-        draft = await self._require_for_update(tenant_id, owner_user_id, draft_id)
+        draft = await self._require_for_update(tenant_id, owner_user_id, agent_id, draft_id)
+        await self._ensure_storage(draft, path)
         if expected_revision is not None and draft.revision != expected_revision:
             raise AppError(ErrorCode.DRAFT_REVISION_CONFLICT)
         relative = normalize_relative_path(path)
         size = self._store.existing_size(draft, path)
         if size is None:
-            raise AppError(ErrorCode.DRAFT_NOT_FOUND)
+            raise file_not_found(draft, relative.as_posix())
         file_count = max(0, draft.file_count - 1)
         total_size = max(0, draft.total_size - size)
         advanced = await self._drafts.advance_revision(
             tenant_id,
             owner_user_id,
+            agent_id,
             draft_id,
             expected_revision=draft.revision,
             file_count=file_count,
@@ -359,14 +390,18 @@ class SkillDraftService:
         }
 
     async def delete_draft(
-        self, tenant_id: str, owner_user_id: uuid.UUID, draft_id: uuid.UUID
+        self,
+        tenant_id: str,
+        owner_user_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        draft_id: uuid.UUID,
     ) -> dict[str, Any]:
-        draft = await self._require_for_update(tenant_id, owner_user_id, draft_id)
+        draft = await self._require_for_update(tenant_id, owner_user_id, agent_id, draft_id)
         key = draft_test_lock_key(tenant_id, str(owner_user_id), str(draft_id))
         if not await self._session.scalar(select(func.pg_try_advisory_xact_lock(key))):
             raise AppError(ErrorCode.DRAFT_TEST_BUSY)
         self._store.remove_draft(draft)
-        deleted = await self._drafts.soft_delete(tenant_id, owner_user_id, draft_id)
+        deleted = await self._drafts.soft_delete(tenant_id, owner_user_id, agent_id, draft_id)
         if not deleted:
             raise AppError(ErrorCode.DRAFT_REVISION_CONFLICT)
         await self._audit_draft(
@@ -382,11 +417,13 @@ class SkillDraftService:
         self,
         tenant_id: str,
         owner_user_id: uuid.UUID,
+        agent_id: uuid.UUID,
         draft_id: uuid.UUID,
         *,
         default_script: str | None = None,
     ) -> dict[str, Any]:
-        draft = await self._require(tenant_id, owner_user_id, draft_id)
+        draft = await self._require(tenant_id, owner_user_id, agent_id, draft_id)
+        await self._ensure_storage(draft)
         data = self._store.export_zip(draft)
         review = review_package(data, default_script=default_script)
         return {"draft_id": str(draft.id), "revision": draft.revision, **review.as_dict()}
@@ -395,6 +432,7 @@ class SkillDraftService:
         self,
         tenant_id: str,
         owner_user_id: uuid.UUID,
+        agent_id: uuid.UUID,
         draft_id: uuid.UUID,
         *,
         expected_revision: int,
@@ -425,7 +463,8 @@ class SkillDraftService:
             if replayed is not None:
                 return replayed
 
-        draft = await self._require_for_update(tenant_id, owner_user_id, draft_id)
+        draft = await self._require_for_update(tenant_id, owner_user_id, agent_id, draft_id)
+        await self._ensure_storage(draft)
         if draft.revision != expected_revision:
             raise AppError(ErrorCode.DRAFT_REVISION_CONFLICT)
         replay = await self._replay_pending(draft, expected_revision, version)
@@ -464,6 +503,7 @@ class SkillDraftService:
             stored = await self._drafts.mark_submitted(
                 tenant_id,
                 owner_user_id,
+                agent_id,
                 draft_id,
                 revision=expected_revision,
                 artifact_id=artifact.id,
@@ -481,9 +521,14 @@ class SkillDraftService:
         return result
 
     async def status(
-        self, tenant_id: str, owner_user_id: uuid.UUID, draft_id: uuid.UUID
+        self,
+        tenant_id: str,
+        owner_user_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        draft_id: uuid.UUID,
     ) -> dict[str, Any]:
-        draft = await self._require(tenant_id, owner_user_id, draft_id)
+        draft = await self._require(tenant_id, owner_user_id, agent_id, draft_id)
+        await self._ensure_storage(draft)
         artifact = await self._last_artifact(draft)
         result = {
             "draft_id": str(draft.id),
@@ -497,6 +542,7 @@ class SkillDraftService:
             "review_note": None,
             "reviewed_at": None,
             "submitted_at": None,
+            **await self._diagnostics(draft),
         }
         if artifact is None:
             return result
@@ -513,6 +559,76 @@ class SkillDraftService:
             }
         )
         return result
+
+    async def _diagnostics(self, draft: SkillDraft) -> dict[str, Any]:
+        artifact = await self._effective_artifact(draft)
+        return {
+            "has_unsubmitted_changes": draft.revision != draft.last_submitted_revision,
+            "effective_artifact_id": str(artifact.id) if artifact is not None else None,
+            "effective_artifact_version": artifact.version if artifact is not None else None,
+        }
+
+    async def _effective_artifact(self, draft: SkillDraft) -> SkillArtifact | None:
+        skill = await self._skills.find_by_key(draft.tenant_id, draft.key)
+        if (
+            skill is None
+            or skill.source != SkillSource.USER
+            or skill.owner_user_id != draft.owner_user_id
+        ):
+            return None
+        return await self._skills.get_current_artifact(skill)
+
+    async def _ensure_storage(self, draft: SkillDraft, path: str = "") -> None:
+        """草稿目录缺失时先从生效制品恢复；无法恢复则给出可执行的修复信息。"""
+        if self._store.exists(draft):
+            self._store.touch_activity(draft)
+            return
+        source = await self._recovery_artifact(draft)
+        if source is None:
+            if draft.file_count == 0:
+                self._store.ensure(draft)
+                return
+            raise storage_missing(draft, path, reason="NO_RECOVERY_ARTIFACT")
+        effective = await self._effective_artifact(draft)
+        try:
+            data = artifact_path(source.storage_key).read_bytes()
+            self._store.restore_zip(draft, data)
+        except (OSError, ValueError):
+            logger.warning(
+                "draft_storage_recovery_unavailable draft_id=%s artifact_id=%s",
+                draft.id,
+                source.id,
+            )
+            raise storage_missing(
+                draft,
+                path,
+                effective_artifact_id=str(effective.id) if effective is not None else None,
+                effective_artifact_version=effective.version if effective is not None else None,
+                reason="ARTIFACT_UNAVAILABLE",
+            ) from None
+        except DraftRestoreError as exc:
+            logger.warning(
+                "draft_storage_recovery_invalid draft_id=%s artifact_id=%s reason=%s",
+                draft.id,
+                source.id,
+                exc.reason,
+            )
+            raise storage_missing(
+                draft,
+                path,
+                effective_artifact_id=str(effective.id) if effective is not None else None,
+                effective_artifact_version=effective.version if effective is not None else None,
+                reason=exc.reason,
+            ) from None
+        logger.warning(
+            "draft_storage_recovered draft_id=%s artifact_id=%s", draft.id, source.id
+        )
+
+    async def _recovery_artifact(self, draft: SkillDraft) -> SkillArtifact | None:
+        effective = await self._effective_artifact(draft)
+        if effective is not None:
+            return effective
+        return await self._last_artifact(draft)
 
     async def _replay_pending(
         self,
@@ -658,20 +774,35 @@ class SkillDraftService:
             )
 
     async def _require(
-        self, tenant_id: str, owner_user_id: uuid.UUID, draft_id: uuid.UUID
+        self,
+        tenant_id: str,
+        owner_user_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        draft_id: uuid.UUID,
     ) -> SkillDraft:
-        draft = await self._drafts.get(tenant_id, owner_user_id, draft_id)
+        draft = await self._drafts.get(tenant_id, owner_user_id, agent_id, draft_id)
         if draft is None:
-            raise AppError(ErrorCode.DRAFT_NOT_FOUND)
+            raise self._draft_not_found(draft_id)
         return draft
 
     async def _require_for_update(
-        self, tenant_id: str, owner_user_id: uuid.UUID, draft_id: uuid.UUID
+        self,
+        tenant_id: str,
+        owner_user_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        draft_id: uuid.UUID,
     ) -> SkillDraft:
-        draft = await self._drafts.get_for_update(tenant_id, owner_user_id, draft_id)
+        draft = await self._drafts.get_for_update(tenant_id, owner_user_id, agent_id, draft_id)
         if draft is None:
-            raise AppError(ErrorCode.DRAFT_NOT_FOUND)
+            raise self._draft_not_found(draft_id)
         return draft
+
+    @staticmethod
+    def _draft_not_found(draft_id: uuid.UUID) -> AppError:
+        return AppError(
+            ErrorCode.DRAFT_NOT_FOUND,
+            data={"draft_id": str(draft_id), "repair": DRAFT_NOT_FOUND_REPAIR},
+        )
 
     def _fingerprint(self, endpoint: str, tenant_id: str, fields: dict[str, Any]) -> str:
         canonical = json.dumps(

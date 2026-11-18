@@ -1,4 +1,4 @@
-"""草稿文件存储：`skill-drafts/{tenant}/{user}/{key}` 下的路径安全、原子写与 zip 导出。"""
+"""草稿文件存储：`skill-drafts/{tenant}/{user}/{agent}/{key}` 下的路径安全、原子写与 zip 导出。"""
 
 from __future__ import annotations
 
@@ -23,6 +23,16 @@ from ..infrastructure.models.control import SkillDraft
 
 DRAFT_KEY_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 ZIP_FIXED_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
+FILE_NOT_FOUND_REPAIR = (
+    'read the draft root with path="" to list the available files; write(path) recreates a missing file'
+)
+STORAGE_MISSING_IMPORT_REPAIR = (
+    "import the effective artifact into the draft (action=import artifact_id=<effective_artifact_id>)"
+)
+STORAGE_MISSING_RECREATE_REPAIR = (
+    "delete the draft (action=delete without path) and create it again with action=create key=<key>; "
+    "files that were never submitted cannot be recovered"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,8 +43,52 @@ class DraftFile:
     size: int
 
 
+class DraftRestoreError(Exception):
+    """制品不能安全还原成草稿目录；由应用服务映射为 DRAFT_STORAGE_MISSING。"""
+
+    def __init__(self, reason: str) -> None:
+        self.reason = reason
+        super().__init__(reason)
+
+
 def invalid_path(path: str) -> AppError:
     return AppError(ErrorCode.DRAFT_PATH_INVALID, data={"path": path})
+
+
+def file_not_found(draft: SkillDraft, path: str) -> AppError:
+    return AppError(
+        ErrorCode.DRAFT_FILE_NOT_FOUND,
+        data={
+            "draft_id": str(draft.id),
+            "path": path,
+            "repair": FILE_NOT_FOUND_REPAIR,
+        },
+    )
+
+
+def storage_missing(
+    draft: SkillDraft,
+    path: str,
+    *,
+    effective_artifact_id: str | None = None,
+    effective_artifact_version: str | None = None,
+    reason: str | None = None,
+) -> AppError:
+    data: dict[str, Any] = {
+        "draft_id": str(draft.id),
+        "key": draft.key,
+        "path": path,
+        "effective_artifact_id": effective_artifact_id,
+        "effective_artifact_version": effective_artifact_version,
+        "repair": (
+            STORAGE_MISSING_IMPORT_REPAIR
+            if effective_artifact_id is not None
+            else STORAGE_MISSING_RECREATE_REPAIR
+        ),
+    }
+    if reason is not None:
+        data["reason"] = reason
+    return AppError(ErrorCode.DRAFT_STORAGE_MISSING, data=data)
 
 
 def _safe_component(value: str, label: str) -> str:
@@ -102,11 +156,17 @@ class SkillDraftStore:
 
     def ensure(self, draft: SkillDraft) -> Path:
         directory = self.draft_dir(draft)
+        if directory.is_symlink():
+            raise invalid_path(draft.key)
         directory.mkdir(parents=True, exist_ok=True)
-        self._touch_activity(draft)
+        self.touch_activity(draft)
         return directory
 
-    def _touch_activity(self, draft: SkillDraft) -> None:
+    def exists(self, draft: SkillDraft) -> bool:
+        directory = self.draft_dir(draft)
+        return directory.is_dir() and not directory.is_symlink()
+
+    def touch_activity(self, draft: SkillDraft) -> None:
         """刷新 agent 目录上的草稿活动标记：workspace 清理据此保活。"""
         agent_dir = self.draft_dir(draft).parent.parent
         agent_dir.mkdir(parents=True, exist_ok=True)
@@ -116,14 +176,15 @@ class SkillDraftStore:
         relative = normalize_relative_path(raw_path, allow_empty=True)
         target = self._safe_target(draft, relative)
         if not target.exists() and not target.is_symlink():
-            if not relative.parts:
-                raise AppError(ErrorCode.DRAFT_NOT_FOUND)
-            raise AppError(ErrorCode.DRAFT_NOT_FOUND)
+            if relative.parts:
+                raise file_not_found(draft, relative.as_posix())
+            raise storage_missing(draft, "")
         if target.is_symlink():
             raise invalid_path(raw_path)
         if target.is_dir():
             entries = self._entries(draft, relative)
-            return {"type": "directory", "path": relative.as_posix(), "entries": entries}
+            path = relative.as_posix() if relative.parts else ""
+            return {"type": "directory", "path": path, "entries": entries}
         data = target.read_bytes()
         try:
             content = data.decode("utf-8")
@@ -158,20 +219,20 @@ class SkillDraftStore:
         except BaseException:
             Path(temp_name).unlink(missing_ok=True)
             raise
-        self._touch_activity(draft)
+        self.touch_activity(draft)
         return len(data)
 
     def remove_file(self, draft: SkillDraft, raw_path: str) -> int:
         relative = normalize_relative_path(raw_path)
         target = self._safe_target(draft, relative)
         if not target.exists() or target.is_dir():
-            raise AppError(ErrorCode.DRAFT_NOT_FOUND)
+            raise file_not_found(draft, relative.as_posix())
         if target.is_symlink():
             raise invalid_path(raw_path)
         size = target.stat().st_size
         target.unlink()
         self._prune_empty_dirs(target.parent, self.draft_dir(draft))
-        self._touch_activity(draft)
+        self.touch_activity(draft)
         return size
 
     def remove_draft(self, draft: SkillDraft) -> None:
@@ -194,10 +255,75 @@ class SkillDraftStore:
             return None
         return target.stat().st_size
 
+    def restore_zip(self, draft: SkillDraft, data: bytes) -> None:
+        """从已提交制品还原缺失的草稿目录；先完整校验再原子换入。"""
+        members = self._read_restore_members(data)
+        directory = self.draft_dir(draft)
+        if directory.is_symlink():
+            raise invalid_path(draft.key)
+        directory.parent.mkdir(parents=True, exist_ok=True)
+        staging = Path(tempfile.mkdtemp(prefix=f".restore-{draft.key}-", dir=directory.parent))
+        try:
+            for relative, payload in members:
+                target = staging.joinpath(*relative.parts)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(payload)
+            if directory.exists():
+                # 并发请求已恢复或创建了目录：保留现有内容，丢弃本次副本。
+                shutil.rmtree(staging)
+                return
+            try:
+                os.replace(staging, directory)
+            except OSError:
+                shutil.rmtree(staging, ignore_errors=True)
+                if not directory.exists():
+                    raise
+                return
+        except BaseException:
+            shutil.rmtree(staging, ignore_errors=True)
+            raise
+        self.touch_activity(draft)
+
+    def _read_restore_members(self, data: bytes) -> list[tuple[PurePosixPath, bytes]]:
+        try:
+            archive = zipfile.ZipFile(io.BytesIO(data))
+        except zipfile.BadZipFile as exc:
+            raise DraftRestoreError("ARTIFACT_INVALID") from exc
+        members: list[tuple[PurePosixPath, bytes]] = []
+        seen: set[str] = set()
+        total = 0
+        with archive:
+            for info in archive.infolist():
+                if info.is_dir():
+                    continue
+                if (info.external_attr >> 16) & 0o170000 == 0o120000:
+                    raise DraftRestoreError("ARTIFACT_SYMLINK")
+                try:
+                    relative = normalize_relative_path(info.filename)
+                except AppError as exc:
+                    raise DraftRestoreError("ARTIFACT_PATH_INVALID") from exc
+                key = relative.as_posix()
+                if key in seen:
+                    raise DraftRestoreError("ARTIFACT_DUPLICATE_PATH")
+                seen.add(key)
+                if info.file_size > self.file_max_bytes:
+                    raise DraftRestoreError("ARTIFACT_FILE_TOO_LARGE")
+                total += info.file_size
+                if len(members) >= self.file_limit or total > self.quota_bytes:
+                    raise DraftRestoreError("ARTIFACT_QUOTA_EXCEEDED")
+                try:
+                    payload = archive.read(info)
+                except (RuntimeError, NotImplementedError) as exc:
+                    raise DraftRestoreError("ARTIFACT_INVALID") from exc
+                members.append((relative, payload))
+        if not members:
+            raise DraftRestoreError("ARTIFACT_EMPTY")
+        return members
+
     def export_zip(self, draft: SkillDraft) -> bytes:
         directory = self.draft_dir(draft)
         if not directory.is_dir():
-            raise AppError(ErrorCode.DRAFT_NOT_FOUND)
+            raise storage_missing(draft, "")
         buffer = _ZipBuffer()
         for path in sorted(directory.rglob("*")):
             if path.is_symlink():

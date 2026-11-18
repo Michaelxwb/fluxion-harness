@@ -39,9 +39,10 @@ async def test_s01_draft_is_scoped_by_tenant_owner_and_key(session: AsyncSession
     await session.commit()
 
     assert draft.revision == 1
-    assert (await repo.get(TENANT, owner, draft.id)) is not None
-    assert await repo.get(TENANT, other_owner, draft.id) is None
-    assert await repo.get(OTHER_TENANT, owner, draft.id) is None
+    assert (await repo.get(TENANT, owner, AGENT, draft.id)) is not None
+    assert await repo.get(TENANT, other_owner, AGENT, draft.id) is None
+    assert await repo.get(OTHER_TENANT, owner, AGENT, draft.id) is None
+    assert await repo.get(TENANT, owner, uuid.uuid4(), draft.id) is None
     assert await repo.find_by_key(TENANT, owner, AGENT, "my-skill") is not None
     assert await repo.find_by_key(TENANT, other_owner, AGENT, "my-skill") is None
 
@@ -54,17 +55,17 @@ async def test_s01_stale_revision_is_rejected_then_writes_advance(session: Async
     await session.commit()
 
     first = await repo.advance_revision(
-        TENANT, owner, draft.id, expected_revision=1, file_count=1, total_size=16
+        TENANT, owner, AGENT, draft.id, expected_revision=1, file_count=1, total_size=16
     )
     await session.commit()
     assert first is not None and first.revision == 2
     assert first.file_count == 1 and first.total_size == 16
 
     stale = await repo.advance_revision(
-        TENANT, owner, draft.id, expected_revision=1, file_count=9, total_size=999
+        TENANT, owner, AGENT, draft.id, expected_revision=1, file_count=9, total_size=999
     )
     assert stale is None
-    current = await repo.get(TENANT, owner, draft.id)
+    current = await repo.get(TENANT, owner, AGENT, draft.id)
     assert current is not None
     assert current.revision == 2 and current.file_count == 1 and current.total_size == 16
 
@@ -76,9 +77,9 @@ async def test_s01_soft_delete_hides_and_allows_recreate(session: AsyncSession) 
     draft = await repo.create(TENANT, owner, AGENT, "recreate-skill")
     await session.commit()
 
-    assert await repo.soft_delete(TENANT, owner, draft.id) is True
+    assert await repo.soft_delete(TENANT, owner, AGENT, draft.id) is True
     await session.commit()
-    assert await repo.get(TENANT, owner, draft.id) is None
+    assert await repo.get(TENANT, owner, AGENT, draft.id) is None
 
     recreated = await repo.create(TENANT, owner, AGENT, "recreate-skill")
     await session.commit()
@@ -261,11 +262,16 @@ async def test_s01_internal_api_crud_scopes_files_and_revision(
         path="scripts/run.py",
     )
     assert missing.status_code == 404
-    assert missing.json()["code"] == "DRAFT_NOT_FOUND"
+    assert missing.json()["code"] == "DRAFT_FILE_NOT_FOUND"
+    assert missing.json()["data"]["path"] == "scripts/run.py"
 
     deleted = await internal_client.delete(
         f"/internal/skills/drafts/{draft_id}",
-        params={"tenant_id": tenant, "owner_user_id": str(owner)},
+        params={
+            "tenant_id": tenant,
+            "owner_user_id": str(owner),
+            "agent_id": str(DEFAULT_AGENT),
+        },
     )
     assert deleted.status_code == 200, deleted.text
     assert deleted.json()["data"]["deleted"] is True

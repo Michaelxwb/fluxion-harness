@@ -32,6 +32,7 @@ class DraftCreateRequest(BaseModel):
 class DraftFileWriteRequest(BaseModel):
     tenant_id: str = Field(min_length=1, max_length=64)
     owner_user_id: uuid.UUID
+    agent_id: uuid.UUID
     path: str = Field(min_length=1, max_length=1024)
     content: str
     expected_revision: int = Field(ge=1)
@@ -40,12 +41,14 @@ class DraftFileWriteRequest(BaseModel):
 class DraftReviewRequest(BaseModel):
     tenant_id: str = Field(min_length=1, max_length=64)
     owner_user_id: uuid.UUID
+    agent_id: uuid.UUID
     default_script: str | None = Field(default=None, max_length=256)
 
 
 class DraftSubmitRequest(BaseModel):
     tenant_id: str = Field(min_length=1, max_length=64)
     owner_user_id: uuid.UUID
+    agent_id: uuid.UUID
     expected_revision: int = Field(ge=1)
     version: str | None = Field(default=None, min_length=1, max_length=64)
     default_script: str | None = Field(default=None, max_length=256)
@@ -62,6 +65,7 @@ class DraftChangePayload(BaseModel):
 class DraftApplyRequest(BaseModel):
     tenant_id: str = Field(min_length=1, max_length=64)
     owner_user_id: uuid.UUID
+    agent_id: uuid.UUID
     expected_revision: int = Field(ge=1)
     changes: list[DraftChangePayload] = Field(default_factory=list, max_length=10000)
     deletions: list[str] = Field(default_factory=list, max_length=10000)
@@ -88,8 +92,11 @@ async def get_draft(
     _internal: InternalServiceDep,
     tenant_id: Annotated[str, Query(min_length=1, max_length=64)],
     owner_user_id: Annotated[uuid.UUID, Query()],
+    agent_id: Annotated[uuid.UUID, Query()],
 ) -> ApiResponse[Any]:
-    data = await SkillDraftService(session).metadata(tenant_id, owner_user_id, draft_id)
+    data = await SkillDraftService(session).metadata(
+        tenant_id, owner_user_id, agent_id, draft_id
+    )
     return ok(request.app.state.message_catalog, data)
 
 
@@ -100,9 +107,12 @@ async def archive_draft(
     _internal: InternalServiceDep,
     tenant_id: Annotated[str, Query(min_length=1, max_length=64)],
     owner_user_id: Annotated[uuid.UUID, Query()],
+    agent_id: Annotated[uuid.UUID, Query()],
 ) -> Response:
     """草稿 Shell 取件：zip 与 revision 同一响应，revision 走响应头。"""
-    view, data = await SkillDraftService(session).archive(tenant_id, owner_user_id, draft_id)
+    view, data = await SkillDraftService(session).archive(
+        tenant_id, owner_user_id, agent_id, draft_id
+    )
     return Response(
         content=data,
         media_type="application/zip",
@@ -128,6 +138,7 @@ async def apply_draft_changes(
     data = await SkillDraftService(session).apply_changes(
         payload.tenant_id,
         payload.owner_user_id,
+        payload.agent_id,
         draft_id,
         expected_revision=payload.expected_revision,
         changes=[_decode_change(change) for change in payload.changes],
@@ -157,9 +168,12 @@ async def read_draft_file(
     _internal: InternalServiceDep,
     tenant_id: Annotated[str, Query(min_length=1, max_length=64)],
     owner_user_id: Annotated[uuid.UUID, Query()],
+    agent_id: Annotated[uuid.UUID, Query()],
     path: Annotated[str, Query(max_length=1024)] = "",
 ) -> ApiResponse[Any]:
-    data = await SkillDraftService(session).read(tenant_id, owner_user_id, draft_id, path)
+    data = await SkillDraftService(session).read(
+        tenant_id, owner_user_id, agent_id, draft_id, path
+    )
     return ok(request.app.state.message_catalog, data)
 
 
@@ -174,6 +188,7 @@ async def write_draft_file(
     data = await SkillDraftService(session).write(
         payload.tenant_id,
         payload.owner_user_id,
+        payload.agent_id,
         draft_id,
         path=payload.path,
         content=payload.content,
@@ -190,12 +205,14 @@ async def delete_draft_file(
     _internal: InternalServiceDep,
     tenant_id: Annotated[str, Query(min_length=1, max_length=64)],
     owner_user_id: Annotated[uuid.UUID, Query()],
+    agent_id: Annotated[uuid.UUID, Query()],
     path: Annotated[str, Query(min_length=1, max_length=1024)],
     expected_revision: Annotated[int | None, Query(ge=1)] = None,
 ) -> ApiResponse[Any]:
     data = await SkillDraftService(session).delete_file(
         tenant_id,
         owner_user_id,
+        agent_id,
         draft_id,
         path=path,
         expected_revision=expected_revision,
@@ -211,8 +228,11 @@ async def delete_draft(
     _internal: InternalServiceDep,
     tenant_id: Annotated[str, Query(min_length=1, max_length=64)],
     owner_user_id: Annotated[uuid.UUID, Query()],
+    agent_id: Annotated[uuid.UUID, Query()],
 ) -> ApiResponse[Any]:
-    data = await SkillDraftService(session).delete_draft(tenant_id, owner_user_id, draft_id)
+    data = await SkillDraftService(session).delete_draft(
+        tenant_id, owner_user_id, agent_id, draft_id
+    )
     return ok(request.app.state.message_catalog, data)
 
 
@@ -227,6 +247,7 @@ async def review_draft(
     data = await SkillDraftService(session).review(
         payload.tenant_id,
         payload.owner_user_id,
+        payload.agent_id,
         draft_id,
         default_script=payload.default_script,
     )
@@ -245,6 +266,7 @@ async def submit_draft(
     data = await SkillDraftService(session).submit(
         payload.tenant_id,
         payload.owner_user_id,
+        payload.agent_id,
         draft_id,
         expected_revision=payload.expected_revision,
         version=payload.version,
@@ -264,6 +286,7 @@ async def draft_status(
     _internal: InternalServiceDep,
     tenant_id: Annotated[str, Query(min_length=1, max_length=64)],
     owner_user_id: Annotated[uuid.UUID, Query()],
+    agent_id: Annotated[uuid.UUID, Query()],
 ) -> ApiResponse[Any]:
-    data = await SkillDraftService(session).status(tenant_id, owner_user_id, draft_id)
+    data = await SkillDraftService(session).status(tenant_id, owner_user_id, agent_id, draft_id)
     return ok(request.app.state.message_catalog, data)

@@ -222,7 +222,18 @@ def _execution(bundle: ExecutionExportBundle) -> dict[str, Any]:
         "input": record.get("input_json") if task else None,
         "result": record.get("result_json") if task else None,
         "snapshot": snapshot,
+        "finalization": _finalization(bundle),
     }
+
+
+def _finalization(bundle: ExecutionExportBundle) -> dict[str, Any] | None:
+    """最近一次失败终态的平台收尾事实；成功/取消没有完整 finalization。"""
+    for row in reversed(_section_rows(bundle, "runtime.canonical_event")):
+        payload = _mapping(row.get("payload_json"))
+        value = payload.get("finalization")
+        if isinstance(value, Mapping):
+            return dict(value)
+    return None
 
 
 def _timeline(bundle: ExecutionExportBundle) -> list[dict[str, Any]]:
@@ -344,6 +355,11 @@ def _tool_calls(bundle: ExecutionExportBundle) -> list[dict[str, Any]]:
             "status": row.get("status"),
             "error_code": row.get("error_code"),
             "error_message": row.get("error_message"),
+            "business_status": row.get("business_status"),
+            "failure_layer": row.get("failure_layer"),
+            "exit_code": row.get("exit_code"),
+            "output_truncated": row.get("output_truncated"),
+            "evidence_preview": row.get("evidence_preview"),
             "latency_ms": row.get("latency_ms"),
             "task_id": str(row.get("task_id")) if row.get("task_id") else None,
             "arguments": row.get("args_preview_json"),
@@ -498,9 +514,15 @@ def _supplemental(bundle: ExecutionExportBundle) -> dict[str, Any]:
     }
 
 
-def _data_quality(bundle: ExecutionExportBundle) -> dict[str, Any]:
+def _data_quality(bundle: ExecutionExportBundle, finalization: Mapping[str, Any] | None) -> dict[str, Any]:
+    db_complete = not bundle.warnings
+    export_truncated = bool(bundle.truncation.get("truncated"))
     return {
-        "complete": not bundle.warnings,
+        # `complete` 保留给旧读者；新读者必须分开看数据库完整性与包截断。
+        "complete": db_complete and not export_truncated,
+        "db_complete": db_complete,
+        "export_truncated": export_truncated,
+        "evidence_incomplete": bool((finalization or {}).get("evidence_incomplete")),
         "warnings": [dict(item) for item in bundle.warnings],
         "section_status": {name: section.status for name, section in bundle.sections.items()},
     }
@@ -513,6 +535,8 @@ def build_report(
     tasks = _tasks(bundle)
     execution = _execution(bundle)
     execution["outcome"] = diagnosis.outcome
+    finalization = execution.get("finalization")
+    failure_evidence = _mapping((finalization or {}).get("business_failure_evidence"))
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at": format_console_time(datetime.now(UTC)),
@@ -529,7 +553,8 @@ def build_report(
         "links": _links(bundle, timeline, tasks),
         "supplemental": _supplemental(bundle),
         "truncation": dict(bundle.truncation),
-        "data_quality": _data_quality(bundle),
+        "failure_evidence": failure_evidence,
+        "data_quality": _data_quality(bundle, finalization),
         "database_snapshot": dict(bundle.database_snapshot),
         "data_policy": dict(REPORT_DATA_POLICY),
     }

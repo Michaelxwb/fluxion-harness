@@ -141,7 +141,11 @@ async def test_tool_name_is_unique_and_skill_key_is_rejected(tmp_path: Path) -> 
 
 def test_draft_shell_request_defaults_are_one_shot() -> None:
     request = DraftShellRequest(
-        tenant_id="tenant", owner_user_id="user", draft_id="draft", command="python scripts/run.py"
+        tenant_id="tenant",
+        owner_user_id="user",
+        agent_id="agent",
+        draft_id="draft",
+        command="python scripts/run.py",
     )
     assert request.cwd == "."
     assert request.timeout_sec == 60.0
@@ -197,6 +201,7 @@ async def test_archive_requires_trusted_agent_metadata(agent_header: str | None)
         request = DraftShellRequest(
             tenant_id="tenant",
             owner_user_id=str(uuid.uuid4()),
+            agent_id=str(uuid.uuid4()),
             draft_id=str(uuid.uuid4()),
             command="unused",
         )

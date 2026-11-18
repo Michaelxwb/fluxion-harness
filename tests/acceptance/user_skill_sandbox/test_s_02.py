@@ -30,7 +30,7 @@ from muad_common import SharedSettings
 from muad_common.draft_testing import draft_test_data_dir
 
 from .draft_shell_support import build_runner, require_docker, seed_draft
-from .draft_support import INTERNAL_TOKEN, draft_metadata, read_file, write_file
+from .draft_support import DEFAULT_AGENT, INTERNAL_TOKEN, draft_metadata, read_file, write_file
 
 pytestmark = pytest.mark.integration
 
@@ -95,7 +95,7 @@ async def shell_env(internal_client: Any, draft_tenant: Any, session_factory: An
         client=internal_client,
         tenant_id=draft_tenant("acc-s02"),
         owner_user_id=uuid.uuid4(),
-        agent_id=uuid.uuid4(),
+        agent_id=DEFAULT_AGENT,
         run_id=str(uuid.uuid4()),
         workspaces=SqlDraftTestWorkspaceStore(
             build_workspace_store(SharedSettings(), session_factory_provider=lambda: session_factory),
@@ -402,6 +402,7 @@ async def test_s02_test_state_survives_calls_and_runs(shell_env: ShellEnv) -> No
         DraftShellRequest(
             tenant_id=shell_env.tenant_id,
             owner_user_id=str(shell_env.owner_user_id),
+            agent_id=str(shell_env.agent_id),
             draft_id=draft_id,
             command="unused",
         )
@@ -446,7 +447,11 @@ async def test_s02_editing_source_keeps_test_data(shell_env: ShellEnv) -> None:
 async def _delete_draft(env: ShellEnv, draft_id: str):
     return await env.client.delete(
         f"/internal/skills/drafts/{draft_id}",
-        params={"tenant_id": env.tenant_id, "owner_user_id": str(env.owner_user_id)},
+        params={
+            "tenant_id": env.tenant_id,
+            "owner_user_id": str(env.owner_user_id),
+            "agent_id": str(env.agent_id),
+        },
     )
 
 
@@ -485,6 +490,7 @@ async def test_s02_test_lock_blocks_concurrent_test_and_delete(shell_env: ShellE
     request = DraftShellRequest(
         tenant_id=shell_env.tenant_id,
         owner_user_id=str(shell_env.owner_user_id),
+        agent_id=str(shell_env.agent_id),
         draft_id=draft_id,
         command="unused",
     )
@@ -582,6 +588,7 @@ async def test_s02_runtime_factory_wires_persistent_draft_workspace(
             DraftShellRequest(
                 tenant_id=shell_env.tenant_id,
                 owner_user_id=str(shell_env.owner_user_id),
+                agent_id=str(shell_env.agent_id),
                 draft_id=draft_id,
                 command=f"{shlex.quote(sys.executable)} scripts/run.py {action}",
                 run_id=str(uuid.uuid4()),

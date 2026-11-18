@@ -1,4 +1,4 @@
-"""草稿元数据仓储：tenant/owner/key 隔离与 revision CAS（文件内容在 Draft Store/PVC）。"""
+"""草稿元数据仓储：tenant/owner/agent/key 隔离与 revision CAS（文件内容在 Draft Store/PVC）。"""
 
 from __future__ import annotations
 
@@ -25,20 +25,30 @@ class SkillDraftRepository:
         return draft
 
     async def get(
-        self, tenant_id: str, owner_user_id: uuid.UUID, draft_id: uuid.UUID
+        self,
+        tenant_id: str,
+        owner_user_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        draft_id: uuid.UUID,
     ) -> SkillDraft | None:
+        """按 tenant+owner+agent 读取草稿；同用户的其他 Agent 看不到这份草稿。"""
         draft: SkillDraft | None = await self._session.scalar(
             select(SkillDraft).where(
                 SkillDraft.id == draft_id,
                 SkillDraft.tenant_id == tenant_id,
                 SkillDraft.owner_user_id == owner_user_id,
+                SkillDraft.agent_id == agent_id,
                 SkillDraft.is_deleted.is_(False),
             )
         )
         return draft
 
     async def get_for_update(
-        self, tenant_id: str, owner_user_id: uuid.UUID, draft_id: uuid.UUID
+        self,
+        tenant_id: str,
+        owner_user_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        draft_id: uuid.UUID,
     ) -> SkillDraft | None:
         draft: SkillDraft | None = await self._session.scalar(
             select(SkillDraft)
@@ -46,6 +56,7 @@ class SkillDraftRepository:
                 SkillDraft.id == draft_id,
                 SkillDraft.tenant_id == tenant_id,
                 SkillDraft.owner_user_id == owner_user_id,
+                SkillDraft.agent_id == agent_id,
                 SkillDraft.is_deleted.is_(False),
             )
             .with_for_update()
@@ -70,6 +81,7 @@ class SkillDraftRepository:
         self,
         tenant_id: str,
         owner_user_id: uuid.UUID,
+        agent_id: uuid.UUID,
         draft_id: uuid.UUID,
         *,
         expected_revision: int,
@@ -97,6 +109,7 @@ class SkillDraftRepository:
                 SkillDraft.id == draft_id,
                 SkillDraft.tenant_id == tenant_id,
                 SkillDraft.owner_user_id == owner_user_id,
+                SkillDraft.agent_id == agent_id,
                 SkillDraft.revision == expected_revision,
                 SkillDraft.is_deleted.is_(False),
             )
@@ -110,6 +123,7 @@ class SkillDraftRepository:
         self,
         tenant_id: str,
         owner_user_id: uuid.UUID,
+        agent_id: uuid.UUID,
         draft_id: uuid.UUID,
         *,
         revision: int,
@@ -122,6 +136,7 @@ class SkillDraftRepository:
                 SkillDraft.id == draft_id,
                 SkillDraft.tenant_id == tenant_id,
                 SkillDraft.owner_user_id == owner_user_id,
+                SkillDraft.agent_id == agent_id,
                 SkillDraft.revision == revision,
                 SkillDraft.is_deleted.is_(False),
             )
@@ -136,7 +151,11 @@ class SkillDraftRepository:
         return result.one_or_none()
 
     async def soft_delete(
-        self, tenant_id: str, owner_user_id: uuid.UUID, draft_id: uuid.UUID
+        self,
+        tenant_id: str,
+        owner_user_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        draft_id: uuid.UUID,
     ) -> bool:
         statement = (
             update(SkillDraft)
@@ -144,6 +163,7 @@ class SkillDraftRepository:
                 SkillDraft.id == draft_id,
                 SkillDraft.tenant_id == tenant_id,
                 SkillDraft.owner_user_id == owner_user_id,
+                SkillDraft.agent_id == agent_id,
                 SkillDraft.is_deleted.is_(False),
             )
             .values(is_deleted=True, update_time=func.now())
