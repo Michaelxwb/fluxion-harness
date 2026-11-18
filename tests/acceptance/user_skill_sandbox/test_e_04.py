@@ -31,6 +31,7 @@ from muad_api import AppError
 from muad_api.security import INTERNAL_SERVICE_HEADER
 from muad_common import process_settings
 from muad_contracts import (
+    CancelSource,
     ChannelContext,
     MessageInput,
     ResolvedAgent,
@@ -53,6 +54,27 @@ pytestmark = pytest.mark.integration
 TOKEN = "e04-runtime-internal-token"
 TENANT = "e04-user-skill-sandbox"
 FORBIDDEN = "FORBIDDEN"
+
+
+def _channel() -> ChannelContext:
+    return ChannelContext(
+        type="WEBCHAT",
+        entry_id=uuid.uuid4(),
+        bot_id="e04-bot",
+        external_user_id=str(uuid.uuid4()),
+    )
+
+
+def _cancel_source() -> CancelSource:
+    return CancelSource(entry_id=uuid.uuid4(), external_thread_id="e04-thread")
+
+
+def _conversation_body() -> dict[str, object]:
+    return {
+        "agent_id": str(uuid.uuid4()),
+        "platform_user_id": str(uuid.uuid4()),
+        "channel": _channel().model_dump(mode="json"),
+    }
 
 
 class _ResolveStub:
@@ -158,7 +180,7 @@ async def test_e04_runtime_v1_rejects_missing_and_wrong_service_identity() -> No
         (
             "POST",
             "/v1/conversations",
-            {"agent_id": str(uuid.uuid4()), "platform_user_id": str(uuid.uuid4())},
+            _conversation_body(),
         ),
         ("GET", f"/v1/runs/{run_id}", None),
         ("GET", f"/v1/runs/{run_id}/events", None),
@@ -185,7 +207,7 @@ async def test_e04_correct_identity_passes_gate_into_business_layer() -> None:
     async with AsyncClient(transport=transport, base_url="http://runtime.test") as client:
         created = await client.post(
             "/v1/conversations",
-            json={"agent_id": str(uuid.uuid4()), "platform_user_id": str(uuid.uuid4())},
+            json=_conversation_body(),
             headers=headers,
         )
         assert created.status_code == 200, created.text
@@ -257,8 +279,12 @@ async def test_e04_gateway_client_sends_identity_on_every_v1_call() -> None:
                 pass
         await client.get_run(uuid.uuid4(), tenant_id=TENANT)
         await client.cancel_run(uuid.uuid4(), tenant_id=TENANT)
-        await client.cancel_active(uuid.uuid4(), uuid.uuid4(), tenant_id=TENANT)
-        await client.create_conversation(uuid.uuid4(), uuid.uuid4(), tenant_id=TENANT)
+        await client.cancel_active(
+            uuid.uuid4(), uuid.uuid4(), tenant_id=TENANT, source=_cancel_source()
+        )
+        await client.create_conversation(
+            uuid.uuid4(), uuid.uuid4(), tenant_id=TENANT, channel=_channel()
+        )
         await client.get_run_scope(uuid.uuid4(), tenant_id=TENANT, user_id=uuid.uuid4())
     finally:
         await client.aclose()
@@ -292,7 +318,9 @@ async def test_e04_gateway_identity_reaches_real_runtime_gate() -> None:
     transport = RecordingTransport(ASGITransport(app=runtime_app))
     client = RuntimeClient("http://runtime.test", transport=transport, service_token=TOKEN)
     try:
-        data = await client.create_conversation(uuid.uuid4(), uuid.uuid4(), tenant_id=TENANT)
+        data = await client.create_conversation(
+            uuid.uuid4(), uuid.uuid4(), tenant_id=TENANT, channel=_channel()
+        )
         assert "conversation_id" in data
         assert transport.requests[-1].headers[INTERNAL_SERVICE_HEADER] == TOKEN
 

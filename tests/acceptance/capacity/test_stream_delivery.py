@@ -954,7 +954,14 @@ def _delivery_outcome(notification: Mapping[str, Any]) -> str | None:
     if not isinstance(parsed, Mapping):
         return None
     outcome = parsed.get("outcome")
-    return None if outcome is None else str(outcome)
+    if outcome is not None:
+        return str(outcome)
+    # message_delivery 冻结的是发送回执事实，不是旧 channel_notification 的 outcome 字段。
+    if parsed.get("delivered") is True:
+        return "DEGRADED" if parsed.get("fallback_url") else "DELIVERED"
+    if parsed.get("fallback_url"):
+        return "DEGRADED"
+    return None
 
 
 async def test_e19_gateway_restart_persistent_intent_delivers_proactively(

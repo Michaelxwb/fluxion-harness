@@ -79,18 +79,16 @@ async def test_s10_execution_snapshot_freezes_source_artifact_and_workspace(
         tenant_id=TENANT,
         agent_id=workspace.agent_id,
         actor_user_id=workspace.user_id,
-        intent_key=skill.key,
         skill_id=skill.skill_id,
         skill_artifact_id=skill.artifact_id,
         trigger_type="SCHEDULED",
-        execution_mode="ASYNC",
+        skill_execution_mode="ASYNC",
         status="QUEUED",
         input_json={},
         execution_snapshot_schema_version=snapshot["schema_version"],
         execution_snapshot_json=snapshot,
         snapshot_hash=snapshot_hash(snapshot),
         idempotency_key=f"idem-{uuid.uuid4()}",
-        delivery_key=f"task:{uuid.uuid4()}:final",
     )
     session.add(task)
     await session.commit()

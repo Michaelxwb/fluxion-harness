@@ -108,11 +108,10 @@ async def test_e15_tampered_artifact_is_rejected_by_download_and_execution(
         tenant_id=approval_env.tenant,
         agent_id=approval_env.agent_id,
         actor_user_id=approval_env.owner_id,
-        intent_key="e15-integrity",
         skill_id=uuid.UUID(submitted.skill_id),
         skill_artifact_id=artifact_uuid,
         trigger_type="SCHEDULED",
-        execution_mode="ASYNC",
+        skill_execution_mode="ASYNC",
         status="QUEUED",
         input_json={},
         execution_snapshot_schema_version=1,
@@ -127,7 +126,6 @@ async def test_e15_tampered_artifact_is_rejected_by_download_and_execution(
         ),
         snapshot_hash="sha256:" + hashlib.sha256(submitted.artifact_id.encode()).hexdigest(),
         idempotency_key=f"e15-{uuid.uuid4()}",
-        delivery_key=f"task:{uuid.uuid4()}:final",
     )
     session.add(task)
     await session.commit()
