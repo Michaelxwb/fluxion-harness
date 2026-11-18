@@ -350,3 +350,56 @@ tests/acceptance/user_skill_sandbox/fixtures/legacy_skills/
 - [ ] `SKILL.md` 仍写 `python scripts/run.py`（或历史入口），未要求作者加解释器参数；
 - [ ] 本地自动化 `uv run pytest -q tests/acceptance/user_skill_sandbox/test_legacy_skills.py` 通过；
 - [ ] 内网原始包 S-13/S-14 已按 §4 重跑并回填证据（否则保持 `manual_pending`）。
+
+---
+
+## 7. 定时任务迁移
+
+老 Skill 不再自己维护计划任务、常驻进程或 Windows 计划任务；定时配置交给平台 Job。
+完整契约见 [`scheduled-skill-contract.md`](./scheduled-skill-contract.md)。
+
+### 7.1 选择 payload
+
+| 老 Skill 形态 | 新 payload | 说明 |
+|---|---|---|
+| 只在固定时间发一句提醒 | `REMINDER` | 无模型、无工具 |
+| 固定 `run.py` + 固定参数 | `SKILL_PLAN` | `input` 走 stdin，`argv` 追加到脚本 |
+| 需要模型判断/多工具/对话上下文 | `AGENT_TURN` | prompt + `tools_allow` + 平台预算 |
+
+用户不需要选 `mode`；模型根据业务意图生成 payload，平台校验后出确认卡片。
+
+### 7.2 CLI 与 stdin 分离
+
+旧脚本用 `argparse` 时，把业务参数放 `argv`：
+
+```json
+{
+  "kind": "SKILL_PLAN",
+  "skill_id": "f314c19f-...",
+  "input": {"company_id": "22921947"},
+  "argv": ["--company-id", "22921947", "--date", "{{previous_day}}", "--no-wecom-push"],
+  "window": {"kind": "DAY", "offset": -1}
+}
+```
+
+- `input` 只写 JSON stdin，不会自动映射成 CLI 参数；
+- `argv` 只放脚本路径之后的参数，不含 `python3`、解释器选项或脚本路径；
+- 时间变量在 fire 时按 IANA 时区渲染并冻结，重试复用同一份值；
+- 旧脚本里的“每天几点跑”逻辑要删除，由 cron/once 承担。
+
+### 7.3 产物与投递
+
+- 用户产物只写 `SKILL_OUTPUT_DIR`；平台登记为本次执行的 `OUTPUT` 附件；
+- Web 任务中心始终可读；是否企微推送由 Job 的 `delivery` 显式决定；
+- Skill 不再自己调用 webhook/发送接口；平台按消息附件统一 pull/push；
+- 失败时返回结构化 `ok=false` + `code` + `message` + `retryable` 失败信封（stderr 最后一个
+  JSON 对象），退出码非零；不要捕获异常后 `exit 0`。
+
+### 7.4 验收
+
+- [ ] 老 Skill 可由 `SKILL_PLAN` 调用，`input` 与 `argv` 分别到达 stdin/CLI；
+- [ ] 报告文件出现在任务中心附件中，checksum 与文件一致；
+- [ ] 无变化时使用 `record_result(no_change)`（AGENT_TURN）或空输出（SKILL_PLAN），
+      不输出 `NO_REPLY` 等内部 token；
+- [ ] 企微目标只在显式 `delivery=PUSH` 且路由有效时发送；
+- [ ] 失败信封可被平台识别为业务失败，`retryable` 与业务语义一致。
