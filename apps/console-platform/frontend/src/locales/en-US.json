@@ -1739,6 +1739,7 @@
   "chat.sidebar.close": "Close conversation history",
   "chat.workspace.label": "Chat Workspace",
   "chat.workspace.emptyMessages": "Send the first message to start the conversation",
+  "chat.workspace.loadingSelection": "Loading conversation…",
   "chat.thread.label": "Message Thread",
   "chat.thread.loadOlder": "Load earlier messages",
   "chat.thread.empty": "No messages yet",

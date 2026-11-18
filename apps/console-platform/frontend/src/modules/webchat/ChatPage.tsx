@@ -1105,7 +1105,9 @@ interface ChatMessageAreaProps {
 
 /** 消息区装配：新对话提示 + 消息线程 + 流式正文 + 运行面 + 确认卡（同一滚动视口）。 */
 function ChatMessageArea(props: ChatMessageAreaProps) {
+  const { t } = useTranslation();
   const history = props.messages.history;
+  const hasMessages = history.items.length > 0;
   const run = props.run;
   // 历史已回放的 Draft 只渲染一次：流式卡片按 draft_id 去重（刷新后历史与流表示同一事实）。
   const historyDraftIds = new Set<string>();
@@ -1132,7 +1134,7 @@ function ChatMessageArea(props: ChatMessageAreaProps) {
       {props.conversationId === null ? <ChatNewConversationNotice /> : null}
       <MessageThread
         messages={history.items}
-        loading={props.loading}
+        loading={props.loading && !hasMessages}
         loadingOlder={history.loadingOlder}
         hasOlder={history.hasOlder}
         errorCode={history.errorCode}
@@ -1187,34 +1189,46 @@ export interface ChatWorkspaceProps extends ChatWorkspacePorts {
 /** 输入区装配：阶段/输入/附件/错误面全部来自 TASK-081 快照，限额只来自 API-19 投影。 */
 function ChatComposerSurface(props: {
   disabled: boolean;
+  loading: boolean;
   policy: ComposerAttachmentPolicy | null;
   pendingSend: PendingSendHookResult;
   onTextChange(value: string): void;
   onSend(): void;
 }) {
+  const { t } = useTranslation();
   const pendingSend = props.pendingSend;
   return (
-    <ChatComposer
-      disabled={props.disabled}
-      phase={pendingSend.snapshot.phase}
-      text={pendingSend.snapshot.text}
-      onTextChange={props.onTextChange}
-      attachments={pendingSend.snapshot.attachments}
-      attachmentPolicy={props.policy}
-      expiredUploadIds={pendingSend.snapshot.expiredUploadIds}
-      inputErrorCode={pendingSend.snapshot.inputErrorCode}
-      errorCode={pendingSend.snapshot.errorCode}
-      outcomeUnknown={pendingSend.snapshot.outcomeUnknown}
-      inputFrozen={pendingSend.snapshot.inputFrozen}
-      onAddFiles={pendingSend.addFiles}
-      onRemoveAttachment={pendingSend.removeAttachment}
-      onSend={props.onSend}
-      onRetry={() => {
-        fireAndForget(pendingSend.retry());
-      }}
-      onDiscard={pendingSend.discard}
-      onCancel={pendingSend.cancel}
-    />
+    <>
+      {props.loading ? (
+        <div className="chat-composer-loading" data-testid="chat-message-loading-inline">
+          <Spin size="small" />
+          <Typography.Text type="secondary">
+            {t('chat.workspace.loadingSelection')}
+          </Typography.Text>
+        </div>
+      ) : null}
+      <ChatComposer
+        disabled={props.disabled}
+        phase={pendingSend.snapshot.phase}
+        text={pendingSend.snapshot.text}
+        onTextChange={props.onTextChange}
+        attachments={pendingSend.snapshot.attachments}
+        attachmentPolicy={props.policy}
+        expiredUploadIds={pendingSend.snapshot.expiredUploadIds}
+        inputErrorCode={pendingSend.snapshot.inputErrorCode}
+        errorCode={pendingSend.snapshot.errorCode}
+        outcomeUnknown={pendingSend.snapshot.outcomeUnknown}
+        inputFrozen={pendingSend.snapshot.inputFrozen}
+        onAddFiles={pendingSend.addFiles}
+        onRemoveAttachment={pendingSend.removeAttachment}
+        onSend={props.onSend}
+        onRetry={() => {
+          fireAndForget(pendingSend.retry());
+        }}
+        onDiscard={pendingSend.discard}
+        onCancel={pendingSend.cancel}
+      />
+    </>
   );
 }
 
@@ -1459,6 +1473,10 @@ export function ChatWorkspace(props: ChatWorkspaceProps) {
     state.messages.history.loadingOlder,
     confirmationKey
   );
+  const selectionLoading =
+    state.selection.loading ||
+    (props.expectedConversationId !== null && state.conversationId === null);
+  const hasMessages = state.messages.history.items.length > 0;
   return (
     <>
       <WebchatShell
@@ -1469,10 +1487,7 @@ export function ChatWorkspace(props: ChatWorkspaceProps) {
         messageArea={
           <ChatMessageArea
             conversationId={state.conversationId}
-            loading={
-              state.selection.loading ||
-              (props.expectedConversationId !== null && state.conversationId === null)
-            }
+            loading={selectionLoading}
             messages={state.messages}
             run={state.run}
             streaming={state.streaming}
@@ -1489,6 +1504,7 @@ export function ChatWorkspace(props: ChatWorkspaceProps) {
         composer={
           <ChatComposerSurface
             disabled={!props.config.ready}
+            loading={selectionLoading && hasMessages}
             policy={props.config.snapshot.webchat}
             pendingSend={props.pendingSend}
             onTextChange={state.changeDraft}

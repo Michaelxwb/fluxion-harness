@@ -43,6 +43,7 @@ FRONTEND = ROOT / "apps/console-platform/frontend"
 SRC = FRONTEND / "src"
 MODULE = SRC / "modules/webchat"
 THREAD_TSX = MODULE / "components/MessageThread.tsx"
+PAGE_TSX = MODULE / "ChatPage.tsx"
 ATTACHMENT_DOWNLOAD_TS = MODULE / "attachmentDownload.ts"
 MESSAGES_TS = MODULE / "hooks/useMessages.ts"
 SHELL_TSX = MODULE / "components/WebchatShell.tsx"
@@ -1065,6 +1066,7 @@ SCENARIOS: tuple[dict[str, Any], ...] = (
     {"id": "thread-en", "locale": "en-US", "select": True},
     {"id": "empty-zh", "locale": "zh-CN", "select": False},
     {"id": "loading-zh", "locale": "zh-CN", "select": False, "loading": True},
+    {"id": "loading-with-messages-zh", "locale": "zh-CN", "select": True, "loading": True},
     {"id": "error-zh", "locale": "zh-CN", "select": True, "errorCode": "NETWORK_ERROR"},
     {"id": "local-failure-zh", "locale": "zh-CN", "select": True, "failureCode": "CONVERSATION_NOT_SELECTED"},
     {"id": "paged-zh", "locale": "zh-CN", "select": False, "messageCount": RETAINED_TOTAL, "hasOlder": True},
@@ -1579,6 +1581,12 @@ def test_b280_thread_states_are_explicit_and_keep_existing_content(
     assert 'data-testid="chat-message-loading"' in loading, "首屏未落地显示骨架"
     assert 'data-testid="chat-message-empty"' not in loading, "首屏未落地不得伪装成空成功"
 
+    with_messages = markup["loading-with-messages-zh"]["shell"]
+    assert 'data-testid="chat-message-loading"' not in with_messages, (
+        "已有消息时不得在消息列表上方再盖加载态"
+    )
+    assert _count(with_messages, 'data-testid="chat-message-item"') == 3
+
     error = markup["error-zh"]["shell"]
     assert 'data-testid="chat-message-retry"' in error and "消息加载失败" in error, (
         "加载失败就地给出重试"
@@ -1714,3 +1722,16 @@ def test_b280_thread_keys_are_localized_on_both_sides() -> None:
         assert key in combined, f"词条必须在组件中真实引用：{key}"
     assert "common.retry" in _read(THREAD_TSX), "重试文案必须复用既有 common.* 词条"
 
+
+
+def test_selection_loading_with_messages_is_shown_near_the_composer() -> None:
+    page = PAGE_TSX.read_text(encoding="utf-8")
+    assert "chat-composer-loading" in page
+    assert "chat-message-loading-inline" in page
+    assert "chat.workspace.loadingSelection" in page
+    assert "loading={props.loading && !hasMessages}" in page
+    assert "loading={selectionLoading && hasMessages}" in page
+    zh = json.loads((LOCALES / "zh-CN.json").read_text(encoding="utf-8"))
+    en = json.loads((LOCALES / "en-US.json").read_text(encoding="utf-8"))
+    assert zh["chat.workspace.loadingSelection"] == "正在加载会话…"
+    assert en["chat.workspace.loadingSelection"] == "Loading conversation…"

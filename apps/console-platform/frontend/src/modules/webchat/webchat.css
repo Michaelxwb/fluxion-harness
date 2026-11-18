@@ -627,6 +627,16 @@
   color: var(--semi-color-text-2);
 }
 
+/* 已有消息时不再在列表顶部盖加载态；在输入区上方给轻量连接提示。 */
+.chat-composer-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 12px;
+  color: var(--semi-color-text-2);
+}
+
 .chat-message-local-failure {
   color: var(--semi-color-text-1);
   font-size: 12px;
