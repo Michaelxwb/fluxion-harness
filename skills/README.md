@@ -35,7 +35,7 @@ Skill key 由 `SKILL.md` 的 `name` 生成，默认脚本取 manifest 的 `entry
 |---|---|
 | `_templates/business-skill-python` | 新平台业务 Skill 模板（session-manager + requests + `SKILL_OUTPUT_DIR`） |
 | `smoke-platform-sample` | 上表 zip 的源目录；本地端到端见 `tools/fake-business-platform/smoke_check.py` |
-| `fake-platform-async-batch` | ASYNC 批量报表样例；本地端到端见 `tools/fake-business-platform/async_batch_check.py` |
+| `fake-platform-async-batch` | ASYNC 批量报表样例；本地端到端见 `tools/fake-business-platform/services.sh async-batch` |
 | `self-skill-creator` / `self-skill-review` / `self-skill-upload` | 自建 Skill 三件套源目录 |
 
 ## 自建 Skill 三件套说明

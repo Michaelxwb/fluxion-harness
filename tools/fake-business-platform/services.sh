@@ -11,6 +11,7 @@
 #   ./services.sh restart [服务...]
 #   ./services.sh status             # 看状态与地址
 #   ./services.sh logs <服务>        # 跟踪某个服务的日志
+#   ./services.sh async-batch        # 对 platform 服务跑 ASYNC BATCH Skill 端到端
 #
 # PID、日志与就绪信息落在 .data/fake-business-platform/（已被 .gitignore 覆盖）。
 #
@@ -51,7 +52,7 @@ STOP_TIMEOUT="${STOP_TIMEOUT:-5}"
 SERVICES="platform mcp mcp-headers"
 
 usage() {
-    sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    sed -n '2,25p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
     printf '\n服务：%s\n' "$SERVICES"
 }
 
@@ -325,6 +326,12 @@ cmd_status() {
     done
 }
 
+cmd_async_batch() {
+    resolve_targets platform && cmd_start || return 1
+    printf '运行 fake-platform-async-batch 端到端（输出 %s/async-batch-demo）\n' "$RUN_DIR"
+    RUN_DIR="$RUN_DIR" "$PYTHON" "$ROOT/async_batch_check.py"
+}
+
 cmd_logs() {
     local name=${1:-platform} log
     if ! is_known "$name"; then
@@ -373,6 +380,9 @@ main() {
             ;;
         logs)
             cmd_logs $NAMES
+            ;;
+        async-batch)
+            cmd_async_batch
             ;;
         *)
             printf '未知命令：%s\n\n' "$command" >&2

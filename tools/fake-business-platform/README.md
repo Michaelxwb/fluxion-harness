@@ -176,14 +176,19 @@ Bearer（无 `auth_config`，密钥存 MCP Server secret）：
 
 ```bash
 uv run python tools/fake-business-platform/smoke_check.py
+
+# ASYNC BATCH 使用 services.sh 管理的 platform 服务（不会另起 server）
+./tools/fake-business-platform/services.sh async-batch
+# 或先启动、再单独跑检查
+./tools/fake-business-platform/services.sh start
 uv run python tools/fake-business-platform/async_batch_check.py
 ```
 
 `smoke_check.py` 自行拉起 server，跑真实 `MSSAdapter.authenticate` 登录、写执行态会话文件、以该状态执行
 `skills/smoke-platform-sample/scripts/run.py`，并断言健康检查 + CSRF 保护的业务调用 + Traceid 回显。
 
-`async_batch_check.py` 验证 `skills/fake-platform-async-batch`：父执行从 `/api/v1/targets`
-生成 BATCH 计划，三个子执行各写 JSON/CSV 到
+`async_batch_check.py` 读取 `platform.ready.json`，验证 `skills/fake-platform-async-batch`：父执行从
+`/api/v1/targets` 生成 BATCH 计划，三个子执行各写 JSON/CSV 到
 `.data/fake-business-platform/async-batch-demo/<target>/`；真实 Worker fan-out 见
 `tests/acceptance/task_schedule/test_fake_platform_async_batch.py`。退出码 `0` 表示链路可用。
 
@@ -192,4 +197,4 @@ uv run python tools/fake-business-platform/async_batch_check.py
 - `server.py` — 模拟器（仅标准库）。
 - `smoke_check.py` — 上节的本地端到端冒烟。
 - `async_batch_check.py` — ASYNC BATCH Skill 的本地端到端（父计划 + 子文件）。
-- `services.sh` — 本地启停脚本（platform / mcp / mcp-headers）。
+- `services.sh` — 本地启停脚本（platform / mcp / mcp-headers，以及 `async-batch` 端到端命令）。

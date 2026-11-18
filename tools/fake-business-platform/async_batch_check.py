@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 """One-command E2E for ``skills/fake-platform-async-batch``.
 
-Starts the fake MSSW server, logs in through the real MSSAdapter, runs the Skill
-in parent mode to produce a BATCH plan, then runs every child item and writes
-JSON/CSV reports under ``.data/fake-business-platform/async-batch-demo`` (kept
-for inspection). Exit code 0 means the platform + batch + file chain works.
+Runs against the platform service managed by ``services.sh`` (it does not spawn
+its own server): logs in through the real MSSAdapter, runs the Skill in parent
+mode to produce a BATCH plan, then runs every child item and writes JSON/CSV
+reports under ``.data/fake-business-platform/async-batch-demo`` (kept for
+inspection). Exit code 0 means the platform + batch + file chain works.
+
+Start the service first, or use the wrapper command:
+
+    ./tools/fake-business-platform/services.sh start
+    ./tools/fake-business-platform/services.sh async-batch
 
 The Worker-level fan-out (real Task rows, child Tasks, fan-in) is covered by
 ``tests/acceptance/task_schedule/test_fake_platform_async_batch.py``.
@@ -33,6 +39,7 @@ SERVER = ROOT / "tools/fake-business-platform/server.py"
 SKILL = ROOT / "skills/fake-platform-async-batch"
 SCRIPT = SKILL / "scripts/run.py"
 OUTPUT_ROOT = ROOT / ".data/fake-business-platform/async-batch-demo"
+RUN_DIR = Path(os.environ.get("RUN_DIR", ROOT / ".data/fake-business-platform"))
 PLATFORM_KEY = "smoke_platform"
 AK = "test-ak"
 SK = "test-sk"
@@ -51,35 +58,20 @@ ADAPTER_CONFIG: dict[str, Any] = {
 }
 
 
-def start_server() -> tuple[subprocess.Popen[str], str]:
-    process = subprocess.Popen(
-        [
-            sys.executable,
-            str(SERVER),
-            "--platform",
-            "mssw",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            "0",
-            "--ak",
-            AK,
-            "--sk",
-            SK,
-        ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
-        text=True,
-    )
-    assert process.stdout is not None
-    line = process.stdout.readline()
-    if not line:
-        process.terminate()
-        raise RuntimeError("fake platform did not become ready")
-    return process, str(json.loads(line)["baseUrl"])
+def load_platform_ready() -> dict[str, Any]:
+    ready_file = RUN_DIR / "platform.ready.json"
+    if not ready_file.is_file():
+        raise SystemExit(
+            "platform 未启动：先运行 ./tools/fake-business-platform/services.sh start platform，"
+            "或直接运行 ./tools/fake-business-platform/services.sh async-batch"
+        )
+    ready = json.loads(ready_file.read_text(encoding="utf-8"))
+    if ready.get("status") != "ready" or not ready.get("baseUrl"):
+        raise SystemExit(f"平台就绪信息无效：{ready_file}")
+    return ready
 
 
-def login(base_url: str) -> dict[str, Any]:
+def login(base_url: str, ak: str, sk: str) -> dict[str, Any]:
     config = PlatformConfig(
         key=PLATFORM_KEY,
         name="Fake Platform",
@@ -90,7 +82,7 @@ def login(base_url: str) -> dict[str, Any]:
         adapter_schema_version="2",
         credential_mode=CredentialMode.SHARED_ONLY,
     )
-    credential = SecretValue(value=json.dumps({"ak": AK, "sk": SK}), version="1")
+    credential = SecretValue(value=json.dumps({"ak": ak, "sk": sk}), version="1")
     session = asyncio.run(MSSAdapter().authenticate(config, credential))
     cookies = json.loads(session.cookie or "[]")
     return {
@@ -145,54 +137,49 @@ def safe_name(value: str) -> str:
 
 
 def main() -> int:
-    process, base_url = start_server()
-    try:
-        state = login(base_url)
-        with tempfile.TemporaryDirectory(prefix="async-batch-state-") as temp:
-            state_file = Path(temp) / "session-state.json"
-            state_file.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
-            shutil.rmtree(OUTPUT_ROOT, ignore_errors=True)
-            OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
+    ready = load_platform_ready()
+    base_url = str(ready["baseUrl"])
+    ak = str(ready.get("ak") or AK)
+    sk = str(ready.get("sk") or SK)
+    state = login(base_url, ak, sk)
+    with tempfile.TemporaryDirectory(prefix="async-batch-state-") as temp:
+        state_file = Path(temp) / "session-state.json"
+        state_file.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+        shutil.rmtree(OUTPUT_ROOT, ignore_errors=True)
+        OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
 
-            parent = run_skill({}, state_file=state_file, output_dir=OUTPUT_ROOT / "_parent")
-            plan = parent["batch"]
-            files: dict[str, list[str]] = {}
-            for item in plan["items"]:
-                target = str(item["target"])
-                output = OUTPUT_ROOT / safe_name(target)
-                child = run_skill(item, state_file=state_file, output_dir=output)
-                files[target] = [str(output / entry["relative_path"]) for entry in child["files"]]
+        parent = run_skill({}, state_file=state_file, output_dir=OUTPUT_ROOT / "_parent")
+        plan = parent["batch"]
+        files: dict[str, list[str]] = {}
+        for item in plan["items"]:
+            target = str(item["target"])
+            output = OUTPUT_ROOT / safe_name(target)
+            child = run_skill(item, state_file=state_file, output_dir=output)
+            files[target] = [str(output / entry["relative_path"]) for entry in child["files"]]
 
-            stats = fetch_json(base_url + "/__stats")["counts"]
-            summary = {
-                "baseUrl": base_url,
-                "targets": [item["target"] for item in plan["items"]],
-                "max_concurrency": plan["max_concurrency"],
-                "aggregate_mode": plan["aggregate_mode"],
-                "files": files,
-                "request_counts": stats,
-                "output_root": str(OUTPUT_ROOT),
-            }
-            checks = {
-                "three_targets": len(plan["items"]) == 3,
-                "all_children_files": all(len(paths) == 2 for paths in files.values()),
-                "parent_read_targets": stats.get("/api/v1/targets", 0) >= 4,
-                "children_hit_ping": stats.get("/api/v1/ping", 0) >= 3,
-            }
-            print(
-                json.dumps(
-                    {"checks": checks, **summary}, ensure_ascii=False, indent=2
-                )
-            )
-            failed = [name for name, ok in checks.items() if not ok]
-            if failed:
-                print(f"async batch check failed: {failed}", file=sys.stderr)
-                return 1
-            print("async batch check ok")
-            return 0
-    finally:
-        process.terminate()
-        process.wait(timeout=5)
+        stats = fetch_json(base_url + "/__stats")["counts"]
+        summary = {
+            "baseUrl": base_url,
+            "targets": [item["target"] for item in plan["items"]],
+            "max_concurrency": plan["max_concurrency"],
+            "aggregate_mode": plan["aggregate_mode"],
+            "files": files,
+            "request_counts": stats,
+            "output_root": str(OUTPUT_ROOT),
+        }
+        checks = {
+            "three_targets": len(plan["items"]) == 3,
+            "all_children_files": all(len(paths) == 2 for paths in files.values()),
+            "parent_read_targets": stats.get("/api/v1/targets", 0) >= 4,
+            "children_hit_ping": stats.get("/api/v1/ping", 0) >= 3,
+        }
+        print(json.dumps({"checks": checks, **summary}, ensure_ascii=False, indent=2))
+        failed = [name for name, ok in checks.items() if not ok]
+        if failed:
+            print(f"async batch check failed: {failed}", file=sys.stderr)
+            return 1
+        print("async batch check ok")
+        return 0
 
 
 if __name__ == "__main__":
