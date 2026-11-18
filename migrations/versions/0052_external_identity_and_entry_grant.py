@@ -12,13 +12,13 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB
 
-# 编号冲突说明：main 分支另有 `0051_audit_operation_view_index.py`（revision "0051"）。
-# 本文件起初同样声明 "0051" 且 down_revision 都是 "0050"，合并后 alembic 报
-# 「Revision 0051 is present more than once」，迁移链分叉出 0051 / 0052 两个 head，
+# 编号说明：main 分支的 `0051_audit_operation_view_index.py` 占用 "0051"。
+# 本文件起初也声明 "0051" 且 down_revision 都是 "0050"，合并后 alembic 报
+# 「Revision 0051 is present more than once」，head 分叉成 0051 / 0052，
 # 启动自检因库在 "0051"、代码 head 为 "0052" 而拒绝启动。
-# 现将本文件接到 main 的 "0051" 之后，保持单链：
-#   0049 -> 0050 -> 0051(审计视图索引) -> 0051_external_identity -> 0052
-revision = "0051_external_identity"
+# 现按连号重排，保持单链：
+#   0049 -> 0050 -> 0051(审计视图索引) -> 0052(本文件) -> 0053(认证缓存同步状态)
+revision = "0052"
 down_revision = "0051"
 branch_labels = None
 depends_on = None

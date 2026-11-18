@@ -15,9 +15,9 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB
 
-revision = "0052"
-# 接在 0051_external_identity 之后（不是 main 的 "0051" 审计索引）——见该文件的编号冲突说明。
-down_revision = "0051_external_identity"
+revision = "0053"
+# 接在外部身份迁移（已重排为 "0052"）之后——见该文件的编号说明。
+down_revision = "0052"
 branch_labels = None
 depends_on = None
 

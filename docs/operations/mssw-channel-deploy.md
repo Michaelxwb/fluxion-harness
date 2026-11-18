@@ -38,8 +38,9 @@ StartupValidationError: startup validation failed:
 
 | 迁移 | 内容 | 回滚 |
 |---|---|---|
-| `0051_external_identity_and_entry_grant` | 新建 `control.external_identity`、`control.entry_access_grant`；给 `control.platform_user` 加 `auth_revision bigint not null default 1`（既有行自动填 1） | 删两表 + 删列 |
-| `0052_auth_cache_sync_state` | 新建 `control.auth_cache_sync_state` | 删表 |
+| `0051_audit_operation_view_index`（main 既有） | 给 `runtime.run_record` 建审计查询索引 | 删索引 |
+| `0052_external_identity_and_entry_grant` | 新建 `control.external_identity`、`control.entry_access_grant`；给 `control.platform_user` 加 `auth_revision bigint not null default 1`（既有行自动填 1） | 删两表 + 删列 |
+| `0053_auth_cache_sync_state` | 新建 `control.auth_cache_sync_state` | 删表 |
 
 性质：**只加表、只加列**，不改既有数据语义。实测确认升级后既有行原样保留，新表为空。
 
