@@ -387,43 +387,42 @@ API 层已由 `tests/acceptance/msswweb/` 持续回归覆盖；浏览器/长流�
 
 ## E-10 Redis 缓存 revision 失效/不可用
 
-> **当前不适用（2026-11-17 核对结论）**：认证读路径**没有接入缓存**，本场景的前提不成立。
+> **当前状态（2026-11-18 更新）：读侧仍未接入，接入方案已定稿**（见 `backend.design.md` §3.1.2）。
 >
-> 现状：`muad_common.auth_cache` 的三层缓存原语（凭证 `cred:` / 权限 `perm:` / 状态
-> `barrier:`+`userver:`+`platform:`）与失效流程（`AuthCacheDirectory.invalidate`，12 个管理
-> 变更点均已调用）都已实现并在 Console 装配，但 `read_permission` / `read_credential` /
-> `write_permission` / `write_credential` **零调用方**。外部断言路径
-> （`ExternalAssertionService` / `resolve_principal`）每次请求直查 PG，Gateway 未 import 该模块。
+> 现状：`muad_common.auth_cache` 的分层原语与失效流程已实现并在 Console 装配，
+> `AuthCacheDirectory.invalidate` 已被管理面多处调用（撤权、停用用户/Agent、身份增删改、
+> 入口解绑等），但凭证层 `read_credential` / `write_credential` **仍无调用方**；外部断言路径
+> 每次直查 PG，Gateway 未 import 该模块。因此**本条场景当前不适用**，正确性由「不缓存 + 每次
+> 直查」保证。
 >
-> 由此产生与下述原期望的偏差：
-> - 「命中 Redis 不查 Console」——不成立：每次都查 PG，无命中一说。
-> - 「revision 变化后旧缓存不再放行」——无意义：不存在会被放行的旧缓存。
-> - 「Redis 不可用时有界回源」——方向相反：`auth_cache.py` 的契约是 **fail closed**（抛
->   `AuthCacheUnavailable` 按 503），本就没有「有界回源」这一档；且因读侧不接，Redis 故障
->   当前**不影响**认证请求，仅影响管理侧撤权（会同事务回滚）。
-> - 「不等待缓存到期/重启，两入口立即反映新权限」——**成立**，但机制是「不缓存 + 每次直查 PG」，
->   不是缓存失效。
+> **接入后的预期行为**（按 §3.1.2 实现，届时本条转为适用）：
+> - 「命中凭证层不查 Console」——成立，凭证键是断言原文的 SHA-256，命中即跳过验签。
+> - 「不等待缓存到期，两入口立即反映新权限」——成立，但由**权限层**失效保证，不是凭证层；
+>   凭证层不存授权，命中后仍要读权限层。
+> - 「Redis 不可用」——**直接回源完整校验**（可用性优先），与 `auth_cache` 既有 fail-closed
+>   契约不同，实现时须显式区分这条降级路径。
+> - 解绑入口授权**只删权限层、不删凭证层**；凭证命中后权限层已失效，故仍即时生效。
 >
-> **另需区分**：`RedisSessionStore` 确有 TTL 滑动续期（命中后 `EXPIRE`），但那是 WebChat 面
-> USER_TOKEN 会话的，MSSWWEB 面走外部断言，**无自动续期**——凭据就是断言本身，有效期由
-> `iat + external_assertion_max_session_age_sec` 判定，不续期。`AuthCacheStore` 的 TTL 仅用于
-> 回收数据，不提供撤权保证（`auth_cache.py` 模块 docstring 已明示）。
+> **续期口径**：接入后凭证层命中时重设 TTL，但 TTL = `min(external_assertion_cache_ttl_sec, expires_at - now)`，
+> **绝对到期不延长**。`RedisSessionStore` 的 WebChat 会话续期是另一套（独立键空间），不复用。
 >
-> 若要真正启用本条场景，需让 Gateway 的 `resolve_external` 读穿缓存；**这是一次性能优化而非
-> 功能修复**，代价是 Redis 从「可缺失」变为「认证必经依赖」。当前直查 PG 的正确性无问题。
+> **已知缺口**：未接 `policy_epoch`——平台公钥轮换后，旧凭证只能在自然过期（闲置窗口或
+> `expires_at`）前继续被接受；凭证反向索引 `useridx` 目前只有添加、无容量上限与回收，长期
+> 会无界增长。二者须在实现中补齐，或在验收中明确接受。
 
 - **负责**：待 plan 分配
-- **前置**：已通过 `/identity` 写入 Redis；用户有绑定/授权。
+- **前置**：§3.1.2 的凭证缓存已实现并部署（当前未实现，此时本条不适用）；用户有绑定/授权。
 - **步骤**：
-  1. 连续调资源接口，确认命中 Redis（不查 Console）。
+  1. 连续调资源接口，确认命中凭证层（不查 Console）。
   2. 管理员解绑入口或撤销 Agent 授权；收到成功后立即直接请求资源，不先刷新身份。
   3. 再查身份及入口列表，确认反映相同权限。
   4. 无变更进行时临时停 Redis，请求身份和资源；再在 Redis 不可用时尝试管理撤权并查看其实际结果。
-- **期望**：
-  - revision 变化后旧缓存不再放行。
-  - Redis 不可用且授权状态可确认时有界回源；同步未完成时明确不可用，不继续用旧权限。
-  - 无法完成失效的管理操作不假报成功；恢复依赖后状态可收敛，页面可刷新确认。
+- **期望**（按 §3.1.2 的窄方案；括号内是它与完整形态 `barrier:`/revision 方案的差异）：
+  - 撤权/停用/解绑后旧缓存不再放行——由**权限层**删除保证，下一次请求回源 PG 即反映新权限（不走 revision 状态机）。
+  - Redis 不可用且授权状态可确认时**直接回源完整校验**（可用性优先，不是 `auth_cache` 既有的 fail-closed 503）；回源结果与直查 PG 一致。
+  - 无法完成失效的管理操作不假报成功——`AuthCacheDirectory.invalidate` 仍 fail-closed 抛错使业务回滚，恢复依赖后由 `recover_tenant` 收敛。
   - 不等待缓存到期或服务重启，两个入口立即反映新权限。
+  - 删除入口后该入口用户的凭证层一并清除；入口启停/改配只删权限层（详见 §3.1.2「各变更点实际失效范围」）。
 
 ## E-11 Agent 撤权后的 resume
 

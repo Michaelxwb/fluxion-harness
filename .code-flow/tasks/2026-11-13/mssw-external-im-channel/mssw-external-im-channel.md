@@ -393,7 +393,7 @@
 - **Source**: mssw-external-im-channel.backend.design.md#认证缓存
 - **Scenarios**: E-05, E-07, E-10, E-12, E-13, E-14
 - **Spec-Refs**: auth/harness-auth, secret/harness-secret
-- **Paths**: apps/console-platform/backend/src/muad_console_platform/application/auth_cache_invalidator.py, packages/common/src/muad_common/auth_cache.py, apps/console-platform/backend/src/muad_console_platform/infrastructure/models/control.py, migrations/versions/0051_auth_cache_sync_state.py, apps/console-platform/backend/src/muad_console_platform/metrics.py, apps/console-platform/backend/src/muad_console_platform/main.py, apps/console-platform/backend/src/muad_console_platform/api/users.py, apps/console-platform/backend/src/muad_console_platform/api/agents.py, apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/agent_access_grant_repository.py, apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/external_identity_repository.py, tests/console_platform/test_auth_cache_invalidation.py
+- **Paths**: apps/console-platform/backend/src/muad_console_platform/application/auth_cache_invalidator.py, packages/common/src/muad_common/auth_cache.py, apps/console-platform/backend/src/muad_console_platform/infrastructure/models/control.py, migrations/versions/0053_auth_cache_sync_state.py, apps/console-platform/backend/src/muad_console_platform/metrics.py, apps/console-platform/backend/src/muad_console_platform/main.py, apps/console-platform/backend/src/muad_console_platform/api/users.py, apps/console-platform/backend/src/muad_console_platform/api/agents.py, apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/agent_access_grant_repository.py, apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/external_identity_repository.py, tests/console_platform/test_auth_cache_invalidation.py
 - **E2E**:
 - **Skip-Tests**:
 - **Skip-Reason**:
@@ -718,7 +718,8 @@
 ### Log
 
 - [2026-11-16] 合并最新 main 后重做：`ConversationScope`/`HistoryScope` 加 `entry_agnostic`；列表按 user+Agent 聚合、item 填 `entry_id`+`has_unread`（EXISTS）；详情填 `has_unread`+`notification_through_seq`；新增会话级 `POST /internal/webchat/conversations/{id}/read`（水位 + `CURSOR_AHEAD`）；通知来源改取 Run 的 `channel_json.entry_id`；resume 增验 Agent 当前授权。删除会话（先取消再软删+软删通知）与上传归属（TASK-009）已满足，未改。
-- [2026-11-16] 迁移链冲突修复：main 的 `0050_scheduled_task_v2` 与本需求的 `0050` 撞号，将本需求两个迁移重排为 `0051_external_identity_and_entry_grant`、`0052_auth_cache_sync_state`（`down_revision` 串到 main 的 0050）。
+- [2026-11-16] 迁移链冲突修复：main 的 `0050_scheduled_task_v2` 与本需求的 `0050` 撞号，两个迁移先重排为 `0051_external_identity_and_entry_grant`、`0052_auth_cache_sync_state`（`down_revision` 串到 main 的 0050）。
+- [2026-11-18] 再次重排：main 合入 `0051_audit_operation_view_index`（审计列表 Run 级操作行投影）后又与本需求 `0051` 撞号，导致 `Revision 0051 is present more than once`、head 分叉、console-platform 启动自检 CrashLoop。最终链为 `0050 → 0051_audit_operation_view_index → 0052_external_identity_and_entry_grant → 0053_auth_cache_sync_state`。已迁移过旧 `0052`（当时含三表）的库需 `UPDATE alembic_version SET version_num='0053' WHERE version_num='0052'`，否则会重跑建表。
 - [2026-11-16] 本轮仅做单元测试（用户要求）：`tests/agent_runtime/test_msswweb_cross_entry_conversation.py`（3 条：严格跨入口 404 / agnostic 跨入口放行 / item 带来源+未读）+ `tests/gateway/test_msswwweb_surface.py` 新增 2 条（`_read_scope` 默认不带 / 显式带 `entry_agnostic`），22 passed。集成/端到端回归留待后续批次。
 - [2026-11-16T12:49:49.663Z] started tests=96a62f2b475a
 

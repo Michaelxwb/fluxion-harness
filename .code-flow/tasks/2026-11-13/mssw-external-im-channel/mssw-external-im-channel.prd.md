@@ -145,6 +145,8 @@
 
 #### FEAT-04: 权限/入口可用接口 + Redis 认证缓存
 
+> **分期说明**：下表中「同步状态」「有界回源」「旧的并发回源不能回填」「policy_epoch」等条目属于**完整形态**，首期不启用。首期口径为：`/identity` 每次验签查 PG（已实现）；此后只接凭证层（缓存验签结论，命中跳过验签，按闲置窗口续期、绝对到期不延长）与权限层（复用既有 `perm:` 与 `invalidate`）；撤权靠权限层即时删除；Redis 不可用时**直接回源完整校验**（不做屏障状态核验）。详见 `backend.design.md` §3.1.2。
+
 - **描述**: `GET /api/v1/msswwweb/identity` 永远查 Console/PG，返回用户级主体、入口授权、Agent 授权与 `allowed/reason`；成功后 Gateway 把认证结果写 Redis，后续资源接口优先读 Redis。
 - **验收标准**:
   - [ ] token 有效且身份存在、入口授权、Agent 授权 → `allowed=true`。

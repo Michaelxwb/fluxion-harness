@@ -192,13 +192,88 @@ design_template: full
 4. **平台级身份 schema**：`identity_keys` 属于平台，放平台 Secret/ConfigMap，不建元数据表；不是每个入口一套；绑定 JSON 多字段 AND。
 5. **认证缓存**：`/identity` 永远查 Console/PG；凭证与当前权限分层缓存；解绑/撤权成功前删除对应权限缓存，并阻止旧回源结果再次写入；TTL 不提供撤权保证。WebChat 与 MSSWWEB 共用权限层。
 
-   > **实现状态（2026-11-17 核对）**：**读侧尚未接入**。`muad_common.auth_cache` 的分层原语与失效流程已落地并在 Console 装配（`AuthCacheDirectory.invalidate`，12 个管理变更点均调用），但 `read_permission` / `read_credential` / `write_permission` / `write_credential` 无调用方；`ExternalAssertionService` 与 `resolve_principal` 每次请求直查 PG，Gateway 未 import 该模块。因此本节「资源 Redis-first + revision 校验 + 屏障回填」属于**设计意图，尚未实现**。
+   > **实现状态（2026-11-18 更新）**：**读侧接入方案见 §3.1.2**。上一条所列的 `muad_common.auth_cache` 分层原语（凭证层 + 权限层 + 屏障回填 + revision 校验）仍无调用方，属完整形态；本期先落地一个**范围更窄、与 WebChat 会话缓存同构**的方案：只缓存「验签结论 + 授权快照」，不做屏障协议、不引入 revision 状态机、不动 WebChat。取舍与风险见 §3.1.2。
    >
-   > 实际行为：认证路径不读缓存，故无「命中/失效」语义；撤权即时生效由「每次直查 PG」保证，而非缓存失效；`AuthCacheUnavailable` 的 fail-closed 分支当前只影响管理侧撤权（同事务回滚），不影响认证请求。NFR-PERF-01 中「缓存命中」时延项在接入前无法测量。若要启用，需 Gateway 的 `resolve_external` 读穿缓存——这是性能优化而非功能修复，代价是 Redis 由「可缺失」变为「认证必经依赖」。
+   > 在该方案落地前，实际行为仍是：认证路径每次直查 PG（不读缓存），撤权即时生效由「直查」保证，而非缓存失效；NFR-PERF-01 的「缓存命中」时延项在接入前无法测量。
+
 6. **resume 不是清理**：要求用户 ACTIVE + 当前 Agent 授权；entry 不是边界；Agent 撤权默认拒绝。
 7. **不做 IM 通道数据隔离**：不再按 entry/channel 对按 ID 资源做 404 断言；不同用户才隔离。
 8. **来源保留在后台**：会话来源是创建时入口；每个 Run 来源是本次实际入口；通知/交付跟随来源 Run。页面不强制增加来源标签，来源不参与共享资源授权。
 9. **立即失效的边界**：管理端成功响应前完成失效；其后新认证决策不能使用旧授权。既有长流收到通知后重查，且有截止时间兜底；缓存删除不等于撤销已受理 Run 的执行快照或回滚已经发生的副作用。
+
+#### 3.1.2 外部断言会话缓存（2026-11-18 定稿，待实现）
+
+**范围**：MSSWWEB（`EXTERNAL_ASSERTION`）认证面。**复用 `muad_common.auth_cache` 的分层结构**（凭证层 `cred:` / 权限层 `perm:`），不做自建缓存。
+
+**目标**：同一张断言被反复请求时，把「RSA 验签 + AES 解密 + 身份查询」降为一次 Redis 读；授权仍走权限层，从而**撤权即时生效**。
+
+##### 分层口径
+
+| 层 | 键 | 值 | 失效时机 |
+|---|---|---|---|
+| 凭证层 | `muad:authcache:{<tenant>}:cred:<platform_key>:<token_hash>`（tenant 由 Redis Cluster hash tag 包裹） | 验签结论：`platform_user_id`、`external_identity_id`、`expires_at`、`auth_method="EXTERNAL_ASSERTION"`。**不含任何 Agent/grant** | 自然到期（`expires_at`）或闲置超时；停用用户/删除身份时连同凭证批量删 |
+| 权限层 | `muad:authcache:{<tenant>}:perm:<user_id>` | 该用户当前可用的 Agent 与入口授权 | **任何授权/身份/入口/用户变化**（既有失效链路 `AuthCacheDirectory.invalidate`，含撤销入口授权） |
+
+**反向索引已存在**：凭证写入后由 `_add_reverse_index` 记入 `muad:authcache:{<tenant>}:useridx:<platform_key>:<user_id>`（Set，**需按平台拆分**，见「平台隔离」），`delete_credentials(tenant_id, user_id)` 先 `SMEMBERS` 再逐个删凭证键。**注意**：索引目前只有 `SADD`，**没有容量上限、没有 `SREM` 回收**，所属用户凭证长期累积会无界增长——接入前须补容量控制或改为带过期时间的索引结构。
+
+**各变更点的实际失效范围**（已核实）：
+
+| 变更 | 权限层 | 凭证层 |
+|---|---|---|
+| 授予/撤销 Agent 授权 | 删 | 不删 |
+| 停用用户 | 删 | **删** |
+| 登记外部身份 | 删 | 不删（`bump_revision=False`，无 `delete_credentials`） |
+| 编辑/删除外部身份 | 删 | **删**（两者都传 `delete_credentials=True`） |
+| **解绑入口授权** | 删 | **不删** |
+| Agent 停用/删除、入口启停/改配 | 删（反查用户集合） | 不删 |
+| **删除入口** | 删 | **删**（`agents.py` 的 `remove_agent_channel` 传 `delete_credentials=True`） |
+
+因此「撤权即时生效」由**权限层**保证；解绑入口不解凭证，是因为凭证不含授权——凭证命中后仍要读权限层，而权限层已失效，故仍是即时生效。凭证层只在「停用用户/编辑/删除身份/删除入口」时一并清除：停用或编辑身份意味着该断言对应的主体或其身份字段已变，旧凭证不该再命中；删除入口会取消该入口下的全部 grant，凭证也可能被挪作它用，故连凭证一起删更保守。**登记**新身份不删凭证（该用户此前可能无任何凭证，删也无意义），只删权限层。这一档与「入口启停/改配」不同，后者只删权限层。
+
+**权限层与 WebChat 共用**（§3.1.1 第 5 条定稿）：权限层的键是 `platform_user.id`（即各面都叫 `platform_user_id` 的那个内部用户主键），不是平台侧自然人标识。因此「共用」只在**同一断言解析到同一 `platform_user`** 时成立：同一自然人若在两个平台各建一条 `external_identity` 且指向同一 `platform_user`，权限天然共享；若指向不同 `platform_user`，则各自独立、互不可见。这是身份模型的有意结果，不是缓存引入的耦合；跨平台 Agent 授权可见性由身份映射决定，不由 `perm:` 键决定。共用带来的收益是**不新建失效链路**——撤销授权、停用用户/Agent、删除身份、解绑入口都会命中既有 `invalidate`，下一次请求权限层未命中即回源 PG，撤权**即时生效**，不受闲置窗口影响。
+
+**为什么凭证命中可以跳过验签**：凭证键是断言原文的 SHA-256（复用 `muad_common.session_store.hash_session_token`，与 Console `hash_chat_token` 同口径）。断言任何改动（签名、`iss`/`aud`、`_id`、`login_time`）都会改变哈希 → miss → 回源完整验签。命中即等价于「这张一模一样的断言已经验过且结论未过期」，不存在绕过签名校验的路径。
+
+##### 请求流程
+
+1. 读凭证层。命中且未过 `expires_at` → 重设 TTL（闲置窗口），跳过验签；否则回源 Console 完整验签后写入。
+2. 读权限层。命中直接用；未命中回源 PG 并回填。
+3. 两层分别判定，**凭证命中不代表权限可信**（§3.1.1 第 5 条「凭证与当前权限分层缓存」）。
+
+**实现前置**：现有 `auth_cache` 的读写接口都强制 `expected_user_version` / `start_fence` / 屏障参与，是为完整形态设计的；本期要「跳过屏障协议」就不能直接复用它们。因此需要在本节实现时**新增精简读写入口**（无 fence、无屏障、直接 GET/SET+EXPIRE），并复用既有的键格式、反向索引与 `invalidate` 失效链路。这是本节最主要的新增代码量。
+
+##### 参数与边界
+
+| 项 | 口径 |
+|---|---|
+| 写入方 | 凭证层**仅 Console**（验签只在 Console，RULE-02）。Gateway 只读凭证层，不写。现成的读取接口是 `AuthCacheStore.read_credential(tenant_id, token_hash, user_id, *, expected_user_version, platform_key, expected_epoch)`，写入是 `write_credential(tenant_id, user_id, token_hash, payload, *, start_fence, expected_user_version, ...)`——参数带 fence 与版本号，对应 §3.1.1 的完整形态；本期若要跳过屏障协议，需要**新增一个不带 barrier 的精简读写入口**，而不是直接调用这两个方法 |
+| 续期 | 凭证层只重置**闲置窗口**，永不越过 `expires_at`。**注意 `auth_cache` 现有原语不提供 `touch`**（`RedisSessionStore` 才有）；本期需新增「重设 TTL 且取 `min(external_assertion_cache_ttl_sec, expires_at - now)`」的能力，TTL 计算可直接复用 `RedisSessionStore._ttl_seconds` 的口径 |
+| 绝对上限 | `expires_at = min(now + max_session_age_sec, login_time + max_session_age_sec, 正数 exp)`，首次算出后不变。`external_assertion_max_session_age_sec` 的字段约束是 `ge=0`（负数在启动即被拒），因此**只有 `= 0` 能表示关闭**该路约束（与验签侧 `_check_max_age` 一致），此时 `expires_at` 仅由上游正数 `exp` 决定 |
+| 会话上下文 | **凭证层不校验** `session_id`：同一断言可打开多个会话，凭证不绑定 `conversation_id`。注意不能照搬 WebChat 的命中分支——它强制 `session_id == X-Chat-Context`（否则 `AUTH_CONTEXT_CHANGED`）且要求 `auth_method == "USER_TOKEN"`，两条对断言面都不成立，实现时须按认证方式分流 |
+| 与 WebChat 的差异 | WebChat 会话的绝对上限来自**来源 Token 的到期时间**（`min(now + session_ttl_hours, token.expires_at)`），`session_ttl_hours` 实际是**滑动 idle TTL**。断言面上游 `exp = -1`，没有来源到期可依，因此**必须**由 `external_assertion_max_session_age_sec` 承担绝对上限，两者不能直接类同 |
+| 平台隔离 | 凭证键**必须含平台段**：`muad:authcache:{<tenant>}:cred:<platform_key>:<token_hash>`；反向索引同为 `...:useridx:<platform_key>:<user_id>`。理由：只靠 `token_hash` 虽然不会误命中，但 `useridx` 会把同一用户各平台凭证混在一个集合里，解绑某平台身份时会连带清掉其它平台凭证。平台段须置于 `{<tenant>}` **之后**——`{<tenant>}` 是 Redis Cluster hash tag，放前面会打散同租户的槽位，破坏屏障与批量删除。权限层 `perm:<user_id>` 不加平台段（跨平台共用） |
+| Redis 故障 | **直接回源完整校验**（可用性优先，不 fail closed）。凭证层读失败 → 走 Console 验签；权限层读失败 → 查 PG |
+| 配置 | 闲置窗口**复用既有 `external_assertion_cache_ttl_sec`**（`settings.py` 已有，`main.py` 用它构造 `AuthCacheStore(ttl_sec=...)`，即凭证/权限条目的写入 TTL，**不新增同名配置**，避免两个 TTL 并存只生效一个）；绝对上限为 `external_assertion_max_session_age_sec`。两者的关系：写入与续期都用 `min(external_assertion_cache_ttl_sec, expires_at - now)`，即闲置窗口是上限、绝对到期是硬封顶 |
+
+##### 已知取舍
+
+1. **绝对上限关闭时的长期凭据**：`max_session_age_sec = 0` 且上游 `exp = -1` 时凭证层无时间上限，只能靠 `external_assertion_cache_ttl_sec` 的闲置窗口清理（**持续活跃的断言永不失效**，因为每次命中都续期）。这是「关闭绝对上限」的必然结果，但**权限层仍随授权变化即时失效**，故安全影响限于「凭证本身不过期」，不是「撤权失效」。
+1.1 **未接 `policy_epoch`（平台公钥轮换缺口）**：平台更换验签公钥后，用旧私钥签发的断言在缓存里仍会被接受，直到自然过期（闲置窗口或 `expires_at`）。`auth_cache` 已有 `platform:` 键承载 `policy_epoch`，本期不启用。若要求「轮换即时失效」，需在写入时带 epoch、读取时比对，并在轮换时递增；否则须在验收中明确接受该窗口。
+1.2 **反向索引无界增长**：`useridx` 仅 `SADD`，无容量上限、无 `SREM` 回收（`auth_cache.py` 的「有界集合」只在 docstring 中声明）。凭证频繁创建的用户会持续累积索引成员。接入前须补容量控制（超限淘汰或改用带 TTL 的结构）。
+2. **Redis 成为认证依赖**：与 WebChat 一致，Redis 不可用触发全量回源，Console + PG 需承受该峰值。
+3. **NFR-PERF-01 的时延目标须在接入后实测**，不在设计阶段承诺数值。
+
+##### 与完整形态（§3.1.1 第 5 条）的差距
+
+本方案**复用** `auth_cache` 的键格式、反向索引与 `invalidate` 失效链路，但**不启用**其屏障回填协议（`barrier:` / `fence` / `auth_cache_sync_state` 状态机 / 恢复器）。缺口是「失效期间的并发回填」：若一次撤权与一个并发回源请求交错，后者可能把旧授权写回权限层并带 TTL。该窗口很小但存在；要求「严格零窗口」时需启用屏障协议。
+
+##### 实现清单（本节的落地范围）
+
+1. `auth_cache.py`：`credential_key(tenant_id, token_hash, *, platform_key)` 与 `user_reverse_index_key(tenant_id, user_id, *, platform_key)` 增加 `platform_key` 参数（置于 `{tenant}` 之后），新增精简读写 `read_credential_plain` / `write_credential_plain` / `touch_credential`（无 fence、无屏障，维护按平台划分的 `useridx`）。**现有调用点必须同步改签名**：`tests/console_platform/test_auth_cache_invalidation.py` 直接调用了 `credential_key(tenant, "hash")`。
+2. Console `ExternalAssertionService.resolve()`：验签+查库成功后写凭证层；`describe()` 同。
+3. Gateway `ChatPrincipalGate.resolve_external()`：加「读凭证层 → 命中则 touch 并跳过验签 → 再读权限层 → 未命中回源」分支；Redis 故障时直接回源。
+4. **不新增配置项**：闲置窗口复用既有 `external_assertion_cache_ttl_sec`（`AuthCacheStore` 的写入 TTL），绝对上限复用既有 `external_assertion_max_session_age_sec`；chart 若需调值只改现有键，不引入 `external_assertion_idle_ttl_sec`。
+5. 测试：命中跳过验签、`expires_at` 封顶、`max_session_age_sec=0` 时不设年龄上限、解绑入口后权限层即时失效、删除入口后凭证层同步失效、Redis 故障回源、篡改断言 miss；并修正第 1 项提到的既有 `credential_key` 调用点。
 
 **评审项 A-03 / A-06 / D-04 定稿**
 
@@ -733,7 +808,7 @@ flowchart TD
 | Console | WebChat auth / source token 管理 | exchange 不再缓存 agents；退出/源 Token 撤销清理关联凭证；`/me` 与 Gateway miss 共用 PG 有效会话恢复 |
 | Console | `main.py` | 加载 Registry；接流量前恢复同步状态并核对平台激活版本 |
 | Common | `session_store.py` / 新权限 cache store | 移除 `SessionRecord.agents`；实现版本/屏障的原子校验、回填 CAS、反向索引；无旧结构回退分支 |
-| Common | `packages/common/src/muad_common/settings.py` | `external_assertion_platforms_json`（`repr=False`）+ 全局 `external_assertion_max_session_age_sec`、`external_assertion_cache_ttl_sec`（默认 1h，非敏感） |
+| Common | `packages/common/src/muad_common/settings.py` | `external_assertion_platforms_json`（`repr=False`）+ 全局 `external_assertion_max_session_age_sec`、`external_assertion_cache_ttl_sec`（非敏感；默认值以代码为准，不在此处固化） |
 | Contracts | `packages/contracts/src/muad_contracts/webchat.py` | `has_unread`、已读回执、外部身份/未绑定契约、`ChatAuthMethod` 扩值 |
 | Contracts | `packages/contracts/src/muad_contracts/enums.py` | `MSSWWEB` 进 `BUILTIN_CHANNEL_NAMES`、`LOCAL_STREAM_CHANNELS`；**不进** `OUTBOUND_CHANNELS`（BFF 拉取模式无主动投递，进错会让产物交付抛 `ATTACHMENT_WRITE_UNAVAILABLE`） |
 | Tests | `tests/architecture/test_channel_neutrality.py` | **`CHANNEL_TOKENS` 必须加 `"msswwweb"`**；建议同时加一条「注册表里的每个通道名都必须在词表中」的断言——否则以后新增通道忘了加词，机检变成**假绿灯**（全绿但什么都没检查到） |
