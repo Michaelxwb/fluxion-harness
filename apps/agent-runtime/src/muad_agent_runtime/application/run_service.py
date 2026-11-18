@@ -1670,7 +1670,10 @@ class RunService:
                         ToolOperation.completion_mode == CompletionMode.JOIN,
                         ToolOperation.status.not_in(OP_TERMINAL),
                     ),
-                    sa.func.count().filter(ToolOperation.status == OperationStatus.SUBMIT_PENDING),
+                    sa.func.count().filter(
+                        ToolOperation.completion_mode == CompletionMode.JOIN,
+                        ToolOperation.status == OperationStatus.SUBMIT_PENDING,
+                    ),
                 ).where(
                     ToolOperation.tenant_id == run.tenant_id,
                     ToolOperation.run_id == run.id,

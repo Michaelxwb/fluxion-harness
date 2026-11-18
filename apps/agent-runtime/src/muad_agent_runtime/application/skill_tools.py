@@ -335,12 +335,15 @@ class SkillToolSet:
                 (
                     ToolDefinition(
                         name=EXECUTE_SKILL_TOOL,
-                        description="Legacy alias for execute target=skill.",
+                        description=(
+                            "Legacy alias for execute target=skill. ASYNC skills are submitted as "
+                            "background tasks; results appear in the task center and are delivered "
+                            "to the conversation."
+                        ),
                         input_schema=_input_schema(
                             {
                                 "skill_key": _STRING_SCHEMA,
                                 "input": _OBJECT_SCHEMA,
-                                "completion_mode": {"type": "string", "enum": ["JOIN", "DETACH"]},
                                 "argv": _ARGV_SCHEMA,
                             },
                             ("skill_key",),
@@ -408,7 +411,7 @@ class SkillToolSet:
     async def execute(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         target = arguments.get("target")
         allowed = {
-            "skill": {"target", "skill_key", "input", "argv", "completion_mode", "script", "timeout_sec"},
+            "skill": {"target", "skill_key", "input", "argv", "script", "timeout_sec"},
             "draft": {"target", "draft_id", "command", "cwd", "timeout_sec", "reset_data"},
             "workspace": {"target", "command", "cwd", "timeout_sec", "platforms"},
         }
@@ -425,7 +428,7 @@ class SkillToolSet:
         payload = {key: value for key, value in arguments.items() if key != "target"}
         if target == "skill":
             if "script" in payload:
-                if not self._enable_run_skill_script or "completion_mode" in payload:
+                if not self._enable_run_skill_script:
                     return _error_result("FORBIDDEN", "skill script debug execution is unavailable")
                 return await self.run_skill_script(payload, call_id=call_id)
             return await self.execute_skill(payload, call_id=call_id)
@@ -438,7 +441,9 @@ class SkillToolSet:
             name=EXECUTE_TOOL,
             description=(
                 "Execute a skill, a draft command, or a command in the current user's workspace. "
-                "Set target=skill with skill_key, input and optional argv; async skills use completion_mode. "
+                "Set target=skill with skill_key, input and optional argv. ASYNC skills are submitted as "
+                "background tasks and return an acceptance receipt; their results appear in the task center "
+                "and are delivered to the conversation. "
                 "Set target=draft with draft_id and command to test the draft copy. "
                 "Set target=workspace with command and optional platforms to access platform sessions. "
                 "Workspace files are shared across the user's runs for this Agent. Test draft code with "
@@ -446,7 +451,7 @@ class SkillToolSet:
                 "Draft commands run against a copy, with revision-checked writes; SKILL_DATA_DIR persists "
                 "for the draft, SKILL_OUTPUT_DIR is temporary, reset_data clears draft test data. "
                 "Skill argv are literal CLI arguments and input is JSON stdin; do not shell-quote argv. "
-                "target=skill accepts only skill_key, input, argv, completion_mode, timeout_sec and script; "
+                "target=skill accepts only skill_key, input, argv, timeout_sec and script; "
                 "command, cwd and reset_data belong to target=workspace or target=draft. "
                 "For instructions-only or MCP-only skills, load the skill and use its MCP tools directly. "
                 "Use session-manager get-state --skill-name workspace from workspace commands. "
@@ -456,7 +461,6 @@ class SkillToolSet:
                 "target": {"type": "string", "enum": ["skill", "draft", "workspace"]},
                 "skill_key": _STRING_SCHEMA, "input": _OBJECT_SCHEMA, "argv": _ARGV_SCHEMA,
                 "script": _STRING_SCHEMA,
-                "completion_mode": {"type": "string", "enum": ["JOIN", "DETACH"]},
                 "draft_id": _STRING_SCHEMA, "command": _STRING_SCHEMA, "cwd": _STRING_SCHEMA,
                 "timeout_sec": _NUMBER_SCHEMA, "reset_data": {"type": "boolean"},
                 "platforms": {"type": "array", "items": _STRING_SCHEMA, "minItems": 1},
@@ -506,12 +510,7 @@ class SkillToolSet:
                         ErrorCode.COMMON_VALIDATION_ERROR.value,
                         "async Skill does not accept timeout_sec; the Task deadline governs",
                     )
-                mode = CompletionMode(arguments.get("completion_mode", "JOIN"))
-                return await self._submit_background(skill, input_data, call_id, mode, argv=argv)
-            if "completion_mode" in arguments:
-                raise SkillToolError(
-                    ErrorCode.TOOL_COMPLETION_MODE_INVALID.value, "SYNC Skill does not accept completion_mode"
-                )
+                return await self._submit_background(skill, input_data, call_id, argv=argv)
             package = await self._package(skill)
             return await self._execute(
                 package.root,
@@ -777,11 +776,10 @@ class SkillToolSet:
         skill: ResolvedSkill,
         input_data: Mapping[str, Any],
         call_id: str,
-        mode: CompletionMode,
         *,
         argv: tuple[str, ...] = (),
     ) -> str:
-        """ASYNC Skill 的 ExecutionRouter：只创建 Parent Task，不本地执行。"""
+        """ASYNC Skill 的 ExecutionRouter：固定 DETACH，只创建 Parent Task，不本地执行。"""
         if self._task_client is None or self._task_context is None:
             raise SkillToolError(BACKGROUND_SUBMIT_FAILED, "durable task submitter is unavailable")
         try:
@@ -790,7 +788,7 @@ class SkillToolSet:
                 skill=skill,
                 input_data=input_data,
                 call_id=call_id,
-                completion_mode=mode,
+                completion_mode=CompletionMode.DETACH,
                 retry_safety=self._async_retry_safety,
                 argv=argv,
             )

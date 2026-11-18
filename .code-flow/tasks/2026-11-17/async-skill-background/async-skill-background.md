@@ -381,12 +381,12 @@ Run 已终态后到达的结果，仍要成为下一轮可读的会话事实。`
   - background-task-center-ui PASS exit=0
 ## TASK-006: Run 侧后台语义与容量
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-002, TASK-003
 - **Source**: `.code-flow/tasks/2026-11-17/async-skill-background/async-skill-background.design.md#3.2 架构设计`, `#3.4.2 execute 工具契约`, `#3.5 质量实现方案`, `#2.4.2 Run 取消与后台任务`
 - **Scenarios**: S-01, E-01, B-03
 - **Spec-Refs**: worker/harness-worker#RULE-001, snapshot/harness-snapshot#RULE-snapshot-001, api/harness-api#RULE-api-001, test/harness-test#RULE-test-001
-- **Paths**: apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py, apps/agent-runtime/src/muad_agent_runtime/application/async_tools/operations.py, apps/agent-runtime/src/muad_agent_runtime/application/async_tools/continuation_service.py, apps/agent-runtime/src/muad_agent_runtime/application/run_service.py, tests/agent_runtime/test_async_background_semantics.py, tests/agent_runtime/test_tool_wait_state_machine.py
+- **Paths**: apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py, apps/agent-runtime/src/muad_agent_runtime/application/async_tools/operations.py, apps/agent-runtime/src/muad_agent_runtime/application/async_tools/continuation_service.py, apps/agent-runtime/src/muad_agent_runtime/application/run_service.py, tests/agent_runtime/test_async_background_semantics.py, tests/agent_runtime/test_tool_wait_state_machine.py, tests/agent_runtime/test_task_handoff.py, tests/agent_runtime/test_capacity_webchat_retry_policy_freeze.py, tests/acceptance/runtime/test_submission_hardening.py
 - **E2E**:
 - **Skip-Tests**:
 - **Skip-Reason**:
@@ -403,7 +403,9 @@ Run 已终态后到达的结果，仍要成为下一轮可读的会话事实。`
       "pytest",
       "-q",
       "tests/agent_runtime/test_async_background_semantics.py",
-      "tests/agent_runtime/test_tool_wait_state_machine.py"
+      "tests/agent_runtime/test_tool_wait_state_machine.py",
+      "tests/agent_runtime/test_task_handoff.py::test_b123_async_skill_tool_submits_task_with_frozen_snapshot",
+      "tests/agent_runtime/test_capacity_webchat_retry_policy_freeze.py"
     ],
     "timeout": 300,
     "parallel": false
@@ -417,15 +419,15 @@ Run 侧 ASYNC 提交恒为后台任务：`execute_skill` handler 固定 `Complet
 
 ### Checklist
 
-- [ ] `execute`/legacy `execute_skill` 删除 `completion_mode` 参数；`execute_skill` handler 固定 DETACH，SYNC 拒绝分支清理
-- [ ] 工具描述更新为「ASYNC 提交后台执行，结果在任务中心/送达会话」
-- [ ] `_capacity` 统计 `SUBMIT_PENDING/SUBMITTED/TASK_ACCEPTED/RUNNING`；`RESULT_RECEIVED/MATERIALIZED`/终态不占
-- [ ] `continuation_service.has_ready` / `_ready_predicate` 只把 JOIN operation 的未物化 inbox 视为等待就绪
-- [ ] Run 侧不再因 ASYNC 任务进入 `WAITING_TOOL`；当前回合结束前仍按单 Run 准入
-- [ ] Run 取消不级联取消 DETACH；任务中心只读；文档/场景保持该边界
-- [ ] [S-01] 提交后不再因后台任务长时间占用会话；本轮回复结束可继续
-- [ ] [E-01] 提交未获受理时明确失败，不产生后台任务
-- [ ] [B-03] 停止当前会话不取消已提交的后台任务，任务继续并可读
+- [x] `execute`/legacy `execute_skill` 删除 `completion_mode` 参数；`execute_skill` handler 固定 DETACH，SYNC 拒绝分支清理
+- [x] 工具描述更新为「ASYNC 提交后台执行，结果在任务中心/送达会话」
+- [x] `_capacity` 统计 `SUBMIT_PENDING/SUBMITTED/TASK_ACCEPTED/RUNNING`；`RESULT_RECEIVED/MATERIALIZED`/终态不占
+- [x] `continuation_service.has_ready` / `_ready_predicate` 只把 JOIN operation 的未物化 inbox 视为等待就绪
+- [x] Run 侧不再因 ASYNC 任务进入 `WAITING_TOOL`；当前回合结束前仍按单 Run 准入
+- [x] Run 取消不级联取消 DETACH；任务中心只读；文档/场景保持该边界
+- [x] [S-01] 提交后不再因后台任务长时间占用会话；本轮回复结束可继续
+- [x] [E-01] 提交未获受理时明确失败，不产生后台任务
+- [x] [B-03] 停止当前会话不取消已提交的后台任务，任务继续并可读
 
 ### Spec Delta
 
@@ -436,13 +438,16 @@ Run 侧 ASYNC 提交恒为后台任务：`execute_skill` handler 固定 `Complet
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18] implemented: Run ASYNC 恒 DETACH、活跃容量口径、JOIN-only 等待就绪、取消不级联；新增语义回归 17 passed
+- [2026-11-18T00:55:21.206Z] started tests=1303bdefcfdb
 
 ### Verification
 
 - 尚未执行
 
 ---
-
+- 2026-11-18T00:55:39.217Z PASS commands=1/1 executed=1 deduped=0 elapsed=17899ms tests=1303bdefcfdb head=b2afc5697c55 dirty=1
+  - background-semantics PASS exit=0
 ## TASK-007: 回归、配置清单与需求收口
 
 - **Status**: draft

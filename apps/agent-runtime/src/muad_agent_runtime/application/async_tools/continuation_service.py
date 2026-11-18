@@ -210,12 +210,20 @@ async def checkpoint_execution(
 async def has_ready(session: AsyncSession, run: RunRecord, cursor: int) -> bool:
     unmaterialized = await session.scalar(
         select(ToolResultInbox.id)
+        .join(
+            ToolOperation,
+            (ToolOperation.id == ToolResultInbox.operation_id)
+            & (ToolOperation.tenant_id == ToolResultInbox.tenant_id),
+        )
         .where(
             ToolResultInbox.tenant_id == run.tenant_id,
             ToolResultInbox.run_id == run.id,
             ToolResultInbox.materialized.is_(False),
             ToolResultInbox.late.is_(False),
             ToolResultInbox.is_deleted.is_(False),
+            ToolOperation.is_deleted.is_(False),
+            # 只有 JOIN 结果属于「Run 正在等待」；DETACH 可被物化，但不得唤醒 WAITING_TOOL。
+            ToolOperation.completion_mode == CompletionMode.JOIN,
         )
         .limit(1)
     )
@@ -249,9 +257,7 @@ async def _has_dependency(session: AsyncSession, run: RunRecord) -> bool:
         )
     )
     return any(
-        op.status == OperationStatus.SUBMIT_PENDING
-        or (op.completion_mode == CompletionMode.JOIN and op.status not in OP_TERMINAL)
-        for op in ops
+        op.completion_mode == CompletionMode.JOIN and op.status not in OP_TERMINAL for op in ops
     )
 
 
@@ -396,13 +402,24 @@ def _claimable_predicate() -> ColumnElement[bool]:
 
 
 def _ready_predicate() -> ColumnElement[bool]:
-    inbox = select(ToolResultInbox.id).where(
-        ToolResultInbox.run_id == RunRecord.id,
-        ToolResultInbox.tenant_id == RunRecord.tenant_id,
-        ToolResultInbox.materialized.is_(False),
-        ToolResultInbox.late.is_(False),
-        ToolResultInbox.is_deleted.is_(False),
-    ).exists()
+    inbox = (
+        select(ToolResultInbox.id)
+        .join(
+            ToolOperation,
+            (ToolOperation.id == ToolResultInbox.operation_id)
+            & (ToolOperation.tenant_id == ToolResultInbox.tenant_id),
+        )
+        .where(
+            ToolResultInbox.run_id == RunRecord.id,
+            ToolResultInbox.tenant_id == RunRecord.tenant_id,
+            ToolResultInbox.materialized.is_(False),
+            ToolResultInbox.late.is_(False),
+            ToolResultInbox.is_deleted.is_(False),
+            ToolOperation.is_deleted.is_(False),
+            ToolOperation.completion_mode == CompletionMode.JOIN,
+        )
+        .exists()
+    )
     events = select(CanonicalEvent.id).where(
         CanonicalEvent.run_id == RunRecord.id,
         CanonicalEvent.tenant_id == RunRecord.tenant_id,

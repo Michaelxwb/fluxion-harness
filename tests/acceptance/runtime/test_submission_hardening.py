@@ -120,7 +120,7 @@ def test_s02_detach_completion_and_independent_delivery(live_stack, http, routed
     run_id, _ = _run(
         live_stack,
         http,
-        {"skill_key": live_stack.skill_key, "completion_mode": "DETACH", "input": {"case": str(uuid4())}},
+        {"skill_key": live_stack.skill_key, "input": {"case": str(uuid4())}},
         routed=routed,
     )
 
@@ -128,8 +128,8 @@ def test_s02_detach_completion_and_independent_delivery(live_stack, http, routed
         async with factory() as session:
             return await session.get(RunRecord, run_id)
 
-    # 等待阶段按设计不发终帧（RULE-12）：初次 SSE 会在 WAITING_TOOL 处结束，
-    # 受理后由接续泵把原 Run 跑到终态 —— 以持久状态等终态，再断言 DETACH 原 Run 完成。
+    # Run 侧 ASYNC 恒为后台任务：不回 WAITING_TOOL，Run 在当前回合结束即完成；
+    # 以后台任务的持久状态为准断言 DETACH 任务独立执行。
     terminal = _wait(
         lambda: value
         if (value := _db(run_row)).status in ("COMPLETED", "FAILED", "CANCELLED")
