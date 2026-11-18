@@ -497,6 +497,40 @@ class ExecutionExportRepository:
             )
         sections["task.task_event.children"] = child_events
 
+        # TASK 自己的审计/操作/产物不依赖 source_run_id：定时任务没有来源 Run 也要可复盘。
+        for name, sql in _TASK_AUDIT_SQL.items():
+            sections[name] = await self._read(name, sql, {**params, "task_id": task_id})
+        sections["runtime.tool_operation"] = await self._read(
+            "runtime.tool_operation",
+            _TASK_OPERATION_SQL,
+            {
+                **params,
+                "task_id": task_id,
+                "source_operation_id": record.get("source_operation_id") or "",
+            },
+        )
+        operations = sections["runtime.tool_operation"]
+        operation_ids = _ids(operations.rows, "id") if operations.status == "ok" else []
+        sections["runtime.tool_control_outbox"] = await self._read(
+            "runtime.tool_control_outbox",
+            _CONTROL_OUTBOX_SQL,
+            {**params, "operation_ids": operation_ids},
+        )
+        sections["runtime.artifact"] = await self._read(
+            "runtime.artifact",
+            """
+            SELECT * FROM (
+                SELECT DISTINCT ON (a.logical_file_id)
+                       to_jsonb(a) AS record, a.logical_file_id, a.version, a.create_time
+                  FROM runtime.artifact a
+                 WHERE a.tenant_id = :tenant_id AND a.task_id = :task_id AND a.is_deleted = false
+                 ORDER BY a.logical_file_id, a.version DESC
+            ) latest
+            ORDER BY latest.create_time, (latest.record->>'id')
+            """,
+            {**params, "task_id": task_id},
+        )
+
         source_run_id = record.get("source_run_id")
         if source_run_id:
             source_run = await self._read(
@@ -505,19 +539,6 @@ class ExecutionExportRepository:
                 {**params, "run_id": source_run_id},
             )
             sections["runtime.run_record"] = source_run
-            for name, sql in _TASK_AUDIT_SQL.items():
-                sections[name] = await self._read(name, sql, {**params, "task_id": task_id})
-            sections["runtime.tool_operation"] = await self._read(
-                "runtime.tool_operation",
-                _TASK_OPERATION_SQL,
-                {
-                    **params,
-                    "task_id": task_id,
-                    "source_operation_id": record.get("source_operation_id") or "",
-                },
-            )
-            operations = sections["runtime.tool_operation"]
-            operation_ids = _ids(operations.rows, "id") if operations.status == "ok" else []
             source_events = await self._read(
                 "runtime.canonical_event",
                 _TASK_SOURCE_EVENT_SQL,
@@ -531,20 +552,6 @@ class ExecutionExportRepository:
                 row_limit=self._settings.max_events,
             )
             sections["runtime.canonical_event"] = source_events
-            sections["runtime.tool_control_outbox"] = await self._read(
-                "runtime.tool_control_outbox",
-                _CONTROL_OUTBOX_SQL,
-                {**params, "operation_ids": operation_ids},
-            )
-            sections["runtime.artifact"] = await self._read(
-                "runtime.artifact",
-                """
-                SELECT to_jsonb(a) AS record FROM runtime.artifact a
-                 WHERE a.tenant_id = :tenant_id AND a.task_id = :task_id AND a.is_deleted = false
-                 ORDER BY a.create_time, a.id
-                """,
-                {**params, "task_id": task_id},
-            )
             conversation_id = (sections.get("runtime.run_record") or ExportSection(status="error")).rows
             if conversation_id:
                 cid = conversation_id[0].get("conversation_id")

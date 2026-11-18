@@ -189,7 +189,7 @@ def _execution(bundle: ExecutionExportBundle) -> dict[str, Any]:
             "mcp_catalog_revision": mcp.get("revision"),
             "mcp_catalog_hash": mcp.get("hash"),
         }
-    start = record.get("start_time")
+    start = record.get("started_at") if task else record.get("start_time")
     end = record.get("end_time") or record.get("finished_at")
     return {
         "kind": kind,
@@ -226,6 +226,10 @@ def _execution(bundle: ExecutionExportBundle) -> dict[str, Any]:
 
 
 def _timeline(bundle: ExecutionExportBundle) -> list[dict[str, Any]]:
+    if bundle.kind == "TASK":
+        task_rows = _section_rows(bundle, "task.task_event")
+        if task_rows:
+            return _task_event_timeline(bundle, task_rows)
     rows = _section_rows(bundle, "runtime.canonical_event")
     events: list[dict[str, Any]] = []
     previous = None
@@ -259,6 +263,50 @@ def _timeline(bundle: ExecutionExportBundle) -> list[dict[str, Any]]:
                 "task_id": payload.get("task_id"),
                 "operation_id": payload.get("operation_id"),
                 "has_artifact": bool(row.get("artifact_id")),
+                "text": text,
+                "payload": dict(payload),
+            }
+        )
+    return events
+
+
+def _task_event_timeline(
+    bundle: ExecutionExportBundle, rows: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """TASK 的审计事件就是 timeline；按 task_event 的 seq 与 create_time 展示。"""
+    events: list[dict[str, Any]] = []
+    previous = None
+    origin = _parse_time(bundle.record.get("started_at"))
+    for row in rows:
+        payload = _mapping(row.get("payload_json"))
+        current = _parse_time(row.get("create_time"))
+        elapsed = None
+        interval = None
+        if origin and current:
+            elapsed = max(0, int((current - origin).total_seconds() * 1000))
+        if previous and current:
+            interval = max(0, int((current - previous).total_seconds() * 1000))
+        previous = current
+        error_code = payload.get("error_code")
+        text = payload.get("text") if isinstance(payload.get("text"), str) else None
+        events.append(
+            {
+                "seq": row.get("seq"),
+                "event_type": row.get("event_type"),
+                "create_time": _time_text(row.get("create_time")),
+                "elapsed_ms": elapsed,
+                "interval_ms": interval,
+                "status": payload.get("status") or payload.get("state"),
+                "error_code": error_code,
+                "service": service_for(
+                    "EVENT",
+                    str(error_code or "") or None,
+                    has_task=row.get("entity_type") == "EXECUTION",
+                ),
+                "tool_call_id": payload.get("tool_call_id"),
+                "task_id": str(row.get("entity_id")) if row.get("entity_type") == "EXECUTION" else None,
+                "operation_id": payload.get("operation_id"),
+                "has_artifact": bool(payload.get("artifact_id")),
                 "text": text,
                 "payload": dict(payload),
             }
@@ -346,7 +394,7 @@ def _tasks(bundle: ExecutionExportBundle) -> list[dict[str, Any]]:
     events_by_task: dict[str, list[dict[str, Any]]] = {}
     for name in ("task.task_event", "task.task_event.children"):
         for row in _section_rows(bundle, name):
-            task_id = str(row.get("task_id"))
+            task_id = str(row.get("entity_id"))
             events_by_task.setdefault(task_id, []).append(
                 {
                     "seq": row.get("seq"),

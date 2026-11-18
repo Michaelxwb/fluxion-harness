@@ -970,8 +970,8 @@ AGENT_TURN 是完整的 prompt 模式：prompt + 时间行 + 窗口 + 无人值�
 
 ## TASK-019: 定时任务导出与失败诊断
 
-- **Status**: draft
-- **Depends**: TASK-008, TASK-011, TASK-017, TASK-004
+- **Status**: done
+- **Depends**: TASK-001, TASK-002
 - **Source**: run-failure-reporting/run-failure-reporting.design.md#10.10
 - **Scenarios**: run-failure-reporting:S-19
 - **Spec-Refs**: logging/harness-log#RULE-log-001, test/harness-test
@@ -999,12 +999,12 @@ TASK 导出的 timeline/events 来自 task_event；`tasks[].events` 按 entity_i
 
 ### Checklist
 
-- [ ] `_timeline` 合并 task_event；`_tasks` 用 entity_id。
-- [ ] `_execution` 对 TASK 用 started_at/finished_at。
-- [ ] TASK audits 采集不依赖 source_run_id。
-- [ ] NO_PROGRESS/UNVERIFIED 带原始 cause。
-- [ ] CANCELLED 文案修正。
-- [ ] 测试：TASK 导出事件/调用/开始时间、NO_PROGRESS 原因、CANCELLED 文案。
+- [x] `_timeline` 合并 task_event；`_tasks` 用 entity_id。
+- [x] `_execution` 对 TASK 用 started_at/finished_at。
+- [x] TASK audits 采集不依赖 source_run_id。
+- [x] NO_PROGRESS/UNVERIFIED 带原始 cause。
+- [x] CANCELLED 文案修正。
+- [x] 测试：TASK 导出事件/调用/开始时间、NO_PROGRESS 原因、CANCELLED 文案。
 
 ### Spec Delta
 
@@ -1015,11 +1015,14 @@ TASK 导出的 timeline/events 来自 task_event；`tasks[].events` 按 entity_i
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18] implemented: TASK timeline/task_event, started_at, audits without source_run, CANCELLED text, NO_PROGRESS last_failure
+- [2026-11-18T16:19:56.074Z] started tests=24ffd8092c50
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-18T16:20:00.396Z PASS commands=1/1 executed=1 deduped=0 elapsed=4208ms tests=24ffd8092c50 head=f3b859e87d37 dirty=1
+  - task-export PASS exit=0
 ## TASK-020: Fake MSSP 平台模式与只读端点
 
 - **Status**: draft

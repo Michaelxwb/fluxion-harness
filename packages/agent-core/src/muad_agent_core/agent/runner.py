@@ -270,6 +270,8 @@ class AgentRunResult:
     turns: int
     tool_calls: int
     usage: ModelUsage
+    #: 最近一次失败（工具/错误码/消息）；NO_PROGRESS 收尾时用于解释原因。
+    last_failure: dict[str, str] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -461,6 +463,7 @@ class AgentRunner:
             final["turns"],
             final["tool_calls_used"],
             ModelUsage(input_tokens=final["input_tokens"], output_tokens=final["output_tokens"]),
+            last_failure=final["last_failure"],
         )
 
     def _initial_state(

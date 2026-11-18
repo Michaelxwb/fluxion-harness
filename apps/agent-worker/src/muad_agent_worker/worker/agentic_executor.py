@@ -190,7 +190,15 @@ def _envelope(outcome: AgenticOutcome, task: TaskExecution) -> dict[str, Any]:
     if outcome.status.value == "BUDGET_EXCEEDED":
         raise TaskExecutionError(TASK_BUDGET_EXCEEDED, "agentic budget exhausted", retryable=False)
     if outcome.status.value == "NO_PROGRESS":
-        raise TaskExecutionError(TASK_NO_PROGRESS, "agentic execution made no progress", retryable=False)
+        detail = ""
+        if outcome.last_failure:
+            detail = (
+                f" (last failure: {outcome.last_failure.get('tool')} / "
+                f"{outcome.last_failure.get('code')}: {outcome.last_failure.get('message')})"
+            )
+        raise TaskExecutionError(
+            TASK_NO_PROGRESS, f"agentic execution made no progress{detail}", retryable=False
+        )
     return {
         "status": str(SkillExecutionStatus.SUCCEEDED),
         "result": {

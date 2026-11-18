@@ -155,6 +155,8 @@ def render_markdown(report: Mapping[str, Any]) -> str:
                 f"- 依据: {primary.get('basis') or '-'}",
             ]
         )
+    elif _mapping(report.get("diagnosis")).get("outcome") == "CANCELLED":
+        lines.append("- 已取消，无错误码")
     else:
         lines.append("- 未发现失败节点（成功执行不伪造失败）")
     lines.extend(["", "## 失败候选", "", "| 节点 | seq | 状态 | 错误码 | 服务 |", "|---|---|---|---|---|"])

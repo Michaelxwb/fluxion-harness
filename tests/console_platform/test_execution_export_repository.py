@@ -11,6 +11,7 @@ import uuid
 from typing import Any
 
 import pytest
+import sqlalchemy as sa
 from muad_console_platform.infrastructure.repositories.execution_export_repository import (
     ExecutionExportRepository,
     ExportSection,
@@ -92,6 +93,54 @@ async def test_b02_batch_children_are_collected(tenant: TenantContext) -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.asyncio
+async def test_task_bundle_without_source_run_collects_task_events_and_artifacts(
+    tenant: TenantContext,
+) -> None:
+    """定时 Task 没有 source_run_id：task_event/产物/审计仍必须进入导出包。"""
+    seed = await _run(tenant, status="FAILED", error_code="TASK_NO_PROGRESS")
+    async with repo_session()() as seed_session:
+        async with seed_session.begin():
+            task_id = await _seed_task(seed_session, tenant, seed, status="FAILED")
+            await seed_session.execute(
+                sa.text("UPDATE task.task_execution SET source_run_id = NULL WHERE id = :id"),
+                {"id": task_id},
+            )
+            await seed_task_event(seed_session, tenant, task_id=task_id, seq=1, event_type="TOOL_CALL")
+            await seed_session.flush()
+            await seed_session.execute(
+                sa.text(
+                    "INSERT INTO runtime.artifact"
+                    " (id, tenant_id, run_id, task_id, conversation_id, agent_id, user_id,"
+                    "  artifact_type, logical_file_id, version, storage_key, media_type, size,"
+                    "  checksum, metadata_json)"
+                    " VALUES (:id, :tenant_id, NULL, :task_id, NULL, :agent_id, :user_id,"
+                    "  'OUTPUT', :logical_file_id, 1, :storage_key, 'text/markdown', 4,"
+                    "  :checksum, CAST(:metadata AS jsonb))"
+                ),
+                {
+                    "id": uuid.uuid4(),
+                    "tenant_id": tenant.tenant_id,
+                    "task_id": task_id,
+                    "agent_id": seed.agent_id,
+                    "user_id": seed.actor_user_id,
+                    "logical_file_id": uuid.uuid4(),
+                    "storage_key": f"tasks/{tenant.tenant_id}/{task_id}/report/v1",
+                    "checksum": "sha256:" + "a" * 64,
+                    "metadata": '{"kind": "DOCUMENT", "filename": "report.md"}',
+                },
+            )
+
+    async with repo_session()() as session:
+        bundle = await ExecutionExportRepository(session).task_bundle(tenant.tenant_id, task_id)
+
+    assert bundle is not None
+    assert bundle.sections["task.task_event"].status == "ok"
+    assert bundle.sections["task.task_event"].rows
+    assert bundle.sections["runtime.artifact"].status == "ok"
+    assert bundle.sections["runtime.artifact"].rows
+
+
 async def test_b03_reports_snapshot_metadata(tenant: TenantContext, monkeypatch: pytest.MonkeyPatch) -> None:
     """B-03: all sections read one read-only repeatable-read snapshot."""
     seed = await _run(tenant, status="COMPLETED")

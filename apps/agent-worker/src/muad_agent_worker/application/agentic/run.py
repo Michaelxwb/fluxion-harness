@@ -102,6 +102,7 @@ class AgenticOutcome:
     tool_calls: int
     usage: ModelUsage
     boundary: SuspensionBoundary | None = None
+    last_failure: dict[str, str] | None = None
 
 
 def agent_policy(frozen: FrozenAgenticExecution) -> AgentPolicy:
@@ -297,6 +298,7 @@ async def execute_agentic(
         tool_calls=result.tool_calls,
         usage=result.usage,
         boundary=suspension.take(),
+        last_failure=result.last_failure,
     )
 
 
