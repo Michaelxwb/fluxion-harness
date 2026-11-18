@@ -98,6 +98,7 @@ OVERVIEW_TASK_V2_CLEANUP = (
     "UPDATE task.schedule_fire SET execution_id = NULL WHERE tenant_id = :t",
     "DELETE FROM task.task_delivery_attempt WHERE tenant_id = :t",
     "DELETE FROM task.task_delivery WHERE tenant_id = :t",
+    "DELETE FROM task.message_outbox WHERE tenant_id = :t",
     "DELETE FROM task.task_human_interaction WHERE tenant_id = :t",
     "DELETE FROM task.task_execution_checkpoint WHERE tenant_id = :t",
     "DELETE FROM task.schedule_fire WHERE tenant_id = :t",

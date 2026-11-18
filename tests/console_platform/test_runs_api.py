@@ -138,6 +138,7 @@ _CLEANUP = tuple(
         "DELETE FROM runtime.runtime_snapshot WHERE tenant_id = :tenant_id",
         "DELETE FROM runtime.run_record WHERE tenant_id = :tenant_id",
         "DELETE FROM runtime.conversation WHERE tenant_id = :tenant_id",
+        "DELETE FROM task.message_outbox WHERE tenant_id = :tenant_id",
         "DELETE FROM task.task_execution WHERE tenant_id = :tenant_id",
         "DELETE FROM control.platform_user WHERE tenant_id = :tenant_id",
         "DELETE FROM control.agent_definition WHERE tenant_id = :tenant_id",

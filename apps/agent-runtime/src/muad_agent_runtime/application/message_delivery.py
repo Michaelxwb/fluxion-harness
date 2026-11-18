@@ -11,7 +11,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -21,7 +20,11 @@ from typing import Any, Literal
 import sqlalchemy as sa
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts import AttachmentRef, DeliveryRouteInput, canonical_json
+from muad_contracts import (
+    AttachmentRef,
+    DeliveryRouteInput,
+)
+from muad_contracts import delivery_target_key as delivery_target_key
 from muad_contracts.canonical import ensure_strict_json
 from pydantic import JsonValue, ValidationError
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -109,13 +112,6 @@ def execution_final_message_key(task_id: uuid.UUID) -> str:
 
 def execution_message_key(task_id: uuid.UUID, message_id: uuid.UUID | str) -> str:
     return f"execution:{task_id}:message:{message_id}"
-
-
-def delivery_target_key(route: DeliveryRouteInput) -> str:
-    """渠道中立的路由身份：只用于同消息去重与定位，不进入用户 UI。"""
-    identity = route.model_dump(mode="json")
-    digest = hashlib.sha256(canonical_json(identity).encode("utf-8")).hexdigest()
-    return f"{route.channel}:{digest[:48]}"
 
 
 @dataclass(frozen=True, slots=True)

@@ -62,12 +62,14 @@ from ..infrastructure.models.task import (
     TaskExecution,
     TaskExecutionCheckpoint,
     TaskHumanInteraction,
+    TaskMessageOutbox,
 )
 from ..infrastructure.models.task_submission import TaskSubmission
 from ..metrics import record_loop_tick
 from .platform_settings import resolve_platform_settings
 from .ports import PlatformSettingsClient
 from .task_events import EntityType
+from .task_message_outbox import OUTBOX_PENDING
 
 logger = logging.getLogger("muad_agent_worker.application.schedule_retention")
 
@@ -110,6 +112,7 @@ class RetentionBatchReport:
     delivery_attempts: int = 0
     events: int = 0
     outbox_rows: int = 0
+    message_outbox_rows: int = 0
     submissions_detached: int = 0
     operations_detached: int = 0
     inspected_executions: int = 0
@@ -122,6 +125,7 @@ class RetentionBatchReport:
             f"checkpoints={self.checkpoints} human={self.human_interactions} "
             f"deliveries={self.deliveries} attempts={self.delivery_attempts} "
             f"events={self.events} outbox={self.outbox_rows} "
+            f"message_outbox={self.message_outbox_rows} "
             f"submissions_detached={self.submissions_detached} "
             f"operations_detached={self.operations_detached} "
             f"inspected=({self.inspected_executions},{self.inspected_fires})"
@@ -154,6 +158,20 @@ def _pending_outbox() -> sa.ColumnElement[bool]:
     )
 
 
+def _pending_message_outbox() -> sa.ColumnElement[bool]:
+    """尚未交给 Runtime 的 Task 消息：执行行删掉就等于把待发结果丢掉。"""
+    return (
+        sa.select(sa.literal(1))
+        .select_from(TaskMessageOutbox)
+        .where(
+            TaskMessageOutbox.task_id == TaskExecution.id,
+            TaskMessageOutbox.is_deleted.is_(False),
+            TaskMessageOutbox.status == OUTBOX_PENDING,
+        )
+        .exists()
+    )
+
+
 def _execution_candidate_query(
     *, tenant_id: str, cutoff: datetime, cursor: Position | None, limit: int
 ) -> sa.Select[tuple[uuid.UUID, datetime]]:
@@ -174,6 +192,7 @@ def _execution_candidate_query(
             sa.not_(has_child),
             sa.not_(_pending_delivery()),
             sa.not_(_pending_outbox()),
+            sa.not_(_pending_message_outbox()),
         )
         .order_by(TaskExecution.create_time, TaskExecution.id)
         .limit(limit)
@@ -227,6 +246,7 @@ class _StreamCounts:
     delivery_attempts: int = 0
     events: int = 0
     outbox_rows: int = 0
+    message_outbox_rows: int = 0
     submissions_detached: int = 0
     operations_detached: int = 0
     inspected: int = 0
@@ -272,6 +292,7 @@ class ScheduleRetentionService:
             delivery_attempts=executions.delivery_attempts,
             events=executions.events + fires.events,
             outbox_rows=executions.outbox_rows,
+            message_outbox_rows=executions.message_outbox_rows,
             submissions_detached=executions.submissions_detached,
             operations_detached=executions.operations_detached,
             inspected_executions=executions.inspected,
@@ -308,6 +329,9 @@ class ScheduleRetentionService:
         #: outbox 同时引用执行与事件：必须排在事件删除之前。
         outbox = await self._execute(
             sa.delete(RuntimeResultOutbox).where(RuntimeResultOutbox.task_id.in_(execution_ids))
+        )
+        message_outbox = await self._execute(
+            sa.delete(TaskMessageOutbox).where(TaskMessageOutbox.task_id.in_(execution_ids))
         )
         submissions = await self._execute(
             sa.update(TaskSubmission)
@@ -378,6 +402,7 @@ class ScheduleRetentionService:
             delivery_attempts=attempts,
             events=events,
             outbox_rows=outbox,
+            message_outbox_rows=message_outbox,
             submissions_detached=submissions,
             operations_detached=operations,
         )

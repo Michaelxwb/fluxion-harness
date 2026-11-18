@@ -775,7 +775,15 @@ async def test_b295_old_task_policy_is_not_backfilled_with_new_defaults(
     monkeypatch.setenv("TASK_CANCEL_CHECK_SEC", "1")
 
     factory = isolated_worker.factory
-    storage_key, checksum = _publish_skill(tmp_path, body="import sys\nsys.exit(1)\n")
+    storage_key, checksum = _publish_skill(
+        tmp_path,
+        body=(
+            "import json, sys\n"
+            "sys.stderr.write(json.dumps({'ok': False, 'code': 'UPSTREAM_FAILED', "
+            "'message': 'upstream failed', 'retryable': True}))\n"
+            "sys.exit(1)\n"
+        ),
+    )
     # 旧形状：冻结时还没有 budget.retry_safety 这一叶
     old_artifact = uuid.uuid4()
     frozen_artifact = uuid.uuid4()
@@ -791,7 +799,7 @@ async def test_b295_old_task_policy_is_not_backfilled_with_new_defaults(
     from muad_agent_worker import main
 
     async with main.lifespan(main.app):
-        # 同一个确定性失败形状（脚本退出码 1），结论由**冻结** policy 决定
+        # 同一个可重试失败形状（脚本退出码 1 + retryable 信封），结论由**冻结** policy 决定
         old_state = await _wait_state(factory, old_task.id, lambda state: state.status == "FAILED")
         assert old_state.error_code == TASK_RESULT_UNVERIFIED, "未知安全性不得按新默认自动重做"
         await _wait_state(

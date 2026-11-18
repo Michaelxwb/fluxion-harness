@@ -147,6 +147,7 @@ async def cleanup_execution_export_rows(tenant: TenantContext) -> Any:
         "task.task_event",
         "task.task_delivery_attempt",
         "task.task_delivery",
+        "task.message_outbox",
         "task.task_human_interaction",
         "task.task_execution_checkpoint",
         "task.task_execution",

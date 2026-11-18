@@ -88,7 +88,9 @@ export function DeliveryBadge(props: { delivery: TaskArtifactDelivery }) {
       data-delivery-status={delivery.status}
       data-delivery-color={DELIVERY_COLORS[delivery.status] ?? 'grey'}
     >
-      <span className="chat-task-artifact-delivery-target">{delivery.target_key}</span>
+      <span className="chat-task-artifact-delivery-target">
+        {delivery.target_label ?? delivery.target_key}
+      </span>
       <span>{label}</span>
       {delivery.error_code === null ? null : (
         <span className="chat-task-artifact-delivery-error">（{delivery.error_code}）</span>

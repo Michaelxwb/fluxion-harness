@@ -88,6 +88,7 @@ TASK_CLEANUP = (
     # v2 的投递、人工问题与检查点都物理引用 task_execution；先删子行再删执行行。
     "DELETE FROM task.task_delivery_attempt WHERE tenant_id = :t",
     "DELETE FROM task.task_delivery WHERE tenant_id = :t",
+    "DELETE FROM task.message_outbox WHERE tenant_id = :t",
     "DELETE FROM task.task_human_interaction WHERE tenant_id = :t",
     "DELETE FROM task.task_execution_checkpoint WHERE tenant_id = :t",
     # 0019/0050：runtime_result_outbox 引用 (task_id, task_event_id)，runtime_operation

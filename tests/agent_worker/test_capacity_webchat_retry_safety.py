@@ -185,6 +185,14 @@ seen = _request("GET", f"{probe}/effects?key={key}&attempt={attempt}")
 if payload["op"] == "write" and not seen["applied"]:
     _request("POST", f"{probe}/effects", {"business_key": key, "attempt": attempt})
 if attempt == 1 and payload.get("lose_first_response"):
+    # 远端成功、应答丢失：这是**可重试形状**的失败；是否有副作用由冻结的 retry_safety 裁决。
+    sys.stderr.write(json.dumps({
+        "ok": False,
+        "code": "UPSTREAM_RESPONSE_LOST",
+        "message": "upstream response lost after applying the effect",
+        "retryable": True,
+    }))
+    sys.stderr.flush()
     os._exit(7)
 if payload.get("block_sec"):
     time.sleep(payload["block_sec"])

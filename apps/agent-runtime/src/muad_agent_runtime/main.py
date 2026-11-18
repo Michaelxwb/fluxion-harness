@@ -31,6 +31,7 @@ from .api.channel_delivery import router as channel_delivery_router
 from .api.human_routing import router as human_routing_router
 from .api.learning import router as learning_router
 from .api.memory import router as memory_router
+from .api.message_deliveries import router as message_deliveries_router
 from .api.model_capacity import router as model_capacity_router
 from .api.runs import router as runs_router
 from .api.tool_operations import router as tool_operations_router
@@ -652,3 +653,4 @@ app.include_router(model_capacity_router)
 app.include_router(webchat_history_router)
 app.include_router(channel_delivery_router)
 app.include_router(human_routing_router)
+app.include_router(message_deliveries_router)

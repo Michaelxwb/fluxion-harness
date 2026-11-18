@@ -156,6 +156,9 @@ def clean_security_rows(live_stack: LiveStack) -> Iterator[None]:
                     text(f"DELETE FROM runtime.{table} WHERE tenant_id IN (:a, :b)"), tenants
                 )
             await session.execute(
+                text("DELETE FROM task.message_outbox WHERE tenant_id IN (:a, :b)"), tenants
+            )
+            await session.execute(
                 text("DELETE FROM task.task_execution WHERE tenant_id IN (:a, :b)"), tenants
             )
             await session.execute(

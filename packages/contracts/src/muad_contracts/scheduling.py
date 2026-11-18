@@ -390,9 +390,14 @@ class FireHistoryPage(ContractModel):
 
 
 class TaskArtifactDeliveryRef(ContractModel):
-    """产物对一个目标的交付状态（统一 Artifact 投递契约的读投影）。"""
+    """产物对一个目标的交付状态（统一 Artifact 投递契约的读投影）。
+
+    `target_key` 只用于后端定位；用户界面只展示 `target_label`（如“企微”），不暴露路由
+    身份里的内部 ID。旧读投影没有标签时保留 `None`，新投影一律填写。
+    """
 
     target_key: str = Field(min_length=1, max_length=256)
+    target_label: str | None = Field(default=None, max_length=64)
     status: Literal["PENDING", "DELIVERED", "DEGRADED", "UNKNOWN", "FAILED"]
     error_code: str | None = None
     retryable: bool = True

@@ -24,6 +24,7 @@ TABLES = (
     "task_human_interaction",
     "task_delivery",
     "task_delivery_attempt",
+    "message_outbox",
     "task_event",
     "task_submission",
     "runtime_operation",
@@ -37,6 +38,7 @@ TABLES = (
 TENANT_CLEANUP_ORDER = (
     "task_delivery_attempt",
     "task_delivery",
+    "message_outbox",
     "task_human_interaction",
     "task_execution_checkpoint",
     "runtime_result_outbox",
@@ -130,6 +132,7 @@ async def _delete_executions(session: AsyncSession, predicate: str) -> None:
         f"DELETE FROM task.task_delivery_attempt WHERE delivery_id IN "
         f"(SELECT id FROM task.task_delivery WHERE execution_id IN ({victims}))",
         f"DELETE FROM task.task_delivery WHERE execution_id IN ({victims})",
+        f"DELETE FROM task.message_outbox WHERE task_id IN ({victims})",
         f"DELETE FROM task.task_human_interaction WHERE execution_id IN ({victims})",
         f"DELETE FROM task.task_execution_checkpoint WHERE execution_id IN ({victims})",
         f"DELETE FROM task.runtime_operation WHERE task_execution_id IN ({victims})",

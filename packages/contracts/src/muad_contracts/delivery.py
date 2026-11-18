@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import hashlib
 import re
 from typing import Literal, Self
 from uuid import UUID
 
 from pydantic import Field, model_validator
 
+from .canonical import canonical_json
 from .channel import AttachmentRef
 from .tasks import ContractModel, DeliveryRouteInput
 
@@ -32,6 +34,26 @@ RUN_MESSAGE_DELIVERY_KEY = re.compile(
 TERMINAL_DELIVERY_KEY = re.compile(r"^run:[0-9a-fA-F-]{36}:terminal$")
 #: 所有 Run 作用域投递键的公共前缀；`run_id` 由此导出，不为同一事实新增字段。
 _RUN_SCOPED_KEY = re.compile(r"^run:([0-9a-fA-F-]{36}):")
+
+#: 消息级投递快照边界（与 Runtime `MessageDeliveryPayload` 同一口径）。
+MAX_MESSAGE_DELIVERY_TEXT_CHARS = 20_000
+MAX_MESSAGE_DELIVERY_ATTACHMENTS = 20
+
+#: `message_delivery.status` 的公开词表。
+MessageDeliveryStatus = Literal[
+    "PENDING", "DELIVERING", "DELIVERED", "DEGRADED", "UNKNOWN", "FAILED"
+]
+
+
+def delivery_target_key(route: DeliveryRouteInput) -> str:
+    """渠道中立的路由身份：只用于同消息去重与定位，不进入用户 UI。
+
+    Worker 写 `task.message_outbox` 与 Runtime 写 `runtime.message_delivery` 必须用**同一
+    口径**：两处各算一遍，哈希输入稍有差异就会把同一条消息记成两个目标，重试随之重复发送。
+    """
+    identity = route.model_dump(mode="json")
+    digest = hashlib.sha256(canonical_json(identity).encode("utf-8")).hexdigest()
+    return f"{route.channel}:{digest[:48]}"
 
 
 class DeliveryMessage(ContractModel):
@@ -171,3 +193,64 @@ class DeliveryResponse(ContractModel):
     outcome: Literal["DELIVERED", "DEGRADED"] | None = None
     #: 仅降级时有值——用户实际收到的取件直链
     fallback_url: str | None = None
+
+
+class MessageDeliveryPayloadInput(ContractModel):
+    """Task outbox → Runtime 的消息快照：正文 + 附件，至少一个非空。"""
+
+    text: str = Field(default="", max_length=MAX_MESSAGE_DELIVERY_TEXT_CHARS)
+    attachments: list[AttachmentRef] = Field(
+        default_factory=list, max_length=MAX_MESSAGE_DELIVERY_ATTACHMENTS
+    )
+
+    @model_validator(mode="after")
+    def _payload_not_empty(self) -> Self:
+        if not self.text and not self.attachments:
+            raise ValueError("message payload must carry text or attachments")
+        if any(attachment.artifact_id is None for attachment in self.attachments):
+            raise ValueError("outbound attachments require artifact_id")
+        identities = [attachment.artifact_id for attachment in self.attachments]
+        if len(set(identities)) != len(identities):
+            raise ValueError("attachment artifact_ids must be distinct")
+        return self
+
+
+class MessageDeliveryEnqueueRequest(ContractModel):
+    """Worker → Runtime 的消息级投递受理请求（`POST /internal/message-deliveries`）。
+
+    `message_key` 跨自动重试/崩溃恢复稳定；`target_key` 由 `delivery_target_key(route)`
+    唯一导出，Runtime 会复核后才写 `message_delivery`。
+    """
+
+    tenant_id: str = Field(min_length=1, max_length=64)
+    owner_type: Literal["TASK"]
+    owner_id: UUID
+    message_key: str = Field(min_length=1, max_length=128)
+    kind: Literal["TASK_RESULT"]
+    target_key: str = Field(min_length=1, max_length=256)
+    route: DeliveryRouteInput
+    payload: MessageDeliveryPayloadInput
+
+    @model_validator(mode="after")
+    def _message_key_matches_owner(self) -> Self:
+        final_key = f"execution:{self.owner_id}:final"
+        message_prefix = f"execution:{self.owner_id}:message:"
+        if self.message_key == final_key:
+            return self
+        if not self.message_key.startswith(message_prefix):
+            raise ValueError("task message_key must be execution:{owner_id}:final or :message:{id}")
+        try:
+            UUID(self.message_key.removeprefix(message_prefix))
+        except ValueError as exc:
+            raise ValueError("task message_key must end with a UUID") from exc
+        return self
+
+
+class MessageDeliveryEnqueueReceipt(ContractModel):
+    """受理回执：`duplicate=True` 表示命中已有 `(message_key, target_key)`，不重复发送。"""
+
+    delivery_id: UUID
+    status: MessageDeliveryStatus
+    message_key: str
+    target_key: str
+    duplicate: bool = False

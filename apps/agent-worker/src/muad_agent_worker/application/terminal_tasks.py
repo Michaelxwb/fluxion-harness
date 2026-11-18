@@ -48,6 +48,7 @@ from ..metrics import (
     record_outcome,
 )
 from .task_events import EntityType, TaskEventType, append_event
+from .task_message_outbox import enqueue_task_message_outbox
 
 logger = logging.getLogger(__name__)
 
@@ -275,7 +276,18 @@ async def write_terminal(
             "task_result_publish_failed",
             extra={"task_id": str(task.id), "error_type": type(exc).__name__},
         )
-    await _enqueue_push_delivery(session, task)
+    outbox_written = False
+    if change.status is TerminalStatus.COMPLETED:
+        try:
+            async with session.begin_nested():
+                outbox_written = await enqueue_task_message_outbox(session, task, moment)
+        except Exception as exc:  # noqa: BLE001 - 发件箱失败不得回滚已验证的终态
+            logger.warning(
+                "task_message_outbox_write_failed",
+                extra={"task_id": str(task.id), "error_type": type(exc).__name__},
+            )
+    if not outbox_written:
+        await _enqueue_push_delivery(session, task)
     await session.flush()
     record_outcome(TASKS_METRIC, change.status.value, {"type": task.task_type})
     if task.started_at is not None:
@@ -346,7 +358,8 @@ async def _enqueue_push_delivery(session: AsyncSession, task: TaskExecution) -> 
     终态事件先落库，再在这里建独立投递记录（`DELIVERY/ENQUEUED`）——发送是投递循环的事，
     业务终态不等待、也不依赖投递结果。稳定键与种类归 `delivery.records`，同键重放不新增。
     """
-    if task.schedule_revision_id is None:
+    if task.parent_id is not None or task.schedule_revision_id is None:
+        # JOIN/BATCH 子任务不直接向用户投递；父任务终态聚合子产物（design §5.7）。
         return
     revision = await session.scalar(
         select(TaskScheduleRevision).where(

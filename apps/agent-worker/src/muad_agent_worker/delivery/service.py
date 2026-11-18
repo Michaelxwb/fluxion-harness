@@ -34,7 +34,6 @@ from muad_contracts import (
     DeliveryRequest,
     DeliveryRouteInput,
     HumanInteractionStatus,
-    ScheduleStatus,
     TaskStatus,
 )
 from muad_contracts.platform_settings import PlatformSettings, TaskSettings
@@ -46,6 +45,7 @@ from sqlalchemy.sql.elements import ColumnElement
 
 from ..application.platform_settings import resolve_platform_settings
 from ..application.ports import NullPlatformSettingsClient, PlatformSettingsClient
+from ..application.schedule_attention import flag_schedule_attention
 from ..application.task_events import (
     EntityType,
     TaskEventSeed,
@@ -94,8 +94,6 @@ logger = logging.getLogger(__name__)
 TERMINAL_STATUSES = (str(TaskStatus.COMPLETED), str(TaskStatus.FAILED), str(TaskStatus.CANCELLED))
 OPEN = str(HumanInteractionStatus.OPEN)
 ACTIVE_ROUTE = "ACTIVE"
-ACTIVE_SCHEDULE = str(ScheduleStatus.ACTIVE)
-NEEDS_ATTENTION = str(ScheduleStatus.NEEDS_ATTENTION)
 PUSH_INTENT = str(DeliveryIntent.PUSH)
 PENDING = str(DeliveryState.PENDING)
 SENT = str(DeliveryState.SENT)
@@ -1076,45 +1074,13 @@ class DeliveryLoop:
         code: str,
         now: datetime,
     ) -> None:
-        """路由永久失效：来源 Schedule 置 `NEEDS_ATTENTION` 并写明原因（不无限重试）。
-
-        只改 **Schedule** 的调度状态——Execution 的业务终态由执行侧写，这里不碰。
-        """
-        schedule = await session.scalar(
-            select(TaskSchedule)
-            .join(
-                TaskExecution,
-                sa.and_(
-                    TaskExecution.schedule_id == TaskSchedule.id,
-                    TaskExecution.id == execution_id,
-                    TaskExecution.tenant_id == tenant_id,
-                    TaskExecution.is_deleted.is_(False),
-                ),
-            )
-            .where(
-                TaskSchedule.tenant_id == tenant_id,
-                TaskSchedule.is_deleted.is_(False),
-            )
-            .with_for_update(of=TaskSchedule)
-        )
-        if schedule is None or schedule.status != ACTIVE_SCHEDULE:
-            return
-        schedule.status = NEEDS_ATTENTION
-        schedule.attention_reason = code[:64]
-        schedule.attention_since = now
-        schedule.next_fire_at = None
-        schedule.update_time = now
-        await append_event(
+        """路由永久失效：来源 Schedule 置 `NEEDS_ATTENTION`（与 outbox 消费者同一写入点）。"""
+        await flag_schedule_attention(
             session,
             tenant_id=tenant_id,
-            entity_type=EntityType.SCHEDULE,
-            entity_id=schedule.id,
-            event_type=TaskEventType.NEEDS_ATTENTION,
-            occurred_at=now,
-            payload={"reason": code, "execution_id": str(execution_id)},
-        )
-        logger.warning(
-            "schedule_needs_attention schedule_id=%s reason=%s", schedule.id, code
+            execution_id=execution_id,
+            code=code,
+            now=now,
         )
 
     @staticmethod

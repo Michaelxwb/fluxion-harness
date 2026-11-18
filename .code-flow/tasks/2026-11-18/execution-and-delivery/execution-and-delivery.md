@@ -182,7 +182,7 @@ Artifact 版本即行：一个不可变版本一行、一个 `artifact_id`；`lo
   - message-delivery PASS exit=0
 ## TASK-004: task.message_outbox + API + 任务中心 deliveries
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-003
 - **Source**: unified-artifact-delivery/unified-artifact-delivery.backend.design.md#4.6, #4.9
 - **Scenarios**: unified-artifact-delivery:S-01, unified-artifact-delivery:S-03, unified-artifact-delivery:S-08
@@ -211,13 +211,13 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
 
 ### Checklist
 
-- [ ] `task.message_outbox` 表与终态事务写入。
-- [ ] Worker 消费者 + Runtime 幂等 API；同 `message_key + target` 不重复。
-- [ ] 任务中心读 attachments + deliveries；`target_label` 不暴露内部 ID。
-- [ ] `delivery_intent=NONE` → `deliveries=[]` + “仅 Web 可查看”。
-- [ ] outbox PENDING → `PENDING`；FAILED → `FAILED`；不显示“仅 Web”。
-- [ ] 失败/取消不写 outbox；附件保留诊断。
-- [ ] 测试：多附件、无绑定、路由失效、outbox 重放。
+- [x] `task.message_outbox` 表与终态事务写入。
+- [x] Worker 消费者 + Runtime 幂等 API；同 `message_key + target` 不重复。
+- [x] 任务中心读 attachments + deliveries；`target_label` 不暴露内部 ID。
+- [x] `delivery_intent=NONE` → `deliveries=[]` + “仅 Web 可查看”。
+- [x] outbox PENDING → `PENDING`；FAILED → `FAILED`；不显示“仅 Web”。
+- [x] 失败/取消不写 outbox；附件保留诊断。
+- [x] 测试：多附件、无绑定、路由失效、outbox 重放。
 
 ### Spec Delta
 
@@ -228,14 +228,17 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18] implemented: task.message_outbox + lease consumer + Runtime idempotent enqueue API + task-center deliveries/target_label
+- [2026-11-18T18:08:51.275Z] started tests=ad9cb71b40a3
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-18T18:09:03.685Z PASS commands=1/1 executed=1 deduped=0 elapsed=12294ms tests=ad9cb71b40a3 head=e67951a408e4 dirty=1
+  - task-outbox PASS exit=0
 ## TASK-005: Schedule 路由独立 + 目标选择
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-003, TASK-004
 - **Source**: unified-artifact-delivery/unified-artifact-delivery.backend.design.md#4.7
 - **Scenarios**: unified-artifact-delivery:S-01, unified-artifact-delivery:S-03
@@ -292,11 +295,13 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
 
 - [2026-11-18] created
 - [2026-11-18] implemented: removed entry equality, simplified delivery resolution, delivery-targets endpoint, Console route redaction
+- [2026-11-18T17:56:44.285Z] started tests=7577e4f98379
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-18T17:57:10.311Z PASS commands=1/1 executed=1 deduped=0 elapsed=22056ms tests=7577e4f98379 head=e67951a408e4 dirty=1
+  - schedule-route PASS exit=0
 ## TASK-006: execute target + WORKSPACE_ROOT
 
 - **Status**: done

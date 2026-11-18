@@ -628,6 +628,8 @@ export interface FireHistoryPage extends WebchatPage<FireItem> {
 
 export interface TaskArtifactDelivery {
   target_key: string;
+  /** 安全标签（如“企微”）；UI 不得展示 target_key 里的内部 ID。 */
+  target_label?: string | null;
   status: 'PENDING' | 'DELIVERED' | 'DEGRADED' | 'UNKNOWN' | 'FAILED';
   error_code: string | null;
   retryable: boolean;

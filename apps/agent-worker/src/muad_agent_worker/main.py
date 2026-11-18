@@ -36,6 +36,8 @@ from .application.ports import NullPlatformSettingsClient, PlatformSettingsClien
 from .application.schedule_retention import ScheduleRetentionLoop
 from .delivery.artifact_client import ArtifactResolveClient
 from .delivery.client import HttpDeliveryClient, HttpWebchatInboxClient
+from .delivery.message_outbox import TaskMessageOutboxLoop
+from .delivery.message_outbox_client import HttpMessageOutboxClient
 from .delivery.service import DeliveryLoop
 from .infrastructure.cancel_hint import CancelHintStore, create_cancel_hint_store
 from .infrastructure.db import dispose_engine, get_engine, get_session_factory
@@ -241,6 +243,18 @@ def _start_background(
         ),
     )
     app.state.delivery_loop = delivery
+    # Task 成功终态的消息发件箱：只把冻结事实交给 Runtime，发送由 message_delivery 泵完成。
+    message_outbox = TaskMessageOutboxLoop(
+        session_factory,
+        HttpMessageOutboxClient(
+            settings.agent_runtime_url,
+            pools.egress,
+            service_token=settings.internal_service_token,
+        ),
+        settings,
+        settings_client=settings_client,
+    )
+    app.state.message_outbox_loop = message_outbox
     results = _result_dispatcher(session_factory, pools.egress, settings)
     app.state.result_dispatcher = results
     # Human 提问超时：与 deadline sweep 并列的独立节拍，节拍沿用同一设置项（不另设同义键）。
@@ -267,6 +281,7 @@ def _start_background(
         worker=worker,
         scheduler=scheduler,
         delivery=delivery,
+        message_outbox=message_outbox,
         results=results,
         human_timeouts=human_timeouts,
         retention=retention,
@@ -292,6 +307,7 @@ def _register_loops(
     worker: WorkerLoop,
     scheduler: SchedulerLoop,
     delivery: DeliveryLoop,
+    message_outbox: TaskMessageOutboxLoop,
     results: ResultDispatcher,
     human_timeouts: HumanTimeoutLoop,
     retention: ScheduleRetentionLoop,
@@ -314,6 +330,11 @@ def _register_loops(
         settings.scheduler_poll_interval_sec,
     )
     add("worker.delivery", delivery.run_forever, settings.delivery_poll_interval_sec)
+    add(
+        "worker.message_outbox",
+        message_outbox.run_forever,
+        settings.delivery_poll_interval_sec,
+    )
     add("worker.results", results.run_forever, settings.async_tool_dispatch_poll_sec)
     add(
         "worker.human_timeouts",

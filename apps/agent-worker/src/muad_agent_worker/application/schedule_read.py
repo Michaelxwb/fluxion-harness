@@ -34,6 +34,7 @@ from muad_contracts import (
     ScheduleListItem,
     ScheduleMode,
     SchedulePolicy,
+    TaskArtifactDeliveryRef,
     TaskArtifactRef,
     TaskCenterBadges,
     TaskChildItem,
@@ -55,11 +56,27 @@ from ..infrastructure.models.task import (
     TaskEvent,
     TaskExecution,
     TaskHumanInteraction,
+    TaskMessageOutbox,
     TaskSchedule,
     TaskScheduleRevision,
 )
 
 DST_EVENT_TYPES = ("DST_GAP_SKIPPED", "DST_FOLD_SECOND_SKIPPED")
+
+OUTBOX_PENDING = "PENDING"
+OUTBOX_FAILED = "FAILED"
+#: `message_delivery.status` → 任务中心词表；DELIVERING 是“正在发”，对用户仍是 PENDING。
+DELIVERY_STATUS_MAP = {
+    "PENDING": "PENDING",
+    "DELIVERING": "PENDING",
+    "DELIVERED": "DELIVERED",
+    "DEGRADED": "DEGRADED",
+    "UNKNOWN": "UNKNOWN",
+    "FAILED": "FAILED",
+}
+#: 安全标签：只显示通道名，不拼接 bot/user/conversation 等内部 ID。
+TARGET_LABELS = {"WECOM": "企微", "WEBCHAT": "Web"}
+UNKNOWN_TARGET_LABEL = "未知目标"
 
 
 def _task_type(value: str) -> TaskType:
@@ -108,6 +125,51 @@ def _error_summary(execution: TaskExecution) -> str | None:
     if not first:
         return execution.error_code
     return first[:200]
+
+
+def _target_label(route_json: Any) -> str:
+    """投递目标的安全标签（不暴露 route 里的内部 ID）。"""
+    channel = route_json.get("channel") if isinstance(route_json, dict) else None
+    if not isinstance(channel, str) or not channel:
+        return UNKNOWN_TARGET_LABEL
+    return TARGET_LABELS.get(channel, channel)
+
+
+def _payload_artifact_ids(payload_json: Any) -> list[uuid.UUID]:
+    """消息快照里的附件身份；缺 artifact_id 的历史/坏载荷跳过而不是伪造目标。"""
+    payload = payload_json if isinstance(payload_json, dict) else {}
+    raw = payload.get("attachments")
+    if not isinstance(raw, list):
+        return []
+    artifact_ids: list[uuid.UUID] = []
+    for item in raw:
+        value = item.get("artifact_id") if isinstance(item, dict) else None
+        if value is None:
+            continue
+        try:
+            artifact_ids.append(uuid.UUID(str(value)))
+        except ValueError:
+            continue
+    return artifact_ids
+
+
+def _delivery_ref(
+    *,
+    target_key: str,
+    target_label: str,
+    status: str,
+    error_code: str | None,
+    retryable: bool,
+    fallback_url: str | None = None,
+) -> TaskArtifactDeliveryRef:
+    return TaskArtifactDeliveryRef(
+        target_key=target_key,
+        target_label=target_label,
+        status=status,  # type: ignore[arg-type]
+        error_code=error_code,
+        retryable=retryable,
+        fallback_url=fallback_url,
+    )
 
 
 def _child_label(execution: TaskExecution) -> str:
@@ -575,6 +637,72 @@ class ScheduleReadService:
         ).all()
         return {row.task_id: int(row.n) for row in rows}
 
+    async def _artifact_deliveries(
+        self, execution: TaskExecution, artifact_rows: Sequence[Any]
+    ) -> dict[uuid.UUID, list[TaskArtifactDeliveryRef]]:
+        """按产物聚合 push 状态：outbox（PENDING/FAILED）+ `message_delivery`（消息级权威）。
+
+        `deliveries=[]` 只在没有 push 路由时出现；outbox 已请求但尚未受理时不能显示成
+        “仅 Web”。`target_label` 只放安全通道标签，`target_key` 留给后端定位。
+        """
+        # 父任务可能没有自己的产物、只聚合子产物；outbox/message_delivery 仍记在父任务上。
+        task_ids = {execution.id} | {
+            row.task_id for row in artifact_rows if row.task_id is not None
+        }
+        facts: dict[tuple[uuid.UUID, str], TaskArtifactDeliveryRef] = {}
+        outbox_rows = (
+            await self._session.scalars(
+                select(TaskMessageOutbox).where(
+                    TaskMessageOutbox.tenant_id == execution.tenant_id,
+                    TaskMessageOutbox.task_id.in_(task_ids),
+                    TaskMessageOutbox.status.in_((OUTBOX_PENDING, OUTBOX_FAILED)),
+                    TaskMessageOutbox.is_deleted.is_(False),
+                )
+            )
+        ).all()
+        for row in outbox_rows:
+            outbox_status = "PENDING" if row.status == OUTBOX_PENDING else "FAILED"
+            label = _target_label(row.route_json)
+            for artifact_id in _payload_artifact_ids(row.payload_json):
+                facts[(artifact_id, row.target_key)] = _delivery_ref(
+                    target_key=row.target_key,
+                    target_label=label,
+                    status=outbox_status,
+                    error_code=row.last_error_code,
+                    retryable=row.status == OUTBOX_PENDING,
+                )
+        delivered_rows = (
+            await self._session.execute(
+                sa.text(
+                    "SELECT target_key, route_json, payload_json, status, last_error_code, "
+                    " fallback_url FROM runtime.message_delivery "
+                    "WHERE tenant_id = :tenant_id AND owner_type = 'TASK' "
+                    "AND owner_id IN :task_ids AND is_deleted = false"
+                ).bindparams(sa.bindparam("task_ids", expanding=True)),
+                {"tenant_id": execution.tenant_id, "task_ids": tuple(task_ids)},
+            )
+        ).all()
+        for delivered in delivered_rows:
+            status = DELIVERY_STATUS_MAP.get(str(delivered.status))
+            if status is None:
+                continue
+            label = _target_label(delivered.route_json)
+            for artifact_id in _payload_artifact_ids(delivered.payload_json):
+                facts[(artifact_id, delivered.target_key)] = _delivery_ref(
+                    target_key=delivered.target_key,
+                    target_label=label,
+                    status=status,
+                    error_code=delivered.last_error_code,
+                    retryable=status == "PENDING",
+                    fallback_url=delivered.fallback_url,
+                )
+        grouped: dict[uuid.UUID, list[TaskArtifactDeliveryRef]] = {}
+        for (artifact_id, _), ref in sorted(
+            facts.items(), key=lambda item: (str(item[0][0]), item[0][1])
+        ):
+            grouped.setdefault(artifact_id, []).append(ref)
+        return grouped
+
     async def _artifacts_with_children(
         self, execution: TaskExecution
     ) -> tuple[list[TaskArtifactRef], int]:
@@ -596,6 +724,7 @@ class ScheduleReadService:
                 {"execution_id": execution.id, "tenant_id": execution.tenant_id},
             )
         ).all()
+        deliveries = await self._artifact_deliveries(execution, rows)
         seen: set[uuid.UUID] = set()
         artifacts: list[TaskArtifactRef] = []
         for row in rows:
@@ -611,6 +740,7 @@ class ScheduleReadService:
                     size=row.size,
                     checksum=row.checksum,
                     version=str(row.version),
+                    deliveries=deliveries.get(row.id, []),
                 )
             )
         # `artifact_total` is the number of logical files, not versions.

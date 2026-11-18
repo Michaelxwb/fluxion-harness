@@ -536,6 +536,62 @@ class TaskDeliveryAttempt(StandardColumnsMixin, Base):
     finished_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
 
 
+class TaskMessageOutbox(StandardColumnsMixin, Base):
+    """Task 成功终态的消息级发件箱（design §4.6）。
+
+    终态事务只写这一行，发送由 Worker 消费者交给 Runtime `message_delivery`。稳定键与
+    `runtime.message_delivery` 同口径：`message_key` 跨重试稳定，`target_key` 是渠道中立的
+    路由身份；二者加租户/任务构成幂等事实，重放不新增。
+    """
+
+    __tablename__ = "message_outbox"
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "tenant_id",
+            "task_id",
+            "message_key",
+            "target_key",
+            name="uq_task_message_outbox_identity",
+        ),
+        sa.Index(
+            "ix_task_message_outbox_due",
+            "tenant_id",
+            "next_attempt_at",
+            postgresql_where=sa.text("status = 'PENDING'"),
+        ),
+        sa.Index("ix_task_message_outbox_task", "task_id"),
+        sa.CheckConstraint("status IN ('PENDING','APPLIED','FAILED')", name="status"),
+        sa.CheckConstraint("attempts >= 0", name="attempts"),
+        {"schema": "task"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    task_id: Mapped[uuid.UUID] = mapped_column(
+        sa.Uuid(), sa.ForeignKey("task.task_execution.id"), nullable=False
+    )
+    message_key: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    kind: Mapped[str] = mapped_column(sa.String(16), nullable=False)
+    target_key: Mapped[str] = mapped_column(sa.String(256), nullable=False)
+    route_json: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")
+    )
+    payload_json: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")
+    )
+    status: Mapped[str] = mapped_column(
+        sa.String(16), nullable=False, server_default=sa.text("'PENDING'")
+    )
+    attempts: Mapped[int] = mapped_column(
+        sa.Integer(), nullable=False, server_default=sa.text("0")
+    )
+    next_attempt_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")
+    )
+    lease_owner: Mapped[str | None] = mapped_column(sa.String(128))
+    lease_until: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    last_error_code: Mapped[str | None] = mapped_column(sa.String(64))
+
+
 class TaskEvent(StandardColumnsMixin, Base):
     """多态审计事件：`entity_type + entity_id` 定位主体，不建物理 FK。"""
 

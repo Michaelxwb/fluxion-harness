@@ -934,6 +934,7 @@ _CLEANUP_STATEMENTS: tuple[str, ...] = (
     "DELETE FROM task.runtime_operation WHERE tenant_id = $1",
     "DELETE FROM task.task_event WHERE tenant_id = $1",
     "DELETE FROM task.task_submission WHERE tenant_id = $1",
+    "DELETE FROM task.message_outbox WHERE tenant_id = $1",
     "DELETE FROM task.task_execution WHERE tenant_id = $1",
     "DELETE FROM task.delivery_route WHERE tenant_id = $1",
     # 引用方先删：模型租约引用 run/记忆 job/probe，容量行与审计同样先于它们的被引用方
