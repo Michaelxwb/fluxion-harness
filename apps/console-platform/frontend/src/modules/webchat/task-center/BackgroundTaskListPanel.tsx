@@ -24,6 +24,7 @@ export interface BackgroundTaskListPanelProps {
   agents?: readonly AgentOption[];
   onOpen(taskId: string): void;
   onPage(page: number): void;
+  onPageSizeChange(pageSize: number): void;
   onAgentChange(agentId: string | null): void;
   onRefresh(): void;
 }
@@ -209,6 +210,7 @@ export function BackgroundTaskListPanel(props: BackgroundTaskListPanelProps) {
           pageSize={state.pageSize}
           total={state.total}
           onPageChange={props.onPage}
+          onPageSizeChange={props.onPageSizeChange}
         />
       ) : null}
     </section>

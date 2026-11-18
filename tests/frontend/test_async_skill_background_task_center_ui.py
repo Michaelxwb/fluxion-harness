@@ -497,6 +497,16 @@ const observations = {};
   };
 }
 
+// 14) 每页条数切换：回到第 1 页并以新 page_size 请求。
+{
+  http.requests = [];
+  http.handler = () => ok(pageOf([item()], { page: 1, page_size: 30, total: 60 }));
+  const list = createBackgroundTaskListController({ port: client });
+  await list.setPageSize(30);
+  observations.pageSize = { state: list.snapshot(), params: http.requests[0].params };
+  list.dispose();
+}
+
 console.log(JSON.stringify(observations));
 """
 
@@ -660,6 +670,7 @@ function listScenario(scenario) {
     agents,
     onOpen: noop,
     onPage: noop,
+    onPageSizeChange: noop,
     onAgentChange: noop,
     onRefresh: noop
   });
@@ -1055,7 +1066,7 @@ def test_list_reads_once_with_the_server_page_size(background_logic: dict[str, A
     requests = initial["requests"]
     assert len(requests) == 1, "首屏只读后台列表一次"
     assert requests[0]["url"].endswith("/task-center/tasks")
-    assert requests[0]["params"] == {"page": 1}, "缺省不传 agent_id/page_size/status"
+    assert requests[0]["params"] == {"page": 1, "page_size": 15}, "与 Console 列表统一每页 15 条"
     assert initial["afterSettle"] == initial["beforeSettle"], "静置后不得有后台轮询"
     state = initial["state"]
     assert [row["task_id"] for row in state["items"]] == [TASK_A, TASK_B]
@@ -1065,7 +1076,10 @@ def test_list_reads_once_with_the_server_page_size(background_logic: dict[str, A
 
 def test_pagination_keeps_the_server_page_size(background_logic: dict[str, Any]) -> None:
     page2 = background_logic["page2"]
-    assert page2["params"] == [{"page": 1}, {"page": 2, "page_size": 2}]
+    assert page2["params"] == [
+        {"page": 1, "page_size": 15},
+        {"page": 2, "page_size": 2},
+    ]
     state = page2["state"]
     assert [row["task_id"] for row in state["items"]] == [TASK_B]
     assert state["page"] == 2 and state["total"] == 3
@@ -1073,7 +1087,7 @@ def test_pagination_keeps_the_server_page_size(background_logic: dict[str, Any])
 
 def test_agent_filter_is_explicit_and_resets_the_page(background_logic: dict[str, Any]) -> None:
     filtered = background_logic["filter"]
-    assert filtered["params"] == {"agent_id": AGENT_A, "page": 1}
+    assert filtered["params"] == {"agent_id": AGENT_A, "page": 1, "page_size": 15}
     assert filtered["state"]["filters"]["agentId"] == AGENT_A
     assert filtered["state"]["page"] == 1
 
@@ -1183,6 +1197,7 @@ def test_list_renders_every_row_fact(background_render: dict[str, Any]) -> None:
     assert "<button" in row
     assert 'data-testid="chat-background-agent-filter"' in markup
     assert "全部授权 Agent" in markup
+    assert "每页" in markup, "分页与 Console 共用每页条数选择器"
 
 
 def test_list_states_are_real(background_render: dict[str, Any]) -> None:
@@ -1204,6 +1219,7 @@ def test_list_labels_follow_the_locale(background_render: dict[str, Any]) -> Non
     assert "Has artifacts" in markup
     assert "Subtasks 5/5" in markup
     assert "Scheduled tasks" not in markup, "两个分组互不混排"
+    assert "Per page" in markup
 
 
 def test_detail_shows_result_counts_and_facts(background_render: dict[str, Any]) -> None:
@@ -1338,3 +1354,12 @@ def test_background_single_page_still_shows_pagination(background_render: dict[s
     markup = background_render["markup"]["list-single-page-zh"]
     assert "app-pagination" in markup, "只有一页也要显示统一分页组件"
     assert "1 / 1" in markup
+
+
+def test_background_page_size_change_resets_to_first_page(
+    background_logic: dict[str, Any],
+) -> None:
+    page_size = background_logic["pageSize"]
+    assert page_size["params"] == {"page": 1, "page_size": 30}
+    assert page_size["state"]["pageSize"] == 30
+    assert page_size["state"]["page"] == 1

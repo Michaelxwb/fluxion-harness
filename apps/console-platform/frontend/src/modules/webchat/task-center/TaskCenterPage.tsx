@@ -212,6 +212,13 @@ export function WebchatTaskCenterPage(props: WebchatTaskCenterPageProps): ReactN
     [list]
   );
 
+  const handlePageSizeChange = useCallback(
+    (pageSize: number) => {
+      void list.setPageSize(pageSize);
+    },
+    [list]
+  );
+
   const handleFirePage = useCallback(
     (page: number) => {
       void detail.loadFires(page);
@@ -279,6 +286,13 @@ export function WebchatTaskCenterPage(props: WebchatTaskCenterPageProps): ReactN
   const handleBackgroundPage = useCallback(
     (page: number) => {
       void backgroundList.setPage(page);
+    },
+    [backgroundList]
+  );
+
+  const handleBackgroundPageSize = useCallback(
+    (pageSize: number) => {
+      void backgroundList.setPageSize(pageSize);
     },
     [backgroundList]
   );
@@ -355,6 +369,7 @@ export function WebchatTaskCenterPage(props: WebchatTaskCenterPageProps): ReactN
           agents={props.agents}
           onOpen={handleBackgroundOpen}
           onPage={handleBackgroundPage}
+          onPageSizeChange={handleBackgroundPageSize}
           onAgentChange={handleBackgroundAgentChange}
           onRefresh={handleBackgroundRefresh}
         />
@@ -378,6 +393,7 @@ export function WebchatTaskCenterPage(props: WebchatTaskCenterPageProps): ReactN
           onOpen={handleOpen}
           onAgentChange={handleAgentChange}
           onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
         />
       </div>
     );

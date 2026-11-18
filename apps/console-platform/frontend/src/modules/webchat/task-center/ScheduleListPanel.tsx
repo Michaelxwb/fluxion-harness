@@ -37,6 +37,7 @@ export interface ScheduleListPanelProps {
   onOpen(scheduleId: string): void;
   onAgentChange(agentId: string | null): void;
   onPageChange(page: number): void;
+  onPageSizeChange(pageSize: number): void;
 }
 
 function TaskCenterBadge(props: { badges: TaskCenterBadges | null; errorCode: string | null }) {
@@ -261,6 +262,7 @@ export function ScheduleListPanel(props: ScheduleListPanelProps) {
           pageSize={state.pageSize}
           total={state.total}
           onPageChange={props.onPageChange}
+          onPageSizeChange={props.onPageSizeChange}
         />
       ) : null}
     </section>

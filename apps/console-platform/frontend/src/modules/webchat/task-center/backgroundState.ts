@@ -19,7 +19,7 @@ import type {
   TaskCenterTaskPage,
   WebchatPageQuery
 } from '../types';
-import type { AsyncPhase } from './taskCenterState';
+import { TASK_CENTER_PAGE_SIZE, type AsyncPhase } from './taskCenterState';
 
 export interface BackgroundTaskFilters {
   agentId: string | null;
@@ -54,6 +54,7 @@ export interface BackgroundTaskListController {
   refresh(): Promise<void>;
   setFilter(patch: Partial<BackgroundTaskFilters>): Promise<void>;
   setPage(page: number): Promise<void>;
+  setPageSize(pageSize: number): Promise<void>;
   dispose(): void;
 }
 
@@ -71,7 +72,7 @@ export function emptyBackgroundTaskListState(): BackgroundTaskListState {
     phase: 'IDLE',
     items: [],
     page: 1,
-    pageSize: 0,
+    pageSize: TASK_CENTER_PAGE_SIZE,
     total: 0,
     errorCode: null,
     filters: { agentId: null }
@@ -178,6 +179,13 @@ export function createBackgroundTaskListController(deps: {
       const target = Math.max(1, Math.trunc(page));
       if (target === runtime.state.page && runtime.state.phase === 'READY') return;
       runtime.state = { ...runtime.state, page: target };
+      publishList(runtime);
+      await requestList(runtime);
+    },
+    async setPageSize(pageSize) {
+      const target = Math.max(1, Math.trunc(pageSize));
+      if (target === runtime.state.pageSize && runtime.state.phase === 'READY') return;
+      runtime.state = { ...runtime.state, pageSize: target, page: 1 };
       publishList(runtime);
       await requestList(runtime);
     },
