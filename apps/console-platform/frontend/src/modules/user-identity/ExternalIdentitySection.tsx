@@ -300,10 +300,9 @@ export function ExternalIdentitySection(props: ExternalIdentitySectionProps) {
                     <Tag
                       key={grant.entry_id}
                       closable={props.canManage}
-                      onClose={(e) => {
-                        e.preventDefault();
-                        void revokeGrant(item, grant.entry_id);
-                      }}
+                      // Semi 的 onClose 首参是 Tag 内容（ReactNode），不是事件对象，
+                      // 这里无需阻止默认行为，直接撤销即可。
+                      onClose={() => void revokeGrant(item, grant.entry_id)}
                     >
                       {grant.name || grant.bot_id}
                     </Tag>
