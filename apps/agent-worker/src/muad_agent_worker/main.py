@@ -178,8 +178,14 @@ def _start_background(
     不各自建池；每个循环是独立受监督任务，带自己的节拍（§3.2、§3.7）。
     """
     # 延迟导入：Agentic 装配会拉入 Kernel 与 artifact cache（后者导入即建目录）。
+    from .infrastructure.task_artifact_client import TaskArtifactClient
     from .worker.assembly import build_agentic_executor
 
+    artifacts = TaskArtifactClient(
+        settings.agent_runtime_url,
+        service_token=settings.internal_service_token,
+        client=pools.egress,
+    )
     agentic = build_agentic_executor(
         settings=settings,
         sessions=session_factory,
@@ -196,6 +202,8 @@ def _start_background(
         agentic=agentic,
         # 结果收件箱的只读面：等待前的就绪检查与独立补扫共用同一装配实例（TASK-020）。
         operations=agentic.operations,
+        # 大结果外置：Skill/Agentic 终态前写内部 TOOL_RESULT Artifact（不进入用户下载白名单）。
+        artifacts=artifacts,
     )
     # 有界任务槽：上限来自每进程启动配置（§3.7 WORKER_EXECUTION_CONCURRENCY），装配根注入。
     app.state.worker_loop = worker

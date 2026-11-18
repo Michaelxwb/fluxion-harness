@@ -546,10 +546,15 @@ class ConfirmScope(ContractModel):
     ref: str = Field(min_length=1, max_length=256)
 
 
+#: Task 产物用途：只有 OUTPUT 是用户可下载产物；TOOL_RESULT/TRANSCRIPT 是内部留档。
+ArtifactPurpose = Literal["OUTPUT", "TOOL_RESULT", "TRANSCRIPT"]
+
+
 class TaskArtifactWriteRequest(ContractModel):
     """API-28：Task-owned 产物写入/追加版本。`base_version` 是 CAS，不是提示。"""
 
     task_execution_id: UUID
+    purpose: ArtifactPurpose = "OUTPUT"
     filename: str = Field(min_length=1, max_length=255)
     media_type: str = Field(min_length=1, max_length=128)
     size: int = Field(ge=0)

@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import socket
@@ -15,11 +16,13 @@ import uuid
 from collections.abc import Awaitable, Callable, Coroutine
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from hashlib import sha256
 from typing import Any, cast
 
 import sqlalchemy as sa
 from muad_common import SharedSettings
 from muad_contracts import (
+    MAX_TOOL_RESULT_BYTES,
     HumanInteractionStatus,
     TaskStatus,
     TerminalStatus,
@@ -31,6 +34,7 @@ from pydantic import JsonValue
 from sqlalchemy import CursorResult, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from ..application.agentic.artifacts import preview_head_tail
 from ..application.agentic.async_results import (
     OperationReader,
     advance_watermarks,
@@ -64,6 +68,7 @@ from ..infrastructure.models.task import (
     TaskExecutionCheckpoint,
     TaskHumanInteraction,
 )
+from ..infrastructure.task_artifact_client import TaskArtifactClient, TaskArtifactError
 from ..infrastructure.task_operation_client import TaskOperationError
 from ..infrastructure.wakeup_hint import NullWakeupListener, WakeupListener
 from ..metrics import (
@@ -265,11 +270,14 @@ class WorkerLoop:
         settings_client: PlatformSettingsClient | None = None,
         agentic: TaskExecutorProtocol | None = None,
         operations: OperationReader | None = None,
+        artifacts: TaskArtifactClient | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._settings = settings or SharedSettings()
         self._executor = executor
         self._agentic = agentic
+        #: 大结果外置端口：Skill 路径也在终态事务前写内部 TOOL_RESULT Artifact（可缺席）。
+        self._artifacts = artifacts
         self._claimer = claimer or TaskClaimer(session_factory, self._settings)
         self._instance_id = instance_id or default_instance_id()
         self._cancel_hints: CancelHintStore = cancel_hints or NullCancelHintStore()
@@ -552,11 +560,14 @@ class WorkerLoop:
     ) -> bool:
         """把一个执行结局落库；返回 True 表示等待前结果已到、应在同一租约继续。"""
         if outcome.kind is OutcomeKind.COMPLETED:
+            result = outcome.result or {}
+            outbox_result = await self._bounded_outbox_result(task, result)
             await self._handle_success(
                 task,
-                outcome.result or {},
+                result,
                 now=now,
                 result_artifact_id=outcome.result_artifact_id,
+                outbox_result=outbox_result,
             )
             return False
         if outcome.kind is OutcomeKind.WAITING:
@@ -904,6 +915,55 @@ class WorkerLoop:
         )
         return 1, 1
 
+    async def _bounded_outbox_result(
+        self, task: TaskExecution, result: dict[str, Any]
+    ) -> dict[str, JsonValue] | None:
+        """大结果在终态事务前写入内部 TOOL_RESULT Artifact；outbox 只带引用/预览。"""
+        text = json.dumps(result, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        data = text.encode("utf-8")
+        if len(data) <= MAX_TOOL_RESULT_BYTES:
+            return None
+        preview = preview_head_tail(text, head_bytes=2048, tail_bytes=2048)
+        reference: dict[str, JsonValue] = {
+            "truncated": True,
+            "original_bytes": len(data),
+            "preview": preview,
+        }
+        if self._artifacts is None:
+            logger.warning(
+                "task_result_externalization_unavailable",
+                extra={"task_id": str(task.id), "original_bytes": len(data)},
+            )
+            return reference
+        try:
+            response = await self._artifacts.write(
+                tenant_id=task.tenant_id,
+                execution_id=task.id,
+                filename=f"tool-result-{task.id}.json",
+                media_type="application/json",
+                content=data,
+                checksum="sha256:" + sha256(data).hexdigest(),
+                purpose="TOOL_RESULT",
+            )
+        except TaskArtifactError as exc:
+            logger.warning(
+                "task_result_externalization_failed",
+                extra={
+                    "task_id": str(task.id),
+                    "original_bytes": len(data),
+                    "error_code": exc.code,
+                },
+            )
+            return reference
+        return {
+            "artifact": {
+                "artifact_id": str(response.artifact_id),
+                "size": len(data),
+                "checksum": response.checksum,
+                "preview": preview,
+            }
+        }
+
     async def _handle_success(
         self,
         task: TaskExecution,
@@ -911,10 +971,12 @@ class WorkerLoop:
         *,
         now: datetime | None,
         result_artifact_id: uuid.UUID | None = None,
+        outbox_result: dict[str, JsonValue] | None = None,
     ) -> None:
         change = TerminalChange(
             status=TerminalStatus.COMPLETED,
             result=cast(dict[str, JsonValue], result),
+            outbox_result=outbox_result,
             result_artifact_id=result_artifact_id,
         )
         async with self._session_factory() as session, session.begin():

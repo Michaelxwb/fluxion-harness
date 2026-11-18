@@ -107,13 +107,11 @@ def classify_failure(
             error_message=error_message,
         )
     if retry_safety is ToolRetrySafety.NON_RETRYABLE:
+        # 处置码表达「结果待核实」，不覆盖原始 stderr：用户/模型要看到真实失败原因。
         return FailureOutcome(
             disposition=FailureDisposition.UNVERIFIED,
             error_code=TASK_RESULT_UNVERIFIED,
-            error_message=(
-                "external side effect cannot be confirmed; result requires verification"
-                f" (original error: {error_code})"
-            ),
+            error_message=error_message,
         )
     return FailureOutcome(
         disposition=FailureDisposition.RETRY,
