@@ -542,7 +542,7 @@ async def test_local_b15_scope_lock_wait_rechecks_absolute_deadline_and_rolls_ba
             await session.execute(
                 sa.update(RunRecord)
                 .where(RunRecord.id == stack.run.id)
-                .values(deadline_at=sa.func.statement_timestamp() + sa.text("interval '1 second'"))
+                .values(deadline_at=sa.func.statement_timestamp() + sa.text("interval '5 seconds'"))
             )
         async with stack.factory.begin() as blocker:
             await blocker.scalar(
@@ -550,7 +550,7 @@ async def test_local_b15_scope_lock_wait_rechecks_absolute_deadline_and_rolls_ba
             )
             pending = asyncio.create_task(stack.submit(f"确认 {stack.proposal_id}"))
             try:
-                for _ in range(50):
+                for _ in range(400):
                     async with async_tool_database.connect() as probe:
                         waiting = await probe.scalar(
                             sa.text(
@@ -563,7 +563,8 @@ async def test_local_b15_scope_lock_wait_rechecks_absolute_deadline_and_rolls_ba
                         break
                     await asyncio.sleep(0.01)
                 assert waiting, "resume must reach the real scope row lock"
-                await asyncio.sleep(1.05)
+                # 检测到锁等待后再跨过 5s 绝对期限，验证醒来重检而不是仅凭旧快照继续。
+                await asyncio.sleep(5.05)
             finally:
                 await blocker.rollback()
             with pytest.raises(AppError) as exc:

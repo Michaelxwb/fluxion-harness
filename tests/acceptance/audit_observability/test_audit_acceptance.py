@@ -128,8 +128,6 @@ UNIFIED_FIELDS = frozenset(
         "latency_ms",
         "run_id",
         "task_id",
-        # RUN 操作行的用户提问摘要（列表展示用；非 RUN 行为 null）。
-        "summary",
     }
 )
 LEGACY_FIELDS = frozenset({"id", "actor_display_name", "create_time"})
@@ -312,7 +310,8 @@ async def _get_audits(client: httpx.AsyncClient, params: dict[str, Any]) -> dict
 
 def _assert_unified_fields(items: list[dict[str, Any]]) -> None:
     for item in items:
-        assert set(item) == UNIFIED_FIELDS | LEGACY_FIELDS, sorted(item)
+        # 列表额外带 RUN 操作行的 `summary`（只用于列表展示，不进入导出）。
+        assert set(item) == UNIFIED_FIELDS | LEGACY_FIELDS | {"summary"}, sorted(item)
         assert item["id"] == item["audit_id"]
         assert item["create_time"] == item["occurred_at"]
         assert item["actor_display_name"] == item["actor_name"]
