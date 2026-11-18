@@ -986,7 +986,9 @@ const PROPS_KEYS = [
   'inputErrorCode',
   'errorCode',
   'outcomeUnknown',
-  'inputFrozen'
+  'inputFrozen',
+  'runActive',
+  'stopDisabled'
 ];
 
 /** 展示组件只吃 typed props 与事件：渲染场景逐项注入，未给出的用显式缺省。 */
@@ -1001,7 +1003,9 @@ function composerProps(scenario) {
     inputErrorCode: null,
     errorCode: null,
     outcomeUnknown: false,
-    inputFrozen: false
+    inputFrozen: false,
+    runActive: false,
+    stopDisabled: false
   };
   for (const key of PROPS_KEYS) {
     if (!(key in scenario)) continue;
@@ -1016,6 +1020,7 @@ function composerProps(scenario) {
   props.onRetry = () => {};
   props.onDiscard = () => {};
   props.onCancel = () => {};
+  props.onStop = () => {};
   return props;
 }
 
@@ -1128,6 +1133,14 @@ SCENARIOS: tuple[dict[str, Any], ...] = (
         "text": SEND_TEXT,
         "attachments": ["uploaded"],
         "inputErrorCode": "SEND_FILE_TOO_LARGE",
+    },
+    {
+        "id": "run-active-zh",
+        "locale": "zh-CN",
+        "phase": "IDLE",
+        "text": "",
+        "attachments": [],
+        "runActive": True,
     },
     {
         "id": "disabled-zh",
@@ -1827,3 +1840,12 @@ def test_b281_composer_keys_are_localized_on_both_sides() -> None:
         assert key in combined, f"词条必须在源码中真实引用：{key}"
     assert "common.retry" in _read(COMPOSER_TSX), "重试文案必须复用既有 common.* 词条"
     assert "common.cancel" in _read(COMPOSER_TSX), "取消文案必须复用既有 common.* 词条"
+
+
+def test_stop_action_is_the_same_icon_button_as_send(composer_render: dict[str, Any]) -> None:
+    markup = composer_render["markup"]["run-active-zh"]
+    assert 'data-testid="chat-composer-stop"' in markup
+    assert 'data-mode="stop"' in _tag(markup, "chat-composer-stop")
+    assert 'aria-label="停止生成"' in _tag(markup, "chat-composer-stop")
+    assert 'data-testid="chat-composer-send"' not in markup, "运行中同一位置只保留停止图标"
+    assert not _is_disabled(markup, "chat-composer-stop")

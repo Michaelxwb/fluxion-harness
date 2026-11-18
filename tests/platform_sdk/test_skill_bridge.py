@@ -237,9 +237,10 @@ async def test_unauthorized_platform_fails_with_platform_session_required(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _patch_resolver(monkeypatch, denied=frozenset({"mssp"}))
+    access = SkillPlatformAccess(_context())
     with pytest.raises(PlatformAuthError) as captured:
-        async with skill_platform_environment(_context(), "probe-skill"):
-            pass
+        await access.allowed_keys()
+    await access.close()
     assert captured.value.code == "PLATFORM_SESSION_REQUIRED"
 
 
@@ -308,6 +309,16 @@ async def test_identity_mismatch_is_rejected(monkeypatch: pytest.MonkeyPatch) ->
         completed = await _run_cli(dict(session.env), "other-skill")
         assert completed.returncode == 1
         assert json.loads(completed.stderr)["error"]["code"] == "invalid_context"
+
+
+async def test_platform_key_cli_does_not_bind_to_skill_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    """v2 platform-key calls remain valid when the package name changes after draft writes."""
+    _patch_resolver(monkeypatch)
+    async with skill_platform_environment(_context(), "probe-skill") as session:
+        env = {**session.env, "MUAD_SESSION_NAME": "changed-after-write"}
+        completed = await _run_cli(env)
+    assert completed.returncode == 0, completed.stderr
+    assert json.loads(completed.stdout)["platforms"]
 
 
 async def test_no_platform_context_yields_no_injection() -> None:

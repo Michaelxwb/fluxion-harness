@@ -43,6 +43,7 @@ from .enums import (
     ScheduleStatus,
     SkipReason,
     TaskStatus,
+    TaskType,
     TerminalStatus,
     WaitKind,
 )
@@ -388,6 +389,16 @@ class FireHistoryPage(ContractModel):
     retention: HistoryRetention | None = None
 
 
+class TaskArtifactDeliveryRef(ContractModel):
+    """产物对一个目标的交付状态（统一 Artifact 投递契约的读投影）。"""
+
+    target_key: str = Field(min_length=1, max_length=256)
+    status: Literal["PENDING", "DELIVERED", "DEGRADED", "UNKNOWN", "FAILED"]
+    error_code: str | None = None
+    retryable: bool = True
+    fallback_url: str | None = None
+
+
 class TaskArtifactRef(ContractModel):
     """任务产物的不可变版本引用；下载必须带 version + checksum。"""
 
@@ -397,6 +408,55 @@ class TaskArtifactRef(ContractModel):
     size: int = Field(ge=0)
     checksum: str = Field(pattern=SNAPSHOT_HASH_PATTERN)
     version: str = Field(min_length=1, max_length=64)
+    deliveries: list[TaskArtifactDeliveryRef] = Field(default_factory=list)
+
+
+class TaskResultCounts(ContractModel):
+    total: int = Field(default=0, ge=0)
+    succeeded: int = Field(default=0, ge=0)
+    failed: int = Field(default=0, ge=0)
+    cancelled: int = Field(default=0, ge=0)
+
+
+class TaskChildItem(ContractModel):
+    task_id: UUID
+    item_key: str | None = None
+    label: str
+    status: TaskStatus
+    error_code: str | None = None
+    error_message_summary: str | None = None
+    artifact_count: int = Field(default=0, ge=0)
+    started_at: AwareDatetime | None = None
+    finished_at: AwareDatetime | None = None
+
+
+class TaskChildPage(ContractModel):
+    items: list[TaskChildItem] = Field(default_factory=list)
+    page: int = Field(default=1, ge=1)
+    page_size: int = Field(default=20, ge=1, le=100)
+    total: int = Field(default=0, ge=0)
+
+
+class TaskCenterTaskItem(ContractModel):
+    task_id: UUID
+    agent_id: UUID
+    task_type: TaskType
+    skill_name: str
+    status: TaskStatus
+    counts: TaskResultCounts = Field(default_factory=TaskResultCounts)
+    partial_failure: bool = False
+    child_total: int = Field(default=0, ge=0)
+    child_finished: int = Field(default=0, ge=0)
+    has_artifacts: bool = False
+    create_time: AwareDatetime
+    finished_at: AwareDatetime | None = None
+
+
+class TaskCenterTaskPage(ContractModel):
+    items: list[TaskCenterTaskItem] = Field(default_factory=list)
+    page: int = Field(default=1, ge=1)
+    page_size: int = Field(default=20, ge=1, le=100)
+    total: int = Field(default=0, ge=0)
 
 
 class OperationWatermark(ContractModel):
@@ -419,17 +479,27 @@ class AsyncWaitPayload(ContractModel):
 
 class ExecutionDetail(ContractModel):
     execution_id: UUID
+    #: 后台任务详情必填；定时任务既有构造点也逐步补齐。
+    agent_id: UUID | None = None
+    task_type: TaskType = TaskType.SKILL
+    skill_name: str = ""
+    parent_id: UUID | None = None
+    item_key: str | None = None
     status: TaskStatus
     wait_kind: WaitKind | None = None
     wait_payload: dict[str, Any] | None = None
     result: dict[str, Any] | None = None
     result_artifacts: list[TaskArtifactRef] = Field(default_factory=list)
+    artifact_total: int = Field(default=0, ge=0)
+    counts: TaskResultCounts = Field(default_factory=TaskResultCounts)
+    partial_failure: bool = False
+    children: TaskChildPage = Field(default_factory=TaskChildPage)
     error_code: str | None = None
     error_message: str | None = None
     failure_class: FailureClass | None = None
     started_at: AwareDatetime | None = None
     finished_at: AwareDatetime | None = None
-    snapshot_schema_version: int = Field(ge=4)
+    snapshot_schema_version: int = Field(ge=3)
     snapshot_bytes: int = Field(ge=0)
 
     @model_validator(mode="after")
@@ -546,10 +616,15 @@ class ConfirmScope(ContractModel):
     ref: str = Field(min_length=1, max_length=256)
 
 
+#: Task 产物用途：只有 OUTPUT 是用户可下载产物；TOOL_RESULT/TRANSCRIPT 是内部留档。
+ArtifactPurpose = Literal["OUTPUT", "TOOL_RESULT", "TRANSCRIPT"]
+
+
 class TaskArtifactWriteRequest(ContractModel):
     """API-28：Task-owned 产物写入/追加版本。`base_version` 是 CAS，不是提示。"""
 
     task_execution_id: UUID
+    purpose: ArtifactPurpose = "OUTPUT"
     filename: str = Field(min_length=1, max_length=255)
     media_type: str = Field(min_length=1, max_length=128)
     size: int = Field(ge=0)

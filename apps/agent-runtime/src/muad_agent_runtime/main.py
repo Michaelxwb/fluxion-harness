@@ -38,6 +38,7 @@ from .api.tool_results import router as tool_results_router
 from .api.webchat_history import router as webchat_history_router
 from .application.async_tools.continuation_pump import ContinuationPump
 from .application.async_tools.control_dispatcher import ControlDispatcher, ControlDispatchPolicy
+from .application.async_tools.late_results import LateBackgroundResultPump
 from .application.async_tools.runtime import set_control_dispatcher
 from .application.async_tools.supervisor import ExecutionSupervisor, reclaim_stale_executions
 from .application.attachments.tool_results import ArtifactResultWriter
@@ -360,6 +361,10 @@ def _start_loops(app: FastAPI, settings: SharedSettings, outbound: _Outbound) ->
         instance_id=app.state.instance_id,
         lease_sec=settings.run_lease_sec,
     )
+    late_results = LateBackgroundResultPump(
+        get_session_factory(),
+        poll_sec=settings.async_tool_dispatch_poll_sec,
+    )
     invoker = ConsolidationInvoker(
         get_session_factory(), outbound.credentials, client=outbound.pools.model
     )
@@ -395,6 +400,7 @@ def _start_loops(app: FastAPI, settings: SharedSettings, outbound: _Outbound) ->
     app.state.delivery_pump = _mount_delivery_pump(settings, outbound.platform_settings, outbound.pools)
     loops = (
         (pump.run_forever(), CONTINUATION_LOOP_NAME),
+        (late_results.run_forever(), "runtime.late_results"),
         (memory.run_forever(), MEMORY_LOOP_NAME),
         (learning.run_forever(), LEARNING_LOOP_NAME),
         (learning_jobs.run_forever(), LEARNING_JOBS_LOOP_NAME),

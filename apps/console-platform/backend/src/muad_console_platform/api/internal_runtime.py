@@ -14,7 +14,7 @@ from muad_contracts import (
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.platform_settings_service import PlatformSettingsService
-from ..application.resolve_egress_service import resolve_egress_access
+from ..application.resolve_egress_service import list_platforms, resolve_egress_access
 from ..application.resolve_service import ResolveService, ScheduleResolveService
 from ..application.runtime_credentials import (
     require_service_identity,
@@ -161,4 +161,23 @@ async def resolve_egress(
     """API-08：Egress Boundary 的平台解析、凭据选择与策略判定。"""
     require_service_identity(x_internal_service, service_token(request))
     data = await resolve_egress_access(session, tenant_id, payload)
+    return ok(request.app.state.message_catalog, data)
+
+
+@router.post("/list-platforms")
+async def list_runtime_platforms(
+    payload: dict[str, Any],
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    x_internal_service: Annotated[str | None, Header()] = None,
+) -> ApiResponse[Any]:
+    """Safe execution-scoped platform catalog; credentials are resolved only on get-state."""
+    require_service_identity(x_internal_service, service_token(request))
+    actor_user_id = payload.get("actor_user_id")
+    if not actor_user_id:
+        from muad_api import AppError
+        from muad_api.error_codes import ErrorCode
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+    data = await list_platforms(session, tenant_id, str(actor_user_id))
     return ok(request.app.state.message_catalog, data)

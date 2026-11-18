@@ -37,6 +37,7 @@ export interface ScheduleListPanelProps {
   onOpen(scheduleId: string): void;
   onAgentChange(agentId: string | null): void;
   onPageChange(page: number): void;
+  onPageSizeChange(pageSize: number): void;
 }
 
 function TaskCenterBadge(props: { badges: TaskCenterBadges | null; errorCode: string | null }) {
@@ -255,12 +256,13 @@ export function ScheduleListPanel(props: ScheduleListPanelProps) {
         </ul>
       ) : null}
 
-      {state.items.length > 0 && state.pageSize > 0 && state.total > state.pageSize ? (
+      {state.items.length > 0 && state.pageSize > 0 ? (
         <PaginationFooter
           page={state.page}
           pageSize={state.pageSize}
           total={state.total}
           onPageChange={props.onPageChange}
+          onPageSizeChange={props.onPageSizeChange}
         />
       ) : null}
     </section>

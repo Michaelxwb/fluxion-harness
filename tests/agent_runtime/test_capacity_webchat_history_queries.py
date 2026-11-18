@@ -52,7 +52,9 @@ pytestmark = pytest.mark.integration
 ENTRY = uuid.uuid4()
 #: 清理顺序：制品先于 run_record/conversation（同 Owner 物理 FK），再走套件既有顺序。
 PURGE_ORDER = ("artifact", *CLEANUP_ORDER)
-BASE_TIME = datetime(2026, 10, 18, 8, 0, 0, tzinfo=UTC)
+# Keep seeded conversations inside the product's default retention window;
+# this suite tests pagination, not calendar-date expiry.
+BASE_TIME = datetime.now(UTC) - timedelta(days=1)
 
 
 @dataclass(frozen=True)

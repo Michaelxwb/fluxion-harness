@@ -723,7 +723,7 @@ export function MessageThread(props: MessageThreadProps) {
         failureCode={props.failureCode}
         onRetry={props.onRetry}
       />
-      {props.loading ? (
+      {props.loading && props.messages.length === 0 ? (
         <div className="chat-message-loading" data-testid="chat-message-loading">
           <Spin />
           <Typography.Text>{t('common.loading')}</Typography.Text>

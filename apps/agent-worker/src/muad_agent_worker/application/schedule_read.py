@@ -36,7 +36,11 @@ from muad_contracts import (
     SchedulePolicy,
     TaskArtifactRef,
     TaskCenterBadges,
+    TaskChildItem,
+    TaskChildPage,
+    TaskResultCounts,
     TaskStatus,
+    TaskType,
     WaitKind,
 )
 from muad_contracts.enums import ScheduleStatus
@@ -56,6 +60,65 @@ from ..infrastructure.models.task import (
 )
 
 DST_EVENT_TYPES = ("DST_GAP_SKIPPED", "DST_FOLD_SECOND_SKIPPED")
+
+
+def _task_type(value: str) -> TaskType:
+    try:
+        return TaskType(value)
+    except ValueError:
+        return TaskType.SKILL
+
+
+def _skill_name(execution: TaskExecution) -> str:
+    snapshot = execution.execution_snapshot_json or {}
+    skills = snapshot.get("skills") if isinstance(snapshot, dict) else None
+    if isinstance(skills, list) and skills:
+        first = skills[0]
+        if isinstance(first, dict):
+            name = first.get("name") or first.get("key")
+            if isinstance(name, str) and name.strip():
+                return name.strip()
+    return f"{execution.task_type} {str(execution.id)[:8]}"
+
+
+def _result_counts(result: Any) -> TaskResultCounts:
+    row = result if isinstance(result, dict) else {}
+    values = [row.get(key) for key in ("total", "succeeded", "failed", "cancelled")]
+    return TaskResultCounts(
+        total=values[0] if isinstance(values[0], int) and values[0] >= 0 else 0,
+        succeeded=values[1] if isinstance(values[1], int) and values[1] >= 0 else 0,
+        failed=values[2] if isinstance(values[2], int) and values[2] >= 0 else 0,
+        cancelled=values[3] if isinstance(values[3], int) and values[3] >= 0 else 0,
+    )
+
+
+def _partial_failure(execution: TaskExecution, counts: TaskResultCounts) -> bool:
+    row = execution.result_json if isinstance(execution.result_json, dict) else {}
+    return (
+        execution.status == TaskStatus.COMPLETED.value
+        and execution.task_type == TaskType.BATCH.value
+        and row.get("mode") == "BEST_EFFORT"
+        and counts.failed > 0
+    )
+
+
+def _error_summary(execution: TaskExecution) -> str | None:
+    value = execution.error_message or ""
+    first = value.splitlines()[0].strip() if value else ""
+    if not first:
+        return execution.error_code
+    return first[:200]
+
+
+def _child_label(execution: TaskExecution) -> str:
+    payload = execution.input_json if isinstance(execution.input_json, dict) else {}
+    for key in ("label", "name", "title", "customer", "target", "item_key"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()[:120]
+    if execution.item_key:
+        return execution.item_key
+    return f"子任务 {str(execution.id)[:8]}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -402,16 +465,35 @@ class ScheduleReadService:
             )
         return events
 
-    async def execution_detail(self, *, execution: TaskExecution) -> ExecutionDetail:
+    async def execution_detail(
+        self,
+        *,
+        execution: TaskExecution,
+        children_page: int = 1,
+        children_page_size: int = 20,
+    ) -> ExecutionDetail:
         """Execution 详情：等待载荷只在 `WAITING_EXTERNAL` 时可见（其余状态是内部事实）。"""
         waiting = execution.status == TaskStatus.WAITING_EXTERNAL.value
+        counts = _result_counts(execution.result_json)
+        result_artifacts, artifact_total = await self._artifacts_with_children(execution)
         return ExecutionDetail(
             execution_id=execution.id,
+            agent_id=execution.agent_id,
+            task_type=_task_type(execution.task_type),
+            skill_name=_skill_name(execution),
+            parent_id=execution.parent_id,
+            item_key=execution.item_key,
             status=TaskStatus(execution.status),
             wait_kind=WaitKind(execution.wait_kind) if waiting and execution.wait_kind else None,
             wait_payload=dict(execution.wait_payload_json or {}) if waiting else None,
             result=dict(execution.result_json) if execution.result_json is not None else None,
-            result_artifacts=await self._artifacts(execution.id),
+            result_artifacts=result_artifacts,
+            artifact_total=artifact_total,
+            counts=counts,
+            partial_failure=_partial_failure(execution, counts),
+            children=await self._children_page(
+                execution, page=children_page, page_size=children_page_size
+            ),
             error_code=execution.error_code,
             error_message=execution.error_message,
             failure_class=(
@@ -423,21 +505,99 @@ class ScheduleReadService:
             snapshot_bytes=execution.snapshot_bytes,
         )
 
-    async def _artifacts(self, execution_id: uuid.UUID) -> list[TaskArtifactRef]:
+    async def _children_page(
+        self, execution: TaskExecution, *, page: int, page_size: int
+    ) -> TaskChildPage:
+        conditions = (
+            TaskExecution.parent_id == execution.id,
+            TaskExecution.tenant_id == execution.tenant_id,
+            TaskExecution.is_deleted.is_(False),
+        )
+        total = int(
+            await self._session.scalar(
+                select(func.count()).select_from(TaskExecution).where(*conditions)
+            )
+            or 0
+        )
+        rows = (
+            await self._session.scalars(
+                select(TaskExecution)
+                .where(*conditions)
+                .order_by(TaskExecution.create_time.asc(), TaskExecution.id)
+                .limit(page_size)
+                .offset((page - 1) * page_size)
+            )
+        ).all()
+        counts = await self._child_artifact_counts(execution, [row.id for row in rows])
+        return TaskChildPage(
+            items=[
+                TaskChildItem(
+                    task_id=row.id,
+                    item_key=row.item_key,
+                    label=_child_label(row),
+                    status=TaskStatus(row.status),
+                    error_code=row.error_code,
+                    error_message_summary=_error_summary(row),
+                    artifact_count=counts.get(row.id, 0),
+                    started_at=row.started_at,
+                    finished_at=row.finished_at,
+                )
+                for row in rows
+            ],
+            page=page,
+            page_size=page_size,
+            total=total,
+        )
+
+    async def _child_artifact_counts(
+        self, execution: TaskExecution, child_ids: Sequence[uuid.UUID]
+    ) -> dict[uuid.UUID, int]:
+        if not child_ids:
+            return {}
         rows = (
             await self._session.execute(
                 sa.text(
-                    "SELECT id, media_type, size, checksum, metadata_json "
-                    "FROM runtime.artifact "
-                    "WHERE task_id = :execution_id AND is_deleted = false "
-                    "AND artifact_type = 'TASK_OUTPUT' "
-                    "ORDER BY create_time DESC, id"
-                ),
-                {"execution_id": execution_id},
+                    "SELECT a.task_id, count(DISTINCT a.id) AS n "
+                    "FROM runtime.artifact a "
+                    "JOIN task.task_execution e ON e.id = a.task_id "
+                    "WHERE e.parent_id = :parent_id AND e.tenant_id = :tenant_id "
+                    "AND e.is_deleted = false AND a.is_deleted = false "
+                    "AND a.artifact_type = 'TASK_OUTPUT' "
+                    "AND a.task_id IN :child_ids "
+                    "GROUP BY a.task_id"
+                ).bindparams(sa.bindparam("child_ids", expanding=True)),
+                {
+                    "parent_id": execution.id,
+                    "tenant_id": execution.tenant_id,
+                    "child_ids": tuple(child_ids),
+                },
             )
         ).all()
+        return {row.task_id: int(row.n) for row in rows}
+
+    async def _artifacts_with_children(
+        self, execution: TaskExecution
+    ) -> tuple[list[TaskArtifactRef], int]:
+        rows = (
+            await self._session.execute(
+                sa.text(
+                    "SELECT a.id, a.media_type, a.size, a.checksum, a.metadata_json, a.task_id "
+                    "FROM runtime.artifact a "
+                    "JOIN task.task_execution e ON e.id = a.task_id "
+                    "WHERE e.tenant_id = :tenant_id AND e.is_deleted = false "
+                    "AND (a.task_id = :execution_id OR e.parent_id = :execution_id) "
+                    "AND a.is_deleted = false AND a.artifact_type = 'TASK_OUTPUT' "
+                    "ORDER BY a.create_time DESC, a.id"
+                ),
+                {"execution_id": execution.id, "tenant_id": execution.tenant_id},
+            )
+        ).all()
+        seen: set[uuid.UUID] = set()
         artifacts: list[TaskArtifactRef] = []
         for row in rows:
+            if row.id in seen:
+                continue
+            seen.add(row.id)
             metadata = dict(row.metadata_json or {})
             artifacts.append(
                 TaskArtifactRef(
@@ -449,7 +609,21 @@ class ScheduleReadService:
                     version=str(metadata.get("version") or "1"),
                 )
             )
-        return artifacts
+        # `artifact_total` is the number of logical files, not versions.
+        total = int(
+            await self._session.scalar(
+                sa.text(
+                    "SELECT count(DISTINCT a.id) FROM runtime.artifact a "
+                    "JOIN task.task_execution e ON e.id = a.task_id "
+                    "WHERE e.tenant_id = :tenant_id AND e.is_deleted = false "
+                    "AND (a.task_id = :execution_id OR e.parent_id = :execution_id) "
+                    "AND a.is_deleted = false AND a.artifact_type = 'TASK_OUTPUT'"
+                ),
+                {"execution_id": execution.id, "tenant_id": execution.tenant_id},
+            )
+            or 0
+        )
+        return artifacts[:100], total
 
     async def pending_page(
         self,

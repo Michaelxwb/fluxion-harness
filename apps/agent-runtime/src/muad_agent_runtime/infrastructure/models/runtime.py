@@ -260,6 +260,13 @@ class RunRecord(StandardColumnsMixin, Base):
             "task_family",
             sa.text("end_time DESC"),
         ),
+        # 审计操作视图：租户内按时间倒序分页（Run 操作行）
+        sa.Index(
+            "ix_run_record_tenant_create_time",
+            "tenant_id",
+            sa.text("create_time DESC"),
+            postgresql_where=sa.text("is_deleted = false"),
+        ),
         sa.Index(
             "ix_run_record_running_lease_until",
             "lease_until",

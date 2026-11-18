@@ -617,6 +617,16 @@ const observations = {};
   detail.dispose();
 }
 
+// 14) 每页条数切换：回到第 1 页并以新 page_size 请求。
+{
+  http.requests = [];
+  http.handler = () => ok(pageOf([item()], { page: 1, page_size: 30, total: 60 }));
+  const list = createScheduleListController({ port: client });
+  await list.setPageSize(30);
+  observations.pageSize = { state: list.snapshot(), params: http.requests[0].params };
+  list.dispose();
+}
+
 console.log(JSON.stringify(observations));
 """
 
@@ -797,7 +807,8 @@ function listScenario(scenario) {
     onRefresh: noop,
     onOpen: noop,
     onAgentChange: noop,
-    onPageChange: noop
+    onPageChange: noop,
+    onPageSizeChange: noop
   });
 }
 
@@ -1021,6 +1032,8 @@ SCENARIOS = (
     {"id": "list-en", "locale": "en-US", "agents": True,
      "state": {"items": LIST_ITEMS, "page": 1, "pageSize": 2, "total": 30}},
     {"id": "list-empty-zh", "locale": "zh-CN", "state": {"items": []}},
+    {"id": "list-single-page-zh", "locale": "zh-CN",
+     "state": {"items": [LIST_ITEMS[0]], "page": 1, "pageSize": 20, "total": 1}},
     {"id": "list-error-zh", "locale": "zh-CN",
      "state": {"items": [], "phase": "ERROR", "errorCode": "NETWORK_ERROR"}},
     {"id": "list-notfound-zh", "locale": "zh-CN",
@@ -1175,7 +1188,7 @@ def test_first_load_uses_the_full_authorized_scope(task_center_logic: dict[str, 
     assert len(requests) == 2, "首屏只读列表 + 徽标"
     schedules = next(r for r in requests if r["url"].endswith("/schedules"))
     badges = next(r for r in requests if r["url"].endswith("/badges"))
-    assert schedules["params"] == {"page": 1}, "缺省不传 agent_id/page_size/status/mode"
+    assert schedules["params"] == {"page": 1, "page_size": 15}, "与 Console 列表统一每页 15 条"
     assert badges["params"] == {}, "徽标与列表同一（全部授权）范围"
     assert initial["afterSettle"] == initial["beforeSettle"], "静置后不得有后台轮询"
     state = initial["state"]
@@ -1187,7 +1200,10 @@ def test_first_load_uses_the_full_authorized_scope(task_center_logic: dict[str, 
 
 def test_pagination_keeps_the_server_page_size(task_center_logic: dict[str, Any]) -> None:
     page2 = task_center_logic["page2"]
-    assert page2["params"] == [{"page": 1}, {"page": 2, "page_size": 2}]
+    assert page2["params"] == [
+        {"page": 1, "page_size": 15},
+        {"page": 2, "page_size": 2},
+    ]
     state = page2["state"]
     assert [row["schedule_id"] for row in state["items"]] == [SCHEDULE_B]
     assert state["page"] == 2 and state["total"] == 3
@@ -1320,6 +1336,7 @@ def test_list_states_are_real(task_center_render: dict[str, Any]) -> None:
     assert 'data-testid="chat-schedule-list"' not in markup["list-notfound-zh"]
     assert "未知值（MYSTERY）" in markup["list-unknown-zh"]
     assert "全部授权 Agent" in markup["list-empty-zh"], "缺省语义写在界面上"
+    assert "每页" in markup["list-zh"], "分页与 Console 共用每页条数选择器"
     assert 'data-testid="chat-task-center-agent-filter"' in markup["list-zh"], "授权集合已知时提供过滤"
 
 
@@ -1329,6 +1346,7 @@ def test_list_labels_follow_the_locale(task_center_render: dict[str, Any]) -> No
     assert "Agentic" in markup and "Reminder" in markup
     assert "2 more occurrences were not run" in markup
     assert "Next fire " in markup
+    assert "Per page" in markup
 
 
 def test_detail_shows_the_frozen_summary_without_internals(
@@ -1417,3 +1435,16 @@ def test_ui_reads_only_through_the_typed_client() -> None:
         assert "fetch(" not in source, "组件不得裸用 fetch"
         assert "axios" not in source, "组件不得裸用 axios"
         assert "toLocaleString(" not in source, "时间必须走 DateTimeText"
+
+
+def test_single_page_still_shows_pagination(task_center_render: dict[str, Any]) -> None:
+    markup = task_center_render["markup"]["list-single-page-zh"]
+    assert "app-pagination" in markup, "只有一页也要显示统一分页组件"
+    assert "1 / 1" in markup
+
+
+def test_page_size_change_resets_to_first_page(task_center_logic: dict[str, Any]) -> None:
+    page_size = task_center_logic["pageSize"]
+    assert page_size["params"] == {"page": 1, "page_size": 30}
+    assert page_size["state"]["pageSize"] == 30
+    assert page_size["state"]["page"] == 1

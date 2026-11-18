@@ -129,44 +129,39 @@ test.afterAll(() => {
   runSeedCli(['cleanup', '--artifact-root', ARTIFACT_ROOT]);
 });
 
-test('S-06 列表渲染种子行，Trace/审计类型/结果筛选收窄且重置还原', async ({ page }) => {
+test('S-06 默认按操作成行，类型筛选进入步骤明细，重置还原', async ({ page }) => {
   await openAudits(page);
   await expect(page.getByRole('columnheader').first()).toHaveText('Trace ID / 审计 ID');
-  const seeded = [state.rows.config, state.rows.tool, state.rows.egress, state.rows.model];
-  for (const auditId of seeded) {
-    await expect(page.getByTestId(`audit-link-${auditId}`)).toBeVisible();
-    const row = page.getByRole('row').filter({ has: page.getByTestId(`audit-trace-${auditId}`) });
-    await expect(row.getByRole('gridcell').first().getByTestId(`audit-trace-${auditId}`)).toHaveText(state.traceId);
-  }
-  // 同租户内还有另一条 trace 的 TOOL 行：证明筛选前列表里确实存在多条 trace
-  await expect(page.getByTestId(`audit-trace-${state.extraRow.auditId}`)).toHaveText(
-    state.extraRow.traceId
-  );
 
-  // Trace ID 搜索：只剩该 trace 的 4 行
+  // 默认操作视图：同一 Run 的模型/工具事件折叠，配置变更与出网各占一行
+  await expect(page.getByTestId(`audit-link-${state.rows.config}`)).toBeVisible();
+  await expect(page.getByTestId(`audit-link-${state.rows.egress}`)).toBeVisible();
+  await expect(page.getByTestId(`audit-link-${state.rows.tool}`)).toHaveCount(0);
+  await expect(page.getByTestId(`audit-link-${state.rows.model}`)).toHaveCount(0);
+  await expect(page.getByTestId(`audit-link-${state.runId}`)).toHaveCount(1);
+
+  // Trace ID 搜索：操作视图收窄到该 trace 的操作行
   await filterByTrace(page, state.traceId);
-  for (const auditId of seeded) {
-    await expect(page.getByTestId(`audit-trace-${auditId}`)).toHaveText(state.traceId);
-  }
+  await expect(page.getByTestId(`audit-link-${state.rows.config}`)).toBeVisible();
   await expect(page.getByTestId(`audit-link-${state.extraRow.auditId}`)).toHaveCount(0);
   await expect(page.getByTestId(`audit-link-${state.unreadableRow.auditId}`)).toHaveCount(0);
 
-  // 审计类型收窄：该 trace 下只剩 TOOL 行
+  // 审计类型收窄：工具调用进入步骤明细视图，逐条展示调用记录并给出提示条
   await pickOption(page, 'audit-filter-auditType', TOOL_TYPE_TEXT);
+  await expect(page.getByTestId('audit-view-notice')).toBeVisible();
   await expect(page.getByTestId(`audit-link-${state.rows.tool}`)).toBeVisible();
   await expect(page.getByTestId(`audit-link-${state.rows.config}`)).toHaveCount(0);
   await expect(page.getByTestId(`audit-link-${state.rows.egress}`)).toHaveCount(0);
-  await expect(page.getByTestId(`audit-link-${state.rows.model}`)).toHaveCount(0);
 
-  // 执行结果收窄：种子三行运行审计的归一结果都是 SUCCESS ⇒ 筛选失败即空态
+  // 执行结果收窄：种子 TOOL 行归一结果为 SUCCESS ⇒ 筛选失败即空态
   await pickOption(page, 'audit-filter-resultStatus', FAILED_RESULT_TEXT);
   await expect(page.locator('.app-empty-title')).toBeVisible();
 
-  // 重置：清空全部筛选并回到第 1 页，种子行与另一 trace 的行都回来
+  // 重置：清空全部筛选，回到操作视图并回到第 1 页
   await page.getByTestId('audit-reset').click();
-  for (const auditId of seeded) {
-    await expect(page.getByTestId(`audit-link-${auditId}`)).toBeVisible();
-  }
+  await expect(page.getByTestId('audit-view-notice')).toHaveCount(0);
+  await expect(page.getByTestId(`audit-link-${state.rows.config}`)).toBeVisible();
+  await expect(page.getByTestId(`audit-link-${state.rows.egress}`)).toBeVisible();
   await expect(page.getByTestId(`audit-link-${state.extraRow.auditId}`)).toBeVisible();
   await expect(page.locator('.app-pagination')).toBeVisible();
 });
@@ -175,6 +170,8 @@ test('S-07 Trace ID/主展示字段打开只读详情，字段与关联来自真
   page
 }) => {
   await openAudits(page);
+  // 种子 TOOL 行属于步骤明细视图：先按类型进入明细，再验证审计详情入口
+  await pickOption(page, 'audit-filter-auditType', TOOL_TYPE_TEXT);
 
   // 入口一：Trace ID 链接（TOOL 行，带可读 Run 关联）
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
@@ -229,6 +226,8 @@ test('S-07 Trace ID/主展示字段打开只读详情，字段与关联来自真
   await expect(page.getByTestId(`audit-link-${state.rows.config}`)).toBeVisible();
 
   // 入口三：关联对象「Run …」直达运行详情——与 Trace ID 入口分工，不再打开同一个审计详情
+  // （页面重新进入默认操作视图，需再次切到明细视图才能看到 TOOL 行）
+  await pickOption(page, 'audit-filter-auditType', TOOL_TYPE_TEXT);
   await page.getByTestId(`audit-link-${state.rows.tool}`).click();
   await expect(page.locator('.detail-title', { hasText: state.runId.slice(0, 8) })).toHaveCount(1);
   await expect(page.locator('.detail-title', { hasText: '运行审计' })).toHaveCount(0);

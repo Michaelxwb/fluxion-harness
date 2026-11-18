@@ -127,11 +127,13 @@ async def write_task_artifact(
 ) -> TaskArtifactWriteResponse:
     """写入/追加一个不可变版本并提交；文件与行同成同败。"""
     _validate_content(request, content)
+    artifact_type = _artifact_type_for_purpose(request.purpose)
     await _lock_artifact_identity(
         session,
         tenant_id=tenant_id,
         execution_id=request.task_execution_id,
         filename=request.filename,
+        artifact_type=artifact_type,
     )
     owner = await _load_owner(
         session, tenant_id=tenant_id, execution_id=request.task_execution_id
@@ -141,6 +143,7 @@ async def write_task_artifact(
         tenant_id=tenant_id,
         execution_id=request.task_execution_id,
         filename=request.filename,
+        artifact_type=artifact_type,
     )
     current = _current_version(row) if row is not None else None
     target = plan_task_artifact_version(request, current)
@@ -164,7 +167,15 @@ async def write_task_artifact(
     await asyncio.to_thread(_publish, store, storage_key, content, request.checksum)
     try:
         if row is None:
-            session.add(_new_row(owner, request, artifact_id=artifact_id, storage_key=storage_key))
+            session.add(
+                _new_row(
+                    owner,
+                    request,
+                    artifact_id=artifact_id,
+                    storage_key=storage_key,
+                    artifact_type=artifact_type,
+                )
+            )
         else:
             _append_version(row, request, storage_key=storage_key, version=target)
         await session.commit()
@@ -242,10 +253,15 @@ def _validate_content(request: TaskArtifactWriteRequest, content: bytes) -> None
 
 
 async def _lock_artifact_identity(
-    session: AsyncSession, *, tenant_id: str, execution_id: uuid.UUID, filename: str
+    session: AsyncSession,
+    *,
+    tenant_id: str,
+    execution_id: uuid.UUID,
+    filename: str,
+    artifact_type: str,
 ) -> None:
-    """同一 (Execution, filename) 的写入串行化：新建时行还不存在，行锁兜不住。"""
-    key = f"task-artifact:{tenant_id}:{execution_id}:{filename}"
+    """同一 (Execution, purpose, filename) 的写入串行化：新建时行还不存在，行锁兜不住。"""
+    key = f"task-artifact:{tenant_id}:{execution_id}:{artifact_type}:{filename}"
     await session.execute(
         sa.select(sa.func.pg_advisory_xact_lock(sa.cast(sa.func.hashtext(key), sa.BigInteger)))
     )
@@ -271,14 +287,19 @@ async def _load_owner(
 
 
 async def _load_current(
-    session: AsyncSession, *, tenant_id: str, execution_id: uuid.UUID, filename: str
+    session: AsyncSession,
+    *,
+    tenant_id: str,
+    execution_id: uuid.UUID,
+    filename: str,
+    artifact_type: str,
 ) -> Artifact | None:
     row = await session.scalar(
         sa.select(Artifact)
         .where(
             Artifact.tenant_id == tenant_id,
             Artifact.task_id == execution_id,
-            Artifact.artifact_type == TASK_OUTPUT_ARTIFACT_TYPE,
+            Artifact.artifact_type == artifact_type,
             Artifact.is_deleted.is_(False),
             Artifact.metadata_json["filename"].astext == filename,
         )
@@ -328,12 +349,18 @@ def _version_entry(row: Artifact, version: str) -> dict[str, Any] | None:
     return None
 
 
+def _artifact_type_for_purpose(purpose: str) -> str:
+    """OUTPUT 仍写现有可下载类型；内部用途原样落库，不进入下载白名单。"""
+    return TASK_OUTPUT_ARTIFACT_TYPE if purpose == "OUTPUT" else purpose
+
+
 def _new_row(
     owner: TaskArtifactOwner,
     request: TaskArtifactWriteRequest,
     *,
     artifact_id: uuid.UUID,
     storage_key: str,
+    artifact_type: str,
 ) -> Artifact:
     """Task-owned 行：`task_id` = Execution id、`run_id` 为 NULL（XOR）、无 Conversation。"""
     return Artifact(
@@ -344,7 +371,7 @@ def _new_row(
         conversation_id=None,
         agent_id=owner.agent_id,
         user_id=owner.actor_user_id,
-        artifact_type=TASK_OUTPUT_ARTIFACT_TYPE,
+        artifact_type=artifact_type,
         storage_key=storage_key,
         media_type=request.media_type,
         size=request.size,

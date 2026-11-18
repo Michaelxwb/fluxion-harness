@@ -627,6 +627,16 @@
   color: var(--semi-color-text-2);
 }
 
+/* 已有消息时不再在列表顶部盖加载态；在输入区上方给轻量连接提示。 */
+.chat-composer-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 12px;
+  color: var(--semi-color-text-2);
+}
+
 .chat-message-local-failure {
   color: var(--semi-color-text-1);
   font-size: 12px;
@@ -815,9 +825,27 @@
 
 .chat-composer-send {
   margin-left: auto;
+  width: 36px;
+  height: 36px;
+  min-width: 0;
+  padding: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-composer-send.chat-composer-retry {
+  width: auto;
   min-width: 64px;
-  height: 32px;
+  padding: 0 12px;
   border-radius: 10px;
+}
+
+.chat-composer .chat-run-stop {
+  margin-left: 0;
+  justify-content: flex-start;
+  padding: 0 4px;
 }
 
 .chat-composer-cancel,
@@ -876,12 +904,13 @@
 
 .chat-run-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 8px 12px;
-  padding: 8px 12px;
-  border: 1px solid var(--semi-color-border);
-  border-radius: 10px;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--semi-color-primary-light-default);
+  border-radius: 12px;
   background: var(--semi-color-bg-1);
   color: var(--semi-color-text-1);
   font-size: 12px;
@@ -901,8 +930,30 @@
 
 .chat-run-activity {
   display: flex;
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.chat-run-elapsed {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 10px;
+  border-left: 1px solid var(--semi-color-border);
+  color: var(--semi-color-text-2);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.chat-run-elapsed b {
+  color: var(--semi-color-text-0);
+  font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
 }
 
 .chat-run-phase {
@@ -937,8 +988,10 @@
 
 .chat-run-connection {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 6px;
+  margin-left: auto;
 }
 
 .chat-run-connection-state {
@@ -1154,6 +1207,11 @@
     position: sticky;
     bottom: 0;
     z-index: 4;
+    flex-wrap: wrap;
+  }
+
+  .chat-run-connection {
+    margin-left: 0;
   }
 
   .chat-message-item {

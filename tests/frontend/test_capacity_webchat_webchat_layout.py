@@ -557,12 +557,15 @@ export async function renderScenarios(scenarios) {
         errorCode: null,
         outcomeUnknown: false,
         inputFrozen: false,
+        runActive: false,
+        stopDisabled: false,
         onAddFiles: NOOP,
         onRemoveAttachment: NOOP,
         onSend: NOOP,
         onRetry: NOOP,
         onDiscard: NOOP,
-        onCancel: NOOP
+        onCancel: NOOP,
+        onStop: NOOP
       })
     );
     const runActions = renderTree(
@@ -1190,7 +1193,12 @@ def test_b291_rendered_message_and_run_surfaces_keep_labels_without_live_noise(
         assert "chat-composer-input" in composer and "chat-composer-send" in composer
         assert "Enter" in composer, f"{locale}: 输入提示必须说明 Enter 发送"
         assert 'aria-label="' in surface["runActions"], f"{locale}: 运行操作面缺少可访问名"
-        assert 'class="chat-run-stop"' in surface["runActions"], f"{locale}: 停止区必须落到稳定类名"
+        assert 'class="chat-run-activity"' in surface["runActions"], (
+            f"{locale}: 运行状态必须落到稳定类名"
+        )
+        assert 'class="chat-run-stop"' not in surface["runActions"], (
+            f"{locale}: 停止动作已移到输入区，状态卡不再有独立停止区"
+        )
         assert "chat-confirmation-card" in surface["confirmation"], f"{locale}: 确认卡稳定类名"
         assert "webchat-shell-notifications" not in surface["shell"], (
             f"{locale}: 通知面板已移除，侧栏只保留会话/未读标记"

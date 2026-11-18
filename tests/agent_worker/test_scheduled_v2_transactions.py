@@ -392,8 +392,8 @@ async def test_task_owned_async_child_terminal_publishes_to_parent_operation(
         assert payload["result"] == {"echo": "ok"}
 
 
-async def test_detach_root_does_not_publish(tenant: TenantContext) -> None:
-    """DETACH 根不发布结果：结果由任务中心 pull / 投递表承载。"""
+async def test_detach_root_publishes_to_runtime(tenant: TenantContext) -> None:
+    """DETACH 根也发 Runtime 结果：网页投递与模型可见都以发件为前置。"""
     factory = tenant.session_factory
     task, _, _ = await seed_operation(
         factory, tenant=tenant.tenant_id, mode=CompletionMode.DETACH, task_status="RUNNING"
@@ -403,7 +403,7 @@ async def test_detach_root_does_not_publish(tenant: TenantContext) -> None:
             session, task, TerminalChange(status=TerminalStatus.COMPLETED, result={}), datetime.now(UTC)
         )
     async with factory() as session:
-        assert await _outbox_count(session, task.id) == 0
+        assert await _outbox_count(session, task.id) == 1
         assert len(await _events(session, task.id)) == 1
 
 

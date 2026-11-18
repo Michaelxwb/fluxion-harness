@@ -101,6 +101,8 @@ export interface RunDetail {
   trace_id: string;
   start_time: string | null;
   end_time: string | null;
+  /** 本 Run 的步骤统计（审计表查询期聚合）；无审计行时全 0，聚合失败为 null（不可用 ≠ 0）。 */
+  steps?: { model: number; tool: number; egress: number; retries: number } | null;
   /** WAITING_TOOL/WAITING_INPUT 的等待起点；其余状态为 null。 */
   waiting_since: string | null;
   /** 等待的绝对截止时间（timestamptz）。 */

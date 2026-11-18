@@ -1,7 +1,9 @@
 import type { TFunction } from 'i18next';
 
+import type { StatusTagOption } from '../../components/common/StatusTag';
+
 import { RESOURCE_TYPES } from './components/AuditFilterBar';
-import type { AuditListItem } from './types';
+import type { AuditListItem, AuditType, AuditView } from './types';
 
 type Translate = TFunction;
 /** 审计 action 词条域：后端 action 是自由字符串，只有登记在这里的取值走 `audit.action.*`。 */
@@ -44,6 +46,31 @@ export function auditActionLabel(t: Translate, record: AuditListItem): string {
 
 export function auditResourceTypeLabel(t: Translate, value: string): string {
   return new Set<string>(RESOURCE_TYPES).has(value) ? t(`audit.resourceType.${value}`) : value;
+}
+
+/** 执行结果标签：列表、Trace 详情共用同一词表（新增状态只改这里）。 */
+export function auditStatusOptions(t: Translate): Record<string, StatusTagOption> {
+  return {
+    SUCCESS: { color: 'green', label: t('audit.resultStatus.SUCCESS') },
+    FAILED: { color: 'red', label: t('audit.resultStatus.FAILED') },
+    DENIED: { color: 'red', label: t('audit.resultStatus.DENIED') },
+    BLOCKED: { color: 'red', label: t('audit.resultStatus.BLOCKED') },
+    RUNNING: { color: 'blue', label: t('audit.resultStatus.RUNNING') },
+    CANCELLED: { color: 'grey', label: t('audit.resultStatus.CANCELLED') }
+  };
+}
+
+/** 视图由筛选派生：模型/工具调用 → 步骤明细，其余 → 业务操作。 */
+export function auditViewOf(auditType: AuditType | undefined): AuditView {
+  return auditType === 'TOOL' || auditType === 'MODEL' ? 'detail' : 'operation';
+}
+
+/** RUN 行的入口渠道（后端 action = channel type）；未登记的取值原样展示。 */
+export function auditSourceLabel(t: Translate, channel: string | null | undefined): string {
+  if (!channel) return '';
+  const key = `audit.source.${channel}`;
+  const label = t(key);
+  return label === key ? channel : label;
 }
 
 export function auditTargetLabel(t: Translate, target: string | null | undefined): string {

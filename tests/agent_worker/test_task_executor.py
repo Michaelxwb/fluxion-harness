@@ -14,11 +14,13 @@ import uuid
 import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import pytest
 from muad_agent_worker.worker.execution_outcomes import interpret_execution
 from muad_agent_worker.worker.executor import SkillTaskExecutor, TaskExecutionError
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
+from muad_contracts import TaskArtifactWriteResponse
 from muad_contracts.platform_settings import TaskSettings
 
 from agent_worker.conftest import TenantContext
@@ -403,3 +405,54 @@ def test_missing_frozen_execution_timeout_is_a_non_retryable_snapshot_error() ->
         executor._execution_timeout(task)
     assert raised.value.code == "SKILL_SNAPSHOT_MISSING"
     assert raised.value.retryable is False
+
+
+FILE_OUTPUT_MAIN = (
+    "import json, os, pathlib, sys\n"
+    "out = pathlib.Path(os.environ['SKILL_OUTPUT_DIR'])\n"
+    "out.mkdir(parents=True, exist_ok=True)\n"
+    "(out / 'report.txt').write_text('hello', encoding='utf-8')\n"
+    "print(json.dumps({'ok': True}))\n"
+)
+
+
+class _RecordingArtifacts:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    async def write(self, **kwargs: Any) -> TaskArtifactWriteResponse:
+        self.calls.append(kwargs)
+        return TaskArtifactWriteResponse(
+            artifact_id=uuid.uuid4(),
+            version="1",
+            checksum=str(kwargs["checksum"]),
+        )
+
+
+async def test_skill_outputs_are_registered_as_task_artifacts(tenant: TenantContext) -> None:
+    """SKILL_OUTPUT_DIR 的用户文件要登记到 Task-owned OUTPUT，任务中心才看得到产物。"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        store, cache = _caches(tmp)
+        checksum = _build_skill_zip(store.root, body=FILE_OUTPUT_MAIN)
+        artifacts = _RecordingArtifacts()
+        task = await persist_task(
+            tenant,
+            skill_artifact_id=ARTIFACT_UUID,
+            execution_snapshot_json=_snapshot(checksum),
+            input_json={},
+        )
+
+        outcome = await SkillTaskExecutor(cache, artifacts=artifacts).execute(task)  # type: ignore[arg-type]
+
+    assert outcome["status"] == "SUCCEEDED", outcome
+    assert outcome["outputs"][0]["relative_path"] == "report.txt"
+    assert len(artifacts.calls) == 1
+    call = artifacts.calls[0]
+    assert call["tenant_id"] == task.tenant_id
+    assert call["execution_id"] == task.id
+    assert call["filename"] == "report.txt"
+    assert call["media_type"] == "text/plain"
+    assert call["content"] == b"hello"
+    assert call["checksum"].startswith("sha256:")
+    assert call["base_version"] == 0

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import mimetypes
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -47,6 +48,7 @@ from ..application.batch_fanout import (
     FanoutSummary,
 )
 from ..infrastructure.models.task import TaskExecution
+from ..infrastructure.task_artifact_client import TaskArtifactClient, TaskArtifactError
 from ..metrics import (
     SANDBOX_OUTPUT_LIMIT_METRIC,
     SANDBOX_TIMEOUT_METRIC,
@@ -223,6 +225,7 @@ class SkillTaskExecutor:
         workspace_store: WorkspaceStore | None = None,
         sessions: async_sessionmaker[AsyncSession] | None = None,
         settings: SharedSettings | None = None,
+        artifacts: TaskArtifactClient | None = None,
     ) -> None:
         self._resolver = resolver
         self._settings = settings or process_settings()
@@ -230,6 +233,8 @@ class SkillTaskExecutor:
         self._executor = executor or build_sandboxed_skill_executor(self._settings)
         self._fanout = fanout
         self._workspace_store = workspace_store
+        #: 用户可见产物登记端口：SKILL_OUTPUT_DIR 是唯一交付目录（统一 Artifact 的 Worker 半边）。
+        self._artifacts = artifacts
 
     async def execute(self, task: TaskExecution) -> dict[str, Any]:
         if task.task_type == TASK_TYPE_BATCH:
@@ -304,11 +309,13 @@ class SkillTaskExecutor:
         except MeteringUnavailable:
             raise TaskExecutionError("EGRESS_METERING_UNAVAILABLE", "shared metering unavailable",
                                      retryable=False) from None
-        return await self._finish_skill_result(task, source, result)
+        return await self._finish_skill_result(task, source, result, workspace)
 
     async def _finish_skill_result(self, task: TaskExecution, source: str,
-                                   result: SkillExecutionResult) -> dict[str, Any]:
+                                   result: SkillExecutionResult,
+                                   workspace: Path) -> dict[str, Any]:
         self._record_result(source, result)
+        await self._register_outputs(task, workspace, result)
         payload = dict(result.result) if result.result else {}
         plan = self._parse_plan(payload)
         if plan is not None:
@@ -342,6 +349,46 @@ class SkillTaskExecutor:
             ],
             "output_notice": result.output_notice,
         }
+
+    async def _register_outputs(
+        self, task: TaskExecution, workspace: Path, result: SkillExecutionResult
+    ) -> None:
+        """把 SKILL_OUTPUT_DIR 的文件登记为 Task-owned OUTPUT；失败只降级、不回滚执行。"""
+        if self._artifacts is None or not result.outputs:
+            return
+        if result.status is not SkillExecutionStatus.SUCCEEDED:
+            return
+        root = (workspace / "outputs" / str(task.id)).resolve()
+        for output in result.outputs:
+            relative = Path(output.relative_path)
+            path = (root / relative).resolve()
+            if not path.is_relative_to(root) or not path.is_file():
+                logger.warning(
+                    "task_output_missing",
+                    extra={"task_id": str(task.id), "relative_path": output.relative_path},
+                )
+                continue
+            try:
+                content = path.read_bytes()
+                await self._artifacts.write(
+                    tenant_id=task.tenant_id,
+                    execution_id=task.id,
+                    filename=output.relative_path,
+                    media_type=mimetypes.guess_type(output.relative_path)[0]
+                    or "application/octet-stream",
+                    content=content,
+                    checksum=output.checksum,
+                    base_version=0,
+                )
+            except (OSError, TaskArtifactError) as exc:
+                logger.warning(
+                    "task_output_registration_failed",
+                    extra={
+                        "task_id": str(task.id),
+                        "relative_path": output.relative_path,
+                        "error_code": getattr(exc, "code", type(exc).__name__),
+                    },
+                )
 
     async def _acquire_workspace(
         self, task: TaskExecution, identity: FrozenWorkspace

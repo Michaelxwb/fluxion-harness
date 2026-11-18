@@ -449,6 +449,17 @@ export type ScheduleExecutionStatus =
   | 'CANCELLED';
 export type ScheduleWaitKind = 'ASYNC_OPERATION' | 'EXTERNAL_POLL' | 'BATCH_FANIN';
 
+/** 后台任务类型（`muad_contracts.enums.TaskType`）；BATCH 只在一次执行内部扇出。 */
+export type TaskType = 'SKILL' | 'REMINDER' | 'AGENTIC' | 'BATCH';
+
+/** 逻辑结果计数；部分失败由父任务状态与 `BEST_EFFORT` 共同表达。 */
+export interface TaskResultCounts {
+  total: number;
+  succeeded: number;
+  failed: number;
+  cancelled: number;
+}
+
 /** UPDATE 预览的一项前后差异（`field` 是载荷里的顶层键，值原样取自 Revision 与 Draft）。 */
 export interface ScheduleDiffEntry {
   field: string;
@@ -615,6 +626,14 @@ export interface FireHistoryPage extends WebchatPage<FireItem> {
   retention: HistoryRetention | null;
 }
 
+export interface TaskArtifactDelivery {
+  target_key: string;
+  status: 'PENDING' | 'DELIVERED' | 'DEGRADED' | 'UNKNOWN' | 'FAILED';
+  error_code: string | null;
+  retryable: boolean;
+  fallback_url: string | null;
+}
+
 export interface TaskArtifact {
   artifact_id: string;
   name: string;
@@ -622,15 +641,63 @@ export interface TaskArtifact {
   size: number;
   checksum: string;
   version: string;
+  /**
+   * 每个投递目标一项；空数组表示未请求推送（NONE）。
+   * 字段缺失表示统一 Artifact 投递契约尚未提供——隐藏徽标，不伪造 `PENDING`。
+   */
+  deliveries?: TaskArtifactDelivery[];
 }
 
-export interface ScheduleExecutionDetail {
+/** 后台任务列表项（`TaskCenterTaskItem`）；不含结果正文，只给摘要事实。 */
+export interface TaskCenterTaskItem {
+  task_id: string;
+  agent_id: string;
+  task_type: TaskType;
+  skill_name: string;
+  status: ScheduleExecutionStatus;
+  counts: TaskResultCounts;
+  partial_failure: boolean;
+  child_total: number;
+  child_finished: number;
+  has_artifacts: boolean;
+  create_time: string;
+  finished_at: string | null;
+}
+
+export interface TaskCenterTaskPage extends WebchatPage<TaskCenterTaskItem> {}
+
+/** 子任务行：失败摘要只给首行（≤200），完整原文要打开该子任务的执行详情。 */
+export interface TaskChildItem {
+  task_id: string;
+  item_key: string | null;
+  label: string;
+  status: ScheduleExecutionStatus;
+  error_code: string | null;
+  error_message_summary: string | null;
+  artifact_count: number;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+export interface TaskChildPage extends WebchatPage<TaskChildItem> {}
+
+/** 后台与定时任务详情共用的执行事实；后台专属字段对旧读面可缺省。 */
+export interface ExecutionDetail {
   execution_id: string;
+  agent_id: string | null;
+  task_type: TaskType;
+  skill_name: string;
+  parent_id: string | null;
+  item_key: string | null;
   status: ScheduleExecutionStatus;
   wait_kind: ScheduleWaitKind | null;
   wait_payload: Record<string, unknown> | null;
   result: Record<string, unknown> | null;
   result_artifacts: TaskArtifact[];
+  artifact_total: number;
+  counts: TaskResultCounts;
+  partial_failure: boolean;
+  children: TaskChildPage;
   error_code: string | null;
   error_message: string | null;
   failure_class: string | null;
@@ -654,6 +721,18 @@ export interface TaskCenterScheduleQuery extends WebchatPageQuery {
   agent_id?: string;
   status?: ScheduleStatus;
   mode?: ScheduleMode;
+}
+
+/** 后台任务列表查询：只给任务记录摘要，过滤由后端按授权 Agent 集合取交集。 */
+export interface TaskCenterTaskQuery extends WebchatPageQuery {
+  agent_id?: string;
+  status?: ScheduleExecutionStatus;
+}
+
+/** 执行详情查询：子任务分页复用同一详情路由，不另开 children 端点。 */
+export interface TaskCenterExecutionQuery {
+  children_page?: number;
+  children_page_size?: number;
 }
 
 /** 待处理查询：`kind` 缺省时 HUMAN 与 NEEDS_ATTENTION 混排。 */
@@ -683,6 +762,10 @@ export interface TaskCenterClient {
     query?: TaskCenterScheduleQuery,
     options?: WebchatRequestOptions
   ): Promise<ScheduleListPage>;
+  listTasks(
+    query?: TaskCenterTaskQuery,
+    options?: WebchatRequestOptions
+  ): Promise<TaskCenterTaskPage>;
   getSchedule(
     scheduleId: string,
     query?: TaskCenterAgentQuery,
@@ -695,8 +778,9 @@ export interface TaskCenterClient {
   ): Promise<FireHistoryPage>;
   getExecution(
     executionId: string,
+    query?: TaskCenterExecutionQuery,
     options?: WebchatRequestOptions
-  ): Promise<ScheduleExecutionDetail>;
+  ): Promise<ExecutionDetail>;
   listPending(
     query?: TaskCenterPendingQuery,
     options?: WebchatRequestOptions

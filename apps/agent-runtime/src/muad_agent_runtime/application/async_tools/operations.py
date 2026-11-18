@@ -33,7 +33,7 @@ from muad_contracts import (
 from muad_contracts.canonical import ensure_strict_json
 from muad_contracts.skill_invocation import validate_skill_argv
 from pydantic import JsonValue, TypeAdapter
-from sqlalchemy import false, func, or_, select
+from sqlalchemy import false, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ...infrastructure.models.async_tools import ToolControlOutbox, ToolOperation
@@ -45,12 +45,12 @@ if TYPE_CHECKING:
     from .control_dispatcher import ControlDispatcher
 
 JSON_OBJECT = TypeAdapter(dict[str, JsonValue])
-DEPENDENT_JOIN = (
+#: 仍占用 per-Run 后台任务并发的 operation 状态；结果已收到/已物化/终态不再占。
+ACTIVE_OPERATION_STATUSES = (
+    OperationStatus.SUBMIT_PENDING,
     OperationStatus.SUBMITTED,
     OperationStatus.TASK_ACCEPTED,
     OperationStatus.RUNNING,
-    OperationStatus.RESULT_RECEIVED,
-    OperationStatus.MATERIALIZED,
 )
 
 
@@ -94,11 +94,7 @@ async def _capacity(session: AsyncSession, run: RunRecord, policy: AsyncToolPoli
             ToolOperation.tenant_id == run.tenant_id,
             ToolOperation.run_id == run.id,
             ToolOperation.is_deleted.is_(False),
-            or_(
-                ToolOperation.status == OperationStatus.SUBMIT_PENDING,
-                (ToolOperation.completion_mode == CompletionMode.JOIN)
-                & ToolOperation.status.in_(DEPENDENT_JOIN),
-            ),
+            ToolOperation.status.in_(ACTIVE_OPERATION_STATUSES),
         )
     )
     if (count or 0) >= policy.pending_operation_limit:
@@ -255,10 +251,8 @@ async def cancel_operations(session: AsyncSession, run: RunRecord) -> None:
                 ToolOperation.tenant_id == run.tenant_id,
                 ToolOperation.is_deleted.is_(False),
                 ToolOperation.status.not_in(OP_TERMINAL),
-                or_(
-                    ToolOperation.status == OperationStatus.SUBMIT_PENDING,
-                    ToolOperation.completion_mode == CompletionMode.JOIN,
-                ),
+                # 只有任务内部的 JOIN 属于 Run 生命周期；已提交的 DETACH 后台任务独立执行。
+                ToolOperation.completion_mode == CompletionMode.JOIN,
             )
             .order_by(ToolOperation.id)
             .with_for_update()

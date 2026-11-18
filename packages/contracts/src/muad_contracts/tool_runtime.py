@@ -11,6 +11,8 @@ from .canonical import canonical_json, ensure_strict_json
 from .enums import CompletionMode, RunStatus, TaskStatus, TerminalStatus, WaitReason
 
 MAX_TOOL_RESULT_BYTES = 256 * 1024
+#: 失败结果的原始 stderr 进入模型/发件前有界投影；任务记录保留较完整脱敏原文。
+MAX_TOOL_ERROR_MESSAGE_CHARS = 8192
 SNAPSHOT_HASH_PATTERN = r"^sha256:[0-9a-f]{64}$"
 #: 冻结执行策略（Task execution snapshot 的 `budget`）中承载重试安全性的唯一键。
 RETRY_SAFETY_POLICY_KEY = "retry_safety"
@@ -121,7 +123,7 @@ class ToolResultRequest(BaseModel):
     completed_at: AwareDatetime
     result: dict[str, JsonValue] | None = None
     error_code: str | None = Field(default=None, min_length=1, max_length=64)
-    error_message: str | None = Field(default=None, max_length=2048)
+    error_message: str | None = Field(default=None, max_length=MAX_TOOL_ERROR_MESSAGE_CHARS)
 
     @field_validator("result", mode="before")
     @classmethod
