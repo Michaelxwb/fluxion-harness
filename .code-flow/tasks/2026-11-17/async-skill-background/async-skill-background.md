@@ -91,7 +91,7 @@
   - error-delivery PASS exit=0
 ## TASK-002: 发件全量化与 DETACH 终态识别
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001
 - **Source**: `.code-flow/tasks/2026-11-17/async-skill-background/async-skill-background.design.md#3.4.1 Worker 发件条件`, `#3.4.3 DETACH 终态识别`, `#3.5 质量实现方案`
 - **Scenarios**: S-02, S-04, E-02
@@ -113,6 +113,7 @@
       "pytest",
       "-q",
       "tests/agent_worker/test_async_background_outbox.py",
+      "tests/agent_worker/test_scheduled_v2_transactions.py::test_detach_root_publishes_to_runtime",
       "tests/agent_runtime/test_detached_terminal_notification.py"
     ],
     "timeout": 300,
@@ -127,14 +128,14 @@
 
 ### Checklist
 
-- [ ] `_enqueue_result` 对 `parent_id IS NULL AND source_run_id IS NOT NULL AND source_operation_id IS NOT NULL` 的根任务，不区分 completion_mode 都写 outbox
-- [ ] 无 operation 的 Run 任务不写 outbox，记录 `RESULT_PUBLISH_NOT_APPLICABLE`；定时任务不写
-- [ ] `_submitted_detached_task` 改为查询 `tool_operation`（tenant/run/completion_mode=DETACH/task_id not null/未删除）
-- [ ] Run 完成通知在已提交 DETACH 任务时按 `NOT_REQUIRED`/不重复外发处理
-- [ ] 网页入箱前置满足：outbox 从 PENDING 到 SENT 后 `DeliveryLoop` 可提交任务结果
-- [ ] [S-02] 成功结果经网页收件箱送达，且只一份
-- [ ] [S-04] 企微成功/失败各一份，不额外重复 Run 完成结果
-- [ ] [E-02] 投递失败按既有重试与终态处置，任务事实不丢
+- [x] `_enqueue_result` 对 `parent_id IS NULL AND source_run_id IS NOT NULL AND source_operation_id IS NOT NULL` 的根任务，不区分 completion_mode 都写 outbox
+- [x] 无 operation 的 Run 任务不写 outbox，记录 `RESULT_PUBLISH_NOT_APPLICABLE`；定时任务不写
+- [x] `_submitted_detached_task` 改为查询 `tool_operation`（tenant/run/completion_mode=DETACH/task_id not null/未删除）
+- [x] Run 完成通知在已提交 DETACH 任务时按 `NOT_REQUIRED`/不重复外发处理
+- [x] 网页入箱前置满足：outbox 从 PENDING 到 SENT 后 `DeliveryLoop` 可提交任务结果
+- [x] [S-02] 成功结果经网页收件箱送达，且只一份
+- [x] [S-04] 企微成功/失败各一份，不额外重复 Run 完成结果
+- [x] [E-02] 投递失败按既有重试与终态处置，任务事实不丢
 
 ### Spec Delta
 
@@ -145,13 +146,15 @@
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18T00:17:06.746Z] started tests=fda05685d548
 
 ### Verification
 
 - 尚未执行
 
 ---
-
+- 2026-11-18T00:17:13.565Z PASS commands=1/1 executed=1 deduped=0 elapsed=6710ms tests=fda05685d548 head=b6725e7920ae dirty=1
+  - outbox-and-dedup PASS exit=0
 ## TASK-003: 迟到结果物化
 
 - **Status**: draft

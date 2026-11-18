@@ -314,7 +314,14 @@ async def _enqueue_result(
             )
         )
         return
-    if task.completion_mode is not CompletionMode.JOIN:
+    if task.source_run_id is None:
+        # 定时任务没有 source Run；文件/文本由任务中心或既有 Schedule 投递读取。
+        return
+    if task.source_operation_id is None:
+        logger.warning(
+            "task_result_publish_not_applicable",
+            extra={"task_id": str(task.id), "reason": "missing_source_operation"},
+        )
         return
     payload = _payload(task, change, moment, event.seq)
     body = JSON_OBJECT.validate_python(redact_value(payload.model_dump(mode="json")))
