@@ -202,12 +202,13 @@ async def test_write_registers_task_owned_version_without_run(
     assert row.run_id is None, "Task-owned 行不得挂 Run（XOR）"
     assert row.task_id == execution_id
     assert row.conversation_id is None, "任务产物不要求 Conversation"
-    assert row.artifact_type == "TASK_OUTPUT"
+    assert row.artifact_type == "OUTPUT"
     assert row.user_id == task_tenant.platform_user_id
     assert row.agent_id == task_tenant.agent_id
     assert row.storage_key == f"tasks/{task_tenant.tenant_id}/{execution_id}/{row.id}/v1"
     assert row.metadata_json["filename"] == "report.md"
-    assert row.metadata_json["version"] == 1
+    assert row.version == 1
+    assert row.logical_file_id is not None
     assert (artifact_root / row.storage_key).read_bytes() == b"hello task"
 
 
@@ -225,7 +226,7 @@ async def test_replayed_write_returns_original_version(
     assert _data(second) == _data(first)
     rows = await _rows(task_tenant.tenant_id)
     assert len(rows) == 1
-    assert rows[0].metadata_json["versions"] == []
+    assert rows[0].version == 1
     assert len(_files(artifact_root)) == 1
 
 
@@ -253,12 +254,12 @@ async def test_same_name_with_other_content_conflicts(
 async def test_append_versions_are_immutable_and_replayable(
     task_tenant: TenantContext, artifact_root: Path, client: AsyncClient
 ) -> None:
-    """追加版本换新键、旧字节不动；重放幂等；过期 base 显式冲突。"""
+    """版本即行：追加产生新 artifact_id/新键；旧行字节不动；重放幂等；过期 base 冲突。"""
     execution_id = await _seed_execution(task_tenant)
     v1 = await _write(
         client, task_tenant.tenant_id, _body(execution_id, filename="log.md", data=b"v1"), b"v1"
     )
-    artifact_id = _data(v1)["artifact_id"]
+    v1_id = uuid.UUID(_data(v1)["artifact_id"])
     v2_body = _body(execution_id, filename="log.md", data=b"v2", base_version=1)
     v2 = await _write(client, task_tenant.tenant_id, v2_body, b"v2")
     replay = await _write(client, task_tenant.tenant_id, v2_body, b"v2")
@@ -269,22 +270,51 @@ async def test_append_versions_are_immutable_and_replayable(
         b"v3",
     )
 
+    v2_id = uuid.UUID(_data(v2)["artifact_id"])
     assert _data(v2)["version"] == "2"
-    assert _data(v2)["artifact_id"] == artifact_id
+    assert v2_id != v1_id, "版本即行：新版本必须有新的 artifact_id"
     assert _data(replay) == _data(v2), "同一调用重放必须返回原版本"
     assert stale.status_code == 409 and _code(stale) == "ARTIFACT_VERSION_CONFLICT"
 
-    rows = await _rows(task_tenant.tenant_id)
-    assert len(rows) == 1
-    row = rows[0]
-    assert row.metadata_json["version"] == 2
-    history = row.metadata_json["versions"]
-    assert [entry["version"] for entry in history] == [1]
-    assert history[0]["checksum"] == _checksum(b"v1")
-    assert history[0]["size"] == 2
-    assert (artifact_root / history[0]["key"]).read_bytes() == b"v1", "历史版本字节不可变"
-    assert (artifact_root / row.storage_key).read_bytes() == b"v2"
+    rows = sorted(await _rows(task_tenant.tenant_id), key=lambda row: row.version)
+    assert [row.version for row in rows] == [1, 2]
+    assert rows[0].id == v1_id
+    assert rows[0].logical_file_id == rows[1].logical_file_id
+    assert rows[0].checksum == _checksum(b"v1")
+    assert rows[1].id == v2_id
+    assert rows[1].checksum == _checksum(b"v2")
+    assert (artifact_root / rows[0].storage_key).read_bytes() == b"v1", "历史版本字节不可变"
+    assert (artifact_root / rows[1].storage_key).read_bytes() == b"v2"
     assert len(_files(artifact_root)) == 2
+
+
+async def test_new_attempt_is_a_new_logical_file(
+    task_tenant: TenantContext, artifact_root: Path, client: AsyncClient
+) -> None:
+    """每一次执行尝试都是新产物：跨 attempt 不聚合成版本链。"""
+    execution_id = await _seed_execution(task_tenant)
+    first = await _write(
+        client, task_tenant.tenant_id, _body(execution_id, filename="daily.md", data=b"day1"), b"day1"
+    )
+    first_id = uuid.UUID(_data(first)["artifact_id"])
+
+    async with get_session_factory()() as session:
+        await session.execute(
+            sa.text("UPDATE task.task_execution SET attempt = 2 WHERE id = :id"),
+            {"id": execution_id},
+        )
+        await session.commit()
+
+    second = await _write(
+        client, task_tenant.tenant_id, _body(execution_id, filename="daily.md", data=b"day2"), b"day2"
+    )
+    second_id = uuid.UUID(_data(second)["artifact_id"])
+
+    assert _data(second)["version"] == "1", "新 attempt 从 v1 开始，不是 v2"
+    assert second_id != first_id
+    rows = await _rows(task_tenant.tenant_id)
+    assert len(rows) == 2
+    assert len({row.logical_file_id for row in rows}) == 2, "跨 attempt 不共享 logical_file_id"
 
 
 async def test_read_requires_the_exact_version_and_checksum(
@@ -301,25 +331,31 @@ async def test_read_requires_the_exact_version_and_checksum(
         _body(execution_id, filename="doc.md", data=b"second", base_version=1),
         b"second",
     )
-    artifact_id = uuid.UUID(_data(second)["artifact_id"])
-    rows = await _rows(task_tenant.tenant_id)
-    v1_entry = rows[0].metadata_json["versions"][0]
+    rows = sorted(await _rows(task_tenant.tenant_id), key=lambda row: row.version)
+    v1_row, v2_row = rows[0], rows[1]
+    assert uuid.UUID(_data(second)["artifact_id"]) == v2_row.id
 
     v1 = await _read(
-        client, task_tenant, artifact_id, version="1", checksum=v1_entry["checksum"]
+        client, task_tenant, v1_row.id, version="1", checksum=v1_row.checksum
     )
     assert v1.status_code == 200, v1.text
     reference = _data(v1)
-    assert reference["storage_key"] == v1_entry["key"]
-    assert reference["checksum"] == v1_entry["checksum"]
-    assert reference["size"] == v1_entry["size"]
+    assert reference["storage_key"] == v1_row.storage_key
+    assert reference["checksum"] == v1_row.checksum
+    assert reference["size"] == v1_row.size
     assert (artifact_root / reference["storage_key"]).read_bytes() == b"first"
 
+    v2 = await _read(
+        client, task_tenant, v2_row.id, version="2", checksum=v2_row.checksum
+    )
+    assert v2.status_code == 200, v2.text
+    assert (artifact_root / _data(v2)["storage_key"]).read_bytes() == b"second"
+
     wrong_checksum = await _read(
-        client, task_tenant, artifact_id, version="1", checksum=_checksum(b"second")
+        client, task_tenant, v1_row.id, version="1", checksum=_checksum(b"second")
     )
     missing_version = await _read(
-        client, task_tenant, artifact_id, version="9", checksum=v1_entry["checksum"]
+        client, task_tenant, v1_row.id, version="9", checksum=v1_row.checksum
     )
     assert wrong_checksum.status_code == 409
     assert _code(wrong_checksum) == "ARTIFACT_VERSION_CONFLICT"
@@ -393,21 +429,21 @@ async def test_missing_or_damaged_object_is_explicit_not_substituted(
         _body(execution_id, filename="m.md", data=b"new!", base_version=1),
         b"new!",
     )
-    artifact_id = uuid.UUID(_data(second)["artifact_id"])
-    rows = await _rows(task_tenant.tenant_id)
-    v1_entry = rows[0].metadata_json["versions"][0]
-    target = artifact_root / v1_entry["key"]
+    rows = sorted(await _rows(task_tenant.tenant_id), key=lambda row: row.version)
+    v1_row, v2_row = rows[0], rows[1]
+    assert uuid.UUID(_data(second)["artifact_id"]) == v2_row.id
+    target = artifact_root / v1_row.storage_key
 
     target.unlink()
     missing = await _read(
-        client, task_tenant, artifact_id, version="1", checksum=v1_entry["checksum"]
+        client, task_tenant, v1_row.id, version="1", checksum=v1_row.checksum
     )
     target.write_bytes(b"x")  # 长度与记录不符：不能按错误长度把字节发出去
     damaged = await _read(
-        client, task_tenant, artifact_id, version="1", checksum=v1_entry["checksum"]
+        client, task_tenant, v1_row.id, version="1", checksum=v1_row.checksum
     )
     current = await _read(
-        client, task_tenant, artifact_id, version="2", checksum=_checksum(b"new!")
+        client, task_tenant, v2_row.id, version="2", checksum=v2_row.checksum
     )
 
     assert missing.status_code == 404 and _code(missing) == "TASK_ARTIFACT_NOT_FOUND"
@@ -642,7 +678,7 @@ async def _seed_run_artifact(tenant: TenantContext, root: Path) -> uuid.UUID:
                 conversation_id=None,
                 agent_id=tenant.agent_id,
                 user_id=tenant.platform_user_id,
-                artifact_type="TASK_OUTPUT",
+                artifact_type="OUTPUT",
                 storage_key=key,
                 media_type="text/plain",
                 size=len(data),

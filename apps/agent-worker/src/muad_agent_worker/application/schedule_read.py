@@ -557,12 +557,12 @@ class ScheduleReadService:
         rows = (
             await self._session.execute(
                 sa.text(
-                    "SELECT a.task_id, count(DISTINCT a.id) AS n "
+                    "SELECT a.task_id, count(DISTINCT a.logical_file_id) AS n "
                     "FROM runtime.artifact a "
                     "JOIN task.task_execution e ON e.id = a.task_id "
                     "WHERE e.parent_id = :parent_id AND e.tenant_id = :tenant_id "
                     "AND e.is_deleted = false AND a.is_deleted = false "
-                    "AND a.artifact_type = 'TASK_OUTPUT' "
+                    "AND a.artifact_type = 'OUTPUT' "
                     "AND a.task_id IN :child_ids "
                     "GROUP BY a.task_id"
                 ).bindparams(sa.bindparam("child_ids", expanding=True)),
@@ -581,13 +581,17 @@ class ScheduleReadService:
         rows = (
             await self._session.execute(
                 sa.text(
-                    "SELECT a.id, a.media_type, a.size, a.checksum, a.metadata_json, a.task_id "
-                    "FROM runtime.artifact a "
-                    "JOIN task.task_execution e ON e.id = a.task_id "
-                    "WHERE e.tenant_id = :tenant_id AND e.is_deleted = false "
-                    "AND (a.task_id = :execution_id OR e.parent_id = :execution_id) "
-                    "AND a.is_deleted = false AND a.artifact_type = 'TASK_OUTPUT' "
-                    "ORDER BY a.create_time DESC, a.id"
+                    "SELECT * FROM ("
+                    "  SELECT DISTINCT ON (a.logical_file_id) "
+                    "    a.id, a.media_type, a.size, a.checksum, a.metadata_json, a.task_id,"
+                    "    a.logical_file_id, a.version, a.create_time "
+                    "  FROM runtime.artifact a "
+                    "  JOIN task.task_execution e ON e.id = a.task_id "
+                    "  WHERE e.tenant_id = :tenant_id AND e.is_deleted = false "
+                    "  AND (a.task_id = :execution_id OR e.parent_id = :execution_id) "
+                    "  AND a.is_deleted = false AND a.artifact_type = 'OUTPUT' "
+                    "  ORDER BY a.logical_file_id, a.version DESC"
+                    ") latest ORDER BY latest.create_time DESC, latest.id"
                 ),
                 {"execution_id": execution.id, "tenant_id": execution.tenant_id},
             )
@@ -606,18 +610,18 @@ class ScheduleReadService:
                     media_type=row.media_type,
                     size=row.size,
                     checksum=row.checksum,
-                    version=str(metadata.get("version") or "1"),
+                    version=str(row.version),
                 )
             )
         # `artifact_total` is the number of logical files, not versions.
         total = int(
             await self._session.scalar(
                 sa.text(
-                    "SELECT count(DISTINCT a.id) FROM runtime.artifact a "
+                    "SELECT count(DISTINCT a.logical_file_id) FROM runtime.artifact a "
                     "JOIN task.task_execution e ON e.id = a.task_id "
                     "WHERE e.tenant_id = :tenant_id AND e.is_deleted = false "
                     "AND (a.task_id = :execution_id OR e.parent_id = :execution_id) "
-                    "AND a.is_deleted = false AND a.artifact_type = 'TASK_OUTPUT'"
+                    "AND a.is_deleted = false AND a.artifact_type = 'OUTPUT'"
                 ),
                 {"execution_id": execution.id, "tenant_id": execution.tenant_id},
             )

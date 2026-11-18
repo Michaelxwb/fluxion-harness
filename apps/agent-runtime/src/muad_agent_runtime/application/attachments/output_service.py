@@ -17,7 +17,9 @@ from muad_artifact_store import NfsArtifactStore
 from ...infrastructure.db import SessionFactoryProvider
 from ...infrastructure.models.runtime import Artifact
 
-AGENT_OUTPUT_ARTIFACT_TYPE = "AGENT_OUTPUT"
+OUTPUT_ARTIFACT_TYPE = "OUTPUT"
+#: 旧名称保留为同一值的别名：调用方迁移期间不需要改 import，但落库类型只有 OUTPUT。
+AGENT_OUTPUT_ARTIFACT_TYPE = OUTPUT_ARTIFACT_TYPE
 MAX_OUTPUT_BYTES = 50 * 1024 * 1024
 
 
@@ -117,7 +119,9 @@ class OutputArtifactWriter:
             conversation_id=self.scope.conversation_id,
             agent_id=self.scope.agent_id,
             user_id=self.scope.user_id,
-            artifact_type=AGENT_OUTPUT_ARTIFACT_TYPE,
+            artifact_type=OUTPUT_ARTIFACT_TYPE,
+            logical_file_id=uuid.uuid4(),
+            version=1,
             storage_key=output_version_key(self.scope.run_id, artifact_id, 1),
             media_type=media_type,
             size=len(data),
@@ -126,8 +130,6 @@ class OutputArtifactWriter:
                 "kind": kind,
                 "filename": filename,
                 "source": "agent",
-                "version": 1,
-                "versions": [],
                 **dict(metadata or {}),
             },
         )

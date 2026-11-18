@@ -44,8 +44,8 @@ from .reference import attachment_ref
 
 logger = logging.getLogger(__name__)
 
-#: 用户可下载的任务产物类型：本写入方是唯一产出者。
-TASK_OUTPUT_ARTIFACT_TYPE = "TASK_OUTPUT"
+#: 用户可下载的任务产物类型：与 Run 产物统一为 OUTPUT。
+TASK_OUTPUT_ARTIFACT_TYPE = "OUTPUT"
 #: 任务产物可下载白名单：内部留档类型不在其中（下载面按它拒绝）。
 DOWNLOADABLE_TASK_ARTIFACT_TYPES = frozenset({TASK_OUTPUT_ARTIFACT_TYPE})
 #: 存储键前缀：键只由 tenant/execution/artifact/version 拼出，不含 run_id，也不含用户输入。
@@ -54,7 +54,7 @@ TASK_ARTIFACT_KEY_PREFIX = "tasks"
 TASK_ARTIFACT_SIZE_LIMIT = MAX_OUTPUT_BYTES
 
 _TASK_OWNER_SQL = sa.text(
-    "SELECT tenant_id, actor_user_id, agent_id FROM task.task_execution"
+    "SELECT tenant_id, actor_user_id, agent_id, attempt FROM task.task_execution"
     " WHERE id = :execution_id AND tenant_id = :tenant_id AND is_deleted = false"
 )
 
@@ -67,6 +67,7 @@ class TaskArtifactOwner:
     tenant_id: str
     actor_user_id: uuid.UUID
     agent_id: uuid.UUID
+    attempt: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,6 +145,7 @@ async def write_task_artifact(
         execution_id=request.task_execution_id,
         filename=request.filename,
         artifact_type=artifact_type,
+        attempt=owner.attempt,
     )
     current = _current_version(row) if row is not None else None
     target = plan_task_artifact_version(request, current)
@@ -156,7 +158,9 @@ async def write_task_artifact(
             checksum=current.checksum,
         )
 
-    artifact_id = row.id if row is not None else uuid.uuid4()
+    # 版本即行：每个版本一个 artifact_id；追加不修改旧行。
+    artifact_id = uuid.uuid4()
+    logical_file_id = row.logical_file_id if row is not None else uuid.uuid4()
     storage_key = task_artifact_storage_key(
         tenant_id=tenant_id,
         execution_id=owner.execution_id,
@@ -166,18 +170,18 @@ async def write_task_artifact(
     # 先落字节再落行：键是「产物+版本」的确定身份，崩溃后重试复用同一份字节（见 _publish）。
     await asyncio.to_thread(_publish, store, storage_key, content, request.checksum)
     try:
-        if row is None:
-            session.add(
-                _new_row(
-                    owner,
-                    request,
-                    artifact_id=artifact_id,
-                    storage_key=storage_key,
-                    artifact_type=artifact_type,
-                )
+        session.add(
+            _new_row(
+                owner,
+                request,
+                artifact_id=artifact_id,
+                logical_file_id=logical_file_id,
+                version=target,
+                storage_key=storage_key,
+                artifact_type=artifact_type,
+                metadata=dict(row.metadata_json or {}) if row is not None else None,
             )
-        else:
-            _append_version(row, request, storage_key=storage_key, version=target)
+        )
         await session.commit()
     except BaseException:
         # 行没落成，本次写的文件也不留（历史版本字节不受影响）
@@ -219,26 +223,17 @@ async def resolve_task_artifact_version(
         record_outcome(TASK_ARTIFACT_DOWNLOAD_METRIC, "REJECTED")
         raise AppError(ErrorCode.TASK_ARTIFACT_NOT_FOUND)
 
-    entry = _version_entry(row, version)
-    if entry is None or entry["checksum"] != checksum:
+    if str(row.version) != version or row.checksum != checksum:
         record_outcome(TASK_ARTIFACT_DOWNLOAD_METRIC, "REJECTED")
         raise AppError(ErrorCode.ARTIFACT_VERSION_CONFLICT)
-    path = store.resolve(str(entry["key"]))
-    if not path.is_file() or path.stat().st_size != entry["size"]:
+    path = store.resolve(row.storage_key)
+    if not path.is_file() or path.stat().st_size != row.size:
         # 行说这里有这一版、盘上没有（或长度不对）：显式"拿不到"，不拿别的版本顶上
         logger.warning("task_artifact_object_missing artifact_id=%s version=%s", artifact_id, version)
         record_outcome(TASK_ARTIFACT_DOWNLOAD_METRIC, "REJECTED")
         raise AppError(ErrorCode.TASK_ARTIFACT_NOT_FOUND)
     record_outcome(TASK_ARTIFACT_DOWNLOAD_METRIC, "RESOLVED")
-    reference = attachment_ref(row)
-    return reference.model_copy(
-        update={
-            "storage_key": entry["key"],
-            "size": entry["size"],
-            "checksum": entry["checksum"],
-            "media_type": entry["media_type"],
-        }
-    )
+    return attachment_ref(row)
 
 
 def _validate_content(request: TaskArtifactWriteRequest, content: bytes) -> None:
@@ -283,6 +278,7 @@ async def _load_owner(
         tenant_id=row["tenant_id"],
         actor_user_id=row["actor_user_id"],
         agent_id=row["agent_id"],
+        attempt=int(row["attempt"]),
     )
 
 
@@ -293,6 +289,7 @@ async def _load_current(
     execution_id: uuid.UUID,
     filename: str,
     artifact_type: str,
+    attempt: int,
 ) -> Artifact | None:
     row = await session.scalar(
         sa.select(Artifact)
@@ -302,7 +299,10 @@ async def _load_current(
             Artifact.artifact_type == artifact_type,
             Artifact.is_deleted.is_(False),
             Artifact.metadata_json["filename"].astext == filename,
+            Artifact.metadata_json["attempt"].astext == str(attempt),
         )
+        .order_by(Artifact.version.desc())
+        .limit(1)
         .with_for_update()
     )
     return row if isinstance(row, Artifact) else None
@@ -311,46 +311,15 @@ async def _load_current(
 def _current_version(row: Artifact) -> CurrentVersion:
     return CurrentVersion(
         artifact_id=row.id,
-        version=_current_version_number(row),
+        version=row.version,
         checksum=row.checksum,
         media_type=row.media_type,
         size=row.size,
     )
 
 
-def _current_version_number(row: Artifact) -> int:
-    value = (row.metadata_json or {}).get("version")
-    return value if isinstance(value, int) and value > 0 else 1
-
-
-def _history(row: Artifact) -> list[dict[str, Any]]:
-    raw = (row.metadata_json or {}).get("versions")
-    if not isinstance(raw, list):
-        return []
-    return [entry for entry in raw if isinstance(entry, dict)]
-
-
-def _version_entry(row: Artifact, version: str) -> dict[str, Any] | None:
-    """`version` 是纯十进制序号（契约里是字符串）；非法值与不存在的版本都算不匹配。"""
-    try:
-        wanted = int(version)
-    except (TypeError, ValueError):
-        return None
-    if wanted == _current_version_number(row):
-        return {
-            "key": row.storage_key,
-            "checksum": row.checksum,
-            "size": row.size,
-            "media_type": row.media_type,
-        }
-    for entry in _history(row):
-        if entry.get("version") == wanted:
-            return entry
-    return None
-
-
 def _artifact_type_for_purpose(purpose: str) -> str:
-    """OUTPUT 仍写现有可下载类型；内部用途原样落库，不进入下载白名单。"""
+    """OUTPUT 统一为可下载类型；内部用途原样落库，不进入下载白名单。"""
     return TASK_OUTPUT_ARTIFACT_TYPE if purpose == "OUTPUT" else purpose
 
 
@@ -359,10 +328,21 @@ def _new_row(
     request: TaskArtifactWriteRequest,
     *,
     artifact_id: uuid.UUID,
+    logical_file_id: uuid.UUID,
+    version: int,
     storage_key: str,
     artifact_type: str,
+    metadata: dict[str, Any] | None = None,
 ) -> Artifact:
-    """Task-owned 行：`task_id` = Execution id、`run_id` 为 NULL（XOR）、无 Conversation。"""
+    """Task-owned 版本行：`task_id` = Execution id、`run_id` 为 NULL（XOR）、无 Conversation。"""
+    base = {
+        "kind": _kind_for(request.media_type),
+        "filename": request.filename,
+        "source": "task",
+        "attempt": owner.attempt,
+    }
+    if metadata:
+        base.update({k: v for k, v in metadata.items() if k in {"relative_path", "kind"}})
     return Artifact(
         id=artifact_id,
         tenant_id=owner.tenant_id,
@@ -372,43 +352,14 @@ def _new_row(
         agent_id=owner.agent_id,
         user_id=owner.actor_user_id,
         artifact_type=artifact_type,
+        logical_file_id=logical_file_id,
+        version=version,
         storage_key=storage_key,
         media_type=request.media_type,
         size=request.size,
         checksum=request.checksum,
-        metadata_json={
-            "kind": _kind_for(request.media_type),
-            "filename": request.filename,
-            "source": "task",
-            "version": 1,
-            "versions": [],
-        },
+        metadata_json=base,
     )
-
-
-def _append_version(
-    row: Artifact, request: TaskArtifactWriteRequest, *, storage_key: str, version: int
-) -> None:
-    """历史版本记自己的键/校验和/长度/媒体类型：下载要能按当时那一版定位字节。"""
-    metadata = dict(row.metadata_json or {})
-    versions = [dict(entry) for entry in _history(row)]
-    versions.append(
-        {
-            "version": _current_version_number(row),
-            "key": row.storage_key,
-            "name": metadata.get("filename"),
-            "media_type": row.media_type,
-            "size": row.size,
-            "checksum": row.checksum,
-        }
-    )
-    metadata.update(version=version, versions=versions)
-    row.storage_key = storage_key
-    row.media_type = request.media_type
-    row.size = request.size
-    row.checksum = request.checksum
-    row.metadata_json = metadata
-    row.update_time = sa.func.now()
 
 
 def _kind_for(media_type: str) -> str:

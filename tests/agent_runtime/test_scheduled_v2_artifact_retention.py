@@ -133,7 +133,7 @@ async def _seed_artifact(
                 task_id=task_id,
                 agent_id=tenant.agent_id,
                 user_id=tenant.platform_user_id,
-                artifact_type="TASK_OUTPUT" if task_id else "TOOL_RESULT",
+                artifact_type="OUTPUT" if task_id else "TOOL_RESULT",
                 storage_key=key,
                 media_type="text/markdown",
                 size=len(data),

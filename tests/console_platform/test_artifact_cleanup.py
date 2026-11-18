@@ -89,7 +89,7 @@ async def _seed_row(*, tenant_id: str, key: str, created: datetime) -> uuid.UUID
                 tenant_id=tenant_id,
                 # `task_id` / `run_id` 恰好填一个（表上的 XOR 约束）；选前者可省一条 run。
                 task_id=uuid.uuid4(),
-                artifact_type="AGENT_OUTPUT",
+                artifact_type="OUTPUT",
                 storage_key=key,
                 media_type=MEDIA_TYPE,
                 size=len(PAYLOAD),

@@ -390,7 +390,7 @@ async def test_s06_agent_writes_an_artifact_and_delivers_it_in_session(
         row
         for row in await _fetch_all(
             "SELECT id, storage_key, size FROM runtime.artifact "
-            "WHERE tenant_id = :t AND artifact_type = 'AGENT_OUTPUT'",
+            "WHERE tenant_id = :t AND artifact_type = 'OUTPUT'",
             {"t": gateway_stack.tenant_id},
         )
         if row[0] == audit[0][0]
@@ -481,7 +481,7 @@ async def test_s07_background_task_delivers_its_artifact_through_the_worker(
         "INSERT INTO runtime.artifact "
         "(id, tenant_id, task_id, artifact_type, storage_key, media_type, size, checksum, "
         " metadata_json) "
-        "VALUES (:id, :t, :task, 'AGENT_OUTPUT', :key, 'text/markdown', :size, :sum, "
+        "VALUES (:id, :t, :task, 'OUTPUT', :key, 'text/markdown', :size, :sum, "
         " '{\"kind\": \"DOCUMENT\", \"filename\": \"后台结果.md\"}'::jsonb)",
         {
             "id": artifact_id,

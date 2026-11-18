@@ -106,7 +106,7 @@ async def test_s47_registered_output_is_deliverable_through_existing_artifact_pa
         await session.rollback()
         row = await session.get(Artifact, uuid.UUID(artifact_id))
     assert row is not None
-    assert row.artifact_type == "AGENT_OUTPUT"
+    assert row.artifact_type == "OUTPUT"
     assert row.run_id == run.id
     assert row.size == output.size
     assert row.checksum == output.checksum

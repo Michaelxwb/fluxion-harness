@@ -305,7 +305,7 @@ async def test_execution_detail_lists_output_artifacts_with_version_and_checksum
                 "INSERT INTO runtime.artifact "
                 "(id, tenant_id, run_id, task_id, artifact_type, storage_key, media_type, size, "
                 " checksum, metadata_json) "
-                "VALUES (:id, :tenant, NULL, :task, 'TASK_OUTPUT', :key, 'text/markdown', 12, "
+                "VALUES (:id, :tenant, NULL, :task, 'OUTPUT', :key, 'text/markdown', 12, "
                 " :checksum, CAST(:metadata AS jsonb))"
             ),
             {

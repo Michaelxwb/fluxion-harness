@@ -90,7 +90,7 @@ def _row(fixture: FetchFixture, *, tenant_id: str) -> RuntimeArtifact:
         id=fixture.artifact_id,
         tenant_id=tenant_id,
         task_id=uuid.uuid4(),
-        artifact_type="AGENT_OUTPUT",
+        artifact_type="OUTPUT",
         storage_key=fixture.storage_key,
         media_type=MEDIA_TYPE,
         size=len(fixture.content),

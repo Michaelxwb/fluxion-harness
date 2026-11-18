@@ -136,7 +136,7 @@ def _artifacts(live_stack: LiveStack, task_id: str) -> list[Any]:
                             "FROM runtime.artifact a "
                             "JOIN task.task_execution e ON e.id = a.task_id "
                             "WHERE e.parent_id = :parent_id AND a.is_deleted = false "
-                            "AND a.artifact_type = 'TASK_OUTPUT' "
+                            "AND a.artifact_type = 'OUTPUT' "
                             "ORDER BY a.task_id, filename"
                         ),
                         {"parent_id": uuid.UUID(task_id)},

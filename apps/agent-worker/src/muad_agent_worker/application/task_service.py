@@ -394,9 +394,9 @@ class TaskService:
         rows = (
             await self._session.execute(
                 sa.text(
-                    "SELECT task_id, count(DISTINCT id) AS n FROM runtime.artifact "
+                    "SELECT task_id, count(DISTINCT logical_file_id) AS n FROM runtime.artifact "
                     "WHERE tenant_id = :tenant_id AND is_deleted = false "
-                    "AND artifact_type = 'TASK_OUTPUT' AND task_id IN :task_ids "
+                    "AND artifact_type = 'OUTPUT' AND task_id IN :task_ids "
                     "GROUP BY task_id"
                 ).bindparams(sa.bindparam("task_ids", expanding=True)),
                 {"tenant_id": tenant_id, "task_ids": tuple(task_ids)},

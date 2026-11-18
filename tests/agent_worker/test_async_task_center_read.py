@@ -74,7 +74,7 @@ async def _seed_background_tree(factory, tenant: str):
                 conversation_id=None,
                 agent_id=child_a.agent_id,
                 user_id=child_a.actor_user_id,
-                artifact_type="TASK_OUTPUT",
+                artifact_type="OUTPUT",
                 storage_key=f"tasks/{tenant}/{child_a.id}/result.txt",
                 media_type="text/plain",
                 size=3,

@@ -574,6 +574,21 @@ class AttachmentToolSet:
             stmt = stmt.where(Artifact.artifact_type.in_(INBOUND_ARTIFACT_TYPES))
         elif direction == DIRECTION_OUTBOUND:
             stmt = stmt.where(Artifact.artifact_type == AGENT_OUTPUT_ARTIFACT_TYPE)
+        # 版本即行：枚举只展示每个逻辑文件的最新版本，不把历史版本当独立附件。
+        latest = (
+            sa.select(
+                Artifact.id.label("id"),
+                sa.func.row_number()
+                .over(
+                    partition_by=Artifact.logical_file_id,
+                    order_by=Artifact.version.desc(),
+                )
+                .label("rn"),
+            )
+            .where(Artifact.tenant_id == self._tenant_id, Artifact.is_deleted.is_(False))
+            .subquery()
+        )
+        stmt = stmt.where(Artifact.id.in_(sa.select(latest.c.id).where(latest.c.rn == 1)))
 
         async with self._session_factory()() as session:
             rows = list((await session.execute(stmt)).scalars())
@@ -651,14 +666,10 @@ class AttachmentToolSet:
         )
 
     async def append_artifact(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
-        """分段追加写长文档：模型单轮输出有 token 上限，没有追加就写不出长文档。
+        """分段追加写长文档：每个版本是新的不可变行，旧版本字节不变。
 
-        **每次追加换一个新 `storage_key`**（`RULE-skill-001`：artifact 不可变），artifact 行
-        指向最新版本，历史版本键记进 `metadata_json`——**不改 schema**。
-
-        整段读-改-写**在一个事务里锁住那一行**（`SELECT … FOR UPDATE`）完成：正文合并、
-        `size`、`checksum`、`metadata_json` 全由旧值推出，不串行化的话后提交的会用旧快照
-        覆盖前一个 —— 用户拿到的是一份**少了一段**的文档，而且不报错（2026-10-03 review）。
+        追加合并的是**当前版本**的全文；新版本有新 `artifact_id`、`storage_key`、checksum，
+        共享 `logical_file_id`。交付要用返回的新 id，旧 id 仍然指向旧内容。
         """
         async with self._session_factory()() as session:
             row = await self._load_for_update(session, arguments.get("artifact_id"))
@@ -667,12 +678,39 @@ class AttachmentToolSet:
                     ATTACHMENT_TYPE_UNSUPPORTED,
                     f"{_filename(row)}：只能追加本次运行自己写出的产物",
                 )
+            # 逻辑文件级锁：并发的追加都从“最新版本”继续，而不是各自从同一旧版本
+            # 生成同一个 version 号（唯一约束会把后者打成 500）。
+            await session.execute(
+                sa.select(
+                    sa.func.pg_advisory_xact_lock(
+                        sa.cast(
+                            sa.func.hashtext(
+                                f"run-artifact:{row.tenant_id}:{row.logical_file_id}"
+                            ),
+                            sa.BigInteger,
+                        )
+                    )
+                )
+            )
+            latest = await session.scalar(
+                sa.select(Artifact)
+                .where(
+                    Artifact.tenant_id == row.tenant_id,
+                    Artifact.logical_file_id == row.logical_file_id,
+                    Artifact.is_deleted.is_(False),
+                )
+                .order_by(Artifact.version.desc())
+                .limit(1)
+                .with_for_update()
+            )
+            if latest is not None:
+                row = latest
             content = arguments.get("content")
             if not isinstance(content, str) or not content:
                 raise AttachmentToolError(ATTACHMENT_TYPE_UNSUPPORTED, "content 必填且为非空字符串")
             data = content.encode("utf-8")
 
-            # 先算再写：超限**必须在落任何字节之前**拒绝，否则半截写入等于把用户的文档毁掉
+            # 先算再写：超限必须在落任何字节之前拒绝
             existing = self._read_bytes(row)
             merged = existing + data
             if len(merged) > MAX_READ_BYTES:
@@ -681,30 +719,33 @@ class AttachmentToolSet:
                     f"{_filename(row)}：追加后超过上限（{MAX_READ_BYTES} 字节），已有内容未改动",
                 )
 
-            metadata = dict(row.metadata_json or {})
-            # 版本历史记**这一版自己的**键/校验和/长度：交付要能按发布那一刻的 checksum
-            # 找回对应字节，只留键就定位不到内容（发布冻结）。
-            versions = [dict(entry) for entry in (metadata.get("versions") or [])]
-            versions.append(
-                {"key": row.storage_key, "checksum": row.checksum, "size": row.size}
-            )
-            # 版本号只作**历史留痕**（给人看），不参与 storage_key：`len(versions) + 1` 是读-改-写，
-            # 一旦有别的写入方不走这把行锁，它就还会撞出同一个键。键用不依赖旧值的 uuid 后缀
-            # （2026-10-03 review）。
-            version = len(versions) + 1
-            storage_key = _version_key(row.run_id, row.id, uuid.uuid4().hex)
+            new_id = uuid.uuid4()
+            storage_key = _version_key(row.run_id, new_id, uuid.uuid4().hex)
             self._store().write(storage_key, merged)
-
-            metadata["versions"] = versions
-            metadata["version"] = version
-            row.storage_key = storage_key
-            row.size = len(merged)
-            row.checksum = "sha256:" + hashlib.sha256(merged).hexdigest()
-            row.metadata_json = metadata
+            session.add(
+                Artifact(
+                    id=new_id,
+                    tenant_id=row.tenant_id,
+                    run_id=row.run_id,
+                    task_id=None,
+                    conversation_id=row.conversation_id,
+                    agent_id=row.agent_id,
+                    user_id=row.user_id,
+                    artifact_type=row.artifact_type,
+                    logical_file_id=row.logical_file_id,
+                    version=row.version + 1,
+                    storage_key=storage_key,
+                    media_type=row.media_type,
+                    size=len(merged),
+                    checksum="sha256:" + hashlib.sha256(merged).hexdigest(),
+                    metadata_json=dict(row.metadata_json or {}),
+                )
+            )
             await session.commit()
 
-        self._text_cache.pop(row.id, None)  # 抽取缓存必须作废，否则读回的是上一版全文
-        return f"已追加到产物（附件 ID {row.id}）：{_filename(row)}，当前 {len(merged)} 字符"
+        self._text_cache.pop(row.id, None)
+        self._text_cache.pop(new_id, None)
+        return f"已追加到产物（附件 ID {new_id}）：{_filename(row)}，当前 {len(merged)} 字符"
 
     async def deliver_artifact(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         """把产物交给用户 —— **硬需求的落点**。

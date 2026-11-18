@@ -16,7 +16,7 @@ TASK-005 是 `schedule_drafts.py`/`schedule_confirm.py` 的唯一 owner；run-fa
 
 ## TASK-001: Artifact 版本即行 + OUTPUT + 读路径
 
-- **Status**: draft
+- **Status**: done
 - **Depends**:
 - **Source**: unified-artifact-delivery/unified-artifact-delivery.backend.design.md#4.2, #4.9, #4.10
 - **Scenarios**: unified-artifact-delivery:S-01, unified-artifact-delivery:S-05, unified-artifact-delivery:B-01
@@ -32,7 +32,7 @@ TASK-005 是 `schedule_drafts.py`/`schedule_confirm.py` 的唯一 owner；run-fa
 [
   {
     "id": "artifact-version",
-    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_runtime/test_artifact_versions.py", "tests/console_platform/test_task_artifacts.py"],
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_runtime/test_scheduled_v2_task_artifacts.py", "tests/agent_runtime/test_attachment_tools.py", "tests/agent_worker/test_scheduled_v2_read_api.py"],
     "timeout": 600,
     "parallel": false
   }
@@ -45,13 +45,13 @@ Artifact 版本即行：一个不可变版本一行、一个 `artifact_id`；`lo
 
 ### Checklist
 
-- [ ] `runtime.artifact` 增加 `logical_file_id`/`version`；唯一约束 `(tenant_id, logical_file_id, version)`。
-- [ ] 版本即行；旧版本字节/checksum/storage_key 不变。
-- [ ] `AGENT_OUTPUT`/`TASK_OUTPUT` 统一为 `OUTPUT`；开发期旧数据可清空，不做回填/双读。
-- [ ] 下载/取件/任务中心按 `artifact_id + checksum` 读版本，不返回“最新版”冒充。
-- [ ] 同一 attempt 重复登记同路径同内容复用原版本；`append_artifact` 产生新版本。
-- [ ] 跨 attempt/执行/重试产生新逻辑文件，不聚合成版本链。
-- [ ] 测试：版本、下载、并发追加、旧数据清理。
+- [x] `runtime.artifact` 增加 `logical_file_id`/`version`；唯一约束 `(tenant_id, logical_file_id, version)`。
+- [x] 版本即行；旧版本字节/checksum/storage_key 不变。
+- [x] `AGENT_OUTPUT`/`TASK_OUTPUT` 统一为 `OUTPUT`；开发期旧数据可清空，不做回填/双读。
+- [x] 下载/取件/任务中心按 `artifact_id + checksum` 读版本，不返回“最新版”冒充。
+- [x] 同一 attempt 重复登记同路径同内容复用原版本；`append_artifact` 产生新版本。
+- [x] 跨 attempt/执行/重试产生新逻辑文件，不聚合成版本链。
+- [x] 测试：版本、下载、并发追加、旧数据清理。
 
 ### Spec Delta
 
@@ -62,11 +62,14 @@ Artifact 版本即行：一个不可变版本一行、一个 `artifact_id`；`lo
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18] implemented: version-as-row + OUTPUT + attempt scope; tests updated
+- [2026-11-18T15:15:54.639Z] started tests=bf62cfdf292f
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-18T15:27:56.965Z PASS commands=1/1 executed=1 deduped=0 elapsed=31745ms tests=3e8bcfca0454 head=d6da480946b9 dirty=1 tests-changed
+  - artifact-version PASS exit=0
 ## TASK-002: MessagePayload + Run 终态消息 + Web 历史
 
 - **Status**: draft

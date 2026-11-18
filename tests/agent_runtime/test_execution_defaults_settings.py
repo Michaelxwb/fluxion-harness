@@ -466,7 +466,7 @@ async def _seed_artifact(root: Path, tenant_id: str, *, age: timedelta) -> uuid.
                 id=artifact_id,
                 tenant_id=tenant_id,
                 task_id=uuid.uuid4(),  # run_id/task_id 恰填一个（表上的 XOR 约束）
-                artifact_type="AGENT_OUTPUT",
+                artifact_type="OUTPUT",
                 storage_key=key,
                 media_type="text/plain",
                 size=6,

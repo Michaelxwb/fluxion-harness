@@ -999,6 +999,10 @@ class Artifact(StandardColumnsMixin, Base):
             "user_id",
             sa.text("create_time DESC"),
         ),
+        sa.UniqueConstraint(
+            "tenant_id", "logical_file_id", "version", name="uq_artifact_logical_version"
+        ),
+        sa.Index("ix_artifact_logical_file", "tenant_id", "logical_file_id"),
         {"schema": "runtime"},
     )
 
@@ -1013,6 +1017,12 @@ class Artifact(StandardColumnsMixin, Base):
     agent_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid(), nullable=True)
     user_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid(), nullable=True)
     artifact_type: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    #: 同一逻辑文件的各版本共享；作用域 = tenant + owner + attempt + 产出调用身份 + 规范路径。
+    logical_file_id: Mapped[uuid.UUID] = mapped_column(
+        sa.Uuid(), nullable=False, server_default=sa.text("gen_random_uuid()"), default=uuid.uuid4
+    )
+    #: 不可变版本号；版本即行，`artifact_id` 指向的字节永不改变。
+    version: Mapped[int] = mapped_column(sa.Integer(), nullable=False, server_default=sa.text("1"))
     storage_key: Mapped[str] = mapped_column(sa.Text(), nullable=False)
     media_type: Mapped[str] = mapped_column(sa.String(128), nullable=False)
     size: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False)
