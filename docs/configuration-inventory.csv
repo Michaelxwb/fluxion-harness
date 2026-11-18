@@ -1060,11 +1060,12 @@ apps/console-platform/backend/src/muad_console_platform/application/external_ass
 apps/console-platform/backend/src/muad_console_platform/application/external_assertion/config.py,23,_KNOWN_KEYS,"('public_key', 'issuer', 'audience', 'salt', 'identity_keys', 'identity_field_labels')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/external_assertion/verifier.py,23,_LOGGER,logging.getLogger(__name__),python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/external_assertion/verifier.py,25,_ALLOWED_ALGS,frozenset({'RS256'}),python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/external_assertion_service.py,28,_LOGGER,logging.getLogger(__name__),python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/external_assertion_service.py,31,_REJECTION_TO_CODE,{'assertion_expired': 'EXTERNAL_ASSERTION_EXPIRED'},python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/external_assertion_service.py,34,_DEFAULT_REJECTION_CODE,'EXTERNAL_ASSERTION_INVALID',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/external_assertion_service.py,190,_DEFAULT_SESSION_TTL_SEC,300,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/external_identity_service.py,30,MSSW_PLATFORM_KEY,'mssw',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/external_assertion_service.py,32,_LOGGER,logging.getLogger(__name__),python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/external_assertion_service.py,35,_REJECTION_TO_CODE,"{'assertion_expired': 'EXTERNAL_ASSERTION_EXPIRED', 'missing_issue_time': 'EXTERNAL_ASSERTION_EXPIRED'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/external_assertion_service.py,41,_DEFAULT_REJECTION_CODE,'EXTERNAL_ASSERTION_INVALID',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/external_assertion_service.py,197,_DEFAULT_SESSION_TTL_SEC,300,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/external_identity_service.py,31,MSSW_PLATFORM_KEY,'mssw',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/external_identity_service.py,35,AUDIT_RESOURCE_TYPE,'PLATFORM_USER',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/grant_service.py,15,AUDIT_RESOURCE_TYPE,'AGENT_ACCESS_GRANT',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/inbound_audit_service.py,23,_IDEMPOTENCY_COLUMNS,"('tenant_id', 'channel', 'external_message_id', 'outcome')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/inbound_audit_service.py,24,_PARTIAL_UNIQUE_WHERE,sa.text('is_deleted = false'),python-constant,code,协议标识、枚举、schema、文本或实现常量

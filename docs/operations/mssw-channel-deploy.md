@@ -1,8 +1,15 @@
-# MSSWWEB 通道部署清单（含迁移与回滚）
+# MSSWWEB 通道部署清单（含迁移、平台因子配置与回滚）
 
 > **适用对象**：部署本分支（`feat/mssw-channel`）的研发/运维
-> **更新日期**：2026-11-17
-> **状态**：已在测试 Pod 与临时库上实测通过（详见 §6 验证记录）
+> **更新日期**：2026-11-18
+> **状态**：迁移与平台因子配置均已在真实环境实测通过（迁移见 §8 验证记录）
+
+**部署全流程共四段，按序执行**：
+
+1. 数据库迁移到 head（§1–§3）——不做会让三个服务 CrashLoop。
+2. 更新工作负载镜像（CD 走 Helm chart，见 §4.1）。
+3. 写平台验签因子 Secret 并重启（§4）——不做则外部平台未配置，页面上看不到 `mssw`。
+4. 管理员在 Console 建入口、登记身份、授权（§6）。
 
 ---
 
@@ -111,11 +118,112 @@ from control.platform_user;
 
 ### 3.7 再更新 Deployment
 
-迁移确认无误后，才滚动更新 workload。
+迁移确认无误后，才滚动更新 workload。镜像更新后还要配平台因子，见 §4。
 
 ---
 
-## 4. 部署后检查
+## 4. 配置外部平台验签因子（Secret）
+
+迁移和镜像都上去之后，MSSW 入口仍然不可用——还差一步：给 `muad-external` Secret 写平台验签因子。没有它，Console 的 `GET /api/v1/external-platforms` 返回空数组，用户详情页的「外部身份」页签里看不到 `mssw` 平台。
+
+### 4.1 两套清单：CD 走的是 Helm chart
+
+仓库里有两套并行的部署定义，**改错一套不会生效**：
+
+| 路径 | 用途 |
+|---|---|
+| `build/helm-build/<服务>/` | **CD 实际部署源**（Pod 上的 `app.kubernetes.io/managed-by: Helm` 标签为证） |
+| `deploy/k8s/base/<服务>.yaml` | raw 清单，不参与本次 CD |
+
+`EXTERNAL_ASSERTION_PLATFORMS_JSON` 这个 env 必须在 Helm chart 的 template 里声明，容器才读得到 Secret。两边都有同名项时保持内容一致，避免以后排查时误判。
+
+该 env 在 chart 里是 `optional: true`：Secret 里没有这个键时，容器照常启动、只是「外部平台未配置」，其它通道（WEBCHAT）行为不变。所以**先上 chart、后写 Secret、顺序谁先都安全**。
+
+### 4.2 组装平台 JSON
+
+字段含义与取值来源：
+
+| 字段 | 来源 |
+|---|---|
+| `issuer` / `audience` / `salt` | 需求方提供的 MSSW 接入参数（开发环境实测值见 `docs/mssw-channel/01-jwt-spec.md` §5.1） |
+| `public_key` | 需求方提供的 **PKCS#1** 公钥（`-----BEGIN RSA PUBLIC KEY-----`） |
+| `identity_keys` | 平台身份键集合，MSSW 用 `["_id", "tenant_id"]` |
+| `identity_field_labels` | claim 名 → Console 表单标签的中文名 |
+
+**`identity_keys` 必须写 `_id`，不能写 `expert_id`**。验签后按 `identity_keys` 直接取 JWT 顶层同名字段（`external_assertion/principal.py`），而真实 token 里专家 ID 的字段名就是 `_id`；写成 `expert_id` 会让每个真实 token 都因取值缺失被 401 拒绝。管理员在表单上看到的是「专家 ID」，由 `identity_field_labels` 映射，不影响使用。
+
+`public_key` 写进单行 JSON 时，PEM 的换行必须是 `\n`（反斜杠加字母 n），不能是真换行。
+
+写入前先校验 JSON 合法，避免写进 Secret 后 Pod 启动崩溃：
+
+```bash
+python3 -c "import json; json.load(open('platforms.json', encoding='utf-8')); print('JSON OK')"
+```
+
+平台因子损坏（JSON 语法错、公钥不是合法 RSA、`salt` 超过 32 字节）会在**启动期**抛 `PlatformConfigError`，Pod 直接 CrashLoop——这是刻意的，见 `external_assertion/config.py`。
+
+### 4.3 写入 Secret
+
+先备份，便于回滚：
+
+```bash
+kubectl get secret muad-external -n muad -o yaml > muad-external.backup.yaml
+```
+
+再把新键合并进 Secret。这条命令读出既有键的**原值**（`data` 里是 base64，`base64 -d` 解回明文），连同 `platforms.json` 整份重建，不会丢键：
+
+```bash
+kubectl create secret generic muad-external -n muad \
+  --from-literal=DATABASE_URL="$(kubectl get secret muad-external -n muad -o jsonpath='{.data.DATABASE_URL}' | base64 -d)" \
+  --from-literal=REDIS_URL="$(kubectl get secret muad-external -n muad -o jsonpath='{.data.REDIS_URL}' | base64 -d)" \
+  --from-literal=INTERNAL_SERVICE_TOKEN="$(kubectl get secret muad-external -n muad -o jsonpath='{.data.INTERNAL_SERVICE_TOKEN}' | base64 -d)" \
+  --from-file=EXTERNAL_ASSERTION_PLATFORMS_JSON=./platforms.json \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
+`--from-literal` / `--from-file` 收的都是**明文**，k8s 自动 base64 存进 `data`；不要手动编码后再传。
+
+### 4.4 重启两个服务
+
+Secret 变更不会让 Pod 自动重读：平台因子在进程启动时加载并缓存（`external_assertion/config.py` 的 `lru_cache`），必须重启：
+
+```bash
+kubectl rollout restart deploy/muad-console-platform deploy/muad-im-gateway -n muad
+kubectl rollout status deploy/muad-console-platform -n muad
+kubectl rollout status deploy/muad-im-gateway -n muad
+```
+
+两个服务都读同一个 Secret 键：Console 用它验签，Gateway 用它判定「该通道是否已配置」并挂载路由。只重启一个会出现「Console 能验签、Gateway 找不到平台」的割裂状态。
+
+### 4.5 验证
+
+```bash
+# 1) 变量真的进了容器（应为三位数以上的 len，而非 0）
+kubectl exec -n muad deploy/muad-console-platform -- sh -c 'echo "len=${#EXTERNAL_ASSERTION_PLATFORMS_JSON}"'
+kubectl exec -n muad deploy/muad-im-gateway -- sh -c 'echo "len=${#EXTERNAL_ASSERTION_PLATFORMS_JSON}"'
+
+# 2) Pod Running 且 RESTARTS 不涨
+kubectl get pods -n muad -l 'app in (muad-console-platform,muad-im-gateway)'
+
+# 3) 接口能列出平台（带管理员 token；端口以 Service 实际值为准）
+kubectl exec -n muad deploy/muad-console-platform -- \
+  curl -s -H "Authorization: Bearer <管理员token>" \
+  http://localhost:<port>/api/v1/external-platforms
+```
+
+第 3 步期望返回 `data` 里有 `"platform_key": "mssw"` 且 `"configured": true`。返回空数组说明 Secret 没读到；503 是因子未配置；401 是 token 不对。
+
+### 4.6 常见坑
+
+- **改了 `deploy/k8s/base` 不生效**：CD 读 `build/helm-build`，确认改的是 chart template 而不是 raw 清单。
+- **Secret 改完不重启**：`printenv` 仍是旧值/空，因为因子是启动时缓存的。
+- **`identity_keys` 写成 `expert_id`**：验签后取不到身份，真实 token 全部 401。必须是 `_id`。
+- **`public_key` 换行写成真换行**：JSON 非法，Pod 启动期抛 `PlatformConfigError` 并 CrashLoop。
+- **Secret 回滚**：`kubectl apply -f muad-external.backup.yaml` 后再 `rollout restart` 两个服务。
+
+---
+
+## 5. 部署后检查
 
 ```bash
 # 三个服务应能起来且不重启
@@ -126,9 +234,22 @@ kubectl logs -n muad <pod> | grep -i "schema revision"
 
 ---
 
-## 5. 回滚预案
+## 6. 管理员配置入口与用户身份
 
-### 5.1 回滚能做什么、不能做什么
+平台因子配好、服务重启后，Console 上才有 `mssw` 平台。入口与用户的配置分两步，顺序是先建入口、再授权：
+
+1. **建入口**：Agent 详情页 → IM 入口 → 新增 → 通道类型选「MSSW 网页入口」。表单只有三项必填：通道名称（任意可读名）、入口标识（稳定英文标识，全表唯一）、扩展配置（留 `{}`）。这类通道**不填 Bot Secret**——表单不显示该框，后端也显式拒收。
+2. **登记身份**：用户详情页 → 外部身份 → 新增，按平台 `identity_keys` 填写（表单显示为「专家 ID」「租户 ID」）。
+3. **授权入口**：在该身份行点「授权入口」，从列表里选第 1 步建的入口。
+4. **授权 Agent**：用户还需有对应 Agent 的使用权，在「用户 → Agent」授权里配（不在外部身份页签）。
+
+只登记身份、不授权入口 → 该入口返回 `NO_ENTRY_GRANT`；身份登记了但用户没有 Agent 授权 → `NO_AGENT_GRANT`。
+
+---
+
+## 7. 回滚预案
+
+### 7.1 回滚能做什么、不能做什么
 
 实测结论：
 
@@ -136,11 +257,11 @@ kubectl logs -n muad <pod> | grep -i "schema revision"
 - **回滚会丢失新功能数据**：升级后写入的 `external_identity` / `entry_access_grant` 全部消失；`auth_revision` 的值归零重来（实测把 `auth_revision=7` 回滚再升级后变回 `1`）。
 - 回滚后可以再升级回来，re-upgrade 实测 `EXIT=0`。
 
-### 5.2 什么时候该回滚
+### 7.2 什么时候该回滚
 
 只有当**新服务无法启动且短时间修不好**时才回滚。如果只是功能异常，优先修代码或回退镜像，不要动 schema——回滚会丢用户已配置的授权。
 
-### 5.3 回滚步骤
+### 7.3 回滚步骤
 
 ```bash
 # 1) 先把 workload 回到旧镜像（否则旧库 + 新代码会再次启动失败）
@@ -153,17 +274,16 @@ uv run python migrations/db_migrate.py -c /tmp/alembic.prod.ini downgrade 0050
 uv run python migrations/db_migrate.py -c /tmp/alembic.prod.ini current   # 期望 0050
 ```
 
-### 5.4 灾难恢复
+### 7.4 灾难恢复
 
 如果回滚过程中出错，用 §3.4 的 dump 恢复：
-
 ```bash
 pg_restore -h <pg-host> -U <user> -d muad_db --clean --if-exists /backup/muad_db_pre_mssw_<ts>.dump
 ```
 
 ---
 
-## 6. 验证记录（2026-11-17 实测）
+## 8. 验证记录（2026-11-17 实测）
 
 在测试 Pod `mssw-test-runner-fff5ccdf8-cbhzm` 上，用临时库 `muad_mssw_verify` 连接实际 PG 集群执行，验证后已销毁该库。
 
@@ -180,7 +300,7 @@ pg_restore -h <pg-host> -U <user> -d muad_db --clean --if-exists /backup/muad_db
 
 ---
 
-## 7. 常见坑
+## 9. 常见坑
 
 - **不要手工 `alembic -c` 直跑**：用 `migrations/db_migrate.py`，它会 `chdir` 到仓库根，保证 `script_location` 与 `prepend_sys_path` 相对路径正确。
 - **表在 `control` / `runtime` / `task` schema**：校验 SQL 写 `schemaname='public'` 会查不到东西，误判成「迁移失败」。
