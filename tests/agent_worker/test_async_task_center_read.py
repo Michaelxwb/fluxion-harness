@@ -49,7 +49,7 @@ async def _seed_background_tree(factory, tenant: str):
             .values(
                 parent_id=parent.id,
                 item_key="customer-a",
-                input_json={"customer": "客户 A"},
+                input_json={"target": "客户 A"},
                 status=TaskStatus.COMPLETED.value,
                 finished_at=datetime.now(UTC),
             )

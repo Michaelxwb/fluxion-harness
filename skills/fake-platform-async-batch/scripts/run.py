@@ -128,7 +128,13 @@ def _targets_from_platform() -> list[dict[str, Any]]:
         if not isinstance(value, dict):
             continue
         name = str(value.get("name") or value.get("id") or f"target-{index}")
-        targets.append({"target": name, "target_id": value.get("id")})
+        targets.append(
+            {
+                "target": name,
+                "target_id": value.get("id"),
+                "item_key": f"{index}-{_safe_name(name)}",
+            }
+        )
     if not targets:
         raise RuntimeError("/api/v1/targets returned no usable targets")
     return targets
@@ -156,6 +162,7 @@ def _explicit_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
             item.setdefault("offline", True)
         if str(item["target"]) in fail_targets:
             item["simulate_failure"] = True
+        item.setdefault("item_key", f"{index}-{_safe_name(str(item['target']))}")
         items.append(item)
     return items
 

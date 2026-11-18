@@ -73,6 +73,9 @@ WEBCHAT_SURFACE = TaskCenterSurface(
     name="webchat", confirmation_surface=ConfirmationSurface.WEBCHAT
 )
 
+#: Worker 的 `/internal/tasks` 仍是完整 Task 摘要；任务中心只投影公开契约字段。
+TASK_CENTER_ITEM_FIELDS = tuple(TaskCenterTaskItem.model_fields)
+
 
 class TaskCenterOwnerPort(Protocol):
     """任务事实的 Owner 面（Worker 是唯一实现；结构替身只需实现同一动词面）。"""
@@ -300,7 +303,7 @@ class TaskCenterService:
         if not isinstance(raw_items, list) or not isinstance(total, int):
             logger.warning("task_center_task_page_invalid")
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
-        items = [_project(TaskCenterTaskItem, raw) for raw in raw_items]
+        items = [_task_center_item(raw) for raw in raw_items]
         return TaskCenterTaskPage(
             items=items, page=page, page_size=page_size, total=total
         ).model_dump(mode="json")
@@ -614,6 +617,17 @@ class TaskCenterService:
 def _page_count(total: int) -> int:
     """整段范围需要读多少页（`MAX_PAGE_SIZE` 是 Owner 的单页上限）。"""
     return max(1, -(-total // MAX_PAGE_SIZE))
+
+
+def _task_center_item(raw: object) -> TaskCenterTaskItem:
+    """只挑任务中心契约字段：Worker 摘要包含内部列，不能整对象交给 `extra=forbid`。"""
+    if not isinstance(raw, dict):
+        logger.warning("task_center_task_item_invalid")
+        raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
+    return _project(
+        TaskCenterTaskItem,
+        {key: raw[key] for key in TASK_CENTER_ITEM_FIELDS if key in raw},
+    )
 
 
 def _project[ContractT: BaseModel](model: type[ContractT], data: object) -> ContractT:

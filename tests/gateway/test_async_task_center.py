@@ -57,6 +57,11 @@ class _Owner:
                     "has_artifacts": True,
                     "create_time": datetime.now(UTC).isoformat(),
                     "finished_at": datetime.now(UTC).isoformat(),
+                    # Worker 的 Task 摘要仍带内部列；任务中心只能投影公开字段。
+                    "tenant_id": TENANT,
+                    "actor_user_id": str(USER),
+                    "input": {"targets": ["alpha"]},
+                    "result": {"total": 1},
                 }
             ],
             "page": 1,
@@ -91,6 +96,7 @@ async def test_list_tasks_scopes_to_authorized_agents_and_projects_page() -> Non
     assert data["items"][0]["task_type"] == "BATCH"
     assert data["items"][0]["counts"]["failed"] == 2
     assert data["items"][0]["partial_failure"] is True
+    assert "tenant_id" not in data["items"][0], "内部 Task 列不得进入任务中心响应"
 
 
 async def test_list_tasks_rejects_agent_outside_authorized_set() -> None:

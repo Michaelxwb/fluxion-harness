@@ -112,7 +112,7 @@ def _error_summary(execution: TaskExecution) -> str | None:
 
 def _child_label(execution: TaskExecution) -> str:
     payload = execution.input_json if isinstance(execution.input_json, dict) else {}
-    for key in ("label", "name", "title", "customer", "item_key"):
+    for key in ("label", "name", "title", "customer", "target", "item_key"):
         value = payload.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()[:120]
