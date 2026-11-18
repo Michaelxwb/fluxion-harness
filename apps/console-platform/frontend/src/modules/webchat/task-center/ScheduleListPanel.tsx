@@ -255,7 +255,7 @@ export function ScheduleListPanel(props: ScheduleListPanelProps) {
         </ul>
       ) : null}
 
-      {state.items.length > 0 && state.pageSize > 0 && state.total > state.pageSize ? (
+      {state.items.length > 0 && state.pageSize > 0 ? (
         <PaginationFooter
           page={state.page}
           pageSize={state.pageSize}

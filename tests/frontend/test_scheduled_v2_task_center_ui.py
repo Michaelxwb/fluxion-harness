@@ -1021,6 +1021,8 @@ SCENARIOS = (
     {"id": "list-en", "locale": "en-US", "agents": True,
      "state": {"items": LIST_ITEMS, "page": 1, "pageSize": 2, "total": 30}},
     {"id": "list-empty-zh", "locale": "zh-CN", "state": {"items": []}},
+    {"id": "list-single-page-zh", "locale": "zh-CN",
+     "state": {"items": [LIST_ITEMS[0]], "page": 1, "pageSize": 20, "total": 1}},
     {"id": "list-error-zh", "locale": "zh-CN",
      "state": {"items": [], "phase": "ERROR", "errorCode": "NETWORK_ERROR"}},
     {"id": "list-notfound-zh", "locale": "zh-CN",
@@ -1417,3 +1419,9 @@ def test_ui_reads_only_through_the_typed_client() -> None:
         assert "fetch(" not in source, "组件不得裸用 fetch"
         assert "axios" not in source, "组件不得裸用 axios"
         assert "toLocaleString(" not in source, "时间必须走 DateTimeText"
+
+
+def test_single_page_still_shows_pagination(task_center_render: dict[str, Any]) -> None:
+    markup = task_center_render["markup"]["list-single-page-zh"]
+    assert "app-pagination" in markup, "只有一页也要显示统一分页组件"
+    assert "1 / 1" in markup

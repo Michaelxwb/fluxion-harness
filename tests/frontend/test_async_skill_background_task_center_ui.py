@@ -926,6 +926,8 @@ SCENARIOS = (
     {"id": "list-en", "locale": "en-US",
      "state": {"items": LIST_ITEMS, "page": 1, "pageSize": 2, "total": 30}},
     {"id": "list-empty-zh", "locale": "zh-CN", "state": {"items": []}},
+    {"id": "list-single-page-zh", "locale": "zh-CN",
+     "state": {"items": [LIST_ITEMS[0]], "page": 1, "pageSize": 20, "total": 1}},
     {"id": "list-error-zh", "locale": "zh-CN",
      "state": {"items": [], "phase": "ERROR", "errorCode": "NETWORK_ERROR"}},
     {"id": "list-notfound-zh", "locale": "zh-CN",
@@ -1330,3 +1332,9 @@ def test_locale_titles_describe_the_combined_task_center() -> None:
     assert en["chat.tabs.tasks"] == "Tasks"
     assert en["chat.taskCenter.label"] == "Task center"
     assert en["chat.taskCenter.group.background"] == "Background tasks"
+
+
+def test_background_single_page_still_shows_pagination(background_render: dict[str, Any]) -> None:
+    markup = background_render["markup"]["list-single-page-zh"]
+    assert "app-pagination" in markup, "只有一页也要显示统一分页组件"
+    assert "1 / 1" in markup
