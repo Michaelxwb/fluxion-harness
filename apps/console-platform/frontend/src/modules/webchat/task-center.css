@@ -82,9 +82,12 @@
 
 .chat-schedule-row {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 12px;
   width: 100%;
+  min-width: 0;
   padding: 10px 12px;
   border: 1px solid var(--semi-color-border);
   border-radius: 8px;
@@ -93,6 +96,7 @@
   cursor: pointer;
   font: inherit;
   color: inherit;
+  overflow: hidden;
 }
 
 .chat-schedule-row:hover {
@@ -108,16 +112,23 @@
 .chat-schedule-row-meta,
 .chat-schedule-row-last {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 6px 10px;
   min-width: 0;
 }
 
+.chat-schedule-row-title {
+  flex: 0 1 auto;
+}
+
 .chat-schedule-row-meta {
+  flex: 1 1 auto;
+  justify-content: flex-end;
   font-size: 12px;
   color: var(--semi-color-text-2);
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .chat-schedule-row-last {
