@@ -108,6 +108,8 @@
   "user.external.searchEntry": "Search entries by name or Bot ID",
   "user.external.noEntries": "No matching entries",
   "user.external.entriesFailed": "Failed to load entries",
+  "user.external.platform": "External platform",
+  "user.external.platformRequired": "Select an external platform",
   "user.external.platformUnconfigured": "Platform \"{{platform}}\" is not configured; adding and granting are disabled",
   "user.external.confirmDelete": "Delete this external identity? Its entry grants will be removed as well",
   "common.edit": "Edit",

@@ -26,6 +26,25 @@ def test_external_section_drives_fields_from_identity_keys() -> None:
     assert ".map(" in source and "Form.Input" in source
 
 
+def test_external_section_requires_explicit_platform_choice() -> None:
+    """录入必须先选平台：多平台并存时不能隐式绑定到第一个。
+
+    平台选择项只列已配置平台；没有已配置平台时录入按钮禁用；
+    提交用表单里选中的平台，而不是 state 里的残留值。
+    """
+    source = EXTERNAL.read_text(encoding="utf-8")
+    # 弹窗里有平台选择控件
+    assert "Form.Select" in source
+    assert 'field={PLATFORM_FIELD}' in source
+    # 没有硬编码平台兜底
+    assert "DEFAULT_PLATFORM" not in source
+    # 只列已配置平台，且无平台时禁用录入
+    assert "configuredPlatforms" in source
+    assert "disabled={configuredPlatforms.length === 0}" in source
+    # 提交以表单值为准
+    assert "values[PLATFORM_FIELD]" in source
+
+
 def test_external_section_gates_and_banners_by_platform_config() -> None:
     """平台未配置时给出 Banner；入口授权按服务端分页搜索、前端不本地过滤。"""
     source = EXTERNAL.read_text(encoding="utf-8")

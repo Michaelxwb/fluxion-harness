@@ -31,7 +31,14 @@ import {
   upsertExternalIdentity
 } from './services/users';
 
-const DEFAULT_PLATFORM = 'mssw';
+/** 录入表单里「平台」字段的 field 名。与 identity_keys 用一个下划线前缀隔开，避免撞名。 */
+const PLATFORM_FIELD = '_platform_key';
+
+/** 卡片上展示平台名：优先 display_name，取不到回落到 key。 */
+function platformName(platformKey: string, platforms: ExternalPlatformItem[]): string {
+  const found = platforms.find((item) => item.platform_key === platformKey);
+  return found?.display_name || platformKey;
+}
 
 export interface ExternalIdentitySectionProps {
   userId: string;
@@ -47,10 +54,11 @@ export function ExternalIdentitySection(props: ExternalIdentitySectionProps) {
   const [failed, setFailed] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [editing, setEditing] = useState<ExternalIdentityItem | null>(null);
-  const [identityModal, setIdentityModal] = useState<{ visible: boolean; platformKey: string }>({
-    visible: false,
-    platformKey: DEFAULT_PLATFORM
-  });
+  const [identityModal, setIdentityModal] = useState<{
+    visible: boolean;
+    /** 录入时由表单选择（初始为第一个已配置平台）；编辑时为该身份所属平台，不可改。 */
+    platformKey: string;
+  }>({ visible: false, platformKey: '' });
   const [grantModal, setGrantModal] = useState<{ visible: boolean; identity: ExternalIdentityItem | null }>({
     visible: false,
     identity: null
@@ -84,11 +92,17 @@ export function ExternalIdentitySection(props: ExternalIdentitySectionProps) {
     void load();
   }, [load]);
 
+  /** 可录入的平台：只列已配置的（未配置的平台没有验签因子，录了也用不了）。 */
+  const configuredPlatforms = useMemo(
+    () => platforms.filter((item) => item.configured),
+    [platforms]
+  );
+
   const openCreate = () => {
     setEditing(null);
     setFormError(null);
-    const key = platforms[0]?.platform_key ?? DEFAULT_PLATFORM;
-    setIdentityModal({ visible: true, platformKey: key });
+    // 无兜底：没有已配置平台就不该打开录入框（按钮此时已禁用）。
+    setIdentityModal({ visible: true, platformKey: configuredPlatforms[0]?.platform_key ?? '' });
   };
 
   const openEdit = (item: ExternalIdentityItem) => {
@@ -100,21 +114,28 @@ export function ExternalIdentitySection(props: ExternalIdentitySectionProps) {
   const submitIdentity = async (values: Record<string, unknown>) => {
     setSubmitting(true);
     setFormError(null);
+    // 以表单里选中的平台为准：platformKey 在录入时随选择变化，不能只认 state。
+    const selectedKey = String(values[PLATFORM_FIELD] ?? identityModal.platformKey);
+    const selected = platforms.find((item) => item.platform_key === selectedKey);
+    if (!selected) {
+      setFormError(i18n.t('user.external.platformRequired'));
+      setSubmitting(false);
+      return;
+    }
     try {
-      const keys = platform?.identity_keys ?? [];
       const identity: Record<string, string> = {};
-      for (const key of keys) {
+      for (const key of selected.identity_keys) {
         identity[key] = String(values[key] ?? '').trim();
       }
       if (editing) {
         await updateExternalIdentity(props.userId, editing.identity_id, { identity });
       } else {
         await upsertExternalIdentity(props.userId, {
-          platform_key: identityModal.platformKey,
+          platform_key: selected.platform_key,
           identity
         });
       }
-      setIdentityModal({ visible: false, platformKey: identityModal.platformKey });
+      setIdentityModal({ visible: false, platformKey: selected.platform_key });
       await load();
       props.onMutated?.();
     } catch (error) {
@@ -161,7 +182,12 @@ export function ExternalIdentitySection(props: ExternalIdentitySectionProps) {
 
       {props.canManage && (
         <div className="user-external-identity__toolbar">
-          <Button icon={<IconPlus />} theme="solid" onClick={openCreate}>
+          <Button
+            icon={<IconPlus />}
+            theme="solid"
+            disabled={configuredPlatforms.length === 0}
+            onClick={openCreate}
+          >
             {t('user.external.add')}
           </Button>
         </div>
@@ -174,7 +200,7 @@ export function ExternalIdentitySection(props: ExternalIdentitySectionProps) {
           {identities.map((item) => (
             <div key={item.identity_id} className="user-external-identity__card">
               <div className="user-external-identity__head">
-                <strong>{item.platform_key}</strong>
+                <strong>{platformName(item.platform_key, platforms)}</strong>
                 <Tag color={item.status === 'ACTIVE' ? 'green' : 'grey'}>{item.status}</Tag>
               </div>
               <div className="user-external-identity__fields">
@@ -232,11 +258,33 @@ export function ExternalIdentitySection(props: ExternalIdentitySectionProps) {
         getFormApi={(api) => {
           identityFormApi.current = api;
         }}
-        initValues={editing?.identity ?? {}}
+        initValues={
+          editing
+            ? { ...editing.identity, [PLATFORM_FIELD]: editing.platform_key }
+            : { [PLATFORM_FIELD]: identityModal.platformKey }
+        }
         onOk={() => identityFormApi.current?.submitForm()}
         onCancel={() => setIdentityModal({ visible: false, platformKey: identityModal.platformKey })}
         onSubmit={(values) => void submitIdentity(values)}
       >
+        {/* 平台必须先选：多平台并存时，身份字段随平台变化，不能隐式取第一个。 */}
+        <Form.Select
+          field={PLATFORM_FIELD}
+          label={t('user.external.platform')}
+          disabled={Boolean(editing)}
+          rules={[{ required: true, message: t('user.external.platformRequired') }]}
+          optionList={configuredPlatforms.map((item) => ({
+            value: item.platform_key,
+            label: item.display_name || item.platform_key
+          }))}
+          onChange={(value) => {
+            // 换平台后字段集合不同，重置表单并重新挂载，避免上一个平台的字段残留。
+            setIdentityModal({
+              visible: true,
+              platformKey: String(value ?? '')
+            });
+          }}
+        />
         {(platform?.identity_keys ?? []).map((key) => (
           <Form.Input
             key={key}
@@ -254,7 +302,7 @@ export function ExternalIdentitySection(props: ExternalIdentitySectionProps) {
 
       <GrantEntryModal
         visible={grantModal.visible}
-        platformKey={grantModal.identity?.platform_key ?? DEFAULT_PLATFORM}
+        platformKey={grantModal.identity?.platform_key ?? ''}
         userId={props.userId}
         granted={new Set((grantModal.identity?.grants ?? []).map((grant) => grant.entry_id))}
         onCancel={() => setGrantModal({ visible: false, identity: grantModal.identity })}

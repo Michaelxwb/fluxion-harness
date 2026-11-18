@@ -108,6 +108,8 @@
   "user.external.searchEntry": "按名称或 Bot ID 搜索入口",
   "user.external.noEntries": "没有匹配的入口",
   "user.external.entriesFailed": "加载入口失败",
+  "user.external.platform": "外部平台",
+  "user.external.platformRequired": "请选择外部平台",
   "user.external.platformUnconfigured": "平台「{{platform}}」尚未配置，暂不可录入与授权",
   "user.external.confirmDelete": "确认删除该外部身份？其入口授权将一并移除",
   "common.edit": "编辑",
