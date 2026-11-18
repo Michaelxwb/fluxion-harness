@@ -28,6 +28,7 @@ from .envelope import decode_json, error_code_from_payload, require_data_dict
 
 logger = logging.getLogger(__name__)
 
+TASKS_PATH = "/internal/tasks"
 SCHEDULES_PATH = "/internal/schedules"
 SCHEDULE_PATH = "/internal/schedules/{schedule_id}"
 SCHEDULE_FIRES_PATH = "/internal/schedules/{schedule_id}/fires"
@@ -110,11 +111,47 @@ class WorkerClient:
             params={"page": str(page), "page_size": str(page_size)},
         )
 
-    async def get_execution(
-        self, *, tenant_id: str, user_id: UUID, execution_id: UUID
+    async def list_tasks(
+        self,
+        *,
+        tenant_id: str,
+        user_id: UUID,
+        agent_ids: tuple[UUID, ...],
+        status: str | None,
+        page: int,
+        page_size: int,
     ) -> dict[str, Any]:
+        params = {
+            "agent_ids": ",".join(str(agent_id) for agent_id in agent_ids),
+            "background_only": "true",
+            "page": str(page),
+            "page_size": str(page_size),
+        }
+        if status is not None:
+            params["status"] = status
         return await self._get(
-            EXECUTION_PATH.format(execution_id=execution_id), tenant_id=tenant_id, user_id=user_id
+            TASKS_PATH, tenant_id=tenant_id, user_id=user_id, params=params
+        )
+
+    async def get_execution(
+        self,
+        *,
+        tenant_id: str,
+        user_id: UUID,
+        execution_id: UUID,
+        children_page: int | None = None,
+        children_page_size: int | None = None,
+    ) -> dict[str, Any]:
+        params: dict[str, str] = {}
+        if children_page is not None:
+            params["children_page"] = str(children_page)
+        if children_page_size is not None:
+            params["children_page_size"] = str(children_page_size)
+        return await self._get(
+            EXECUTION_PATH.format(execution_id=execution_id),
+            tenant_id=tenant_id,
+            user_id=user_id,
+            params=params or None,
         )
 
     async def list_pending(

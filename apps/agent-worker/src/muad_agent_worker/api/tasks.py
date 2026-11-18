@@ -6,9 +6,10 @@ from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
-from muad_api import ApiResponse, ok, paginate
+from muad_api import ApiResponse, AppError, ok, paginate
+from muad_api.error_codes import ErrorCode
 from muad_api.security import require_internal_service
-from muad_contracts import CreateTaskRequest, TaskStatus, TriggerType
+from muad_contracts import CreateTaskRequest, TaskStatus, TaskType, TriggerType
 from pydantic import JsonValue
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -60,12 +61,49 @@ def _iso(value: datetime | None) -> str | None:
     return value.isoformat() if value else None
 
 
-def _payload(task: TaskExecution, progress: tuple[int, int] | None = None) -> dict[str, Any]:
+def _skill_name(task: TaskExecution) -> str:
+    snapshot = task.execution_snapshot_json or {}
+    skills = snapshot.get("skills") if isinstance(snapshot, dict) else None
+    if isinstance(skills, list) and skills:
+        first = skills[0]
+        if isinstance(first, dict):
+            value = first.get("name") or first.get("key")
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    return f"{task.task_type} {str(task.id)[:8]}"
+
+
+def _result_counts(task: TaskExecution) -> dict[str, int]:
+    row = task.result_json if isinstance(task.result_json, dict) else {}
+    counts: dict[str, int] = {}
+    for key in ("total", "succeeded", "failed", "cancelled"):
+        value = row.get(key)
+        counts[key] = value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else 0
+    return counts
+
+
+def _partial_failure(task: TaskExecution, counts: dict[str, int]) -> bool:
+    row = task.result_json if isinstance(task.result_json, dict) else {}
+    return (
+        task.status == TaskStatus.COMPLETED.value
+        and task.task_type == TaskType.BATCH.value
+        and row.get("mode") == "BEST_EFFORT"
+        and counts.get("failed", 0) > 0
+    )
+
+
+def _payload(
+    task: TaskExecution,
+    progress: tuple[int, int] | None = None,
+    *,
+    has_artifacts: bool = False,
+) -> dict[str, Any]:
     """Task 摘要（设计 §3.4「Task 摘要字段」）。
 
     `progress` 是 `(子任务总数, 已终态数)`；列表接口由 `child_progress()` 一次 GROUP BY
     取回整页，详情接口直接用已加载的 `children` 长度。缺省 0 表示没有子任务。
     """
+    counts = _result_counts(task)
     return {
         "task_id": str(task.id),
         "tenant_id": task.tenant_id,
@@ -77,6 +115,7 @@ def _payload(task: TaskExecution, progress: tuple[int, int] | None = None) -> di
         "source_tool_call_id": task.source_tool_call_id,
         "snapshot_hash": task.snapshot_hash,
         "task_type": task.task_type,
+        "skill_name": _skill_name(task),
         "skill_id": str(task.skill_id) if task.skill_id else None,
         "skill_artifact_id": str(task.skill_artifact_id) if task.skill_artifact_id else None,
         "skill_execution_mode": task.skill_execution_mode,
@@ -109,6 +148,9 @@ def _payload(task: TaskExecution, progress: tuple[int, int] | None = None) -> di
         "finished_at": _iso(task.finished_at),
         "child_total": progress[0] if progress else 0,
         "child_finished": progress[1] if progress else 0,
+        "counts": counts,
+        "partial_failure": _partial_failure(task, counts),
+        "has_artifacts": has_artifacts,
     }
 
 
@@ -159,9 +201,14 @@ def detail_payload(
 async def list_payloads(
     service: TaskService, tenant_id: str, items: list[TaskExecution]
 ) -> list[dict[str, Any]]:
-    """整页 Task 摘要，子任务进度由一次 `GROUP BY` 取回（不做逐行查询）。"""
-    progress = await service.child_progress(tenant_id, [task.id for task in items])
-    return [_payload(task, progress.get(task.id)) for task in items]
+    """整页 Task 摘要，子任务进度/产物存在性各用一次查询（不做逐行查询）。"""
+    ids = [task.id for task in items]
+    progress = await service.child_progress(tenant_id, ids)
+    artifacts = await service.artifact_presence(tenant_id, ids)
+    return [
+        _payload(task, progress.get(task.id), has_artifacts=artifacts.get(task.id, False))
+        for task in items
+    ]
 
 
 async def _publish_cancel_hint(
@@ -256,6 +303,8 @@ async def list_tasks(
     status: Annotated[TaskStatus | None, Query()] = None,
     trigger_type: Annotated[TriggerType | None, Query()] = None,
     agent_id: Annotated[uuid.UUID | None, Query()] = None,
+    agent_ids: Annotated[str | None, Query()] = None,
+    background_only: bool = False,
     actor_user_id: Annotated[uuid.UUID | None, Query()] = None,
     skill_id: Annotated[uuid.UUID | None, Query()] = None,
     schedule_id: Annotated[uuid.UUID | None, Query()] = None,
@@ -268,11 +317,23 @@ async def list_tasks(
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> ApiResponse[Any]:
     service = TaskService(session)
+    parsed_agent_ids: tuple[uuid.UUID, ...] | None = None
+    if agent_ids:
+        try:
+            parsed_agent_ids = tuple(
+                uuid.UUID(part.strip()) for part in agent_ids.split(",") if part.strip()
+            )
+        except ValueError as exc:
+            raise AppError(ErrorCode.COMMON_VALIDATION_ERROR) from exc
+        if not parsed_agent_ids:
+            raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
     items, total = await service.list(
         tenant_id,
         status=status,
         trigger_type=trigger_type,
         agent_id=agent_id,
+        agent_ids=parsed_agent_ids,
+        background_only=background_only,
         # Runtime 代表用户查询时只能看到自己的 Task，忽略 query 里的 actor。
         actor_user_id=caller_actor or actor_user_id,
         skill_id=skill_id,

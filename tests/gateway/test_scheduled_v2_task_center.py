@@ -162,6 +162,7 @@ class _Execution:
     schedule_id: UUID
     owner: UUID
     status: str = "COMPLETED"
+    agent_id: UUID = AGENT_A1
 
 
 @dataclass
@@ -397,6 +398,7 @@ class _WorkerProbe:
             return _json(
                 {
                     "execution_id": str(execution.execution_id),
+                    "agent_id": str(execution.agent_id),
                     "status": execution.status,
                     "wait_kind": None,
                     "wait_payload": None,

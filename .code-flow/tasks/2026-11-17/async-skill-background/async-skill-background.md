@@ -232,7 +232,7 @@ Run 已终态后到达的结果，仍要成为下一轮可读的会话事实。`
   - late-result PASS exit=0
 ## TASK-004: 任务中心后台读契约与接口
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001
 - **Source**: `.code-flow/tasks/2026-11-17/async-skill-background/async-skill-background.design.md#3.4.4 后台任务读面`, `#3.4.5 任务中心读面`; `.code-flow/tasks/2026-11-17/async-skill-background/async-skill-background.frontend.design.md#3.4 组件接口契约`
 - **Scenarios**: S-02, S-03, S-05, S-06, S-07, E-03
@@ -269,20 +269,20 @@ Run 已终态后到达的结果，仍要成为下一轮可读的会话事实。`
 
 ### Checklist
 
-- [ ] `ExecutionDetail.snapshot_schema_version` 放宽为 `>=3`；定时任务仍写 4、立即任务写 3
-- [ ] `ExecutionDetail` 补 `agent_id/task_type/skill_name/parent_id/item_key/counts/partial_failure/artifact_total/children`
-- [ ] 新增共享小契约 `TaskResultCounts`、`TaskChildItem`、`TaskCenterTaskItem`，不新增后台专用详情 DTO
-- [ ] Worker `TaskService.list` 支持 `agent_ids`、`background_only`（`IMMEDIATE`/`schedule_id IS NULL`/`parent_id IS NULL`/`source_run_id IS NOT NULL`），list/count 同条件
-- [ ] `TaskService`/`ScheduleReadService.execution_detail` 返回子任务分页、`counts`、`partial_failure`、`artifact_total`、产物聚合
-- [ ] 后台 `result_artifacts` 聚合父 + 直接子任务 `OUTPUT`，按逻辑文件最新版本，含 `deliveries[]`
-- [ ] Gateway `TaskCenterService.list_tasks` 走现有 `build_task_center_router(surface)`；详情复用 `get_execution`，按 `ExecutionDetail.agent_id` 核属
-- [ ] Worker 跨 Schema 只读聚合遵守 `tenant_id`/`is_deleted`/批量查询，不写 `runtime.*`
-- [ ] [S-02] 后台列表/详情可取结果与产物（产物依赖统一 Artifact）
-- [ ] [S-03] 详情返回失败原文
-- [ ] [S-05] 定时/后台详情共用执行详情，分组不混淆
-- [ ] [S-06] 子任务标签可辨认、错误摘要可读
-- [ ] [S-07] `BEST_EFFORT` 部分失败返回计数与 `partial_failure=true`
-- [ ] [E-03] 撤销 Agent 后列表/详情/产物 404，不泄露存在性
+- [x] `ExecutionDetail.snapshot_schema_version` 放宽为 `>=3`；定时任务仍写 4、立即任务写 3
+- [x] `ExecutionDetail` 补 `agent_id/task_type/skill_name/parent_id/item_key/counts/partial_failure/artifact_total/children`
+- [x] 新增共享小契约 `TaskResultCounts`、`TaskChildItem`、`TaskCenterTaskItem`，不新增后台专用详情 DTO
+- [x] Worker `TaskService.list` 支持 `agent_ids`、`background_only`（`IMMEDIATE`/`schedule_id IS NULL`/`parent_id IS NULL`/`source_run_id IS NOT NULL`），list/count 同条件
+- [x] `TaskService`/`ScheduleReadService.execution_detail` 返回子任务分页、`counts`、`partial_failure`、`artifact_total`、产物聚合
+- [x] 后台 `result_artifacts` 聚合父 + 直接子任务 `OUTPUT`，按逻辑文件最新版本，含 `deliveries[]`
+- [x] Gateway `TaskCenterService.list_tasks` 走现有 `build_task_center_router(surface)`；详情复用 `get_execution`，按 `ExecutionDetail.agent_id` 核属
+- [x] Worker 跨 Schema 只读聚合遵守 `tenant_id`/`is_deleted`/批量查询，不写 `runtime.*`
+- [x] [S-02] 后台列表/详情可取结果与产物（产物依赖统一 Artifact）
+- [x] [S-03] 详情返回失败原文
+- [x] [S-05] 定时/后台详情共用执行详情，分组不混淆
+- [x] [S-06] 子任务标签可辨认、错误摘要可读
+- [x] [S-07] `BEST_EFFORT` 部分失败返回计数与 `partial_failure=true`
+- [x] [E-03] 撤销 Agent 后列表/详情/产物 404，不泄露存在性
 
 ### Spec Delta
 
@@ -293,13 +293,15 @@ Run 已终态后到达的结果，仍要成为下一轮可读的会话事实。`
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18T00:29:55.306Z] started tests=7bc733b1c964
 
 ### Verification
 
 - 尚未执行
 
 ---
-
+- 2026-11-18T00:30:01.729Z PASS commands=1/1 executed=1 deduped=0 elapsed=6315ms tests=7bc733b1c964 head=6b8afa6e2a4d dirty=1
+  - task-center-read PASS exit=0
 ## TASK-005: WebChat 后台任务分组与详情
 
 - **Status**: draft

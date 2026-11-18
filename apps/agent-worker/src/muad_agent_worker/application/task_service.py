@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import sqlalchemy as sa
 from muad_api import AppError
 from muad_api.audit import SENSITIVE_KEY_MARKERS
 from muad_api.error_codes import ErrorCode
@@ -279,6 +280,8 @@ class TaskService:
         status: TaskStatus | None = None,
         trigger_type: TriggerType | None = None,
         agent_id: uuid.UUID | None = None,
+        agent_ids: Sequence[uuid.UUID] | None = None,
+        background_only: bool = False,
         actor_user_id: uuid.UUID | None = None,
         skill_id: uuid.UUID | None = None,
         schedule_id: uuid.UUID | None = None,
@@ -300,6 +303,17 @@ class TaskService:
             conditions.append(TaskExecution.trigger_type == str(trigger_type))
         if agent_id is not None:
             conditions.append(TaskExecution.agent_id == agent_id)
+        if agent_ids is not None:
+            conditions.append(TaskExecution.agent_id.in_(tuple(agent_ids)))
+        if background_only:
+            conditions.extend(
+                (
+                    TaskExecution.trigger_type == str(TriggerType.IMMEDIATE),
+                    TaskExecution.schedule_id.is_(None),
+                    TaskExecution.parent_id.is_(None),
+                    TaskExecution.source_run_id.is_not(None),
+                )
+            )
         if actor_user_id is not None:
             conditions.append(TaskExecution.actor_user_id == actor_user_id)
         if skill_id is not None:
@@ -360,6 +374,40 @@ class TaskService:
             )
         ).all()
         return {row[0]: (int(row[1]), int(row[2])) for row in rows}
+
+    async def artifact_presence(
+        self, tenant_id: str, parent_ids: Sequence[uuid.UUID]
+    ) -> dict[uuid.UUID, bool]:
+        """一页一次批量判断父/直接子任务是否有用户可见 OUTPUT。"""
+        if not parent_ids:
+            return {}
+        children = (
+            await self._session.execute(
+                select(TaskExecution.id, TaskExecution.parent_id).where(
+                    TaskExecution.tenant_id == tenant_id,
+                    TaskExecution.parent_id.in_(tuple(parent_ids)),
+                    TaskExecution.is_deleted.is_(False),
+                )
+            )
+        ).all()
+        task_ids = set(parent_ids) | {row.id for row in children}
+        rows = (
+            await self._session.execute(
+                sa.text(
+                    "SELECT task_id, count(DISTINCT id) AS n FROM runtime.artifact "
+                    "WHERE tenant_id = :tenant_id AND is_deleted = false "
+                    "AND artifact_type = 'TASK_OUTPUT' AND task_id IN :task_ids "
+                    "GROUP BY task_id"
+                ).bindparams(sa.bindparam("task_ids", expanding=True)),
+                {"tenant_id": tenant_id, "task_ids": tuple(task_ids)},
+            )
+        ).all()
+        counts = {row.task_id: int(row.n) for row in rows}
+        result = {task_id: counts.get(task_id, 0) > 0 for task_id in parent_ids}
+        for child in children:
+            if counts.get(child.id, 0) > 0:
+                result[child.parent_id] = True
+        return result
 
     async def cancel(
         self, tenant_id: str, task_id: uuid.UUID, *, actor_user_id: uuid.UUID | None = None
