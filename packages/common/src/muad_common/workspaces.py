@@ -7,6 +7,7 @@ ConfigMap 里的 `WORKSPACE_*` 是部署事实；Runtime/Worker 在启动时各�
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from .settings import SharedSettings
 
@@ -24,8 +25,10 @@ class WorkspacePolicy:
 
 
 def workspace_policy_from_settings(settings: SharedSettings) -> WorkspacePolicy:
+    # 宿主绝对路径是 SandboxSpec 的前置条件：相对路径在启动边界归一，不流入执行期。
+    root = str(Path(settings.workspace_root).expanduser().resolve())
     return WorkspacePolicy(
-        root=settings.workspace_root,
+        root=root,
         quota_bytes=settings.workspace_quota_mib * 1024 * 1024,
         user_quota_bytes=settings.workspace_user_quota_mib * 1024 * 1024,
         file_limit=settings.workspace_file_limit,

@@ -285,7 +285,7 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
 
 ## TASK-006: execute target + WORKSPACE_ROOT
 
-- **Status**: draft
+- **Status**: done
 - **Depends**:
 - **Source**: unified-artifact-delivery/unified-artifact-delivery.backend.design.md#4.11
 - **Scenarios**: unified-artifact-delivery:E-08, unified-artifact-delivery:E-09
@@ -301,7 +301,7 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
 [
   {
     "id": "execute-workspace",
-    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_runtime/test_execute_target_contract.py", "tests/agent_worker/test_workspace_root_absolute.py"],
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_runtime/test_skill_tools.py", "tests/agent_worker/test_workspace_root_absolute.py"],
     "timeout": 600,
     "parallel": false
   }
@@ -314,11 +314,11 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
 
 ### Checklist
 
-- [ ] `execute` schema/描述明确 `target`；漏传不执行任何 Skill。
-- [ ] 错误体指名缺失/非法字段，不泄露参数值。
-- [ ] `execute_skill`/`execute target=skill` 关系与回归。
-- [ ] `WORKSPACE_ROOT` 绝对化/启动失败；Runtime/Worker 同一 resolved root。
-- [ ] 测试：漏 target、别名、相对路径、sandbox cwd。
+- [x] `execute` schema/描述明确 `target`；漏传不执行任何 Skill。
+- [x] 错误体指名缺失/非法字段，不泄露参数值。
+- [x] `execute_skill`/`execute target=skill` 关系与回归。
+- [x] `WORKSPACE_ROOT` 绝对化/启动失败；Runtime/Worker 同一 resolved root。
+- [x] 测试：漏 target、别名、相对路径、sandbox cwd。
 
 ### Spec Delta
 
@@ -329,11 +329,14 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
 ### Log
 
 - [2026-11-18] created
+- [2026-11-18] implemented: execute target error + WORKSPACE_ROOT absolute normalization
+- [2026-11-18T15:34:05.108Z] started tests=a85c39f8625e
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-18T15:34:24.915Z PASS commands=1/1 executed=1 deduped=0 elapsed=19695ms tests=a85c39f8625e head=6621e75cca7d dirty=1
+  - execute-workspace PASS exit=0
 ## TASK-007: MEDIA: 兼容层（P1）
 
 - **Status**: draft

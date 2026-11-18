@@ -29,6 +29,7 @@ from muad_agent_runtime.application.executor import (
     ToolCallRecorder,
 )
 from muad_agent_runtime.application.skill_tools import (
+    EXECUTE_TOOL,
     EXECUTE_SKILL_TOOL,
     LOAD_SKILL_TOOL,
     MAX_RESOURCE_BYTES,
