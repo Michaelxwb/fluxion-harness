@@ -57,6 +57,7 @@ NODE = shutil.which("node")
 
 CONSOLE_API = ROOT / "apps" / "console-platform" / "backend" / "src" / "muad_console_platform" / "api"
 GATEWAY_API = ROOT / "apps" / "im-gateway" / "src" / "muad_im_gateway" / "api"
+GATEWAY_MAIN = GATEWAY_API.parent / "main.py"
 CHANNEL_SERVICE = (
     ROOT / "apps" / "console-platform" / "backend" / "src" / "muad_console_platform"
     / "application" / "channel_admin_service.py"
@@ -381,6 +382,25 @@ _ROUTE_DECORATOR = re.compile(
 )
 
 
+def _gateway_webchat_prefixes() -> dict[str, tuple[str, ...]]:
+    """webchat 多 surface 共用同一套 router，前缀在 `main.py` 挂载处声明。"""
+    text = _source(GATEWAY_MAIN)
+    surfaces = tuple(
+        dict.fromkeys(re.findall(r'"([^"]+)":\s*ChatSurface\(', text))
+    )
+    notifications = tuple(
+        dict.fromkeys(
+            re.findall(
+                r'include_router\(\s*webchat_notification_router,\s*prefix="([^"]+)"',
+                text,
+            )
+        )
+    )
+    assert surfaces, "main.py: 未解析出 webchat surface 前缀"
+    assert notifications, "main.py: 未解析出通知中心挂载前缀"
+    return {"router": surfaces, "notification_router": notifications}
+
+
 def _backend_route_table() -> set[tuple[str, str]]:
     """后端真实注册路由（方法, 归一化路径）：从 Console/Gateway 的路由模块抽取。"""
     files = (
@@ -395,11 +415,17 @@ def _backend_route_table() -> set[tuple[str, str]]:
     table: set[tuple[str, str]] = set()
     for path in files:
         text = _source(path)
-        prefixes = dict(_ROUTER_VAR_PREFIX.findall(text))
+        if path == GATEWAY_API / "webchat.py":
+            prefixes = _gateway_webchat_prefixes()
+        else:
+            prefixes = {
+                name: (prefix,) for name, prefix in _ROUTER_VAR_PREFIX.findall(text)
+            }
         assert prefixes, f"{path.name}: 未解析出 APIRouter prefix（抽取规则可能与代码风格脱节）"
         for variable, method, route in _ROUTE_DECORATOR.findall(text):
             assert variable in prefixes, f"{path.name}: {variable} 未声明 prefix"
-            table.add((method.upper(), _normalize_route(f"{prefixes[variable]}/{route}")))
+            for prefix in prefixes[variable]:
+                table.add((method.upper(), _normalize_route(f"{prefix}/{route}")))
     return table
 
 

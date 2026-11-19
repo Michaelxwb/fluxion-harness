@@ -1434,3 +1434,28 @@
 .chat-draft-submitted {
   color: var(--semi-color-text-2);
 }
+
+.chat-draft-trial {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: var(--app-radius-sm);
+  background: var(--semi-color-fill-0);
+  color: var(--semi-color-text-1);
+  font-size: 13px;
+}
+
+.chat-draft-trial p {
+  margin: 0;
+}
+
+.chat-draft-trial-artifacts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--semi-color-text-1);
+  font-size: 12px;
+}
