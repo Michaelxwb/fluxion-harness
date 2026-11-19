@@ -39,11 +39,16 @@ const MSSWWEB_CHANNEL = 'MSSWWEB';
 const WECOM_CHANNEL = 'WECOM';
 
 /**
- * 内置通道里无 Bot Secret 的（入口靠稳定入口标识 WEBCHAT）。其它无 secret 通道来自
- * 外部断言平台配置——由 `isSecretless` 结合 `externalChannels` 动态判定。后端
- * `secretless_channels()` 是同一条界线，两边必须一致——给这些通道提交 secret 会被拒。
+ * 内置的无 Bot Secret 通道：WEBCHAT（稳定入口标识）与 MSSWWEB（外部断言）。
+ * MSSWWEB **必须常驻**这里——它虽是外部断言平台，但也是内置通道，`externalChannels`
+ * 只承载「新增的外部平台」，不保证包含 MSSWWEB（调用方通常按内置项去重）。
+ * 其它无 secret 通道（新增外部平台）由 `isSecretless` 结合 `externalChannels` 判定。
+ * 后端 `secretless_channels()` 是同一条界线，两边必须一致——给这些通道提交 secret 会被拒。
  */
-const BUILTIN_SECRETLESS_CHANNELS: ReadonlySet<string> = new Set([WEBCHAT_CHANNEL]);
+const BUILTIN_SECRETLESS_CHANNELS: ReadonlySet<string> = new Set([
+  WEBCHAT_CHANNEL,
+  MSSWWEB_CHANNEL
+]);
 
 /** `bot_id` 在无 secret 的通道里是「入口标识」，有 secret 的通道里是平台侧的 Bot ID。 */
 function isSecretless(kind: ChannelKind, externalChannels: ExternalChannelOption[]): boolean {

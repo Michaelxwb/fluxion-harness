@@ -23,9 +23,11 @@ WECOM_CHANNEL = "WECOM"
 WEBCHAT_CHANNEL = "WEBCHAT"
 #: 外部平台网页入口：身份由上游 JWT 断言给出，验签因子走 Secret，入口本身无 secret。
 MSSWWEB_CHANNEL = "MSSWWEB"
-#: 没有企微凭据的**内置**稳定入口通道。外部断言平台的通道是配置驱动的，
-#: 见 `secretless_channels()`——新增平台不必改这里。
-_BUILTIN_SECRETLESS_CHANNELS = frozenset({WEBCHAT_CHANNEL})
+#: 没有企微凭据的**内置**稳定入口通道：WEBCHAT（稳定入口标识）与 MSSWWEB（外部断言）。
+#: MSSWWEB 常驻这里，不只依赖 `get_platform_configs()`——即使 Secret 里某项缺 `channel`
+#: 或解析失败退回，也不让内置 MSSWWEB 通道被误判为「需要 secret」。其余**新增**外部
+#: 平台通道仍由 `secretless_channels()` 从配置补齐，新增平台不必改这里。
+_BUILTIN_SECRETLESS_CHANNELS = frozenset({WEBCHAT_CHANNEL, MSSWWEB_CHANNEL})
 
 
 def secretless_channels() -> frozenset[str]:
