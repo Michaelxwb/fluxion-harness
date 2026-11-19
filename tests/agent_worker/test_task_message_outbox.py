@@ -55,6 +55,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from agent_worker.conftest import TenantContext
+from muad_agent_worker.application.task_message_outbox import _result_text
 from agent_worker.helpers import fetch_task, internal_service_headers, persist_task
 
 pytestmark = pytest.mark.integration
@@ -747,3 +748,11 @@ async def test_service_identity_is_required() -> None:
             },
         )
     assert response.status_code == 403
+
+
+def test_result_text_uses_the_fresh_terminal_result() -> None:
+    """终态 UPDATE 后 ORM 实例可能仍是旧 result_json；正文必须取本次结果。"""
+    from types import SimpleNamespace
+
+    task = SimpleNamespace(result_json={"status": "COMPLETED"})
+    assert _result_text(task, {"text": "值守日报正文"}) == "值守日报正文"

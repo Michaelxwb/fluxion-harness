@@ -284,7 +284,9 @@ async def write_terminal(
     if change.status is TerminalStatus.COMPLETED:
         try:
             async with session.begin_nested():
-                outbox_written = await enqueue_task_message_outbox(session, task, moment)
+                outbox_written = await enqueue_task_message_outbox(
+                    session, task, moment, result=change.result
+                )
         except Exception as exc:  # noqa: BLE001 - 发件箱失败不得回滚已验证的终态
             logger.warning(
                 "task_message_outbox_write_failed",

@@ -35,7 +35,7 @@ DEFAULTS: dict[str, int | float] = {
     "chat_auth_recheck_sec": 15.0, "chat_exchange_max_body_bytes": 4096,
     "chat_exchange_per_ip_per_minute": 6000,
     "chat_message_hard_max_bytes": 1048576, "chat_upload_hard_max_bytes": 52428800,
-    "channel_delivery_concurrency": 4, "channel_delivery_timeout_sec": 5.0,
+    "channel_delivery_concurrency": 4, "channel_delivery_timeout_sec": 12.0,
     "channel_delivery_lease_sec": 30.0, "channel_delivery_poll_sec": 1.0,
     "channel_delivery_batch_size": 32, "channel_delivery_retry_base_sec": 1.0,
     "channel_delivery_retry_cap_sec": 30.0, "channel_delivery_max_attempts": 20,

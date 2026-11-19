@@ -71,6 +71,8 @@ async def enqueue_task_message_outbox(
     session: AsyncSession,
     task: TaskExecution,
     moment: datetime,
+    *,
+    result: Mapping[str, Any] | None = None,
 ) -> bool:
     """成功终态写一条消息；返回**该任务是否已有** outbox（供调用方跳过文本投递）。
 
@@ -86,7 +88,7 @@ async def enqueue_task_message_outbox(
     if not attachments:
         return False
     payload = MessageDeliveryPayloadInput(
-        text=_result_text(task),
+        text=_result_text(task, result),
         attachments=attachments,
     )
     message_key = f"execution:{task.id}:final"
@@ -251,10 +253,18 @@ async def _output_attachments(
     return attachments
 
 
-def _result_text(task: TaskExecution) -> str:
-    """冻结用户可见的正文摘要；没有摘要就只发附件（不伪造渲染文案）。"""
+def _result_text(task: TaskExecution, fresh: Mapping[str, Any] | None = None) -> str:
+    """冻结用户可见的正文摘要；没有摘要就只发附件（不伪造渲染文案）。
+
+    ``fresh`` 是同一事务里刚写入的结果。终止事务用 UPDATE 落库后，ORM 实例上的
+    ``result_json`` 可能还是旧值；只读实例会把正文丢成空串（只剩附件）。
+    """
     result: Mapping[str, Any] = (
-        task.result_json if isinstance(task.result_json, Mapping) else {}
+        fresh
+        if isinstance(fresh, Mapping)
+        else task.result_json
+        if isinstance(task.result_json, Mapping)
+        else {}
     )
     for key in SUMMARY_KEYS:
         value = result.get(key)

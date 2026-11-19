@@ -38,7 +38,7 @@ class SharedSettings(BaseSettings):
     inbound_stream_maxlen: int = Field(default=5_000, ge=100)
     inbound_stream_lost_after_sec: int = Field(default=60, ge=1)
     #: 投递 facade 等待 Connector 结果的有界窗口（超时回可重试错误，不把占位当成功）。
-    delivery_stream_wait_sec: float = Field(default=2.0, gt=0)
+    delivery_stream_wait_sec: float = Field(default=10.0, gt=0)
 
     artifact_root: str = "./.data/artifacts"
     skill_cache_root: str = "./.data/skill-cache"
@@ -161,7 +161,7 @@ class SharedSettings(BaseSettings):
     chat_upload_hard_max_bytes: int = Field(default=52428800, ge=1)
 
     channel_delivery_concurrency: int = Field(default=4, ge=1)
-    channel_delivery_timeout_sec: float = Field(default=5.0, gt=0)
+    channel_delivery_timeout_sec: float = Field(default=12.0, gt=0)
     channel_delivery_lease_sec: float = Field(default=30.0, gt=0)
     channel_delivery_poll_sec: float = Field(default=1.0, gt=0)
     channel_delivery_batch_size: int = Field(default=32, ge=1)
