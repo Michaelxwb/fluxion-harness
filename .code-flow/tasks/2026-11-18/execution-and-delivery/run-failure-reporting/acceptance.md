@@ -36,20 +36,20 @@
 | S-17 静默结果与文件产物 | pass（自动化） | `test_scheduled_agent_turn_e2e.py`：`record_result(no_change)` 抑制文本、附件 outbox 仍投递、上次 meaningful result 不被覆盖 |
 | S-18 预算/工具策略 | pass | AGENT_TURN 卡片显示“系统默认（平台设置）”；Snapshot budget 来自 `PlatformSettings.agent`，`tests/agent_worker/test_schedule_budget_from_settings.py` / `test_schedule_tool_policy.py` |
 | S-19 TASK 导出与失败诊断 | pass（自动化） | `test_execution_export_task_events.py`、`test_execution_export_business_fields.py`、`test_agentic_no_progress_message.py` |
-| S-20 Web 创建定时任务推企微 | pass（卡片+确认+路由） | SKILL_PLAN 卡片“结果位置 WECOM:jahan-e2e”；确认后 Schedule `206e2cec-8f14-4655-88c7-6bf0395b6f67` ACTIVE/SKILL_PLAN/PUSH，`delivery_route_id=0c0cc4f0-c27c-41bd-b3d7-9507ac9282b1`；未依赖创建入口 |
+| S-20 Web 创建定时任务推企微 | pass（卡片+确认+路由） | SKILL_PLAN 卡片只显示通用结果说明，不展示通道/target；确认后 Schedule `206e2cec-8f14-4655-88c7-6bf0395b6f67` ACTIVE/SKILL_PLAN/PUSH，`delivery_route_id=0c0cc4f0-c27c-41bd-b3d7-9507ac9282b1`；未依赖创建入口 |
 | E-03 Fake MSSP / 本地 Skill | pass（自动化） | `test_scheduled_skill_plan_e2e.py` 用本地回归 Skill + fake MSSP 完成 Draft→试跑→确认→09:00 Fire；覆盖 401/500、空数据、场景矩阵 |
 | E-04 内网真实任务成功 | pending | 需要目标内网部署、真实 `daily-duty-report-mssp` 凭据/企微绑定；仓库内无内网访问 |
 
 ### 浏览器截图
 
-- `.data/e2e/skill-plan-push-card.png`：SKILL_PLAN 卡片显示 `WECOM:jahan-e2e`；
+- `.data/e2e/skill-plan-push-card.png`：SKILL_PLAN 卡片只显示“完成后会回到当前会话”，不暴露 `WECOM:jahan-e2e`；
 - `.data/e2e/agent-turn-card-detail.png`：AGENT_TURN 卡片与确认后状态。
 
 ### 验收中发现并修复
 
 - 推送目标列表混入 WebChat pull 路由，且同通道多目标标签相同；已改为只返回
   `OUTBOUND_CHANNELS`，标签带外部用户标识、重名时加不透明短后缀。
-- 卡片“结果位置”只显示“当前会话”；已增加 `push_target_label`，PUSH 卡片显示真实安全目标。
+- 卡片不再暴露通道/target；`push_target_label` 仅保留在任务详情/内部投影。
 - 清理了一条重复的手工 WECOM 路由（与首个草稿 upsert 的 route hash 不同造成重复）。
 
 ## 3. 已知边界

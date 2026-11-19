@@ -21,7 +21,7 @@
 | 场景 | 结论 | 证据 |
 |---|---|---|
 | S-03 企微创建任务 Web 可读 | pending | 需要企微 Connector 真实入站；本地未启动 Connector |
-| S-04 Web 创建任务选企微 push | pass（卡片/确认/路由） | WebChat 创建的 SKILL_PLAN 卡片显示“结果位置 `WECOM:jahan-e2e`”；确认后 Schedule `206e2cec-8f14-4655-88c7-6bf0395b6f67` 为 `PUSH`，冻结 `delivery_route_id=0c0cc4f0-c27c-41bd-b3d7-9507ac9282b1` |
+| S-04 Web 创建任务选企微 push | pass（卡片/确认/路由） | 投递是平台默认行为，WebChat 创建的 SKILL_PLAN 卡片不展示通道/target；确认后 Schedule `206e2cec-8f14-4655-88c7-6bf0395b6f67` 为 `PUSH`，冻结 `delivery_route_id=0c0cc4f0-c27c-41bd-b3d7-9507ac9282b1` |
 | S-06 无企微绑定只 Web | pass（NONE 路径） | REMINDER 卡片显示“不主动投递，请到定时任务中心查看”；Schedule `65e220c9-4a63-490f-8434-eea845fa01f9` 为 `NONE` |
 | S-07 无 Web 入口只企微 push | pending | 需要企微 Connector 入站 |
 | S-08 多文件一条消息 | pass（自动化） | `tests/agent_runtime/test_message_delivery.py`、`tests/agent_worker/test_task_message_outbox.py` 多附件形状 |
@@ -35,7 +35,7 @@
 ### 验收中发现并修复
 
 - 目标列表只返回真实出站通道；同通道多目标使用带外部用户标识的唯一标签。
-- 任务中心/卡片 PUSH 目标显示 `push_target_label`，不暴露内部 route id。
+- 任务中心可显示 `push_target_label`，不暴露内部 route id；确认卡片不展示通道/target。
 - 多附件交付在 Gateway 幂等指纹中包含每一条附件，避免同键换附件被当成重试。
 
 ## 3. 边界

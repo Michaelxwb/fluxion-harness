@@ -958,7 +958,7 @@ MessageDelivery (WECOM only) { message_key, kind, target, payload, status }
 **重叠与 owner**：
 
 - 对方 TASK「Schedule 路由独立 + 目标选择」拥有 `schedule_drafts.py`/`schedule_confirm.py`/目标列表；本需求不重复修改。
-- 本需求 TASK-005/007/011 消费 `delivery_intent`/`delivery_route_id`；TASK-007 的卡片展示 `push_target_label`，没有目标时只显示“仅 Web 可查看”。
+- 本需求 TASK-005/007/011 消费 `delivery_intent`/`delivery_route_id`；投递通道是平台默认行为，确认卡片不展示通道或 `push_target_label`，只显示“完成后会回到当前会话 / 完成后可在任务中心查看”。
 - 本需求不建第二套投递状态机；无变化用结构化 `record_result(no_change)` 抑制文本，附件仍进入消息并参与 pull/push；不向用户发送内部 token。
 
 **不合并 PRD**；共享契约 + 联合 E2E；排期先定契约。

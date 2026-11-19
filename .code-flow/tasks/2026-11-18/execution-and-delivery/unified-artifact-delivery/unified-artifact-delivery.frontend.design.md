@@ -142,7 +142,7 @@
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | `delivery_intent` | `PUSH \| NONE` | Schedule/Task 的 push 配置；NONE 表示仅 Web |
-| `push_target_label` | string \| null | 目标安全标签；无 push 为 null |
+| `push_target_label` | string \| null | 目标安全标签；无 push 为 null。仅任务详情/内部使用，确认卡片不展示 |
 
 **Schedule 草稿/创建**
 

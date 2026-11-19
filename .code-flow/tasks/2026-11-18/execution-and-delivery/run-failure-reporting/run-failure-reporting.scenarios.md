@@ -516,7 +516,7 @@
 **预期**:
 - Web 任务中心显示任务结果 + 附件（pull）。
 - 企微收到结果 + 附件（push）。
-- `delivery_intent=PUSH`，`push_target_label` 可见；不因创建入口是 Web 而拒绝企微路由。
+- `delivery_intent=PUSH`；确认卡片不展示通道或 `push_target_label`；不因创建入口是 Web 而拒绝已配置的企微路由。
 - 任务中心 `deliveries[]` 显示 push 状态；outbox 未激活时是 `PENDING`，不是“仅 Web”。
 
 **负责人**: 后端 + 前端
