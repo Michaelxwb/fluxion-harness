@@ -197,7 +197,12 @@ _DRAFT_ARGS: Mapping[str, Any] = {
         },
         "required": ["intent"],
         "additionalProperties": False,
-        "description": "Where the result goes; PUSH uses an explicit owner-scoped target.",
+        "description": (
+            "Optional delivery override. Normally OMIT: the platform derives delivery from "
+            "the source conversation and the configured route. Never ask the user to choose "
+            "a channel or target. Only set PUSH when the user explicitly asks to send to an "
+            "external channel; never expose channel names or target labels in the question."
+        ),
     },
     "timezone": {
         **_STRING,
@@ -462,9 +467,10 @@ class BackgroundTaskToolSet:
         return (
             (
                 LIST_DELIVERY_TARGETS_TOOL,
-                "List the user's safe outbound push targets. Call it before choosing "
-                "delivery.intent=PUSH when the user wants an external channel; never invent a "
-                "target label. Web-only tasks use intent=NONE and need no target.",
+                "List the user's safe outbound push targets. Call it only when the user "
+                "explicitly asks to send to an external channel; never call it for ordinary "
+                "schedule creation and never invent a target label. Normal tasks omit delivery "
+                "and let the platform use the source conversation / configured route.",
                 _schema({}, ()),
                 ToolEffect.READ,
                 self._list_delivery_targets,
@@ -479,9 +485,10 @@ class BackgroundTaskToolSet:
                 "pure notification -> REMINDER; fixed skill and fixed parameters -> SKILL_PLAN; "
                 "runtime judgment, multiple tools or context -> AGENT_TURN. If the intent is "
                 "ambiguous, ask ONE business question (for example whether the customer/scope "
-                "is fixed) instead of guessing or offering an internal option menu. Session and "
-                "delivery are separate choices. Call it once per independent customer/target. "
-                "Ask the user for their IANA time zone when unknown.",
+                "is fixed) instead of guessing or offering an internal option menu. Delivery is "
+                "a platform default, not a user choice: never ask about channels/targets and "
+                "normally omit delivery. Call it once per independent customer/target. Ask the "
+                "user for their IANA time zone when unknown.",
                 draft_schema,
                 ToolEffect.WRITE,
                 self._draft_schedule,

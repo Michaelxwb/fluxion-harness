@@ -482,7 +482,7 @@ function DraftPreviewBody(props: { draft: WebchatScheduleDraftReady; preview: Sc
           <dt>{t('chat.draft.delivery')}</dt>
           <dd data-testid="chat-draft-delivery">
             {preview.delivery === 'PUSH'
-              ? preview.push_target_label || t('chat.draft.delivery.PUSH')
+              ? t('chat.draft.delivery.PUSH')
               : t('chat.draft.delivery.NONE')}
           </dd>
         </div>

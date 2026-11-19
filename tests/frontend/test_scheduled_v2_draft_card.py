@@ -13,7 +13,7 @@ service（`services/taskCenterApi.ts`）、真实共享传输（`src/api/client.
 - **过期/冲突/配额/终态失败**：过期本地先判（零 HTTP），配额可重试，过期/不存在/无权限为终态失败。
 - **当前流与历史同一份事实**：`schedule.draft.ready` 被解析成独立更新类型（不是 `confirmation.required`），
   进入 Run 的 drafts；重复 seq 被忽略；`confirmation.required` 与之互不覆盖；终态后卡片仍在。
-- **渲染**：做什么/何时（含 IANA 时区）/首次触发/结果位置/工具 allowlist/预算/只读记忆/UPDATE 差异/
+- **渲染**：做什么/何时（含 IANA 时区）/首次触发/结果查看/工具 allowlist/预算/只读记忆/UPDATE 差异/
   有效期全部可见；过期、提交中、已确认、配额失败各有明确反馈且禁用重复提交。
 """
 
@@ -701,7 +701,16 @@ export async function renderScenarios(scenarios) {
         ? updateDraft
         : scenario.expired === true
           ? { ...createDraft, expires_at: EXPIRED_AT }
-          : createDraft;
+          : scenario.push === true
+            ? {
+                ...createDraft,
+                preview: {
+                  ...createDraft.preview,
+                  delivery: 'PUSH',
+                  push_target_label: 'WECOM:jahan-e2e'
+                }
+              }
+            : createDraft;
     const node = React.createElement(DraftCard, {
       draft,
       entry: entryOf(scenario),
@@ -732,6 +741,7 @@ console.log(JSON.stringify(await mod.renderScenarios(scenarios)));
 SCENARIOS = (
     {"id": "create-zh", "locale": "zh-CN"},
     {"id": "create-en", "locale": "en-US"},
+    {"id": "create-push-zh", "locale": "zh-CN", "push": True},
     {"id": "update-zh", "locale": "zh-CN", "draft": "update"},
     {"id": "expired-zh", "locale": "zh-CN", "expired": True},
     {
@@ -988,9 +998,16 @@ def test_card_renders_every_confirmable_fact(draft_render: dict[str, Any]) -> No
     assert "最多工具调用" in markup and "5" in markup
     assert "最多 Token" in markup and "1024" in markup
     assert "只读" in markup, "AGENTIC 的只读记忆约束可见"
-    assert "不主动投递" in markup
+    assert "完成后可在任务中心查看" in markup
     assert draft_render["firstFireText"] in markup, "首次触发经 DateTimeText 转本地"
     assert "确认创建" in _element_text(markup, "chat-draft-confirm")
+
+
+def test_push_card_hides_channel_and_target_label(draft_render: dict[str, Any]) -> None:
+    markup = draft_render["markup"]["create-push-zh"]
+    assert "完成后会回到当前会话" in markup
+    assert "WECOM" not in markup, "卡片不得暴露投递通道"
+    assert "jahan-e2e" not in markup, "卡片不得暴露目标标签"
 
 
 def test_update_card_shows_the_diff(draft_render: dict[str, Any]) -> None:
