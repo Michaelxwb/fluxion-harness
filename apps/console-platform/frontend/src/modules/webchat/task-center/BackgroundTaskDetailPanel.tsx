@@ -8,7 +8,7 @@
 
 import { IconInfoCircle } from '@douyinfe/semi-icons';
 import { Banner, Button, Skeleton, Typography } from '@douyinfe/semi-ui';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DateTimeText } from '../../../components/common/DateTimeText';
@@ -247,6 +247,26 @@ export function BackgroundTaskDetailPanel(props: BackgroundTaskDetailPanelProps)
   const showError = state.errorCode !== null && !notFound;
   const parentId = detail?.parent_id ?? null;
   const hasChildren = (detail?.children.total ?? 0) > 0 && detail?.parent_id === null;
+
+  useEffect(() => {
+    if (!techOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setTechOpen(false);
+    };
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('.chat-task-tech-popover') || target?.closest('.chat-task-tech-button')) {
+        return;
+      }
+      setTechOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('mousedown', onPointerDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('mousedown', onPointerDown);
+    };
+  }, [techOpen]);
 
   const downloadAll = () => {
     for (const artifact of detail?.result_artifacts ?? []) {

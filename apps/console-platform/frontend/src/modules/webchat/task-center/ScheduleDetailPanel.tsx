@@ -788,6 +788,26 @@ export function ScheduleDetailPanel(props: ScheduleDetailPanelProps) {
     state.fires.items.find((fire) => fire.fire_id === selectedFireId) ?? null;
 
   useEffect(() => {
+    if (!techOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setTechOpen(false);
+    };
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('.chat-task-tech-popover') || target?.closest('.chat-task-tech-button')) {
+        return;
+      }
+      setTechOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('mousedown', onPointerDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('mousedown', onPointerDown);
+    };
+  }, [techOpen]);
+
+  useEffect(() => {
     const items = state.fires.items;
     if (items.length === 0) {
       if (selectedFireId !== null) setSelectedFireId(null);
