@@ -75,7 +75,7 @@
   - run-summary-backend PASS exit=0
 ## TASK-002: 重构定时任务详情为等高两栏 + 统一分页
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001
 - **Source**: task-detail-redesign.frontend.design.md#3.2, #3.3, #3.4, #3.5, #3.6, #3.7
 - **Scenarios**: task-detail-redesign:S-01, task-detail-redesign:S-02, task-detail-redesign:S-03, task-detail-redesign:E-01, task-detail-redesign:E-02, task-detail-redesign:E-03, task-detail-redesign:B-01, task-detail-redesign:B-02, task-detail-redesign:B-03, task-detail-redesign:B-06
@@ -112,15 +112,15 @@
 
 ### Checklist
 
-- [ ] 页头/指标/运行列表/详情/技术信息弹层布局完成。
-- [ ] 运行列表 `page_size=6`，使用 `PaginationFooter`，翻页与选中规则正确。
-- [ ] 左右两栏桌面端等高；窄屏堆叠；无横向滚动。
-- [ ] 单一状态映射覆盖成功/进行中/等待中/失败/已跳过/未运行。
-- [ ] 跳过/准入失败显示原因且不发 Execution 请求。
-- [ ] 技术信息默认关闭，点击外部/Esc 关闭，所有用户可见。
-- [ ] 首屏不渲染 Revision/Snapshot/sha256/MIME/UUID/原始 JSON。
-- [ ] 加载/空/错误态完整，错误重试不清空列表。
-- [ ] 中英文词条齐全；组件/契约测试通过。
+- [x] 页头/指标/运行列表/详情/技术信息弹层布局完成。
+- [x] 运行列表 `page_size=6`，使用 `PaginationFooter`，翻页与选中规则正确。
+- [x] 左右两栏桌面端等高；窄屏堆叠；无横向滚动。
+- [x] 单一状态映射覆盖成功/进行中/等待中/失败/已跳过/未运行。
+- [x] 跳过/准入失败显示原因且不发 Execution 请求。
+- [x] 技术信息默认关闭，点击外部/Esc 关闭，所有用户可见。
+- [x] 首屏不渲染 Revision/Snapshot/sha256/MIME/UUID/原始 JSON。
+- [x] 加载/空/错误态完整，错误重试不清空列表。
+- [x] 中英文词条齐全；组件/契约测试通过。
 
 ### Spec Delta
 
@@ -131,11 +131,13 @@
 ### Log
 
 - [2026-11-19] created
+- [2026-11-19T11:34:07.773Z] started tests=e49e53312a48
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-19T11:46:25.717Z PASS commands=1/1 executed=1 deduped=0 elapsed=16443ms tests=e49e53312a48 head=a0a0f9bad773 dirty=1
+  - schedule-detail-ui PASS exit=0
 ## TASK-003: 重构后台任务详情为结论摘要 + 条件子任务布局
 
 - **Status**: draft

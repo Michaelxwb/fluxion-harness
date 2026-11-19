@@ -1284,7 +1284,7 @@ def test_fire_history_pages_and_keeps_dst_events_separate(
     assert pages["dstEventTypes"] == ["DST_GAP_SKIPPED"], "DST 是独立事件字段"
     assert pages["retentionFrom"] == CLEANED_BEFORE
     assert (pages["page"], pages["total"]) == (2, 3)
-    assert pages["params"] == [{"page": 1}, {"page": 2, "page_size": 2}], "翻页沿用服务端 page_size"
+    assert pages["params"] == [{"page": 1, "page_size": 6}, {"page": 2, "page_size": 2}], "首屏固定 6 条，翻页沿用服务端 page_size"
 
 
 def test_switching_schedule_drops_the_old_target(task_center_logic: dict[str, Any]) -> None:
@@ -1423,7 +1423,7 @@ def test_detail_labels_follow_the_locale(task_center_render: dict[str, Any]) -> 
     markup = task_center_render["markup"]["detail-en"]
     assert "Tool allowlist" in markup
     assert "Read-only: the task never writes new long-term memory" in markup
-    assert "Fire history" in markup
+    assert "Recent runs" in markup
     assert "Waiting for an external poll result (not a failure)" in markup
     assert "Back to list" in markup
 
