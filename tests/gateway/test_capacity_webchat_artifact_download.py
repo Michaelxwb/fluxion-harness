@@ -663,13 +663,13 @@ async def test_b255_cross_user_cross_tenant_and_deleted_artifacts_are_refused(
     assert all(CANARY_BYTES.decode(errors="ignore") not in record.getMessage() for record in caplog.records)
 
 
-async def test_b255_revoked_agent_and_disabled_entry_refuse_before_reading_bytes(
+async def test_b255_revoked_agent_refuses_but_entry_state_is_source_only(
     stub_console: StubConsole,
     console_probe: _ConsoleProbe,
     runtime_probe: _RuntimeProbe,
     artifact_root: Path,
 ) -> None:
-    """当前授权复核：Agent 撤销 403、入口停用/换绑 404 —— 都在读字节之前。"""
+    """授权按 user+Agent（API-15）：Agent 撤销 403；入口停用/换绑**不**拦截（入口只作来源）。"""
     store = _TrackingStore(artifact_root)
     _seed(
         runtime_probe,
@@ -688,7 +688,7 @@ async def test_b255_revoked_agent_and_disabled_entry_refuse_before_reading_bytes
     assert revoked.json()["code"] == "FORBIDDEN"
     assert store.resolved_keys == []
 
-    # ② 入口已停用（快照事实）：404，不泄露入口状态，也不读字节。
+    # ② 来源入口已停用（快照事实），但会话 Agent 仍授权：入口只作来源 → 放行下载（API-15）。
     console_probe.agents = [{"agent_id": str(AGENT_ID), "key": "webchat-agent", "name": "网页助手"}]
     _seed(
         runtime_probe,
@@ -701,11 +701,12 @@ async def test_b255_revoked_agent_and_disabled_entry_refuse_before_reading_bytes
     )
     async with _gateway_client(stub_console, runtime_probe, store) as client:
         disabled = await client.get(CONTENT_URL, headers=_chat_headers(), params=_download_params())
-    assert disabled.status_code == 404, disabled.text
-    assert disabled.json()["code"] == "COMMON_NOT_FOUND"
-    assert store.resolved_keys == []
+    assert disabled.status_code == 200, disabled.text
+    assert disabled.content == PDF_BYTES
 
-    # ③ 入口当前绑定已换 Agent（两个 Agent 都仍获授权）：旧会话的字节不在新 Agent 名下交付（404）。
+    # ③ 来源入口当前绑定了别的 Agent（两个 Agent 都仍授权），会话仍属 AGENT_ID：
+    #    产物归属是 user+agent，入口换绑不影响旧会话字节的交付 → 放行（API-15）。
+    store.resolved_keys.clear()
     console_probe.agents = [
         {"agent_id": str(AGENT_ID), "key": "webchat-agent", "name": "网页助手"},
         {"agent_id": str(OTHER_AGENT_ID), "key": "other-agent", "name": "另一个助手"},
@@ -722,11 +723,11 @@ async def test_b255_revoked_agent_and_disabled_entry_refuse_before_reading_bytes
     )
     async with _gateway_client(stub_console, runtime_probe, store) as client:
         rebound = await client.get(CONTENT_URL, headers=_chat_headers(), params=_download_params())
-    assert rebound.status_code == 404, rebound.text
-    assert rebound.json()["code"] == "COMMON_NOT_FOUND"
-    assert store.resolved_keys == []
+    assert rebound.status_code == 200, rebound.text
+    assert rebound.content == PDF_BYTES
 
     # ④ 撤销的 CHAT 会话：主体门控在解析之前就拒（401，沿用 Console 口径）。
+    store.resolved_keys.clear()
     console_probe.revoked_code = "CHAT_SESSION_REVOKED"
     async with _gateway_client(stub_console, runtime_probe, store) as client:
         revoked_session = await client.get(CONTENT_URL, headers=_chat_headers(), params=_download_params())

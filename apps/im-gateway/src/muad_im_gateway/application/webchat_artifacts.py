@@ -37,7 +37,7 @@ from muad_contracts.webchat import WebchatConversationScope
 from pydantic import BaseModel, ValidationError
 
 from .chat_principal import ChatIdentity
-from .webchat_service import WebchatEntrySource, resolve_authorized_entry
+from .webchat_service import WebchatEntrySource
 
 logger = logging.getLogger(__name__)
 
@@ -128,14 +128,13 @@ class WebchatArtifactService:
         )
         scope = _project(WebchatConversationScope, data.get("scope"))
         # 产物下载按 user + Agent 归属（设计 API-15）：不做通道断言，入口只作来源标识，
-        # 同用户同 Agent 跨入口共享的产物不因调用方通道不同而拒绝。
-        resolved = resolve_authorized_entry(
-            self._entries, identity, scope.entry_id, channel=None
-        )
-        if resolved.agent_id != scope.agent_id:
-            # 入口当前绑定已换 Agent：旧会话的字节不在新 Agent 名下交付（404 不泄露存在性）。
-            logger.warning("webchat_artifact_entry_agent_changed")
-            raise AppError(ErrorCode.COMMON_NOT_FOUND)
+        # 同用户同 Agent 跨入口共享的产物不因调用方通道不同而拒绝。因此这里**不**拿会话来源
+        # 入口去走 `resolve_authorized_entry`——那会把来源入口的 enabled/绑定义务带进授权判定，
+        # 使「换入口续聊」后旧入口来源的产物取不到（与列表/读消息口径不一致）。安全边界是：
+        # 会话 Agent 必须在用户**当前**授权集合内（与 `_resolve_scope` 同口径）。
+        if scope.agent_id not in {agent.agent_id for agent in identity.agents}:
+            logger.warning("webchat_artifact_agent_not_granted")
+            raise AppError(ErrorCode.FORBIDDEN)
         # 授权通过后才解析引用：被拒的请求连存储键都不物化。
         return _project(AttachmentRef, data.get("reference"))
 

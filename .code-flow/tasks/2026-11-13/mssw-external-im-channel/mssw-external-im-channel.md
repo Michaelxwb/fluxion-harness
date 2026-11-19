@@ -648,7 +648,7 @@
 - [x] 上传归属与本次发送入口一致（S-06）：`WebchatUploadService` 持有当前 `ChatSurface`，入口解析带 `channel=self._surface.channel`，MSSWWEB 面不得借用 WEBCHAT 入口
 - [x] 产物走本地流式，不触发出站交付错误：`MSSWWEB ∈ LOCAL_STREAM_CHANNELS`（TASK-001），运行时交付路由 `channel in LOCAL_STREAM_CHANNELS → publish`，不走出站、不抛 `ATTACHMENT_WRITE_UNAVAILABLE`
 - [x] 大小/类型门控沿用既有实现：`resolve_upload_limits` + MIME/计数门控未改
-- [x] 产物下载核属按 user + Agent：`resolve_authorized_entry(channel=None)` 不做通道断言，跨入口同 user+agent 产物可下载
+- [x] 产物下载核属按 user + Agent：`_authorized_reference` 只校验会话 Agent 在**当前**授权集合内（与 `_resolve_scope` 同口径），**不**拿会话来源入口走 `resolve_authorized_entry`——入口只作来源，停用/换绑/不在当前授权入口集合都不拦下载；跨入口同 user+agent 产物可下载
 
 ### Spec Delta
 
