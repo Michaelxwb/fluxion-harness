@@ -10,14 +10,18 @@ from typing import Any, cast
 import httpx
 from sqlalchemy import text
 
-from .environment import LiveStack, run_db, seed_v2_schedule
+from .environment import SCHEDULER_POLL_INTERVAL_SEC, LiveStack, run_db, seed_v2_schedule
 
 TERMINAL = {"COMPLETED", "FAILED", "CANCELLED"}
 
 
 def _create_schedule(live_stack: LiveStack, http: httpx.Client, *, cron: str = "* * * * *") -> str:
     del http  # v2 创建入口是 Draft + 确认；本文件只验证调度事实，直接种真实行。
-    return seed_v2_schedule(live_stack, cron=cron)
+    # Workers are already polling. Only _make_due may start this test's fire,
+    # after its grant/artifact preconditions have been committed.
+    return seed_v2_schedule(
+        live_stack, cron=cron, next_fire_at=datetime.now(UTC) + timedelta(days=1)
+    )
 
 
 def _make_due(live_stack: LiveStack, schedule_id: str) -> None:
@@ -226,6 +230,10 @@ def test_b142_revoked_grant_skips_with_reason_and_advances(
     live_stack: LiveStack, http: httpx.Client
 ) -> None:
     schedule_id = _create_schedule(live_stack, http)
+    # Let both real schedulers poll before revoking: creation must not race an
+    # admission or delivery that could replace the expected rejection reason.
+    time.sleep(2 * SCHEDULER_POLL_INTERVAL_SEC + 0.1)
+    assert _schedule_tasks(live_stack, schedule_id) == []
 
     async def revoke(factory: Any) -> None:
         async with factory() as session:
@@ -247,7 +255,7 @@ def test_b142_revoked_grant_skips_with_reason_and_advances(
         time.sleep(1.0)
         row = _schedule_row(live_stack, schedule_id)
     status, next_fire_at, error_code, attention_since, config_version = row
-    assert error_code == "GRANT_REVOKED", row
+    assert error_code == "GRANT_REVOKED", _scheduler_diagnosis(live_stack, schedule_id)
     assert attention_since is not None
     assert status == "NEEDS_ATTENTION"
     assert next_fire_at is None, "永久准入失败必须停下等待修复，不得继续空转"
