@@ -127,3 +127,57 @@
   - background-inline-child PASS exit=0
 - 2026-11-19T13:17:07.665Z PASS commands=1/1 executed=1 deduped=0 elapsed=18907ms tests=4021cf1a3703 head=5e88668182ca dirty=1
   - background-inline-child PASS exit=0
+
+## TASK-003: 定时运行结果扩大并支持滚动、文件/发送区精简
+
+- **Status**: done
+- **Depends**: TASK-001
+- **Source**: 用户截图反馈 2026-11-19（Image 1，第二轮）
+- **Scenarios**: task-detail-refinement:S-07
+- **Spec-Refs**: ui/harness-ui#RULE-ui-001, frontend/harness-frontend#RULE-front-001
+- **Paths**: apps/console-platform/frontend/src/modules/webchat/task-center/ScheduleDetailPanel.tsx, apps/console-platform/frontend/src/modules/webchat/task-center.css, tests/frontend/test_scheduled_v2_task_center_ui.py
+- **E2E**:
+- **Skip-Tests**: false
+- **Skip-Reason**:
+
+### Tests
+
+```json
+[
+  {
+    "id": "schedule-result-scroll",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/frontend/test_scheduled_v2_task_center_ui.py", "tests/frontend/test_capacity_webchat_webchat_i18n.py"],
+    "timeout": 600,
+    "parallel": false
+  }
+]
+```
+
+### Description
+
+- 「运行结果」改为完整正文，不再按 280 字截断；结果区占据右侧剩余高度，长文本在卡片内上下滚动。
+- 结果上限为视口相关高度，避免把「生成的文件」「发送结果」挤出首屏。
+- 「生成的文件」压缩行距与标题间距；「发送结果」改为横向排列，减少纵向占用。
+
+### Checklist
+
+- [x] 运行结果展示完整正文，超长时可滚动，复制仍复制全文。
+- [x] 结果区高度随右侧可用空间增长但有上限；文件/发送区保持可见。
+- [x] 文件列表与发送结果更紧凑，发送目标横向排列。
+- [x] 窄屏下不产生整页横向滚动；测试通过。
+
+### Spec Delta
+
+```json
+[]
+```
+
+### Log
+
+- [2026-11-19] created
+
+### Verification
+
+- 尚未执行
+- 2026-11-19T13:30:11.678Z PASS commands=1/1 executed=1 deduped=0 elapsed=16560ms tests=5928f23015df head=2c69244f4d0e dirty=1
+  - schedule-result-scroll PASS exit=0

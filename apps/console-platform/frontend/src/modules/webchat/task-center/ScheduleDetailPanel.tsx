@@ -381,12 +381,8 @@ function RunDetail(props: {
                     )}
               </Button>
             </div>
-            <p>
-              {result === ''
-                ? t('chat.taskCenter.execution.noResult')
-                : result.length > 280
-                  ? `${result.slice(0, 280)}…`
-                  : result}
+            <p className="chat-task-run-result-body">
+              {result === '' ? t('chat.taskCenter.execution.noResult') : result}
             </p>
             <ExecutionWait detail={waiting} />
           </div>
