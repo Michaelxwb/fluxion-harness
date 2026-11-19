@@ -19,6 +19,7 @@ import {
   IDLE_ARTIFACT_DOWNLOAD,
   type ArtifactDownloadState
 } from './artifactDownload';
+import { DeliveryBadge, DeliveryNone } from './backgroundTaskLabels';
 
 /** 字节数只做二进制单位的可读化；未知/零大小显示 0 B，不猜内容。 */
 export function formatBytes(size: number): string {
@@ -81,6 +82,23 @@ export function TaskArtifactList(props: TaskArtifactListProps) {
                 </dd>
               </div>
             </dl>
+            {artifact.deliveries === undefined ? null : (
+              <div
+                className="chat-task-artifact-deliveries"
+                data-testid="chat-task-artifact-deliveries"
+              >
+                {artifact.deliveries.length === 0 ? (
+                  <DeliveryNone />
+                ) : (
+                  artifact.deliveries.map((delivery, index) => (
+                    <DeliveryBadge
+                      key={`${delivery.target_key}:${index}`}
+                      delivery={delivery}
+                    />
+                  ))
+                )}
+              </div>
+            )}
             <div className="chat-task-artifact-actions">
               <Button
                 size="small"

@@ -180,10 +180,17 @@ class _FakeOwner:
         }
 
     async def get_execution(
-        self, *, tenant_id: str, user_id: UUID, execution_id: UUID
+        self,
+        *,
+        tenant_id: str,
+        user_id: UUID,
+        execution_id: UUID,
+        children_page: int | None = None,
+        children_page_size: int | None = None,
     ) -> dict[str, Any]:
         return {
             "execution_id": str(E1),
+            "agent_id": str(AGENT_A1),
             "status": "COMPLETED",
             "wait_kind": None,
             "wait_payload": None,
@@ -457,7 +464,7 @@ async def test_handler_sets_differ_only_by_prefix(tmp_path: Path) -> None:
         }
 
     assert paths(WEBCHAT_SURFACE) == paths(MSSWWEB_SURFACE)
-    assert len(paths(WEBCHAT_SURFACE)) == 10, "API-12..19 + API-25 + API-31 同一组 handler"
+    assert len(paths(WEBCHAT_SURFACE)) == 11, "任务列表 + API-12..19 + API-25 + API-31 同一组 handler"
 
 
 def test_production_app_mounts_no_msswwweb_task_center() -> None:

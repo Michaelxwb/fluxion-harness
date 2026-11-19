@@ -91,7 +91,11 @@ def test_pending_locale_keys_exist_in_both_catalogs() -> None:
 
 def test_page_routes_the_pending_view_from_the_query_string() -> None:
     source = _read(MODULE / "TaskCenterPage.tsx")
-    assert "new URLSearchParams(location.search).get('view') === 'pending'" in source
+    compact = re.sub(r"\s+", "", source)
+    assert "parseTaskCenterQuery(location.search,scheduleId)" in compact, (
+        "页面须经统一路由解析器读取 view/taskId，不在组件内重复解析查询串"
+    )
+    assert "route.pending" in compact
     assert "<PendingPanel" in source
     assert "onOpenPending" in source
 

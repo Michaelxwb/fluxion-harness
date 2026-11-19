@@ -24,6 +24,8 @@ import { PageHeader, PageSection } from '../../../components/common/ConsolePage'
 import { ModuleToolbar } from '../../../components/common/ModuleToolbar';
 import { RemoteTable } from '../../../components/common/RemoteTable';
 import { AuditDetailSideSheet } from '../components/AuditDetailSideSheet';
+import { AuditTraceSideSheet } from '../components/AuditTraceSideSheet';
+import { AuditViewNotice } from '../components/AuditViewNotice';
 import { AuditExportButton } from '../components/AuditExportButton';
 import { buildAuditTableProps } from '../components/AuditTable';
 import { AuditFilterBar } from '../components/AuditFilterBar';
@@ -32,8 +34,10 @@ import {
   RelatedDetailController,
   useRelatedDetail
 } from '../../run-observability/RelatedDetailController';
+import { auditViewOf } from '../auditLabels';
 import {
   AUDIT_PAGE_SIZE_DEFAULT,
+  type AuditDetailType,
   type AuditExportCreateRequest,
   type AuditListItem,
   type AuditListQuery
@@ -50,6 +54,7 @@ export interface AuditTableProps {
   onOpenDetail(item: AuditListItem): void;
   onOpenRun(runId: string): void;
   onOpenTask(taskId: string): void;
+  onOpenTrace(traceId: string): void;
 }
 
 /** TASK-013 `components/AuditDetailSideSheet.tsx` 的入参（设计 §3.4）。 */
@@ -62,14 +67,18 @@ export interface AuditDetailSideSheetProps {
 
 /** 详情选择态（设计 §3.5）：4 张来源表 UUID 不互通，选择必须同时携带 audit_type。 */
 interface AuditDetailSelection {
-  auditType: AuditListItem['auditType'];
+  auditType: AuditDetailType;
   auditId: string;
 }
 
 /** 初始/重置查询：不含任何筛选项（重置即回到此值，设计 §3.3.1「重置」）。 */
-const DEFAULT_QUERY: AuditListQuery = { page: 1, pageSize: AUDIT_PAGE_SIZE_DEFAULT };
+const DEFAULT_QUERY: AuditListQuery = {
+  page: 1,
+  pageSize: AUDIT_PAGE_SIZE_DEFAULT,
+  view: 'operation'
+};
 
-const AUDIT_TYPES = ['CONFIG', 'TOOL', 'EGRESS', 'MODEL'] as const;
+const AUDIT_TYPES = ['RUN', 'CONFIG', 'TOOL', 'EGRESS', 'MODEL'] as const;
 const UUID_VALUE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Overview links enter the same visible filters used by the audit list and export. */
@@ -79,6 +88,7 @@ function auditQueryFromLink(searchParams: URLSearchParams): AuditListQuery {
   return {
     ...DEFAULT_QUERY,
     auditType,
+    view: auditViewOf(auditType),
     agentId: agentId && UUID_VALUE.test(agentId) ? agentId : undefined
   };
 }
@@ -96,8 +106,12 @@ function useAuditQueryState() {
     setQuery(auditQueryFromLink(new URLSearchParams(linkQuery)));
   }, [linkQuery]);
 
+  /** 视图由类型派生后写回 query：筛选与视图不可能出现不一致。 */
   const handleFilterChange = useCallback((patch: Partial<AuditListQuery>) => {
-    setQuery((prev) => ({ ...prev, ...patch }));
+    setQuery((prev) => {
+      const merged = { ...prev, ...patch };
+      return { ...merged, view: auditViewOf(merged.auditType) };
+    });
   }, []);
 
   /** 重置：清空全部筛选并回到第 1 页（设计 §3.3.1「重置」）。 */
@@ -117,6 +131,10 @@ function useAuditDetailSelection() {
   const [detail, setDetail] = useState<AuditDetailSelection | null>(null);
 
   const handleOpenDetail = useCallback((item: AuditListItem) => {
+    // RUN 操作行没有审计详情：它由运行详情承载（列表里的两个入口都直达那里）
+    if (item.auditType === 'RUN') {
+      return;
+    }
     setDetail({ auditType: item.auditType, auditId: item.auditId });
   }, []);
 
@@ -207,6 +225,8 @@ export function AuditPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { query, handleFilterChange, handleReset, handlePageChange } = useAuditQueryState();
+  /** Trace 详情选择态：与筛选无关，列表保持原样。 */
+  const [traceId, setTraceId] = useState<string | null>(null);
   const { detail, handleOpenDetail, handleCloseDetail } = useAuditDetailSelection();
   const { items, loading, page, pageSize, total, failed, reload } = useAuditList(query);
   /** 关联对象直达：Run 就地叠加运行详情（无独立页面），Task 落任务列表深链（既有口径）。 */
@@ -218,6 +238,11 @@ export function AuditPage() {
     },
     [navigate]
   );
+
+  /** Trace 详情：只读侧栏展示该 Trace 的全部记录，列表保持原样（不切视图、不清筛选）。 */
+  const handleOpenTrace = useCallback((trace: string) => {
+    setTraceId(trace);
+  }, []);
 
   /** 刷新与失败重试同一出口（[E-06] 保留筛选条件，按当前页重取）。 */
   const handleRefresh = useCallback(() => {
@@ -239,11 +264,15 @@ export function AuditPage() {
     onPageChange: handlePageChange,
     onOpenDetail: handleOpenDetail,
     onOpenRun: related.openRun,
-    onOpenTask: handleOpenTask
+    onOpenTask: handleOpenTask,
+    onOpenTrace: handleOpenTrace
   };
 
-  /** 导出筛选与列表筛选同源（设计 §3.5）：去掉分页字段后交给 TASK-014 的导出按钮。 */
-  const { page: _page, pageSize: _pageSize, ...exportFilters } = query;
+  /**
+   * 导出筛选与列表筛选同源（设计 §3.5）：去掉分页与视图字段后交给导出按钮——
+   * 导出永远是全量明细，`view` 不在导出请求体里（后端 DTO 禁止额外字段）。
+   */
+  const { page: _page, pageSize: _pageSize, view: _view, ...exportFilters } = query;
 
   /** 表格入参（设计 §3.4/§3.6）：列/行渲染/空错槽位/分页全部由 AuditTable 供给。 */
   const auditTable = buildAuditTableProps({
@@ -266,8 +295,12 @@ export function AuditPage() {
           onRefresh={handleRefresh}
         />
         {refreshFailed ? <AuditRefreshNotice onRetry={handleRefresh} /> : null}
+        {query.view === 'detail' ? (
+          <AuditViewNotice onBack={() => handleFilterChange({ auditType: undefined, page: 1 })} />
+        ) : null}
         <RemoteTable<AuditListItem> {...auditTable} />
         <AuditDetailPanel detail={detail} handleCloseDetail={handleCloseDetail} />
+        <AuditTraceSideSheet traceId={traceId} onClose={() => setTraceId(null)} />
         {/* 关联对象「Run …」的直达详情（与审计详情内的嵌套层同源，控制器互斥承载一层）。 */}
         <RelatedDetailController
           state={related.state}

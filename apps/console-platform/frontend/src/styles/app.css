@@ -13,6 +13,7 @@
   --app-sider-width: 184px;
   --app-font:
     -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  --app-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 }
 
 body[theme-mode='dark'] {
@@ -692,6 +693,143 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ---------- 运行审计列表 ---------- */
+
+/* 审计类型：色点 + 文案，长列表里按类型扫读 */
+.audit-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.audit-type-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  flex: none;
+  background: var(--semi-color-tertiary);
+}
+
+.audit-type-dot[data-kind='RUN'] { background: var(--semi-color-primary); }
+.audit-type-dot[data-kind='CONFIG'] { background: var(--semi-color-tertiary); }
+.audit-type-dot[data-kind='TOOL'] { background: var(--semi-color-info); }
+.audit-type-dot[data-kind='MODEL'] { background: var(--semi-color-primary); }
+.audit-type-dot[data-kind='EGRESS'] { background: var(--semi-color-warning); }
+
+/* Trace 详情：一条 Trace 下的审计记录列表 */
+.audit-trace-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.audit-trace-row {
+  display: grid;
+  grid-template-columns: 168px 110px minmax(0, 1fr) 72px;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--semi-color-border);
+  font-size: 13px;
+}
+
+.audit-trace-head {
+  color: var(--semi-color-text-2);
+  font-size: 12px;
+}
+
+.audit-trace-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.audit-trace-action {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 关联对象：链接 + 来源 chip 一行；链接可收缩、chip 不收缩，起点与其它行一致 */
+.audit-target {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.audit-target-link {
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* 共享规则只对单元格直接子按钮生效；这里的按钮多包了一层，必须同样去掉 Semi 默认内边距 */
+.audit-target .semi-button {
+  max-width: 100%;
+  padding-inline: 0;
+}
+
+.audit-target .semi-button .semi-button-content {
+  min-width: 0;
+  max-width: 100%;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 对象短 id：等宽，保证同长度 id 的宽度一致（来源 chip 才能对齐） */
+.audit-object-id {
+  font-family: var(--app-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.audit-time {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+}
+
+.audit-time-main {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.audit-time-date {
+  color: var(--semi-color-text-2);
+  font-size: 12px;
+}
+
+.audit-time-clock {
+  color: var(--semi-color-text-0);
+}
+
+.audit-time-duration {
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--semi-color-fill-0);
+  color: var(--semi-color-text-2);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+/* 失败的运行操作行：行首色条，异常在整列里一眼可辨 */
+.audit-table .semi-table-tbody > .semi-table-row.audit-row-failed > .semi-table-row-cell:first-child {
+  box-shadow: inset 3px 0 0 var(--semi-color-danger);
+}
+
+/* 行内单元格垂直居中：两行的时间单元格与单行内容对齐，关联对象不再顶对齐 */
+.audit-table .semi-table-tbody > .semi-table-row > .semi-table-row-cell {
+  vertical-align: middle;
+}
+
 
 .model-table .semi-table-row-head,
 .model-table .semi-table-row-cell {

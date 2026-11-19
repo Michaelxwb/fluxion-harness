@@ -154,14 +154,16 @@ def test_b283_only_the_clock_hook_owns_a_timer() -> None:
     assert "useEffect" in clock, "必须有清理路径"
 
     thinking = _read(THINKING_TSX)
-    for banned in ("setInterval", "setTimeout", "useState"):
+    for banned in ("setInterval", "setTimeout", "useState", "useRunClock"):
         assert banned not in thinking, f"ChatThinking 不得自带定时器/状态：{banned}"
-    assert "useRunClock" in thinking and "thinkingAnchorOf" in thinking
+    assert "thinkingAnchorOf" in thinking
 
     run_actions = _read(RUN_ACTIONS_TSX)
-    assert "elapsed" not in run_actions, "运行状态条不展示耗时（耗时只在思考占位里）"
+    assert "useRunClock" in run_actions and "formatElapsed" in run_actions, (
+        "顶部运行卡展示已用时，但只能复用时钟钩子"
+    )
     for banned in ("setInterval", "setTimeout"):
-        assert banned not in run_actions
+        assert banned not in run_actions, "RunActions 不得自己创建定时器"
 
     page = _read(CHAT_PAGE_TSX)
     assert "thinkingAnchorOf" in page and "<ChatThinking" in page, "占位必须由页面按判据挂载"

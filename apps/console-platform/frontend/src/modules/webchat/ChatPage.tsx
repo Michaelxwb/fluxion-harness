@@ -61,8 +61,10 @@ import {
 } from './components/MessageThread';
 import {
   RunActions,
+  RunStopRegion,
   createRunStopController,
   runActivityPhase,
+  runStopView,
   type RunStopController,
   type RunStopState
 } from './components/RunActions';
@@ -1035,7 +1037,6 @@ function ChatNewConversationNotice() {
 interface ChatRunActionsProps {
   run: ActiveRunState | null;
   connection: RunConnectionSnapshot;
-  stop: RunStopBinding;
   runEvents: RunEventsController;
 }
 
@@ -1043,18 +1044,12 @@ interface ChatRunActionsProps {
 function ChatRunActions(props: ChatRunActionsProps) {
   const run = props.run;
   if (run === null) return null;
-  const controller = props.stop.controller;
   return (
     <RunActions
       status={run.status}
       executionStatus={run.executionStatus}
       tool={run.tool}
       connection={props.connection}
-      stop={props.stop.snapshot}
-      onRequestStop={() => controller.requestStop(run.runId)}
-      onConfirmStop={() => controller.confirmStop()}
-      onDismissStop={() => controller.dismissStop()}
-      onRetryStop={() => controller.retryStop()}
       onRetry={() => props.runEvents.retry()}
       onRecover={() => props.runEvents.recover()}
     />
@@ -1094,7 +1089,6 @@ interface ChatMessageAreaProps {
   run: ActiveRunState | null;
   streaming: StreamingReplyProps | null;
   connection: RunConnectionSnapshot;
-  stop: RunStopBinding;
   confirmation: ConfirmationBinding;
   confirmationMessageId: string | null;
   draftConfirmation: DraftConfirmationBinding;
@@ -1105,7 +1099,9 @@ interface ChatMessageAreaProps {
 
 /** 消息区装配：新对话提示 + 消息线程 + 流式正文 + 运行面 + 确认卡（同一滚动视口）。 */
 function ChatMessageArea(props: ChatMessageAreaProps) {
+  const { t } = useTranslation();
   const history = props.messages.history;
+  const hasMessages = history.items.length > 0;
   const run = props.run;
   // 历史已回放的 Draft 只渲染一次：流式卡片按 draft_id 去重（刷新后历史与流表示同一事实）。
   const historyDraftIds = new Set<string>();
@@ -1132,7 +1128,7 @@ function ChatMessageArea(props: ChatMessageAreaProps) {
       {props.conversationId === null ? <ChatNewConversationNotice /> : null}
       <MessageThread
         messages={history.items}
-        loading={props.loading}
+        loading={props.loading && !hasMessages}
         loadingOlder={history.loadingOlder}
         hasOlder={history.hasOlder}
         errorCode={history.errorCode}
@@ -1142,7 +1138,7 @@ function ChatMessageArea(props: ChatMessageAreaProps) {
         onDownloadAttachment={props.onDownloadAttachment}
         draftConfirmation={props.draftConfirmation}
       />
-      {thinkingAnchor === undefined ? null : <ChatThinking anchor={thinkingAnchor} />}
+      {thinkingAnchor === undefined ? null : <ChatThinking />}
       <ChatStreamingReply
         streaming={props.streaming}
         drafts={liveDrafts}
@@ -1152,7 +1148,6 @@ function ChatMessageArea(props: ChatMessageAreaProps) {
       <ChatRunActions
         run={props.run}
         connection={props.connection}
-        stop={props.stop}
         runEvents={props.runEvents}
       />
       <ChatConfirmation
@@ -1187,34 +1182,80 @@ export interface ChatWorkspaceProps extends ChatWorkspacePorts {
 /** 输入区装配：阶段/输入/附件/错误面全部来自 TASK-081 快照，限额只来自 API-19 投影。 */
 function ChatComposerSurface(props: {
   disabled: boolean;
+  loading: boolean;
   policy: ComposerAttachmentPolicy | null;
   pendingSend: PendingSendHookResult;
+  run: ActiveRunState | null;
+  stop: RunStopBinding;
   onTextChange(value: string): void;
   onSend(): void;
 }) {
+  const { t } = useTranslation();
   const pendingSend = props.pendingSend;
+  const run = props.run;
+  const runActive = run !== null && !isTerminalRunStatus(run.status);
+  const stopView = run === null ? null : runStopView(run.status, props.stop.snapshot);
+  const stopDisabled =
+    stopView !== null &&
+    (stopView.kind === 'confirming' ||
+      stopView.kind === 'stopping' ||
+      stopView.kind === 'stopped' ||
+      stopView.kind === 'unavailable');
+  const handleStop = (): void => {
+    if (run === null || stopView === null) return;
+    if (stopView.kind === 'unknown' || stopView.kind === 'failed') {
+      props.stop.controller.retryStop();
+      return;
+    }
+    if (stopView.kind === 'idle') props.stop.controller.requestStop(run.runId);
+  };
+  const stopNotice =
+    runActive && stopView !== null && stopView.kind !== 'idle' ? (
+      <RunStopRegion
+        view={stopView}
+        showAction={false}
+        onRequestStop={() => props.stop.controller.requestStop(run?.runId ?? '')}
+        onConfirmStop={() => props.stop.controller.confirmStop()}
+        onDismissStop={() => props.stop.controller.dismissStop()}
+        onRetryStop={() => props.stop.controller.retryStop()}
+      />
+    ) : null;
   return (
-    <ChatComposer
-      disabled={props.disabled}
-      phase={pendingSend.snapshot.phase}
-      text={pendingSend.snapshot.text}
-      onTextChange={props.onTextChange}
-      attachments={pendingSend.snapshot.attachments}
-      attachmentPolicy={props.policy}
-      expiredUploadIds={pendingSend.snapshot.expiredUploadIds}
-      inputErrorCode={pendingSend.snapshot.inputErrorCode}
-      errorCode={pendingSend.snapshot.errorCode}
-      outcomeUnknown={pendingSend.snapshot.outcomeUnknown}
-      inputFrozen={pendingSend.snapshot.inputFrozen}
-      onAddFiles={pendingSend.addFiles}
-      onRemoveAttachment={pendingSend.removeAttachment}
-      onSend={props.onSend}
-      onRetry={() => {
-        fireAndForget(pendingSend.retry());
-      }}
-      onDiscard={pendingSend.discard}
-      onCancel={pendingSend.cancel}
-    />
+    <>
+      {props.loading ? (
+        <div className="chat-composer-loading" data-testid="chat-message-loading-inline">
+          <Spin size="small" />
+          <Typography.Text type="secondary">
+            {t('chat.workspace.loadingSelection')}
+          </Typography.Text>
+        </div>
+      ) : null}
+      <ChatComposer
+        disabled={props.disabled}
+        phase={pendingSend.snapshot.phase}
+        text={pendingSend.snapshot.text}
+        onTextChange={props.onTextChange}
+        attachments={pendingSend.snapshot.attachments}
+        attachmentPolicy={props.policy}
+        expiredUploadIds={pendingSend.snapshot.expiredUploadIds}
+        inputErrorCode={pendingSend.snapshot.inputErrorCode}
+        errorCode={pendingSend.snapshot.errorCode}
+        outcomeUnknown={pendingSend.snapshot.outcomeUnknown}
+        inputFrozen={pendingSend.snapshot.inputFrozen}
+        onAddFiles={pendingSend.addFiles}
+        onRemoveAttachment={pendingSend.removeAttachment}
+        onSend={props.onSend}
+        onRetry={() => {
+          fireAndForget(pendingSend.retry());
+        }}
+        onDiscard={pendingSend.discard}
+        onCancel={pendingSend.cancel}
+        runActive={runActive}
+        stopDisabled={stopDisabled}
+        stopNotice={stopNotice}
+        onStop={handleStop}
+      />
+    </>
   );
 }
 
@@ -1459,6 +1500,10 @@ export function ChatWorkspace(props: ChatWorkspaceProps) {
     state.messages.history.loadingOlder,
     confirmationKey
   );
+  const selectionLoading =
+    state.selection.loading ||
+    (props.expectedConversationId !== null && state.conversationId === null);
+  const hasMessages = state.messages.history.items.length > 0;
   return (
     <>
       <WebchatShell
@@ -1469,15 +1514,11 @@ export function ChatWorkspace(props: ChatWorkspaceProps) {
         messageArea={
           <ChatMessageArea
             conversationId={state.conversationId}
-            loading={
-              state.selection.loading ||
-              (props.expectedConversationId !== null && state.conversationId === null)
-            }
+            loading={selectionLoading}
             messages={state.messages}
             run={state.run}
             streaming={state.streaming}
             connection={state.connection}
-            stop={state.stop}
             confirmation={state.confirmation}
             confirmationMessageId={state.confirmationMessageId}
             draftConfirmation={state.draftConfirmation}
@@ -1489,8 +1530,11 @@ export function ChatWorkspace(props: ChatWorkspaceProps) {
         composer={
           <ChatComposerSurface
             disabled={!props.config.ready}
+            loading={selectionLoading && hasMessages}
             policy={props.config.snapshot.webchat}
             pendingSend={props.pendingSend}
+            run={state.run}
+            stop={state.stop}
             onTextChange={state.changeDraft}
             onSend={state.actions.sendNow}
           />

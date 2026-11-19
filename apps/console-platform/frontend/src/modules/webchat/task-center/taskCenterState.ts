@@ -20,7 +20,7 @@ import type {
   FireItem,
   HistoryRetention,
   ScheduleDetail,
-  ScheduleExecutionDetail,
+  ExecutionDetail,
   ScheduleListItem,
   ScheduleListPage,
   ScheduleMode,
@@ -31,6 +31,9 @@ import type {
 } from '../types';
 
 export type AsyncPhase = 'IDLE' | 'LOADING' | 'READY' | 'ERROR';
+
+/** 与 Console 列表统一：默认每页 15 条，PaginationFooter 的选项也从 15 起。 */
+export const TASK_CENTER_PAGE_SIZE = 15;
 
 /** 授权范围里的 Agent 过滤；`null` = 全部授权 Agent（服务端按授权集合取交集）。 */
 export interface ScheduleFilters {
@@ -67,7 +70,7 @@ export type ExecutionPhase = 'IDLE' | 'LOADING' | 'READY' | 'ERROR';
 export interface ExecutionState {
   phase: ExecutionPhase;
   executionId: string | null;
-  detail: ScheduleExecutionDetail | null;
+  detail: ExecutionDetail | null;
   errorCode: string | null;
 }
 
@@ -97,6 +100,7 @@ export interface ScheduleListController {
   refresh(): Promise<void>;
   setFilter(patch: Partial<ScheduleFilters>): Promise<void>;
   setPage(page: number): Promise<void>;
+  setPageSize(pageSize: number): Promise<void>;
   dispose(): void;
 }
 
@@ -117,7 +121,7 @@ export function emptyScheduleListState(): ScheduleListState {
     phase: 'IDLE',
     items: [],
     page: 1,
-    pageSize: 0,
+    pageSize: TASK_CENTER_PAGE_SIZE,
     total: 0,
     errorCode: null,
     badges: null,
@@ -279,6 +283,13 @@ export function createScheduleListController(deps: { port: ScheduleListPort }): 
       const target = Math.max(1, Math.trunc(page));
       if (target === runtime.state.page && runtime.state.phase === 'READY') return;
       runtime.state = { ...runtime.state, page: target };
+      publishList(runtime);
+      await requestList(runtime);
+    },
+    async setPageSize(pageSize) {
+      const target = Math.max(1, Math.trunc(pageSize));
+      if (target === runtime.state.pageSize && runtime.state.phase === 'READY') return;
+      runtime.state = { ...runtime.state, pageSize: target, page: 1 };
       publishList(runtime);
       await requestList(runtime);
     },

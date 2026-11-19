@@ -46,6 +46,9 @@ from muad_contracts import (
     ScheduleMode,
     ScheduleStatus,
     TaskCenterBadges,
+    TaskCenterTaskItem,
+    TaskCenterTaskPage,
+    TaskStatus,
 )
 from pydantic import BaseModel, ValidationError
 
@@ -69,6 +72,9 @@ class TaskCenterSurface:
 WEBCHAT_SURFACE = TaskCenterSurface(
     name="webchat", confirmation_surface=ConfirmationSurface.WEBCHAT
 )
+
+#: Worker 的 `/internal/tasks` 仍是完整 Task 摘要；任务中心只投影公开契约字段。
+TASK_CENTER_ITEM_FIELDS = tuple(TaskCenterTaskItem.model_fields)
 
 
 class TaskCenterOwnerPort(Protocol):
@@ -99,8 +105,25 @@ class TaskCenterOwnerPort(Protocol):
         page_size: int,
     ) -> dict[str, Any]: ...
 
+    async def list_tasks(
+        self,
+        *,
+        tenant_id: str,
+        user_id: UUID,
+        agent_ids: tuple[UUID, ...],
+        status: str | None,
+        page: int,
+        page_size: int,
+    ) -> dict[str, Any]: ...
+
     async def get_execution(
-        self, *, tenant_id: str, user_id: UUID, execution_id: UUID
+        self,
+        *,
+        tenant_id: str,
+        user_id: UUID,
+        execution_id: UUID,
+        children_page: int | None = None,
+        children_page_size: int | None = None,
     ) -> dict[str, Any]: ...
 
     async def list_pending(
@@ -252,14 +275,60 @@ class TaskCenterService:
         )
         return _project(FireHistoryPage, data).model_dump(mode="json")
 
-    async def get_execution(self, identity: ChatIdentity, execution_id: UUID) -> dict[str, Any]:
+    async def list_tasks(
+        self,
+        identity: ChatIdentity,
+        *,
+        agent_id: UUID | None,
+        status: TaskStatus | None,
+        page: int,
+        page_size: int,
+    ) -> dict[str, Any]:
+        """后台任务列表：与定时任务共用授权 Agent 范围，分页/计数都由 Worker 完成。"""
+        allowed = self._scope(identity, agent_id)
+        if not allowed:
+            return TaskCenterTaskPage(page=page, page_size=page_size, total=0).model_dump(
+                mode="json"
+            )
+        data = await self._owner.list_tasks(
+            tenant_id=self._tenant(identity),
+            user_id=identity.principal.platform_user_id,
+            agent_ids=allowed,
+            status=status.value if status is not None else None,
+            page=page,
+            page_size=page_size,
+        )
+        raw_items = data.get("items")
+        total = data.get("total")
+        if not isinstance(raw_items, list) or not isinstance(total, int):
+            logger.warning("task_center_task_page_invalid")
+            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
+        items = [_task_center_item(raw) for raw in raw_items]
+        return TaskCenterTaskPage(
+            items=items, page=page, page_size=page_size, total=total
+        ).model_dump(mode="json")
+
+    async def get_execution(
+        self,
+        identity: ChatIdentity,
+        execution_id: UUID,
+        *,
+        children_page: int | None = None,
+        children_page_size: int | None = None,
+    ) -> dict[str, Any]:
         """API-15：Execution 详情的唯一读点（Owner 按 tenant+actor 核属，跨用户 404）。"""
         data = await self._owner.get_execution(
             tenant_id=self._tenant(identity),
             user_id=identity.principal.platform_user_id,
             execution_id=execution_id,
+            children_page=children_page,
+            children_page_size=children_page_size,
         )
-        return _project(ExecutionDetail, data).model_dump(mode="json")
+        detail = _project(ExecutionDetail, data)
+        allowed = self._scope(identity, None)
+        if detail.agent_id is None or detail.agent_id not in allowed:
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
+        return detail.model_dump(mode="json")
 
     # -- 待处理 / 徽标 / 回答 -----------------------------------------------------
 
@@ -548,6 +617,17 @@ class TaskCenterService:
 def _page_count(total: int) -> int:
     """整段范围需要读多少页（`MAX_PAGE_SIZE` 是 Owner 的单页上限）。"""
     return max(1, -(-total // MAX_PAGE_SIZE))
+
+
+def _task_center_item(raw: object) -> TaskCenterTaskItem:
+    """只挑任务中心契约字段：Worker 摘要包含内部列，不能整对象交给 `extra=forbid`。"""
+    if not isinstance(raw, dict):
+        logger.warning("task_center_task_item_invalid")
+        raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
+    return _project(
+        TaskCenterTaskItem,
+        {key: raw[key] for key in TASK_CENTER_ITEM_FIELDS if key in raw},
+    )
 
 
 def _project[ContractT: BaseModel](model: type[ContractT], data: object) -> ContractT:

@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import base64
 import json
 from dataclasses import dataclass
 from typing import Any
 
 import httpx
 import pytest
-from muad_agent_core.skill.draft_shell import DraftShellError
+from muad_agent_core.skill.draft_shell import DraftShellChange, DraftShellError
 from muad_agent_runtime.application.draft_tools import DRAFT_TOOL_NAMES, SkillDraftTools
 from muad_agent_runtime.application.skill_draft_client import ConsoleSkillDraftClient
 
@@ -57,6 +58,16 @@ class _FakeClient:
     async def submit(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         return self._record("submit", args, kwargs)
 
+    async def apply(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        self.calls.append(("apply", args, kwargs))
+        changes = kwargs.get("changes", ())
+        return {
+            "revision": 5,
+            "file_count": len(changes),
+            "total_size": sum(len(change.content) for change in changes),
+            "changed_files": [change.path for change in changes],
+        }
+
 
 def _tools(client: Any) -> SkillDraftTools:
     return SkillDraftTools(client, _Context())
@@ -76,7 +87,9 @@ def test_definitions_expose_one_action_tool() -> None:
         "review",
         "status",
         "submit",
+        "import",
     }
+    assert "artifact_id" in schema["properties"]
     assert schema["additionalProperties"] is False
 
 
@@ -241,6 +254,32 @@ async def test_client_uses_internal_service_header_and_contract_paths() -> None:
     assert status.url.params["owner_user_id"] == "u"
 
 
+async def test_client_apply_encodes_binary_members_and_keeps_text_members() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"data": {"revision": 2}})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        client = ConsoleSkillDraftClient("http://console:8000", client=http)
+        await client.apply(
+            "d-1",
+            tenant_id="t",
+            owner_user_id="u",
+            expected_revision=1,
+            changes=(
+                DraftShellChange(path="SKILL.md", content="中文".encode()),
+                DraftShellChange(path="assets/logo.bin", content=bytes(range(256))),
+            ),
+        )
+
+    body = json.loads(seen[0].content)
+    assert body["changes"][0] == {"path": "SKILL.md", "content": "中文"}
+    assert "content" not in body["changes"][1]
+    assert base64.b64decode(body["changes"][1]["content_base64"]) == bytes(range(256))
+
+
 async def test_client_maps_console_error_envelope() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -261,3 +300,106 @@ async def test_client_maps_console_error_envelope() -> None:
                 submitted_channel=None,
             )
     assert caught.value.code == "DRAFT_REVISION_CONFLICT"
+
+
+class _FakePackages:
+    """导入用的附件读取器替身：直接返回构造好的压缩包字节。"""
+
+    def __init__(self, data: bytes | Exception) -> None:
+        self._data = data
+        self.calls: list[tuple[Any, dict[str, Any]]] = []
+
+    async def read(self, artifact_id: object, **kwargs: Any) -> bytes:
+        self.calls.append((artifact_id, kwargs))
+        if isinstance(self._data, Exception):
+            raise self._data
+        return self._data
+
+
+def _zip_bytes(members: list[tuple[str, bytes]]) -> bytes:
+    import io
+    import zipfile
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        for name, data in members:
+            archive.writestr(name, data)
+    return buffer.getvalue()
+
+
+def _import_tools(client: Any, packages: Any) -> SkillDraftTools:
+    return SkillDraftTools(client, _Context(), packages=packages)
+
+
+async def test_import_writes_every_member_in_one_cas() -> None:
+    """导入 = 一次 apply：包内文件逐个成 change，revision 走 key 解析到的当前值。"""
+    client = _FakeClient()
+    packages = _FakePackages(
+        _zip_bytes([("SKILL.md", "# 用这个包写的 skill\n".encode()), ("scripts/run.py", b"print(1)\n")])
+    )
+    payload = json.loads(
+        await _import_tools(client, packages).import_package(
+            {"key": "weak-pwd-manager", "artifact_id": "artifact-1"}, call_id="c1"
+        )
+    )
+    assert [call[0] for call in client.calls] == ["create", "apply"]
+    _, args, kwargs = client.calls[1]
+    assert args == ("draft-1",)
+    assert kwargs["expected_revision"] == 4
+    assert kwargs["tenant_id"] == "tenant-a"
+    assert [change.path for change in kwargs["changes"]] == ["SKILL.md", "scripts/run.py"]
+    assert packages.calls == [
+        ("artifact-1", {"tenant_id": "tenant-a", "owner_user_id": _Context().owner_user_id})
+    ]
+    assert payload["draft_id"] == "draft-1"
+    assert payload["artifact_id"] == "artifact-1"
+    assert payload["imported_files"] == ["SKILL.md", "scripts/run.py"]
+    assert payload["revision"] == 5
+
+
+async def test_import_with_draft_id_fetches_the_current_revision() -> None:
+    """按 draft_id 寻址时解析不出 revision —— 先取元信息，再由 apply 的 CAS 兜并发。"""
+    client = _FakeClient()
+    tools = _import_tools(client, _FakePackages(_zip_bytes([("SKILL.md", b"x")])))
+    await tools.import_package({"draft_id": "draft-1", "artifact_id": "artifact-1"}, call_id="c1")
+    assert [call[0] for call in client.calls] == ["metadata", "apply"]
+    assert client.calls[1][2]["expected_revision"] == 4
+
+
+async def test_import_surfaces_reader_errors_without_writing() -> None:
+    from muad_agent_runtime.application.draft_import import PackageImportError
+
+    client = _FakeClient()
+    tools = _import_tools(
+        client,
+        _FakePackages(PackageImportError("COMMON_VALIDATION_ERROR", "只有压缩包能导入草稿")),
+    )
+    payload = json.loads(
+        await tools.import_package(
+            {"key": "weak-pwd-manager", "artifact_id": "artifact-1"}, call_id="c1"
+        )
+    )
+    assert payload["error"]["code"] == "COMMON_VALIDATION_ERROR"
+    assert "压缩包" in payload["error"]["message"]
+    assert [call[0] for call in client.calls] == ["create"]
+
+
+async def test_import_rejects_an_illegal_member_before_any_write() -> None:
+    client = _FakeClient()
+    tools = _import_tools(client, _FakePackages(_zip_bytes([("../escape.py", b"x")])))
+    payload = json.loads(
+        await tools.import_package(
+            {"key": "weak-pwd-manager", "artifact_id": "artifact-1"}, call_id="c1"
+        )
+    )
+    assert payload["error"]["code"] == "DRAFT_PATH_INVALID"
+    assert [call[0] for call in client.calls] == ["create"]
+
+
+async def test_import_without_reader_is_an_explicit_error() -> None:
+    payload = json.loads(
+        await _tools(_FakeClient()).import_package(
+            {"key": "weak-pwd-manager", "artifact_id": "artifact-1"}, call_id="c1"
+        )
+    )
+    assert payload["error"]["code"] == "COMMON_INTERNAL_ERROR"

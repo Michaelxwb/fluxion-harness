@@ -19,6 +19,7 @@
 import { api, type ApiResponse } from '../../../api/client';
 import { webchatErrorCode } from './webchatApi';
 import type {
+  ExecutionDetail,
   FireHistoryPage,
   HumanRespondReceipt,
   PendingPage,
@@ -26,13 +27,15 @@ import type {
   ScheduleDetail,
   ScheduleDraftConfirmInput,
   ScheduleDraftConfirmReceipt,
-  ScheduleExecutionDetail,
   ScheduleListPage,
   TaskCenterAgentQuery,
   TaskCenterBadges,
   TaskCenterClient,
+  TaskCenterExecutionQuery,
   TaskCenterPendingQuery,
   TaskCenterScheduleQuery,
+  TaskCenterTaskPage,
+  TaskCenterTaskQuery,
   WebchatPageQuery,
   WebchatRequestOptions,
   WebchatWriteOptions
@@ -123,6 +126,24 @@ export async function listSchedules(
   );
 }
 
+/** API-12b：后台任务列表（无 Schedule、无父任务、有 source Run 的根任务）。 */
+export async function listTasks(
+  query: TaskCenterTaskQuery = {},
+  options: WebchatRequestOptions = {}
+): Promise<TaskCenterTaskPage> {
+  return unwrap(
+    await api.get<ApiResponse<TaskCenterTaskPage>>(`${TASK_CENTER_BASE}/tasks`, {
+      params: definedQuery({
+        agent_id: query.agent_id,
+        status: query.status,
+        page: query.page,
+        page_size: query.page_size
+      }),
+      signal: options.signal
+    })
+  );
+}
+
 /** API-13：详情与列表同一范围；撤销授权/不存在都是 404。 */
 export async function getSchedule(
   scheduleId: string,
@@ -151,15 +172,22 @@ export async function listFires(
   );
 }
 
-/** API-15：Execution 详情（结果/错误/等待类型/产物引用）。 */
+/** API-15：Execution 详情（结果/错误/等待类型/产物引用 + 可选子任务页）。 */
 export async function getExecution(
   executionId: string,
+  query: TaskCenterExecutionQuery = {},
   options: WebchatRequestOptions = {}
-): Promise<ScheduleExecutionDetail> {
+): Promise<ExecutionDetail> {
   return unwrap(
-    await api.get<ApiResponse<ScheduleExecutionDetail>>(
+    await api.get<ApiResponse<ExecutionDetail>>(
       `${TASK_CENTER_BASE}/executions/${requireText(executionId, 'EXECUTION_ID_REQUIRED')}`,
-      { signal: options.signal }
+      {
+        params: definedQuery({
+          children_page: query.children_page,
+          children_page_size: query.children_page_size
+        }),
+        signal: options.signal
+      }
     )
   );
 }
@@ -275,6 +303,7 @@ export async function confirmScheduleDraft(
 export function createTaskCenterClient(): TaskCenterClient {
   return {
     listSchedules,
+    listTasks,
     getSchedule,
     listFires,
     getExecution,

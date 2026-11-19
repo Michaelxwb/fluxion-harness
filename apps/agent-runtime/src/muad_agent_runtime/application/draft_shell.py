@@ -12,6 +12,7 @@ from muad_platform_sdk.skill_access import SkillPlatformContext
 from ..infrastructure.db import get_session_factory
 from ..infrastructure.draft_test_workspace import SqlDraftTestWorkspaceStore
 from ..infrastructure.workspace_store import SessionFactoryProvider
+from .draft_import import ArtifactPackageReader
 from .draft_tools import SkillDraftTools
 from .skill_draft_client import ConsoleDraftShellClient, ConsoleSkillDraftClient
 from .workspace_shell import build_workspace_store
@@ -70,14 +71,23 @@ def build_draft_tools(
     *,
     context: Any,
     client: ConsoleSkillDraftClient | None = None,
+    packages: ArtifactPackageReader | None = None,
+    session_factory_provider: SessionFactoryProvider = get_session_factory,
 ) -> SkillDraftTools:
-    """草稿 CRUD/校验/提交工具的装配点；身份来自 Run 上下文。"""
+    """草稿 CRUD/校验/提交工具的装配点；身份来自 Run 上下文。
+
+    `packages` 是导入用的附件读取器：Artifact 行按 Run 上下文（租户 + 归属本人）取，
+    字节从共享制品卷读，与 `read_attachment` 同一口径。
+    """
     resolved = settings or process_settings()
     draft_client = client or ConsoleSkillDraftClient(
         resolved.console_platform_url,
         service_token=resolved.internal_service_token,
     )
-    return SkillDraftTools(draft_client, context)
+    reader = packages or ArtifactPackageReader(
+        session_factory_provider, resolved.artifact_root
+    )
+    return SkillDraftTools(draft_client, context, packages=reader)
 
 
 __all__ = ["build_draft_shell_runner", "build_draft_tools"]

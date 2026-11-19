@@ -3,8 +3,8 @@
  * §3.6 UI 状态、§3.7 样式方案、§3.8 可访问性；TASK-083）。
  *
  * 一个「可见 Run」的执行状态与操作：排队 / 模型等待 / 执行 / 等待工具 / 等待输入 / 终态与**连接状态
- * 分开**表达（不拿连接状态推断执行结果），排队原因与排队期限原样带出；停止必须**先确认**再调 API-08
- * `cancel`，且只取消这一个 Run。
+ * 分开**表达（不拿连接状态推断执行结果），排队原因与排队期限原样带出。停止动作由输入区持有；本文件
+ * 保留停止状态机与提示组件（确认/停止中/失败/结果未知）。
  *
  * 1. **停止按精确来源**：`createRunStopController` 只接受当前可见 Run（`setVisibleRun`）的停止请求；
  *    确认前零请求（不产生任何 HTTP），确认后才 `port.cancel(runId)`（唯一出口）；在途重复点击单飞
@@ -27,6 +27,8 @@ import { Button } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 
 import { DateTimeText } from '../../../components/common/DateTimeText';
+import { elapsedSecondsSince, formatElapsed } from './ChatThinking';
+import { useRunClock } from '../hooks/useRunClock';
 import { isTerminalRunStatus, type ActiveRunTool, type RunConnectionSnapshot } from '../runState';
 import { ToolProgress } from './ToolProgress';
 import { webchatErrorCode } from '../services/webchatApi';
@@ -324,8 +326,10 @@ export function createRunStopController(port: RunCancelPort): RunStopController 
   };
 }
 
-interface RunStopRegionProps {
+export interface RunStopRegionProps {
   view: RunStopView;
+  /** 输入区已持有停止动作时可只渲染确认/错误提示。 */
+  showAction?: boolean;
   onRequestStop(): void;
   onConfirmStop(): void;
   onDismissStop(): void;
@@ -393,7 +397,7 @@ function StopRetryActions(props: StopRetryActionsProps) {
 }
 
 /** 停止区域：待确认 / 停止中 / 已停止 / 失败 / 结果未知各自显式（终态不占位）。 */
-function RunStopRegion(props: RunStopRegionProps) {
+export function RunStopRegion(props: RunStopRegionProps) {
   const { t } = useTranslation();
   const { view } = props;
   if (view.kind === 'unavailable') return null;
@@ -405,7 +409,7 @@ function RunStopRegion(props: RunStopRegionProps) {
       role="group"
       aria-label={t('chat.run.stop.label')}
     >
-      {view.kind === 'idle' ? (
+      {view.kind === 'idle' && props.showAction !== false ? (
         <Button
           size="small"
           className="chat-run-stop-action"
@@ -446,11 +450,20 @@ interface RunActivityRegionProps {
 function RunActivityRegion(props: RunActivityRegionProps) {
   const { t } = useTranslation();
   const { activity } = props;
+  const anchor = activity.phase === 'terminal' ? null : activity.startedAt ?? activity.queuedAt;
+  const now = useRunClock(anchor !== null);
+  const elapsed = anchor === null ? null : elapsedSecondsSince(anchor, now);
   return (
     <div className="chat-run-activity" data-testid="chat-run-activity" data-phase={activity.phase}>
       <span className="chat-run-phase" data-testid="chat-run-phase">
         {t(RUN_ACTIVITY_PHASE_KEYS[activity.phase])}
       </span>
+      {elapsed === null ? null : (
+        <span className="chat-run-elapsed" data-testid="chat-run-elapsed">
+          {t('chat.run.elapsed')}
+          <b>{formatElapsed(elapsed)}</b>
+        </span>
+      )}
       {activity.reason === null ? null : (
         <span className="chat-run-queue-reason" data-testid="chat-run-queue-reason">
           {t('chat.run.queue.reason', { reason: activity.reason })}
@@ -548,12 +561,6 @@ export interface RunActionsProps {
   tool: ActiveRunTool | null;
   /** 连接状态（TASK-082 快照；与执行状态分开表达）。 */
   connection: RunConnectionSnapshot;
-  /** 停止状态机快照（`createRunStopController`）。 */
-  stop: RunStopState;
-  onRequestStop(): void;
-  onConfirmStop(): void;
-  onDismissStop(): void;
-  onRetryStop(): void;
   /** 显式重连（TASK-082 `retry()`；只在失败态可用）。 */
   onRetry(): void;
   /** 显式游标恢复（TASK-082 `recover()`；只在游标过期态可用）。 */
@@ -561,7 +568,7 @@ export interface RunActionsProps {
 }
 
 /**
- * 运行操作面：执行阶段 + 排队事实 + 连接状态 + 停止交互。
+ * 运行操作面：执行阶段 + 排队事实 + 连接状态。停止动作已并入输入区同一图标按钮。
  *
  * 展示组件只吃 typed props 与事件：状态机（`createRunStopController`）与恢复动作（TASK-082）由页面
  * 持有，这里只渲染真实事实与显式动作。
@@ -583,13 +590,6 @@ export function RunActions(props: RunActionsProps) {
         connection={props.connection}
         onRetry={props.onRetry}
         onRecover={props.onRecover}
-      />
-      <RunStopRegion
-        view={runStopView(props.status, props.stop)}
-        onRequestStop={props.onRequestStop}
-        onConfirmStop={props.onConfirmStop}
-        onDismissStop={props.onDismissStop}
-        onRetryStop={props.onRetryStop}
       />
     </section>
   );

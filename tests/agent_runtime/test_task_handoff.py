@@ -11,7 +11,7 @@ import tempfile
 import uuid
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -38,6 +38,7 @@ from muad_agent_worker.infrastructure.models.task import (
 from muad_agent_worker.main import app as worker_app
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_contracts import (
+    CompletionMode,
     DeliveryRouteInput,
     ResolvedAgent,
     ResolvedModel,
@@ -65,6 +66,7 @@ TASK_TENANT_CLEANUP = (
     "DELETE FROM task.runtime_result_outbox WHERE tenant_id = :t",
     "DELETE FROM task.runtime_operation WHERE tenant_id = :t",
     "DELETE FROM task.task_event WHERE tenant_id = :t",
+    "DELETE FROM task.task_delivery WHERE tenant_id = :t",
     "DELETE FROM task.task_submission WHERE tenant_id = :t",
     "UPDATE task.task_schedule SET current_revision_id = NULL WHERE tenant_id = :t",
     "DELETE FROM task.task_schedule_draft WHERE tenant_id = :t",
@@ -241,14 +243,17 @@ async def test_b123_async_skill_tool_submits_task_with_frozen_snapshot() -> None
     assert task.snapshot_hash.startswith("sha256:")
     assert task.execution_snapshot_json["skills"][0]["artifact_id"] == str(skill.artifact_id)
     assert task.skill_execution_mode == str(skill.execution_mode)
+    assert task.completion_mode == str(CompletionMode.DETACH), "Run 侧 ASYNC 恒为后台任务"
     async with worker_session_factory()() as session:
         deliveries = list(
             await session.scalars(
                 select(TaskDelivery).where(TaskDelivery.execution_id == task.id)
             )
         )
-    assert deliveries == [], "JOIN results go to the Run, without independent delivery"
-    assert task.max_attempts == 1 and task.deadline_at <= datetime.now(UTC) + timedelta(minutes=10)
+    assert len(deliveries) == 1, "后台任务按 Run 的 delivery route 独立投递"
+    assert deliveries[0].delivery_kind == "PUSH"
+    assert task.max_attempts == 1
+    assert task.deadline_at > datetime.now(UTC), "后台任务按 Task deadline 收尾，不再依赖 Run 期限"
 
 
 async def test_b123_multi_skill_agent_freezes_only_submitted_skill() -> None:
@@ -406,7 +411,8 @@ async def test_b123_actor_cannot_be_forged_through_tool_arguments() -> None:
     try:
         definition = tool_set.registry().get(EXECUTE_TOOL)
         schema = definition.input_schema
-        assert {"target", "skill_key", "input", "completion_mode", "argv"} <= set(schema["properties"])
+        assert {"target", "skill_key", "input", "argv"} <= set(schema["properties"])
+        assert "completion_mode" not in schema["properties"], "Run 侧 ASYNC 恒为后台任务"
         for forged_field in ("actor_user_id", "tenant_id", "agent_id", "user_id"):
             assert forged_field not in json.dumps(schema)
 

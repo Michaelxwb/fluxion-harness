@@ -69,8 +69,29 @@ function failure(code: string, msg: string) {
   };
 }
 
-function pageData() {
-  return { items: [ROW], total: 1, page: 1, page_size: 20 };
+const RUN_ROW = {
+  audit_id: 'run-1',
+  audit_type: 'RUN',
+  resource_type: 'RUN',
+  resource_id: 'run-1',
+  actor_user_id: 'user-1',
+  actor_name: 'Tester',
+  agent_id: 'agent-1',
+  agent_name: 'Agent One',
+  action: 'WEBCHAT',
+  result_status: 'FAILED',
+  trace_id: 'trace-run-1',
+  target: 'RUN/run-1',
+  occurred_at: '2026-10-11 10:00:00',
+  latency_ms: 12400,
+  run_id: 'run-1',
+  task_id: null,
+  summary: '帮我起一个每周一的周报定时任务'
+};
+
+function pageData(state: MockState) {
+  const items = state.runRow ? [RUN_ROW, ROW] : [ROW];
+  return { items, total: items.length, page: 1, page_size: 20 };
 }
 
 interface MockState {
@@ -78,10 +99,18 @@ interface MockState {
   exportCalls: number;
   exportMode: 'success' | 'mismatch' | 'failed';
   exportDownloads: string[];
+  /** 在列表里追加一条 RUN 操作行（S-01 组件回归）。 */
+  runRow: boolean;
 }
 
 function mockState(mode: MockState['exportMode'] = 'success'): MockState {
-  return { listFailure: false, exportCalls: 0, exportMode: mode, exportDownloads: [] };
+  return {
+    listFailure: false,
+    exportCalls: 0,
+    exportMode: mode,
+    exportDownloads: [],
+    runRow: false
+  };
 }
 
 async function mockApi(page: Page, state: MockState): Promise<void> {
@@ -101,7 +130,7 @@ async function mockApi(page: Page, state: MockState): Promise<void> {
           json: failure('COMMON_INTERNAL_ERROR', '审计查询失败')
         });
       } else {
-        await route.fulfill({ json: envelope(pageData()) });
+        await route.fulfill({ json: envelope(pageData(state)) });
       }
       return;
     }
@@ -240,4 +269,39 @@ test('E-09 导出 FAILED 展示 error_code 文案与重试入口，不提供未�
   await expect.poll(() => state.exportCalls).toBeGreaterThan(before);
   await expect(page.getByTestId('audit-export-error')).toContainText('导出执行失败，请重试');
   expect(state.exportDownloads).toEqual([]);
+});
+
+test('S-01 Run 操作行展示摘要，失败行有标记，明细视图给出提示与返回入口', async ({ page }) => {
+  const state = mockState();
+  state.runRow = true;
+  await mockApi(page, state);
+
+  await page.goto('/audits');
+
+  await expect(page.getByText('帮我起一个每周一的周报定时任务')).toBeVisible();
+  // 步骤统计归运行详情：列表没有「内部步骤」列
+  await expect(page.getByRole('columnheader', { name: '内部步骤' })).toHaveCount(0);
+  // 时间列与其它列表同一格式（共享 DateTimeText，不展示耗时）
+  await expect(page.getByText('2026-10-11 10:00:00').first()).toBeVisible();
+  // 失败的 Run 行有行首标记
+  await expect(page.locator('.audit-row-failed')).toHaveCount(1);
+  await expect(page.getByTestId('audit-view-notice')).toHaveCount(0);
+
+  await page.getByTestId('audit-filter-auditType').click();
+  await page.locator('.semi-select-option:visible', { hasText: '模型调用' }).first().click();
+  await expect(page.getByTestId('audit-view-notice')).toBeVisible();
+
+  await page.getByTestId('audit-view-back').click();
+  await expect(page.getByTestId('audit-view-notice')).toHaveCount(0);
+
+  // Trace ID 与关联对象是两个落点：Trace 打开只读的记录侧栏，列表保持原样
+  await page.getByTestId('audit-trace-run-1').click();
+  const traceSheet = page.locator('.semi-sidesheet');
+  await expect(traceSheet).toBeVisible();
+  await expect(page.getByTestId('detail-subtitle')).toContainText('trace-run-1');
+  await expect(page.getByTestId('audit-trace-row-audit-tool-1')).toBeVisible();
+  await expect(page.getByTestId('audit-view-notice')).toHaveCount(0);
+  await traceSheet.locator('.semi-sidesheet-close').click();
+  await expect(page.locator('.semi-sidesheet')).toHaveCount(0);
+  await expect(page.getByText('帮我起一个每周一的周报定时任务')).toBeVisible();
 });

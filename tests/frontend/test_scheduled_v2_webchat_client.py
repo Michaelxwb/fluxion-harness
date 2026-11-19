@@ -61,6 +61,7 @@ CLIENT_METHODS = (
     "listFires",
     "listPending",
     "listSchedules",
+    "listTasks",
     "respondHuman",
     "scheduleAction",
 )
@@ -332,6 +333,14 @@ observations.list.request = observed();
 payload = schedulePage;
 await client.listSchedules(undefined, signalOption);
 observations.listDefault = observed();
+payload = schedulePage;
+observations.tasks = {
+  result: await client.listTasks(
+    { agent_id: AGENT_ID, status: 'RUNNING', page: 1, page_size: 20 },
+    signalOption
+  )
+};
+observations.tasks.request = observed();
 
 // 2) API-13 详情
 payload = detail;
@@ -350,7 +359,7 @@ observations.fires.request = observed();
 // 4) API-15 Execution
 payload = execution;
 observations.execution = {
-  result: await client.getExecution(EXECUTION_ID, signalOption)
+  result: await client.getExecution(EXECUTION_ID, {}, signalOption)
 };
 observations.execution.request = observed();
 
@@ -675,7 +684,7 @@ def test_shared_transport_headers_are_injected_by_the_client(task_center: dict[s
         assert request["locale"] == "zh-CN"
         assert request["requestId"], "每个请求都有 X-Request-Id"
         assert request["csrf"] == "chat-csrf-282", "CHAT 域只读自己的 CSRF Cookie"
-        assert request["hasSignal"] is True
+        assert request["hasSignal"] is True, (request["method"], request["url"])
         assert request["signalMatched"] is True, "AbortSignal 原样透传"
     # CHAT 上下文只在 authScope 写入后出现；service 不自行拼装。
     with_context = [item for item in requests if item["chatContext"] is not None]

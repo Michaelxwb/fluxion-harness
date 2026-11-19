@@ -158,13 +158,16 @@ def test_columns_match_docs15_field_names() -> None:
 def test_columns_reuse_status_and_datetime_components() -> None:
     """[RULE-time-001][S-06] 执行结果复用 `StatusTag`、时间复用 `DateTimeText`。"""
     table = _read(TABLE)
+    labels = _read(MODULE / "auditLabels.ts")
     assert "components/common/DateTimeText" in table
-    assert "components/common/StatusTag" in table and "StatusTagOption" in table
+    assert "components/common/StatusTag" in table
+    assert "auditStatusOptions" in table, "状态选项须复用共享映射"
+    assert "StatusTagOption" in labels
     assert "<DateTimeText value={value} />" in table
     assert "<StatusTag status={value} options={statusOptions} />" in table
     assert "DATE_TIME_FORMAT" not in table, "时间格式统一由 DateTimeText 承载"
 
-    compact = _compact(table)
+    compact = _compact(labels)
     for status, color in RESULT_STATUS_COLORS:
         assert f"{status}:{{color:'{color}',label:t('audit.resultStatus.{status}')}}" in compact, (
             f"执行结果 {status} 须映射到 {color} 标签 + i18n 文案"
@@ -219,11 +222,12 @@ def test_primary_display_field_has_detail_open_seam() -> None:
     assert "components/common/EntityLink" in table
     compact = _compact(table)
     # 两个入口不再重复打开同一个弹窗：Run/Task 直达对应详情，CONFIG 行与 Trace ID 打开审计详情
-    assert compact.count("onClick={()=>onOpenDetail(record)}") == 2
+    assert compact.count("onOpenDetail(record)") == 2
     assert compact.count("onClick={()=>onOpenRun(runId)}") == 1, "Run 链接须直达运行详情"
     assert compact.count("onClick={()=>onOpenTask(taskId)}") == 1, "Task 链接须落任务深链"
-    assert "columns:buildAuditColumns(t,options.onOpenDetail,options.onOpenRun,options.onOpenTask)" in _props(
-        table
+    assert (
+        "columns:buildAuditColumns(t,options.onOpenDetail,options.onOpenRun,"
+        "options.onOpenTask,options.onOpenTrace)" in _props(table)
     ), "详情 seam 须由入参原样注入列定义"
     assert "dataIndex:'traceId'" in compact, "主展示字段须为 Trace ID 列"
     assert "rowKey:'auditId'" in _props(table), "同一 Trace 下的不同审计记录须保留独立行"

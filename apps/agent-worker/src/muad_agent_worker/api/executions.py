@@ -11,7 +11,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from muad_api import ApiResponse, AppError, ok
 from muad_api.error_codes import ErrorCode
 from muad_api.security import require_internal_service
@@ -124,6 +124,8 @@ async def get_execution(
     tenant_id: TenantId,
     session: Session,
     caller_actor: RequiredActorUserId,
+    children_page: Annotated[int, Query(ge=1)] = 1,
+    children_page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> ApiResponse[Any]:
     """API-09：Execution 详情的唯一读点（TaskCenter 与 Console 共用同一投影）。
 
@@ -140,5 +142,9 @@ async def get_execution(
     )
     if execution is None:
         raise AppError(ErrorCode.COMMON_NOT_FOUND)
-    detail = await ScheduleReadService(session).execution_detail(execution=execution)
+    detail = await ScheduleReadService(session).execution_detail(
+        execution=execution,
+        children_page=children_page,
+        children_page_size=children_page_size,
+    )
     return ok(request.app.state.message_catalog, detail.model_dump(mode="json"))

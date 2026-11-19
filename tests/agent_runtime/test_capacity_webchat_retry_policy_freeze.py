@@ -94,12 +94,12 @@ async def test_cli_arguments_are_durable_and_part_of_operation_identity(
     assert task.input_json == {"x": 1}
     assert task.snapshot_hash == snapshot_hash(task.execution_snapshot_json)
     replay = await reserve_operation(factory, context, skill=skill, input_data={"x": 1},
-                                     call_id="cli-call", completion_mode=CompletionMode.JOIN,
+                                     call_id="cli-call", completion_mode=CompletionMode.DETACH,
                                      argv=tuple(argv))
     assert replay.id == operation.id
     with pytest.raises(AppError) as error:
         await reserve_operation(factory, context, skill=skill, input_data={"x": 1},
-                                call_id="cli-call", completion_mode=CompletionMode.JOIN,
+                                call_id="cli-call", completion_mode=CompletionMode.DETACH,
                                 argv=("--company-id", "456"))
     assert str(error.value.code) == "IDEMPOTENCY_MISMATCH"
 
@@ -387,7 +387,7 @@ async def test_b237_freeze_happens_once_and_replay_never_refreshes(
         skill=skill,
         input_data={"x": 1},
         call_id=CALL_ID,
-        completion_mode=CompletionMode.JOIN,
+        completion_mode=CompletionMode.DETACH,
         retry_safety=ToolRetrySafety.READ_ONLY,
     )
     assert replay.id == operation.id

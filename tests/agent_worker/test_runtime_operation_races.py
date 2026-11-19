@@ -324,7 +324,7 @@ async def test_b07_lease_reservation_blocks_stale_ack(async_tool_database):
         assert not await dispatcher.ack(outbox.id, claimed[0].lease_until, now + timedelta(seconds=32))
 
 
-async def test_b07_detach_and_children_never_enqueue_root_results(async_tool_database):
+async def test_b07_detach_root_publishes_but_children_do_not(async_tool_database):
     from muad_contracts import CompletionMode
 
     factory = async_sessionmaker(async_tool_database, expire_on_commit=False)
@@ -344,7 +344,9 @@ async def test_b07_detach_and_children_never_enqueue_root_results(async_tool_dat
             session, parent, TerminalChange(status=TerminalStatus.COMPLETED, result={}), datetime.now(UTC)
         )
     async with factory() as session:
-        assert await session.scalar(select(func.count()).select_from(RuntimeResultOutbox)) == 0
+        rows = list(await session.scalars(select(RuntimeResultOutbox)))
+        assert len(rows) == 1, "Run-owned DETACH 根仍要发 Runtime 结果"
+        assert rows[0].task_id == parent.id, "子 Task 不得直接向 Runtime 发根结果"
 
 
 async def test_b07_failed_prefix_does_not_starve_other_tenants(async_tool_database):
@@ -374,7 +376,8 @@ async def test_b07_failed_prefix_does_not_starve_other_tenants(async_tool_databa
         assert {first.id, second.id, third.id} == {row.id for row in rows}
 
 
-async def test_b07_invalid_success_becomes_explicit_failure_before_commit(async_tool_database):
+async def test_b07_big_result_does_not_rollback_verified_terminal(async_tool_database):
+    """发件投影失败只丢发件，不改写已验证的终态（Worker 正常路径会先外置/预览）。"""
     factory = async_sessionmaker(async_tool_database, expire_on_commit=False)
     task, _, _ = await seed_operation(factory)
     async with factory() as session, session.begin():
@@ -385,11 +388,16 @@ async def test_b07_invalid_success_becomes_explicit_failure_before_commit(async_
             datetime.now(UTC),
         )
     async with factory() as session:
-        row = (await session.scalars(select(RuntimeResultOutbox))).one()
-        assert row.payload_json["terminal_status"] == "FAILED"
-        assert row.payload_json["error_code"] == "SKILL_RESULT_INVALID"
-        assert row.payload_json["result"] is None
-        assert (await session.get(TaskExecution, task.id)).status == "FAILED"
+        assert (
+            await session.scalar(
+                select(func.count()).select_from(RuntimeResultOutbox).where(
+                    RuntimeResultOutbox.task_id == task.id
+                )
+            )
+            == 0
+        )
+        stored = await session.get(TaskExecution, task.id)
+        assert stored is not None and stored.status == "COMPLETED"
 
 
 async def test_b07_cancel_before_submission_is_a_durable_tombstone(async_tool_database):

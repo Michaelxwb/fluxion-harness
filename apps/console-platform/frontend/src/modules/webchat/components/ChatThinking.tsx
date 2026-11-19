@@ -2,10 +2,9 @@
  * 思考占位（design frontend §3.3 消息区接缝）。
  *
  * 只在「Run 已受理、首个正文增量未到」这段时间渲染：这时消息区里没有任何内容，用户既看不到
- * 回复也看不到进度，容易以为请求丢了。占位给出两件事——"正在思考"与已等待时长。
+ * 回复也看不到进度，容易以为请求丢了。占位给出"正在思考"；已等待时长统一由顶部运行卡展示。
  *
- * **性能约束**：每秒走秒的定时器只活在本组件里，首个 delta 到达后组件卸载、定时器随之清除；
- * 流式输出期间不存在任何 1Hz 重渲染。锚点缺失（执行状态还没到）时连定时器都不启动。
+ * **性能约束**：本组件不持有定时器/状态；首个 delta 到达后组件卸载。
  */
 
 import { Avatar } from '@douyinfe/semi-ui';
@@ -15,7 +14,6 @@ import { useTranslation } from 'react-i18next';
 import { MESSAGE_ROLE_KEYS } from './MessageThread';
 import type { RunStatus, WebchatExecutionStatus } from '../types';
 import { isTerminalRunStatus } from '../runState';
-import { useRunClock } from '../hooks/useRunClock';
 
 /** 已用秒数：锚点是服务端时间戳，页面时钟可能略偏——负数按 0 处理，不用它推断顺序。 */
 export function elapsedSecondsSince(anchor: string, now: number): number | null {
@@ -54,16 +52,9 @@ export function thinkingAnchorOf(source: ThinkingSource): string | null | undefi
   return source.executionStatus?.started_at ?? source.executionStatus?.queued_at ?? null;
 }
 
-export interface ChatThinkingProps {
-  /** 计时锚点（服务端 `started_at`，未开始执行时用 `queued_at`）；缺失时只显示文字。 */
-  anchor: string | null;
-}
-
-/** 助手思考占位：`anchor` 存在时每秒刷新一次已用时长。 */
-export function ChatThinking(props: ChatThinkingProps) {
+/** 助手思考占位：时长统一由顶部运行卡展示，这里只给等待文案，避免重复计时。 */
+export function ChatThinking() {
   const { t } = useTranslation();
-  const now = useRunClock(props.anchor !== null);
-  const elapsed = props.anchor === null ? null : elapsedSecondsSince(props.anchor, now);
   return (
     <div
       className="chat-message-item chat-message-item-assistant chat-message-item-thinking"
@@ -77,9 +68,7 @@ export function ChatThinking(props: ChatThinkingProps) {
           <span className="chat-message-role">{t(MESSAGE_ROLE_KEYS.ASSISTANT)}</span>
         </div>
         <div className="chat-message-thinking-line" data-testid="chat-thinking-line">
-          {elapsed === null
-            ? t('chat.thinking')
-            : t('chat.thinking.elapsed', { elapsed: formatElapsed(elapsed) })}
+          {t('chat.thinking')}
         </div>
       </div>
     </div>

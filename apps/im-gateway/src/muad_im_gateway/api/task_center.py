@@ -28,6 +28,7 @@ from muad_contracts import (
     ScheduleDraftConfirmRequest,
     ScheduleMode,
     ScheduleStatus,
+    TaskStatus,
 )
 
 from ..application.task_center import TaskCenterService, TaskCenterSurface
@@ -62,6 +63,26 @@ def build_task_center_router(surface: TaskCenterSurface) -> APIRouter:
         tags=["task-center"],
         dependencies=[Depends(no_store)],
     )
+
+    @router.get("/task-center/tasks")
+    async def list_tasks(
+        request: Request,
+        chat: ChatIdentityDep,
+        service: TaskCenterServiceDep,
+        agent_id: AgentFilter = None,
+        status: Annotated[TaskStatus | None, Query()] = None,
+        page: PageNumber = 1,
+        page_size: PageSize = None,
+    ) -> ApiResponse[Any]:
+        """后台任务列表：与定时任务共用授权 Agent 范围，只给任务记录摘要。"""
+        data = await service.list_tasks(
+            chat,
+            agent_id=agent_id,
+            status=status,
+            page=page,
+            page_size=page_size or DEFAULT_PAGE_SIZE,
+        )
+        return ok(request.app.state.message_catalog, data)
 
     @router.get("/task-center/schedules")
     async def list_schedules(
@@ -121,9 +142,16 @@ def build_task_center_router(surface: TaskCenterSurface) -> APIRouter:
         request: Request,
         chat: ChatIdentityDep,
         service: TaskCenterServiceDep,
+        children_page: Annotated[int | None, Query(ge=1)] = None,
+        children_page_size: Annotated[int | None, Query(ge=1, le=MAX_PAGE_SIZE)] = None,
     ) -> ApiResponse[Any]:
-        """API-15：Execution 详情（结果/错误/等待类型/产物引用）。"""
-        data = await service.get_execution(chat, execution_id)
+        """API-15：Execution 详情（结果/错误/等待类型/产物引用 + 可选子任务页）。"""
+        data = await service.get_execution(
+            chat,
+            execution_id,
+            children_page=children_page,
+            children_page_size=children_page_size,
+        )
         return ok(request.app.state.message_catalog, data)
 
     @router.get("/task-center/pending")

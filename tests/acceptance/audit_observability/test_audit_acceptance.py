@@ -310,7 +310,8 @@ async def _get_audits(client: httpx.AsyncClient, params: dict[str, Any]) -> dict
 
 def _assert_unified_fields(items: list[dict[str, Any]]) -> None:
     for item in items:
-        assert set(item) == UNIFIED_FIELDS | LEGACY_FIELDS, sorted(item)
+        # 列表额外带 RUN 操作行的 `summary`（只用于列表展示，不进入导出）。
+        assert set(item) == UNIFIED_FIELDS | LEGACY_FIELDS | {"summary"}, sorted(item)
         assert item["id"] == item["audit_id"]
         assert item["create_time"] == item["occurred_at"]
         assert item["actor_display_name"] == item["actor_name"]
@@ -398,8 +399,10 @@ async def test_s01_audit_list_returns_trace_scoped_unified_rows(
     divergent_id = await _write_divergent_config_audit(stack)
 
     async with _console_browser(stack) as client:
-        body = await _get_audits(client, {"trace_id": TRACE_ID})
-        page_two = await _get_audits(client, {"trace_id": TRACE_ID, "page": 2, "page_size": 3})
+        body = await _get_audits(client, {"trace_id": TRACE_ID, "view": "detail"})
+        page_two = await _get_audits(
+            client, {"trace_id": TRACE_ID, "view": "detail", "page": 2, "page_size": 3}
+        )
 
     data = body["data"]
     assert set(data) == PAGE_FIELDS, sorted(data)
@@ -635,7 +638,7 @@ async def test_s03_admin_run_detail_contract_exposes_no_secret(
 
     async with _console_browser(stack) as client:
         # 浏览器腿：真实登录会话可读同 trace 的审计（S-03 的 Console 侧入口）
-        audits = await _get_audits(client, {"trace_id": TRACE_ID})
+        audits = await _get_audits(client, {"trace_id": TRACE_ID, "view": "detail"})
     assert audits["data"]["total"] == AUDIT_ROW_COUNT
 
     forbidden = await _admin_run_detail(stack, with_identity=False)

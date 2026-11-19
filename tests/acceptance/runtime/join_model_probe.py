@@ -52,7 +52,6 @@ async def completion(request: Request):
                     "name": "execute_skill",
                     "arguments": json.dumps({
                         "skill_key": settings["skill_key"],
-                        "completion_mode": "JOIN",
                         "input": {"index": index, "gate": settings["gate"]},
                     }),
                 },

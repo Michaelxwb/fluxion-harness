@@ -214,7 +214,9 @@ def test_b214_resource_type_options_cover_backend_domain() -> None:
     missing = sorted(actual - options)
     assert not missing, f"筛选项未覆盖后端实际取值：{missing}"
 
-    extra = sorted(options - actual - LEGACY_ALIASES)
+    # RUN 是列表操作行自身的资源类型（repository 投影 `'RUN' AS resource_type`），
+    # 不属于四类来源表的资源域；筛选仍需要它，详情也有 `audit.resourceType.RUN` 词条。
+    extra = sorted(options - actual - LEGACY_ALIASES - {"RUN"})
     assert not extra, f"筛选项出现值域外的取值（词条无处可依）：{extra}"
 
     assert "optionList={RESOURCE_TYPES.map(" in _compact(_read(FILTER_BAR)), "筛选下拉取值须取 RESOURCE_TYPES"

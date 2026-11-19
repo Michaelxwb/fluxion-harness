@@ -24,7 +24,8 @@ from muad_contracts import AttachmentRef, DeliveryMessage, TaskStatus
 from ..infrastructure.models.task import TaskExecution
 
 MAX_RESULT_CHARS = 1500
-MAX_ERROR_CHARS = 300
+#: 外部通道展示上限；完整脱敏原文在任务记录，不由投递正文承担。
+MAX_ERROR_CHARS = 4096
 MAX_TITLE_CHARS = 120
 SUMMARY_KEYS = ("summary", "text", "message", "answer")
 BATCH_KEYS = ("total", "succeeded", "failed", "cancelled")

@@ -277,13 +277,15 @@ async def test_api05_missing_idempotency_key_and_invalid_format_are_rejected(
     assert bad_format.status_code == 422, bad_format.text
     assert bad_format.json()["code"] == "COMMON_VALIDATION_ERROR"
 
-    bad_filter = await client.post(
-        EXPORT_PATH,
-        json=_body("CSV", {"audit_type": "BOGUS"}),
-        headers=_headers(tenant, f"export-{uuid.uuid4()}"),
-    )
-    assert bad_filter.status_code == 422, bad_filter.text
-    assert bad_filter.json()["code"] == "COMMON_VALIDATION_ERROR"
+    for bad_type in ("BOGUS", "RUN"):
+        bad_filter = await client.post(
+            EXPORT_PATH,
+            json=_body("CSV", {"audit_type": bad_type}),
+            headers=_headers(tenant, f"export-{uuid.uuid4()}"),
+        )
+        assert bad_filter.status_code == 422, (bad_type, bad_filter.text)
+        assert bad_filter.json()["code"] == "COMMON_VALIDATION_ERROR"
+    # 导出固定明细粒度：RUN 操作行不是来源表，不产生任务行
 
     session_factory = get_session_factory()
     async with session_factory() as session:

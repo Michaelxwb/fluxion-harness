@@ -10,14 +10,21 @@
 import { Button } from '@douyinfe/semi-ui';
 import type { TFunction } from 'i18next';
 
-import { CopyButton } from '../../../components/common/CopyButton';
 import { DateTimeText } from '../../../components/common/DateTimeText';
+
+import { CopyButton } from '../../../components/common/CopyButton';
 import { EmptyState } from '../../../components/common/EmptyState';
 import { EntityLink } from '../../../components/common/EntityLink';
-import { auditActionLabel, auditActorLabel, auditTargetLabel } from '../auditLabels';
+import {
+  auditActionLabel,
+  auditActorLabel,
+  auditSourceLabel,
+  auditStatusOptions,
+  auditTargetLabel
+} from '../auditLabels';
 import { ErrorState } from '../../../components/common/ErrorState';
 import type { RemoteTableProps } from '../../../components/common/RemoteTable';
-import { StatusTag, type StatusTagOption } from '../../../components/common/StatusTag';
+import { StatusTag } from '../../../components/common/StatusTag';
 import { TableText } from '../../../components/common/TableText';
 import type { AuditListItem } from '../types';
 
@@ -36,6 +43,8 @@ export interface AuditTableOptions {
   onOpenDetail(item: AuditListItem): void;
   /** 关联对象「Run …」直达运行详情侧栏（与审计详情内的关联行为一致，不再重复打开审计详情）。 */
   onOpenRun(runId: string): void;
+  /** Trace ID 下钻：查看该 Trace 下的全部审计记录（与运行详情是两个不同的落点）。 */
+  onOpenTrace(traceId: string): void;
   /** 关联对象「Task …」落任务列表深链（同审计详情内「关联 Task」的既有口径）。 */
   onOpenTask(taskId: string): void;
   /** 失败态重试（[E-06] 保留筛选条件）。 */
@@ -53,18 +62,28 @@ function buildAuditColumns(
   t: TFunction,
   onOpenDetail: (item: AuditListItem) => void,
   onOpenRun: (runId: string) => void,
-  onOpenTask: (taskId: string) => void
+  onOpenTask: (taskId: string) => void,
+  onOpenTrace: (traceId: string) => void
 ): AuditTableColumns {
   return [
-    buildTraceColumn(t, onOpenDetail),
+    buildTraceColumn(t, onOpenDetail, onOpenRun, onOpenTrace),
     ...buildIdentityColumns(t),
     ...buildTargetColumns(t, onOpenDetail, onOpenRun, onOpenTask),
     ...buildResultColumns(t)
   ];
 }
 
-/** Trace 可关联多条记录；点击始终按当前 auditId 打开，无 Trace 时明确展示审计 ID。 */
-function buildTraceColumn(t: TFunction, onOpenDetail: (item: AuditListItem) => void): AuditTableColumns[number] {
+/**
+ * Trace 可关联多条记录，两个入口分工：
+ * - RUN 行（操作行没有单条审计详情）→ 下钻该 Trace 的全部审计记录；
+ * - 事件行 → 按当前 auditId 打开审计详情；无 Trace 时明确展示审计 ID。
+ */
+function buildTraceColumn(
+  t: TFunction,
+  onOpenDetail: (item: AuditListItem) => void,
+  onOpenRun: (runId: string) => void,
+  onOpenTrace: (traceId: string) => void
+): AuditTableColumns[number] {
   return {
     title: t('audit.columns.traceOrAudit'),
     dataIndex: 'traceId',
@@ -73,9 +92,19 @@ function buildTraceColumn(t: TFunction, onOpenDetail: (item: AuditListItem) => v
     render: (traceId: string | undefined, record: AuditListItem) => {
       const value = traceId || record.auditId;
       const display = traceId || `${t('audit.detail.field.auditId')} ${record.auditId}`;
+      const open =
+        record.auditType === 'RUN'
+          ? record.traceId
+            ? () => onOpenTrace(record.traceId as string)
+            : () => record.runId && onOpenRun(record.runId)
+          : () => onOpenDetail(record);
+      const openTitle =
+        record.auditType === 'RUN'
+          ? t('audit.trace.openRecords')
+          : record.traceId ?? record.auditId;
       return (
-        <span className="copyable-text" title={value}>
-          <EntityLink testId={`audit-trace-${record.auditId}`} onClick={() => onOpenDetail(record)}>
+        <span className="copyable-text" title={openTitle}>
+          <EntityLink testId={`audit-trace-${record.auditId}`} onClick={open}>
             <TableText>
               {record.traceId ? display : t('audit.trace.auditOnly', { id: shortId(record.auditId) })}
             </TableText>
@@ -94,13 +123,20 @@ function buildIdentityColumns(t: TFunction): AuditTableColumns {
       title: t('audit.columns.time'),
       dataIndex: 'occurredAt',
       width: 176,
+      // 与其它列表一致：统一使用共享 DateTimeText（不另做层级样式）
       render: (value: string) => <DateTimeText value={value} />
     },
     {
       title: t('audit.columns.auditType'),
       dataIndex: 'auditType',
-      width: 116,
-      render: (value: AuditListItem['auditType']) => t(`audit.auditType.${value}`)
+      // en-US “Config change” + 色点 + 单元格内边距在 110px 下会裁切，按最长文案留足。
+      width: 136,
+      render: (value: AuditListItem['auditType']) => (
+        <span className="audit-type">
+          <span className="audit-type-dot" data-kind={value} />
+          {t(`audit.auditType.${value}`)}
+        </span>
+      )
     },
     {
       title: t('audit.columns.actor'),
@@ -148,10 +184,34 @@ function buildTargetColumns(
       render: (_: unknown, record: AuditListItem) => {
         const runId = record.runId;
         if (runId) {
+          const source = record.auditType === 'RUN' ? auditSourceLabel(t, record.action) : '';
           return (
-            <EntityLink testId={`audit-link-${record.auditId}`} onClick={() => onOpenRun(runId)}>
-              <TableText>{t('audit.target.run', { id: shortId(runId) })}</TableText>
-            </EntityLink>
+            <span className="audit-target">
+              {/* 链接可收缩、来源 chip 不收缩：列窄时先省略运行短 id，chip 保持完整 */}
+              <span className="audit-target-link">
+                <EntityLink testId={`audit-link-${record.auditId}`} onClick={() => onOpenRun(runId)}>
+                  <span className="table-text" title={t('audit.target.run', { id: shortId(runId) })}>
+                    {t('audit.target.runPrefix')}{' '}
+                    <span className="audit-object-id">{shortId(runId)}</span>
+                  </span>
+                </EntityLink>
+              </span>
+              {source ? (
+                <span
+                  style={{
+                    flex: 'none',
+                    padding: '0 5px',
+                    border: '1px solid var(--semi-color-border)',
+                    borderRadius: 4,
+                    color: 'var(--semi-color-text-2)',
+                    fontSize: 11,
+                    lineHeight: '16px'
+                  }}
+                >
+                  {source}
+                </span>
+              ) : null}
+            </span>
           );
         }
         const taskId = record.taskId;
@@ -177,19 +237,20 @@ function buildTargetColumns(
       dataIndex: 'action',
       width: 'auto',
       ellipsis: true,
-      render: (_: unknown, record: AuditListItem) => <TableText>{auditActionLabel(t, record)}</TableText>
+      render: (_: unknown, record: AuditListItem) => (
+        <TableText>
+          {record.auditType === 'RUN' && record.summary
+            ? record.summary
+            : auditActionLabel(t, record)}
+        </TableText>
+      )
     }
   ];
 }
 
 /** 执行结果列复用 `StatusTag`。 */
 function buildResultColumns(t: TFunction): AuditTableColumns {
-  const statusOptions: Record<string, StatusTagOption> = {
-    SUCCESS: { color: 'green', label: t('audit.resultStatus.SUCCESS') },
-    FAILED: { color: 'red', label: t('audit.resultStatus.FAILED') },
-    DENIED: { color: 'red', label: t('audit.resultStatus.DENIED') },
-    BLOCKED: { color: 'red', label: t('audit.resultStatus.BLOCKED') }
-  };
+  const statusOptions = auditStatusOptions(t);
 
   return [
     {
@@ -210,8 +271,18 @@ export function buildAuditTableProps(
     className: 'audit-table app-table-fit app-table-nowrap',
     scroll: { x: '100%' },
     rowKey: 'auditId',
+    onRow: (record?: AuditListItem) =>
+      record && record.auditType === 'RUN' && record.resultStatus === 'FAILED'
+        ? { className: 'audit-row-failed' }
+        : {},
     loading: options.loading,
-    columns: buildAuditColumns(t, options.onOpenDetail, options.onOpenRun, options.onOpenTask),
+    columns: buildAuditColumns(
+      t,
+      options.onOpenDetail,
+      options.onOpenRun,
+      options.onOpenTask,
+      options.onOpenTrace
+    ),
     dataSource: options.items,
     page: options.page,
     pageSize: options.pageSize,

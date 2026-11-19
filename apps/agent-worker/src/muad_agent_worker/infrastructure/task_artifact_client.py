@@ -11,7 +11,7 @@ import json
 from uuid import UUID
 
 import httpx
-from muad_contracts import TaskArtifactWriteRequest, TaskArtifactWriteResponse
+from muad_contracts import ArtifactPurpose, TaskArtifactWriteRequest, TaskArtifactWriteResponse
 
 ARTIFACTS_PATH = "/internal/artifacts"
 DEFAULT_TIMEOUT_SEC = 10.0
@@ -49,9 +49,11 @@ class TaskArtifactClient:
         content: bytes,
         checksum: str,
         base_version: int = 0,
+        purpose: ArtifactPurpose = "OUTPUT",
     ) -> TaskArtifactWriteResponse:
         request = TaskArtifactWriteRequest(
             task_execution_id=execution_id,
+            purpose=purpose,
             filename=filename,
             media_type=media_type,
             size=len(content),

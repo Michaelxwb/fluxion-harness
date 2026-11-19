@@ -145,10 +145,14 @@ def _type_fields(sheet: str) -> dict[str, tuple[str, ...]]:
     }
 
 
-def _table_status_options(table: str) -> dict[str, str]:
-    """表格 `StatusTag` 选项表：状态码 → 颜色。"""
-    match = re.search(r"const statusOptions[^=]*=\s*\{(.*?)\n\s*\};", table, re.DOTALL)
-    assert match, "缺少表格 StatusTag 选项表 statusOptions"
+def _table_status_options(labels: str) -> dict[str, str]:
+    """共享 `auditStatusOptions` 选项表：状态码 → 颜色（列表/Trace 共用）。"""
+    match = re.search(
+        r"export function auditStatusOptions\([^)]*\)[^{]*\{(.*?)\n  \};",
+        labels,
+        re.DOTALL,
+    )
+    assert match, "缺少 auditLabels.auditStatusOptions 选项表"
     return dict(re.findall(r"(\w+):\s*\{\s*color:\s*'(\w+)'", match.group(1)))
 
 
@@ -164,7 +168,6 @@ def _backend_frozenset(name: str) -> set[str]:
 def _enumerated_keys() -> set[str]:
     """模块内全部动态键的枚举变体（含导出兜底键）。"""
     bar = _read(FILTER_BAR)
-    table = _read(TABLE)
     sheet = _read(SHEET)
     button = _read(BUTTON)
     labels = _read(MODULE / "auditLabels.ts")
@@ -175,8 +178,9 @@ def _enumerated_keys() -> set[str]:
     keys |= {f"audit.resourceType.{code}" for code in _string_array(bar, "RESOURCE_TYPES")}
     keys |= {f"audit.resultStatus.{code}" for code in _string_array(bar, "RESULT_STATUSES")}
     keys |= {f"audit.resultStatus.{code}" for code in _object_keys(_object_block(sheet, "RESULT_COLORS"))}
-    keys |= {f"audit.resultStatus.{code}" for code in _table_status_options(table)}
+    keys |= {f"audit.resultStatus.{code}" for code in _table_status_options(labels)}
     keys |= {f"audit.action.{action}" for action in _string_array(labels, "AUDIT_ACTION_DOMAIN")}
+    keys |= {f"audit.source.{source}" for source in _string_array(labels, "AUDIT_SOURCE_DOMAIN")}
     keys |= {f"audit.detail.change.field.{name}" for name in _string_array(sheet, "CHANGE_FIELD_KEYS")}
     keys |= {f"audit.detail.change.value.{name}" for name in _string_array(sheet, "CHANGE_VALUE_KEYS")}
     for names in fields.values():
@@ -327,7 +331,11 @@ def test_error_and_status_text_path_is_catalog_code_to_i18n_key() -> None:
 
     assert "errorCode: string | null;" in hook, "错误码须原样上抛（hook 不承载文案）"
     assert not [text for text in _string_literals(hook) if CJK.search(text)], "hook 不得硬编码文案"
-    assert "label:t('audit.resultStatus." in _compact(table), "表格状态标签须经 audit.resultStatus.* 词条"
+    labels = _read(MODULE / "auditLabels.ts")
+    assert "auditStatusOptions(t)" in _compact(table), "表格状态标签须复用共享状态选项"
+    assert "label:t('audit.resultStatus." in _compact(labels), (
+        "共享状态选项须经 audit.resultStatus.* 词条"
+    )
     assert "t(`audit.resultStatus.${status}`)" in sheet, "详情状态标签须经 audit.resultStatus.* 词条"
 
 
@@ -340,11 +348,13 @@ def test_status_and_type_enumerations_match_backend_domain() -> None:
     """
     backend_types = _backend_frozenset("AUDIT_TYPES")
     backend_statuses = _backend_frozenset("RESULT_STATUSES")
+    # 列表额外支持 RUN 操作行（后端 LIST_AUDIT_TYPES = AUDIT_TYPES | {"RUN"}）；详情仍只有四类来源表。
+    list_types = backend_types | {"RUN"}
     bar = _read(FILTER_BAR)
     sheet = _read(SHEET)
-    table = _read(TABLE)
+    labels = _read(MODULE / "auditLabels.ts")
 
-    assert set(_string_array(bar, "AUDIT_TYPES")) == backend_types, "筛选栏审计类型枚举与后端不一致"
+    assert set(_string_array(bar, "AUDIT_TYPES")) == list_types, "筛选栏审计类型枚举与后端列表域不一致"
     assert set(_type_fields(sheet)) == backend_types, "详情来源字段映射未覆盖后端全部审计类型"
     assert set(_string_array(bar, "RESULT_STATUSES")) == backend_statuses, (
         "筛选栏执行结果枚举与后端不一致"
@@ -352,7 +362,7 @@ def test_status_and_type_enumerations_match_backend_domain() -> None:
     assert set(_object_keys(_object_block(sheet, "RESULT_COLORS"))) == backend_statuses, (
         "详情状态标签映射未覆盖后端全部执行结果"
     )
-    assert set(_table_status_options(table)) == backend_statuses, (
+    assert set(_table_status_options(labels)) == backend_statuses, (
         "表格状态标签映射未覆盖后端全部执行结果"
     )
 

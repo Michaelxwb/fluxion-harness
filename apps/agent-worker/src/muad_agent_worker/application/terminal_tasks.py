@@ -5,6 +5,7 @@ parent`。立即任务没有 operation 之外的调度行，就从 operation 开
 锁 Execution 再回头取 operation 锁。
 """
 
+import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -13,6 +14,7 @@ from typing import Any
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from muad_contracts import (
+    MAX_TOOL_ERROR_MESSAGE_CHARS,
     CompletionMode,
     DeliveryIntent,
     RunToolOperationOwner,
@@ -22,8 +24,8 @@ from muad_contracts import (
     ToolResultRequest,
     canonical_json,
 )
-from muad_logging.redaction import redact_value
-from pydantic import JsonValue, TypeAdapter, ValidationError
+from muad_logging.redaction import redact_text, redact_value
+from pydantic import JsonValue, TypeAdapter
 from sqlalchemy import false, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,6 +49,8 @@ from ..metrics import (
 )
 from .task_events import EntityType, TaskEventType, append_event
 
+logger = logging.getLogger(__name__)
+
 NON_TERMINAL = (
     TaskStatus.QUEUED.value,
     TaskStatus.RUNNING.value,
@@ -61,6 +65,8 @@ JSON_OBJECT = TypeAdapter(dict[str, JsonValue])
 class TerminalChange:
     status: TerminalStatus
     result: dict[str, JsonValue] | None = None
+    #: 结果发件的有界投影（大结果外置引用/预览）；任务行仍保存完整 `result`。
+    outbox_result: dict[str, JsonValue] | None = None
     error_code: str | None = None
     error_message: str | None = None
     result_artifact_id: UUID | None = None
@@ -126,9 +132,28 @@ async def lock_task_tree(session: AsyncSession, task: TaskExecution) -> None:
         )
 
 
+def _bounded_error_message(task: TaskExecution, value: str | None) -> str | None:
+    """原样正文的模型/发件投影：脱敏后按协议上限截断，截断事实可见。"""
+    if value is None:
+        return None
+    redacted = redact_text(value)
+    if len(redacted) <= MAX_TOOL_ERROR_MESSAGE_CHARS:
+        return redacted
+    logger.warning(
+        "error_message_truncated",
+        extra={
+            "task_id": str(task.id),
+            "original_chars": len(redacted),
+            "truncated_chars": MAX_TOOL_ERROR_MESSAGE_CHARS,
+        },
+    )
+    return redacted[: MAX_TOOL_ERROR_MESSAGE_CHARS - 1] + "…"
+
+
 def _payload(task: TaskExecution, change: TerminalChange, moment: datetime, seq: int) -> ToolResultRequest:
     if task.source_operation_id is None or task.source_run_id is None:
         raise ValueError("JOIN root requires operation and source Run identities")
+    result = change.outbox_result if change.outbox_result is not None else change.result
     return ToolResultRequest(
         event_id=uuid5(NAMESPACE_URL, f"muad:task-result:{task.tenant_id}:{task.id}:{seq}"),
         operation_id=task.source_operation_id,
@@ -139,10 +164,10 @@ def _payload(task: TaskExecution, change: TerminalChange, moment: datetime, seq:
         task_snapshot_hash=task.snapshot_hash,
         terminal_status=change.status,
         completed_at=moment,
-        result=change.result if change.status is TerminalStatus.COMPLETED else None,
+        result=result if change.status is TerminalStatus.COMPLETED else None,
         error_code=change.error_code
         or ("TASK_CANCELLED" if change.status is TerminalStatus.CANCELLED else None),
-        error_message=change.error_message,
+        error_message=_bounded_error_message(task, change.error_message),
     )
 
 
@@ -150,6 +175,8 @@ def _task_owned_result(change: TerminalChange) -> tuple[dict[str, Any] | None, s
     """子 Task 的信封解包：模型只该看到 Skill 的结构化结果，而不是执行器元数据。"""
     if change.status is not TerminalStatus.COMPLETED:
         return None, change.error_code, change.error_message
+    if change.outbox_result is not None:
+        return dict(change.outbox_result), None, None
     payload = change.result
     if isinstance(payload, Mapping) and "status" in payload:
         status = str(payload.get("status"))
@@ -183,22 +210,8 @@ def _task_owned_payload(
         completed_at=moment,
         result=result,
         error_code=error_code,
-        error_message=error_message,
+        error_message=_bounded_error_message(task, error_message),
     )
-
-
-def _validated_change(task: TaskExecution, change: TerminalChange, moment: datetime) -> TerminalChange:
-    if task.completion_mode is not CompletionMode.JOIN or task.parent_id is not None:
-        return change
-    try:
-        _payload(task, change, moment, 1)
-    except ValidationError:
-        return TerminalChange(
-            status=TerminalStatus.FAILED,
-            error_code="SKILL_RESULT_INVALID",
-            error_message="Skill result violates the strict JSON result protocol",
-        )
-    return change
 
 
 async def write_terminal(
@@ -213,7 +226,7 @@ async def write_terminal(
 ) -> bool:
     """状态 CAS + finished_at + TaskEvent + JOIN outbox + PUSH 意图，同一事务。"""
     await lock_task_tree(session, task)
-    change = _validated_change(task, change, moment)
+    stored_error = None if change.error_message is None else redact_text(change.error_message)
     updated = await session.scalar(
         update(TaskExecution)
         .where(
@@ -227,7 +240,7 @@ async def write_terminal(
             status=change.status.value,
             result_json=change.result,
             error_code=change.error_code,
-            error_message=change.error_message,
+            error_message=stored_error,
             result_artifact_id=change.result_artifact_id,
             failure_class=change.failure_class,
             finished_at=moment,
@@ -254,7 +267,14 @@ async def write_terminal(
         occurred_at=moment,
     )
     await session.flush()  # outbox 与 delivery 都要看到已落库的事件/实体行。
-    await _enqueue_result(session, task, change, moment, event)
+    try:
+        async with session.begin_nested():
+            await _enqueue_result(session, task, change, moment, event)
+    except Exception as exc:  # noqa: BLE001 - 发件失败不得回滚已验证的终态
+        logger.warning(
+            "task_result_publish_failed",
+            extra={"task_id": str(task.id), "error_type": type(exc).__name__},
+        )
     await _enqueue_push_delivery(session, task)
     await session.flush()
     record_outcome(TASKS_METRIC, change.status.value, {"type": task.task_type})
@@ -270,7 +290,7 @@ async def write_terminal(
 async def _enqueue_result(
     session: AsyncSession, task: TaskExecution, change: TerminalChange, moment: datetime, event: TaskEvent
 ) -> None:
-    """JOIN 根把结果交回 Runtime Owner；Task-owned 子 Task 回父 Execution 的收件箱。"""
+    """Run-owned 根任务（JOIN/DETACH）都把结果交回 Runtime；Task-owned 子 Task 回父收件箱。"""
     if task.parent_id is not None:
         if (
             task.source_run_id is not None
@@ -294,7 +314,14 @@ async def _enqueue_result(
             )
         )
         return
-    if task.completion_mode is not CompletionMode.JOIN:
+    if task.source_run_id is None:
+        # 定时任务没有 source Run；文件/文本由任务中心或既有 Schedule 投递读取。
+        return
+    if task.source_operation_id is None:
+        logger.warning(
+            "task_result_publish_not_applicable",
+            extra={"task_id": str(task.id), "reason": "missing_source_operation"},
+        )
         return
     payload = _payload(task, change, moment, event.seq)
     body = JSON_OBJECT.validate_python(redact_value(payload.model_dump(mode="json")))

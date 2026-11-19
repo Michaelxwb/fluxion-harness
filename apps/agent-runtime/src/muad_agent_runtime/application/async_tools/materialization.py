@@ -14,7 +14,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...infrastructure.db import SessionFactory
 from ...infrastructure.models.async_tools import ToolOperation, ToolResultInbox
-from ...infrastructure.models.runtime import CanonicalEvent, RunRecord, RuntimeSnapshot
+from ...infrastructure.models.runtime import (
+    CanonicalEvent,
+    Conversation,
+    RunRecord,
+    RuntimeSnapshot,
+)
 from ...metrics import CONTEXT_COMPACTION_METRIC, record_outcome
 from ..attachments.tool_results import (
     ArtifactResultWriter,
@@ -219,6 +224,8 @@ async def _append_result(
     inbox: ToolResultInbox,
     op: ToolOperation,
     ref: dict[str, JsonValue] | None,
+    *,
+    mark_operation: bool = True,
 ) -> CanonicalEvent:
     payload: dict[str, JsonValue] = {
         "event_version": 1,
@@ -252,5 +259,148 @@ async def _append_result(
         )
     ).one()
     inbox.materialized, inbox.canonical_event_id, inbox.update_time = True, event.id, datetime.now(UTC)
-    op.status, op.update_time = OperationStatus.MATERIALIZED, datetime.now(UTC)
+    if mark_operation:
+        op.status, op.update_time = OperationStatus.MATERIALIZED, datetime.now(UTC)
     return event
+
+async def _late_batch(
+    factory: SessionFactory, limit: int
+) -> tuple[tuple[RunRecord, tuple[ToolResultInbox, ...]], ...]:
+    async with factory() as session:
+        rows = (
+            await session.execute(
+                select(ToolResultInbox, RunRecord)
+                .join(
+                    RunRecord,
+                    (RunRecord.id == ToolResultInbox.run_id)
+                    & (RunRecord.tenant_id == ToolResultInbox.tenant_id),
+                )
+                .join(
+                    Conversation,
+                    (Conversation.id == RunRecord.conversation_id)
+                    & (Conversation.tenant_id == RunRecord.tenant_id),
+                )
+                .where(
+                    ToolResultInbox.late.is_(True),
+                    ToolResultInbox.materialized.is_(False),
+                    ToolResultInbox.is_deleted.is_(False),
+                    RunRecord.is_deleted.is_(False),
+                    Conversation.is_deleted.is_(False),
+                )
+                .order_by(ToolResultInbox.create_time, ToolResultInbox.id)
+                .limit(limit)
+            )
+        ).all()
+    grouped: dict[UUID, tuple[RunRecord, list[ToolResultInbox]]] = {}
+    for inbox, run in rows:
+        entry = grouped.get(run.id)
+        if entry is None:
+            grouped[run.id] = (run, [inbox])
+        else:
+            entry[1].append(inbox)
+    return tuple((run, tuple(inboxes)) for run, inboxes in grouped.values())
+
+
+async def _commit_late(
+    factory: SessionFactory,
+    run: RunRecord,
+    original: tuple[ToolResultInbox, ...],
+    prepared: PreparedToolResults,
+) -> int:
+    async with factory() as session, session.begin():
+        locked_run = await session.scalar(
+            select(RunRecord)
+            .where(
+                RunRecord.id == run.id,
+                RunRecord.tenant_id == run.tenant_id,
+                RunRecord.is_deleted.is_(False),
+            )
+            .with_for_update()
+        )
+        if locked_run is None:
+            return 0
+        conversation = await session.scalar(
+            select(Conversation.id).where(
+                Conversation.id == run.conversation_id,
+                Conversation.tenant_id == run.tenant_id,
+                Conversation.is_deleted.is_(False),
+            )
+        )
+        if conversation is None:
+            return 0
+        rows = tuple(
+            await session.scalars(
+                select(ToolResultInbox)
+                .where(
+                    ToolResultInbox.id.in_([row.id for row in original]),
+                    ToolResultInbox.tenant_id == run.tenant_id,
+                    ToolResultInbox.run_id == run.id,
+                    ToolResultInbox.late.is_(True),
+                    ToolResultInbox.materialized.is_(False),
+                    ToolResultInbox.is_deleted.is_(False),
+                )
+                .order_by(ToolResultInbox.create_time, ToolResultInbox.id)
+                .with_for_update()
+            )
+        )
+        if not rows:
+            return 0
+        ops = {
+            row.id: row
+            for row in await session.scalars(
+                select(ToolOperation)
+                .where(
+                    ToolOperation.tenant_id == run.tenant_id,
+                    ToolOperation.id.in_([row.operation_id for row in rows]),
+                    ToolOperation.is_deleted.is_(False),
+                )
+                .order_by(ToolOperation.id)
+                .with_for_update()
+            )
+        }
+        ids = {str(row.id) for row in rows}
+        session.add_all(
+            [row for row in prepared.rows if str((row.metadata_json or {}).get("tool_call_id")) in ids]
+        )
+        await session.flush()
+        committed = 0
+        for row in rows:
+            await _append_result(
+                session,
+                locked_run,
+                row,
+                ops[row.operation_id],
+                prepared.references.get(str(row.id)),
+                mark_operation=False,
+            )
+            committed += 1
+    return committed
+
+
+async def materialize_late_results(
+    factory: SessionFactory,
+    *,
+    writer: ArtifactResultWriter | None = None,
+    batch_limit: int = 16,
+) -> int:
+    """物化 Run 已终态后到达的结果；不恢复执行、不续 lease。"""
+    if isinstance(batch_limit, bool) or not 1 <= batch_limit <= 100:
+        raise ValueError("late materialization batch limit must be in 1..100")
+    publisher = writer or ArtifactResultWriter(process_settings().artifact_root)
+    groups = await _late_batch(factory, batch_limit)
+    committed = 0
+    for run, rows in groups:
+        prepared = PreparedToolResults()
+        try:
+            prepared = await _prepare(publisher, run, rows, ToolResultSettings())
+            committed += await _commit_late(factory, run, rows, prepared)
+        except Exception as exc:  # noqa: BLE001 - 物化失败退化为内联，不丢事实
+            logger.warning(
+                "background_result_late_externalization_failed",
+                extra={"run_id": str(run.id), "error_type": type(exc).__name__},
+            )
+            record_outcome(CONTEXT_COMPACTION_METRIC, "FAILED", {"layer": "background_results_late"})
+            await publisher.discard_prepared(prepared)
+            prepared = PreparedToolResults()
+            committed += await _commit_late(factory, run, rows, prepared)
+    return committed

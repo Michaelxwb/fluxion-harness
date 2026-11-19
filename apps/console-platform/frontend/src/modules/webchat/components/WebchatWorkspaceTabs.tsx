@@ -5,7 +5,7 @@
  *
  * 1. **不卸载对话控制器**：对话面板始终渲染（切到定时任务时只加 `hidden`），`useRunEvents`
  *    等页面级控制器永远挂载——正在流式输出的回答不会因为切 Tab 而丢帧、断流或清空。
- * 2. **定时任务面板只在可见时挂载**：任务中心自己的请求在 Tab 隐藏时根本不存在，也就不会
+ * 2. **任务面板只在可见时挂载**：任务中心自己的请求在 Tab 隐藏时根本不存在，也就不会
  *    后台轮询；`tasks === null` 表示当前不是任务 Tab。
  *
  * 组件本身只收 typed props 与事件：路由/导航由页面持有，展示层不读 URL、不发 HTTP。
@@ -22,7 +22,7 @@ export interface WebchatWorkspaceTabsProps {
   onSelect(tab: WebchatWorkspaceTab): void;
   /** 对话工作区：**无论当前 Tab 都渲染**（切 Tab 只隐藏，不卸载）。 */
   conversation: ReactNode;
-  /** 定时任务面板：只在任务 Tab 挂载；非任务 Tab 传 null。 */
+  /** 任务面板：只在任务 Tab 挂载；非任务 Tab 传 null。 */
   tasks: ReactNode | null;
 }
 

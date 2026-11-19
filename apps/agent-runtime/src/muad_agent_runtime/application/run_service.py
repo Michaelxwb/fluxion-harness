@@ -1663,6 +1663,7 @@ class RunService:
     async def _wait_summary(self, run: RunRecord, *, session: AsyncSession | None = None) -> RunWaitSummary:
         """API-05：等待起点/原因与异步操作计数；只读，一次聚合 + 一次检查点读取。"""
         active = session or self._session
+        # pending_join_count 只算 JOIN；pending_submission_count 含 DETACH（提交受理前都属于待提交）。
         join_count, submission_count = (
             await active.execute(
                 sa.select(
@@ -1670,7 +1671,9 @@ class RunService:
                         ToolOperation.completion_mode == CompletionMode.JOIN,
                         ToolOperation.status.not_in(OP_TERMINAL),
                     ),
-                    sa.func.count().filter(ToolOperation.status == OperationStatus.SUBMIT_PENDING),
+                    sa.func.count().filter(
+                        ToolOperation.status == OperationStatus.SUBMIT_PENDING,
+                    ),
                 ).where(
                     ToolOperation.tenant_id == run.tenant_id,
                     ToolOperation.run_id == run.id,
@@ -3775,26 +3778,25 @@ class RunService:
 
 
 async def _submitted_detached_task(session: AsyncSession, run: RunRecord) -> bool:
-    """本 Run 是否提交了 DETACH 后台任务（结果由任务自己投递）。
+    """本 Run 是否已受理过 DETACH 后台任务（结果由任务自己投递）。
 
-    DETACH 的终态正文只是"任务已受理"，用户随后会收到任务的最终结果；再按 Run 终态外发一次
+    不能再看模型工具参数：`execute` 不再暴露 `completion_mode`。以 operation 的真实受理状态
+    为准，历史 JOIN 任务不会被误判；DETACH 的终态正文只是"任务已受理"，再按 Run 终态外发
     就是同一条结果两条消息。
     """
-    rows = await session.execute(
-        sa.select(CanonicalEvent.payload_json).where(
-            CanonicalEvent.tenant_id == run.tenant_id,
-            CanonicalEvent.run_id == run.id,
-            CanonicalEvent.event_type == "ASSISTANT_TURN",
-            CanonicalEvent.is_deleted.is_(False),
+    return (
+        await session.scalar(
+            sa.select(ToolOperation.id)
+            .where(
+                ToolOperation.tenant_id == run.tenant_id,
+                ToolOperation.run_id == run.id,
+                ToolOperation.completion_mode == CompletionMode.DETACH,
+                ToolOperation.task_id.is_not(None),
+                ToolOperation.is_deleted.is_(False),
+            )
+            .limit(1)
         )
-    )
-    for (payload,) in rows.all():
-        calls = payload.get("tool_calls") if isinstance(payload, dict) else None
-        for call in calls or ():
-            arguments = call.get("arguments") if isinstance(call, dict) else None
-            if isinstance(arguments, dict) and str(arguments.get("completion_mode", "")).upper() == "DETACH":
-                return True
-    return False
+    ) is not None
 
 
 def _error_code_for(exc: Exception) -> str:

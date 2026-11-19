@@ -20,15 +20,18 @@ import json
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
-from muad_agent_core.skill.draft_shell import DraftShellError
+from muad_agent_core.skill.draft_shell import DraftShellChange, DraftShellError
 from muad_agent_core.tools import ToolDefinition, ToolEffect
 
+from .draft_import import ArtifactPackageReader, PackageImportError, extract_package_members
 from .skill_draft_client import ConsoleSkillDraftClient
 
 DRAFT_TOOL_NAME = "skill_draft"
 DRAFT_ACTIONS = frozenset(
-    {"create", "get", "read", "write", "delete", "review", "status", "submit"}
+    {"create", "get", "read", "write", "delete", "review", "status", "submit", "import"}
 )
+#: `import` 是 Python 关键字，不能直接做方法名；其余动作保持「action 即方法名」。
+_ACTION_METHODS = {"import": "import_package"}
 DRAFT_TOOL_NAMES = frozenset({DRAFT_TOOL_NAME})
 
 DRAFT_TOOL_DESCRIPTION = (
@@ -38,7 +41,15 @@ DRAFT_TOOL_DESCRIPTION = (
     "Actions: create(key), get(draft_id|key), read(draft_id|key, path), "
     "write(draft_id|key, path, content[, expected_revision]), delete(draft_id|key[, path]), "
     "review(draft_id|key), status(draft_id|key), "
+    "import(draft_id|key, artifact_id[, expected_revision]), "
     "submit(draft_id|key[, expected_revision, version, default_script]). "
+    "import copies an uploaded archive (zip) into the draft from the artifact, byte for byte: "
+    "use it only when the user explicitly asks to create or modify a skill from an uploaded "
+    "package (binary files included; upload and extraction limits still apply). "
+    "Never import a plain upload (image, PDF, data "
+    "file) — those are read with read_attachment and do not belong in a draft; non-archive "
+    "attachments are rejected. import adds or overwrites the package's files and leaves other "
+    "draft files untouched. "
     "expected_revision defaults to the current revision when the draft is addressed by key. "
     "Self-test the draft only with execute target=draft (`python -m py_compile {entry}`, then "
     "`python {entry}`); never run draft code or write files under skill-drafts/ with "
@@ -99,9 +110,17 @@ def _error_result(code: str, message: str) -> str:
 class SkillDraftTools:
     """把 Console 草稿内部 API 包装成受信 Runtime 工具。"""
 
-    def __init__(self, client: ConsoleSkillDraftClient, context: Any) -> None:
+    def __init__(
+        self,
+        client: ConsoleSkillDraftClient,
+        context: Any,
+        *,
+        packages: ArtifactPackageReader | None = None,
+    ) -> None:
         self._client = client
         self._context = context
+        #: 导入用：按 Run 上下文读归档附件字节；没有装配时导入动作明确报不可用。
+        self._packages = packages
 
     @property
     def _identity(self) -> tuple[str, str]:
@@ -120,6 +139,7 @@ class SkillDraftTools:
                         "draft_id": _STRING,
                         "path": _STRING,
                         "content": _STRING,
+                        "artifact_id": _STRING,
                         "expected_revision": _INT,
                         "version": _STRING,
                         "default_script": _STRING,
@@ -137,7 +157,9 @@ class SkillDraftTools:
             return _error_result(
                 "COMMON_VALIDATION_ERROR", f"unsupported draft action: {action!r}"
             )
-        handler: Callable[..., Awaitable[str]] = getattr(self, str(action))
+        handler: Callable[..., Awaitable[str]] = getattr(
+            self, _ACTION_METHODS.get(str(action), str(action))
+        )
         return await handler(arguments, call_id=call_id)
 
     async def _resolve_draft(self, arguments: Mapping[str, Any]) -> tuple[str, int | None]:
@@ -301,6 +323,68 @@ class SkillDraftTools:
         except DraftShellError as exc:
             return _error_result(exc.code, exc.message)
         return json.dumps(data, ensure_ascii=False)
+
+    async def import_package(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+        """把一个上传的代码包按成员写进草稿；只在用户明确要求基于该包写 skill 时调用。"""
+        try:
+            tenant_id, owner_user_id = self._identity
+            if self._packages is None:
+                raise DraftShellError(
+                    "COMMON_INTERNAL_ERROR", "package import is unavailable"
+                )
+            artifact_id = _require_string(arguments, "artifact_id")
+            draft_id, resolved = await self._resolve_draft(arguments)
+            revision = _optional_int(arguments, "expected_revision") or resolved
+            if revision is None:
+                revision = await self._current_revision(draft_id, tenant_id, owner_user_id)
+            raw = await self._packages.read(
+                artifact_id, tenant_id=tenant_id, owner_user_id=owner_user_id
+            )
+            members = extract_package_members(raw)
+            if not members:
+                return json.dumps(
+                    {
+                        "draft_id": draft_id,
+                        "artifact_id": artifact_id,
+                        "revision": revision,
+                        "imported_files": [],
+                        "message": "压缩包内没有文件，草稿未改动",
+                    },
+                    ensure_ascii=False,
+                )
+            changes = tuple(
+                DraftShellChange(path=member.path, content=member.data) for member in members
+            )
+            data = await self._client.apply(
+                draft_id,
+                tenant_id=tenant_id,
+                owner_user_id=owner_user_id,
+                expected_revision=revision,
+                changes=changes,
+            )
+        except (DraftShellError, PackageImportError) as exc:
+            return _error_result(exc.code, exc.message)
+        return json.dumps(
+            {
+                **data,
+                "draft_id": draft_id,
+                "artifact_id": artifact_id,
+                "imported_files": [member.path for member in members],
+            },
+            ensure_ascii=False,
+        )
+
+    async def _current_revision(
+        self, draft_id: str, tenant_id: str, owner_user_id: str
+    ) -> int:
+        """模型没给 expected_revision 时取当前值；真正的并发保护仍是 apply 的 CAS。"""
+        data = await self._client.metadata(
+            draft_id, tenant_id=tenant_id, owner_user_id=owner_user_id
+        )
+        revision = data.get("revision")
+        if not isinstance(revision, int) or revision < 1:
+            raise DraftShellError("COMMON_INTERNAL_ERROR", "draft revision is missing")
+        return revision
 
 
 def _with_draft_id(data: dict[str, Any]) -> dict[str, Any]:

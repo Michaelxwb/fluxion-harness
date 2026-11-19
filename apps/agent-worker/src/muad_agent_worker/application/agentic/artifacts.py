@@ -122,6 +122,7 @@ class TaskArtifactRoundWriter:
             media_type=ARTIFACT_MEDIA_TYPE,
             content=data,
             checksum=checksum,
+            purpose="TOOL_RESULT",
         )
         preview = preview_head_tail(
             text,

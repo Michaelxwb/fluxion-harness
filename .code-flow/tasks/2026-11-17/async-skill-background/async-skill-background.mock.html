@@ -1,0 +1,1170 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WebChat 任务中心 · 后台任务交互稿</title>
+<style>
+  :root {
+    --bg: #1b1b1d;
+    --bg-elevated: #1f1f21;
+    --panel: #232325;
+    --panel-hover: #27272a;
+    --panel-strong: #2a2a2d;
+    --border: #333336;
+    --border-strong: #3c3c40;
+    --text: #e8e8ea;
+    --text-2: #b4b4ba;
+    --muted: #9a9aa0;
+    --faint: #6f6f76;
+    --green: #3fb950;
+    --green-bg: rgba(63, 185, 80, .12);
+    --green-border: rgba(63, 185, 80, .32);
+    --red: #f85149;
+    --red-bg: rgba(248, 81, 73, .12);
+    --red-border: rgba(248, 81, 73, .32);
+    --orange: #d29922;
+    --orange-bg: rgba(210, 153, 34, .13);
+    --orange-border: rgba(210, 153, 34, .34);
+    --blue: #58a6ff;
+    --blue-bg: rgba(88, 166, 255, .12);
+    --blue-border: rgba(88, 166, 255, .32);
+    --purple: #bc8cff;
+    --primary: #4c8dff;
+    --radius: 6px;
+    --shadow: 0 1px 0 rgba(255,255,255,.02);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { min-height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+      "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, select { font: inherit; }
+  button { color: inherit; }
+  code, pre {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+
+  .workspace-tabs {
+    height: 42px;
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    padding: 0 12px;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .workspace-tab {
+    height: 32px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 6px 6px 0 0;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    line-height: 32px;
+  }
+  .workspace-tab:hover { color: var(--text); background: #2a2a2d; }
+  .workspace-tab.active {
+    color: var(--text);
+    background: #353538;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+  }
+
+  .page {
+    max-width: 1760px;
+    margin: 0 auto;
+    padding: 12px 16px 48px;
+  }
+  .task-center { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+  .tc-header { display: flex; flex-direction: column; gap: 10px; }
+  .tc-title-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    min-height: 32px;
+  }
+  .tc-title-row h1 {
+    margin: 0;
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 600;
+    letter-spacing: .1px;
+  }
+  .demo-pill {
+    font-size: 11px;
+    color: var(--purple);
+    border: 1px solid rgba(188,140,255,.35);
+    background: rgba(188,140,255,.08);
+    padding: 1px 7px;
+    border-radius: 999px;
+  }
+  .tc-badges { display: inline-flex; gap: 12px; font-size: 12px; color: var(--muted); }
+  .tc-badges b { color: var(--text-2); font-weight: 500; }
+  .spacer { flex: 1 1 auto; }
+  .agent-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .agent-filter select {
+    height: 28px;
+    padding: 0 8px;
+    color: var(--text-2);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    outline: none;
+  }
+  .agent-filter select:focus { border-color: var(--primary); }
+  .btn {
+    height: 28px;
+    padding: 0 12px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-2);
+  }
+  .btn:hover { background: #2d2d31; color: var(--text); }
+  .btn.ghost { border-color: var(--border); background: var(--bg-elevated); }
+  .btn.primary { background: var(--primary); color: white; }
+  .btn.primary:hover { background: #3d7cf0; }
+  .link-btn {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: var(--primary);
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .link-btn:hover { text-decoration: underline; }
+
+  .group-tabs {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    width: fit-content;
+    padding: 3px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--bg-elevated);
+  }
+  .group-tab {
+    height: 28px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 13px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .group-tab:hover { color: var(--text); }
+  .group-tab.active { background: #353538; color: var(--text); }
+  .group-tab .count {
+    font-size: 11px;
+    color: var(--faint);
+    border-radius: 999px;
+    padding: 0 5px;
+    background: rgba(255,255,255,.04);
+  }
+
+  .task-list { display: flex; flex-direction: column; gap: 8px; }
+  .task-row {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 10px 12px;
+    color: var(--text);
+    text-align: left;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    transition: border-color .12s ease, background .12s ease;
+  }
+  .task-row:hover { border-color: #4a4a50; background: var(--panel-hover); }
+  .task-row:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+  .task-row-title, .task-row-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
+  .task-row-title strong { font-size: 14px; font-weight: 600; }
+  .task-row-meta { font-size: 12px; color: var(--muted); }
+  .dot { color: var(--faint); }
+
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    height: 20px;
+    padding: 0 7px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-size: 11px;
+    line-height: 18px;
+    color: var(--text-2);
+    background: rgba(255,255,255,.02);
+    white-space: nowrap;
+  }
+  .tag-green { color: var(--green); background: var(--green-bg); border-color: var(--green-border); }
+  .tag-red { color: var(--red); background: var(--red-bg); border-color: var(--red-border); }
+  .tag-orange { color: var(--orange); background: var(--orange-bg); border-color: var(--orange-border); }
+  .tag-blue { color: var(--blue); background: var(--blue-bg); border-color: var(--blue-border); }
+  .tag-gray { color: var(--muted); }
+  .tag-purple { color: var(--purple); background: rgba(188,140,255,.08); border-color: rgba(188,140,255,.3); }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    box-shadow: var(--shadow);
+    min-width: 0;
+  }
+  .card h3 {
+    margin: 0 0 12px;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card h3 .soft { color: var(--faint); font-size: 12px; font-weight: 400; }
+  .card h4 { margin: 0 0 8px; font-size: 13px; font-weight: 600; }
+
+  .detail { display: flex; flex-direction: column; gap: 10px; }
+  .detail-topbar { display: flex; align-items: center; gap: 12px; min-height: 28px; }
+  .detail-topbar .crumb { color: var(--muted); font-size: 12px; display: flex; gap: 8px; align-items: center; }
+  .detail-topbar .crumb b { color: var(--text-2); font-weight: 500; }
+
+  .detail-head { display: flex; flex-direction: column; gap: 12px; }
+  .detail-title-line { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .detail-title-line h2 { margin: 0; font-size: 16px; line-height: 24px; font-weight: 600; }
+  .detail-sub { color: var(--muted); font-size: 12px; }
+  .facts {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px 18px;
+    margin: 2px 0 0;
+  }
+  .fact .k { color: var(--faint); font-size: 11px; margin-bottom: 4px; }
+  .fact .v { color: var(--text-2); font-size: 12px; overflow-wrap: anywhere; }
+  .fact .v.mono { font-family: "SFMono-Regular", Consolas, Menlo, monospace; font-size: 11px; }
+
+  .result-summary {
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: #202022;
+    padding: 12px;
+    color: var(--text-2);
+    line-height: 1.65;
+    font-size: 13px;
+  }
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .stat {
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: #202022;
+    padding: 9px 10px;
+  }
+  .stat .n { font-size: 18px; line-height: 22px; font-weight: 600; }
+  .stat .l { color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .stat.ok .n { color: var(--green); }
+  .stat.bad .n { color: var(--red); }
+  .stat.warn .n { color: var(--orange); }
+
+  .error-box {
+    margin-top: 10px;
+    border: 1px solid rgba(248,81,73,.28);
+    border-radius: 5px;
+    background: rgba(248,81,73,.05);
+    overflow: hidden;
+  }
+  .error-box .error-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(248,81,73,.18);
+    color: var(--red);
+    font-size: 12px;
+  }
+  .error-box pre {
+    margin: 0;
+    padding: 12px;
+    max-height: 132px;
+    overflow: hidden;
+    color: #d7d7dc;
+    font-size: 12px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    position: relative;
+  }
+  .error-box.expanded pre { max-height: none; }
+  .error-box .fade {
+    pointer-events: none;
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 42px;
+    background: linear-gradient(transparent, #1d1d1f);
+  }
+  .error-box.expanded .fade { display: none; }
+  .error-actions { padding: 0 12px 10px; }
+
+  .section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .section-head h3 { margin: 0; }
+  .section-head .hint { color: var(--faint); font-size: 11px; }
+
+  .artifact-list { display: flex; flex-direction: column; gap: 8px; }
+  .artifact-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: #202022;
+    min-width: 0;
+  }
+  .file-ico {
+    width: 30px; height: 34px;
+    border: 1px solid var(--border-strong);
+    border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 10px;
+    background: #262629;
+    flex: 0 0 auto;
+  }
+  .artifact-main { flex: 1 1 auto; min-width: 0; }
+  .artifact-name { color: var(--text-2); font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .artifact-meta { color: var(--faint); font-size: 11px; margin-top: 3px; display: flex; flex-wrap: wrap; gap: 6px 12px; }
+  .artifact-meta code { color: var(--muted); font-size: 10px; }
+  .deliveries { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; max-width: 46%; }
+  .delivery-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    height: 20px; padding: 0 6px; border-radius: 3px;
+    border: 1px solid var(--border); background: rgba(255,255,255,.02);
+    font-size: 10px; color: var(--muted); white-space: nowrap;
+  }
+  .delivery-chip .target { color: var(--faint); }
+  .delivery-chip.s-ok { border-color: var(--green-border); background: var(--green-bg); color: var(--green); }
+  .delivery-chip.s-degraded { border-color: var(--orange-border); background: var(--orange-bg); color: var(--orange); }
+  .delivery-chip.s-pending { border-color: var(--blue-border); background: var(--blue-bg); color: var(--blue); }
+  .delivery-chip.s-failed { border-color: var(--red-border); background: var(--red-bg); color: var(--red); }
+
+  .empty {
+    padding: 20px 8px;
+    color: var(--faint);
+    font-size: 12px;
+    text-align: center;
+    border: 1px dashed var(--border);
+    border-radius: 5px;
+    background: rgba(255,255,255,.01);
+  }
+
+  .child-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12px;
+  }
+  .child-table th {
+    text-align: left;
+    color: var(--faint);
+    font-weight: 500;
+    font-size: 11px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .child-table td {
+    padding: 10px;
+    border-bottom: 1px solid #2c2c2f;
+    color: var(--text-2);
+    vertical-align: top;
+  }
+  .child-table tr:last-child td { border-bottom: 0; }
+  .child-table tbody tr:hover td { background: #252528; }
+  .child-table tr.failed td:first-child { box-shadow: inset 3px 0 0 var(--red); }
+  .child-label { color: var(--text); font-weight: 500; }
+  .child-key { color: var(--faint); font-size: 10px; margin-top: 2px; font-family: "SFMono-Regular", Consolas, Menlo, monospace; }
+  .child-error { color: var(--red); font-size: 11px; line-height: 1.45; max-width: 420px; }
+  .child-error.muted { color: var(--muted); }
+  .child-artifacts { color: var(--muted); font-size: 11px; }
+
+  .info-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 18px; }
+  .info-grid .k { color: var(--faint); font-size: 11px; margin-bottom: 4px; }
+  .info-grid .v { color: var(--text-2); font-size: 12px; }
+
+  .toolbar-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .toolbar-line .spacer { flex: 1; }
+  .search-note { color: var(--faint); font-size: 11px; }
+
+  .toast {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    padding: 9px 13px;
+    border: 1px solid var(--border-strong);
+    border-radius: 5px;
+    background: #2b2b2f;
+    color: var(--text);
+    font-size: 12px;
+    box-shadow: 0 8px 28px rgba(0,0,0,.35);
+    opacity: 0;
+    transform: translateY(6px);
+    transition: .16s ease;
+    pointer-events: none;
+    z-index: 50;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  .help-fab {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--border-strong);
+    background: #2b2b2f;
+    color: var(--text-2);
+    font-size: 16px;
+    cursor: pointer;
+    box-shadow: 0 8px 28px rgba(0,0,0,.35);
+    z-index: 40;
+  }
+  .help-fab:hover { background: #343438; color: var(--text); }
+  .help-panel {
+    position: fixed;
+    right: 24px;
+    bottom: 76px;
+    width: 360px;
+    max-width: calc(100vw - 32px);
+    padding: 16px;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: #26262a;
+    box-shadow: 0 18px 60px rgba(0,0,0,.45);
+    z-index: 41;
+    display: none;
+  }
+  .help-panel.show { display: block; }
+  .help-panel h3 { margin: 0 0 10px; font-size: 14px; }
+  .help-panel ul { margin: 0; padding-left: 18px; color: var(--text-2); font-size: 12px; line-height: 1.75; }
+  .help-panel li { margin-bottom: 6px; }
+  .help-panel .note { margin-top: 10px; color: var(--faint); font-size: 11px; line-height: 1.55; }
+
+  .placeholder {
+    padding: 80px 20px;
+    text-align: center;
+    color: var(--muted);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-elevated);
+  }
+  .placeholder h2 { color: var(--text); font-size: 16px; margin: 0 0 8px; }
+  .placeholder p { margin: 0 0 16px; font-size: 12px; }
+
+  @media (max-width: 900px) {
+    .facts, .info-grid, .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .artifact-row { align-items: flex-start; flex-wrap: wrap; }
+    .deliveries { max-width: 100%; justify-content: flex-start; }
+    .child-table { min-width: 780px; }
+    .table-scroll { overflow-x: auto; }
+  }
+</style>
+</head>
+<body>
+  <nav class="workspace-tabs" aria-label="工作区视图">
+    <button class="workspace-tab" data-workspace="chat">对话</button>
+    <button class="workspace-tab active" data-workspace="tasks">任务</button>
+  </nav>
+
+  <main class="page">
+    <div class="task-center">
+      <header class="tc-header">
+        <div class="tc-title-row">
+          <h1>任务中心</h1>
+          <span class="demo-pill">交互稿 · 模拟数据</span>
+          <span class="tc-badges"><span>待处理 <b>0</b></span><span>需关注 <b>0</b></span></span>
+          <span class="spacer"></span>
+          <label class="agent-filter">全部授权 Agent
+            <select id="agentFilter" aria-label="授权 Agent 过滤">
+              <option value="ALL">全部授权 Agent</option>
+              <option value="销售助手">销售助手</option>
+              <option value="运营助手">运营助手</option>
+              <option value="财务助手">财务助手</option>
+            </select>
+          </label>
+          <button class="btn ghost" id="refresh">刷新</button>
+        </div>
+        <div class="group-tabs" role="tablist" aria-label="任务分组">
+          <button class="group-tab" data-group="schedule" role="tab">定时任务 <span class="count">12</span></button>
+          <button class="group-tab active" data-group="background" role="tab">后台任务 <span class="count">5</span></button>
+        </div>
+      </header>
+
+      <section id="view" aria-live="polite"></section>
+    </div>
+  </main>
+
+  <button class="help-fab" id="helpFab" aria-label="打开交互说明">?</button>
+  <aside class="help-panel" id="helpPanel">
+    <h3>交互稿说明</h3>
+    <ul>
+      <li>任务页新增「后台任务」分组；定时任务列表/详情保持原样。</li>
+      <li>后台任务详情复用执行详情：结果、失败原文、产物、子任务。</li>
+      <li>部分失败显示「N 项中 M 项失败」，不只靠颜色区分。</li>
+      <li>子任务使用客户/条目标签，失败行可直接看摘要并点开全文。</li>
+      <li>产物按目标展示交付状态：已交付 / 已降级 / 待投递 / 交付失败。</li>
+      <li>错误原文可展开；脱敏后展示，超长内容显示截断提示。</li>
+      <li>后台详情使用 <code>?view=background&amp;taskId=…</code>，不新增路由。</li>
+    </ul>
+    <div class="note">本页面是设计交互稿，数据与下载按钮均为模拟；样式按 WebChat 当前任务中心暗色主题还原。</div>
+  </aside>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  const scheduledTasks = [
+    {
+      id: 'sched-1', kind: 'schedule', name: '每天 9:00 喝水提醒', mode: '提醒', status: '进行中',
+      timezone: 'Asia/Shanghai', next: '2026-11-18 09:00:00', last: '2026-11-17 09:00:00',
+      fire: '已完成', attention: false
+    },
+    {
+      id: 'sched-2', kind: 'schedule', name: '大结果产物', mode: '智能体', status: '已结束',
+      timezone: 'Asia/Shanghai', next: '无后续触发', last: '2026-11-16 10:28:30',
+      fire: '已完成', attention: false
+    },
+    {
+      id: 'sched-3', kind: 'schedule', name: '平台健康巡检', mode: '智能体', status: '已结束',
+      timezone: 'Asia/Shanghai', next: '无后续触发', last: '2026-11-16 09:15:40',
+      fire: '失败', attention: true
+    },
+    {
+      id: 'sched-4', kind: 'schedule', name: '客户名单确认', mode: '智能体', status: '已结束',
+      timezone: 'Asia/Shanghai', next: '无后续触发', last: '2026-11-16 09:35:00',
+      fire: '已完成', attention: false
+    }
+  ];
+
+  const backgroundTasks = [
+    {
+      id: 'task-weekly', kind: 'background', name: '客户周报导出', taskType: 'SKILL',
+      agent: '销售助手', status: '已完成', statusTone: 'green',
+      counts: { total: 5, succeeded: 5, failed: 0, cancelled: 0 }, partial: false,
+      childTotal: 5, childFinished: 5, hasArtifacts: true,
+      createdAt: '2026-11-18 09:42', finishedAt: '2026-11-18 09:42:18', duration: '18.4s',
+      result: '已生成 5 个客户的周报文件，全部成功。',
+      resultJson: '{\n  "mode": "ALL",\n  "total": 5,\n  "succeeded": 5,\n  "failed": 0,\n  "cancelled": 0\n}',
+      error: null,
+      artifacts: [
+        {
+          name: '客户周报汇总.xlsx', media: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          size: '428 KB', version: '3', checksum: 'sha256:70b0c0e6f0f9a35f0b2a8e9f4f0d9c8e7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1',
+          deliveries: [
+            { target: 'WebChat', status: 'DELIVERED', label: '已交付' },
+            { target: '企业微信', status: 'DELIVERED', label: '已交付' }
+          ]
+        },
+        {
+          name: '周报明细.csv', media: 'text/csv',
+          size: '36 KB', version: '1', checksum: 'sha256:b35a1ee64e31536cdd9cb80e17da99180bf7028c1be95256be838beb8e2c2312',
+          deliveries: [
+            { target: 'WebChat', status: 'DELIVERED', label: '已交付' }
+          ]
+        }
+      ],
+      children: [
+        { id: 'weekly-a', label: '客户 A', itemKey: 'customer-a', status: '已完成', tone: 'green', error: null, artifacts: 1, finished: '09:42:11' },
+        { id: 'weekly-b', label: '客户 B', itemKey: 'customer-b', status: '已完成', tone: 'green', error: null, artifacts: 1, finished: '09:42:12' },
+        { id: 'weekly-c', label: '客户 C', itemKey: 'customer-c', status: '已完成', tone: 'green', error: null, artifacts: 1, finished: '09:42:14' },
+        { id: 'weekly-d', label: '客户 D', itemKey: 'customer-d', status: '已完成', tone: 'green', error: null, artifacts: 1, finished: '09:42:15' },
+        { id: 'weekly-e', label: '客户 E', itemKey: 'customer-e', status: '已完成', tone: 'green', error: null, artifacts: 1, finished: '09:42:18' }
+      ]
+    },
+    {
+      id: 'task-reconcile', kind: 'background', name: '客户批量对账', taskType: 'BATCH',
+      agent: '销售助手', status: '已完成', statusTone: 'green',
+      counts: { total: 5, succeeded: 3, failed: 2, cancelled: 0 }, partial: true,
+      childTotal: 5, childFinished: 5, hasArtifacts: true,
+      createdAt: '2026-11-18 09:30', finishedAt: '2026-11-18 09:31:42', duration: '1m 42s',
+      result: '批量对账完成：3 项成功，2 项失败。失败项已保留错误原文，可在子任务中查看。',
+      resultJson: '{\n  "mode": "BEST_EFFORT",\n  "total": 5,\n  "succeeded": 3,\n  "failed": 2,\n  "cancelled": 0\n}',
+      error: null,
+      artifacts: [
+        {
+          name: '客户对账结果.xlsx', media: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          size: '1.2 MB', version: '2', checksum: 'sha256:9a5e0d4f7c3b2a1e8d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e',
+          deliveries: [
+            { target: 'WebChat', status: 'DELIVERED', label: '已交付' },
+            { target: '企业微信', status: 'DEGRADED', label: '已降级' }
+          ]
+        },
+        {
+          name: '失败明细.csv', media: 'text/csv',
+          size: '4.8 KB', version: '1', checksum: 'sha256:4c8d6b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c',
+          deliveries: [
+            { target: 'WebChat', status: 'DELIVERED', label: '已交付' }
+          ]
+        }
+      ],
+      children: [
+        { id: 'rec-a', label: '客户 A', itemKey: 'customer-a', status: '已完成', tone: 'green', error: null, artifacts: 1, finished: '09:30:18' },
+        { id: 'rec-b', label: '客户 B', itemKey: 'customer-b', status: '已完成', tone: 'green', error: null, artifacts: 1, finished: '09:30:26' },
+        {
+          id: 'rec-c', label: '客户 C', itemKey: 'customer-c', status: '失败', tone: 'red',
+          error: 'HTTP 401 Unauthorized: access token expired for /api/v1/reconcile; traceback 已折叠，点开查看完整原文。',
+          errorFull: 'Traceback (most recent call last):\n  File "reconcile.py", line 84, in <module>\n    resp.raise_for_status()\n  File "requests/models.py", line 1021, in raise_for_status\n    raise HTTPError(http_error_msg, response=self)\nrequests.exceptions.HTTPError: 401 Client Error: Unauthorized for url: https://api.example.com/v1/reconcile?customer=C\n\n[customer=C] token expired at 2026-11-18T09:30:00Z; credential=***',
+          artifacts: 0, finished: '09:30:31'
+        },
+        { id: 'rec-d', label: '客户 D', itemKey: 'customer-d', status: '已完成', tone: 'green', error: null, artifacts: 1, finished: '09:31:02' },
+        {
+          id: 'rec-e', label: '客户 E', itemKey: 'customer-e', status: '失败', tone: 'red',
+          error: 'Connection timeout after 30s while calling /api/v1/reconcile; upstream did not respond.',
+          errorFull: 'Traceback (most recent call last):\n  File "reconcile.py", line 84, in <module>\n    resp = session.get(url, timeout=30)\n  File "requests/sessions.py", line 703, in get\n    return self.request("GET", url, **kwargs)\nrequests.exceptions.ConnectTimeout: HTTPSConnectionPool(host=\'api.example.com\', port=443): Max retries exceeded with url: /v1/reconcile?customer=E (Caused by ConnectTimeoutError(\'Connection to api.example.com timed out. (connect timeout=30)\'))',
+          artifacts: 0, finished: '09:31:42'
+        }
+      ]
+    },
+    {
+      id: 'task-policy', kind: 'background', name: '政策合规检查', taskType: 'SKILL',
+      agent: '运营助手', status: '失败', statusTone: 'red',
+      counts: { total: 0, succeeded: 0, failed: 0, cancelled: 0 }, partial: false,
+      childTotal: 0, childFinished: 0, hasArtifacts: false,
+      createdAt: '2026-11-18 09:12', finishedAt: '2026-11-18 09:12:34', duration: '34.2s',
+      result: null,
+      error: 'HTTP 502 Bad Gateway: upstream policy service returned an invalid response.',
+      errorFull: 'Traceback (most recent call last):\n  File "policy_check.py", line 61, in <module>\n    resp = client.post("/v1/policy/check", json=payload)\n  File "httpx/_client.py", line 1144, in post\n    return self.request("POST", url, **kwargs)\n  File "httpx/_client.py", line 914, in request\n    return self.send(request, auth=auth, follow_redirects=follow_redirects)\n  File "httpx/_client.py", line 1012, in send\n    response = self._send_handling_auth(...)\n  File "httpx/_client.py", line 1236, in _send_single_request\n    response.raise_for_status()\nhttpx.HTTPStatusError: Server error \'502 Bad Gateway\' for url \'https://api.example.com/v1/policy/check\'\n\n[request_id=req_01HZX8Y7K2Q]\nAuthorization: Bearer ***\nretry_after: 30s',
+      artifacts: [],
+      children: []
+    },
+    {
+      id: 'task-quarterly', kind: 'background', name: '季度经营分析', taskType: 'BATCH',
+      agent: '运营助手', status: '运行中', statusTone: 'blue',
+      counts: { total: 5, succeeded: 2, failed: 0, cancelled: 0 }, partial: false,
+      childTotal: 5, childFinished: 3, hasArtifacts: true,
+      createdAt: '2026-11-18 09:05', finishedAt: null, duration: '执行中',
+      result: '执行中，结果尚未生成。可用右上角「刷新」查看最新状态。',
+      error: null,
+      artifacts: [
+        {
+          name: '经营分析-第一批.json', media: 'application/json',
+          size: '88 KB', version: '1', checksum: 'sha256:5f4e3d2c1b0a9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4',
+          deliveries: [
+            { target: 'WebChat', status: 'PENDING', label: '待投递' }
+          ]
+        }
+      ],
+      children: [
+        { id: 'q-a', label: '华东区', itemKey: 'region-east', status: '已完成', tone: 'green', error: null, artifacts: 1, finished: '09:05:46' },
+        { id: 'q-b', label: '华南区', itemKey: 'region-south', status: '已完成', tone: 'green', error: null, artifacts: 1, finished: '09:06:12' },
+        { id: 'q-c', label: '华北区', itemKey: 'region-north', status: '运行中', tone: 'blue', error: null, artifacts: 0, finished: null },
+        { id: 'q-d', label: '西南区', itemKey: 'region-southwest', status: '排队中', tone: 'gray', error: null, artifacts: 0, finished: null },
+        { id: 'q-e', label: '海外区', itemKey: 'region-overseas', status: '排队中', tone: 'gray', error: null, artifacts: 0, finished: null }
+      ]
+    },
+    {
+      id: 'task-archive', kind: 'background', name: '周报归档', taskType: 'SKILL',
+      agent: '销售助手', status: '已完成', statusTone: 'green',
+      counts: { total: 1, succeeded: 1, failed: 0, cancelled: 0 }, partial: false,
+      childTotal: 0, childFinished: 0, hasArtifacts: true,
+      createdAt: '2026-11-17 18:20', finishedAt: '2026-11-17 18:20:08', duration: '8.1s',
+      result: '归档文件已生成并交付。企业微信通道不支持直发文件，已降级为取件链接。',
+      resultJson: '{\n  "summary": "周报归档完成",\n  "artifact_count": 1\n}',
+      error: null,
+      artifacts: [
+        {
+          name: '2026-W46-周报归档.zip', media: 'application/zip',
+          size: '3.7 MB', version: '1', checksum: 'sha256:c1b0a9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0',
+          deliveries: [
+            { target: 'WebChat', status: 'DELIVERED', label: '已交付' },
+            { target: '企业微信', status: 'DEGRADED', label: '已降级' }
+          ]
+        }
+      ],
+      children: []
+    }
+  ];
+
+  const state = {
+    workspace: 'tasks',
+    group: 'background',
+    view: 'list',
+    taskId: null,
+    childId: null,
+    parentId: null,
+    agent: 'ALL'
+  };
+
+  const $view = document.getElementById('view');
+  const $toast = document.getElementById('toast');
+  const $helpPanel = document.getElementById('helpPanel');
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+  }
+
+  function tag(label, tone = 'gray') {
+    return `<span class="tag tag-${tone}">${escapeHtml(label)}</span>`;
+  }
+
+  function deliveryChip(d) {
+    const cls = d.status === 'DELIVERED' ? 's-ok'
+      : d.status === 'DEGRADED' ? 's-degraded'
+      : d.status === 'PENDING' ? 's-pending'
+      : d.status === 'FAILED' ? 's-failed' : '';
+    return `<span class="delivery-chip ${cls}"><span class="target">${escapeHtml(d.target)}</span>${escapeHtml(d.label)}</span>`;
+  }
+
+  function showToast(text) {
+    $toast.textContent = text;
+    $toast.classList.add('show');
+    clearTimeout(showToast.timer);
+    showToast.timer = setTimeout(() => $toast.classList.remove('show'), 1800);
+  }
+
+  function syncUrl() {
+    const params = new URLSearchParams();
+    if (state.workspace === 'tasks') {
+      params.set('view', state.group);
+      if (state.view !== 'list' && state.taskId) params.set('taskId', state.taskId);
+    }
+    const next = `${location.pathname}${params.toString() ? `?${params}` : ''}`;
+    history.replaceState(null, '', next);
+  }
+
+  function readUrl() {
+    const params = new URLSearchParams(location.search);
+    const view = params.get('view');
+    state.group = view === 'schedule' ? 'schedule' : 'background';
+    const taskId = params.get('taskId');
+    if (taskId && state.group === 'background') {
+      const task = backgroundTasks.find((item) => item.id === taskId);
+      if (task) {
+        state.view = 'detail';
+        state.taskId = task.id;
+      }
+    }
+  }
+
+  function renderTabs() {
+    document.querySelectorAll('[data-workspace]').forEach((button) => {
+      button.classList.toggle('active', button.dataset.workspace === state.workspace);
+    });
+    document.querySelectorAll('[data-group]').forEach((button) => {
+      button.classList.toggle('active', button.dataset.group === state.group);
+    });
+  }
+
+  function renderScheduleList() {
+    return `
+      <div class="task-list" role="list">
+        ${scheduledTasks.map((task) => `
+          <button class="task-row" role="listitem" data-schedule="${task.id}">
+            <span class="task-row-title">
+              <strong>${escapeHtml(task.name)}</strong>
+              ${tag(task.mode, task.mode === '智能体' ? 'purple' : 'gray')}
+              ${tag(task.status, task.status === '进行中' ? 'green' : 'gray')}
+              ${task.attention ? tag('需关注', 'red') : ''}
+            </span>
+            <span class="task-row-meta">
+              <span>${escapeHtml(task.timezone)}</span>
+              <span>${escapeHtml(task.next)}</span>
+              <span>${escapeHtml(task.last)}</span>
+              ${tag('已创建执行', 'gray')}
+              ${tag(task.fire, task.fire === '失败' ? 'red' : task.fire === '已完成' ? 'green' : 'gray')}
+            </span>
+          </button>
+        `).join('')}
+      </div>
+      <div class="search-note">定时任务分组沿用现有列表与详情；本交互稿重点展示新增的「后台任务」分组。</div>
+    `;
+  }
+
+  function renderBackgroundList() {
+    const visible = state.agent === 'ALL'
+      ? backgroundTasks
+      : backgroundTasks.filter((task) => task.agent === state.agent);
+    if (visible.length === 0) {
+      return `<div class="empty">当前 Agent 下还没有后台任务。</div>`;
+    }
+    return `
+      <div class="task-list" role="list">
+        ${visible.map((task) => `
+          <button class="task-row" role="listitem" data-task="${task.id}">
+            <span class="task-row-title">
+              <strong>${escapeHtml(task.name)}</strong>
+              ${tag(task.taskType, task.taskType === 'BATCH' ? 'purple' : 'gray')}
+              ${tag(task.status, task.statusTone)}
+              ${task.partial ? tag(`${task.counts.total} 项中 ${task.counts.failed} 项失败`, 'orange') : ''}
+              ${task.hasArtifacts ? tag('含产物', 'gray') : ''}
+            </span>
+            <span class="task-row-meta">
+              <span>${escapeHtml(task.agent)}</span>
+              <span>${escapeHtml(task.createdAt)}</span>
+              ${task.childTotal > 0 ? `<span>子任务 ${task.childFinished}/${task.childTotal}</span>` : ''}
+              ${task.status === '运行中' ? `<span style="color:var(--blue)">● 执行中</span>` : ''}
+            </span>
+          </button>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  function renderArtifacts(task) {
+    if (!task.artifacts || task.artifacts.length === 0) {
+      return `<div class="empty">本次执行没有产物${task.status === '运行中' ? '；完成后会出现在这里' : ''}。</div>`;
+    }
+    return `
+      <div class="artifact-list">
+        ${task.artifacts.map((artifact) => `
+          <div class="artifact-row">
+            <div class="file-ico">${artifact.name.endsWith('.zip') ? 'ZIP' : artifact.name.endsWith('.csv') ? 'CSV' : artifact.name.endsWith('.json') ? 'JSON' : 'XLS'}</div>
+            <div class="artifact-main">
+              <div class="artifact-name" title="${escapeHtml(artifact.name)}">${escapeHtml(artifact.name)}</div>
+              <div class="artifact-meta">
+                <span>${escapeHtml(artifact.media)}</span><span>·</span><span>${escapeHtml(artifact.size)}</span>
+                <span>·</span><span>版本 ${escapeHtml(artifact.version)}</span>
+                <code>${escapeHtml(artifact.checksum)}</code>
+              </div>
+            </div>
+            <div class="deliveries">
+              ${(artifact.deliveries && artifact.deliveries.length)
+                ? artifact.deliveries.map(deliveryChip).join('')
+                : `<span class="delivery-chip">未请求推送</span>`}
+            </div>
+            <button class="btn ghost" data-download="${escapeHtml(artifact.name)}">下载</button>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  function renderCounts(task) {
+    if (!task.counts || task.counts.total === 0) return '';
+    return `
+      <div class="stat-grid">
+        <div class="stat"><div class="n">${task.counts.total}</div><div class="l">总项数</div></div>
+        <div class="stat ok"><div class="n">${task.counts.succeeded}</div><div class="l">成功</div></div>
+        <div class="stat bad"><div class="n">${task.counts.failed}</div><div class="l">失败</div></div>
+        <div class="stat warn"><div class="n">${task.counts.cancelled}</div><div class="l">取消</div></div>
+      </div>
+    `;
+  }
+
+  function renderError(task) {
+    if (!task.error) return '';
+    return `
+      <div class="error-box" data-error-box>
+        <div class="error-head"><span>原始错误</span><span class="tag tag-red">已脱敏</span><span class="spacer"></span><span style="color:var(--faint)">full stderr</span></div>
+        <div style="position:relative">
+          <pre>${escapeHtml(task.errorFull || task.error)}</pre>
+          <div class="fade"></div>
+        </div>
+        <div class="error-actions">
+          <button class="link-btn" data-expand-error>展开完整错误</button>
+          <span class="search-note">凭据值以 *** 展示</span>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderResult(task) {
+    if (task.status === '运行中') {
+      return `<div class="result-summary"><span style="color:var(--blue)">● </span>${escapeHtml(task.result)}</div>`;
+    }
+    if (task.error) {
+      return `<div class="result-summary">任务失败：${escapeHtml(task.error)}</div>${renderError(task)}`;
+    }
+    return `
+      <div class="result-summary">${escapeHtml(task.result || '任务已完成。')}</div>
+      ${renderCounts(task)}
+      ${task.resultJson ? `
+        <details style="margin-top:10px;color:var(--muted);font-size:12px">
+          <summary style="cursor:pointer;color:var(--text-2)">查看结构化结果</summary>
+          <pre style="margin:8px 0 0;padding:10px;background:#1d1d1f;border:1px solid var(--border);border-radius:4px;color:#cfcfd4;font-size:11px;line-height:1.55;overflow:auto">${escapeHtml(task.resultJson)}</pre>
+        </details>
+      ` : ''}
+    `;
+  }
+
+  function renderChildren(task) {
+    if (!task.children || task.children.length === 0) {
+      return `<div class="empty">该任务没有子任务。</div>`;
+    }
+    return `
+      <div class="table-scroll">
+        <table class="child-table">
+          <thead>
+            <tr>
+              <th>条目</th><th>状态</th><th>错误摘要</th><th>产物</th><th>结束时间</th><th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${task.children.map((child) => `
+              <tr class="${child.status === '失败' ? 'failed' : ''}">
+                <td>
+                  <div class="child-label">${escapeHtml(child.label)}</div>
+                  <div class="child-key">${escapeHtml(child.itemKey)}</div>
+                </td>
+                <td>${tag(child.status, child.tone)}</td>
+                <td><div class="child-error ${child.error ? '' : 'muted'}">${child.error ? escapeHtml(child.error.split('\n')[0]) : '—'}</div></td>
+                <td><span class="child-artifacts">${child.artifacts ? `${child.artifacts} 个` : '—'}</span></td>
+                <td>${child.finished ? escapeHtml(child.finished) : '—'}</td>
+                <td>${child.status === '失败' ? `<button class="link-btn" data-child="${task.id}:${child.id}">查看全文</button>` : '<span style="color:var(--faint)">—</span>'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function renderDetail(task, child = null) {
+    const current = child || task;
+    const title = child ? child.label : task.name;
+    const isChild = Boolean(child);
+    const statusTone = child ? child.tone : task.statusTone;
+    const statusLabel = child ? child.status : task.status;
+    const error = child ? child.errorFull || child.error : task.errorFull || task.error;
+    const errorSummary = child ? child.error : task.error;
+    const resultText = child
+      ? (child.status === '失败' ? null : `子任务 ${child.label} 已完成。`)
+      : task.result;
+    const counts = child ? null : task.counts;
+    const artifacts = isChild
+      ? (child.artifacts ? task.artifacts.slice(0, child.artifacts) : [])
+      : task.artifacts;
+
+    return `
+      <div class="detail">
+        <div class="detail-topbar">
+          <button class="link-btn" data-back="${isChild ? 'parent' : 'list'}">← ${isChild ? '返回父任务' : '返回列表'}</button>
+          <span class="crumb">任务详情 <span class="dot">/</span> <b>${escapeHtml(isChild ? task.name : title)}</b>${isChild ? ` <span class="dot">/</span> ${escapeHtml(title)}` : ''}</span>
+          <span class="spacer"></span>
+          <button class="btn ghost" data-refresh>刷新</button>
+        </div>
+
+        <section class="card detail-head">
+          <div class="detail-title-line">
+            <h2>${escapeHtml(title)}</h2>
+            ${tag(isChild ? '子任务' : task.taskType, 'gray')}
+            ${tag(statusLabel, statusTone)}
+            ${!isChild && task.partial ? tag(`${task.counts.total} 项中 ${task.counts.failed} 项失败`, 'orange') : ''}
+            ${!isChild && task.hasArtifacts ? tag('含产物', 'gray') : ''}
+          </div>
+          <div class="detail-sub">${isChild ? `${escapeHtml(task.name)} · 子任务` : `${escapeHtml(task.agent)} · ${escapeHtml(task.createdAt)} · 执行 ${escapeHtml(task.duration)}`}</div>
+          <div class="facts">
+            <div class="fact"><div class="k">所属 Agent</div><div class="v">${escapeHtml(task.agent)}</div></div>
+            <div class="fact"><div class="k">任务类型</div><div class="v">${escapeHtml(isChild ? '子任务' : task.taskType)}</div></div>
+            <div class="fact"><div class="k">创建时间</div><div class="v">${escapeHtml(task.createdAt)}</div></div>
+            <div class="fact"><div class="k">结束时间</div><div class="v">${escapeHtml(task.finishedAt || '执行中')}</div></div>
+            ${isChild ? `<div class="fact"><div class="k">条目键</div><div class="v mono">${escapeHtml(child.itemKey)}</div></div>` : ''}
+            ${!isChild ? `<div class="fact"><div class="k">子任务</div><div class="v">${task.childTotal ? `${task.childFinished}/${task.childTotal}` : '无'}</div></div>` : ''}
+            <div class="fact"><div class="k">执行结果</div><div class="v">${escapeHtml(statusLabel)}</div></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="section-head"><h3>结果 <span class="soft">${isChild ? '子任务结果' : '任务级结果'}</span></h3></div>
+          ${statusLabel === '失败'
+            ? `<div class="result-summary">任务失败：${escapeHtml(errorSummary || '未提供错误详情')}</div>${error ? `
+                <div class="error-box" data-error-box>
+                  <div class="error-head"><span>原始错误</span><span class="tag tag-red">已脱敏</span><span class="spacer"></span><span style="color:var(--faint)">full stderr</span></div>
+                  <div style="position:relative">
+                    <pre>${escapeHtml(error)}</pre>
+                    <div class="fade"></div>
+                  </div>
+                  <div class="error-actions">
+                    <button class="link-btn" data-expand-error>展开完整错误</button>
+                    <span class="search-note">凭据值以 *** 展示</span>
+                  </div>
+                </div>` : ''}`
+            : (resultText ? `<div class="result-summary">${escapeHtml(resultText)}</div>` : '')
+          }
+          ${counts ? renderCounts({ counts }) : ''}
+          ${!isChild && task.resultJson ? `
+            <details style="margin-top:10px;color:var(--muted);font-size:12px">
+              <summary style="cursor:pointer;color:var(--text-2)">查看结构化结果</summary>
+              <pre style="margin:8px 0 0;padding:10px;background:#1d1d1f;border:1px solid var(--border);border-radius:4px;color:#cfcfd4;font-size:11px;line-height:1.55;overflow:auto">${escapeHtml(task.resultJson)}</pre>
+            </details>` : ''}
+        </section>
+
+        <section class="card">
+          <div class="section-head">
+            <h3>产物 <span class="soft">${isChild ? (artifacts.length ? `${artifacts.length} 个` : '子任务无产物') : (task.artifacts ? `${task.artifacts.length} 个` : '0 个')}</span></h3>
+            <span class="hint">交付状态按目标展示</span>
+          </div>
+          ${renderArtifacts({ ...task, artifacts })}
+        </section>
+
+        ${!isChild ? `
+        <section class="card">
+          <div class="section-head"><h3>子任务 <span class="soft">${task.childTotal ? `${task.childTotal} 项` : '无'}</span></h3><span class="hint">失败项可直接看摘要，点开看全文</span></div>
+          ${renderChildren(task)}
+        </section>` : ''}
+      </div>
+    `;
+  }
+
+  function render() {
+    renderTabs();
+    if (state.workspace === 'chat') {
+      $view.innerHTML = `
+        <div class="placeholder">
+          <h2>对话页</h2>
+          <p>本交互稿只展示任务中心的变化；对话页保持现有实现。</p>
+          <button class="btn primary" data-workspace-back>回到任务中心</button>
+        </div>`;
+      return;
+    }
+    if (state.view === 'detail') {
+      const task = backgroundTasks.find((item) => item.id === state.taskId);
+      if (!task) {
+        state.view = 'list';
+        state.taskId = null;
+        render();
+        return;
+      }
+      const child = state.childId ? task.children.find((item) => item.id === state.childId) : null;
+      $view.innerHTML = renderDetail(task, child);
+      return;
+    }
+    $view.innerHTML = state.group === 'schedule' ? renderScheduleList() : renderBackgroundList();
+  }
+
+  document.addEventListener('click', (event) => {
+    const target = event.target.closest('button, [data-task], [data-schedule]');
+    if (!target) return;
+
+    if (target.dataset.workspace) {
+      state.workspace = target.dataset.workspace;
+      state.view = 'list';
+      state.taskId = null;
+      state.childId = null;
+      syncUrl();
+      render();
+      return;
+    }
+    if (target.dataset.workspaceBack !== undefined) {
+      state.workspace = 'tasks';
+      syncUrl();
+      render();
+      return;
+    }
+    if (target.dataset.group) {
+      state.group = target.dataset.group;
+      state.view = 'list';
+      state.taskId = null;
+      state.childId = null;
+      syncUrl();
+      render();
+      return;
+    }
+    if (target.dataset.schedule) {
+      showToast('定时任务详情保持现有页面；本交互稿重点展示后台任务。');
+      return;
+    }
+    if (target.dataset.task) {
+      state.group = 'background';
+      state.view = 'detail';
+      state.taskId = target.dataset.task;
+      state.childId = null;
+      syncUrl();
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (target.dataset.child) {
+      const [parentId, childId] = target.dataset.child.split(':');
+      state.view = 'detail';
+      state.taskId = parentId;
+      state.childId = childId;
+      syncUrl();
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (target.dataset.back) {
+      if (target.dataset.back === 'parent' && state.taskId) {
+        state.childId = null;
+        syncUrl();
+        render();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        state.view = 'list';
+        state.taskId = null;
+        state.childId = null;
+        syncUrl();
+        render();
+      }
+      return;
+    }
+    if (target.hasAttribute('data-expand-error')) {
+      const box = target.closest('[data-error-box]');
+      if (box) {
+        box.classList.toggle('expanded');
+        target.textContent = box.classList.contains('expanded') ? '收起完整错误' : '展开完整错误';
+      }
+      return;
+    }
+    if (target.dataset.download) {
+      showToast(`交互稿：下载「${target.dataset.download}」由真实服务提供。`);
+      return;
+    }
+    if (target.hasAttribute('data-refresh')) {
+      showToast('交互稿：已刷新任务状态（模拟）。');
+      return;
+    }
+  });
+
+  document.getElementById('agentFilter').addEventListener('change', (event) => {
+    state.agent = event.target.value;
+    if (state.workspace === 'tasks' && state.view === 'list') render();
+  });
+
+  document.getElementById('refresh').addEventListener('click', () => {
+    showToast('交互稿：已刷新任务列表（模拟）。');
+  });
+
+  document.getElementById('helpFab').addEventListener('click', () => {
+    $helpPanel.classList.toggle('show');
+  });
+
+  readUrl();
+  render();
+</script>
+</body>
+</html>
