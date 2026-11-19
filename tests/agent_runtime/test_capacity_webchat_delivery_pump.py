@@ -904,7 +904,7 @@ def test_b266_pump_policy_rejects_invalid_budgets() -> None:
 def test_b266_pump_policy_derives_from_the_startup_settings() -> None:
     policy = DeliveryPumpPolicy.from_settings(SharedSettings())
     assert policy.concurrency == 4 and policy.batch_size == 32
-    assert policy.lease_sec == 30 and policy.timeout_sec == 5.0
+    assert policy.lease_sec == 30 and policy.timeout_sec == 12.0
     assert policy.retry_base_sec == 1.0 and policy.retry_cap_sec == 30.0
     assert policy.max_attempts == 20 and policy.poll_sec == 1.0
 
