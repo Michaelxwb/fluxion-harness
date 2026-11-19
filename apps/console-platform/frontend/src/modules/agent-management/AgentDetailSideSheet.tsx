@@ -14,7 +14,7 @@ import { DetailSideSheet } from '../../components/common/DetailSideSheet';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
 import {
-  listPlatforms,
+  listExternalPlatforms,
   listUsers,
   type ExternalPlatformItem
 } from '../user-identity/services/users';
@@ -253,7 +253,7 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
         loadAllRelationItems((params) => listAgentMcps(props.agentId, params)),
         loadAllRelationItems((params) => listAgentUsers(props.agentId, params)),
         listAgentChannels(props.agentId, { page: 1, page_size: 100 }),
-        listPlatforms()
+        listExternalPlatforms()
       ]);
     setSkills(skillResult.status === 'fulfilled' ? skillResult.value : []);
     setMcps(mcpResult.status === 'fulfilled' ? mcpResult.value : []);
