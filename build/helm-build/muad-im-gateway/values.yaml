@@ -23,6 +23,10 @@ serviceAccount:
   create: false
   name: ''
   annotations: {}
+externalAssertion:
+  # 断言验签结果缓存的闲置窗口（秒）。必须与 muad-console-platform 的
+  # externalAssertion.cacheTtlSec 配同一值，否则两侧 TTL 判定不一致。
+  cacheTtlSec: 3600
 service:
   tag: ''
   resources:

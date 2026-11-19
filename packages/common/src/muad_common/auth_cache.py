@@ -512,23 +512,31 @@ class AuthCacheStore:
         tenant_id: str,
         platform_key: str,
         token_hash: str,
+        user_id: uuid.UUID,
         *,
         expires_at_epoch: float,
         now_epoch: float,
     ) -> bool:
-        """命中后延长闲置窗口，但**绝不越过绝对到期**。
+        """命中后延长闲置窗口，但**绝不越过绝对到期**，并同步续期反向索引。
 
         TTL = ``max(0, min(闲置窗口, expires_at - now))``——闲置窗口取 Store 构造时的
         `ttl_sec`，与 `RedisSessionStore._ttl_seconds` 同口径。键已消失返回 ``False``。
+
+        索引必须跟着续期：只续凭证会让索引先过期，之后停用用户/删除身份时按索引
+        找不到凭证键，旧 token 便删不掉、继续放行。
         """
         remaining = int(expires_at_epoch - now_epoch)
         ttl = max(0, min(self._ttl, remaining))
         if ttl <= 0:
             return False
         try:
-            return bool(
+            alive = bool(
                 await self._client.expire(credential_key(tenant_id, platform_key, token_hash), ttl)
             )
+            if alive:
+                index = user_reverse_index_key(tenant_id, platform_key, user_id)
+                await self._client.expire(index, ttl)
+            return alive
         except Exception as exc:  # noqa: BLE001
             raise AuthCacheUnavailable(type(exc).__name__) from exc
 

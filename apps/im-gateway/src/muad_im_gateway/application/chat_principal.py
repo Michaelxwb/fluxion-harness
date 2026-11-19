@@ -296,6 +296,7 @@ class ChatPrincipalGate:
                 self._tenant_id,
                 platform_key,
                 token_hash,
+                platform_user_id,
                 expires_at_epoch=expires_at_epoch,
                 now_epoch=now.timestamp(),
             )

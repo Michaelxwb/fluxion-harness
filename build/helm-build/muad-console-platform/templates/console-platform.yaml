@@ -91,6 +91,10 @@ spec:
             # 一个完整工作日；配 0 等于关闭该闸（只保留上游正数 exp 约束）。
             - name: EXTERNAL_ASSERTION_MAX_SESSION_AGE_SEC
               value: {{ .Values.externalAssertion.maxSessionAgeSec | quote }}
+            # 断言验签结果缓存的闲置窗口（秒）。写入 TTL 与命中续期上限同值，
+            # 实际取 min(本值, expires_at - now)。必须与 Gateway 配同一值。
+            - name: EXTERNAL_ASSERTION_CACHE_TTL_SEC
+              value: {{ .Values.externalAssertion.cacheTtlSec | quote }}
             - name: CONTROL_HTTP_MAX_CONNECTIONS
               value: "32"
             - name: CONTROL_HTTP_MAX_KEEPALIVE

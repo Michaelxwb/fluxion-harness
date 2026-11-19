@@ -180,10 +180,12 @@ async def test_touch_never_exceeds_absolute_expiry() -> None:
         "t1", "mssw", "h", uid, "p", expires_at_epoch=1_030, now_epoch=1_000
     )
     ok = await store.touch_credential(
-        "t1", "mssw", "h", expires_at_epoch=1_030, now_epoch=1_010
+        "t1", "mssw", "h", uid, expires_at_epoch=1_030, now_epoch=1_010
     )
     assert ok is True
     assert client.ttls[credential_key("t1", "mssw", "h")] == 20
+    # 索引必须同步续期，否则活跃用户的索引先过期，删除身份时找不到凭证键。
+    assert client.ttls[user_reverse_index_key("t1", "mssw", uid)] == 20
 
 
 @pytest.mark.asyncio
@@ -193,7 +195,7 @@ async def test_touch_returns_false_when_expired_or_gone() -> None:
     # 键不存在（并发删除）：touch 返回 False，调用方据此回源。
     assert (
         await store.touch_credential(
-            "t1", "mssw", "missing", expires_at_epoch=2_000, now_epoch=1_000
+            "t1", "mssw", "missing", uuid.uuid4(), expires_at_epoch=2_000, now_epoch=1_000
         )
         is False
     )
@@ -208,7 +210,7 @@ async def test_touch_returns_false_when_already_past_expiry() -> None:
     )
     assert (
         await store.touch_credential(
-            "t1", "mssw", "h", expires_at_epoch=5_000, now_epoch=5_000
+            "t1", "mssw", "h", uuid.uuid4(), expires_at_epoch=5_000, now_epoch=5_000
         )
         is False
     )

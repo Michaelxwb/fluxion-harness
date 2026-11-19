@@ -76,6 +76,11 @@ spec:
                   name: {{ .Values.global.existingSecret }}
                   key: EXTERNAL_ASSERTION_PLATFORMS_JSON
                   optional: true
+            # 断言验签结果缓存的闲置窗口（秒）。与 Console 的
+            # EXTERNAL_ASSERTION_CACHE_TTL_SEC 必须同值：Gateway 用它在命中后
+            # 续期 TTL（取 min(本值, expires_at - now)），偏差会让两侧判定不一致。
+            - name: EXTERNAL_ASSERTION_CACHE_TTL_SEC
+              value: {{ .Values.externalAssertion.cacheTtlSec | quote }}
             - name: CONTROL_HTTP_MAX_CONNECTIONS
               value: "32"
             - name: CONTROL_HTTP_MAX_KEEPALIVE

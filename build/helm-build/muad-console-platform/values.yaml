@@ -67,3 +67,8 @@ externalAssertion:
   # 外部断言最大会话年龄（秒）。86400 = 一天，覆盖一个工作日。
   # 上游 login_time 不随使用滑动，设得过小会在用户活跃时被 SSE 复核中断；0 表示关闭该闸。
   maxSessionAgeSec: 86400
+  # 断言验签结果缓存的闲置窗口（秒）。既是写入 TTL，也是每次命中后续期的上限
+  # （实际取 min(本值, expires_at - now)，绝对到期仍由 maxSessionAgeSec 封顶）。
+  # 设得过小会让缓存形同虚设（每请求都回源验签）；应与上游 token 的活跃周期对齐。
+  # Console 与 Gateway 必须配同一个值，否则两侧 TTL 判定不一致。
+  cacheTtlSec: 3600
