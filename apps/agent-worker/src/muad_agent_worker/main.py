@@ -317,8 +317,28 @@ def _register_loops(
     """登记独立循环；每个循环的停顿判据取它**自己的**节拍，不从别的循环借。"""
     factor = settings.worker_loop_stale_factor
 
-    def add(name: str, body: LoopBody, interval_sec: float) -> None:
-        supervisor.add(name, body, stale_after_sec=interval_sec * factor)
+    def add(
+        name: str,
+        body: LoopBody,
+        interval_sec: float,
+        *,
+        stale_after_sec: float | None = None,
+    ) -> None:
+        supervisor.add(
+            name,
+            body,
+            stale_after_sec=stale_after_sec or interval_sec * factor,
+        )
+
+    # 一次真实投递可能跨 Gateway 有界等待 + Connector 往返 + HTTP 读写；循环在等结果，
+    # 不是停摆。判据必须覆盖单次网络调用的预算，否则监督器会把在飞尝试杀掉并留下
+    # PENDING 行（B-127 的恢复窗口因此被 lease 拖住）。
+    network_stale_sec = (
+        settings.egress_http_read_timeout_sec
+        + settings.delivery_stream_wait_sec
+        + settings.http_connect_timeout_sec
+        + 5.0
+    )
 
     add("worker.claim", worker.run_forever, settings.worker_poll_interval_sec)
     add("worker.maintenance", worker.run_maintenance_forever, settings.run_reaper_interval_sec)
@@ -329,11 +349,17 @@ def _register_loops(
         scheduler.run_sweep_forever,
         settings.scheduler_poll_interval_sec,
     )
-    add("worker.delivery", delivery.run_forever, settings.delivery_poll_interval_sec)
+    add(
+        "worker.delivery",
+        delivery.run_forever,
+        settings.delivery_poll_interval_sec,
+        stale_after_sec=network_stale_sec,
+    )
     add(
         "worker.message_outbox",
         message_outbox.run_forever,
         settings.delivery_poll_interval_sec,
+        stale_after_sec=network_stale_sec,
     )
     add("worker.results", results.run_forever, settings.async_tool_dispatch_poll_sec)
     add(

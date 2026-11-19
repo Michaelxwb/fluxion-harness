@@ -72,8 +72,13 @@
    - `test_s_10.py` / `test_e_15.py`：移除已删除的 `intent_key`/`delivery_key`/`execution_mode` 旧字段，2 条通过；
    - `test_s_45.py`：确认 Model/MCP/Memory 域变更为后续需求事实后，重生成非干扰基线，3 条通过；
    - `test_stream_delivery.py::test_e19...`：改为读 `message_delivery`/attempt，重置尝试计数并从回执推导 outcome，1 条通过。
-3. **仍失败的旧投递用例**：
-   - `test_worker_delivery.py::test_b127_retryable_failure_recovers_after_injection_cleared`：`task_delivery` 第二次尝试停在 PENDING，清除故障注入后 180s 内未恢复 SENT；旧 `task_delivery` 循环的恢复问题，需单独排查（不影响新 `message_delivery` 的 E-19，后者已通过）。
+3. **旧投递循环恢复（已修复）**：
+   - `test_b127_retryable_failure_recovers_after_injection_cleared` 第二次尝试长期 PENDING 的根因是
+     `worker.delivery` 的 stale 判据只按轮询节拍（3×）而没有覆盖单次 Gateway 有界等待 + Connector
+     往返 + HTTP 超时；监督器把在飞尝试杀掉，留下 PENDING 行等 300s lease。
+   - 修复：`worker.delivery` / `worker.message_outbox` 的 stale 预算覆盖网络调用上限（不改变
+     正常轮询节拍，也不放宽真正停摆的检测）。
+   - 定向复跑 `test_worker_delivery.py`：4 passed。
 4. **外部环境**：E-04 内网真实任务仍 pending（无内网凭据/Connector）。
 
 本需求相关的单元、契约、集成、浏览器路径均已通过；上述第 2 类不是本需求新增回归，但归档前应由对应 Owner 决定是更新用例还是接受已知失败。
