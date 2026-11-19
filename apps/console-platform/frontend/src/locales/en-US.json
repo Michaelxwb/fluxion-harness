@@ -2034,7 +2034,7 @@
   "chat.taskCenter.background.children.headerError": "Error summary",
   "chat.taskCenter.background.children.headerArtifacts": "Artifacts",
   "chat.taskCenter.background.children.headerFinished": "Finished",
-  "chat.taskCenter.background.children.openAria": "View subtask {{label}} ({{status}})",
+  "chat.taskCenter.background.children.openAria": "Select subtask {{label}} ({{status}})",
   "chat.taskCenter.background.children.artifactCount": "{{count}}",
   "chat.taskCenter.background.children.marker": "Subtask",
   "chat.taskCenter.background.delivery.DELIVERED": "Delivered",
@@ -2410,7 +2410,7 @@
   "chat.taskCenter.detail.allSuccess": "Last {{count}} runs all succeeded",
   "chat.taskCenter.detail.someFailed": "{{failed}} of the last {{count}} runs had issues",
   "chat.taskCenter.detail.recentRuns": "Recent runs",
-  "chat.taskCenter.detail.recentRunsHint": "Newest first · 6 per page",
+  "chat.taskCenter.detail.recentRunsHint": "Newest first · 10 per page",
   "chat.taskCenter.detail.selectRun": "Select a run on the left to see its result",
   "chat.taskCenter.detail.runTitle": "Run details",
   "chat.taskCenter.detail.runResult": "Result",
@@ -2450,5 +2450,12 @@
   "chat.taskCenter.background.single.completed": "Task completed successfully",
   "chat.taskCenter.background.single.noResult": "The task completed without a text result.",
   "chat.taskCenter.background.result.raw": "View raw result JSON",
-  "chat.taskCenter.background.single.label": "Single task"
+  "chat.taskCenter.background.single.label": "Single task",
+  "chat.taskCenter.background.inline.title": "Subtask result",
+  "chat.taskCenter.background.inline.parentFiles": "Parent files",
+  "chat.taskCenter.background.inline.select": "Select a subtask to view its result",
+  "chat.taskCenter.detail.copyResult": "Copy result",
+  "chat.taskCenter.detail.copied": "Copied",
+  "chat.taskCenter.detail.copyFailed": "Copy failed",
+  "chat.taskCenter.execution.resultRaw": "View raw result JSON"
 }

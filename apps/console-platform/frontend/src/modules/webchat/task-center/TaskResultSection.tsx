@@ -10,7 +10,7 @@ import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { ExecutionDetail } from '../types';
-import { formatResult } from './taskResult';
+import { resultText } from './taskResult';
 
 const ACTIVE_STATUSES: ReadonlySet<string> = new Set([
   'QUEUED',
@@ -23,14 +23,6 @@ const ACTIVE_STATUSES: ReadonlySet<string> = new Set([
 export function errorSummaryLine(message: string | null): string {
   const first = (message ?? '').split('\n')[0]?.trim() ?? '';
   return first.length > 200 ? `${first.slice(0, 200)}…` : first;
-}
-
-function resultText(detail: ExecutionDetail): string {
-  const result = detail.result;
-  if (result === null) return '';
-  const text = result.text;
-  if (typeof text === 'string') return text;
-  return formatResult(result);
 }
 
 function ErrorSection(props: { message: string; code: string | null }) {
@@ -89,7 +81,7 @@ export function TaskResultSection(props: {
   const cancelled = Math.max(0, counts.cancelled);
   const progress = total === 0 ? 0 : Math.max(0, Math.min(100, (succeeded / total) * 100));
   const failedChild = detail.children.items.find((child) => child.status === 'FAILED');
-  const result = resultText(detail);
+  const result = resultText(detail.result);
 
   return (
     <section

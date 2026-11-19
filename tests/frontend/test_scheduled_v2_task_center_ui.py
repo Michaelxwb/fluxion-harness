@@ -1288,9 +1288,9 @@ def test_fire_history_pages_and_keeps_dst_events_separate(
     assert pages["retentionFrom"] == CLEANED_BEFORE
     assert (pages["page"], pages["total"]) == (2, 3)
     assert pages["params"] == [
-        {"page": 1, "page_size": 6},
+        {"page": 1, "page_size": 10},
         {"page": 2, "page_size": 2},
-    ], "首屏固定 6 条，翻页沿用服务端 page_size"
+    ], "首屏固定 10 条，翻页沿用服务端 page_size"
 
 
 def test_switching_schedule_drops_the_old_target(task_center_logic: dict[str, Any]) -> None:
@@ -1417,6 +1417,10 @@ def test_execution_facts_artifacts_and_long_result(task_center_render: dict[str,
     assert 'data-testid="chat-task-execution-schema"' in markup
     assert "512 B" in markup, "Snapshot 字节数可读化"
     assert '<details' in markup and 'data-testid="chat-task-execution-result"' in markup
+    assert markup.index('data-testid="chat-task-tech"') < markup.index(
+        'data-testid="chat-task-execution-result"'
+    ), "原始结果只在技术信息弹层，不占运行详情首屏"
+    assert 'data-testid="chat-task-run-result-copy"' in markup, "运行结果支持一键复制"
     long_markup = task_center_render["markup"]["detail-long-result-zh"]
     assert LONG_RESULT_TEXT in long_markup
     assert "<details" in long_markup, "长结果折叠，不撑破布局"

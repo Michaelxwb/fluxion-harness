@@ -319,6 +319,23 @@ export function WebchatTaskCenterPage(props: WebchatTaskCenterPageProps): ReactN
     [backgroundDetail]
   );
 
+  const handleBackgroundSelectChild = useCallback(
+    (childId: string) => {
+      downloads.reset();
+      void backgroundDetail.selectChild(childId);
+    },
+    [downloads, backgroundDetail]
+  );
+
+  const handleBackgroundClearChild = useCallback(() => {
+    downloads.reset();
+    backgroundDetail.clearChild();
+  }, [downloads, backgroundDetail]);
+
+  const handleBackgroundRetryChild = useCallback(() => {
+    void backgroundDetail.retryChild();
+  }, [backgroundDetail]);
+
   const navigateToPending = useCallback(() => {
     navigate('/chat/tasks?view=pending');
   }, [navigate]);
@@ -361,7 +378,9 @@ export function WebchatTaskCenterPage(props: WebchatTaskCenterPageProps): ReactN
           onBackToParent={handleBackgroundParent}
           onRefresh={handleBackgroundRefresh}
           onChildPage={handleBackgroundChildPage}
-          onOpenChild={handleBackgroundOpen}
+          onSelectChild={handleBackgroundSelectChild}
+          onClearChild={handleBackgroundClearChild}
+          onRetryChild={handleBackgroundRetryChild}
           onDownloadArtifact={handleDownloadArtifact}
         />
       );

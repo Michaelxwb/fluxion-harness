@@ -34,8 +34,8 @@ export type AsyncPhase = 'IDLE' | 'LOADING' | 'READY' | 'ERROR';
 
 /** 与 Console 列表统一：默认每页 15 条，PaginationFooter 的选项也从 15 起。 */
 export const TASK_CENTER_PAGE_SIZE = 15;
-/** 运行列表固定每页 6 条：与右侧详情等高，并保持分页可读。 */
-export const SCHEDULE_FIRE_PAGE_SIZE = 6;
+/** 运行列表固定每页 10 条：一屏能扫更多运行，分页只在超出时出现。 */
+export const SCHEDULE_FIRE_PAGE_SIZE = 10;
 
 /** 授权范围里的 Agent 过滤；`null` = 全部授权 Agent（服务端按授权集合取交集）。 */
 export interface ScheduleFilters {
@@ -161,7 +161,7 @@ export function emptyScheduleDetailState(): ScheduleDetailState {
   };
 }
 
-/** 分页参数只发送调用方已知的值：运行列表首屏固定 6 条，翻页沿用服务端返回的 page_size。 */
+/** 分页参数只发送调用方已知的值：运行列表首屏固定 10 条，翻页沿用服务端返回的 page_size。 */
 function pageQuery(page: number, pageSize: number): WebchatPageQuery {
   const query: WebchatPageQuery = { page };
   if (pageSize > 0) query.page_size = pageSize;

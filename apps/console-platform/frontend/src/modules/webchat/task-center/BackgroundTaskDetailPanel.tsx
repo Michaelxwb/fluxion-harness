@@ -22,7 +22,7 @@ import { isNotFoundCode } from './taskCenterState';
 import { CompactTaskArtifactGrid } from './TaskArtifactList';
 import { TaskInfoButton, TaskInfoPopover } from './TaskInfoPopover';
 import { TaskResultSection } from './TaskResultSection';
-import { formatResult } from './taskResult';
+import { formatResult, resultText } from './taskResult';
 
 export interface BackgroundTaskDetailPanelProps {
   state: BackgroundTaskDetailState;
@@ -32,7 +32,9 @@ export interface BackgroundTaskDetailPanelProps {
   onBackToParent(parentId: string): void;
   onRefresh(): void;
   onChildPage(page: number): void;
-  onOpenChild(taskId: string): void;
+  onSelectChild(taskId: string): void;
+  onClearChild(): void;
+  onRetryChild(): void;
   onDownloadArtifact(artifact: TaskArtifact): void;
 }
 
@@ -244,6 +246,113 @@ function FilesPanel(props: {
   );
 }
 
+function ChildResultPanel(props: {
+  state: BackgroundTaskDetailState;
+  downloads: ArtifactDownloadState;
+  onDownloadArtifact(artifact: TaskArtifact): void;
+  onRetry(): void;
+  onClear(): void;
+}) {
+  const { t } = useTranslation();
+  const selected =
+    props.state.detail?.children.items.find(
+      (item) => item.task_id === props.state.selectedChildId
+    ) ?? null;
+  const detail = props.state.childDetail;
+  const result = detail === null ? '' : resultText(detail.result);
+  return (
+    <section
+      className="chat-background-panel chat-background-inline"
+      data-testid="chat-background-inline"
+    >
+      <header className="chat-background-panel-head">
+        <div>
+          <h3>
+            {selected === null
+              ? t('chat.taskCenter.background.inline.title')
+              : `${selected.label} · ${t('chat.taskCenter.background.inline.title')}`}
+          </h3>
+          {selected === null ? null : (
+            <span className="chat-background-inline-status">
+              <ExecutionStatusTag status={selected.status} />
+            </span>
+          )}
+        </div>
+        <Button
+          size="small"
+          theme="borderless"
+          data-testid="chat-background-inline-clear"
+          onClick={props.onClear}
+        >
+          {t('chat.taskCenter.background.inline.parentFiles')}
+        </Button>
+      </header>
+      {props.state.childPhase === 'LOADING' ? (
+        <div data-testid="chat-background-inline-loading">
+          <Skeleton placeholder={<Skeleton.Paragraph rows={3} />} loading />
+        </div>
+      ) : null}
+      {props.state.childPhase === 'ERROR' ? (
+        <div className="chat-task-center-error" data-testid="chat-background-inline-error">
+          <Banner
+            type="danger"
+            closeIcon={null}
+            description={t('chat.taskCenter.background.detailLoadFailed')}
+          />
+          <Button size="small" data-testid="chat-background-inline-retry" onClick={props.onRetry}>
+            {t('chat.taskCenter.list.retry')}
+          </Button>
+          {props.state.childErrorCode === null ? null : (
+            <span className="chat-task-center-error-code">
+              {t('chat.taskCenter.error.codeSuffix', { code: props.state.childErrorCode })}
+            </span>
+          )}
+        </div>
+      ) : null}
+      {props.state.childPhase === 'READY' && detail !== null ? (
+        <>
+          <div
+            className={`chat-background-inline-result${
+              detail.status === 'FAILED' ? ' is-failed' : ''
+            }`}
+            data-testid="chat-background-inline-result"
+          >
+            <strong>{t('chat.taskCenter.detail.runResult')}</strong>
+            {detail.error_code === null ? null : (
+              <p className="chat-background-inline-failure" role="alert">
+                {t('chat.taskCenter.execution.failure', {
+                  code: detail.error_code,
+                  message: detail.error_message ?? ''
+                })}
+              </p>
+            )}
+            <p>
+              {result === ''
+                ? t('chat.taskCenter.execution.noResult')
+                : result.length > 600
+                  ? `${result.slice(0, 600)}…`
+                  : result}
+            </p>
+          </div>
+          <h4 className="chat-background-inline-title">
+            {t('chat.taskCenter.detail.runFiles')}
+            <span className="chat-background-panel-hint">
+              {t('chat.taskCenter.background.artifacts.total', {
+                count: Math.max(detail.artifact_total, detail.result_artifacts.length)
+              })}
+            </span>
+          </h4>
+          <CompactTaskArtifactGrid
+            artifacts={detail.result_artifacts}
+            state={props.downloads}
+            onDownload={props.onDownloadArtifact}
+          />
+        </>
+      ) : null}
+    </section>
+  );
+}
+
 export function BackgroundTaskDetailPanel(props: BackgroundTaskDetailPanelProps) {
   const { t } = useTranslation();
   const { state } = props;
@@ -355,13 +464,6 @@ export function BackgroundTaskDetailPanel(props: BackgroundTaskDetailPanelProps)
           <TaskResultSection detail={detail} onLocateFailedChild={locateFailedChild} />
           {hasArtifacts || hasChildren ? (
             <div className={`chat-background-body-split${hasChildren ? '' : ' is-single'}`}>
-              {hasArtifacts ? (
-                <FilesPanel
-                  detail={detail}
-                  downloads={props.downloads}
-                  onDownloadArtifact={props.onDownloadArtifact}
-                />
-              ) : null}
               {hasChildren ? (
                 <ChildTaskTable
                   items={detail.children.items}
@@ -370,11 +472,33 @@ export function BackgroundTaskDetailPanel(props: BackgroundTaskDetailPanelProps)
                   total={detail.children.total}
                   phase={state.childrenPhase}
                   errorCode={state.childrenErrorCode}
+                  selectedChildId={state.selectedChildId}
                   onPage={props.onChildPage}
-                  onOpenChild={props.onOpenChild}
+                  onSelectChild={props.onSelectChild}
                   onRetry={() => props.onChildPage(detail.children.page)}
                 />
               ) : null}
+              <div className="chat-background-result-pane" data-testid="chat-background-result-pane">
+                {hasChildren && state.selectedChildId !== null ? (
+                  <ChildResultPanel
+                    state={state}
+                    downloads={props.downloads}
+                    onDownloadArtifact={props.onDownloadArtifact}
+                    onRetry={props.onRetryChild}
+                    onClear={props.onClearChild}
+                  />
+                ) : hasArtifacts ? (
+                  <FilesPanel
+                    detail={detail}
+                    downloads={props.downloads}
+                    onDownloadArtifact={props.onDownloadArtifact}
+                  />
+                ) : (
+                  <p className="chat-background-inline-empty" data-testid="chat-background-inline-empty">
+                    {t('chat.taskCenter.background.inline.select')}
+                  </p>
+                )}
+              </div>
             </div>
           ) : null}
         </>

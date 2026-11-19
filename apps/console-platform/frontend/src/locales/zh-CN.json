@@ -2034,7 +2034,7 @@
   "chat.taskCenter.background.children.headerError": "错误摘要",
   "chat.taskCenter.background.children.headerArtifacts": "产物",
   "chat.taskCenter.background.children.headerFinished": "结束时间",
-  "chat.taskCenter.background.children.openAria": "查看子任务 {{label}}（{{status}}）",
+  "chat.taskCenter.background.children.openAria": "选择子任务 {{label}}（{{status}}）",
   "chat.taskCenter.background.children.artifactCount": "{{count}} 个",
   "chat.taskCenter.background.children.marker": "子任务",
   "chat.taskCenter.background.delivery.DELIVERED": "已交付",
@@ -2410,7 +2410,7 @@
   "chat.taskCenter.detail.allSuccess": "最近 {{count}} 次全部成功",
   "chat.taskCenter.detail.someFailed": "最近 {{count}} 次有 {{failed}} 次异常",
   "chat.taskCenter.detail.recentRuns": "最近运行",
-  "chat.taskCenter.detail.recentRunsHint": "按时间倒序 · 每页 6 条",
+  "chat.taskCenter.detail.recentRunsHint": "按时间倒序 · 每页 10 条",
   "chat.taskCenter.detail.selectRun": "选择左侧一次运行查看结果",
   "chat.taskCenter.detail.runTitle": "运行详情",
   "chat.taskCenter.detail.runResult": "运行结果",
@@ -2450,5 +2450,12 @@
   "chat.taskCenter.background.single.completed": "任务已成功完成",
   "chat.taskCenter.background.single.noResult": "任务已完成，没有额外结果正文。",
   "chat.taskCenter.background.result.raw": "查看原始结果 JSON",
-  "chat.taskCenter.background.single.label": "单次任务"
+  "chat.taskCenter.background.single.label": "单次任务",
+  "chat.taskCenter.background.inline.title": "子任务结果",
+  "chat.taskCenter.background.inline.parentFiles": "父任务文件",
+  "chat.taskCenter.background.inline.select": "选择左侧子任务查看结果",
+  "chat.taskCenter.detail.copyResult": "复制结果",
+  "chat.taskCenter.detail.copied": "已复制",
+  "chat.taskCenter.detail.copyFailed": "复制失败",
+  "chat.taskCenter.execution.resultRaw": "查看原始结果 JSON"
 }

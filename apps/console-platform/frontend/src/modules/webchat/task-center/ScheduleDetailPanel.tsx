@@ -6,6 +6,7 @@
  * 运行列表与详情共用同一份 Fire/Execution 事实；等待不是失败，跳过/准入失败不请求执行详情。
  */
 
+import { IconCopy } from '@douyinfe/semi-icons';
 import { Banner, Button, Empty, Skeleton, Typography } from '@douyinfe/semi-ui';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -308,6 +309,7 @@ function RunDetail(props: {
   onRetry(): void;
 }) {
   const { t } = useTranslation();
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const fire = props.fire ?? executionAsFire(props.execution);
   if (fire === null) {
     return <Empty description={t('chat.taskCenter.detail.selectRun')} />;
@@ -315,6 +317,15 @@ function RunDetail(props: {
   const execution = props.execution;
   const waiting = execution.detail;
   const result = waiting === null ? '' : resultText(waiting.result);
+  const copyResult = async () => {
+    if (result === '') return;
+    try {
+      await navigator.clipboard.writeText(result);
+      setCopyState('copied');
+    } catch {
+      setCopyState('failed');
+    }
+  };
   return (
     <section className="chat-task-execution" data-testid="chat-task-execution">
       <header className="chat-task-run-detail-head">
@@ -350,7 +361,26 @@ function RunDetail(props: {
           <div
             className={`chat-task-run-result ${runDisplayStatus(fire) === 'FAILED' ? 'is-failed' : ''}`}
           >
-            <strong>{t('chat.taskCenter.detail.runResult')}</strong>
+            <div className="chat-task-run-result-head">
+              <strong>{t('chat.taskCenter.detail.runResult')}</strong>
+              <Button
+                size="small"
+                theme="borderless"
+                icon={<IconCopy />}
+                disabled={result === ''}
+                data-testid="chat-task-run-result-copy"
+                aria-label={t('chat.taskCenter.detail.copyResult')}
+                onClick={() => void copyResult()}
+              >
+                {copyState === 'idle'
+                  ? t('chat.taskCenter.detail.copyResult')
+                  : t(
+                      copyState === 'copied'
+                        ? 'chat.taskCenter.detail.copied'
+                        : 'chat.taskCenter.detail.copyFailed'
+                    )}
+              </Button>
+            </div>
             <p>
               {result === ''
                 ? t('chat.taskCenter.execution.noResult')
@@ -375,14 +405,6 @@ function RunDetail(props: {
               )}
             </div>
           )}
-          <details className="chat-task-execution-result" data-testid="chat-task-execution-result">
-            <summary>{t('chat.taskCenter.execution.result')}</summary>
-            {result === '' ? (
-              <p>{t('chat.taskCenter.execution.noResult')}</p>
-            ) : (
-              <pre className="chat-task-execution-result-body">{result}</pre>
-            )}
-          </details>
           <h3 className="chat-task-run-section-title">{t('chat.taskCenter.detail.runFiles')}</h3>
           <RunFileList
             artifacts={waiting.result_artifacts}
@@ -619,6 +641,12 @@ function TechInfo(props: { state: ScheduleDetailState }) {
           </>
         )}
       </dl>
+      {execution === null || execution.result === null ? null : (
+        <details className="chat-task-execution-result" data-testid="chat-task-execution-result">
+          <summary>{t('chat.taskCenter.execution.resultRaw')}</summary>
+          <pre className="chat-task-execution-result-body">{formatResult(execution.result)}</pre>
+        </details>
+      )}
     </>
   );
 }

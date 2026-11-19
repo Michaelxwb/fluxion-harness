@@ -605,7 +605,11 @@
   background: var(--semi-color-danger-light-default);
 }
 
-.chat-background-child-open {
+.chat-background-child-table tr.is-selected td {
+  background: var(--semi-color-primary-light-default);
+}
+
+.chat-background-child-select {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -618,11 +622,11 @@
   cursor: pointer;
 }
 
-.chat-background-child-open:hover .chat-background-child-label {
+.chat-background-child-select:hover .chat-background-child-label {
   color: var(--semi-color-primary);
 }
 
-.chat-background-child-open:focus-visible {
+.chat-background-child-select:focus-visible {
   outline: 2px solid var(--semi-color-primary);
   outline-offset: 2px;
 }
@@ -956,6 +960,13 @@
 .chat-task-run-result.is-muted {
   border-color: var(--semi-color-border);
   background: var(--semi-color-fill-0);
+}
+
+.chat-task-run-result-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .chat-task-run-result strong {
@@ -1327,6 +1338,71 @@
 
 .chat-background-body-split.is-single {
   grid-template-columns: minmax(0, 1fr);
+}
+
+.chat-background-result-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.chat-background-result-pane .chat-background-panel {
+  flex: 1;
+}
+
+.chat-background-inline-status {
+  display: inline-flex;
+  margin-top: 3px;
+}
+
+.chat-background-inline-result {
+  padding: 10px 12px;
+  border: 1px solid var(--semi-color-success-light-active);
+  border-radius: 9px;
+  background: var(--semi-color-success-light-default);
+}
+
+.chat-background-inline-result.is-failed {
+  border-color: var(--semi-color-danger-light-active);
+  background: var(--semi-color-danger-light-default);
+}
+
+.chat-background-inline-result strong {
+  display: block;
+  color: var(--semi-color-text-0);
+  font-size: 12px;
+}
+
+.chat-background-inline-result p {
+  margin: 5px 0 0;
+  color: var(--semi-color-text-1);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-background-inline-result .chat-background-inline-failure {
+  color: var(--semi-color-danger);
+}
+
+.chat-background-inline-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 12px 0 6px;
+  color: var(--semi-color-text-0);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.chat-background-inline-empty {
+  margin: 0;
+  padding: 24px 12px;
+  color: var(--semi-color-text-2);
+  font-size: 12px;
+  text-align: center;
 }
 
 .chat-background-panel {

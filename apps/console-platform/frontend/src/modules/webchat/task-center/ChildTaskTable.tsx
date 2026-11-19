@@ -21,8 +21,9 @@ export interface ChildTaskTableProps {
   total: number;
   phase: AsyncPhase;
   errorCode: string | null;
+  selectedChildId: string | null;
   onPage(page: number): void;
-  onOpenChild(taskId: string): void;
+  onSelectChild(taskId: string): void;
   onRetry(): void;
 }
 
@@ -92,18 +93,25 @@ export function ChildTaskTable(props: ChildTaskTableProps) {
                     data-testid="chat-background-child-row"
                     data-task-id={item.task_id}
                     data-status={item.status}
-                    className={item.status === 'FAILED' ? 'is-failed' : undefined}
+                    aria-selected={item.task_id === props.selectedChildId}
+                    className={[
+                      item.status === 'FAILED' ? 'is-failed' : '',
+                      item.task_id === props.selectedChildId ? 'is-selected' : ''
+                    ]
+                      .filter(Boolean)
+                      .join(' ') || undefined}
                   >
                     <td>
                       <button
                         type="button"
-                        className="chat-background-child-open"
-                        data-testid="chat-background-child-open"
+                        className="chat-background-child-select"
+                        data-testid="chat-background-child-select"
+                        aria-pressed={item.task_id === props.selectedChildId}
                         aria-label={t('chat.taskCenter.background.children.openAria', {
                           label: item.label,
                           status: item.status
                         })}
-                        onClick={() => props.onOpenChild(item.task_id)}
+                        onClick={() => props.onSelectChild(item.task_id)}
                       >
                         <span className="chat-background-child-label">{item.label}</span>
                         {item.item_key === null ? null : (

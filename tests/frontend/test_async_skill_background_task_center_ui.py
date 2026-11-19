@@ -488,7 +488,37 @@ const observations = {};
   detail.dispose();
 }
 
-// 13) 路由解析：后台深链与定时任务路径优先级。
+// 13) 选中子任务：内联读取该执行一次；清空后取消选中，不产生额外请求。
+{
+  http.requests = [];
+  http.handler = (config) =>
+    config.url.includes(TASK_CHILD)
+      ? ok(detailOf({ execution_id: TASK_CHILD, parent_id: TASK_A, item_key: 'customer-c' }))
+      : ok(detailOf());
+  const detail = createBackgroundTaskDetailController({ port: client });
+  await detail.open(TASK_A);
+  await detail.selectChild(TASK_CHILD);
+  const selected = detail.snapshot();
+  detail.clearChild();
+  const cleared = detail.snapshot();
+  observations.childSelection = {
+    selected: {
+      childId: selected.selectedChildId,
+      phase: selected.childPhase,
+      executionId: selected.childDetail?.execution_id ?? null,
+      parentId: selected.childDetail?.parent_id ?? null
+    },
+    cleared: {
+      childId: cleared.selectedChildId,
+      phase: cleared.childPhase,
+      detailIsNull: cleared.childDetail === null
+    },
+    requestCount: http.requests.length
+  };
+  detail.dispose();
+}
+
+// 14) 路由解析：后台深链与定时任务路径优先级。
 {
   observations.routes = {
     scheduleList: parseTaskCenterQuery('', null),
@@ -668,6 +698,10 @@ const detailState = (overrides = {}) => ({
   errorCode: null,
   childrenPhase: 'READY',
   childrenErrorCode: null,
+  selectedChildId: null,
+  childPhase: 'IDLE',
+  childDetail: null,
+  childErrorCode: null,
   ...overrides
 });
 const idleDownloads = { entries: {} };
@@ -704,7 +738,9 @@ function detailScenario(scenario) {
     onBackToParent: noop,
     onRefresh: noop,
     onChildPage: noop,
-    onOpenChild: noop,
+    onSelectChild: noop,
+    onClearChild: noop,
+    onRetryChild: noop,
     onDownloadArtifact: noop
   });
 }
@@ -986,6 +1022,50 @@ def _child_detail() -> dict[str, Any]:
     return state
 
 
+def _inline_child_detail() -> dict[str, Any]:
+    state = json.loads(json.dumps(DETAIL_OVERRIDES))
+    child = json.loads(json.dumps(DETAIL_OVERRIDES["detail"]))
+    child.update(
+        {
+            "execution_id": TASK_CHILD,
+            "parent_id": TASK_A,
+            "item_key": "customer-c",
+            "task_type": "BATCH",
+            "skill_name": "客户 C 对账",
+            "status": "FAILED",
+            "error_code": "HTTP_401",
+            "error_message": "HTTP 401 Unauthorized",
+            "result": {"text": "客户 C 对账失败：凭据失效"},
+            "result_artifacts": [json.loads(json.dumps(DETAIL_OVERRIDES["detail"]["result_artifacts"][1]))],
+            "artifact_total": 1,
+            "counts": {"total": 0, "succeeded": 0, "failed": 0, "cancelled": 0},
+            "children": {"items": [], "page": 1, "page_size": 3, "total": 0},
+        }
+    )
+    state.update(
+        {
+            "selectedChildId": TASK_CHILD,
+            "childPhase": "READY",
+            "childDetail": child,
+            "childErrorCode": None,
+        }
+    )
+    return state
+
+
+def _inline_child_error() -> dict[str, Any]:
+    state = json.loads(json.dumps(DETAIL_OVERRIDES))
+    state.update(
+        {
+            "selectedChildId": TASK_CHILD,
+            "childPhase": "ERROR",
+            "childDetail": None,
+            "childErrorCode": "NETWORK_ERROR",
+        }
+    )
+    return state
+
+
 SCENARIOS = (
     {"id": "list-zh", "locale": "zh-CN",
      "state": {"items": LIST_ITEMS, "page": 1, "pageSize": 2, "total": 30}},
@@ -1005,6 +1085,8 @@ SCENARIOS = (
     {"id": "detail-child-zh", "locale": "zh-CN", "kind": "detail", "state": _child_detail()},
     {"id": "detail-no-children-zh", "locale": "zh-CN", "kind": "detail", "state": _no_children_detail()},
     {"id": "detail-no-artifacts-zh", "locale": "zh-CN", "kind": "detail", "state": _no_artifacts_detail()},
+    {"id": "detail-inline-child-zh", "locale": "zh-CN", "kind": "detail", "state": _inline_child_detail()},
+    {"id": "detail-inline-error-zh", "locale": "zh-CN", "kind": "detail", "state": _inline_child_error()},
     {"id": "detail-notfound-zh", "locale": "zh-CN", "kind": "detail",
      "state": {"detail": None, "phase": "ERROR", "errorCode": "COMMON_NOT_FOUND"}},
     {"id": "detail-children-error-zh", "locale": "zh-CN", "kind": "detail",
@@ -1171,6 +1253,22 @@ def test_not_found_is_an_explicit_state(background_logic: dict[str, Any]) -> Non
     assert state["items"] == []
 
 
+def test_child_selection_is_inline_and_clearable(background_logic: dict[str, Any]) -> None:
+    selection = background_logic["childSelection"]
+    assert selection["selected"] == {
+        "childId": TASK_CHILD,
+        "phase": "READY",
+        "executionId": TASK_CHILD,
+        "parentId": TASK_A,
+    }, "选中子任务只读该执行详情，不改父任务状态"
+    assert selection["cleared"] == {
+        "childId": None,
+        "phase": "IDLE",
+        "detailIsNull": True,
+    }
+    assert selection["requestCount"] == 2, "打开父任务 1 次 + 选中子任务 1 次"
+
+
 def test_detail_reads_once_and_never_polls(background_logic: dict[str, Any]) -> None:
     opened = background_logic["detailOpen"]
     assert len(opened["requests"]) == 1
@@ -1334,9 +1432,9 @@ def test_child_table_has_labels_summaries_and_pagination(background_render: dict
     assert _count(markup, "chat-background-child-row") == 3
     assert "客户 C" in markup and "customer-c" in markup
     assert "客户 A" in markup and "客户 B" in markup
-    assert _count(markup, "chat-background-child-open") == 3
-    open_button = _tag(markup, "chat-background-child-open")
-    assert 'aria-label="查看子任务 客户 C（FAILED）"' in open_button
+    assert _count(markup, "chat-background-child-select") == 3
+    select_button = _tag(markup, "chat-background-child-select")
+    assert 'aria-label="选择子任务 客户 C（FAILED）"' in select_button
     failed_row = markup.split('data-testid="chat-background-child-row"')[1].split("</tr>")[0]
     assert "is-failed" in failed_row or 'data-status="FAILED"' in failed_row
     assert "HTTP 401 Unauthorized" in failed_row
@@ -1344,6 +1442,29 @@ def test_child_table_has_labels_summaries_and_pagination(background_render: dict
     assert len(summary) <= 240, "子任务摘要只保留首行且不塞完整 traceback"
     assert "1 个" in markup, "子任务产物数量可读化"
     assert "app-pagination" in markup, "7 项 / 每页 3 项 -> 分页"
+
+
+def test_child_selection_renders_result_inline(background_render: dict[str, Any]) -> None:
+    markup = background_render["markup"]["detail-inline-child-zh"]
+    assert 'data-testid="chat-background-inline"' in markup
+    assert "客户 C · 子任务结果" in markup
+    assert "客户 C 对账失败：凭据失效" in markup
+    assert 'data-testid="chat-background-inline-clear"' in markup
+    assert "父任务文件" in markup
+    selected = [
+        tag for tag in re.findall(r'<button[^>]*data-testid="chat-background-child-select"[^>]*>', markup)
+        if 'aria-pressed="true"' in tag
+    ]
+    assert len(selected) == 1, "选中的子任务行有按下态"
+    assert 'data-testid="chat-task-artifact"' in markup, "右侧展示选中子任务的文件"
+
+
+def test_child_selection_error_can_retry(background_render: dict[str, Any]) -> None:
+    markup = background_render["markup"]["detail-inline-error-zh"]
+    assert 'data-testid="chat-background-inline-error"' in markup
+    assert 'data-testid="chat-background-inline-retry"' in markup
+    assert "NETWORK_ERROR" in markup
+    assert 'data-testid="chat-background-inline-result"' not in markup
 
 
 def test_child_detail_offers_the_way_back_to_the_parent(background_render: dict[str, Any]) -> None:
