@@ -129,29 +129,40 @@ def test_channel_form_supports_webchat_entries() -> None:
     assert 'field="channel"' in source
     assert "disabled={props.channel !== null}" in source, "编辑已有入口时通道不可改"
     assert "channel," in source and "values.channel" in source, "创建时通道按表单值提交"
-    # 无 secret 通道（WEBCHAT / MSSWWEB）不渲染 secret 输入、不提交 secret。
-    # 断言行为判据而非具体表达式，避免以后再加一个无 secret 通道就要改测试。
-    assert "!isSecretless(channelKind) ?" in source, "无 secret 通道不渲染 secret 字段"
-    assert "if (!isSecretless(channel)) {" in source, "只有企微入口提交 secret"
+    # 无 secret 通道（WEBCHAT / 外部断言平台通道）不渲染 secret 输入、不提交 secret。
+    # `isSecretless` 现按「内置 ∪ 外部平台通道」动态判定（externalChannels）。
+    assert "!secretless ?" in source, "无 secret 通道不渲染 secret 字段"
+    assert "if (!isSecretless(channel, externalChannels)) {" in source, "只有企微入口提交 secret"
+    assert "function isSecretless(kind: ChannelKind, externalChannels: ExternalChannelOption[])" in source
 
 
 def test_channel_form_offers_msswweb_entries() -> None:
     """[S-01] FEAT-11：Agent 页要能新建 MSSWWEB 入口（无 secret，填 bot_id）。
 
-    后端 `SECRETLESS_CHANNELS` 已含 MSSWWEB，缺口只在前端下拉框；这条守住前端不再退回两值。
+    通道下拉现为「内置三通道（含 MSSWWEB）+ 外部平台通道」配置驱动；这条守住 MSSWWEB
+    仍在内置可选，且通道名不再是封闭字面量（新增平台不必改前端）。
     """
     source = _source("ChannelFormModal.tsx")
-    assert "type ChannelKind = 'WECOM' | 'WEBCHAT' | 'MSSWWEB'" in source
-    assert "{ value: 'MSSWWEB', label: t('agent.channel.channelMsswweb') }" in source
-    # 不能再用「非 WEBCHAT 即 WECOM」的归一，否则选中 MSSWWEB 会被改写成 WECOM 建出去。
+    assert "{ value: MSSWWEB_CHANNEL, label: t('agent.channel.channelMsswweb') }" in source
+    # 通道名开放为 string（配置驱动外部平台通道），不再是封闭联合字面量。
+    assert "type ChannelKind = string" in source
+    # 下拉项 = 内置 + 外部平台通道。
+    assert "optionList={channelOptions}" in source
+    # 不能再用「非 WEBCHAT 即 WECOM」的归一，否则选中外部通道会被改写成 WECOM 建出去。
     assert "values.channel === WEBCHAT_CHANNEL ? WEBCHAT_CHANNEL : DEFAULT_CHANNEL" not in source
+    assert "return raw && raw.trim() ? raw : DEFAULT_CHANNEL;" in source
 
 
 def test_channel_list_renders_msswweb_label() -> None:
-    """[FEAT-11] 入口列表要显示 MSSWWEB 的可读名称，而不是原始枚举值。"""
+    """[FEAT-11] 入口列表要显示 MSSWWEB 的可读名称，而不是原始枚举值。
+
+    展示名现由 `channelLabelOf` 统一解析（内置走 i18n、外部平台通道走 `display_name`）。
+    """
     source = _source("AgentDetailSideSheet.tsx")
+    assert "channelLabelOf" in source
     assert "value === 'MSSWWEB'" in source
     assert "agent.channel.channelMsswweb" in source
+    assert "externalPlatforms.find((p) => p.channel === value)" in source
 
 
 def test_webchat_entry_exposes_chat_link() -> None:

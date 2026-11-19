@@ -328,6 +328,8 @@ export interface ExternalPlatformItem {
   configured: boolean;
   identity_keys: string[];
   identity_field_labels: Record<string, string>;
+  /** 该平台归属的外部断言通道名（驱动建入口时的通道下拉与「无 secret」判定）。 */
+  channel: string;
 }
 
 /** 平台下可授权的入口（bot_account）；`granted` 表示该身份是否已授权此入口。 */

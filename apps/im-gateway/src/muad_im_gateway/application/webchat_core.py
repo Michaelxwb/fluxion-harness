@@ -73,6 +73,9 @@ class ChatSurface:
     #: 外部断言面所属的 `platform_key`（仅 `EXTERNAL_ASSERTION` 用到）；来自 Secret 配置，
     #: 视为非敏感标识。Gateway 转发到 Console 的 `external-principal` 时原样带上。
     platform_key: str | None = None
+    #: 外部断言面读取 JWT 的请求头名（仅 `EXTERNAL_ASSERTION` 用到）；来自 Secret 配置，
+    #: 默认 `soc-token`。不同外部平台可各配各的头名，故按 surface 注入而非写死在 deps。
+    assertion_header: str = "soc-token"
 
     @property
     def identity(self) -> WebchatChannelIdentity:

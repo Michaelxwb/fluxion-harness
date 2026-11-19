@@ -13,7 +13,11 @@ import { DetailGrid } from '../../components/common/DetailGrid';
 import { DetailSideSheet } from '../../components/common/DetailSideSheet';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
-import { listUsers } from '../user-identity/services/users';
+import {
+  listPlatforms,
+  listUsers,
+  type ExternalPlatformItem
+} from '../user-identity/services/users';
 
 import { ChannelFormModal } from './ChannelFormModal';
 import {
@@ -223,6 +227,8 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
   const [mcps, setMcps] = useState<AgentMcpItem[]>([]);
   const [grants, setGrants] = useState<AgentGrantItem[]>([]);
   const [channels, setChannels] = useState<AgentChannelItem[]>([]);
+  // 外部断言平台（配置驱动）：其 `channel`/`display_name` 决定可建入口的通道与展示名。
+  const [externalPlatforms, setExternalPlatforms] = useState<ExternalPlatformItem[]>([]);
   const [relationFailed, setRelationFailed] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
   const [pickerToken, setPickerToken] = useState(0);
@@ -241,16 +247,20 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
       setLoading(false);
       return;
     }
-    const [skillResult, mcpResult, grantResult, channelResult] = await Promise.allSettled([
-      loadAllRelationItems((params) => listAgentSkills(props.agentId, params)),
-      loadAllRelationItems((params) => listAgentMcps(props.agentId, params)),
-      loadAllRelationItems((params) => listAgentUsers(props.agentId, params)),
-      listAgentChannels(props.agentId, { page: 1, page_size: 100 })
-    ]);
+    const [skillResult, mcpResult, grantResult, channelResult, platformResult] =
+      await Promise.allSettled([
+        loadAllRelationItems((params) => listAgentSkills(props.agentId, params)),
+        loadAllRelationItems((params) => listAgentMcps(props.agentId, params)),
+        loadAllRelationItems((params) => listAgentUsers(props.agentId, params)),
+        listAgentChannels(props.agentId, { page: 1, page_size: 100 }),
+        listPlatforms()
+      ]);
     setSkills(skillResult.status === 'fulfilled' ? skillResult.value : []);
     setMcps(mcpResult.status === 'fulfilled' ? mcpResult.value : []);
     setGrants(grantResult.status === 'fulfilled' ? grantResult.value : []);
     setChannels(channelResult.status === 'fulfilled' ? channelResult.value.items : []);
+    // 平台列表缺失不应影响其它关系数据：失败时退化为「只有内置三通道」。
+    setExternalPlatforms(platformResult.status === 'fulfilled' ? platformResult.value : []);
     setRelationFailed(
       [skillResult, mcpResult, grantResult, channelResult].some(
         (result) => result.status === 'rejected'
@@ -284,6 +294,20 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
       </DetailSideSheet>
     );
   }
+
+  // 通道展示名：内置三通道走 i18n，其余（外部平台通道）用平台 `display_name`，兜底为通道名。
+  const channelLabelOf = (value: string): string => {
+    if (value === 'WEBCHAT') return t('agent.channel.channelWebchat');
+    if (value === 'MSSWWEB') return t('agent.channel.channelMsswweb');
+    if (value === 'WECOM') return t('agent.channel.channelWecom');
+    const match = externalPlatforms.find((p) => p.channel === value);
+    const label = match?.display_name?.trim();
+    return label ? label : value;
+  };
+  // 传给建/改入口弹窗的外部通道选项（与内置重名由弹窗内部去重）。
+  const externalChannelOptions = externalPlatforms
+    .filter((p) => p.channel && p.channel !== 'MSSWWEB')
+    .map((p) => ({ channel: p.channel, label: p.display_name || p.channel }));
 
   return (
     <>
@@ -521,14 +545,7 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
                 {
                   title: t('agent.relation.channel'),
                   dataIndex: 'channel',
-                  render: (value: string) =>
-                    value === 'WEBCHAT'
-                      ? t('agent.channel.channelWebchat')
-                      : value === 'MSSWWEB'
-                        ? t('agent.channel.channelMsswweb')
-                        : value === 'WECOM'
-                          ? t('agent.channel.channelWecom')
-                          : value
+                  render: (value: string) => channelLabelOf(value)
                 },
                 {
                   title: t('agent.relation.chatLink'),
@@ -598,6 +615,7 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
         visible={channelFormVisible}
         agentId={props.agentId}
         channel={editingChannel}
+        externalChannels={externalChannelOptions}
         onCancel={() => {
           setChannelFormVisible(false);
           setEditingChannel(null);

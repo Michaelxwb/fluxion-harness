@@ -20,7 +20,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..infrastructure.repositories.external_identity_repository import (
     ExternalIdentityRepository,
 )
-from .channel_admin_service import MSSWWEB_CHANNEL
 from .external_assertion.config import (
     ExternalPlatformConfig,
     PlatformConfigError,
@@ -89,9 +88,10 @@ class ExternalAssertionService:
         ``channel`` 由调用方（Gateway）给出：外部断言只在 `MSSWWEB` 通道有效，传入别的
         通道直接拒绝，避免一个断言被挪用到其它通道的身份解析上。
         """
-        _check_channel(channel)
         settings = process_settings()
         config = _require_config(platform_key)
+        # 先取到平台配置，才知道该平台的通道名；平台未配置时先在 `_require_config` 503。
+        _check_channel(channel, config)
         verified = _verify(assertion, config, platform_key, settings)
 
         resolved = await resolve_principal(
@@ -112,7 +112,9 @@ class ExternalAssertionService:
             if resolved.platform_user_id is not None and resolved.identity_id is not None
             else None
         )
-        expires_at = _session_expires_at(verified.claims, settings.external_assertion_max_session_age_sec)
+        expires_at = _session_expires_at(
+            verified.claims, config, settings.external_assertion_max_session_age_sec
+        )
         # 只在「验签通过 + 身份已绑定且用户可用」时写凭证层：未绑定/停用的断言缓存了也没有用，
         # 且会把一次拒绝结论固化。授权不写进来——网关命中凭证后仍要读权限层，撤权才即时生效。
         if self._cache is not None and resolved.allowed and principal is not None:
@@ -156,8 +158,8 @@ class ExternalAssertionService:
         验签失败仍抛 :class:`ExternalAssertionRejected`（401）：签名/算法/因子/时效属于
         「无效请求」，把它说成「没有权限」会误导外部平台去引导用户绑定，方向就错了。
         """
-        _check_channel(channel)
         config = _require_config(platform_key)
+        _check_channel(channel, config)
         verified = _verify(assertion, config, platform_key, process_settings())
         resolved = await resolve_principal(self._repository, tenant_id, config, verified, entry_id=entry_id)
         return {
@@ -278,18 +280,19 @@ def _grant_payload(view: GrantView) -> dict[str, object]:
     }
 
 
-def _check_channel(channel: str | None) -> None:
-    """外部断言只在外部断言通道有效；给了别的通道直接拒绝。
+def _check_channel(channel: str | None, config: ExternalPlatformConfig) -> None:
+    """外部断言只在**该平台配置的通道**有效；给了别的通道直接拒绝。
 
     `channel` 为 ``None`` 时视为调用方未声明（Gateway 老版本），保持向后兼容；
-    一旦声明就必须是 `MSSWWEB`，否则一个断言可能被挪用到其它通道做身份解析。
+    一旦声明就必须等于 ``config.channel``，否则一个断言可能被挪用到其它平台的通道做
+    身份解析（例：把 `acme` 平台的断言投到 `MSSWWEB` 通道）。
     """
-    if channel is not None and channel != MSSWWEB_CHANNEL:
+    if channel is not None and channel != config.channel:
         # 复用 `EXTERNAL_ASSERTION_INVALID`：对外语义就是「这个断言在本通道无效」，
         # 不新增错误码，避免连带消息目录与前端映射一起扩。
         raise ExternalAssertionRejected(
             _DEFAULT_REJECTION_CODE,
-            f"断言通道 {channel} 不是外部断言通道",
+            f"断言通道 {channel} 不是该平台通道 {config.channel}",
         )
 
 
@@ -332,7 +335,9 @@ def _verify(
         ) from exc
 
 
-def _session_expires_at(claims: dict[str, object], max_session_age_sec: int | None) -> datetime:
+def _session_expires_at(
+    claims: dict[str, object], config: ExternalPlatformConfig, max_session_age_sec: int | None
+) -> datetime:
     """断言会话的权威到期时刻：`min(now + max_age, login_time + max_age, 正数 exp)`。
 
     三路取最小值，任一缺失就只是少一路约束，这是设计明文规定的口径：
@@ -354,7 +359,7 @@ def _session_expires_at(claims: dict[str, object], max_session_age_sec: int | No
     candidates: list[datetime] = []
     if max_session_age_sec and max_session_age_sec > 0:
         candidates.append(now + timedelta(seconds=max_session_age_sec))
-        issued_at = _issued_at_seconds(claims)
+        issued_at = _issued_at_seconds(claims, config)
         if issued_at is not None:
             candidates.append(
                 datetime.fromtimestamp(issued_at, tz=UTC) + timedelta(seconds=max_session_age_sec)

@@ -19,8 +19,29 @@ from cryptography.hazmat.primitives.serialization import load_der_public_key, lo
 _LOGGER = logging.getLogger(__name__)
 
 #: 平台元数据键名。``identity_keys`` 决定身份指纹；``identity_field_labels`` 只用于
-#: Console 展示，缺失时前端回退显示 claim 名。
-_KNOWN_KEYS = ("public_key", "issuer", "audience", "salt", "identity_keys", "identity_field_labels")
+#: Console 展示，缺失时前端回退显示 claim 名；``issue_time_keys`` / ``issue_time_unit``
+#: 决定时效字段与单位；``channel`` 是该平台归属的外部断言通道名（决定路由与入口归属）。
+_KNOWN_KEYS = (
+    "public_key",
+    "issuer",
+    "audience",
+    "salt",
+    "identity_keys",
+    "identity_field_labels",
+    "issue_time_keys",
+    "issue_time_unit",
+    "channel",
+)
+
+#: 允许的时效时间单位。``ms`` 表示上游字段是 Unix 毫秒，``s`` 表示 Unix 秒。
+_ISSUE_TIME_UNITS = frozenset({"ms", "s"})
+
+#: 时效字段与单位的默认值——等于 MSSW 上游的实际口径（``login_time``/``time`` 毫秒）。
+#: 未在 Secret 里覆盖时按此行为，保证 MSSWWEB 现有部署零变化。
+_DEFAULT_ISSUE_TIME_KEYS = ("login_time", "time")
+_DEFAULT_ISSUE_TIME_UNIT = "ms"
+#: 通道名默认值：与当前唯一外部通道一致。
+_DEFAULT_CHANNEL = "MSSWWEB"
 
 
 class PlatformConfigError(RuntimeError):
@@ -40,6 +61,11 @@ class ExternalPlatformConfig:
     identity_keys: tuple[str, ...]
     identity_field_labels: dict[str, str]
     display_name: str
+    #: 时效 claim 候选键（按序取第一个可用值）与单位：``ms``/``s``。
+    issue_time_keys: tuple[str, ...] = _DEFAULT_ISSUE_TIME_KEYS
+    issue_time_unit: str = _DEFAULT_ISSUE_TIME_UNIT
+    #: 该平台归属的外部断言通道名（决定 Gateway 路由前缀与入口 `bot_account.channel`）。
+    channel: str = _DEFAULT_CHANNEL
 
 
 def _decode_public_key(raw: str) -> RSAPublicKey:
@@ -82,6 +108,22 @@ def _parse_one(platform_key: str, raw: object) -> ExternalPlatformConfig:
     ):
         raise PlatformConfigError(f"platform {platform_key}: identity_field_labels must be a string map")
 
+    issue_time_keys = raw.get("issue_time_keys") or list(_DEFAULT_ISSUE_TIME_KEYS)
+    if not isinstance(issue_time_keys, list) or not issue_time_keys:
+        raise PlatformConfigError(f"platform {platform_key}: issue_time_keys must be a non-empty list")
+    if not all(isinstance(item, str) and item for item in issue_time_keys):
+        raise PlatformConfigError(f"platform {platform_key}: issue_time_keys must be non-empty strings")
+
+    issue_time_unit = str(raw.get("issue_time_unit") or _DEFAULT_ISSUE_TIME_UNIT)
+    if issue_time_unit not in _ISSUE_TIME_UNITS:
+        raise PlatformConfigError(
+            f"platform {platform_key}: issue_time_unit must be one of {sorted(_ISSUE_TIME_UNITS)}"
+        )
+
+    channel = str(raw.get("channel") or _DEFAULT_CHANNEL)
+    if not channel.strip():
+        raise PlatformConfigError(f"platform {platform_key}: channel must be a non-empty string")
+
     return ExternalPlatformConfig(
         platform_key=platform_key,
         public_key=_decode_public_key(str(raw["public_key"])),
@@ -91,6 +133,9 @@ def _parse_one(platform_key: str, raw: object) -> ExternalPlatformConfig:
         identity_keys=tuple(identity_keys),
         identity_field_labels=dict(labels),
         display_name=str(raw.get("display_name") or platform_key),
+        issue_time_keys=tuple(issue_time_keys),
+        issue_time_unit=issue_time_unit,
+        channel=channel,
     )
 
 

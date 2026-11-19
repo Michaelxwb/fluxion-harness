@@ -138,6 +138,17 @@ def test_both_surfaces_mount_chat_routes() -> None:
         assert f"{prefix}/runs/{{run_id}}/resume" in paths
 
 
+def test_external_prefix_keeps_msswwweb_quirk_and_derives_others() -> None:
+    """`MSSWWEB` 前缀是历史固定值 `/api/v1/msswwweb`（≠通道名小写 `msswweb`）；
+
+    其它外部通道按 `/api/v1/<channel 小写>` 生成，保证新增平台路由自然出现。
+    """
+    from muad_im_gateway.main import _external_prefix_for
+
+    assert _external_prefix_for("MSSWWEB") == "/api/v1/msswwweb"
+    assert _external_prefix_for("ACMEWEB") == "/api/v1/acmeweb"
+
+
 def test_notifications_only_on_webchat_surface() -> None:
     paths = _route_paths(msswwweb_enabled=True)
     assert "/api/v1/webchat/notifications" in paths
