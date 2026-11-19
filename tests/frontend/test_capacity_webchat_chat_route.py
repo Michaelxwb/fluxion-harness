@@ -84,7 +84,6 @@ CHAT_PAGE_KEYS = (
     "chat.page.conversationFailed",
     "chat.page.conversationUnavailable",
     "chat.page.conversationInvalid",
-    "chat.page.conversationMismatch",
     "chat.page.conversationExpired",
     "chat.page.newConversation",
 )
@@ -243,7 +242,6 @@ const {
   chatPageView,
   chatPageResolutionNeeded,
   CONVERSATION_ID_INVALID,
-  CONVERSATION_ENTRY_MISMATCH,
   createWebchatClient,
   createChatAuthenticationService,
   createClientConfigService,
@@ -450,8 +448,7 @@ const obs = {};
       none: resolveChatEntry(parseChatRoute(undefined, ''), [])
     },
     localCodes: {
-      conversationIdInvalid: CONVERSATION_ID_INVALID,
-      conversationEntryMismatch: CONVERSATION_ENTRY_MISMATCH
+      conversationIdInvalid: CONVERSATION_ID_INVALID
     }
   };
 }
@@ -740,7 +737,7 @@ const obs = {};
   };
 }
 
-// ---- 8) 会话失败面：404 / 非法参数 / 入口不匹配都显式且不伪造成功 --------------------------------
+// ---- 8) 会话分支：404/非法参数显式失败；跨入口来源按同用户+Agent 恢复 ---------------------------
 {
   const notFound = { auth: freshAuth(), config: freshConfig() };
   notFound.bootstrap = createChatPageBootstrap({ client, identity: notFound.auth });
@@ -776,23 +773,23 @@ const obs = {};
   const invalidOrder = requestLog(invalidStart);
   const invalidConversations = countGets(invalidStart, '/conversations/');
 
-  const mismatch = { auth: freshAuth(), config: freshConfig() };
-  mismatch.bootstrap = createChatPageBootstrap({ client, identity: mismatch.auth });
-  const mismatchSelection = parseChatRoute(ENTRY_A, '?conversation=' + CONVERSATION_B);
-  const mismatchStart = requests.length;
+  const crossEntry = { auth: freshAuth(), config: freshConfig() };
+  crossEntry.bootstrap = createChatPageBootstrap({ client, identity: crossEntry.auth });
+  const crossEntrySelection = parseChatRoute(ENTRY_A, '?conversation=' + CONVERSATION_B);
+  const crossEntryStart = requests.length;
   script = [
     { status: 200, data: SESSION_A_INFO },
     { status: 200, data: CONFIG_A },
     { status: 200, data: entryPage([ENTRY_ITEM_A, ENTRY_ITEM_B]) },
     { status: 200, data: conversationDetail(CONVERSATION_B, ENTRY_B, '另一入口的会话') }
   ];
-  await mismatch.auth.restore();
-  await mismatch.config.load({ signal: mismatch.auth.identitySignal() });
-  await drivePage({ ...mismatch, selection: mismatchSelection });
-  const mismatchOrder = requestLog(mismatchStart);
-  const mismatchConversations = countGets(mismatchStart, '/conversations/');
+  await crossEntry.auth.restore();
+  await crossEntry.config.load({ signal: crossEntry.auth.identitySignal() });
+  await drivePage({ ...crossEntry, selection: crossEntrySelection });
+  const crossEntryOrder = requestLog(crossEntryStart);
+  const crossEntryConversations = countGets(crossEntryStart, '/conversations/');
 
-  obs.conversationFailures = {
+  obs.conversationCases = {
     notFound: {
       view: viewOf(notFound),
       bootstrap: bootstrapOf(notFound.bootstrap.snapshot()),
@@ -806,11 +803,11 @@ const obs = {};
       order: invalidOrder,
       conversationGets: invalidConversations
     },
-    mismatch: {
-      view: viewOf(mismatch),
-      bootstrap: bootstrapOf(mismatch.bootstrap.snapshot()),
-      order: mismatchOrder,
-      conversationGets: mismatchConversations
+    crossEntry: {
+      view: viewOf(crossEntry),
+      bootstrap: bootstrapOf(crossEntry.bootstrap.snapshot()),
+      order: crossEntryOrder,
+      conversationGets: crossEntryConversations
     }
   };
 }
@@ -1246,7 +1243,6 @@ def test_b277_url_parsing_and_entry_resolution_are_deterministic(
     assert resolutions["none"] == {"outcome": "empty", "entryId": None}
     assert observed["localCodes"] == {
         "conversationIdInvalid": "CONVERSATION_ID_INVALID",
-        "conversationEntryMismatch": "CONVERSATION_ENTRY_MISMATCH",
     }, "本地边界码必须是页面模块导出的稳定码（不是散落的字面量）"
 
 
@@ -1425,11 +1421,11 @@ def test_b277_unauthorized_entry_surfaces_without_falling_back_or_leaking(
     assert observed["conversationGets"] == 0 and observed["sse"] == 0
 
 
-def test_b277_conversation_failures_surface_explicitly_without_fake_success(
+def test_b277_conversation_cases_keep_explicit_failures_and_restore_cross_entry(
     chat_route: dict[str, Any],
 ) -> None:
-    """会话 404 / 非法标识 / 入口不匹配都显式失败，不伪造成功、不自动重试。"""
-    observed = chat_route["conversationFailures"]
+    """会话 404/非法标识显式失败；跨入口来源只作 metadata，按同用户+Agent 恢复。"""
+    observed = chat_route["conversationCases"]
 
     not_found = observed["notFound"]
     assert not_found["bootstrap"]["conversationPhase"] == "failed"
@@ -1453,13 +1449,17 @@ def test_b277_conversation_failures_surface_explicitly_without_fake_success(
     }, "非法会话标识必须显式提示（不静默换成新会话）"
     assert invalid["conversationGets"] == 0, "非法标识不得发出请求"
 
-    mismatch = observed["mismatch"]
-    assert mismatch["bootstrap"]["conversationErrorCode"] == "CONVERSATION_ENTRY_MISMATCH"
-    assert mismatch["bootstrap"]["conversationOutcome"] == "unavailable"
-    assert mismatch["bootstrap"]["conversationId"] is None, "跨入口会话不得落地为当前选择"
-    assert mismatch["bootstrap"]["conversationTitle"] is None
-    assert mismatch["view"]["kind"] == "conversation-unavailable"
-    assert mismatch["conversationGets"] == 1
+    cross_entry = observed["crossEntry"]
+    assert cross_entry["bootstrap"]["conversationPhase"] == "ready"
+    assert cross_entry["bootstrap"]["conversationOutcome"] == "restored"
+    assert cross_entry["bootstrap"]["conversationErrorCode"] is None
+    assert cross_entry["bootstrap"]["conversationId"] == CONVERSATION_B, (
+        "跨入口来源不是拒绝理由：同用户+Agent 的会话必须恢复为当前选择"
+    )
+    assert cross_entry["bootstrap"]["conversationTitle"] == "另一入口的会话"
+    assert cross_entry["view"]["kind"] == "workspace"
+    assert cross_entry["view"]["conversationId"] == CONVERSATION_B
+    assert cross_entry["conversationGets"] == 1
 
 
 def test_b277_entry_failure_retries_independently_without_re_exchanging(

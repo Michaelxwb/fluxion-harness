@@ -57,13 +57,6 @@ export class ConversationStateError extends Error {
   }
 }
 
-/**
- * 本地稳定码：所选会话不属于当前入口（不跨入口展示会话）。
- *
- * 与 `ChatPage.tsx` 的同名常量同值：同一事实只有一个稳定码，页面已有的词条映射可直接复用。
- */
-export const CONVERSATION_ENTRY_MISMATCH = 'CONVERSATION_ENTRY_MISMATCH';
-
 /** 滚动锚点：按消息身份（`event_id` + `seq`）登记，不用列表下标。 */
 export interface MessageScrollAnchor {
   event_id: string;
@@ -796,10 +789,9 @@ function select(
       if (!conversationScopeMatches(runtime, conversationId, generation)) {
         return currentSnapshot(runtime);
       }
-      if (detail.entry_id !== core.entryId) {
-        return applySelectionFailure(runtime, conversationId, generation, CONVERSATION_ENTRY_MISMATCH);
-      }
-      // 权威详情先落地（标题/活跃 Run 立即可见），消息首屏随后到达。
+      // 权威详情先落地（标题/活跃 Run 立即可见），消息首屏随后到达。`detail.entry_id` 只是
+      // 创建来源；同用户+Agent 的跨入口共享由服务端核验，客户端不按来源入口拒绝。
+
       core.conversation = detail;
       emit(runtime);
       return loadFirstHistory(runtime, conversationId, generation, request);

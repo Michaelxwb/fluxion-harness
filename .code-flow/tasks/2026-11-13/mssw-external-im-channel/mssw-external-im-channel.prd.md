@@ -56,7 +56,7 @@
 | 指标 | 当前值 | 目标值 | 衡量方式 |
 |------|--------|--------|----------|
 | MSSW 用户可在业务平台内完成一次完整对话 | 不支持 | 支持（流式、停止、确认恢复、历史、上传、下载） | 联调 + E2E |
-| 同一用户 + 同一 Agent 跨入口数据共享 | 无第二入口 | WebChat 创建的会话在 MSSWWEB 可见，反之亦然；不同用户不可见 | 跨入口共享用例 |
+| 同一用户 + 同一 Agent 的 Web 面数据共享 | 无第二入口 | WebChat 创建的会话在 MSSWWEB 可见，反之亦然；企微不进入 Web 会话列表；不同用户不可见 | 跨入口共享用例 |
 | 新增同类平台的代码增量 | 需复制 WebChat | 只加配置 + 入口 + 枚举，不复制 handler | 设计评审 + 代码审查 |
 | 因子缺失对服务的影响 | — | 只影响 MSSWWEB 鉴权（503），不影响启动与其他通道 | 降级用例 |
 
@@ -161,13 +161,13 @@
 
 #### FEAT-05: 对话闭环与共享历史
 
-- **描述**: 复用 WebChat 的资源接口与契约；会话按 `tenant + user + agent` 跨入口共享，entry/channel 只做来源标识。
+- **描述**: 复用 WebChat 的资源接口与契约；会话按 `tenant + user + agent` 在 Web 面（`WEBCHAT`/`MSSWWEB`）跨入口共享，entry/channel 只做来源标识；企微不进入 Web 会话列表。
 - **验收标准**:
   - [ ] 首次发送前显式创建会话；消息带 `conversation_id`、`message_id`、`Idempotency-Key`。
   - [ ] 202 受理、SSE、心跳、断线重连与 WebChat 同形。
-  - [ ] 用户+Agent 的会话列表跨入口聚合；item 带 `entry_id`/`channel` 来源标识。
-  - [ ] 现有 WebChat UI 同步使用共享列表；列表选择、URL 刷新与续聊不再要求来源入口等于当前入口；服务端仍校验用户/Agent，本次发送入口独立校验。
-  - [ ] 按 ID 读详情/消息只校验 user+agent，不要求目标入口匹配；同用户同 Agent 的 WebChat 会话在 MSSWWEB 可见。
+  - [ ] 用户+Agent 的 Web 面会话列表跨入口聚合（`channel_types=WEBCHAT,MSSWWEB`）；item 带 `entry_id` 来源标识；企微来源不出现。
+  - [ ] 现有 WebChat UI 同步使用共享列表；列表选择、URL 刷新与续聊不再要求来源入口等于当前入口；服务端校验用户/Agent + 来源通道 allowlist，本次发送入口独立校验。
+  - [ ] 按 ID 读详情/消息只校验 user+agent，不要求目标入口匹配，但 Web 面来源通道限 `WEBCHAT/MSSWWEB`；同用户同 Agent 的 WebChat 会话在 MSSWWEB 可见。
   - [ ] 不同用户的会话仍不可见（404，不泄露存在性）。
   - [ ] 停止/恢复按现有 Run 语义；`WAITING_INPUT` 只走合法 resume。
 
@@ -193,7 +193,7 @@
 
 #### FEAT-08: 来源标识与共享数据
 
-- **描述**: entry/channel 只做来源标识，不作为数据访问边界；同一 user+Agent 跨入口共享，不同用户隔离。
+- **描述**: entry/channel 只做来源标识，不作为数据访问边界；会话在 Web 面（`WEBCHAT`/`MSSWWEB`）按 user+Agent 共享，企微不进入 Web 列表/续聊；产物/通知仍按 user+Agent 共享；不同用户隔离。
 - **验收标准**:
   - [ ] 会话保留不可变创建来源；每个 Run 保留实际发送来源；任务、通知与交付跟随来源 Run，不强求与会话入口一致。后台保留即可，页面不强制增加来源标签。
   - [ ] 旧来源无法核实时允许未知，不猜成 WebChat；新创建路径完整写入；发布停旧 writer 后再校验回填尾差。

@@ -385,19 +385,16 @@ _ROUTE_DECORATOR = re.compile(
 def _gateway_webchat_prefixes() -> dict[str, tuple[str, ...]]:
     """webchat 多 surface 共用同一套 router，前缀在 `main.py` 挂载处声明。"""
     text = _source(GATEWAY_MAIN)
-    surfaces = tuple(
-        dict.fromkeys(re.findall(r'"([^"]+)":\s*ChatSurface\(', text))
-    )
-    notifications = tuple(
-        dict.fromkeys(
-            re.findall(
-                r'include_router\(\s*webchat_notification_router,\s*prefix="([^"]+)"',
-                text,
-            )
+    constants = dict(
+        re.findall(
+            r'^(WEBCHAT_API_PREFIX|MSSWWEB_API_PREFIX)\s*=\s*"([^"]+)"',
+            text,
+            re.M,
         )
     )
-    assert surfaces, "main.py: 未解析出 webchat surface 前缀"
-    assert notifications, "main.py: 未解析出通知中心挂载前缀"
+    assert constants, "main.py: 未解析出 webchat 挂载前缀常量"
+    surfaces = tuple(dict.fromkeys(constants.values()))
+    notifications = (constants["WEBCHAT_API_PREFIX"],)
     return {"router": surfaces, "notification_router": notifications}
 
 

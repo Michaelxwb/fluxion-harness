@@ -101,6 +101,70 @@ async def history_tenant(tenant: TenantContext) -> AsyncIterator[TenantContext]:
         await _purge_tenant(tenant.tenant_id)
 
 
+async def _purge_control_entries(tenant_id: str) -> None:
+    async with get_session_factory()() as session:
+        for table in ("bot_account", "agent_definition", "model_definition"):
+            await session.execute(
+                sa.text(f"DELETE FROM control.{table} WHERE tenant_id = :tenant_id"),
+                {"tenant_id": tenant_id},
+            )
+        await session.commit()
+
+
+async def _seed_control_entries(
+    tenant: TenantContext, channels: tuple[str, ...]
+) -> dict[str, uuid.UUID]:
+    """真实 `control` 行：来源入口的 channel 是 Web/企微共享边界的事实来源。"""
+    model_id = uuid.uuid4()
+    entries = {channel: uuid.uuid4() for channel in channels}
+    async with get_session_factory()() as session:
+        await session.execute(
+            sa.text(
+                "INSERT INTO control.model_definition (id, tenant_id, key, name, model_id)"
+                " VALUES (:id, :tenant_id, :key, :name, :model_id)"
+            ),
+            {
+                "id": model_id,
+                "tenant_id": tenant.tenant_id,
+                "key": f"model-{uuid.uuid4().hex[:12]}",
+                "name": "history-model",
+                "model_id": f"model-{uuid.uuid4().hex[:12]}",
+            },
+        )
+        await session.execute(
+            sa.text(
+                "INSERT INTO control.agent_definition"
+                " (id, tenant_id, key, name, instructions, model_id)"
+                " VALUES (:id, :tenant_id, :key, :name, 'test', :model_id)"
+            ),
+            {
+                "id": tenant.agent_id,
+                "tenant_id": tenant.tenant_id,
+                "key": f"agent-{uuid.uuid4().hex[:12]}",
+                "name": "history-agent",
+                "model_id": model_id,
+            },
+        )
+        for channel, entry_id in entries.items():
+            await session.execute(
+                sa.text(
+                    "INSERT INTO control.bot_account"
+                    " (id, tenant_id, channel, name, bot_id, agent_id)"
+                    " VALUES (:id, :tenant_id, :channel, :name, :bot_id, :agent_id)"
+                ),
+                {
+                    "id": entry_id,
+                    "tenant_id": tenant.tenant_id,
+                    "channel": channel,
+                    "name": f"{channel}-entry",
+                    "bot_id": f"bot-{uuid.uuid4().hex}",
+                    "agent_id": tenant.agent_id,
+                },
+            )
+        await session.commit()
+    return entries
+
+
 async def _seed_conversation(
     tenant: TenantContext,
     *,
@@ -427,6 +491,99 @@ async def test_b250_list_is_entry_scoped_ordered_and_batches_active_runs(
         assert by_id[legacy].last_message_at == BASE_TIME  # NULL 回落 create_time
     finally:
         await _purge_tenant(foreign.tenant_id)
+
+
+async def test_web_surface_channel_filter_excludes_wecom(
+    client: AsyncClient, history_tenant: TenantContext
+) -> None:
+    """Web 面只聚合 WEBCHAT/MSSWWEB 来源；企微来源既不进列表，也不能从 Web URL 直达。"""
+    tenant = history_tenant
+    entries = await _seed_control_entries(tenant, ("WEBCHAT", "MSSWWEB", "WECOM"))
+    try:
+        web = await _seed_conversation(
+            tenant, entry_id=entries["WEBCHAT"], title="网页会话", last_message_at=BASE_TIME
+        )
+        mssw = await _seed_conversation(
+            tenant,
+            entry_id=entries["MSSWWEB"],
+            title="MSSW 会话",
+            last_message_at=BASE_TIME - timedelta(minutes=1),
+        )
+        wecom = await _seed_conversation(
+            tenant,
+            entry_id=entries["WECOM"],
+            title="企微会话",
+            last_message_at=BASE_TIME - timedelta(minutes=2),
+        )
+
+        page = _page_data(
+            await _get(
+                client,
+                _list_path(entries["WEBCHAT"]),
+                tenant,
+                **_list_scope(tenant),
+                entry_agnostic="true",
+                channel_types="WEBCHAT,MSSWWEB",
+            ),
+            WebchatConversationPage,
+        )
+        assert [item.conversation_id for item in page.items] == [web, mssw]
+        assert page.total == 2, "企微来源不得进入 Web 会话列表或总数"
+
+        read_scope = {
+            **_read_scope(tenant),
+            "entry_id": str(entries["WEBCHAT"]),
+            "entry_agnostic": "true",
+            "channel_types": "WEBCHAT,MSSWWEB",
+        }
+        assert (await _get(client, _detail_path(mssw), tenant, **read_scope)).status_code == 200
+        # 网关的公共详情路径先解析会话来源，再把来源 entry_id 交给 Owner；这里必须模拟同一形状：
+        # 来源行存在时按真实 channel 判定，不能因为 entry_id 就是会话自身来源而绕过 allowlist。
+        source_read_scope = {
+            "user_id": str(tenant.platform_user_id),
+            "agent_id": str(tenant.agent_id),
+            "entry_agnostic": "true",
+            "channel_types": "WEBCHAT,MSSWWEB",
+        }
+        assert (
+            await _get(
+                client,
+                _detail_path(web),
+                tenant,
+                **source_read_scope,
+                entry_id=str(entries["WEBCHAT"]),
+            )
+        ).status_code == 200
+        assert (
+            await _get(
+                client,
+                _detail_path(wecom),
+                tenant,
+                **source_read_scope,
+                entry_id=str(entries["WECOM"]),
+            )
+        ).status_code == 404, "来源 entry_id 等于企微来源时也必须拒绝"
+        assert (
+            await _get(
+                client,
+                _messages_path(wecom),
+                tenant,
+                **source_read_scope,
+                entry_id=str(entries["WECOM"]),
+            )
+        ).status_code == 404
+
+        invalid = await _get(
+            client,
+            _list_path(entries["WEBCHAT"]),
+            tenant,
+            **_list_scope(tenant),
+            entry_agnostic="true",
+            channel_types="WEBCHAT,BOGUS",
+        )
+        assert invalid.status_code == 422, "未知来源通道必须显式拒绝"
+    finally:
+        await _purge_control_entries(tenant.tenant_id)
 
 
 async def test_b04_list_pages_are_deterministic_single_snapshot_and_not_n_plus_one(
@@ -896,6 +1053,8 @@ async def test_b250_detail_is_attributed_and_exposes_no_internal_snapshot(
         "last_seq",
         "last_run_id",
         "active_run",
+        "has_unread",
+        "notification_through_seq",
     }
 
     # 归属拒绝矩阵（复用 TASK-049 的 tenant/user/agent/入口 核属）：一律 404 不泄露存在性。

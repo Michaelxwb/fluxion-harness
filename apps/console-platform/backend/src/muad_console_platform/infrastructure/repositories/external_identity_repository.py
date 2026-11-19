@@ -101,13 +101,14 @@ class ExternalIdentityRepository:
 
         外部平台用它判断自己的授权缓存是否过期；用户不存在（已删）时返回 None，不编造 0。
         """
-        return await self._session.scalar(
+        revision = await self._session.scalar(
             select(PlatformUser.auth_revision).where(
                 PlatformUser.tenant_id == tenant_id,
                 PlatformUser.id == platform_user_id,
                 PlatformUser.is_deleted.is_(False),
             )
         )
+        return int(revision) if revision is not None else None
 
     async def list_grants_with_agent(
         self,

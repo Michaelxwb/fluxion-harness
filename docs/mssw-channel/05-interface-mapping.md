@@ -29,7 +29,7 @@
 | API-02 | GET | `/client-config` | 复用；装在 `bff-agent-integration.md` §4.2 对 BFF 有明确定义 |
 | API-03 | GET | `/entries` | 当前用户可用的入口授权 + Agent |
 | API-04 | POST | `/entries/{entry_id}/conversations` | 入口作为**本次会话的来源** |
-| API-05 | GET | `/entries/{entry_id}/conversations` | `entry_id` 只用于鉴权与归属，**不是过滤条件**；按 user+Agent 聚合（跨入口共享）；item 带 `entry_id`/`has_unread`（无 `channel`） |
+| API-05 | GET | `/entries/{entry_id}/conversations` | `entry_id` 只用于鉴权与归属，**不是过滤条件**；按 user+Agent + `channel_types=WEBCHAT,MSSWWEB` 聚合（Web 面跨入口共享，企微不出现）；item 带 `entry_id`/`has_unread`（无 `channel`） |
 | API-06 | POST | `/entries/{entry_id}/messages` | 入口作为**本次 Run 的来源** |
 | API-07 | GET | `/conversations/{id}` | user + agent 核属；**不做** entry/channel 断言 |
 | API-08 | DELETE | `/conversations/{id}` | user 级；沿用现有幂等 delete |
@@ -54,7 +54,7 @@
 | ID | 方法 | 路径 | 说明 |
 |---|---|---|---|
 | API-20 | POST | `/internal/webchat/conversations/{id}/read` | 标记已读（带通知水位） |
-| API-25 | GET | `/internal/webchat/entries/{entry_id}/conversations` | 会话列表；`entry_agnostic=true` 时按 user+Agent 聚合（入口只作来源） |
+| API-25 | GET | `/internal/webchat/entries/{entry_id}/conversations` | 会话列表；`entry_agnostic=true` + `channel_types`（Web 面传 `WEBCHAT,MSSWWEB`）时按 user+Agent + 来源通道聚合（入口只作来源） |
 
 > API-20 / API-25 之所以走内部接口而不是让 BFF 直连 Runtime：身份解析、缓存与授权判定全在 Console，Runtime 只接受已核属的调用。
 

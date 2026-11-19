@@ -1740,7 +1740,6 @@
   "chat.page.conversationFailed": "会话暂时不可用，请重试",
   "chat.page.conversationUnavailable": "该会话不存在或无权访问，请返回会话列表重试",
   "chat.page.conversationInvalid": "链接中的会话标识无效，请重新选择会话",
-  "chat.page.conversationMismatch": "该会话不属于当前入口，请从原入口打开",
   "chat.page.conversationExpired": "该会话已超过保留期，无法继续，请新建会话",
   "chat.page.newConversation": "新对话",
   "chat.sidebar.navLabel": "会话历史",

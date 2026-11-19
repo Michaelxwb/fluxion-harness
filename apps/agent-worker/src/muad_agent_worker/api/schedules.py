@@ -205,7 +205,7 @@ async def delivery_targets(
         platform_user_id=actor_user_id,
         agent_id=agent_id,
     )
-    seen: set[tuple[str, str, str, str | None]] = set()
+    seen: set[tuple[str, str, str | None]] = set()
     items: list[dict[str, Any]] = []
     labels: list[str] = []
     for route in routes:

@@ -59,7 +59,12 @@ from ..infrastructure.models.runtime import (
     RunRecord,
 )
 from .attachments.publication import PUBLISH_EVENT_TYPE
-from .channel_conversations import ConversationScope, display_title, load_explicit_conversation
+from .channel_conversations import (
+    ConversationScope,
+    channel_types_condition,
+    display_title,
+    load_explicit_conversation,
+)
 from .conversation_policy import ConversationPolicy, assert_conversation_live
 from .execution_status import project_execution_status
 from .memory_confirmation_resume import (
@@ -105,6 +110,8 @@ class HistoryScope:
     agent_id: uuid.UUID
     entry_id: uuid.UUID
     entry_agnostic: bool = False
+    #: 跨入口共享的通道 allowlist（同 `ConversationScope.channel_types`）。
+    channel_types: tuple[str, ...] | None = None
 
 
 def _conversation_scope(scope: HistoryScope) -> ConversationScope:
@@ -116,6 +123,7 @@ def _conversation_scope(scope: HistoryScope) -> ConversationScope:
         entry_id=scope.entry_id,
         external_thread_id="",
         entry_agnostic=scope.entry_agnostic,
+        channel_types=scope.channel_types,
     )
 
 
@@ -136,6 +144,12 @@ def _conversation_conditions(
     if not scope.entry_agnostic:
         # 严格模式仍按入口过滤；跨入口共享会话时按 user + Agent 聚合，入口只作来源。
         conditions.append(Conversation.channel_account_id == scope.entry_id)
+    else:
+        channel_condition = channel_types_condition(
+            scope.tenant_id, scope.entry_id, scope.channel_types
+        )
+        if channel_condition is not None:
+            conditions.append(channel_condition)
     if cutoff is not None:
         # 保留期以最近一次真实可见活动为准；NULL 回落创建时间（与本列表的排序口径一致）。
         conditions.append(

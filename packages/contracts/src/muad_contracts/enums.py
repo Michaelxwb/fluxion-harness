@@ -5,6 +5,9 @@ from enum import StrEnum
 # 机检（一处声明）使用。放在 leaves 模块（仅依赖标准库），避免 channel ↔ tasks 的循环导入。
 # 机检：tests/test_attachment_contract.py::test_b07_channel_enum_is_defined_in_exactly_one_place
 BUILTIN_CHANNEL_NAMES: tuple[str, ...] = ("WECOM", "WEBCHAT", "MSSWWEB")
+#: Web 对话面：同一 user + Agent 的会话在 WebChat/MSSWWEB 之间共享；企微不进入 Web 会话列表。
+#: 顺序稳定，供内部读取面的 `channel_types` allowlist 与测试断言复用。
+WEB_SURFACE_CHANNELS: tuple[str, ...] = ("WEBCHAT", "MSSWWEB")
 #: 兼容别名：类型上是开放 string（WECOM=企微机器人；WEBCHAT=通用网页稳定入口）。
 ChannelName = str
 
@@ -365,4 +368,4 @@ CHANNEL_DISPLAY_LABELS: dict[ChannelName, str] = {"WECOM": "企微", "WEBCHAT": 
 #: 出站由**本进程的持久会话流**完成的通道（站内入口）：产物不经过 IM 出站管道，直接落目标
 #: 会话的 canonical 流（`artifact.created`），由该会话的订阅面与历史面读取同一事实。
 #: 与 `OUTBOUND_CHANNELS` 一起覆盖内建通道；不属于任一组的未知通道必须显式拒绝，不猜。
-LOCAL_STREAM_CHANNELS: frozenset[ChannelName] = frozenset({"WEBCHAT", "MSSWWEB"})
+LOCAL_STREAM_CHANNELS: frozenset[ChannelName] = frozenset(WEB_SURFACE_CHANNELS)

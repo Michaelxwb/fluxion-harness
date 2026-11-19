@@ -1740,7 +1740,6 @@
   "chat.page.conversationFailed": "The conversation is temporarily unavailable. Please retry.",
   "chat.page.conversationUnavailable": "This conversation does not exist or is not accessible. Go back to the conversation list.",
   "chat.page.conversationInvalid": "The conversation id in the link is invalid. Choose a conversation again.",
-  "chat.page.conversationMismatch": "This conversation belongs to another entry. Open it from that entry.",
   "chat.page.conversationExpired": "This conversation is beyond its retention period and cannot be continued. Start a new conversation.",
   "chat.page.newConversation": "New conversation",
   "chat.sidebar.navLabel": "Conversation history",

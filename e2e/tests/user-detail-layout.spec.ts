@@ -88,6 +88,10 @@ async function prepare(page: Page, width: number, theme: string, locale: string,
         }
       });
     }
+    // 用户详情的外部 IM 身份卡：平台/身份是数组契约，不能拿分页对象冒充。
+    if (path === '/api/v1/external-platforms' || path.endsWith('/external-identities')) {
+      return route.fulfill({ json: { code: '0', msg: '', data: [] } });
+    }
     const items = lists[path] ?? [];
     const data = path.endsWith('/auth/me') ? { id: 'admin', username: 'admin', role: 'ADMIN' }
       : path === '/api/v1/users/layout-user' ? detail

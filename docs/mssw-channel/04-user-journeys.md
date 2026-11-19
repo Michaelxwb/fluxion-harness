@@ -269,7 +269,7 @@ BFF → GET /api/v1/msswwweb/entries/{entry_id}/conversations
    ← 200 {items: [{conversation_id, entry_id, has_unread, ...}]}
 ```
 
-**关键行为**：按 `user + Agent` 聚合，**不按入口过滤**。路径里的 `entry_id` 只用于鉴权与归属（该用户对该入口的权限、入口当前绑定的 Agent），不是列表的过滤条件——同一 Agent 下的会话从任一个入口拉到的都是同一批，`entry_id` 只标明来源。
+**关键行为**：按 `user + Agent` + 来源通道 `WEBCHAT/MSSWWEB` 聚合，**不按 Web 入口过滤**。路径里的 `entry_id` 只用于鉴权与归属（该用户对该入口的权限、入口当前绑定的 Agent），不是列表的过滤条件——同一 Agent 下的 Web 面会话从任一个 Web 入口拉到的都是同一批，`entry_id` 只标明来源；企微来源不返回。
 
 ### D2 会话详情（进入对话页时先调这个）
 

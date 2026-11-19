@@ -61,7 +61,7 @@
 | 5 | **身份字段平台可配**（`identity_keys`） | 新增同类平台只加配置，不改代码 |
 | 6 | 无权限 → **直接拒绝**，不自动建档 | 绑定必须在访问前完成 |
 | 7 | **权限查询语义是可用性** | `GET /identity` 返回 `allowed` + `reason` + `grants[]` + `agents[]` |
-| 8 | 会话按 **user + Agent 跨入口共享** | `entry`/`channel` 只做来源标识，不做访问边界 |
+| 8 | Web 面会话按 **user + Agent 跨入口共享** | `entry`/`channel` 只做来源标识；企微不进入 Web 会话列表，Web 面来源通道限 `WEBCHAT`/`MSSWWEB` |
 | 9 | **密钥固定，不轮换** | 单公钥静态配置，不预留多密钥槽位 |
 | 10 | **BFF 直接适配我方现有接口** | 不需要 BFF 对接文档 |
 | 11 | **不是跨站**：BFF 后端直接转发 | `SameSite=Strict` 的 `soc-token` 能正常送达 |

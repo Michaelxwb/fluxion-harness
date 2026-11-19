@@ -144,8 +144,13 @@ async def load_scheduled_turn(
                 "trial execution references a missing draft",
                 retryable=False,
             )
-        body = draft.payload_json if isinstance(draft.payload_json, Mapping) else {}
-        recurrence = body.get("recurrence") if isinstance(body.get("recurrence"), Mapping) else {}
+        body: Mapping[str, Any] = (
+            draft.payload_json if isinstance(draft.payload_json, Mapping) else {}
+        )
+        candidate_recurrence = body.get("recurrence")
+        recurrence: Mapping[str, Any] = (
+            candidate_recurrence if isinstance(candidate_recurrence, Mapping) else {}
+        )
         raw_timezone = recurrence.get("timezone")
         if not isinstance(raw_timezone, str) or not raw_timezone:
             raise AgenticError(

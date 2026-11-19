@@ -15,7 +15,8 @@
  *    发送/上传/订阅。
  * 3. **入口/会话解析**：配置就绪后才按 URL 核验——API-05 只列当前用户获授权的入口，URL 入口
  *    必须在授权集合内（未授权显式提示，不回落其它入口）；`conversation` 查询参数经 API-15 核属
- *    后恢复所选会话，无参数展示新对话空态，非法标识/跨入口会话显式失败，都不伪造成功。
+ *    后恢复所选会话（来源入口可不同，用户+Agent 由服务端核属），无参数展示新对话空态，
+ *    非法标识显式失败，都不伪造成功。
  * 4. **工作区装配**：入口/会话核验落地后，在同一编排接缝上装配七个关注点——认证
  *    （`useChatAuth`）、配置（`useClientConfig`）、历史（`useConversations` + `useMessages`）、
  *    输入（`usePendingSend` + `ChatComposer`）、回复（`useRunEvents` + 流式正文）、控制
@@ -127,9 +128,6 @@ import type {
 
 /** 本地稳定码：URL 里的会话标识非法（不是服务端目录码；不静默换成新会话）。 */
 export const CONVERSATION_ID_INVALID = 'CONVERSATION_ID_INVALID';
-
-/** 本地稳定码：URL 所选会话不属于 URL 所选入口（不跨入口展示会话）。 */
-export const CONVERSATION_ENTRY_MISMATCH = 'CONVERSATION_ENTRY_MISMATCH';
 
 /** 本地稳定码：URL 入口不在当前授权集合内。 */
 export const ENTRY_UNAUTHORIZED = 'ENTRY_UNAUTHORIZED';
@@ -417,7 +415,7 @@ function applyNewConversation(
   return currentSnapshot(runtime);
 }
 
-/** 会话失败面：404/越权/非法标识/跨入口都是显式不可用，不留下半份会话事实。 */
+/** 会话失败面：404/越权/非法标识都是显式不可用，不留下半份会话事实。 */
 function applyConversationFailure(
   runtime: BootstrapRuntime,
   epoch: number,
@@ -434,17 +432,16 @@ function applyConversationFailure(
   return currentSnapshot(runtime);
 }
 
-/** 会话核属成功：URL 所选会话的入口必须与已解析入口一致，否则显式不匹配。 */
+/**
+ * 会话核属成功：`entry_id` 只是创建来源，跨入口共享时与当前 URL 入口不同是合法事实；
+ * 用户+Agent 的访问边界由服务端 API-15 核验，页面不按来源入口拒绝会话。
+ */
 function applyConversation(
   runtime: BootstrapRuntime,
   epoch: number,
-  entryId: string,
   detail: WebchatConversationDetail
 ): ChatPageBootstrapSnapshot {
   if (epoch !== runtime.core.epoch) return currentSnapshot(runtime);
-  if (detail.entry_id !== entryId) {
-    return applyConversationFailure(runtime, epoch, CONVERSATION_ENTRY_MISMATCH);
-  }
   const { core } = runtime;
   core.conversationPhase = 'ready';
   core.conversationOutcome = 'restored';
@@ -460,7 +457,6 @@ function resolveConversation(
   runtime: BootstrapRuntime,
   epoch: number,
   selection: ChatRouteSelection,
-  entryId: string,
   options: WebchatRequestOptions
 ): Promise<ChatPageBootstrapSnapshot> {
   if (selection.conversationParam !== null && selection.conversationId === null) {
@@ -473,7 +469,7 @@ function resolveConversation(
     emit(runtime);
   }
   return runtime.client.getConversation(conversationId, options).then(
-    (detail) => applyConversation(runtime, epoch, entryId, detail),
+    (detail) => applyConversation(runtime, epoch, detail),
     (error: unknown) => applyConversationFailure(runtime, epoch, webchatErrorCode(error))
   );
 }
@@ -491,7 +487,7 @@ function applyEntryPage(
     return Promise.resolve(applyEntryResolution(runtime, epoch, resolution, page.items));
   }
   applyEntryResolution(runtime, epoch, resolution, page.items);
-  return resolveConversation(runtime, epoch, selection, resolution.entryId, options);
+  return resolveConversation(runtime, epoch, selection, options);
 }
 
 /** 发起一次解析：入口请求挂在当前身份信号上（身份边界即中止），旧解析按 epoch fence。 */
@@ -676,7 +672,6 @@ export function chatPageResolutionNeeded(input: ChatPageResolutionGateInput): bo
 const CONVERSATION_ERROR_KEYS: Record<string, string> = {
   COMMON_NOT_FOUND: 'chat.page.conversationUnavailable',
   CONVERSATION_ID_INVALID: 'chat.page.conversationInvalid',
-  CONVERSATION_ENTRY_MISMATCH: 'chat.page.conversationMismatch',
   CONVERSATION_EXPIRED: 'chat.page.conversationExpired'
 };
 

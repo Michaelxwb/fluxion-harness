@@ -48,7 +48,7 @@ from fakes import StubConsole
 from fastapi import Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from httpx import ASGITransport, AsyncClient
-from muad_contracts import BotSnapshotItem, BotSnapshotResponse
+from muad_contracts import WEB_SURFACE_CHANNELS, BotSnapshotItem, BotSnapshotResponse
 from muad_contracts.webchat import (
     ADMISSION_CONVERSATION_ID_HEADER,
     ADMISSION_EXECUTION_STATUS_HEADER,
@@ -881,8 +881,9 @@ async def test_b252_conversation_create_and_list_delegate_to_owner(
     assert read.query == {
         "user_id": str(PLATFORM_USER_ID),
         "agent_id": str(AGENT_ID),
-        # 跨入口共享：同一用户+Agent 的会话在任何入口都可见（TASK-007）。
+        # 跨 Web 入口共享：同一用户+Agent 的 Web 会话在任何 Web 入口都可见（TASK-007）。
         "entry_agnostic": "true",
+        "channel_types": ",".join(WEB_SURFACE_CHANNELS),
         "page": "2",
         "page_size": "10",
     }
@@ -1004,6 +1005,7 @@ async def test_b252_conversation_detail_and_history_resolve_scope_then_read_entr
         "agent_id": str(AGENT_ID),
         "entry_id": str(ENTRY_ID),
         "entry_agnostic": "true",
+        "channel_types": ",".join(WEB_SURFACE_CHANNELS),
     }
     history_read = runtime_probe.calls[
         f"/internal/webchat/conversations/{CONVERSATION_ID}/messages"
@@ -1013,6 +1015,7 @@ async def test_b252_conversation_detail_and_history_resolve_scope_then_read_entr
         "agent_id": str(AGENT_ID),
         "entry_id": str(ENTRY_ID),
         "entry_agnostic": "true",
+        "channel_types": ",".join(WEB_SURFACE_CHANNELS),
         "page": "1",
         "page_size": "50",
         "through_seq": "7",

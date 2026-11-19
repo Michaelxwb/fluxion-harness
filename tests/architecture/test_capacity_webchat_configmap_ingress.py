@@ -203,10 +203,29 @@ def _apirouter_prefixes(source: Path) -> dict[str, str]:
     return prefixes
 
 
+def _mounted_webchat_prefix() -> str:
+    """装配根的 `WEBCHAT_API_PREFIX`：路由本身不带 prefix 时的唯一挂载事实。"""
+    source = GATEWAY_SRC / "main.py"
+    tree = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign) or not isinstance(node.value, ast.Constant):
+            continue
+        if not isinstance(node.value.value, str):
+            continue
+        if any(isinstance(target, ast.Name) and target.id == "WEBCHAT_API_PREFIX" for target in node.targets):
+            return node.value.value
+    raise AssertionError("main.py 必须声明 WEBCHAT_API_PREFIX（路由挂载前缀）")
+
+
 def _router_prefix(source: Path, variable: str) -> str:
     prefix = _apirouter_prefixes(source).get(variable)
-    assert prefix, f"{source.relative_to(ROOT)} 必须声明 {variable} 的 APIRouter(prefix=...)"
-    return prefix
+    if prefix:
+        return prefix
+    if source == GATEWAY_SRC / "api/webchat.py" and variable in {"router", "notification_router"}:
+        return _mounted_webchat_prefix()
+    raise AssertionError(
+        f"{source.relative_to(ROOT)} 必须声明 {variable} 的 APIRouter(prefix=...)"
+    )
 
 
 def _gateway_events_path() -> str:

@@ -312,7 +312,8 @@ export function SchedulePage() {
             {
               title: t('schedule.columns.lastFireAt'),
               dataIndex: 'last_fire',
-              width: 210,
+              // 时间 + 最近一次状态同一行；210/250 在长 locale 标签（Execution created）下仍会溢出。
+              width: 300,
               render: (value: ScheduleListItem['last_fire']) =>
                 value ? (
                   <span
@@ -340,7 +341,8 @@ export function SchedulePage() {
                 )
             },
             {
-              ...actionColumn(150),
+              // 三个动作按钮（查看/编辑/删除）同列；150 在 en-US 下会把删除按钮挤出视口。
+              ...actionColumn(190),
               title: t('schedule.columns.actions'),
               render: (_: unknown, record: ScheduleListItem) => (
                 <ScheduleRowActions

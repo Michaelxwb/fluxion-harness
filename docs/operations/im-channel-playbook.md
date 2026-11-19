@@ -153,14 +153,15 @@
 
 ### 3.7 数据边界
 
-- 同一 `platform_user + Agent` 的会话/产物/通知跨入口共享；entry/channel 只做来源标识。
+- 会话按 Web 面共享：同一 `platform_user + Agent` 的 `WEBCHAT`/`MSSWWEB` 会话跨入口互相可见、可续聊；企微（`WECOM`）不进入 Web 会话列表，也不能从 Web 面直接用 URL 打开或续聊。
+- 产物/通知仍按 `platform_user + Agent` 共享（本次未改）；entry/channel 只做来源标识。
 - 不同用户隔离：按 `tenant + user (+ agent)` 核属；不同用户 404/403。
-- 显式资源访问不添加来源 `entry/channel` 相等断言；新建/发送/上传仍检查本次实际入口，隐式机器人 entry/thread 路由保留；删除/取消/已读需有效用户，不要求来源入口 enabled 或当前 Agent 授权。
-- 会话列表按 user+agent 跨入口聚合；item 带 `entry_id`/`channel` 来源。
+- 显式资源访问不添加来源 `entry/channel` 相等断言，但 Web 面读取必须带来源通道 allowlist（`WEBCHAT,MSSWWEB`）；新建/发送/上传仍检查本次实际入口，隐式机器人 entry/thread 路由保留；删除/取消/已读需有效用户，不要求来源入口 enabled 或当前 Agent 授权。
+- 会话列表按 user+agent 跨 Web 入口聚合；item 带 `entry_id`/`channel` 来源；企微来源不返回。
 - 通知用户级共享；WebChat 可展示同用户全部通知；BFF 类可选择不展示通知中心。
 - 产物跨入口复用允许（同 user+agent）。
-- 会话创建来源不可变；本次 Run、其 Task、通知和交付跟随实际发送来源。修复通知 writer 的“Run 与会话入口不同时回退到会话入口”逻辑；页面来源标记可选。
-- Runtime 的显式会话受理前检查、事务内复查和最终解析都要按 user+Agent 适配；WebChat 的列表 service、初始化/URL 恢复及会话选择同步移除来源相等判断。
+- 会话创建来源不可变；本次 Run、其 Task、通知和交付跟随实际发送来源。WebChat/MSSWWEB 从另一 Web 入口续聊时，Run 的来源仍是实际发送入口；企微来源一律拒绝。页面来源标记可选。
+- Runtime 的显式会话受理前检查、事务内复查和最终解析在 Web 面按 user+Agent + 来源通道 allowlist 适配；企微等非 Web 通道保持严格入口核属。WebChat 的列表 service、初始化/URL 恢复及会话选择同步移除来源相等判断。
 
 ### 3.8 未读
 

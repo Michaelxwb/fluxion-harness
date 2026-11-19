@@ -17,7 +17,7 @@
 | 身份模型 | `channel_identity`（按入口建） | **`external_identity`（用户级）+ `entry_access_grant`（入口授权）** |
 | 身份字段 | `job_number` | **平台可配 `identity_keys`**（MSSW 用 `_id` + `tenant_id`） |
 | 未配置 | 404 `MSSW_CHANNEL_NOT_CONFIGURED` | **503 `EXTERNAL_ASSERTION_UNAVAILABLE`** |
-| 会话可见性 | 按入口隔离 | **同一 user + 同一 Agent 跨入口共享** |
+| 会话可见性 | 按入口隔离 | **同一 user + 同一 Agent 在 Web 面（WEBCHAT/MSSWWEB）跨入口共享；企微不进入 Web 列表** |
 | 缓存 | 无 | **Redis 凭证/权限分层缓存 + auth_revision + policy_epoch** |
 
 **通用化的边界**：这是「JWT 类外部平台」的通用方案。新增同类平台（如 MSSP）只加平台配置与入口，不复制 handler。若将来接非 JWT 平台（OAuth2、mTLS），身份模型与会话层可复用，认证适配层需另写。
