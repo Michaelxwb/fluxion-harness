@@ -150,7 +150,7 @@
 |---|---|---|
 | `delivery_route` | `DeliveryRouteInput \| null` | 平台默认目标；null = 无绑定出站身份，仅站内 |
 | `available_push_targets` | `PushTargetOption[]` | 当前用户-Agent 可用企微目标 |
-| `delivery_intent` | `PUSH \| NONE` | 由是否选择目标派生，不由入口决定 |
+| `delivery_intent` | `PUSH \| NONE` | 由是否有绑定出站身份派生，不由入口决定 |
 
 **`PushTargetOption`**
 

@@ -40,7 +40,7 @@
 | **模块ID** | MOD-ARTIFACT-DELIVERY |
 | **需求类型** | 技术重构 + 能力补齐 + Bug 修复 |
 | **业务背景** | 文件产物分散在 Runtime 内联、Worker 单文件、模型工具三条路径；Web 与企微行为不一致；定时任务与直接对话各自实现；未来入口/通道需要重复写交付代码。 |
-| **核心目标** | 所有执行形态只产出“消息 + 附件”；平台按用户-Agent 的 Web/企微入口决定 pull/push；push 只有一套消息级状态机；定时任务与直接对话共用底层。 |
+| **核心目标** | 所有执行形态只产出“消息 + 附件”；Web 入口做 pull，用户绑定的出站 IM 身份做 push（不按创建入口）；push 只有一套消息级状态机；定时任务与直接对话共用底层。 |
 
 ### 2.2 痛点与价值
 
@@ -316,11 +316,11 @@ UNIQUE (tenant_id, task_id, message_key, target_key)
 - `ScheduleDraftRequest.delivery_route` 可选；PUSH 由“用户是否有已绑定出站身份”决定：有则默认选最近活跃/绑定的目标，没有则 NONE；不再由 `entry_channel` 决定，也不读历史 route 快照。
 - 删除 `schedule_drafts.py` 的 `entry_delivery_capability`/`ensure_delivery_target` 入口相等限制；同步 `schedule_confirm.py` 的 route 解析（确认时也按显式目标，不按入口）。
 - 校验：路由属于同一 tenant/user/agent、通道在 `OUTBOUND_CHANNELS`、绑定有效；不满足则 `SCHEDULE_DELIVERY_UNSUPPORTED`。
-- Web 创建默认 `NONE`（仅 Web）；企微创建默认来源企微路由（PUSH）；两者都可显式改选（有可用路由时）。
+- 有已绑定出站身份 → 默认 PUSH 到最近活跃/绑定的目标；没有绑定 → NONE。创建入口只作来源元数据，不参与默认值。
 - 新增只读目标列表（调度默认目标）：Console `GET /internal/channel/targets` + Worker `GET /internal/schedules/delivery-targets`，从用户绑定的出站 `channel_identity` + 启用 bot 投影，返回安全标签与 `DeliveryRouteInput`；通道集合由 `OUTBOUND_CHANNELS` 拥有，新增 IM 通道不在这里加分支。前端不展示 route 内部 ID/通道，也不拼接 URL。没有目标时返回空列表。
 - Schedule Revision 冻结 `delivery_intent` + `delivery_route_id`；Task 执行按冻结路由 push。
 - Web pull 不是 `delivery_intent`：只要有 Web 入口，任务中心/详情始终可读。
-- 需要 Spec Delta：`worker/harness-worker#RULE-003` 明确“PUSH 目标是 Schedule 显式配置，独立于创建入口；无绑定 NONE；任务中心 pull 始终可用”。
+- 需要 Spec Delta：`worker/harness-worker#RULE-003` 明确“PUSH 目标默认来自用户已绑定的出站身份（按最近活跃/绑定选择），独立于创建入口；无绑定 NONE；任务中心 pull 始终可用”。
 
 ### 4.8 平台工具
 
@@ -502,7 +502,7 @@ BATCH 子任务：不单独向用户投递（除非父任务明确聚合）
 - SurfaceResolver：Web pull、企微 push、两者、都没有；直接 vs 定时；JOIN 子任务。
 - `message_delivery`：key 幂等、租约/epoch、PENDING/DELIVERING/DELIVERED/DEGRADED/UNKNOWN/FAILED、退避、路由失效。
 - `task.message_outbox`：终态事务写、Worker 消费、幂等、无路由不写。
-- Schedule 路由独立于入口：Web 创建可选企微；无绑定 NONE。
+- Schedule 路由独立于入口：有绑定出站身份默认 push；无绑定 NONE。
 - `deliver_artifact`：Web 发布 / 企微 push / 无表面 / 重发。
 - `MEDIA:` 解析边界（若实现）。
 

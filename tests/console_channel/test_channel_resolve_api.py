@@ -249,6 +249,27 @@ async def test_targets_returns_bound_outbound_identities(
     assert item["agent_id"] == str(channel.agent_id)
 
 
+async def test_targets_are_scoped_to_each_platform_user(
+    client: AsyncClient, channel: ChannelContext
+) -> None:
+    cases = (
+        (channel.actor_user_id, channel.bound_external_user_id),
+        (channel.ungranted_user_id, channel.ungranted_external_user_id),
+    )
+    for user_id, expected_external in cases:
+        response = await client.get(
+            TARGETS_URL,
+            params={
+                "platform_user_id": str(user_id),
+                "agent_id": str(channel.agent_id),
+            },
+            headers=service_headers(channel.tenant_id),
+        )
+        assert response.status_code == 200, response.text
+        items = response.json()["data"]["items"]
+        assert [item["external_user_id"] for item in items] == [expected_external]
+
+
 async def test_targets_are_scoped_to_the_deployment_tenant(
     client: AsyncClient, channel: ChannelContext
 ) -> None:
