@@ -285,6 +285,7 @@ uv run python tools/fake-business-platform/async_batch_check.py
 
 - `server.py` — 模拟器（仅标准库）。
 - `mssp.py` — MSSP 模式的路由/鉴权/fixtures/故障注入实现。
+- `real_skill_smoke.py` — 真实内网 `daily-duty-report-mssp` 对 Fake MSSP 的手动验证入口。
 - `fixtures/mssp.json` — MSSP 确定性 fixtures（全资产/非全资产/空数据/场景 1-11）。
 - `smoke_check.py` — 上节的本地端到端冒烟。
 - `async_batch_check.py` — ASYNC BATCH Skill 的本地端到端（父计划 + 子文件）。
@@ -299,3 +300,32 @@ uv run python -m pytest -q tests/agent_worker/test_local_report_skill.py
 
 本地回归 Skill 在 `tests/fixtures/skills/daily-duty-report-mssp-local/`（SKILL.md 内有
 argv/stdin 双入口与 fixtures 说明）。
+
+## 用真实内网 Skill 手动验证 Fake MSSP
+
+`real_skill_smoke.py` 直接运行用户真实包 `/Users/jahan/share/daily-duty-report-mssp`，
+只把 base URL 指向 Fake MSSP，并用临时 `session-manager` 提供假登录态；业务脚本、场景
+判定和 xlsx 生成都不复制、不改写：
+
+```bash
+# 一条命令：启动 Fake MSSP + 跑真实 Skill + 把报告留在 .data/real-mssp-skill/
+uv run python tools/fake-business-platform/real_skill_smoke.py --company-id 1001 --date 2026-11-18
+
+# 场景矩阵
+uv run python tools/fake-business-platform/real_skill_smoke.py --company-id 2101
+
+# 跑已启动的 Fake MSSP（不再自动起进程）
+uv run python tools/fake-business-platform/real_skill_smoke.py \
+  --base-url http://127.0.0.1:18083 --company-id 1002
+
+# 保留临时 Skill 副本，便于对照
+uv run python tools/fake-business-platform/real_skill_smoke.py --company-id 2107 --keep-skill
+```
+
+输出目录：`.data/real-mssp-skill/<company>/<date>/`，含正文、stderr、xlsx 附件。默认
+`--no-wecom-push`，不会触碰企微发送；`--with-wecom-query` 只做只读查群。
+
+> 这条路径用于验证“真实内网包 + fake 平台”的协议/场景兼容；平台调度的 SKILL_PLAN
+> argv/stdin 回归仍用 `tests/fixtures/skills/daily-duty-report-mssp-local/`，两者不要混为
+> 一谈。真实包需要 `session-manager`，平台手工导入真实包时仍必须配置对应的平台会话；
+> 本地快速验证用上面的 smoke 命令即可。

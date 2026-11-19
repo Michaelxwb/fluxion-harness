@@ -409,7 +409,7 @@ def test_enabled_wecom_uploads_once_and_sends_once_per_trace_id() -> None:
         query = payload(platform.post(PATH_WECOM_QUERY, {"param_list": []}))
         group = query["data"]["list"][0]["actual_data"]["actual_data_value"]
         assert group["_id"] == "wg-1001"
-        assert group["group_name"] == "【示例】全资产客户服务群"
+        assert group["group_name"] == "【示例】华东制造集团服务群"
 
         headers = platform.headers()
         headers.pop("Content-Type")
@@ -428,7 +428,7 @@ def test_enabled_wecom_uploads_once_and_sends_once_per_trace_id() -> None:
         assert platform.stats()["writes"]["uploads"] == 1
 
         send_body = {
-            "company_name": {"_id": "1001", "value": "全资产客户", "param_codes": "mss_customer_list"},
+            "company_name": {"_id": "1001", "value": "华东制造集团", "param_codes": "mss_customer_list"},
             "wechat_group_name": {
                 "_id": group["_id"],
                 "value": group["group_name"],

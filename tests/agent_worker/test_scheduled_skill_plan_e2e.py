@@ -78,7 +78,7 @@ STDIN_SLOT = datetime(2026, 3, 8, 1, 0, tzinfo=UTC)
 SKILL_ID = uuid.UUID("5a1d0c1e-0000-4000-8000-000000023001")
 SKILL_KEY = "daily-duty-report-mssp-local"
 REPORT_DATE = "2026-11-18"
-REPORT_ATTACHMENT = "安全事件及威胁实体封堵列表-20261118.txt"
+REPORT_ATTACHMENT = "安全事件及威胁实体封堵列表-20261118.xlsx"
 SKILL_ROOT = Path(__file__).resolve().parents[1] / "fixtures/skills/daily-duty-report-mssp-local"
 #: 固定 09:00 槽是过去时间：绝对 deadline 留够未来时间，执行器的单次上限才是 300s 而非 1s。
 SETTINGS: dict[str, Any] = {"task": {"default_deadline_hours": 24 * 365 * 10}}
@@ -472,7 +472,7 @@ async def test_draft_trial_confirm_fire_and_retry_run_the_local_skill(
         assert "安全日志2000条" in first["stdout"]
         assert "安全告警24条" in first["stdout"]
         assert "生成有效事件5条" in first["stdout"]
-        assert "附件：《安全事件及威胁实体封堵列表-20261118.txt》" in first["stdout"]
+        assert "附件：《安全事件及威胁实体封堵列表-20261118.xlsx》" in first["stdout"]
 
         fired_artifacts = await _artifacts(tenant, execution.id)
         fired_names = {
@@ -484,7 +484,7 @@ async def test_draft_trial_confirm_fire_and_retry_run_the_local_skill(
         attachment = _artifact_named(fired_artifacts, REPORT_ATTACHMENT)
         artifact_root = tmp_path / "artifacts"
         assert _read_artifact(artifact_root, report).strip() == first["stdout"].strip()
-        assert "本地回归占位附件" in _read_artifact(artifact_root, attachment)
+        assert (artifact_root / str(attachment["storage_key"])).read_bytes()[:2] == b"PK"
 
         stats = platform.stats()["counts"]
         assert stats.get(PATH_COMPANY_LIST, 0) >= 1
@@ -577,7 +577,7 @@ async def test_cron_entrypoint_receives_only_business_input_on_stdin(
         rows = await _artifacts(tenant, execution.id)
         names = {str((row["metadata_json"] or {}).get("filename") or "") for row in rows}
         assert any(name.endswith("report.txt") for name in names)
-        assert any(name.endswith("安全事件及威胁实体封堵列表-20260307.txt") for name in names)
+        assert any(name.endswith("安全事件及威胁实体封堵列表-20260307.xlsx") for name in names)
 
 
 async def test_delayed_occurrence_fires_the_frozen_slot_and_missed_occurrence_is_skipped(

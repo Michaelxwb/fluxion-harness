@@ -548,29 +548,111 @@ def _archive_dir(company_name: str, company_id: str, date_str: str) -> Path:
     )
 
 
+def _entity_name_of(item: dict[str, Any]) -> str:
+    obj = item.get("threatObject") or {}
+    return str(obj.get("threatObjectName") or item.get("threatObjectName") or "")
+
+
+def _entity_country(item: dict[str, Any]) -> str:
+    obj = item.get("threatObject") or {}
+    parts = [obj.get("country"), obj.get("province"), obj.get("city")]
+    return "".join(str(part or "") for part in parts)
+
+
+def _write_xlsx(
+    target: Path,
+    *,
+    entities: list[dict[str, Any]],
+    events: list[dict[str, Any]],
+    date_str: str,
+) -> Path | None:
+    """按真实 Skill 的附件形态生成 xlsx；没有可导出行时不生成。"""
+    if not entities and not events:
+        return None
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Alignment, Font, PatternFill
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        log("[附件] openpyxl 不可用，跳过 xlsx")
+        return None
+    wb = Workbook()
+    wb.remove(wb.active)
+    head_font = Font(bold=True, color="FFFFFF")
+    head_fill = PatternFill("solid", fgColor="4472C4")
+
+    def sheet(name: str, columns: list[str], rows: list[list[Any]]) -> None:
+        ws = wb.create_sheet(name)
+        ws.append(columns)
+        for cell in ws[1]:
+            cell.font = head_font
+            cell.fill = head_fill
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+        for row in rows:
+            ws.append(row)
+        for index, column in enumerate(columns, start=1):
+            width = len(str(column))
+            for row in rows:
+                width = max(width, len(str(row[index - 1])))
+            ws.column_dimensions[get_column_letter(index)].width = min(60, max(10, width + 2))
+        ws.freeze_panes = "A2"
+
+    if entities:
+        sheet(
+            "威胁实体列表",
+            ["序号", "威胁实体", "地理位置", "实体类型", "封禁状态", "历史封禁次数", "最近活跃时间"],
+            [
+                [
+                    index,
+                    _entity_name_of(item),
+                    _entity_country(item),
+                    item.get("threatType") or "",
+                    "已封堵" if item.get("blockStatus") == "blocked" else "未封堵",
+                    int((item.get("blockHistory") or {}).get("blockCount") or 0),
+                    dt.datetime.fromtimestamp(
+                        int(item.get("lastTimestamp") or 0) / 1000, tz=TZ
+                    ).strftime("%Y-%m-%d %H:%M:%S"),
+                ]
+                for index, item in enumerate(entities, start=1)
+            ],
+        )
+    if events:
+        sheet(
+            "事件列表",
+            ["序号", "事件创建时间", "类型", "事件名称", "主机IP", "主机名称", "威胁等级", "状态"],
+            [
+                [
+                    index,
+                    str(item.get("create_time") or ""),
+                    f"{item.get('manage_type') or ''} / {item.get('manage_sub_type') or ''}".strip(" /"),
+                    item.get("event_name") or "",
+                    item.get("host_ip") or item.get("real_ip") or "",
+                    item.get("dev_name") or item.get("hostname") or "",
+                    item.get("risk_level") or "",
+                    STATUS_TEXT.get(str(item.get("event_status") or ""), str(item.get("event_status") or "")),
+                ]
+                for index, item in enumerate(events, start=1)
+            ],
+        )
+    path = target / f"安全事件及威胁实体封堵列表-{date_str.replace('-', '')}.xlsx"
+    wb.save(path)
+    return path
+
+
 def _write_outputs(
     company_name: str,
     company_id: str,
     date_str: str,
     body: str,
-    attachment_name: str,
     *,
-    event_count: int,
-    entity_count: int,
-) -> tuple[Path, Path]:
+    entities: list[dict[str, Any]],
+    events: list[dict[str, Any]],
+) -> tuple[Path, Path | None]:
     target = _archive_dir(company_name, company_id, date_str)
     target.mkdir(parents=True, exist_ok=True)
     report_path = target / "report.txt"
     report_path.write_text(body + "\n", encoding="utf-8")
-    attachment_path = target / attachment_name
-    attachment_path.write_text(
-        "本地回归占位附件（不是真实 xlsx）\n"
-        f"客户：{company_name}（{company_id}）\n"
-        f"日期：{date_str}\n"
-        f"安全事件：{event_count} 起\n"
-        f"威胁实体：{entity_count} 个\n",
-        encoding="utf-8",
-    )
+    attachment_path = _write_xlsx(target, entities=entities, events=events, date_str=date_str)
     return report_path, attachment_path
 
 
@@ -637,7 +719,11 @@ def generate(
         else:
             tail = NO_GROUP_TEXT
 
-    attachment_name = f"安全事件及威胁实体封堵列表-{date_str.replace('-', '')}.txt"
+    attachment_name = (
+        f"安全事件及威胁实体封堵列表-{date_str.replace('-', '')}.xlsx"
+        if rows or entity.get("objects")
+        else ""
+    )
     body = build_body(
         date_str=date_str,
         log_count=log_count,
@@ -654,16 +740,15 @@ def generate(
         company_id,
         date_str,
         body,
-        attachment_name,
-        event_count=len(rows),
-        entity_count=len(entity.get("objects") or []),
+        entities=list(entity.get("objects") or []),
+        events=rows,
     )
     return {
         "body": body,
         "tail": tail,
         "report_path": str(report_path),
-        "attachment_path": str(attachment_path),
-        "attachment_name": attachment_name,
+        "attachment_path": str(attachment_path) if attachment_path is not None else "",
+        "attachment_name": attachment_path.name if attachment_path is not None else "",
         "company_id": str(company_id),
         "company_name": company_name,
         "full_asset": full_asset,
@@ -705,9 +790,9 @@ def build_body(
         "",
         "3、安全事件：",
         event_section or "暂未发现攻击成功或资产失陷迹象。",
-        "",
-        f"附件：《{attachment_name}》（本地回归占位，未生成实际工作簿）",
     ]
+    if attachment_name:
+        parts.extend(["", f"附件：《{attachment_name}》"])
     if missing:
         parts.extend(["", f"本期以下项目取数暂不可用：{'、'.join(missing)}。"])
     parts.extend(["", CLOSING])

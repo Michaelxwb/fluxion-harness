@@ -1,6 +1,6 @@
 ---
 name: daily-duty-report-mssp-local
-description: "本地回归用「每日值守总结」Skill（fake MSSP）。与 daily-duty-report-mssp 同形态，保留 argparse 与 stdin 双入口，输出头三项计数、外部威胁趋势、威胁实体、安全事件和附件占位。"
+description: "本地回归用「每日值守总结」Skill（fake MSSP）。与 daily-duty-report-mssp 同形态，保留 argparse 与 stdin 双入口，输出头三项计数、外部威胁趋势、威胁实体、安全事件和真实 xlsx 附件。"
 ---
 
 # 本地值守日报（fake MSSP）
@@ -11,8 +11,8 @@ description: "本地回归用「每日值守总结」Skill（fake MSSP）。与 
   `scripts/cron_entry.py` 读 stdin，二者共用 `scripts/report.py`。
 - 只访问本仓库的 fake MSSP（`tools/fake-business-platform --platform mssp`），
   **不访问内网、不需要 session-manager、不依赖 requests/openpyxl**。
-- 报告是简化版：头三项计数、外部威胁趋势、威胁实体、安全事件、附件占位。
-  附件是 `.txt` 占位文件，不是真实 xlsx。
+- 报告是简化版：头三项计数、外部威胁趋势、威胁实体、安全事件、真实 xlsx 附件。
+  附件是按真实 Skill 形态生成的 `.xlsx`（威胁实体列表 + 事件列表；无可导出行时不生成）。
 
 ## 前置：启动 fake MSSP
 
@@ -77,12 +77,35 @@ stdout 只有正文；诊断走 stderr。正文结构：
 {disabled / mock / security}
 3、安全事件：
 {空态或 top5}
-附件：《安全事件及威胁实体封堵列表-YYYYMMDD.txt》（本地回归占位，未生成实际工作簿）
+附件：《安全事件及威胁实体封堵列表-YYYYMMDD.xlsx》
 ```
 
 落盘目录：`$SKILL_OUTPUT_DIR/值守日报存档/<客户名>_<客户ID>/<日期>/`
 （未设置 `SKILL_OUTPUT_DIR` 时是当前目录 `.skill-output/`），含 `report.txt`
-与附件占位。
+与真实 xlsx 附件。
+
+## 手动导入平台做定时任务验证
+
+```bash
+cd tests/fixtures/skills
+zip -r /tmp/daily-duty-report-mssp-local.zip daily-duty-report-mssp-local \
+  -x '*/__pycache__/*' '*/.*'
+```
+
+在 Console「Skill」页导入该 zip、完成审批/启用，并把 Skill 绑到测试 Agent；然后用
+`draft_schedule` 创建 `SKILL_PLAN`，`argv` 至少包含：
+
+```json
+["--company-id", "1001", "--date", "{{previous_day}}", "--no-wecom-push"]
+```
+
+`input` 可以留空；本 Skill 的 argparse 入口只读 argv。调度触发后，任务中心应能看到
+`report.txt` 与 `.xlsx` 附件。若开发 Worker 不在本机，需要把 `MSSP_BASE_URL` 指向
+Fake MSSP 在 Worker 网络内可达的地址，或改 `config/api_config.json` 的 `base_url`。
+
+> 这只是**平台链路**的手动验证版：场景 1-11 的完整内网口径请用
+> `tools/fake-business-platform/real_skill_smoke.py` 直接跑真实 Skill 包，不要用本
+> 简化版冒充真实 Skill 的逐场景结果。
 
 ## Fixtures
 

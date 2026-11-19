@@ -28,7 +28,7 @@
   },
   "companies": {
     "1001": {
-      "name": "全资产客户（示例）",
+      "name": "华东制造集团",
       "full_asset": true,
       "logs": {"network": 1200, "endpoint": 800},
       "events": [
@@ -96,12 +96,12 @@
       },
       "group": {
         "_id": "wg-1001",
-        "group_name": "【示例】全资产客户服务群",
-        "company_name": "全资产客户（示例）"
+        "group_name": "【示例】华东制造集团服务群",
+        "company_name": "华东制造集团"
       }
     },
     "1002": {
-      "name": "非全资产客户（示例）",
+      "name": "华南零售集团",
       "full_asset": false,
       "logs": {"network": 320, "endpoint": 80},
       "services": [
@@ -198,12 +198,12 @@
       },
       "group": {
         "_id": "wg-1002",
-        "group_name": "【示例】非全资产客户服务群",
-        "company_name": "非全资产客户（示例）"
+        "group_name": "【示例】华南零售集团服务群",
+        "company_name": "华南零售集团"
       }
     },
     "1003": {
-      "name": "空数据客户（示例）",
+      "name": "西北能源集团",
       "full_asset": true,
       "logs": {"network": 0, "endpoint": 0},
       "events": [],
@@ -220,7 +220,7 @@
       }
     },
     "1004": {
-      "name": "未开通智能对抗客户（示例）",
+      "name": "云启科技",
       "full_asset": false,
       "logs": {"network": 10, "endpoint": 0},
       "services": [

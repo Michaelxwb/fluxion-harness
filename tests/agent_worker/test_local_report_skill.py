@@ -82,14 +82,14 @@ def test_argv_entry_renders_counts_scene_entities_events_and_attachment(
     assert "建议封禁的威胁实体 6 个" in report
     assert "已封堵的IP/域名如下：" in report
     assert "1）10.10.1.11 外网暴力破解攻击 已闭环" in report
-    assert "附件：《安全事件及威胁实体封堵列表-20261118.txt》" in report
+    assert "附件：《安全事件及威胁实体封堵列表-20261118.xlsx》" in report
 
     reports = list(tmp_path.rglob("report.txt"))
-    attachments = list(tmp_path.rglob("安全事件及威胁实体封堵列表-20261118.txt"))
+    attachments = list(tmp_path.rglob("安全事件及威胁实体封堵列表-20261118.xlsx"))
     assert len(reports) == 1
     assert len(attachments) == 1
     assert reports[0].read_text(encoding="utf-8").strip() == report.strip()
-    assert "本地回归占位附件" in attachments[0].read_text(encoding="utf-8")
+    assert attachments[0].read_bytes()[:2] == b"PK"
 
 
 def test_stdin_fire_envelope_and_direct_input_match_argv_report(tmp_path: Path) -> None:
@@ -142,7 +142,8 @@ def test_empty_data_still_generates_a_report(tmp_path: Path) -> None:
     assert "两期均未发现外部威胁。" in report
     assert "暂未发现攻击成功或资产失陷迹象。" in report
     assert "共 0 个" in report
-    assert list(tmp_path.rglob("安全事件及威胁实体封堵列表-20261118.txt"))
+    assert not list(tmp_path.rglob("安全事件及威胁实体封堵列表-*.xlsx"))
+    assert "附件：《" not in report
 
 
 def test_disabled_entities_render_the_fixed_notice(tmp_path: Path) -> None:
@@ -207,7 +208,7 @@ def test_wecom_push_queries_group_but_never_uploads_or_sends(tmp_path: Path) -> 
         )
         stats = platform.stats()
     assert completed.returncode == 0, completed.stderr
-    assert "是否将上述内容通过企业微信发送到服务群【【示例】全资产客户服务群】" in completed.stdout
+    assert "是否将上述内容通过企业微信发送到服务群【【示例】华东制造集团服务群】" in completed.stdout
     assert stats["counts"][PATH_WECOM_QUERY] == 1
     assert stats["writes"] == {"uploads": 0, "sends": 0, "duplicates": 0}
     assert stats["counts"].get(PATH_ATTACHMENT_UPLOAD) is None
