@@ -215,7 +215,11 @@ def _xdr_values(value: Any) -> list[str]:
     if isinstance(value, dict):
         data = value.get("data")
         if isinstance(data, list):
-            return [str(item.get("originalValue") or item.get("renderValue") or "") for item in data if isinstance(item, dict)]
+            return [
+                str(item.get("originalValue") or item.get("renderValue") or "")
+                for item in data
+                if isinstance(item, dict)
+            ]
         if value.get("originalValue") not in (None, ""):
             return [str(value["originalValue"])]
         return []
@@ -281,7 +285,9 @@ def _row_sources(row: dict[str, Any]) -> list[str]:
 
 
 def _row_type(row: dict[str, Any]) -> str:
-    return str((row.get("name") or {}).get("renderValue") or (row.get("name") or {}).get("originalValue") or "未知类型").replace("告警", "")
+    name = row.get("name") or {}
+    text = name.get("renderValue") or name.get("originalValue") or "未知类型"
+    return str(text).replace("告警", "")
 
 
 def _share(part: int, total: int) -> float:
@@ -291,6 +297,59 @@ def _share(part: int, total: int) -> float:
 def _pct_text(value: float) -> str:
     text = f"{value:.1f}".rstrip("0").rstrip(".")
     return text
+
+
+def _source_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for row in rows:
+        for source in set(_row_sources(row)):
+            if source:
+                counts[source] = counts.get(source, 0) + 1
+    return counts
+
+
+def _type_shift(
+    current: list[dict[str, Any]], previous: list[dict[str, Any]]
+) -> tuple[str, int, int, str, int, int, str, str] | None:
+    """Return the dominant up/down type change when the top type switches."""
+    cur = _type_counts(current)
+    prev = _type_counts(previous)
+    if not cur or not prev:
+        return None
+    prev_top = max(prev, key=prev.get)
+    cur_top = max(cur, key=cur.get)
+    if prev_top == cur_top:
+        return None
+    up_type = max(set(cur) | set(prev), key=lambda key: cur.get(key, 0) - prev.get(key, 0))
+    down_type = min(set(cur) | set(prev), key=lambda key: cur.get(key, 0) - prev.get(key, 0))
+    up_delta = cur.get(up_type, 0) - prev.get(up_type, 0)
+    down_delta = cur.get(down_type, 0) - prev.get(down_type, 0)
+    if max(up_delta, -down_delta) < 20:
+        return None
+    return (
+        up_type,
+        prev.get(up_type, 0),
+        cur.get(up_type, 0),
+        down_type,
+        prev.get(down_type, 0),
+        cur.get(down_type, 0),
+        prev_top,
+        cur_top,
+    )
+
+
+def _top_type_decline(
+    current: list[dict[str, Any]], previous: list[dict[str, Any]]
+) -> tuple[str, int] | None:
+    cur = _type_counts(current)
+    prev = _type_counts(previous)
+    if not prev:
+        return None
+    drop_type = min(set(cur) | set(prev), key=lambda key: cur.get(key, 0) - prev.get(key, 0))
+    drop = prev.get(drop_type, 0) - cur.get(drop_type, 0)
+    if drop < 20:
+        return None
+    return drop_type, drop
 
 
 def scene_text(
@@ -357,8 +416,13 @@ def scene_text(
         if devs:
             names = {str(item.get("dev_name") or "") for item in devs}
             added = sum(
-                1 for row in current
-                if any(name and name in value for value in _xdr_values(row.get("devSourceNames")) for name in names)
+                1
+                for row in current
+                if any(
+                    name and name in value
+                    for value in _xdr_values(row.get("devSourceNames"))
+                    for name in names
+                )
             )
             if added > 20 and _share(added, delta) > 10:
                 return (
@@ -368,16 +432,75 @@ def scene_text(
                     f"占全部增长量的 {_pct_text(_share(added, delta))}%。"
                     "因统计数据范围发生变化，当前不能直接判断实际攻击活动增强。"
                 )
+        if delta >= 20:
+            current_sources = _source_counts(current)
+            previous_sources = _source_counts(previous)
+            new_sources = set(current_sources) - set(previous_sources)
+            if new_sources:
+                new_rows = [
+                    row for row in current if set(_row_sources(row)) & new_sources
+                ]
+                if new_rows:
+                    top_source = max(new_sources, key=lambda item: current_sources[item])
+                    return (
+                        f"本期共发现外部威胁 {cur} 起，较上期增加 {delta} 起，"
+                        f"增幅 {_pct_text(rate)}%，整体呈明显上升趋势。"
+                        f"新增攻击源 {top_source} 本期产生 {len(new_rows)} 起外部威胁，"
+                        f"涉及 {len(new_sources)} 个新增 IP，是本期增长的主要来源。"
+                    )
+            existing = set(current_sources) & set(previous_sources)
+            growth = sum(
+                max(0, current_sources[source] - previous_sources[source])
+                for source in existing
+            )
+            if existing and growth >= 20:
+                top_source = max(
+                    existing,
+                    key=lambda item: current_sources[item] - previous_sources[item],
+                )
+                return (
+                    f"本期共发现外部威胁 {cur} 起，较上期增加 {delta} 起，"
+                    f"增幅 {_pct_text(rate)}%，整体呈明显上升趋势。"
+                    f"增长主要来自原有攻击源 {top_source} 的攻击量增加："
+                    f"原有攻击源合计新增 {growth} 起，"
+                    f"占全部增长量的 {_pct_text(min(100.0, _share(growth, delta)))}%。"
+                )
         return _scene11(current, previous, cur, prev, rate)
     if rate <= -20:
+        delta = prev - cur
+        decline = _top_type_decline(current, previous)
+        if decline is not None and delta >= 20:
+            type_name, drop = decline
+            if _share(drop, delta) >= 10:
+                return (
+                    f"本期共发现外部威胁 {cur} 起，较上期减少 {delta} 起，"
+                    f"降幅 {_pct_text(abs(rate))}%，整体呈明显下降趋势。"
+                    f"下降主要因为 {type_name} 减少 {drop} 起，"
+                    f"占降幅的 {_pct_text(min(100.0, _share(drop, delta)))}%。"
+                )
         return _scene11(current, previous, cur, prev, rate)
+    shift = _type_shift(current, previous)
+    if shift is not None:
+        up_type, up_prev, up_cur, down_type, down_prev, down_cur, prev_top, cur_top = shift
+        return (
+            f"本期共发现外部威胁 {cur} 起，较上一统计周期持平，整体保持基本稳定，"
+            f"但攻击类型结构发生变化：{up_type} 由 {up_prev} 起升至 {up_cur} 起，"
+            f"{down_type} 由 {down_prev} 起降至 {down_cur} 起，"
+            f"主要攻击类型由 {prev_top} 转为 {cur_top}。"
+        )
     types = _type_counts(current)
-    old_types = _type_counts(previous)
     top_type = max(types, key=types.get) if types else ""
+    direction = "增加" if cur > prev else "减少" if cur < prev else "持平"
+    amount = f" {abs(cur - prev)} 起" if cur != prev else ""
+    rate_text = (
+        f"，上升 {_pct_text(rate)}%"
+        if rate > 0
+        else f"，下降 {_pct_text(abs(rate))}%"
+        if rate < 0
+        else ""
+    )
     return (
-        f"本期共发现外部威胁 {cur} 起，较上一统计周期{'增加' if cur > prev else '减少' if cur < prev else '持平'}"
-        f"{' ' + str(abs(cur - prev)) + ' 起' if cur != prev else ''}"
-        f"{'，上升 ' + _pct_text(rate) + '%' if rate > 0 else '，下降 ' + _pct_text(abs(rate)) + '%' if rate < 0 else ''}，"
+        f"本期共发现外部威胁 {cur} 起，较上一统计周期{direction}{amount}{rate_text}，"
         "整体保持基本稳定，攻击类型、攻击源数量和主要目标资产与上期基本一致"
         + (f"，仍以{top_type}为主。" if top_type else "。")
     )
@@ -399,14 +522,23 @@ def _top_threat(rows: list[dict[str, Any]]) -> str:
     return f"针对{host}的{_row_type(row)}新增 1 起"
 
 
-def _scene11(current: list[dict[str, Any]], previous: list[dict[str, Any]], cur: int, prev: int, rate: float) -> str:
+def _scene11(
+    current: list[dict[str, Any]],
+    previous: list[dict[str, Any]],
+    cur: int,
+    prev: int,
+    rate: float,
+) -> str:
     delta = abs(cur - prev)
     direction = "增加" if cur > prev else "减少"
     magnitude = "增幅" if cur > prev else "降幅"
     top = _top_threat(current) if cur else ""
+    trend = (
+        "明显上升" if rate >= 50 else "上升" if rate > 0 else "明显下降" if rate <= -50 else "下降"
+    )
     return (
-        f"本期共发现外部威胁 {cur} 起，较上期{direction} {delta} 起，{magnitude} {_pct_text(abs(rate))}%，"
-        f"整体呈{'明显上升' if rate >= 50 else '上升' if rate > 0 else '明显下降' if rate <= -50 else '下降'}趋势"
+        f"本期共发现外部威胁 {cur} 起，较上期{direction} {delta} 起，"
+        f"{magnitude} {_pct_text(abs(rate))}%，整体呈{trend}趋势"
         + (f"，其中最主要的外部威胁：{top}，占本期新增量的 {_pct_text(_share(1, delta))}%，"
            "因数量未达到主要贡献因素的最小数量阈值（20条），当前证据不足以确认本期外部威胁趋势变化的主要原因。"
            if top and cur > prev else "。")

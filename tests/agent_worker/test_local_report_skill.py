@@ -66,6 +66,24 @@ def run_stdin(
     )
 
 
+def run_hybrid(
+    platform, tmp_path: Path, payload: dict[str, object]
+) -> subprocess.CompletedProcess[str]:
+    """Platform-style schedule: no argv, business fields only on stdin."""
+    env = os.environ.copy()
+    env["MSSP_BASE_URL"] = platform.base_url
+    env["SKILL_OUTPUT_DIR"] = str(tmp_path)
+    return subprocess.run(
+        [sys.executable, str(RUN)],
+        input=json.dumps(payload, ensure_ascii=False),
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=60,
+        check=False,
+    )
+
+
 def test_argv_entry_renders_counts_scene_entities_events_and_attachment(
     tmp_path: Path,
 ) -> None:
@@ -90,6 +108,41 @@ def test_argv_entry_renders_counts_scene_entities_events_and_attachment(
     assert len(attachments) == 1
     assert reports[0].read_text(encoding="utf-8").strip() == report.strip()
     assert attachments[0].read_bytes()[:2] == b"PK"
+
+
+def test_argv_entry_falls_back_to_platform_stdin_input(tmp_path: Path) -> None:
+    with running_mssp() as platform:
+        completed = run_hybrid(
+            platform,
+            tmp_path,
+            {
+                "mode": "SKILL_PLAN",
+                "skill_id": "daily-duty-report-mssp-local",
+                "input": {
+                    "company_id": "1001",
+                    "date": REPORT_DATE,
+                    "no_wecom_push": True,
+                },
+            },
+        )
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout.startswith("【深信服MSS每日总结-20261118】")
+    assert "安全告警24条" in completed.stdout
+    assert list(tmp_path.rglob("安全事件及威胁实体封堵列表-20261118.xlsx"))
+
+
+def test_scene_specific_explanations_follow_the_fixture(tmp_path: Path) -> None:
+    cases = {
+        "2103": "增长主要来自原有攻击源 198.51.100.20",
+        "2104": "新增攻击源 203.0.113.99",
+        "2106": "主要攻击类型由 Web攻击 转为 暴力破解",
+        "2109": "下降主要因为 Web攻击 减少 25 起",
+    }
+    with running_mssp() as platform:
+        for company_id, expected in cases.items():
+            completed = run_argv(platform, tmp_path / company_id, company_id)
+            assert completed.returncode == 0, completed.stderr
+            assert expected in completed.stdout, completed.stdout
 
 
 def test_stdin_fire_envelope_and_direct_input_match_argv_report(tmp_path: Path) -> None:

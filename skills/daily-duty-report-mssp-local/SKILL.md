@@ -114,8 +114,15 @@ Skill 绑到测试 Agent。`argv` 示例（Fake MSSP 的 fixture 固定为 `2026
 ["--company-id", "1001", "--date", "2026-11-18", "--no-wecom-push"]
 ```
 
-`input` 可以留空；本 Skill 的 argparse 入口只读 argv。`--no-wecom-push` 表示**不**让
-Skill 自己经 MSSP 查群/发企微，避免和平台投递重复。
+平台既可以用上面的 `argv`，也可以只传 `input`（`run.py` 在没有 `--company-id` 时从
+stdin 读同样的业务字段）：
+
+```json
+{"company_id": "1001", "date": "2026-11-18", "no_wecom_push": true}
+```
+
+两者都没有时退出码 2。`--no-wecom-push` 表示**不**让 Skill 自己经 MSSP 查群/发企微，
+避免和平台投递重复。
 
 ### 3. 验证 WebChat 展示 + 附件
 
