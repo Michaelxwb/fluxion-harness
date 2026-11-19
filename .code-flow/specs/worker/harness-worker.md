@@ -15,7 +15,7 @@
 
 - [RULE-002] 人工交互是 Execution 所属的持久待处理状态；问题、检查点、进入等待与释放执行权必须原子提交，问题有效期不得超出执行 deadline。回答须同时核对交互 OPEN、执行确在等待、取消标记与有效期，再原子保存回答并排队续接；相同回答幂等，变化冲突。仅停止未来调度时保留已开始执行与 OPEN 问题，终止全部或超时时才原子关闭；任何回答或迟到结果都不得复活终态。
 
-- [RULE-003] 投递意图与业务执行状态分离：PUSH 的最终结果及人工问题先持久化独立投递记录，再以稳定业务键、持久尝试和有效发送租约驱动；只有接收方明确证明送达才能确认成功，失败不得改写业务执行终态。NONE 的定时结果与问题只由任务中心读取，禁止产生投递、会话消息或通知未读。投递采用创建时的明确目标，路由失效不得猜测其他会话，跨租户扫描和崩溃恢复必须有界且可前进。
+- [RULE-003] 投递意图与业务执行状态分离：PUSH 的最终结果及人工问题先持久化独立投递记录，再以稳定业务键、持久尝试和有效发送租约驱动；只有接收方明确证明送达才能确认成功，失败不得改写业务执行终态。NONE 的定时结果与问题只由任务中心读取，禁止产生投递、会话消息或通知未读。投递采用创建时的明确目标，路由失效不得猜测其他会话，跨租户扫描和崩溃恢复必须有界且可前进。Schedule 的 PUSH 目标是 Schedule 的显式配置，独立于创建入口；没有有效目标时为 NONE，任务中心 pull 始终可用。
 
 - [RULE-004] 扇出前必须在父任务行锁内同时确认 `status=RUNNING`、`cancel_requested=false`、`lease_until > now`、`lease_owner` 与本执行一致；已取消或已失约的父任务不得创建可执行 Child（`_require_live_owner`）。
 
@@ -64,3 +64,5 @@
 - {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-009","op":"add","rule":"RULE-004","payload_sha256":"236a93a832a41276e8cdba358a5b28fcc07163604e5814334681a37138a5c671","at":"2026-11-18T14:06:44.262Z"}
 
 - {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-010","op":"add","rule":"RULE-005","payload_sha256":"5cb69af33b6568e148ffea44c7b095941e5888c8b7b0d3def0948b29cb58c2eb","at":"2026-11-18T14:06:44.262Z"}
+
+- {"source":"2026-11-18/execution-and-delivery/execution-and-delivery.md#TASK-005#DELTA-001","op":"update","rule":"RULE-003","payload_sha256":"8b70684ff985a3fef4b4c70bee41c50bf0fa9fd47dd2478951db0e0631b62ff4","at":"2026-11-19T14:00:41.766Z"}
