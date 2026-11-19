@@ -554,8 +554,9 @@ export interface DraftCardProps {
 export function DraftCard(props: DraftCardProps) {
   const { t } = useTranslation();
   const { draft, entry } = props;
-  const expired = draftExpired(draft.expires_at, props.nowMs);
   const submitted = entry.phase === 'SUBMITTED';
+  // 已确认的卡片不再提示过期：确认已经是既成事实，过期只属于待确认状态。
+  const expired = !submitted && draftExpired(draft.expires_at, props.nowMs);
   const submitting = entry.phase === 'SUBMITTING';
   const locked =
     submitting || submitted || expired || isDraftFailureFinal(entry.errorCode);
@@ -581,10 +582,12 @@ export function DraftCard(props: DraftCardProps) {
         </span>
       </div>
       <DraftPreviewBody draft={draft} preview={draft.preview} />
-      <p className="chat-draft-expires" data-testid="chat-draft-expires">
-        {t('chat.draft.expiresAt')}
-        <DateTimeText value={draft.expires_at} />
-      </p>
+      {submitted ? null : (
+        <p className="chat-draft-expires" data-testid="chat-draft-expires">
+          {t('chat.draft.expiresAt')}
+          <DateTimeText value={draft.expires_at} />
+        </p>
+      )}
       <div className="chat-draft-actions">
         <Button
           theme="solid"

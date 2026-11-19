@@ -742,6 +742,7 @@ SCENARIOS = (
     {"id": "create-zh", "locale": "zh-CN"},
     {"id": "create-en", "locale": "en-US"},
     {"id": "create-push-zh", "locale": "zh-CN", "push": True},
+    {"id": "submitted-expired-zh", "locale": "zh-CN", "expired": True, "phase": "SUBMITTED"},
     {"id": "update-zh", "locale": "zh-CN", "draft": "update"},
     {"id": "expired-zh", "locale": "zh-CN", "expired": True},
     {
@@ -1034,6 +1035,13 @@ def test_expired_and_submitted_states_disable_the_action(draft_render: dict[str,
     assert _is_disabled(submitted, "chat-draft-confirm")
     assert "已确认，任务已生效" in submitted
     assert 'data-testid="chat-draft-retry"' not in submitted
+
+
+def test_confirmed_card_does_not_show_expired_notice(draft_render: dict[str, Any]) -> None:
+    markup = draft_render["markup"]["submitted-expired-zh"]
+    assert "已确认，任务已生效" in markup
+    assert "本次确认已过期" not in markup
+    assert 'data-testid="chat-draft-expires"' not in markup
 
 
 def test_unknown_status_card_cannot_be_confirmed(draft_render: dict[str, Any]) -> None:
