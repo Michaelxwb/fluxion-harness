@@ -1,4 +1,4 @@
-"""Shared helpers for the fake MSSP tests (real HTTP subprocess, no mocks)."""
+"""Shared helpers for MSSP-endpoint tests on the fake platform (real HTTP, no mocks)."""
 
 from __future__ import annotations
 
@@ -63,12 +63,17 @@ class FakeMssp:
         return str(self.ready["baseUrl"])
 
     @property
+    def mssp_ready(self) -> dict[str, Any]:
+        nested = self.ready.get("mssp")
+        return nested if isinstance(nested, dict) else {}
+
+    @property
     def host(self) -> str:
-        return str(self.ready.get("hostHeader") or MSSP_HOST)
+        return str(self.mssp_ready.get("hostHeader") or MSSP_HOST)
 
     @property
     def csrf(self) -> str:
-        return str(self.ready.get("csrfToken") or MSSP_CSRF)
+        return str(self.mssp_ready.get("csrfToken") or MSSP_CSRF)
 
     def headers(
         self,
@@ -147,7 +152,7 @@ def running_mssp(*extra_args: str) -> Iterator[FakeMssp]:
             sys.executable,
             str(SERVER),
             "--platform",
-            "mssp",
+            "smoke_platform",
             "--host",
             "127.0.0.1",
             "--port",
@@ -164,7 +169,7 @@ def running_mssp(*extra_args: str) -> Iterator[FakeMssp]:
         stderr = process.stderr.read() if process.stderr is not None else ""
         process.kill()
         process.wait(timeout=5)
-        raise AssertionError(f"fake MSSP did not become ready: {stderr}")
+        raise AssertionError(f"fake platform did not become ready: {stderr}")
     platform = FakeMssp(ready=json.loads(line), process=process)
     try:
         yield platform

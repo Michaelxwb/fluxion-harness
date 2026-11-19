@@ -6,10 +6,13 @@
 - `smoke_platform`（默认）：Cookie 登录（`POST /login`、`GET /api/me`、`GET /health/session`），对应旧版 Cookie 会话。
 - `mssw`：贴近 MSS ADS/gateway 契约，驱动真实的 `MSSAdapter`
   （`packages/platform-sdk/src/muad_platform_sdk/adapter/mss.py`）：SigV4 风格 AK/SK 登录、CSRF cookie/header、健康检查、Traceid 回显。
-- `mssp`：贴近 MSSP/SOAR 网关，驱动 `daily-duty-report-mssp` 同形态的 Skill：
-  Host 路由、固定 `X-CSRFToken`、`X-MSSW-Company-Id`，以及数据湖/事件/资产/XDR 端点。
 
-三种模式下 `POST /mcp` 都额外提供 Streamable HTTP MCP 子集。
+两种模式都在**同一个进程/端口**上提供 MSSP/SOAR 端点，驱动 `daily-duty-report-mssp`
+同形态的 Skill：Host 路由、固定 `X-CSRFToken`、`X-MSSW-Company-Id`，以及数据湖/事件/
+资产/XDR 端点。这样 Skill 直接复用 Console 里已有的 Smoke 测试平台 base URL，不需要
+再建一个平台配置。
+
+`POST /mcp` 与 `--platform` 无关，额外提供 Streamable HTTP MCP 子集。
 
 ## 一键启停
 
@@ -17,7 +20,7 @@
 
 | 服务 | 默认端口 | 用途 |
 |---|---|---|
-| `platform` | 18080 | mssw 模式业务平台（Skill / MSSM 适配器走这条） |
+| `platform` | 18080 | 共享业务平台：Smoke 测试平台 / MSSW / MSSP 端点同一进程 |
 | `mcp` | 18081 | MCP Streamable HTTP，`Authorization: Bearer` |
 | `mcp-headers` | 18082 | MCP Streamable HTTP，自定义请求头（含一个 secret 头） |
 
@@ -33,23 +36,23 @@
 重复 `start` 幂等；`stop` 只杀本次拉起的 `server.py`（pid 复用不会误杀）。端口被占时 `start`
 会先收走**本工具遗留的 `server.py`**（旧实例/手工起的实例，pid 文件里记的端口变了也会自动重启）；
 被别人占用则报错并打印占用者、不动它——确需强杀加 `--force`。可覆盖的环境变量：
-`PLATFORM_PORT` / `MCP_PORT` / `MCP_HEADERS_PORT` / `PLATFORM_MODE` / `FAKE_AK` / `FAKE_SK` /
-`MCP_TOKEN` / `MCP_APP_ID` / `MCP_PLATFORM_UID` / `MCP_API_KEY` / `HOST` / `PYTHON`。
+`PLATFORM_PORT` / `PLATFORM_MODE` / `PLATFORM_WECOM_WRITE` / `MCP_PORT` /
+`MCP_HEADERS_PORT` / `FAKE_AK` / `FAKE_SK` / `MCP_TOKEN` / `MCP_APP_ID` /
+`MCP_PLATFORM_UID` / `MCP_API_KEY` / `HOST` / `PYTHON`。
 
 ## 手动启动
 
 ```bash
-# mssw 模式（smoke_platform 样例 Skill 用这条）
+# Smoke 测试平台 / mssw 共用同一端口；MSSP 端点默认也在里面
 python3 tools/fake-business-platform/server.py \
-  --platform mssw --host 0.0.0.0 --port 18080 \
-  --ak test-ak --sk test-sk
+  --platform smoke_platform --host 0.0.0.0 --port 18080
 
-# mssp 模式（本地回归 Skill / fake MSSP 用这条；写操作默认关闭）
-python3 tools/fake-business-platform/server.py \
-  --platform mssp --host 127.0.0.1 --port 18083
+# 或者使用本仓库的默认 platform 服务（mssw 模式）
+./tools/fake-business-platform/services.sh start platform
 ```
 
-stdout 首行是 JSON 就绪信息（`baseUrl`、`hostHeader`/`csrfToken`、`companies`、`endpoints` 等）。
+stdout 首行是 JSON 就绪信息（`baseUrl`、`mssp.hostHeader`/`mssp.csrfToken`、
+`mssp.companies`、`mssp.endpoints` 等）。
 
 Runtime 在容器/Pod 内时，`baseUrl` 必须在该网络命名空间可达：用 `host.docker.internal`
 （Docker/OrbStack）或节点 IP / 集群别名。该值属于部署环境，配在 Console 平台设置里，不写进 Skill。
@@ -133,18 +136,17 @@ Bearer（无 `auth_config`，密钥存 MCP Server secret）：
 
 `auth_secret` 是平台侧的 MCP 密钥：不得写入 Skill、README 副本、日志或快照。
 
-## mssp 端点
+## MSSP 端点（合并到共享 platform）
 
-`--platform mssp` 模拟 `daily-duty-report-mssp` 使用的 MSSP/SOAR 网关。数据来自
-`fixtures/mssp.json`，不访问内网。
+共享 `platform` 服务同时模拟 `daily-duty-report-mssp` 使用的 MSSP/SOAR 网关。数据来自
+`fixtures/mssp.json`，不访问内网。Console 里的 Smoke 测试平台继续用原来的
+`http://127.0.0.1:18080`，不需要新增平台。
 
 ```bash
-python3 tools/fake-business-platform/server.py \
-  --platform mssp --host 127.0.0.1 --port 18083
+./tools/fake-business-platform/services.sh start platform
 
-# 需要测试企微上传/发送时显式开启（默认关闭）
-python3 tools/fake-business-platform/server.py \
-  --platform mssp --host 127.0.0.1 --port 18083 --enable-wecom-write
+# 需要测试 Skill 自己经 MSSP 上传/发送时显式开启（默认关闭）
+PLATFORM_WECOM_WRITE=1 ./tools/fake-business-platform/services.sh restart platform
 ```
 
 其它参数：`--mssp-fixtures`（fixture JSON）、`--mssp-default-company`、`--mssp-host-header`、
@@ -284,12 +286,12 @@ uv run python tools/fake-business-platform/async_batch_check.py
 ## 文件
 
 - `server.py` — 模拟器（仅标准库）。
-- `mssp.py` — MSSP 模式的路由/鉴权/fixtures/故障注入实现。
-- `real_skill_smoke.py` — 真实内网 `daily-duty-report-mssp` 对 Fake MSSP 的手动验证入口。
+- `mssp.py` — MSSP 端点的路由/鉴权/fixtures/故障注入实现（由 `platform` 服务挂载）。
+- `real_skill_smoke.py` — 真实内网 `daily-duty-report-mssp` 对共享 Fake 平台的手动验证入口。
 - `fixtures/mssp.json` — MSSP 确定性 fixtures（全资产/非全资产/空数据/场景 1-11）。
 - `smoke_check.py` — 上节的本地端到端冒烟。
 - `async_batch_check.py` — ASYNC BATCH Skill 的本地端到端（父计划 + 子文件）。
-- `services.sh` — 本地启停脚本（platform / mssp / mcp / mcp-headers，以及 `async-batch`、`real-skill` 命令）。
+- `services.sh` — 本地启停脚本（platform / mcp / mcp-headers，以及 `async-batch`、`real-skill` 命令）。
 
 MSSP 模式的回归用例：
 
@@ -300,25 +302,25 @@ uv run python -m pytest -q tests/agent_worker/test_local_report_skill.py
 
 本地回归 Skill 在 `skills/daily-duty-report-mssp-local/`（SKILL.md 内有
 argv/stdin 双入口、fixtures 说明，以及手动导入平台后验证 WebChat / WECOM 投递的步骤）。
-`./tools/fake-business-platform/services.sh start` 会连同 `mssp` 一起启动；
-`./tools/fake-business-platform/services.sh real-skill 1001` 只启动 `mssp` 并跑真实包。
+`./tools/fake-business-platform/services.sh start` 启动共享 `platform`（含 MSSP 端点）；
+`./tools/fake-business-platform/services.sh real-skill 1001` 只启动 `platform` 并跑真实包。
 
-## 用真实内网 Skill 手动验证 Fake MSSP
+## 用真实内网 Skill 手动验证共享 Fake 平台
 
 `real_skill_smoke.py` 直接运行用户真实包 `/Users/jahan/share/daily-duty-report-mssp`，
-只把 base URL 指向 Fake MSSP，并用临时 `session-manager` 提供假登录态；业务脚本、场景
-判定和 xlsx 生成都不复制、不改写：
+只把 base URL 指向共享 Fake 平台，并用临时 `session-manager` 提供假登录态；业务脚本、
+场景判定和 xlsx 生成都不复制、不改写：
 
 ```bash
-# 一条命令：启动 Fake MSSP + 跑真实 Skill + 把报告留在 .data/real-mssp-skill/
+# 一条命令：启动 Fake 平台 + 跑真实 Skill + 把报告留在 .data/real-mssp-skill/
 uv run python tools/fake-business-platform/real_skill_smoke.py --company-id 1001 --date 2026-11-18
 
 # 场景矩阵
 uv run python tools/fake-business-platform/real_skill_smoke.py --company-id 2101
 
-# 跑已启动的 Fake MSSP（不再自动起进程）
+# 跑已启动的共享 platform（不再自动起进程）
 uv run python tools/fake-business-platform/real_skill_smoke.py \
-  --base-url http://127.0.0.1:18083 --company-id 1002
+  --base-url http://127.0.0.1:18080 --company-id 1002
 
 # 保留临时 Skill 副本，便于对照
 uv run python tools/fake-business-platform/real_skill_smoke.py --company-id 2107 --keep-skill

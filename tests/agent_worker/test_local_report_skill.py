@@ -278,7 +278,7 @@ def test_wecom_push_disabled_platform_shows_the_no_group_notice(tmp_path: Path) 
 def test_skill_package_shape() -> None:
     manifest = json.loads((SKILL_ROOT / "muad.skill.json").read_text(encoding="utf-8"))
     assert manifest["name"] == "daily-duty-report-mssp-local"
-    assert manifest["platforms"] == ["mssp"]
+    assert manifest["platforms"] == ["smoke_platform"]
     assert manifest["entrypoint"] == "scripts/run.py"
     assert (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8").startswith("---")
     for script in ("run.py", "cron_entry.py", "report.py", "shared.py"):

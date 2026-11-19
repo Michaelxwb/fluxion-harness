@@ -7,8 +7,8 @@ Usage:
 When the platform omits ``--company-id``, the same business fields are read
 from stdin (Fire envelope or direct JSON) — the same shape accepted by
 ``scripts/cron_entry.py``. stdout is the report body only; diagnostics go to
-stderr. The fake MSSP base URL is taken from ``MSSP_BASE_URL`` (default
-``http://127.0.0.1:18083``).
+stderr. The shared fake platform base URL is taken from ``MSSP_BASE_URL`` (default
+``http://127.0.0.1:18080``).
 """
 
 from __future__ import annotations

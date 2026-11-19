@@ -1,4 +1,4 @@
-"""TASK-020: real HTTP contract for the fake MSSP platform mode."""
+"""TASK-020: real HTTP contract for MSSP endpoints on the shared fake platform."""
 
 from __future__ import annotations
 
@@ -66,17 +66,26 @@ def test_ready_advertises_host_csrf_and_fixture_catalog() -> None:
     with running_mssp() as platform:
         ready = platform.ready
         assert ready["status"] == "ready"
-        assert ready["platform"] == "mssp"
-        assert ready["hostHeader"] == support.MSSP_HOST
-        assert ready["csrfHeader"] == "X-CSRFToken"
-        assert ready["csrfToken"] == support.MSSP_CSRF
-        assert ready["companyHeader"] == "X-MSSW-Company-Id"
-        assert ready["wecomWrite"] is False
-        assert ready["endpoints"]["company_list"] == PATH_COMPANY_LIST
-        assert ready["endpoints"]["xdr_alert_table"] == PATH_XDR_ALERT_TABLE
-        companies = {row["company_id"] for row in ready["companies"]}
+        assert ready["platform"] == "smoke_platform"
+        mssp = platform.mssp_ready
+        assert mssp["hostHeader"] == support.MSSP_HOST
+        assert mssp["csrfHeader"] == "X-CSRFToken"
+        assert mssp["csrfToken"] == support.MSSP_CSRF
+        assert mssp["companyHeader"] == "X-MSSW-Company-Id"
+        assert mssp["wecomWrite"] is False
+        assert mssp["endpoints"]["company_list"] == PATH_COMPANY_LIST
+        assert mssp["endpoints"]["xdr_alert_table"] == PATH_XDR_ALERT_TABLE
+        companies = {row["company_id"] for row in mssp["companies"]}
         assert {"1001", "1002", "1003", "1004"} <= companies
         assert {f"21{index:02d}" for index in range(1, 12)} <= companies
+
+
+def test_mssp_endpoints_are_available_in_mssw_mode() -> None:
+    with running_mssp("--platform", "mssw") as platform:
+        assert platform.ready["platform"] == "mssw"
+        body = payload(platform.post(PATH_COMPANY_LIST, {"keyword": "1001"}))
+        assert body["code"] == 0
+        assert body["data"]["list"][0]["company_id"] == "1001"
 
 
 def test_host_csrf_and_api_proxy_company_header_are_enforced() -> None:

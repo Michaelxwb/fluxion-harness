@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Standalone business-platform simulator for session/SDK smoke tests.
 
-Three modes:
+Two platform modes, one shared process/port:
 
 - ``smoke_platform`` (default): cookie-based login used by the legacy
   session-manager smoke tests. Behaviour is unchanged.
@@ -9,12 +9,14 @@ Three modes:
   real ``MSSWSessionAdapter`` (SigV4-style AK/SK login, CSRF cookie/header,
   health endpoint) and the Runtime Guard ``requests`` compat layer
   (Cookie/CSRF/Host/static headers/Traceid).
-- ``mssp``: models the MSSP/SOAR gateway used by ``daily-duty-report-mssp``:
-  Host routing, the fixed ``X-CSRFToken`` header, ``X-MSSW-Company-Id`` on
-  api-proxy calls, the data-lake/event/asset endpoints and XDR alert
-  table/count through ``/gateway/api-proxy``. Fixtures live in
-  ``fixtures/mssp.json``; WeCom write endpoints are disabled unless
-  ``--enable-wecom-write`` is passed.
+
+Both modes also serve the MSSP/SOAR endpoints used by
+``daily-duty-report-mssp``: Host routing, the fixed ``X-CSRFToken`` header,
+``X-MSSW-Company-Id`` on api-proxy calls, the data-lake/event/asset endpoints
+and XDR alert table/count through ``/gateway/api-proxy``. Fixtures live in
+``fixtures/mssp.json``; WeCom write endpoints are disabled unless
+``--enable-wecom-write`` is passed. Keeping them on the existing platform
+base URL means the Skill does not need a second platform configuration.
 
 Independently of the platform mode, ``POST /mcp`` exposes a Streamable HTTP
 JSON-RPC subset (initialize / notifications/initialized / tools/list /
@@ -175,15 +177,16 @@ class FakeBusinessPlatform(ThreadingHTTPServer):
             name.lower() for name, _ in self.mcp_headers
         )
         self.mcp_sessions: set[str] = set()
-        self.mssp: mssp_platform.MsspService | None = None
-        if self.platform == "mssp":
-            self.mssp = mssp_platform.MsspService(
-                args.mssp_fixtures,
-                host_header=args.mssp_host_header,
-                csrf_token=args.mssp_csrf_token,
-                default_company=args.mssp_default_company,
-                wecom_write=args.enable_wecom_write,
-            )
+        # MSSP endpoints are part of the shared fake platform: the same
+        # process/port serves smoke-platform, MSSW and MSSP routes. This keeps
+        # existing platform credentials/base URLs working for the duty report.
+        self.mssp = mssp_platform.MsspService(
+            args.mssp_fixtures,
+            host_header=args.mssp_host_header,
+            csrf_token=args.mssp_csrf_token,
+            default_company=args.mssp_default_company,
+            wecom_write=args.enable_wecom_write,
+        )
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -206,7 +209,13 @@ class Handler(BaseHTTPRequestHandler):
         if path == self.server.mcp_path:
             self._mcp_post()
             return
-        if self.server.platform == "mssp":
+        if path.startswith("/__control/") or path == "/__fixtures":
+            self._mssp_request("POST")
+            return
+        if self.server.platform == "mssw" and path == MSSW_LOGIN_PATH:
+            self._mssw_login(path)
+            return
+        if path.startswith("/gateway/") or path.startswith("/order/"):
             self._mssp_request("POST")
             return
         if self.server.platform == "mssw":
@@ -250,7 +259,27 @@ class Handler(BaseHTTPRequestHandler):
             # is not implemented, so advertise the allowed method explicitly.
             self._send_json(405, {"error": "method_not_allowed"}, [("Allow", "POST")])
             return
-        if self.server.platform == "mssp":
+        if path == "/__fixtures" or path.startswith("/__control/"):
+            self._mssp_request("GET")
+            return
+        if path == "/__stats":
+            if self.server.platform == "mssw":
+                self._mssw_get(path)
+            else:
+                self._mssp_request("GET")
+            return
+        if self.server.platform == "mssw" and path in (
+            "/",
+            "/healthz",
+            "/__stats/reset",
+            MSSW_GET_TOKEN_PATH,
+            MSSW_HEALTH_PATH,
+            MSSW_PING_PATH,
+            MSSW_TARGETS_PATH,
+        ):
+            self._mssw_get(path)
+            return
+        if path.startswith("/gateway/") or path.startswith("/order/"):
             self._mssp_request("GET")
             return
         if self.server.platform == "mssw":
@@ -356,7 +385,7 @@ class Handler(BaseHTTPRequestHandler):
         self._send_json(200, rpc_result(request_id, result))
 
     # ------------------------------------------------------------------ #
-    # MSSP mode
+    # MSSP endpoints (shared by every platform mode)
     # ------------------------------------------------------------------ #
 
     def _mssp_request(self, method: str) -> None:
@@ -709,7 +738,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=0)
     parser.add_argument(
-        "--platform", choices=("smoke_platform", "mssw", "mssp"), default="smoke_platform"
+        "--platform", choices=("smoke_platform", "mssw"), default="smoke_platform"
     )
     parser.add_argument("--cookie-name", default="fake_session")
     parser.add_argument("--session-ttl", type=int, default=900)
@@ -804,18 +833,16 @@ def main() -> int:
             "healthEndpoint": MSSW_HEALTH_PATH,
             "pingEndpoint": MSSW_PING_PATH,
         })
-    if args.platform == "mssp":
-        assert server.mssp is not None
-        ready.update({
-            "hostHeader": args.mssp_host_header,
-            "csrfHeader": "X-CSRFToken",
-            "csrfToken": args.mssp_csrf_token,
-            "companyHeader": "X-MSSW-Company-Id",
-            "fixtures": args.mssp_fixtures,
-            "companies": server.mssp.fixture_summary()["companies"],
-            "wecomWrite": args.enable_wecom_write,
-            "endpoints": dict(mssp_platform.ENDPOINTS),
-        })
+    ready["mssp"] = {
+        "hostHeader": args.mssp_host_header,
+        "csrfHeader": "X-CSRFToken",
+        "csrfToken": args.mssp_csrf_token,
+        "companyHeader": "X-MSSW-Company-Id",
+        "fixtures": args.mssp_fixtures,
+        "companies": server.mssp.fixture_summary()["companies"],
+        "wecomWrite": args.enable_wecom_write,
+        "endpoints": dict(mssp_platform.ENDPOINTS),
+    }
     print(json.dumps(ready), flush=True)
     try:
         server.serve_forever()

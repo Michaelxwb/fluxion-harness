@@ -1105,11 +1105,11 @@ TASK 导出的 timeline/events 来自 task_event；`tasks[].events` 按 entity_i
 
 ### Description
 
-在 fake business platform 增加 `--platform mssp`：Host 路由、固定 CSRF、`X-MSSW-Company-Id`；实现 `daily-duty-report-mssp` 使用的只读端点与 XDR `alert_table`/`alert_count`。
+在共享 fake business platform（`smoke_platform` / `mssw` 同一进程与端口）挂载 MSSP 端点：Host 路由、固定 CSRF、`X-MSSW-Company-Id`；实现 `daily-duty-report-mssp` 使用的只读端点与 XDR `alert_table`/`alert_count`。不新增独立 MSSP 平台或端口。
 
 ### Checklist
 
-- [x] `--platform mssp` 启动与就绪信息。
+- [x] 共享 `platform` 服务启动；就绪信息提供 `mssp` 子对象（Host/CSRF/company/endpoints）。
 - [x] 只读端点：company/service/ck/event/asset/threat/wecom query。
 - [x] XDR 代理端点：alert_table/alert_count。
 - [x] 认证与 Host/CSRF/Company-Id 校验；业务码与 HTTP 状态分离。
@@ -1126,6 +1126,7 @@ TASK 导出的 timeline/events 来自 task_event；`tasks[].events` 按 entity_i
 
 - [2026-11-18] created
 - [2026-11-18] implemented: fake MSSP mode, auth, read-only endpoints, XDR proxy
+- [2026-11-19] merged MSSP endpoints into the shared platform; removed the standalone `mssp` mode/service so existing smoke-platform auth/base URL is reused
 - [2026-11-18T16:54:43.932Z] started tests=13f4cfe10177
 
 ### Verification
@@ -1215,7 +1216,7 @@ TASK 导出的 timeline/events 来自 task_event；`tasks[].events` 按 entity_i
 
 ### Description
 
-写一个与 `daily-duty-report-mssp` 同形态的本地回归 Skill：`scripts/run.py` 保留 argparse，`scripts/cron_entry.py` 读 stdin 并兼容 Fire 信封与 input；两者共用报告逻辑，调用 fake MSSP 生成简化报告。
+写一个与 `daily-duty-report-mssp` 同形态的本地回归 Skill：`scripts/run.py` 保留 argparse，`scripts/cron_entry.py` 读 stdin 并兼容 Fire 信封与 input；两者共用报告逻辑，调用共享 fake 平台的 MSSP 端点生成简化报告。
 
 ### Checklist
 

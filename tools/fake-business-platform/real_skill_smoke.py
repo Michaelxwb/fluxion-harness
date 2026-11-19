@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the **real** intranet `daily-duty-report-mssp` skill against the fake MSSP.
+"""Run the **real** intranet `daily-duty-report-mssp` skill against the shared fake platform.
 
 This is the manual bridge between the two worlds:
 
@@ -45,7 +45,7 @@ def _start_fake(*extra: str) -> tuple[subprocess.Popen[str], dict[str, Any]]:
             sys.executable,
             str(SERVER),
             "--platform",
-            "mssp",
+            "smoke_platform",
             "--host",
             "127.0.0.1",
             "--port",
@@ -61,7 +61,7 @@ def _start_fake(*extra: str) -> tuple[subprocess.Popen[str], dict[str, Any]]:
     if not line:
         stderr = process.stderr.read() if process.stderr is not None else ""
         process.kill()
-        raise SystemExit(f"fake MSSP did not start: {stderr}")
+        raise SystemExit(f"fake platform did not start: {stderr}")
     return process, json.loads(line)
 
 

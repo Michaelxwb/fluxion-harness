@@ -4,7 +4,7 @@
 The report is intentionally a *simplified* daily duty report: head counts,
 external-threat trend, threat entities and security events, plus an attachment
 placeholder. It keeps the data-fetch shape of ``daily-duty-report-mssp`` so the
-same fake MSSP can drive SKILL_PLAN (argv/stdin) and AGENT_TURN flows.
+shared fake platform MSSP endpoints can drive SKILL_PLAN (argv/stdin) and AGENT_TURN flows.
 """
 
 from __future__ import annotations

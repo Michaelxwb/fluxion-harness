@@ -13,7 +13,7 @@ zip 是**构建产物**，不进版本库：先跑 `./skills/package.sh`（无�
 | `self-skill-upload.zip` | 把草稿提交为 PENDING artifact（`skill_draft` 的 review/submit action） |
 | `smoke-platform-sample.zip` | `smoke_platform` 验证样例（健康检查、CSRF 业务接口、Traceid） |
 | `fake-platform-async-batch.zip` | ASYNC + BATCH 样例：读取 fake platform 目标，生成多个子任务，每个子任务产出 JSON/CSV |
-| `daily-duty-report-mssp-local.zip` | MSSP 每日值守日报手动验证：fake MSSP 全资产/非全资产/空数据/场景 1-11，输出正文 + xlsx 附件 |
+| `daily-duty-report-mssp-local.zip` | 每日值守日报手动验证：Smoke 测试平台 MSSP 端点，全资产/非全资产/空数据/场景 1-11，输出正文 + xlsx 附件 |
 
 打包脚本：
 

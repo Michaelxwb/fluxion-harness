@@ -1,24 +1,27 @@
 ---
 name: daily-duty-report-mssp-local
-description: "本地回归用「每日值守总结」Skill（fake MSSP）。与 daily-duty-report-mssp 同形态，保留 argparse 与 stdin 双入口，输出头三项计数、外部威胁趋势、威胁实体、安全事件和真实 xlsx 附件。"
+description: "本地回归用「每日值守总结」Skill（Smoke 测试平台 MSSP 端点）。与 daily-duty-report-mssp 同形态，保留 argparse 与 stdin 双入口，输出头三项计数、外部威胁趋势、威胁实体、安全事件和真实 xlsx 附件。"
 ---
 
-# 本地值守日报（fake MSSP）
+# 本地值守日报（Smoke 测试平台 MSSP 端点）
 
 这是 `skills/` 下的**手动验证用 Skill**，不是生产 Skill：
 
 - 与 `daily-duty-report-mssp` 同形态：`scripts/run.py` 保留 argparse 入口，
   `scripts/cron_entry.py` 读 stdin，二者共用 `scripts/report.py`。
-- 只访问本仓库的 fake MSSP（`tools/fake-business-platform --platform mssp`），
-  **不访问内网、不需要 session-manager、不依赖 requests**；xlsx 附件使用平台已有的 openpyxl。
+- 只访问本仓库共享 fake 平台的 MSSP 端点（`tools/fake-business-platform` 的 `platform`
+  服务，和 Console 里的 Smoke 测试平台同一地址），**不访问内网、不需要 session-manager、
+  不依赖 requests**；xlsx 附件使用平台已有的 openpyxl。
+- `muad.skill.json` 的 `platforms` 是 `smoke_platform`：直接绑定 Console 里已有的
+  Smoke 测试平台，不需要新建 MSSP 平台配置。
 - 报告是简化版：头三项计数、外部威胁趋势、威胁实体、安全事件、真实 xlsx 附件。
   附件是按真实 Skill 形态生成的 `.xlsx`（威胁实体列表 + 事件列表；无可导出行时不生成）。
 
-## 前置：启动 fake MSSP
+## 前置：启动共享 fake 平台
 
 ```bash
-python3 tools/fake-business-platform/server.py \
-  --platform mssp --host 127.0.0.1 --port 18083
+# 共享 platform 服务（18080）：smoke-platform / MSSW / MSSP 端点同一进程
+./tools/fake-business-platform/services.sh start platform
 ```
 
 默认固定 Host / CSRF / 客户路由：
@@ -35,7 +38,7 @@ fixtures 见 `tools/fake-business-platform/fixtures/mssp.json`。
 ## 入口 1：argparse
 
 ```bash
-MSSP_BASE_URL=http://127.0.0.1:18083 \
+MSSP_BASE_URL=http://127.0.0.1:18080 \
 SKILL_OUTPUT_DIR=/tmp/mssp-report \
 python3 scripts/run.py --company-id 1001 --date 2026-11-18 --no-wecom-push
 ```
@@ -94,21 +97,22 @@ stdout 只有正文；诊断走 stderr。正文结构：
 ### 1. 启动依赖
 
 ```bash
-# Fake MSSP（Skill 取数）；平台其它服务用 scripts/dev.sh 启动
-./tools/fake-business-platform/services.sh start mssp
+# 共享 platform 服务（Skill 取数；Console 里就是 Smoke 测试平台那个 base URL）
+./tools/fake-business-platform/services.sh start platform
 ./tools/fake-business-platform/services.sh status
 
 # 需要验证「Skill 自己经 MSSP 发企微」时才开写；平台 PUSH 不需要它
-MSSP_WECOM_WRITE=1 ./tools/fake-business-platform/services.sh restart mssp
+PLATFORM_WECOM_WRITE=1 ./tools/fake-business-platform/services.sh restart platform
 ```
 
-Fake MSSP 默认绑定 `127.0.0.1:18083`，本机 Worker 可直接访问；Worker 在容器/别的机器时，
+Fake 平台默认绑定 `127.0.0.1:18080`，本机 Worker 可直接访问；Worker 在容器/别的机器时，
 把 `MSSP_BASE_URL` 或 `config/api_config.json` 的 `base_url` 改成该网络内可达的地址。
 
 ### 2. 导入并绑定
 
 在 Console「Skill」页导入 `skills/daily-duty-report-mssp-local.zip`、完成审批/启用，并把
-Skill 绑到测试 Agent。`argv` 示例（Fake MSSP 的 fixture 固定为 `2026-11-18`）：
+Skill 绑到测试 Agent，平台选已有的 **Smoke 测试平台（key=`smoke_platform`）**；不要新建
+MSSP 平台。`argv` 示例（fixture 固定为 `2026-11-18`）：
 
 ```json
 ["--company-id", "1001", "--date", "2026-11-18", "--no-wecom-push"]

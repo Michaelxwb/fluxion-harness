@@ -405,7 +405,7 @@ def test_wecom_write_operations_are_off_by_default() -> None:
 
 def test_enabled_wecom_uploads_once_and_sends_once_per_trace_id() -> None:
     with running_mssp("--enable-wecom-write") as platform:
-        assert platform.ready["wecomWrite"] is True
+        assert platform.mssp_ready["wecomWrite"] is True
         query = payload(platform.post(PATH_WECOM_QUERY, {"param_list": []}))
         group = query["data"]["list"][0]["actual_data"]["actual_data_value"]
         assert group["_id"] == "wg-1001"
