@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
-
 import pytest
 from muad_agent_core.agent import AgentRunStatus
 from muad_agent_core.model import ModelUsage

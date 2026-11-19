@@ -8,7 +8,6 @@
 import json
 
 import pytest
-
 from muad_console_platform.application.external_assertion.principal import (
     compute_identity_hash,
 )

@@ -25,7 +25,9 @@ import sqlalchemy as sa
 from httpx import ASGITransport, AsyncClient
 from muad_agent_runtime.infrastructure import db as runtime_db
 from muad_agent_runtime.infrastructure.models.runtime import Artifact, MessageDelivery
+from muad_agent_worker.application import task_message_outbox as outbox_module
 from muad_agent_worker.application.delivery_routes import upsert_delivery_route
+from muad_agent_worker.application.task_message_outbox import _result_text
 from muad_agent_worker.application.terminal_tasks import TerminalChange, write_terminal
 from muad_agent_worker.delivery.message_outbox import (
     OUTBOX_FAILED,
@@ -55,8 +57,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from agent_worker.conftest import TenantContext
-from muad_agent_worker.application import task_message_outbox as outbox_module
-from muad_agent_worker.application.task_message_outbox import _result_text
 from agent_worker.helpers import fetch_task, internal_service_headers, persist_task
 
 pytestmark = pytest.mark.integration

@@ -15,6 +15,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
+from muad_common import SharedSettings
 from muad_console_platform.application.auth_service import hash_password
 from muad_console_platform.application.external_assertion.principal import compute_identity_hash
 from muad_console_platform.infrastructure.models.auth import ROLE_ADMIN, ConsoleAccount
@@ -23,7 +24,6 @@ from muad_console_platform.infrastructure.models.channel import (
     EntryAccessGrant,
     ExternalIdentity,
 )
-from muad_common import SharedSettings
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from tests.e2e.mssw_token_factory import MsswPlatform

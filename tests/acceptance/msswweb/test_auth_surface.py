@@ -264,7 +264,7 @@ def test_e09_rotated_factor_rejects_old_signed_tokens(
 
 
 def test_e05_revoked_agent_grant_hides_entry_immediately(
-    mssw_stack: MsswStack, gateway_client: httpx.Client, admin_api: "AdminApi"
+    mssw_stack: MsswStack, gateway_client: httpx.Client, admin_api: AdminApi
 ) -> None:
     """撤权：下一次请求即被拒（网关不缓存身份，Console 侧撤权即时生效）。"""
     token = issue(

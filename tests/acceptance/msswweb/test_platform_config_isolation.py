@@ -16,9 +16,9 @@ from __future__ import annotations
 
 import httpx
 import pytest
+from muad_common import SharedSettings
 from muad_console_platform.application import external_assertion_service as svc_mod
 from muad_console_platform.application.external_assertion_service import ExternalAssertionService
-from muad_common import SharedSettings
 
 from tests.e2e.mssw_token_factory import issue, new_platform
 

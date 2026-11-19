@@ -5,9 +5,9 @@ import uuid
 from typing import Any
 
 from muad_contracts import ChannelName, DeliveryRouteInput, canonical_json
+from muad_contracts.enums import OUTBOUND_CHANNELS
 from sqlalchemy import false, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from muad_contracts.enums import OUTBOUND_CHANNELS
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.task import DeliveryRoute

@@ -16,8 +16,6 @@ from typing import Any
 
 import pytest
 from fastapi import FastAPI
-from starlette.requests import Request
-
 from muad_api import AppError
 from muad_contracts import LOCAL_STREAM_CHANNELS
 from muad_contracts.webchat import ChatPrincipal
@@ -27,6 +25,7 @@ from muad_im_gateway.application.webchat_core import ChatSurface
 from muad_im_gateway.application.webchat_service import WebchatResourceService
 from muad_im_gateway.channels.registry import build_channel_registry
 from muad_im_gateway.channels.webchat import WebchatChannelAdapter
+from starlette.requests import Request
 
 
 def _make_request(path: str, surfaces: dict[str, ChatSurface]) -> Request:

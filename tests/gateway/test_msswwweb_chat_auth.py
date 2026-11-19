@@ -29,10 +29,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
-from fastapi import FastAPI
-from starlette.requests import Request
-
 from fakes import FakeConsoleClient
+from fastapi import FastAPI
 from muad_api import AppError
 from muad_contracts.webchat import (
     ChatAuthorizedAgent,
@@ -53,6 +51,7 @@ from muad_im_gateway.application.chat_principal import (
 )
 from muad_im_gateway.application.webchat_core import ChatSurface
 from pydantic import SecretStr
+from starlette.requests import Request
 
 GATEWAY_TENANT = "tenant-1"
 PLATFORM_KEY = "mssw"

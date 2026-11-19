@@ -42,8 +42,8 @@ from .delivery import (
 )
 from .enums import (
     BUILTIN_CHANNEL_NAMES,
-    LOCAL_STREAM_CHANNELS,
     CHANNEL_DISPLAY_LABELS,
+    LOCAL_STREAM_CHANNELS,
     OUTBOUND_CHANNELS,
     ArtifactValidationStatus,
     CancelScope,

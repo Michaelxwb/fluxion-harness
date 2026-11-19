@@ -24,6 +24,7 @@ from muad_contracts import (
     DeliveryResponse,
 )
 from muad_im_connector.channels.wecom.adapter import ConnectionState, WeComAdapter
+from muad_im_gateway.api.delivery import _dedupe_key
 from muad_im_gateway.api.deps import (
     get_artifact_resolver,
     get_console_client,
@@ -34,7 +35,6 @@ from muad_im_gateway.api.deps import (
     get_registry,
 )
 from muad_im_gateway.channels.base import ChannelAdapterUnavailable, ChannelRegistry
-from muad_im_gateway.api.delivery import _dedupe_key
 from muad_im_gateway.channels.fake import FakeChannelAdapter
 from muad_im_gateway.infrastructure.dedupe import (
     DedupeStore,
