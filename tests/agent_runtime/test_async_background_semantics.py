@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from uuid import uuid4
 
 import pytest
@@ -32,6 +33,7 @@ from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_contracts import (
     AsyncToolPolicy,
     CompletionMode,
+    DeliveryRouteInput,
     OperationStatus,
     ResolvedAgent,
     ResolvedModel,
@@ -100,6 +102,30 @@ class _RecordingSubmitter:
             "task_id": str(uuid4()),
             "task_status": "QUEUED",
             "completion_mode": completion_mode.value,
+        }
+
+
+class _BoundTargetsSubmitter(_RecordingSubmitter):
+    def __init__(self) -> None:
+        super().__init__()
+        self.target_calls = 0
+
+    async def list_delivery_targets(self, **kwargs):
+        del kwargs
+        self.target_calls += 1
+        return {
+            "items": [
+                {
+                    "label": "WECOM:user-1",
+                    "channel": "WECOM",
+                    "route": {
+                        "channel": "WECOM",
+                        "bot_id": "bot-1",
+                        "external_user_id": "user-1",
+                        "external_conversation_id": None,
+                    },
+                }
+            ]
         }
 
 
@@ -285,3 +311,28 @@ async def test_run_cancel_does_not_cancel_detached_operations(async_tool_databas
         }
     assert rows[detach_op.id].status is OperationStatus.SUBMITTED, "DETACH 后台任务独立执行"
     assert rows[join_op.id].status is OperationStatus.CANCELLED, "JOIN 仍随 Run 取消"
+
+
+async def test_webchat_background_task_defaults_to_bound_outbound_route(tmp_path) -> None:
+    skill = _async_skill()
+    submitter = _BoundTargetsSubmitter()
+    tool_set = _tool_set(tmp_path, skill, submitter)
+    route = await tool_set._default_background_route(_context(skill))
+    assert route is not None
+    assert route.channel == "WECOM"
+    assert route.bot_id == "bot-1"
+    assert submitter.target_calls == 1
+
+
+async def test_wecom_direct_background_task_keeps_its_source_route(tmp_path) -> None:
+    skill = _async_skill()
+    submitter = _BoundTargetsSubmitter()
+    tool_set = _tool_set(tmp_path, skill, submitter)
+    source = DeliveryRouteInput(
+        channel="WECOM", bot_id="source-bot", external_user_id="source-user"
+    )
+    route = await tool_set._default_background_route(
+        replace(_context(skill), delivery_route=source)
+    )
+    assert route == source
+    assert submitter.target_calls == 0

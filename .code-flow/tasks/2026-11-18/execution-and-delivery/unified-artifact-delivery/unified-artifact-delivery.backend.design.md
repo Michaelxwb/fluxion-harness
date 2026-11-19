@@ -231,7 +231,7 @@ SurfacePlan
 | 直接 Run（企微） | 无 | 来源企微路由 |
 | 定时 Task（有 Web 入口） | Web 任务中心 | Schedule 显式企微路由（如有） |
 | 定时 Task（无 Web 入口） | 无 | Schedule 路由 |
-| Run 侧 ASYNC Task | Web 任务中心（有 Web 入口） | 来源 Run 的企微路由（如有） |
+| Run 侧 ASYNC Task | Web 任务中心 pull | 来源 Run 是企微则用来源路由；Web 来源则用用户绑定的默认出站身份（有则 push，无则 NONE） |
 | Task 内部 JOIN 子任务 | 父任务详情聚合 | 不直接投递；由父任务 |
 | DETACH | 任务中心（有 Web 入口） | 冻结路由（如有） |
 

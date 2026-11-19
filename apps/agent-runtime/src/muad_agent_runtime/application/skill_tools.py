@@ -49,11 +49,13 @@ from muad_common import SharedSettings, process_settings
 from muad_contracts import (
     DEFAULT_TOOL_RETRY_SAFETY,
     CompletionMode,
+    DeliveryRouteInput,
     ResolvedSkill,
     SkillExecutionMode,
     ToolRetrySafety,
 )
 from muad_contracts.egress_identity import egress_operation_key
+from muad_contracts.enums import OUTBOUND_CHANNELS
 from muad_contracts.skill_invocation import (
     MAX_SKILL_ARGV_ITEMS,
     validate_skill_argv,
@@ -69,7 +71,7 @@ from muad_skill_sdk.skill_package import (
     is_script_path,
     locate_package_root,
 )
-from pydantic import JsonValue
+from pydantic import JsonValue, ValidationError
 from redis.exceptions import RedisClusterException, RedisError
 
 from ..metrics import (
@@ -799,9 +801,13 @@ class SkillToolSet:
         """ASYNC Skill 的 ExecutionRouter：固定 DETACH，只创建 Parent Task，不本地执行。"""
         if self._task_client is None or self._task_context is None:
             raise SkillToolError(BACKGROUND_SUBMIT_FAILED, "durable task submitter is unavailable")
+        context = self._task_context
+        route = await self._default_background_route(context)
+        if route is not context.delivery_route:
+            context = replace(context, delivery_route=route)
         try:
             submitted = await self._task_client.submit_task(
-                self._task_context,
+                context,
                 skill=skill,
                 input_data=input_data,
                 call_id=call_id,
@@ -812,6 +818,47 @@ class SkillToolSet:
         except AppError as exc:
             raise SkillToolError(BACKGROUND_SUBMIT_FAILED, str(exc.code)) from exc
         return json.dumps(submitted, ensure_ascii=False)
+
+    async def _default_background_route(
+        self, context: TaskSubmissionContext
+    ) -> DeliveryRouteInput | None:
+        """Background task delivery follows the same default as schedules.
+
+        A direct outbound conversation already carries its route; a web-entry
+        background task has no outbound route, so use the user's bound identity.
+        Notification is a platform decision, never a user choice.
+        """
+        current = context.delivery_route
+        if current is not None and current.channel in OUTBOUND_CHANNELS:
+            return current
+        resolve = getattr(self._task_client, "list_delivery_targets", None)
+        if resolve is None:
+            return current
+        try:
+            data = await resolve(
+                tenant_id=context.tenant_id,
+                actor_user_id=context.actor_user_id,
+                agent_id=context.agent.id,
+                trace_id=context.trace_id,
+            )
+        except AppError:
+            return current
+        items = data.get("items") if isinstance(data, Mapping) else None
+        if not isinstance(items, list):
+            return current
+        for item in items:
+            if not isinstance(item, Mapping):
+                continue
+            route = item.get("route")
+            if not isinstance(route, Mapping):
+                continue
+            try:
+                parsed = DeliveryRouteInput.model_validate(route)
+            except ValidationError:
+                continue
+            if parsed.channel in OUTBOUND_CHANNELS:
+                return parsed
+        return current
 
     def _call_timeout(self, arguments: Mapping[str, Any]) -> float:
         """一次 Skill 调用的超时：缺省用 Run 的策略预算；给了就取较小值（只能收紧，不能放宽）。"""
