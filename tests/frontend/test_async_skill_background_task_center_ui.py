@@ -939,6 +939,18 @@ def _running_detail() -> dict[str, Any]:
     return state
 
 
+def _no_children_detail() -> dict[str, Any]:
+    state = json.loads(json.dumps(DETAIL_OVERRIDES))
+    state["detail"].update(
+        {
+            "counts": {"total": 0, "succeeded": 0, "failed": 0, "cancelled": 0},
+            "partial_failure": False,
+            "children": {"items": [], "page": 1, "page_size": 3, "total": 0},
+        }
+    )
+    return state
+
+
 def _child_detail() -> dict[str, Any]:
     state = json.loads(json.dumps(DETAIL_OVERRIDES))
     state["detail"].update(
@@ -979,6 +991,7 @@ SCENARIOS = (
     {"id": "detail-failed-zh", "locale": "zh-CN", "kind": "detail", "state": _failed_detail()},
     {"id": "detail-running-zh", "locale": "zh-CN", "kind": "detail", "state": _running_detail()},
     {"id": "detail-child-zh", "locale": "zh-CN", "kind": "detail", "state": _child_detail()},
+    {"id": "detail-no-children-zh", "locale": "zh-CN", "kind": "detail", "state": _no_children_detail()},
     {"id": "detail-notfound-zh", "locale": "zh-CN", "kind": "detail",
      "state": {"detail": None, "phase": "ERROR", "errorCode": "COMMON_NOT_FOUND"}},
     {"id": "detail-children-error-zh", "locale": "zh-CN", "kind": "detail",
@@ -1264,7 +1277,8 @@ def test_detail_shows_result_counts_and_facts(background_render: dict[str, Any])
     assert 'data-testid="chat-background-result-body"' in markup
     assert "BEST_EFFORT" in markup, "结构化结果 JSON 化展示"
     assert 'data-testid="chat-background-count-total"' in markup
-    assert ">5<" in markup and ">3<" in markup and ">2<" in markup
+    assert 'data-testid="chat-background-count-succeeded"' in markup
+    assert 'data-testid="chat-background-count-failed"' in markup
     assert 'data-testid="chat-background-result"' in markup
 
 
@@ -1273,12 +1287,9 @@ def test_artifacts_show_delivery_states_without_faking_missing_data(
 ) -> None:
     markup = background_render["markup"]["detail-zh"]
     assert _count(markup, "chat-task-artifact") == 3
-    assert _count(markup, "chat-task-artifact-delivery") == 2, "DELIVERED + DEGRADED"
-    assert _count(markup, "chat-task-artifact-deliveries") == 2, "缺失字段的产物不渲染容器"
-    assert "已交付" in markup and "已降级" in markup
-    assert "CHANNEL_UNSUPPORTED" in markup
-    assert "未请求推送" in markup, "空数组是明确的 NONE"
-    assert _count(markup, "chat-task-artifact-delivery-none") == 1
+    assert _count(markup, "chat-task-artifact-delivery") == 1, "每个文件只显示聚合后的发送结论"
+    assert "部分送达" in markup
+    assert "未请求推送" not in markup, "未请求推送不再占据文件行"
     assert "共 130 个产物，仅展示前 3 个" in markup
     assert 'data-testid="chat-background-artifacts-truncated"' in markup
 
@@ -1329,6 +1340,17 @@ def test_child_detail_offers_the_way_back_to_the_parent(background_render: dict[
     assert "check credential=***" in markup
 
 
+
+def test_detail_without_children_uses_single_layout(
+    background_render: dict[str, Any],
+) -> None:
+    markup = background_render["markup"]["detail-no-children-zh"]
+    assert "单次任务" in markup
+    assert "任务已成功完成" in markup
+    assert "chat-background-body-split is-single" in markup
+    assert 'data-testid="chat-background-children"' not in markup
+    assert "0 项" not in markup
+
 def test_detail_states_are_real(background_render: dict[str, Any]) -> None:
     markup = background_render["markup"]
     assert 'data-testid="chat-background-summary"' not in markup["detail-notfound-zh"]
@@ -1342,8 +1364,8 @@ def test_detail_labels_follow_the_locale(background_render: dict[str, Any]) -> N
     markup = background_render["markup"]["detail-en"]
     assert "Background task detail" in markup
     assert "2 of 5 failed" in markup
-    assert "Delivered" in markup and "Degraded" in markup
-    assert "No push requested" in markup
+    assert "Partially delivered" in markup
+    assert "No push requested" not in markup
     assert "Subtasks" in markup and "Error summary" in markup
     assert "Back to list" in markup
 

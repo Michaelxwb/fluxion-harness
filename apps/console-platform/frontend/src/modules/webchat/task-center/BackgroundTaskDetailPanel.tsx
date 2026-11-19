@@ -1,14 +1,14 @@
 /**
- * 后台任务详情（design frontend §3.3 CMP-02、§3.6；TASK-005）。
+ * 后台任务详情（改版：结论优先 + 条件子任务布局）。
  *
- * 三段事实：结果（成功正文/失败原文/计数）→ 产物（可下载 + 交付状态）→ 子任务表。
- * 详情复用共享 `ExecutionDetail`：同一执行详情路由既服务后台根任务，也服务子任务。
- *
- * 子任务页只替换子任务段，不重读列表；本组件不发请求、不读 URL。
+ * 有子任务：环形图/进度条 + 文件双列 + 子任务卡；
+ * 无子任务：单状态环 + 文件全宽，不渲染 0 项计数和空子任务卡。
+ * 技术字段与原始 JSON 收在任务名旁的技术信息弹层。
  */
 
+import { IconInfoCircle } from '@douyinfe/semi-icons';
 import { Banner, Button, Skeleton, Typography } from '@douyinfe/semi-ui';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DateTimeText } from '../../../components/common/DateTimeText';
@@ -20,8 +20,9 @@ import { ChildTaskTable } from './ChildTaskTable';
 import { ExecutionStatusTag } from './labels';
 import type { AgentOption } from './ScheduleListPanel';
 import { isNotFoundCode } from './taskCenterState';
-import { TaskArtifactList } from './TaskArtifactList';
+import { CompactTaskArtifactGrid } from './TaskArtifactList';
 import { TaskResultSection } from './TaskResultSection';
+import { formatResult } from './taskResult';
 
 export interface BackgroundTaskDetailPanelProps {
   state: BackgroundTaskDetailState;
@@ -49,38 +50,57 @@ function Fact(props: { label: string; testId: string; children: ReactNode }) {
   );
 }
 
-function Summary(props: { detail: ExecutionDetail; agents?: readonly AgentOption[] }) {
+function durationLabel(t: (key: string, options?: Record<string, unknown>) => string, detail: ExecutionDetail): string {
+  if (detail.started_at === null || detail.finished_at === null) {
+    return t('chat.taskCenter.background.fact.running');
+  }
+  const ms = new Date(detail.finished_at).getTime() - new Date(detail.started_at).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return t('chat.taskCenter.detail.noValue');
+  if (ms < 1000) return t('chat.taskCenter.run.durationLessThanSecond');
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 60) return t('chat.taskCenter.run.durationSeconds', { seconds });
+  return t('chat.taskCenter.run.durationMinutes', {
+    minutes: Math.floor(seconds / 60),
+    seconds: seconds % 60
+  });
+}
+
+function techLabel(t: (key: string) => string, detail: ExecutionDetail): string {
+  return detail.result_artifacts.length === 0
+    ? t('chat.taskCenter.detail.keepInTask')
+    : t('chat.taskCenter.detail.deliveryTargets');
+}
+
+function TechInfo(props: { detail: ExecutionDetail; agents?: readonly AgentOption[]; open: boolean }) {
   const { t } = useTranslation();
   const detail = props.detail;
+  const raw = formatResult(detail.result);
   const name = agentName(props.agents, detail.agent_id);
-  const artifactTotal = Math.max(detail.artifact_total, detail.result_artifacts.length);
   return (
-    <section className="chat-background-section" data-testid="chat-background-summary">
-      <header className="chat-background-summary-header">
-        <Typography.Title heading={6}>{detail.skill_name}</Typography.Title>
-        <TaskTypeTag taskType={detail.task_type} />
-        <ExecutionStatusTag status={detail.status} />
-        {detail.parent_id === null ? null : (
-          <span className="chat-background-child-marker" data-testid="chat-background-child-marker">
-            {t('chat.taskCenter.background.children.marker')}
-          </span>
-        )}
-        {detail.partial_failure ? <PartialFailureTag counts={detail.counts} /> : null}
-        {artifactTotal > 0 ? (
-          <span className="chat-background-has-artifacts" data-testid="chat-background-has-artifacts">
-            {t('chat.taskCenter.background.row.hasArtifacts')}
-          </span>
-        ) : null}
-      </header>
+    <div
+      className="chat-task-tech-popover chat-background-tech-popover"
+      data-testid="chat-background-tech"
+      hidden={!props.open}
+      role="dialog"
+      aria-label={t('chat.taskCenter.detail.techInfo')}
+    >
+      <div className="chat-task-tech-popover-head">
+        <strong>{t('chat.taskCenter.detail.techInfo')}</strong>
+        <span>{t('chat.taskCenter.detail.techInfoHint')}</span>
+      </div>
       <dl className="chat-task-fact-list">
         <Fact label={t('chat.taskCenter.background.fact.agent')} testId="chat-background-fact-agent">
-          {name ?? detail.agent_id ?? t('chat.taskCenter.background.fact.unknown')}
+          {name ?? t('chat.taskCenter.background.fact.unknown')}
         </Fact>
         <Fact label={t('chat.taskCenter.background.fact.taskType')} testId="chat-background-fact-type">
           <TaskTypeTag taskType={detail.task_type} />
         </Fact>
         <Fact label={t('chat.taskCenter.background.fact.createdAt')} testId="chat-background-fact-created">
-          {detail.started_at === null ? '-' : <DateTimeText value={detail.started_at} />}
+          {detail.started_at === null ? (
+            t('chat.taskCenter.detail.noValue')
+          ) : (
+            <DateTimeText value={detail.started_at} />
+          )}
         </Fact>
         <Fact label={t('chat.taskCenter.background.fact.finishedAt')} testId="chat-background-fact-finished">
           {detail.finished_at === null ? (
@@ -94,14 +114,125 @@ function Summary(props: { detail: ExecutionDetail; agents?: readonly AgentOption
             <code>{detail.item_key}</code>
           </Fact>
         )}
-        {detail.parent_id === null ? (
-          <Fact label={t('chat.taskCenter.background.fact.children')} testId="chat-background-fact-children">
-            {detail.children.total > 0
-              ? `${detail.children.total}`
-              : t('chat.taskCenter.background.fact.none')}
-          </Fact>
-        ) : null}
+        <Fact label={t('chat.taskCenter.background.fact.children')} testId="chat-background-fact-children">
+          {detail.children.total > 0
+            ? `${detail.children.total}`
+            : t('chat.taskCenter.background.fact.none')}
+        </Fact>
+        <Fact label={t('chat.taskCenter.detail.deliveryTargets')} testId="chat-background-fact-delivery">
+          {techLabel(t, detail)}
+        </Fact>
       </dl>
+      <details className="chat-background-tech-raw">
+        <summary>{t('chat.taskCenter.background.result.raw')}</summary>
+        <pre data-testid="chat-background-result-body">{raw}</pre>
+      </details>
+    </div>
+  );
+}
+
+function Hero(props: {
+  detail: ExecutionDetail;
+  agents?: readonly AgentOption[];
+  techOpen: boolean;
+  onToggleTech(): void;
+  onDownloadAll(): void;
+}) {
+  const { t } = useTranslation();
+  const detail = props.detail;
+  const artifactTotal = Math.max(detail.artifact_total, detail.result_artifacts.length);
+  return (
+    <section className="chat-background-detail-hero" data-testid="chat-background-summary">
+      <div className="chat-background-detail-hero-main">
+        <div className="chat-background-detail-title-line">
+          <Typography.Title heading={4}>{detail.skill_name}</Typography.Title>
+          <button
+            type="button"
+            className="chat-task-tech-button"
+            aria-label={t('chat.taskCenter.detail.techInfo')}
+            aria-expanded={props.techOpen}
+            onClick={props.onToggleTech}
+          >
+            <IconInfoCircle size="small" />
+          </button>
+        </div>
+        <p className="chat-background-detail-subtitle">
+          <TaskTypeTag taskType={detail.task_type} />
+          {' · '}
+          {detail.children.total > 0
+            ? t('chat.taskCenter.background.children.total', { count: detail.children.total })
+            : t('chat.taskCenter.background.single.label')}
+          {' · '}
+          {detail.started_at === null ? (
+            t('chat.taskCenter.background.fact.running')
+          ) : (
+            <DateTimeText value={detail.started_at} />
+          )}
+          {' · '}
+          {durationLabel(t, detail)}
+        </p>
+        {detail.parent_id === null ? null : (
+          <span className="chat-background-child-marker" data-testid="chat-background-child-marker">
+            {t('chat.taskCenter.background.children.marker')}
+          </span>
+        )}
+        {artifactTotal > 0 ? (
+          <span className="chat-background-has-artifacts" data-testid="chat-background-has-artifacts">
+            {t('chat.taskCenter.background.row.hasArtifacts')}
+          </span>
+        ) : null}
+        <TechInfo detail={detail} agents={props.agents} open={props.techOpen} />
+      </div>
+      <div className="chat-background-detail-actions">
+        <Button
+          size="small"
+          theme="light"
+          disabled={detail.result_artifacts.length === 0}
+          data-testid="chat-background-download-all"
+          onClick={props.onDownloadAll}
+        >
+          {t('chat.taskCenter.detail.downloadAll')}
+        </Button>
+        <ExecutionStatusTag status={detail.status} />
+        {detail.partial_failure ? <PartialFailureTag counts={detail.counts} /> : null}
+      </div>
+    </section>
+  );
+}
+
+function FilesPanel(props: {
+  detail: ExecutionDetail;
+  downloads: ArtifactDownloadState;
+  onDownloadArtifact(artifact: TaskArtifact): void;
+}) {
+  const { t } = useTranslation();
+  const total = Math.max(props.detail.artifact_total, props.detail.result_artifacts.length);
+  return (
+    <section className="chat-background-panel" data-testid="chat-background-artifacts">
+      <header className="chat-background-panel-head">
+        <div>
+          <h3>{t('chat.taskCenter.detail.runFiles')}</h3>
+          <span className="chat-background-panel-hint">
+            {t('chat.taskCenter.background.artifacts.total', { count: total })}
+          </span>
+        </div>
+      </header>
+      {props.detail.artifact_total > props.detail.result_artifacts.length ? (
+        <p
+          className="chat-background-artifacts-truncated"
+          data-testid="chat-background-artifacts-truncated"
+        >
+          {t('chat.taskCenter.background.artifacts.truncated', {
+            total: props.detail.artifact_total,
+            shown: props.detail.result_artifacts.length
+          })}
+        </p>
+      ) : null}
+      <CompactTaskArtifactGrid
+        artifacts={props.detail.result_artifacts}
+        state={props.downloads}
+        onDownload={props.onDownloadArtifact}
+      />
     </section>
   );
 }
@@ -109,15 +240,29 @@ function Summary(props: { detail: ExecutionDetail; agents?: readonly AgentOption
 export function BackgroundTaskDetailPanel(props: BackgroundTaskDetailPanelProps) {
   const { t } = useTranslation();
   const { state } = props;
+  const [techOpen, setTechOpen] = useState(false);
   const detail = state.detail;
   const notFound = isNotFoundCode(state.errorCode) && detail === null;
   const firstLoad = state.phase === 'LOADING' && detail === null;
   const showError = state.errorCode !== null && !notFound;
   const parentId = detail?.parent_id ?? null;
+  const hasChildren = (detail?.children.total ?? 0) > 0 && detail?.parent_id === null;
+
+  const downloadAll = () => {
+    for (const artifact of detail?.result_artifacts ?? []) {
+      props.onDownloadArtifact(artifact);
+    }
+  };
+
+  const locateFailedChild = () => {
+    if (typeof document === 'undefined') return;
+    const target = document.querySelector('[data-testid="chat-background-children"]');
+    target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
 
   return (
     <section
-      className="chat-task-center chat-task-center-detail"
+      className="chat-task-center chat-task-center-detail chat-background-detail-v2"
       data-testid="webchat-background-task-detail"
       data-view="background-detail"
       data-task-id={state.taskId ?? ''}
@@ -143,7 +288,9 @@ export function BackgroundTaskDetailPanel(props: BackgroundTaskDetailPanelProps)
             {t('chat.taskCenter.background.backToParent')}
           </Button>
         )}
-        <Typography.Title heading={5}>{t('chat.taskCenter.background.detailTitle')}</Typography.Title>
+        <Typography.Title heading={5}>
+          {t('chat.taskCenter.background.detailTitle')}
+        </Typography.Title>
         <Button
           size="small"
           theme="borderless"
@@ -185,44 +332,34 @@ export function BackgroundTaskDetailPanel(props: BackgroundTaskDetailPanelProps)
 
       {detail === null ? null : (
         <>
-          <Summary detail={detail} agents={props.agents} />
-          <TaskResultSection detail={detail} />
-          <section className="chat-background-section" data-testid="chat-background-artifacts">
-            <header className="chat-background-section-header">
-              <Typography.Title heading={6}>{t('chat.taskCenter.artifact.title')}</Typography.Title>
-              <span className="chat-background-section-hint">
-                {t('chat.taskCenter.background.artifacts.total', {
-                  count: Math.max(detail.artifact_total, detail.result_artifacts.length)
-                })}
-              </span>
-            </header>
-            {detail.artifact_total > detail.result_artifacts.length ? (
-              <p className="chat-background-artifacts-truncated" data-testid="chat-background-artifacts-truncated">
-                {t('chat.taskCenter.background.artifacts.truncated', {
-                  total: detail.artifact_total,
-                  shown: detail.result_artifacts.length
-                })}
-              </p>
+          <Hero
+            detail={detail}
+            agents={props.agents}
+            techOpen={techOpen}
+            onToggleTech={() => setTechOpen((open) => !open)}
+            onDownloadAll={downloadAll}
+          />
+          <TaskResultSection detail={detail} onLocateFailedChild={locateFailedChild} />
+          <div className={`chat-background-body-split${hasChildren ? '' : ' is-single'}`}>
+            <FilesPanel
+              detail={detail}
+              downloads={props.downloads}
+              onDownloadArtifact={props.onDownloadArtifact}
+            />
+            {hasChildren ? (
+              <ChildTaskTable
+                items={detail.children.items}
+                page={detail.children.page}
+                pageSize={detail.children.page_size}
+                total={detail.children.total}
+                phase={state.childrenPhase}
+                errorCode={state.childrenErrorCode}
+                onPage={props.onChildPage}
+                onOpenChild={props.onOpenChild}
+                onRetry={() => props.onChildPage(detail.children.page)}
+              />
             ) : null}
-            <TaskArtifactList
-              artifacts={detail.result_artifacts}
-              state={props.downloads}
-              onDownload={props.onDownloadArtifact}
-            />
-          </section>
-          {detail.parent_id !== null ? null : (
-            <ChildTaskTable
-              items={detail.children.items}
-              page={detail.children.page}
-              pageSize={detail.children.page_size}
-              total={detail.children.total}
-              phase={state.childrenPhase}
-              errorCode={state.childrenErrorCode}
-              onPage={props.onChildPage}
-              onOpenChild={props.onOpenChild}
-              onRetry={() => props.onChildPage(detail.children.page)}
-            />
-          )}
+          </div>
         </>
       )}
     </section>

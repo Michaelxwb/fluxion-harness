@@ -140,7 +140,7 @@
   - schedule-detail-ui PASS exit=0
 ## TASK-003: 重构后台任务详情为结论摘要 + 条件子任务布局
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-002
 - **Source**: task-detail-redesign.frontend.design.md#3.3, #3.4, #3.6, #3.7
 - **Scenarios**: task-detail-redesign:S-04, task-detail-redesign:S-05, task-detail-redesign:S-06, task-detail-redesign:E-04, task-detail-redesign:E-05, task-detail-redesign:E-06, task-detail-redesign:B-04, task-detail-redesign:B-05, task-detail-redesign:B-07
@@ -176,15 +176,15 @@
 
 ### Checklist
 
-- [ ] 有子任务摘要：环形图、进度条、图例、失败项摘要。
-- [ ] 无子任务：隐藏子任务卡、文件全宽、单状态环、无 0 项计数。
-- [ ] 文件网格/列表两种布局；不显示 sha256/MIME/版本/未请求推送。
-- [ ] 原始结果 JSON 只在技术信息弹层中。
-- [ ] 子任务仅 `children.total > 0` 渲染，分页/下钻正常。
-- [ ] 纯文本运行显示「推送到会话」，不伪造机器人数量。
-- [ ] 下载失败、部分送达、无产物状态明确。
-- [ ] 技术信息入口与定时任务一致，所有用户可见。
-- [ ] 中英文词条齐全；现有产物版本/校验值测试已按新位置更新；组件/契约测试通过。
+- [x] 有子任务摘要：环形图、进度条、图例、失败项摘要。
+- [x] 无子任务：隐藏子任务卡、文件全宽、单状态环、无 0 项计数。
+- [x] 文件网格/列表两种布局；不显示 sha256/MIME/版本/未请求推送。
+- [x] 原始结果 JSON 只在技术信息弹层中。
+- [x] 子任务仅 `children.total > 0` 渲染，分页/下钻正常。
+- [x] 纯文本运行显示「推送到会话」，不伪造机器人数量。
+- [x] 下载失败、部分送达、无产物状态明确。
+- [x] 技术信息入口与定时任务一致，所有用户可见。
+- [x] 中英文词条齐全；现有产物版本/校验值测试已按新位置更新；组件/契约测试通过。
 
 ### Spec Delta
 
@@ -195,7 +195,10 @@
 ### Log
 
 - [2026-11-19] created
+- [2026-11-19T11:46:52.467Z] started tests=7ee9377282fe
 
 ### Verification
 
 - 尚未执行
+- 2026-11-19T11:55:38.722Z PASS commands=1/1 executed=1 deduped=0 elapsed=24364ms tests=7ee9377282fe head=4c048d5456d5 dirty=1
+  - background-detail-ui PASS exit=0
