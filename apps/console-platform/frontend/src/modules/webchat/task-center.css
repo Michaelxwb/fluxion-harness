@@ -721,6 +721,7 @@
   top: calc(100% + 10px);
   left: 0;
   z-index: 20;
+  box-sizing: border-box;
   width: min(620px, calc(100vw - 60px));
   max-height: 56vh;
   overflow: auto;
@@ -1044,6 +1045,12 @@
   font-size: 11px;
 }
 
+.chat-task-run-file-main .chat-task-artifact-saved,
+.chat-task-run-file-main .chat-task-artifact-error {
+  display: block;
+  margin-top: 2px;
+}
+
 .chat-task-run-file-delivery.is-delivered {
   color: var(--semi-color-success);
 }
@@ -1131,8 +1138,7 @@
     white-space: normal;
   }
 
-  .chat-task-fire-execution-link,
-  .chat-task-fire-no-execution {
+  .chat-task-fire-metrics {
     display: none;
   }
 

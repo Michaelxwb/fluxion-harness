@@ -21,7 +21,12 @@ import type {
   TaskArtifact,
   TaskArtifactDelivery
 } from '../types';
-import type { ArtifactDownloadState } from './artifactDownload';
+import {
+  artifactErrorKey,
+  artifactErrorNeedsCode,
+  IDLE_ARTIFACT_DOWNLOAD,
+  type ArtifactDownloadState
+} from './artifactDownload';
 import {
   endReasonLabel,
   RunStatusTag,
@@ -154,7 +159,7 @@ function RunFileList(props: {
       {props.artifacts.map((artifact) => {
         const aggregate = deliveryAggregate(artifact);
         const aggregateLabel = deliveryAggregateLabel(t, aggregate);
-        const entry = props.downloads.entries[artifact.artifact_id];
+        const entry = props.downloads.entries[artifact.artifact_id] ?? IDLE_ARTIFACT_DOWNLOAD;
         const kind = t(FILE_KIND_KEYS[fileKind(artifact)]);
         return (
           <li
@@ -183,13 +188,30 @@ function RunFileList(props: {
               <span hidden>
                 {artifact.media_type} · v{artifact.version} · {artifact.checksum}
               </span>
+              {entry.phase === 'SAVED' ? (
+                <span className="chat-task-artifact-saved" data-testid="chat-task-artifact-saved">
+                  {t('chat.taskCenter.artifact.saved')}
+                </span>
+              ) : null}
+              {entry.phase === 'FAILED' ? (
+                <span
+                  className="chat-task-artifact-error"
+                  data-testid="chat-task-artifact-error"
+                  role="alert"
+                >
+                  {t(artifactErrorKey(entry.errorCode))}
+                  {artifactErrorNeedsCode(entry.errorCode)
+                    ? t('chat.taskCenter.error.codeSuffix', { code: entry.errorCode })
+                    : null}
+                </span>
+              ) : null}
             </div>
             <Button
               size="small"
               theme="borderless"
               data-testid="chat-task-artifact-download"
               aria-label={t('chat.taskCenter.artifact.download', { name: artifact.name })}
-              loading={entry?.phase === 'DOWNLOADING'}
+              loading={entry.phase === 'DOWNLOADING'}
               onClick={() => props.onDownload(artifact)}
             >
               {t('chat.taskCenter.artifact.downloadShort')}
@@ -634,7 +656,7 @@ function FireRow(props: {
         </span>
         <RunStatusTag fire={fire} />
         {reason === null ? (
-          <span className="chat-task-fire-summary">
+          <span className="chat-task-fire-summary chat-task-fire-metrics">
             {durationText(t, fire.duration_ms)} ·{' '}
             {t('chat.taskCenter.run.files', { count: fire.artifact_count })}
           </span>
@@ -944,7 +966,10 @@ export function ScheduleDetailPanel(props: ScheduleDetailPanelProps) {
                   execution={state.execution}
                   downloads={props.downloads}
                   onDownloadArtifact={props.onDownloadArtifact}
-                  onRetry={props.onRefresh}
+                  onRetry={() => {
+                    const executionId = state.execution.executionId;
+                    if (executionId !== null) props.onOpenExecution(executionId);
+                  }}
                 />
               )}
             </section>

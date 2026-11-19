@@ -815,7 +815,7 @@ function listScenario(scenario) {
 function detailScenario(scenario) {
   return React.createElement(ScheduleDetailPanel, {
     state: detailState(scenario.state ?? {}),
-    downloads: idleDownloads,
+    downloads: scenario.downloads ?? idleDownloads,
     onBack: noop,
     onRefresh: noop,
     onFirePage: noop,
@@ -1042,6 +1042,9 @@ SCENARIOS = (
      "state": {"items": [{**LIST_ITEMS[1], "status": "MYSTERY"}]}},
     {"id": "detail-zh", "locale": "zh-CN", "kind": "detail", "state": DETAIL_OVERRIDES},
     {"id": "detail-en", "locale": "en-US", "kind": "detail", "state": DETAIL_OVERRIDES},
+    {"id": "detail-download-failed-zh", "locale": "zh-CN", "kind": "detail",
+     "state": DETAIL_OVERRIDES,
+     "downloads": {"entries": {ARTIFACT_1: {"phase": "FAILED", "errorCode": "NETWORK_ERROR"}}}},
     {"id": "detail-wait-async-zh", "locale": "zh-CN", "kind": "detail",
      "state": _detail_with(execution=_execution_with("ASYNC_OPERATION"))},
     {"id": "detail-wait-batch-zh", "locale": "zh-CN", "kind": "detail",
@@ -1380,6 +1383,7 @@ def test_fire_statuses_stay_separate_facts(task_center_render: dict[str, Any]) -
     assert "SKILL_ARTIFACT_UNAVAILABLE" in markup
     assert "未创建执行" in markup
     assert "查看执行" in markup, "有 execution_id 的行提供执行入口"
+    assert "chat-task-fire-metrics" in markup, "窄屏隐藏用时/文件数只隐藏这一部分"
     fire_section = markup.split('data-testid="chat-task-center-fires"')[1]
     fire_section = fire_section.split('data-testid="chat-task-center-dst-events"')[0]
     assert "夏令时事件" not in fire_section, "DST 不能混进 Fire 列表"
@@ -1387,6 +1391,13 @@ def test_fire_statuses_stay_separate_facts(task_center_render: dict[str, Any]) -
     assert "本地时间不存在，已跳过" in markup
     assert "2026-03-08 02:30 America/New_York" in markup
     assert "早于 " in markup and "已按保留策略清理" in markup
+
+
+def test_execution_download_failure_is_visible(task_center_render: dict[str, Any]) -> None:
+    markup = task_center_render["markup"]["detail-download-failed-zh"]
+    assert "网络异常，下载失败，请重试" in markup
+    assert 'data-testid="chat-task-artifact-error"' in markup
+    assert 'data-testid="chat-task-artifact-saved"' not in markup, "失败不能显示成功态"
 
 
 def test_execution_wait_kinds_are_not_failures(task_center_render: dict[str, Any]) -> None:
