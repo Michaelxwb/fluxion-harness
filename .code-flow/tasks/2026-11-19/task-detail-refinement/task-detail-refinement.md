@@ -181,3 +181,58 @@
 - 尚未执行
 - 2026-11-19T13:30:11.678Z PASS commands=1/1 executed=1 deduped=0 elapsed=16560ms tests=5928f23015df head=2c69244f4d0e dirty=1
   - schedule-result-scroll PASS exit=0
+
+## TASK-004: 定时详情一屏展示，关闭结果自动滚动
+
+- **Status**: done
+- **Depends**: TASK-003
+- **Source**: 用户截图反馈 2026-11-19（第三轮：一屏展示，不要上下滚动）
+- **Scenarios**: task-detail-refinement:S-08
+- **Spec-Refs**: ui/harness-ui#RULE-ui-001, frontend/harness-frontend#RULE-front-001
+- **Paths**: apps/console-platform/frontend/src/modules/webchat/task-center/ScheduleDetailPanel.tsx, apps/console-platform/frontend/src/modules/webchat/task-center.css
+- **E2E**:
+- **Skip-Tests**: false
+- **Skip-Reason**:
+
+### Tests
+
+```json
+[
+  {
+    "id": "schedule-onescreen",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/frontend/test_scheduled_v2_task_center_ui.py", "tests/frontend/test_capacity_webchat_webchat_i18n.py"],
+    "timeout": 600,
+    "parallel": false
+  }
+]
+```
+
+### Description
+
+- 详情页改为占满任务中心可用高度：页头/指标固定，左右两栏占据剩余空间。
+- 运行列表保持每页 10 条，行高压缩到一屏可容纳；分页贴底。
+- 运行结果不再内部滚动；按剩余高度裁剪并在底部渐隐，完整内容仍可一键复制。
+- 文件/发送结果保持紧凑，全部在首屏可见；整页不产生纵向滚动（1440×900 验证）。
+
+### Checklist
+
+- [x] 1440×900 下详情页无纵向滚动。
+- [x] 10 条运行 + 分页、结果、文件、发送结果同屏可见。
+- [x] 运行结果区无滚动条，长内容渐隐，复制仍为全文。
+- [x] 窄屏仍按原响应式堆叠，不产生整页横向滚动。
+
+### Spec Delta
+
+```json
+[]
+```
+
+### Log
+
+- [2026-11-19] created
+
+### Verification
+
+- 尚未执行
+- 2026-11-19T13:38:13.795Z PASS commands=1/1 executed=1 deduped=0 elapsed=16330ms tests=70089a1b1702 head=90e511744efa dirty=1
+  - schedule-onescreen PASS exit=0

@@ -359,7 +359,13 @@ function RunDetail(props: {
       {execution.phase === 'READY' && waiting !== null ? (
         <>
           <div
-            className={`chat-task-run-result ${runDisplayStatus(fire) === 'FAILED' ? 'is-failed' : ''}`}
+            className={[
+              'chat-task-run-result',
+              runDisplayStatus(fire) === 'FAILED' ? 'is-failed' : '',
+              result.length > 600 ? 'is-truncated' : ''
+            ]
+              .filter(Boolean)
+              .join(' ')}
           >
             <div className="chat-task-run-result-head">
               <strong>{t('chat.taskCenter.detail.runResult')}</strong>

@@ -825,10 +825,11 @@
 
 .chat-task-detail-split {
   display: grid;
+  flex: 1 1 auto;
   grid-template-columns: minmax(0, 1.42fr) minmax(340px, 0.98fr);
   gap: 16px;
   align-items: stretch;
-  min-height: 460px;
+  min-height: 0;
 }
 
 .chat-task-fires,
@@ -836,6 +837,7 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
   padding: 14px 16px;
   border: 1px solid var(--semi-color-border);
   border-radius: 12px;
@@ -865,7 +867,7 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 10px 10px;
+  padding: 8px 10px;
   border: 1px solid transparent;
   border-radius: 9px;
   background: transparent;
@@ -946,11 +948,12 @@
 }
 
 .chat-task-run-result {
+  position: relative;
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   flex-direction: column;
   min-height: 0;
-  max-height: clamp(280px, 46vh, 460px);
+  overflow: hidden;
   padding: 12px 13px;
   border: 1px solid var(--semi-color-success-light-active);
   border-radius: 10px;
@@ -992,17 +995,23 @@
 .chat-task-run-result-body {
   flex: 1 1 auto;
   min-height: 0;
-  overflow-y: auto;
-  padding-right: 4px;
+  overflow: hidden;
 }
 
-.chat-task-run-result-body::-webkit-scrollbar {
-  width: 6px;
+.chat-task-run-result.is-truncated::after {
+  content: '';
+  position: absolute;
+  right: 13px;
+  bottom: 12px;
+  left: 13px;
+  height: 26px;
+  border-radius: 0 0 8px 8px;
+  background: linear-gradient(transparent, var(--semi-color-success-light-default));
+  pointer-events: none;
 }
 
-.chat-task-run-result-body::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: var(--semi-color-fill-2);
+.chat-task-run-result.is-failed.is-truncated::after {
+  background: linear-gradient(transparent, var(--semi-color-danger-light-default));
 }
 
 .chat-task-run-detail-foot {
