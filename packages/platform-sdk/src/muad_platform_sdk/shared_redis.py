@@ -148,7 +148,9 @@ class SharedRedisMeter:
                 info_text = info.decode() if isinstance(info, bytes) else str(info)
                 if "redis_mode:cluster" in info_text:
                     acknowledged = await self._redis.execute_command("WAIT", 1, 1000)
-                    if int(acknowledged) < 1:
+                    if isinstance(acknowledged, bool) or not isinstance(acknowledged, int):
+                        raise MeteringUnavailable("invalid cluster replication acknowledgement")
+                    if acknowledged < 1:
                         raise MeteringUnavailable("cluster metering write is not replicated")
         except (RedisError, RedisClusterException) as exc:
             raise MeteringUnavailable("shared metering unavailable") from exc
