@@ -87,7 +87,7 @@ TASK_HUMAN_TIMEOUT_METRIC: Final = "task_human_timeout_total"
 TASK_SNAPSHOT_BYTES_METRIC: Final = "task_snapshot_bytes"
 #: ASYNC Skill operation 提交结局（counter，label `status`：SUBMITTED/SUBMIT_FAILED）。
 TASK_ASYNC_OPERATION_METRIC: Final = "task_async_operation_total"
-#: WebChat/MSSWWEB 任务中心查询数（counter）：pull surface 的读取量，与投递无关。
+#: Web pull surface 的任务中心查询数（counter）：读取量，与投递无关。
 TASK_QUERY_ONLY_METRIC: Final = "task_query_only_total"
 #: 领取与 deadline 收尾的既有计数（此前只有裸名字、未进目录，`/metrics` 无流量时看不到）。
 TASK_CLAIM_METRIC: Final = "task_claim_total"

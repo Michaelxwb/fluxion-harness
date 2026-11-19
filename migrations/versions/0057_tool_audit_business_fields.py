@@ -12,8 +12,8 @@ content failure". Development data may be cleared; no evidence is synthesized.
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0055"
-down_revision = "0054"
+revision = "0057"
+down_revision = "0056"
 branch_labels = None
 depends_on = None
 

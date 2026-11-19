@@ -46,6 +46,8 @@ ALLOWED_SURFACES = (
     "apps/console-platform/backend/src/muad_console_platform/application/channel_admin_service.py",
     "apps/console-platform/backend/src/muad_console_platform/application/dto.py",
     "apps/console-platform/backend/src/muad_console_platform/infrastructure/models/channel.py",
+    # 外部断言身份核验：只服务外部 IM 入口，是 Console 的门禁面而不是核心域分支
+    "apps/console-platform/backend/src/muad_console_platform/application/external_assertion_service.py",
     # 部署配置面：每个通道的**连接参数**（`WECOM_WS_URL`/`WECOM_WS_CA_FILE`）由适配器读，
     # 放在共享 settings 里是"配置按通道分名字"的正常做法，不是核心域分支
     "packages/common/src/muad_common/settings.py",

@@ -1,6 +1,6 @@
 """任务中心（TaskCenter）的 Worker 侧读面：待处理与徽标。
 
-Surface（WebChat / MSSWWEB）由各自的 ChatSurface 挂载对外路由，这里只提供同一份数据的
+Web pull surface（当前 WebChat 与外部断言入口）由各自的 ChatSurface 挂载对外路由，这里只提供同一份数据的
 内部来源：**同一 Agent 范围**贯穿列表、详情、待处理、徽标与回答，不按 entry/channel 过滤
 （用户的定时任务跨入口共享，见 design §3.2.7）。
 """
