@@ -46,5 +46,5 @@
 ## 4. 全量 acceptance 说明
 
 `make acceptance` 首轮 19 个失败中，与本需求相关的 S-46/S-47、附件往返和 capacity E-15 已修复并复跑通过。
-剩余失败集中在更早需求的旧请求/旧模型字段（E-04/S-10/E-15/S-45）以及 Gateway 重启后的 `message_delivery`
-恢复（E-19）；详见 `run-failure-reporting/acceptance.md` 第 4 节。归档前需对应 Owner 明确处理。
+E-04/S-10/E-15/S-45 与 E-19 已修复复跑通过；仅旧 `task_delivery` 的 B-127 恢复仍失败，详见
+`run-failure-reporting/acceptance.md` 第 4 节。

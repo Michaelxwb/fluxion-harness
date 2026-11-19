@@ -67,11 +67,13 @@
    - S-46 渠道中立：把展示标签移到 `muad_contracts.enums.CHANNEL_DISPLAY_LABELS`，核心域零渠道字面量；
    - S-47 WebChat 产物交付：断言从 Gateway push 改为目标会话 `ARTIFACT_CREATED` 事实；
    - 附件往返两条在隔离进程内单独复跑通过（首轮为同批共享状态干扰）。
-2. **仍失败的既有验收（非本需求文件，待对应 Owner 更新）**：
-   - `test_e_04.py` 三条：`/v1/conversations` 现在要求 `channel`，用例仍是旧请求形状；
-   - `test_s_10.py` / `test_e_15.py`：用例仍构造已删除的 `TaskExecution.intent_key`；
-   - `test_s_45.py` 三条：`non_interference_baseline.json` 是更早需求的合并基点，Model 域文件在此后已变更；
-   - `test_stream_delivery.py::test_e19...`：旧 `channel_notification` 持久意图断言已改为 `message_delivery`，但 Gateway 重启后的投递恢复在本地容量栈仍未收敛，保留为已知失败。
-3. **外部环境**：E-04 内网真实任务仍 pending（无内网凭据/Connector）。
+2. **已修复的旧验收**：
+   - `test_e_04.py`：补 `ChannelContext` 与 `CancelSource`，4 条通过；
+   - `test_s_10.py` / `test_e_15.py`：移除已删除的 `intent_key`/`delivery_key`/`execution_mode` 旧字段，2 条通过；
+   - `test_s_45.py`：确认 Model/MCP/Memory 域变更为后续需求事实后，重生成非干扰基线，3 条通过；
+   - `test_stream_delivery.py::test_e19...`：改为读 `message_delivery`/attempt，重置尝试计数并从回执推导 outcome，1 条通过。
+3. **仍失败的旧投递用例**：
+   - `test_worker_delivery.py::test_b127_retryable_failure_recovers_after_injection_cleared`：`task_delivery` 第二次尝试停在 PENDING，清除故障注入后 180s 内未恢复 SENT；旧 `task_delivery` 循环的恢复问题，需单独排查（不影响新 `message_delivery` 的 E-19，后者已通过）。
+4. **外部环境**：E-04 内网真实任务仍 pending（无内网凭据/Connector）。
 
 本需求相关的单元、契约、集成、浏览器路径均已通过；上述第 2 类不是本需求新增回归，但归档前应由对应 Owner 决定是更新用例还是接受已知失败。
