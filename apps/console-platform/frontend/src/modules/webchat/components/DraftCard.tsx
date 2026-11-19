@@ -15,11 +15,13 @@
  *    首次的 `Idempotency-Key` 与请求体（一次用户动作 = 一个稳定引用）。
  * 3. **失败分型**：过期/冲突/配额/无权限是明确文案；过期在本地先以服务端 `expires_at` 判定
  *    （服务端仍是权威），终态失败不再提供重试。
- * 4. **展示组件无状态**：不自带定时器、不读 Cookie/持久存储、文案只走 i18n 词条，时间统一经
- *    `DateTimeText`。
+ * 4. **展示组件无状态**：不读 Cookie/持久存储、文案只走 i18n 词条，时间统一经
+ *    `DateTimeText`。唯一的本地时钟用于把已过触发时刻的一次性卡片及时置灰，
+ *    不让用户点出一个必然失败的确认。
  */
 
 import { Button } from '@douyinfe/semi-ui';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { newRequestId } from '../../../api/client';
@@ -568,12 +570,19 @@ export function DraftCard(props: DraftCardProps) {
   const { t } = useTranslation();
   const { draft, entry } = props;
   const submitted = entry.phase === 'SUBMITTED';
+  const [clockMs, setClockMs] = useState(() => props.nowMs);
+  useEffect(() => {
+    if (submitted) return undefined;
+    const timer = window.setInterval(() => setClockMs(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [submitted]);
+  const nowMs = Math.max(props.nowMs, clockMs);
   const triggerPassed =
     !submitted &&
-    draftTriggerPassed(draft.preview.when, draft.preview.first_fire_at, props.nowMs);
+    draftTriggerPassed(draft.preview.when, draft.preview.first_fire_at, nowMs);
   // 已确认的卡片不再提示过期：确认已经是既成事实，过期只属于待确认状态。
   const expired =
-    !submitted && !triggerPassed && draftExpired(draft.expires_at, props.nowMs);
+    !submitted && !triggerPassed && draftExpired(draft.expires_at, nowMs);
   const submitting = entry.phase === 'SUBMITTING';
   const locked =
     submitting ||

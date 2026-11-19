@@ -136,6 +136,7 @@ const {
   draftEntryForStatus,
   draftExpired,
   draftErrorKey,
+  draftTriggerPassed,
   isDraftFailureFinal,
   createRunEventController,
   createReplyStreamCollector,
@@ -343,6 +344,20 @@ resetHttp();
   controller.retry(DRAFT_ID);
   observations.expired.afterRetryRequests = http.requests.length;
 }
+
+observations.triggerPassed = {
+  oncePast: draftTriggerPassed(
+    'ONCE 2026-11-14T09:00:00+08:00 (Asia/Shanghai)',
+    '2026-11-14T01:00:00Z',
+    NOW_MS
+  ),
+  onceFuture: draftTriggerPassed(
+    'ONCE 2026-11-16T09:00:00+08:00 (Asia/Shanghai)',
+    FIRST_FIRE,
+    NOW_MS
+  ),
+  cronPast: draftTriggerPassed('CRON 0 9 * * * (Asia/Shanghai)', '2026-11-14T01:00:00Z', NOW_MS)
+};
 
 // 5) 配额失败可重试；不存在是终态失败
 resetHttp();
@@ -944,6 +959,13 @@ def test_expired_draft_never_reaches_http(draft_logic: dict[str, Any]) -> None:
     assert expired["afterRetryRequests"] == 0
     assert expired["entry"]["phase"] == "FAILED"
     assert expired["entry"]["errorCode"] == "SCHEDULE_DRAFT_EXPIRED"
+
+
+def test_draft_trigger_passed_only_affects_past_once_cards(
+    draft_logic: dict[str, Any],
+) -> None:
+    passed = draft_logic["triggerPassed"]
+    assert passed == {"oncePast": True, "onceFuture": False, "cronPast": False}
 
 
 def test_failure_classes_follow_the_catalog(draft_logic: dict[str, Any]) -> None:
