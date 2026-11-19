@@ -499,6 +499,7 @@ async def test_once_in_the_past_has_no_future_occurrence(
     )
 
     assert response.status_code == 400
+    assert response.json()["code"] == "SCHEDULE_NO_FUTURE_OCCURRENCE"
     assert response.json()["data"]["reason"] == "NO_FUTURE_OCCURRENCE"
     assert await count_rows(tenant, "task_schedule_draft") == 0
 

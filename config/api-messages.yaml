@@ -4,6 +4,11 @@ codes:
     messages:
       zh-CN: "定时任务草稿不合法"
       en-US: "Invalid schedule draft"
+  SCHEDULE_NO_FUTURE_OCCURRENCE:
+    http_status: 400
+    messages:
+      zh-CN: "触发时间已过，请重新选择未来的时间"
+      en-US: "The trigger time has passed; choose a future time"
   SCHEDULE_TIMEZONE_REQUIRED:
     http_status: 422
     messages:

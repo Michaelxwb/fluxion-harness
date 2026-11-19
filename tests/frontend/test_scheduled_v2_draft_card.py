@@ -589,6 +589,7 @@ resetHttp();
 observations.errorKeys = {
   conflictConfirmation: draftErrorKey('SCHEDULE_CONFIRMATION_REQUIRED'),
   conflictIdempotency: draftErrorKey('IDEMPOTENCY_MISMATCH'),
+  noFuture: draftErrorKey('SCHEDULE_NO_FUTURE_OCCURRENCE'),
   network: draftErrorKey('NETWORK_ERROR')
 };
 
@@ -710,7 +711,16 @@ export async function renderScenarios(scenarios) {
                   push_target_label: 'WECOM:jahan-e2e'
                 }
               }
-            : createDraft;
+            : scenario.triggerPassed === true
+              ? {
+                  ...createDraft,
+                  preview: {
+                    ...createDraft.preview,
+                    when: 'ONCE 2026-11-14T09:00:00+08:00 (Asia/Shanghai)',
+                    first_fire_at: '2026-11-14T01:00:00Z'
+                  }
+                }
+              : createDraft;
     const node = React.createElement(DraftCard, {
       draft,
       entry: entryOf(scenario),
@@ -743,6 +753,7 @@ SCENARIOS = (
     {"id": "create-en", "locale": "en-US"},
     {"id": "create-push-zh", "locale": "zh-CN", "push": True},
     {"id": "submitted-expired-zh", "locale": "zh-CN", "expired": True, "phase": "SUBMITTED"},
+    {"id": "trigger-passed-zh", "locale": "zh-CN", "triggerPassed": True},
     {"id": "update-zh", "locale": "zh-CN", "draft": "update"},
     {"id": "expired-zh", "locale": "zh-CN", "expired": True},
     {
@@ -945,6 +956,7 @@ def test_failure_classes_follow_the_catalog(draft_logic: dict[str, Any]) -> None
     assert draft_logic["errorKeys"] == {
         "conflictConfirmation": "chat.draft.error.conflict",
         "conflictIdempotency": "chat.draft.error.conflict",
+        "noFuture": "chat.draft.error.noFuture",
         "network": "chat.draft.error.network",
     }
     assert draft_logic["unauthorized"]["code"] == "UNAUTHORIZED"
@@ -1035,6 +1047,17 @@ def test_expired_and_submitted_states_disable_the_action(draft_render: dict[str,
     assert _is_disabled(submitted, "chat-draft-confirm")
     assert "已确认，任务已生效" in submitted
     assert 'data-testid="chat-draft-retry"' not in submitted
+
+
+def test_trigger_passed_card_disables_confirmation(draft_render: dict[str, Any]) -> None:
+    markup = draft_render["markup"]["trigger-passed-zh"]
+    assert "触发时间已过，请重新发起" in markup
+    assert _is_disabled(markup, "chat-draft-confirm")
+    assert 'data-testid="chat-draft-expires"' not in markup
+
+
+def test_no_future_occurrence_has_an_actionable_error(draft_logic: dict[str, Any]) -> None:
+    assert draft_logic["errorKeys"]["noFuture"] == "chat.draft.error.noFuture"
 
 
 def test_confirmed_card_does_not_show_expired_notice(draft_render: dict[str, Any]) -> None:

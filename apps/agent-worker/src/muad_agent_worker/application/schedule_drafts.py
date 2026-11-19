@@ -258,7 +258,8 @@ def _first_fire(rule: RecurrenceRule, moment: datetime) -> datetime:
     if advance.next_fire_at is None:
         # ONCE 指向过去/已无未来槽：宁可拒绝，也不建一条永远不会触发的事实。
         raise AppError(
-            ErrorCode.SCHEDULE_DRAFT_INVALID, data={"reason": "NO_FUTURE_OCCURRENCE"}
+            ErrorCode.SCHEDULE_NO_FUTURE_OCCURRENCE,
+            data={"reason": "NO_FUTURE_OCCURRENCE"},
         )
     return advance.next_fire_at
 

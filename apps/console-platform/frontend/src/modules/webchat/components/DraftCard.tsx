@@ -40,6 +40,7 @@ import type {
 /** 稳定码 → 本地化词条键（本地缺参码与服务端目录码同一份映射）。 */
 export const DRAFT_ERROR_KEYS: Record<string, string> = {
   SCHEDULE_DRAFT_EXPIRED: 'chat.draft.error.expired',
+  SCHEDULE_NO_FUTURE_OCCURRENCE: 'chat.draft.error.noFuture',
   SCHEDULE_CONFIRMATION_REQUIRED: 'chat.draft.error.conflict',
   SCHEDULE_VERSION_CONFLICT: 'chat.draft.error.conflict',
   SCHEDULE_STATE_INVALID: 'chat.draft.error.conflict',
@@ -68,6 +69,7 @@ export function draftErrorKey(code: string | null): string {
 /** 终态失败（重试无意义）：过期/已确认/无权限/不存在。 */
 const FINAL_DRAFT_FAILURES: ReadonlySet<string> = new Set<string>([
   'SCHEDULE_DRAFT_EXPIRED',
+  'SCHEDULE_NO_FUTURE_OCCURRENCE',
   'SCHEDULE_DRAFT_CANCELLED',
   'SCHEDULE_DRAFT_STATUS_UNKNOWN',
   'SCHEDULE_CONFIRMATION_REQUIRED',
@@ -85,6 +87,17 @@ export function isDraftFailureFinal(code: string | null): boolean {
 export function draftExpired(expiresAt: string, nowMs: number): boolean {
   const deadline = Date.parse(expiresAt);
   return Number.isFinite(deadline) && deadline <= nowMs;
+}
+
+/** 一次性任务的触发时刻已过：服务端会在确认时拒绝 `NO_FUTURE_OCCURRENCE`。 */
+export function draftTriggerPassed(
+  when: string,
+  firstFireAt: string,
+  nowMs: number
+): boolean {
+  if (!when.startsWith('ONCE')) return false;
+  const first = Date.parse(firstFireAt);
+  return Number.isFinite(first) && first <= nowMs;
 }
 
 /** 确认请求体：只绑定卡片上的 `draft_hash`（哈希不一致由服务端显式拒绝）。 */
@@ -555,11 +568,19 @@ export function DraftCard(props: DraftCardProps) {
   const { t } = useTranslation();
   const { draft, entry } = props;
   const submitted = entry.phase === 'SUBMITTED';
+  const triggerPassed =
+    !submitted &&
+    draftTriggerPassed(draft.preview.when, draft.preview.first_fire_at, props.nowMs);
   // 已确认的卡片不再提示过期：确认已经是既成事实，过期只属于待确认状态。
-  const expired = !submitted && draftExpired(draft.expires_at, props.nowMs);
+  const expired =
+    !submitted && !triggerPassed && draftExpired(draft.expires_at, props.nowMs);
   const submitting = entry.phase === 'SUBMITTING';
   const locked =
-    submitting || submitted || expired || isDraftFailureFinal(entry.errorCode);
+    submitting ||
+    submitted ||
+    expired ||
+    triggerPassed ||
+    isDraftFailureFinal(entry.errorCode);
   const finalFailure = isDraftFailureFinal(entry.errorCode);
   return (
     <section
@@ -569,6 +590,7 @@ export function DraftCard(props: DraftCardProps) {
       data-kind={draft.kind}
       data-mode={draft.mode}
       data-expired={expired ? 'true' : 'false'}
+      data-trigger-passed={triggerPassed ? 'true' : 'false'}
       data-phase={entry.phase}
       aria-label={t('chat.draft.label')}
     >
@@ -582,7 +604,7 @@ export function DraftCard(props: DraftCardProps) {
         </span>
       </div>
       <DraftPreviewBody draft={draft} preview={draft.preview} />
-      {submitted ? null : (
+      {submitted || triggerPassed ? null : (
         <p className="chat-draft-expires" data-testid="chat-draft-expires">
           {t('chat.draft.expiresAt')}
           <DateTimeText value={draft.expires_at} />
@@ -610,7 +632,11 @@ export function DraftCard(props: DraftCardProps) {
         ) : null}
       </div>
       <div className="chat-draft-notices">
-        {expired ? (
+        {triggerPassed ? (
+          <span className="chat-draft-expired" data-testid="chat-draft-trigger-passed">
+            {t('chat.draft.triggerPassed')}
+          </span>
+        ) : expired ? (
           <span className="chat-draft-expired" data-testid="chat-draft-expired">
             {t('chat.draft.expired')}
           </span>

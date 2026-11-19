@@ -104,7 +104,8 @@ def future_fire_at(rule: RecurrenceRule, now: datetime) -> Advance:
     advance = initial_fire_at(rule, now)
     if advance.next_fire_at is None:
         raise AppError(
-            ErrorCode.SCHEDULE_DRAFT_INVALID, data={"reason": "NO_FUTURE_OCCURRENCE"}
+            ErrorCode.SCHEDULE_NO_FUTURE_OCCURRENCE,
+            data={"reason": "NO_FUTURE_OCCURRENCE"},
         )
     return advance
 
