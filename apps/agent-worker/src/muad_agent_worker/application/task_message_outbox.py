@@ -252,6 +252,8 @@ async def _identity_push_routes(
             )
         )
     ).all()
+    from .delivery_routes import upsert_delivery_route
+
     pushes: list[_PushRoute] = []
     seen: set[str] = set()
     for row in rows:
@@ -265,6 +267,14 @@ async def _identity_push_routes(
         if key in seen:
             continue
         seen.add(key)
+        # Runtime 的收件人校验读 `task.delivery_route`；扇出的每个目标都要先落成
+        # owner-scoped route，否则第二个 bot 会被判为 DELIVERY_ROUTE_UNAVAILABLE。
+        await upsert_delivery_route(
+            session,
+            tenant_id=task.tenant_id,
+            platform_user_id=task.actor_user_id,
+            route=route,
+        )
         pushes.append(_PushRoute(route=route, target_key=key))
     return pushes
 
