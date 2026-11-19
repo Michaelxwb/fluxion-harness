@@ -23,7 +23,7 @@ from muad_contracts import (
     ScheduleDraftRequest,
 )
 
-from agent_worker.conftest import TenantContext
+from agent_worker.conftest import TenantContext, app
 from agent_worker.helpers import internal_service_headers
 
 
@@ -97,39 +97,44 @@ async def test_list_active_delivery_routes_is_scoped_to_the_user(tenant: TenantC
 
 
 @pytest.mark.asyncio
+class _BoundTargets:
+    async def list_targets(self, *, tenant_id, platform_user_id, agent_id):
+        del tenant_id, agent_id
+        return (
+            DeliveryRouteInput(
+                channel="WECOM", bot_id="bot-new", external_user_id="user-1"
+            ),
+            DeliveryRouteInput(
+                channel="WECOM", bot_id="bot-old", external_user_id="user-1"
+            ),
+        )
+
+
 async def test_delivery_targets_endpoint_returns_safe_items(
     tenant: TenantContext, client: AsyncClient
 ) -> None:
     user_id = uuid.uuid4()
-    async with tenant.session_factory() as session:
-        session.add(
-            DeliveryRoute(
-                id=uuid.uuid4(),
-                tenant_id=tenant.tenant_id,
-                channel="WECOM",
-                bot_id="bot-1",
-                platform_user_id=user_id,
-                external_user_id="user-1",
-                external_conversation_id=None,
-                route_json={"channel": "WECOM", "bot_id": "bot-1", "external_user_id": "user-1"},
-                route_hash=f"hash-{uuid.uuid4()}",
-                status="ACTIVE",
-            )
+    app.state.channel_targets_client = _BoundTargets()
+    try:
+        response = await client.get(
+            "/internal/schedules/delivery-targets",
+            headers=internal_service_headers(
+                tenant.tenant_id, **{"X-Actor-User-Id": str(user_id)}
+            ),
         )
-        await session.commit()
-
-    response = await client.get(
-        "/internal/schedules/delivery-targets",
-        headers=internal_service_headers(
-            tenant.tenant_id, **{"X-Actor-User-Id": str(user_id)}
-        ),
-    )
+    finally:
+        del app.state.channel_targets_client
     assert response.status_code == 200, response.text
     items = response.json()["data"]["items"]
     assert items == [
         {
             "label": "WECOM:user-1",
             "channel": "WECOM",
-            "route": {"channel": "WECOM", "bot_id": "bot-1", "external_user_id": "user-1"},
+            "route": {
+                "channel": "WECOM",
+                "bot_id": "bot-new",
+                "external_user_id": "user-1",
+                "external_conversation_id": None,
+            },
         }
     ]

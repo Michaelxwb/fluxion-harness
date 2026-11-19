@@ -71,7 +71,7 @@ pytestmark = pytest.mark.integration
 TZ = "Asia/Shanghai"
 SKILL_ID = uuid.UUID("5a1d0c1e-0000-4000-8000-000000023003")
 SKILL_KEY = "daily-duty-report-mssp-local"
-SKILL_ROOT = Path(__file__).resolve().parents[1] / "fixtures/skills/daily-duty-report-mssp-local"
+SKILL_ROOT = Path(__file__).resolve().parents[2] / "skills/daily-duty-report-mssp-local"
 CALL_STARTED_AT = datetime(2026, 11, 18, 1, 0, tzinfo=UTC)
 RECORDED_DATE = "2026-11-17"
 

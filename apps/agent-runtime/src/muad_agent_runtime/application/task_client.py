@@ -227,15 +227,17 @@ class WorkerTaskClient:
         *,
         tenant_id: str,
         actor_user_id: uuid.UUID,
+        agent_id: uuid.UUID,
         trace_id: str = "",
     ) -> dict[str, Any]:
-        """当前用户的有效出站目标；只含安全标签与路由形状，不含内部主键。"""
+        """当前用户+Agent 的有效出站目标；只含安全标签与路由形状，不含内部主键。"""
         return await self._request(
             "GET",
             f"{SCHEDULES_PATH}/delivery-targets",
             tenant_id=tenant_id,
             trace_id=trace_id,
             actor_user_id=actor_user_id,
+            agent_id=agent_id,
         )
 
     async def create_schedule_draft(

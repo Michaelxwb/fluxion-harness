@@ -6,9 +6,12 @@
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol
+
+from muad_contracts import DeliveryRouteInput
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,3 +44,33 @@ class NullPlatformSettingsClient:
         self, *, tenant_id: str, trace_id: str = ""
     ) -> PlatformSettingsSnapshot:
         return PlatformSettingsSnapshot(revision=0)
+
+
+class ChannelTargetsClient(Protocol):
+    """用户已绑定的出站目标（Console `GET /internal/channel/targets`）。
+
+    目标来自 IM 身份绑定，不是任务侧的历史 route 快照；通道集合由 contracts 的
+    `OUTBOUND_CHANNELS` 决定，新增 IM 通道不需要在这里加分支。
+    """
+
+    async def list_targets(
+        self,
+        *,
+        tenant_id: str,
+        platform_user_id: uuid.UUID,
+        agent_id: uuid.UUID | None,
+    ) -> tuple[DeliveryRouteInput, ...]: ...
+
+
+class NullChannelTargetsClient:
+    """无 Console 目标的直构/测试默认：没有目标就不推，绝不猜。"""
+
+    async def list_targets(
+        self,
+        *,
+        tenant_id: str,
+        platform_user_id: uuid.UUID,
+        agent_id: uuid.UUID | None,
+    ) -> tuple[DeliveryRouteInput, ...]:
+        del tenant_id, platform_user_id, agent_id
+        return ()

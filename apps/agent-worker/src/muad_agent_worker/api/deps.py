@@ -8,7 +8,12 @@ from muad_api.error_codes import ErrorCode
 from muad_common import SharedSettings
 from muad_contracts import ConfirmationSurface, ConfirmScope
 
-from ..application.ports import NullPlatformSettingsClient, PlatformSettingsClient
+from ..application.ports import (
+    ChannelTargetsClient,
+    NullChannelTargetsClient,
+    NullPlatformSettingsClient,
+    PlatformSettingsClient,
+)
 from ..application.remote_cancellation import RuntimeToolOperationCanceller, ToolOperationCanceller
 from ..scheduler.client import ConsoleResolveClient, ScheduleMaterialsProtocol
 
@@ -42,6 +47,19 @@ def get_platform_settings_client(request: Request) -> PlatformSettingsClient:
 
 PlatformSettingsClientDep = Annotated[
     PlatformSettingsClient, Depends(get_platform_settings_client)
+]
+
+
+def get_channel_targets_client(request: Request) -> ChannelTargetsClient:
+    """用户已绑定的出站目标源；未进 lifespan 的直构/测试默认没有目标。"""
+    client: ChannelTargetsClient | None = getattr(
+        request.app.state, "channel_targets_client", None
+    )
+    return client if client is not None else NullChannelTargetsClient()
+
+
+ChannelTargetsClientDep = Annotated[
+    ChannelTargetsClient, Depends(get_channel_targets_client)
 ]
 
 

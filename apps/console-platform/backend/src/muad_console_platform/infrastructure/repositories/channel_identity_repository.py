@@ -1,6 +1,7 @@
 import uuid
 from typing import Any
 
+from muad_contracts.enums import OUTBOUND_CHANNELS
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -89,6 +90,52 @@ class ChannelIdentityRepository:
             )
         ).mappings()
         return [dict(row) for row in rows], int(total or 0)
+
+    async def list_outbound_targets(
+        self,
+        tenant_id: str,
+        user_id: uuid.UUID,
+        *,
+        agent_id: uuid.UUID | None = None,
+    ) -> list[dict[str, Any]]:
+        """该用户已绑定的出站通道目标（由 `OUTBOUND_CHANNELS` 决定，未来通道自动纳入）。
+
+        目标来自 `channel_identity` + 启用的 `bot_account`，不读任务侧的
+        `delivery_route` 快照：绑定关系才是用户“配置了某个 IM”的事实，旧路由
+        可能只是历史测试数据。
+        """
+        conditions = [
+            ChannelIdentity.tenant_id == tenant_id,
+            ChannelIdentity.platform_user_id == user_id,
+            ChannelIdentity.is_deleted.is_(False),
+            ChannelIdentity.channel.in_(sorted(OUTBOUND_CHANNELS)),
+            BotAccount.is_deleted.is_(False),
+            BotAccount.enabled.is_(True),
+        ]
+        if agent_id is not None:
+            conditions.append(BotAccount.agent_id == agent_id)
+        rows = (
+            await self._session.execute(
+                select(
+                    ChannelIdentity.id,
+                    ChannelIdentity.channel,
+                    ChannelIdentity.external_user_id,
+                    BotAccount.bot_id,
+                    BotAccount.agent_id,
+                    ChannelIdentity.bound_at,
+                    ChannelIdentity.last_active_at,
+                )
+                .join(BotAccount, BotAccount.id == ChannelIdentity.bot_account_id)
+                .where(*conditions)
+                .order_by(
+                    func.coalesce(
+                        ChannelIdentity.last_active_at, ChannelIdentity.bound_at
+                    ).desc(),
+                    ChannelIdentity.id,
+                )
+            )
+        ).mappings()
+        return [dict(row) for row in rows]
 
     async def soft_delete(self, identity: ChannelIdentity) -> None:
         identity.is_deleted = True

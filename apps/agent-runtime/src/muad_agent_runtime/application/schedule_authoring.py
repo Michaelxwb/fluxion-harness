@@ -41,7 +41,6 @@ from muad_contracts import (
     SkillPlanPayload,
 )
 from muad_contracts.enums import (
-    LOCAL_STREAM_CHANNELS,
     OUTBOUND_CHANNELS,
     DeliveryIntent,
 )
@@ -774,7 +773,7 @@ def _delivery(
             _field("delivery.intent", "INVALID", "CHOOSE_DELIVERY_INTENT", ("NONE", "PUSH"))
         )
         return None
-    intent = requested or _default_intent(context, errors)
+    intent = requested or _default_intent(context)
     if intent is None:
         return None
     if intent == "NONE":
@@ -790,24 +789,18 @@ def _delivery(
     return DeliveryPlan(intent=DeliveryIntent.PUSH, route=route)
 
 
-def _default_intent(
-    context: ScheduleAuthoringContext, errors: list[ScheduleFieldError]
-) -> str | None:
-    if context.entry_channel is None:
-        return "NONE"
+def _default_intent(context: ScheduleAuthoringContext) -> str:
+    """Delivery is a platform default: source chat route first, then bound IM identity.
+
+    WebChat always has pull; if the user has bound an outbound IM identity
+    (any channel in `OUTBOUND_CHANNELS`), the same schedule also pushes to that
+    identity. No user-facing channel choice is involved.
+    """
     if context.entry_channel in OUTBOUND_CHANNELS:
         return "PUSH"
-    if context.entry_channel in LOCAL_STREAM_CHANNELS:
-        return "NONE"
-    errors.append(
-        _field(
-            "delivery.intent",
-            "ENTRY_CHANNEL_UNSUPPORTED",
-            "CHOOSE_DELIVERY_INTENT",
-            ("NONE", "PUSH"),
-        )
-    )
-    return None
+    if context.delivery_targets:
+        return "PUSH"
+    return "NONE"
 
 
 def _push_route(
@@ -863,6 +856,15 @@ def _push_route(
             return None
     else:
         route = context.delivery_route
+        if route is None or route.channel not in OUTBOUND_CHANNELS:
+            # WebChat source has a local route, not an outbound one. Fall back to
+            # the user's most recently bound outbound identity; the Console target
+            # list is ordered by last_active/bound time.
+            route = (
+                context.delivery_targets[0].route
+                if context.delivery_targets
+                else None
+            )
         if route is None:
             errors.append(
                 _field(

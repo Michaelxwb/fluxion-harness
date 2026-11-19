@@ -14,6 +14,7 @@ from typing import Any
 
 import pytest
 from muad_agent_runtime.application.schedule_authoring import (
+    DeliveryTargetOption,
     ScheduleAuthoringContext,
     ScheduleAuthoringError,
     compile_schedule_plan,
@@ -320,6 +321,36 @@ class TestDelivery:
     def test_webchat_defaults_to_no_delivery_intent(self) -> None:
         result = compile_schedule_plan(_args({"text": "开会"}), context=_context())
         assert str(result.plan.delivery.intent) == "NONE"
+
+    def test_webchat_with_bound_outbound_target_defaults_to_push(self) -> None:
+        result = compile_schedule_plan(
+            _args({"text": "开会"}),
+            context=_context(
+                delivery_targets=(
+                    DeliveryTargetOption(label="WECOM:user-1", route=self.PUSH_ROUTE),
+                )
+            ),
+        )
+        assert str(result.plan.delivery.intent) == "PUSH"
+        assert result.plan.delivery.route == self.PUSH_ROUTE
+
+    def test_bound_target_order_is_preserved_as_the_default(self) -> None:
+        newer = DeliveryRouteInput(
+            channel="WECOM", bot_id="bot-new", external_user_id="user-1"
+        )
+        older = DeliveryRouteInput(
+            channel="WECOM", bot_id="bot-old", external_user_id="user-1"
+        )
+        result = compile_schedule_plan(
+            _args({"text": "开会"}),
+            context=_context(
+                delivery_targets=(
+                    DeliveryTargetOption(label="WECOM:user-1", route=newer),
+                    DeliveryTargetOption(label="WECOM:user-1#old", route=older),
+                )
+            ),
+        )
+        assert result.plan.delivery.route == newer
 
     def test_push_requires_the_source_chat_route(self) -> None:
         with pytest.raises(ScheduleAuthoringError) as caught:

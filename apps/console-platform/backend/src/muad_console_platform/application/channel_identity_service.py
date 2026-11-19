@@ -35,6 +35,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..infrastructure.repositories.agent_access_grant_repository import (
     AgentAccessGrantRepository,
 )
+from ..infrastructure.repositories.channel_identity_repository import (
+    ChannelIdentityRepository,
+)
 from .chat_auth_service import ChatSessionService
 
 
@@ -44,6 +47,30 @@ class ChannelIdentityService:
     def __init__(self, session: AsyncSession) -> None:
         self._sessions = ChatSessionService(session)
         self._grants = AgentAccessGrantRepository(session)
+        self._identities = ChannelIdentityRepository(session)
+
+    async def list_outbound_targets(
+        self,
+        tenant_id: str,
+        platform_user_id: uuid.UUID,
+        *,
+        agent_id: uuid.UUID | None = None,
+    ) -> list[dict[str, object]]:
+        """用户已绑定的出站目标；通道由 `OUTBOUND_CHANNELS` 决定，不硬编码具体通道。"""
+        rows = await self._identities.list_outbound_targets(
+            tenant_id, platform_user_id, agent_id=agent_id
+        )
+        return [
+            {
+                "channel": str(row["channel"]),
+                "bot_id": str(row["bot_id"]),
+                "external_user_id": str(row["external_user_id"]),
+                "external_conversation_id": None,
+                "agent_id": str(row["agent_id"]),
+                "bound_at": row["bound_at"].isoformat() if row["bound_at"] else None,
+            }
+            for row in rows
+        ]
 
     async def resolve_chat_principal(
         self,

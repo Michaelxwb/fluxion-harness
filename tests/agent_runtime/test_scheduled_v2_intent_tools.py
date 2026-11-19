@@ -43,7 +43,6 @@ from muad_agent_runtime.infrastructure.db import get_session_factory as runtime_
 from muad_agent_runtime.infrastructure.models.runtime import CanonicalEvent, Conversation
 from muad_agent_worker.application.ports import PlatformSettingsSnapshot
 from muad_agent_worker.infrastructure.db import get_session_factory as worker_session_factory
-from muad_agent_worker.infrastructure.models.task import DeliveryRoute
 from muad_agent_worker.main import app as worker_app
 from muad_contracts import (
     DeliveryRouteInput,
@@ -527,6 +526,19 @@ async def test_current_session_draft_freezes_the_creator_conversation(
     assert draft["context"]["session_conversation_id"] == str(conversation)
 
 
+class _OwnerTargets:
+    async def list_targets(self, *, tenant_id, platform_user_id, agent_id):
+        del tenant_id, platform_user_id, agent_id
+        return (
+            DeliveryRouteInput(
+                channel="WECOM",
+                bot_id="bot-1",
+                external_user_id="ext-1",
+                external_conversation_id="conv-1",
+            ),
+        )
+
+
 async def test_web_entry_can_push_to_an_explicit_owner_target(
     tenant: TenantContext, conversation: uuid.UUID
 ) -> None:
@@ -536,21 +548,7 @@ async def test_web_entry_can_push_to_an_explicit_owner_target(
         "external_user_id": "ext-1",
         "external_conversation_id": "conv-1",
     }
-    async with worker_session_factory()() as session, session.begin():
-        session.add(
-            DeliveryRoute(
-                id=uuid.uuid4(),
-                tenant_id=tenant.tenant_id,
-                channel="WECOM",
-                bot_id="bot-1",
-                platform_user_id=tenant.platform_user_id,
-                external_user_id="ext-1",
-                external_conversation_id="conv-1",
-                route_json=route,
-                route_hash=f"sha256:{uuid.uuid4().hex}{uuid.uuid4().hex}",
-                status="ACTIVE",
-            )
-        )
+    worker_app.state.channel_targets_client = _OwnerTargets()
     client = _client()
     try:
         registry = _registry(_context(tenant, conversation), client)
@@ -562,6 +560,7 @@ async def test_web_entry_can_push_to_an_explicit_owner_target(
         )
     finally:
         await client.aclose()
+        del worker_app.state.channel_targets_client
 
     assert targets["targets"] == [{"label": "WECOM:ext-1", "channel": "WECOM"}]
     assert result["delivery"] == "PUSH"

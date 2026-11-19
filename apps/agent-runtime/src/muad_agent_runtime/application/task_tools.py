@@ -788,6 +788,7 @@ class BackgroundTaskToolSet:
             data = await self._client.list_delivery_targets(
                 tenant_id=self._context.tenant_id,
                 actor_user_id=self._context.actor_user_id,
+                agent_id=self._context.agent.id,
                 trace_id=self._context.trace_id,
             )
         except AppError:

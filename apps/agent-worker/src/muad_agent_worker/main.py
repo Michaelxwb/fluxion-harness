@@ -32,7 +32,12 @@ from .api.schedule_drafts import router as schedule_drafts_router
 from .api.schedules import router as schedules_router
 from .api.task_center import router as task_center_router
 from .api.tasks import router as tasks_router
-from .application.ports import NullPlatformSettingsClient, PlatformSettingsClient
+from .application.ports import (
+    ChannelTargetsClient,
+    NullChannelTargetsClient,
+    NullPlatformSettingsClient,
+    PlatformSettingsClient,
+)
 from .application.schedule_retention import ScheduleRetentionLoop
 from .delivery.artifact_client import ArtifactResolveClient
 from .delivery.client import HttpDeliveryClient, HttpWebchatInboxClient
@@ -40,6 +45,7 @@ from .delivery.message_outbox import TaskMessageOutboxLoop
 from .delivery.message_outbox_client import HttpMessageOutboxClient
 from .delivery.service import DeliveryLoop
 from .infrastructure.cancel_hint import CancelHintStore, create_cancel_hint_store
+from .infrastructure.channel_targets_client import ConsoleChannelTargetsClient
 from .infrastructure.db import dispose_engine, get_engine, get_session_factory
 from .infrastructure.http_clients import WorkerHttpPools, build_pool_client, build_worker_http_pools
 from .infrastructure.models.task import TaskExecution, TaskSchedule
@@ -118,6 +124,12 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         client=pools.control,
     )
     app.state.platform_settings_client = settings_client
+    channel_targets_client: ChannelTargetsClient = ConsoleChannelTargetsClient(
+        settings.console_platform_url,
+        pools.control,
+        service_token=settings.internal_service_token,
+    )
+    app.state.channel_targets_client = channel_targets_client
     background: list[asyncio.Task[None]] = []
     supervisor: LoopSupervisor | None = None
     try:
@@ -149,6 +161,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         # 退出后不留真实 Setting 源：同进程再次进入（测试/多次 lifespan）回落到空对象，
         # 否则一个已切断的 Console 会被后续请求当成"当前设置源"。
         app.state.platform_settings_client = NullPlatformSettingsClient()
+        app.state.channel_targets_client = NullChannelTargetsClient()
         app.state.agentic_mcp = None
         await agentic_mcp.aclose()
         await pools.aclose()

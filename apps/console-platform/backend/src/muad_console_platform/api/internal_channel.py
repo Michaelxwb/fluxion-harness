@@ -40,6 +40,25 @@ async def resolve(
     return ok(request.app.state.message_catalog, resolved.model_dump(mode="json"))
 
 
+@router.get("/targets")
+async def targets(
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    internal_service: InternalServiceDep,
+    platform_user_id: Annotated[uuid.UUID, Query()],
+    agent_id: Annotated[uuid.UUID | None, Query()] = None,
+) -> ApiResponse[Any]:
+    """该用户已绑定的出站目标；供调度默认推送使用，通道词表由 contracts 拥有。"""
+    del internal_service
+    items = await ChannelIdentityService(session).list_outbound_targets(
+        tenant_id,
+        platform_user_id,
+        agent_id=agent_id,
+    )
+    return ok(request.app.state.message_catalog, {"items": items})
+
+
 @router.post("/bind")
 async def bind(
     payload: ChannelBindRequest,

@@ -23,7 +23,6 @@ from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..application.delivery_routes import list_active_delivery_routes
 from ..application.platform_settings import resolve_platform_settings
 from ..application.ports import PlatformSettingsClient
 from ..application.remote_cancellation import ToolOperationCanceller, dispatch_remote_cancels
@@ -52,6 +51,8 @@ from ..infrastructure.models.task import (
 from ..scheduler.client import ScheduleMaterialsProtocol
 from .deps import (
     ActorUserId,
+    AgentId,
+    ChannelTargetsClientDep,
     PlatformSettingsClientDep,
     RequiredActorUserId,
     ScheduleMaterialsClientDep,
@@ -191,25 +192,40 @@ async def delivery_targets(
     request: Request,
     tenant_id: TenantId,
     actor_user_id: RequiredActorUserId,
-    session: Session,
+    agent_id: AgentId,
+    targets: ChannelTargetsClientDep,
 ) -> ApiResponse[Any]:
-    """Web Schedule 表单的只读目标列表：只暴露安全标签与路由形状，不暴露内部 ID。"""
-    routes = await list_active_delivery_routes(
-        session, tenant_id=tenant_id, platform_user_id=actor_user_id
+    """用户已绑定的出站目标；不是任务侧历史 route 快照。
+
+    同一外部用户在多个 bot 上重复绑定时只保留最近绑定的那一个，避免模型看到
+    同义选项后反问用户选哪个。通道由 Console 的 `OUTBOUND_CHANNELS` 过滤。
+    """
+    routes = await targets.list_targets(
+        tenant_id=tenant_id,
+        platform_user_id=actor_user_id,
+        agent_id=agent_id,
     )
-    items = []
-    labels = [
-        f"{route.channel}:{route.external_user_id}" for route in routes
-    ]
-    for route, base in zip(routes, labels, strict=True):
-        payload = dict(route.route_json or {})
-        # 同一用户可能有多个同通道目标：只有重名时才加不透明短后缀，避免模型猜。
-        label = base if labels.count(base) == 1 else f"{base}#{route.route_hash[-6:]}"
+    seen: set[tuple[str, str, str, str | None]] = set()
+    items: list[dict[str, Any]] = []
+    labels: list[str] = []
+    for route in routes:
+        key = (
+            route.channel,
+            route.external_user_id,
+            route.external_conversation_id,
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        label = f"{route.channel}:{route.external_user_id}"
+        if label in labels:
+            label = f"{label}#{(route.external_conversation_id or route.bot_id)[-6:]}"
+        labels.append(label)
         items.append(
             {
                 "label": label,
                 "channel": route.channel,
-                "route": payload,
+                "route": route.model_dump(mode="json"),
             }
         )
     return ok(request.app.state.message_catalog, {"items": items})

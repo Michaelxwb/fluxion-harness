@@ -7,8 +7,10 @@ from muad_console_platform.infrastructure.db import get_session_factory
 from sqlalchemy import text
 
 from console_channel.conftest import CHANNEL, ChannelContext
+from tests.internal_service import service_headers
 
 RESOLVE_URL = "/internal/channel/resolve"
+TARGETS_URL = "/internal/channel/targets"
 
 
 def _headers(channel: ChannelContext, tenant_id: str | None = None) -> dict[str, str]:
@@ -223,3 +225,37 @@ async def test_tenant_isolation_hides_other_tenant_bot(
     )
     assert response.status_code in (403, 404)
     assert response.json()["code"] == "BOT_NOT_FOUND"
+
+
+async def test_targets_returns_bound_outbound_identities(
+    client: AsyncClient, channel: ChannelContext
+) -> None:
+    response = await client.get(
+        TARGETS_URL,
+        params={
+            "platform_user_id": str(channel.actor_user_id),
+            "agent_id": str(channel.agent_id),
+        },
+        headers=service_headers(channel.tenant_id),
+    )
+    assert response.status_code == 200, response.text
+    items = response.json()["data"]["items"]
+    assert len(items) == 1
+    item = items[0]
+    assert item["channel"] == CHANNEL
+    assert item["bot_id"] == channel.bot_id
+    assert item["external_user_id"] == channel.bound_external_user_id
+    assert item["external_conversation_id"] is None
+    assert item["agent_id"] == str(channel.agent_id)
+
+
+async def test_targets_are_scoped_to_the_deployment_tenant(
+    client: AsyncClient, channel: ChannelContext
+) -> None:
+    response = await client.get(
+        TARGETS_URL,
+        params={"platform_user_id": str(channel.actor_user_id)},
+        headers=service_headers(channel.other_tenant_id),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["items"] == []

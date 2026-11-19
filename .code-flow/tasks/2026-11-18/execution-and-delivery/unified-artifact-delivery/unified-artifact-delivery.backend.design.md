@@ -313,11 +313,11 @@ UNIQUE (tenant_id, task_id, message_key, target_key)
 
 ### 4.7 Schedule 路由独立于入口
 
-- `ScheduleDraftRequest.delivery_route` 可选；PUSH 由“是否选择有效企微路由”决定，不再由 `entry_channel` 决定。
+- `ScheduleDraftRequest.delivery_route` 可选；PUSH 由“用户是否有已绑定出站身份”决定：有则默认选最近活跃/绑定的目标，没有则 NONE；不再由 `entry_channel` 决定，也不读历史 route 快照。
 - 删除 `schedule_drafts.py` 的 `entry_delivery_capability`/`ensure_delivery_target` 入口相等限制；同步 `schedule_confirm.py` 的 route 解析（确认时也按显式目标，不按入口）。
 - 校验：路由属于同一 tenant/user/agent、通道在 `OUTBOUND_CHANNELS`、绑定有效；不满足则 `SCHEDULE_DELIVERY_UNSUPPORTED`。
 - Web 创建默认 `NONE`（仅 Web）；企微创建默认来源企微路由（PUSH）；两者都可显式改选（有可用路由时）。
-- 新增只读目标列表（供 Web Schedule 表单选择）：`GET /webchat/task-center/delivery-targets` 或等价内部端点，返回当前用户-Agent 的有效企微目标安全标签与 `DeliveryRouteInput`；前端不展示 route 中的内部 ID，也不拼接 URL。没有目标时返回空列表，前端只能选“仅 Web”。
+- 新增只读目标列表（调度默认目标）：Console `GET /internal/channel/targets` + Worker `GET /internal/schedules/delivery-targets`，从用户绑定的出站 `channel_identity` + 启用 bot 投影，返回安全标签与 `DeliveryRouteInput`；通道集合由 `OUTBOUND_CHANNELS` 拥有，新增 IM 通道不在这里加分支。前端不展示 route 内部 ID/通道，也不拼接 URL。没有目标时返回空列表。
 - Schedule Revision 冻结 `delivery_intent` + `delivery_route_id`；Task 执行按冻结路由 push。
 - Web pull 不是 `delivery_intent`：只要有 Web 入口，任务中心/详情始终可读。
 - 需要 Spec Delta：`worker/harness-worker#RULE-003` 明确“PUSH 目标是 Schedule 显式配置，独立于创建入口；无绑定 NONE；任务中心 pull 始终可用”。

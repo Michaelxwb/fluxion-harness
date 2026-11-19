@@ -263,12 +263,12 @@ Task 成功终态写 `task.message_outbox`（消息 + attachments + push 路由�
 
 ### Description
 
-移除 `schedule_drafts.py` 的“投递路由必须等于创建入口”限制；PUSH 由是否选择有效企微路由决定；新增只读目标列表；Web 创建默认 NONE；企微创建默认来源路由；Revision 冻结 `delivery_intent` + `delivery_route_id`；任务中心 pull 始终可用。本 TASK 是本合并任务文件中唯一修改 `schedule_drafts.py`/`schedule_confirm.py` 的 owner。
+移除 `schedule_drafts.py` 的“投递路由必须等于创建入口”限制；新增只读目标列表，目标来自用户已绑定的出站通道身份（当前 WECOM，未来由 `OUTBOUND_CHANNELS` 扩展），不再读任务侧历史 route 快照；有绑定目标时默认 PUSH（按最近活跃/绑定选择），没有目标则 NONE；Revision 冻结 `delivery_intent` + `delivery_route_id`；任务中心 pull 始终可用。本 TASK 是本合并任务文件中唯一修改 `schedule_drafts.py`/`schedule_confirm.py` 的 owner。
 
 ### Checklist
 
 - [x] 删除入口相等限制；确认时按显式目标解析。
-- [x] 只读目标列表 API（Worker `/internal/schedules/delivery-targets`）；Console 投影剔除 `delivery_route_id`/`delivery_route`，只保留 `delivery_intent`。
+- [x] 只读目标列表 API（Worker `/internal/schedules/delivery-targets`）从 Console 绑定身份投影生成；Console 投影剔除 `delivery_route_id`/`delivery_route`，只保留 `delivery_intent`。
 - [x] 路由校验：Draft owner 绑定、`OUTBOUND_CHANNELS`；非出站通道失败 `SCHEDULE_DELIVERY_UNSUPPORTED`。
 - [x] Revision 冻结 `delivery_intent`/`delivery_route_id`；执行按冻结路由 push。
 - [x] Web pull 不是 `delivery_intent`；有 Web 入口任务中心始终可读。

@@ -148,7 +148,7 @@
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| `delivery_route` | `DeliveryRouteInput \| null` | 可选企微目标；null = 仅 Web |
+| `delivery_route` | `DeliveryRouteInput \| null` | 平台默认目标；null = 无绑定出站身份，仅站内 |
 | `available_push_targets` | `PushTargetOption[]` | 当前用户-Agent 可用企微目标 |
 | `delivery_intent` | `PUSH \| NONE` | 由是否选择目标派生，不由入口决定 |
 
@@ -169,7 +169,7 @@
 | `onChange` | `(value: DeliveryRouteInput \| null) => void` | 选择/清空 |
 | `disabled` | boolean | 无权限/加载失败 |
 
-不包含“立即发送/重试”动作；只配置目标。提交时沿用现有 `delivery_intent`/`delivery_route` 契约；前端不展示 route 中的内部 ID，也不拼 URL。
+不包含“立即发送/重试”动作；用户不选择投递通道，平台按绑定身份默认。提交时沿用现有 `delivery_intent`/`delivery_route` 契约；前端不展示 route 中的内部 ID/通道，也不拼 URL。
 
 ### 3.5 状态与数据流
 
