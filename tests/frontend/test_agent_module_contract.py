@@ -139,15 +139,19 @@ def test_channel_form_supports_webchat_entries() -> None:
 def test_channel_form_offers_msswweb_entries() -> None:
     """[S-01] FEAT-11：Agent 页要能新建 MSSWWEB 入口（无 secret，填 bot_id）。
 
-    通道下拉现为「内置三通道（含 MSSWWEB）+ 外部平台通道」配置驱动；这条守住 MSSWWEB
-    仍在内置可选，且通道名不再是封闭字面量（新增平台不必改前端）。
+    通道下拉现为「本地通道（WECOM/WEBCHAT）内置 + 所有外部断言平台从 Secret 配置动态读」；
+    MSSWWEB 不再写死在内置项里，而是随 `/external-platforms` 返回的 `channel` 动态出现。
+    这条守住：通道名不是封闭字面量、外部通道走配置驱动、内置不再硬编码 MSSWWEB。
     """
     source = _source("ChannelFormModal.tsx")
-    assert "{ value: MSSWWEB_CHANNEL, label: t('agent.channel.channelMsswweb') }" in source
     # 通道名开放为 string（配置驱动外部平台通道），不再是封闭联合字面量。
     assert "type ChannelKind = string" in source
-    # 下拉项 = 内置 + 外部平台通道。
+    # 下拉项 = 内置本地通道 + 外部平台通道。
     assert "optionList={channelOptions}" in source
+    assert "externalChannels" in source
+    # 内置项只留 WECOM/WEBCHAT，MSSWWEB 不再是写死的内置项（应从 Secret 动态读）。
+    assert "const builtinOptions" in source
+    assert "{ value: MSSWWEB_CHANNEL, label: t('agent.channel.channelMsswweb') }" not in source
     # 不能再用「非 WEBCHAT 即 WECOM」的归一，否则选中外部通道会被改写成 WECOM 建出去。
     assert "values.channel === WEBCHAT_CHANNEL ? WEBCHAT_CHANNEL : DEFAULT_CHANNEL" not in source
     assert "return raw && raw.trim() ? raw : DEFAULT_CHANNEL;" in source
@@ -163,6 +167,8 @@ def test_channel_list_renders_msswweb_label() -> None:
     assert "value === 'MSSWWEB'" in source
     assert "agent.channel.channelMsswweb" in source
     assert "externalPlatforms.find((p) => p.channel === value)" in source
+    # 建入口时 MSSWWEB 不再当内置特例剔除——外部平台通道（含 MSSWWEB）全部从配置来。
+    assert "p.channel !== 'MSSWWEB'" not in source
 
 
 def test_webchat_entry_exposes_chat_link() -> None:

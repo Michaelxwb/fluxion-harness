@@ -88,18 +88,19 @@ export function ChannelFormModal(props: ChannelFormModalProps) {
   const externalChannels = props.externalChannels ?? [];
   const secretless = isSecretless(channelKind, externalChannels);
 
-  // 通道下拉：内置三通道 + 外部平台通道。外部通道若与内置同名（MSSWWEB）只保留内置项，
-  // 避免重复；展示名优先用平台 `display_name`（去重时内置 label 已覆盖）。
+  // 通道下拉：本地通道（WECOM/WEBCHAT）内置，其余**全部外部断言平台从 Secret 配置动态读**
+  // ——包括 MSSWWEB 在内，不再写死。外部平台通道由 `externalChannels`（来自
+  // `/external-platforms`，即 Secret 的 `external_assertion_platforms_json`）提供，
+  // 展示名用平台 `display_name`。与内置重名（理论上不会）时丢弃外部项，避免重复。
   const builtinOptions: { value: string; label: string }[] = [
     { value: WECOM_CHANNEL, label: t('agent.channel.channelWecom') },
-    { value: WEBCHAT_CHANNEL, label: t('agent.channel.channelWebchat') },
-    { value: MSSWWEB_CHANNEL, label: t('agent.channel.channelMsswweb') }
+    { value: WEBCHAT_CHANNEL, label: t('agent.channel.channelWebchat') }
   ];
   const builtinValues = new Set(builtinOptions.map((o) => o.value));
   const channelOptions = [
     ...builtinOptions,
     ...externalChannels
-      .filter((item) => !builtinValues.has(item.channel))
+      .filter((item) => item.channel && !builtinValues.has(item.channel))
       .map((item) => ({ value: item.channel, label: item.label || item.channel }))
   ];
 

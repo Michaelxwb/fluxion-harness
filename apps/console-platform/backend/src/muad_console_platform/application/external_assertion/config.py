@@ -28,6 +28,7 @@ _KNOWN_KEYS = (
     "salt",
     "identity_keys",
     "identity_field_labels",
+    "display_name",
     "issue_time_keys",
     "issue_time_unit",
     "channel",

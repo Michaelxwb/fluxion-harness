@@ -296,17 +296,22 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
   }
 
   // 通道展示名：内置三通道走 i18n，其余（外部平台通道）用平台 `display_name`，兜底为通道名。
+  // 通道展示名：本地通道（WECOM/WEBCHAT）走 i18n；外部断言平台通道（含 MSSWWEB）优先用
+  // Secret 配置的 `display_name`（配置驱动），查不到再退回 i18n/原始值。
   const channelLabelOf = (value: string): string => {
+    const match = externalPlatforms.find((p) => p.channel === value);
+    const label = match?.display_name?.trim();
+    if (label) return label;
     if (value === 'WEBCHAT') return t('agent.channel.channelWebchat');
     if (value === 'MSSWWEB') return t('agent.channel.channelMsswweb');
     if (value === 'WECOM') return t('agent.channel.channelWecom');
-    const match = externalPlatforms.find((p) => p.channel === value);
-    const label = match?.display_name?.trim();
-    return label ? label : value;
+    return value;
   };
   // 传给建/改入口弹窗的外部通道选项（与内置重名由弹窗内部去重）。
+  // 外部断言平台通道（含 MSSWWEB）全部来自 `/external-platforms`（Secret 配置），
+  // 不再把 MSSWWEB 当内置特例剔除——下拉开什么由 Secret 决定。
   const externalChannelOptions = externalPlatforms
-    .filter((p) => p.channel && p.channel !== 'MSSWWEB')
+    .filter((p) => p.channel)
     .map((p) => ({ channel: p.channel, label: p.display_name || p.channel }));
 
   return (
