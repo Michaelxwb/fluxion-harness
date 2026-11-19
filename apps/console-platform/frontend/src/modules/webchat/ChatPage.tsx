@@ -1330,7 +1330,7 @@ function useChatWorkspaceState(props: ChatWorkspaceProps): ChatWorkspaceState {
   const { client, auth, conversations, notifications, runEvents, pendingSend, onActionFailure } = props;
   const selection = conversations.snapshot.selection;
   const conversationId = selection.conversationId;
-  const messages = useMessages(conversations, conversationId);
+  const messages = useMessages(conversations, conversationId, selection.generation);
   const run = runEvents.run;
   const stop = useRunStopBinding(client, auth, run === null ? null : run.runId);
   const confirmation = useConfirmationBinding(client, auth);
