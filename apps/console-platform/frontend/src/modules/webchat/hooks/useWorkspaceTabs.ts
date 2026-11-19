@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-import { parseChatTabs, type ChatWorkspaceTabRoute } from '../workspaceTabs';
+import { parseChatTabs, chatLocationWith, type ChatWorkspaceTabRoute } from '../workspaceTabs';
 
 export interface WorkspaceTabsState {
   tab: ChatWorkspaceTabRoute;
@@ -19,6 +19,8 @@ export interface WorkspaceTabsState {
   scheduleId: string | null;
   onTasks: boolean;
   selectTab(tab: ChatWorkspaceTabRoute): void;
+  /** 回到对话：恢复离开前的入口/会话位置，并可合并 `draft` 等导航参数。 */
+  openConversation(extra?: Readonly<Record<string, string>>): void;
 }
 
 export function useWorkspaceTabs(): WorkspaceTabsState {
@@ -34,6 +36,13 @@ export function useWorkspaceTabs(): WorkspaceTabsState {
     lastChatLocation.current = `${location.pathname}${location.search}`;
   }, [onTasks, location.pathname, location.search]);
 
+  const openConversation = useCallback(
+    (extra?: Readonly<Record<string, string>>): void => {
+      navigate(chatLocationWith(lastChatLocation.current ?? '/chat', extra));
+    },
+    [navigate]
+  );
+
   const selectTab = useCallback(
     (tab: ChatWorkspaceTabRoute): void => {
       if (tab === 'tasks') {
@@ -41,10 +50,16 @@ export function useWorkspaceTabs(): WorkspaceTabsState {
         return;
       }
       if (!onTasks) return;
-      navigate(lastChatLocation.current ?? '/chat');
+      openConversation();
     },
-    [navigate, onTasks]
+    [navigate, onTasks, openConversation]
   );
 
-  return { tab: tabsRoute.tab, scheduleId: tabsRoute.scheduleId, onTasks, selectTab };
+  return {
+    tab: tabsRoute.tab,
+    scheduleId: tabsRoute.scheduleId,
+    onTasks,
+    selectTab,
+    openConversation
+  };
 }

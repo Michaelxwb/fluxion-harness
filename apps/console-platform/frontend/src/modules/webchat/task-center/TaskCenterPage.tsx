@@ -45,6 +45,8 @@ export interface WebchatTaskCenterPageProps {
   agents?: readonly AgentOption[];
   /** `pending` = 待处理过滤视图（`/chat/tasks?view=pending`）；列表态为 null。 */
   view?: 'pending' | null;
+  /** 回到对话：复用离开任务前的入口/会话位置，可额外合并 `draft` 等导航参数。 */
+  onOpenConversation(extra?: Readonly<Record<string, string>>): void;
 }
 
 type TaskCenterGroup = 'schedule' | 'background';
@@ -425,10 +427,10 @@ export function WebchatTaskCenterPage(props: WebchatTaskCenterPageProps): ReactN
             scope,
             idempotencyKey: `${action}-${scheduleId}`
           }),
-        onRecreate: () => navigate('/chat'),
+        onRecreate: () => props.onOpenConversation(),
         onEdit: () => {
           const name = detailState.detail?.name ?? '';
-          navigate(`/chat?draft=修改任务 ${name}：`);
+          props.onOpenConversation({ draft: `修改任务 ${name}：` });
         }
       }}
       onOpenPending={navigateToPending}

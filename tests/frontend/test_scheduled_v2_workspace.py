@@ -22,6 +22,7 @@ import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote_plus
 
 import pytest
 
@@ -46,7 +47,7 @@ import { initReactI18next, I18nextProvider } from 'react-i18next';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import { WebchatWorkspaceTabs } from '__TABS__';
-import { parseChatTabs, chatTabsVisible } from '__HELPERS__';
+import { parseChatTabs, chatTabsVisible, chatLocationWith } from '__HELPERS__';
 import zh from '__ZH__';
 import en from '__EN__';
 
@@ -106,6 +107,13 @@ export async function renderScenarios(scenarios) {
         auth: { state: 'authenticated' },
         config: { loadState: 'loading' }
       })
+    },
+    chatLocations: {
+      keep: chatLocationWith('/chat/entry-1?conversation=conv-1'),
+      merge: chatLocationWith('/chat/entry-1?conversation=conv-1', {
+        draft: '修改任务 每日汇总：'
+      }),
+      bare: chatLocationWith('/chat', { draft: 'x' })
     }
   };
 }
@@ -283,10 +291,24 @@ def test_page_keeps_run_events_and_chat_selection_while_on_tasks() -> None:
 
     hook = _compact(_read(TABS_HOOK_TS))
     assert "lastChatLocation.current=`${location.pathname}${location.search}`" in hook
-    assert "navigate(lastChatLocation.current??'/chat')" in hook, (
+    assert "navigate(chatLocationWith(lastChatLocation.current??'/chat',extra))" in hook, (
         "返回对话要恢复原 entryId/conversation 位置"
     )
+    assert "openConversation();" in hook, "对话 Tab 必须走同一条位置恢复路径"
     assert "navigate('/chat/tasks')" in hook
+    assert "onOpenConversation={workspaceTabs.openConversation}" in page, (
+        "任务详情的修改/重新创建必须复用离开前的对话位置"
+    )
+
+
+def test_chat_location_preserves_entry_and_merges_draft_query(
+    workspace: dict[str, Any],
+) -> None:
+    locations = workspace["chatLocations"]
+    assert locations["keep"] == "/chat/entry-1?conversation=conv-1"
+    assert locations["merge"].startswith("/chat/entry-1?conversation=conv-1&draft=")
+    assert unquote_plus(locations["merge"]).endswith("修改任务 每日汇总：")
+    assert unquote_plus(locations["bare"]) == "/chat?draft=x"
 
 
 def test_tab_shell_has_no_second_transport_or_state() -> None:

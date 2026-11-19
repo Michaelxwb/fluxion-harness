@@ -1935,7 +1935,10 @@ export default function ChatPage() {
           conversation={conversationSurface}
           tasks={
             onTasks ? (
-              <WebchatTaskCenterPage scheduleId={workspaceTabs.scheduleId} />
+              <WebchatTaskCenterPage
+                scheduleId={workspaceTabs.scheduleId}
+                onOpenConversation={workspaceTabs.openConversation}
+              />
             ) : null
           }
         />

@@ -31,3 +31,21 @@ export function chatTabsVisible(input: {
 }): boolean {
   return input.auth.state === 'authenticated' && input.config.loadState === 'ready';
 }
+
+/**
+ * 回到对话的路由：保留离开前的 `entryId/conversation`，只合并新的导航参数。
+ *
+ * 任务详情里的「修改 / 重新创建」不是新的入口选择——落到裸 `/chat` 会让用户丢掉当前入口
+ * 并停在「请选择要进入的聊天入口」。这里只改查询参数，不猜入口、不重置会话。
+ */
+export function chatLocationWith(
+  base: string,
+  extra: Readonly<Record<string, string>> = {}
+): string {
+  const question = base.indexOf('?');
+  const pathname = question === -1 ? base : base.slice(0, question);
+  const params = new URLSearchParams(question === -1 ? '' : base.slice(question + 1));
+  for (const [key, value] of Object.entries(extra)) params.set(key, value);
+  const query = params.toString();
+  return query === '' ? pathname : `${pathname}?${query}`;
+}

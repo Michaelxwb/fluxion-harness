@@ -41,7 +41,10 @@ def test_actions_controller_reuses_the_key_per_action_and_keeps_content_on_error
 
 def test_edit_goes_through_a_new_draft_conversation() -> None:
     page = _read(MODULE / "TaskCenterPage.tsx")
-    assert "draft=修改任务" in page, "修改必须回到对话走 Draft/确认，而不是本地编辑"
+    assert "onOpenConversation({ draft: `修改任务 ${name}：` })" in page, (
+        "修改必须回到对话走 Draft/确认，而不是本地编辑"
+    )
+    assert "navigate('/chat')" not in page, "不能落到裸 /chat：会丢掉当前入口与会话"
 
 
 def test_attention_reason_and_repair_are_shown_not_a_form() -> None:
