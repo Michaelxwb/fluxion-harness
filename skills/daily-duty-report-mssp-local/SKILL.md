@@ -5,12 +5,12 @@ description: "本地回归用「每日值守总结」Skill（fake MSSP）。与 
 
 # 本地值守日报（fake MSSP）
 
-这是 `tests/fixtures/skills/` 下的**本地回归 Skill**，不是生产 Skill：
+这是 `skills/` 下的**手动验证用 Skill**，不是生产 Skill：
 
 - 与 `daily-duty-report-mssp` 同形态：`scripts/run.py` 保留 argparse 入口，
   `scripts/cron_entry.py` 读 stdin，二者共用 `scripts/report.py`。
 - 只访问本仓库的 fake MSSP（`tools/fake-business-platform --platform mssp`），
-  **不访问内网、不需要 session-manager、不依赖 requests/openpyxl**。
+  **不访问内网、不需要 session-manager、不依赖 requests**；xlsx 附件使用平台已有的 openpyxl。
 - 报告是简化版：头三项计数、外部威胁趋势、威胁实体、安全事件、真实 xlsx 附件。
   附件是按真实 Skill 形态生成的 `.xlsx`（威胁实体列表 + 事件列表；无可导出行时不生成）。
 
@@ -87,21 +87,62 @@ stdout 只有正文；诊断走 stderr。正文结构：
 ## 手动导入平台做定时任务验证
 
 ```bash
-cd tests/fixtures/skills
-zip -r /tmp/daily-duty-report-mssp-local.zip daily-duty-report-mssp-local \
-  -x '*/__pycache__/*' '*/.*'
+./skills/package.sh daily-duty-report-mssp-local
+# 产物：skills/daily-duty-report-mssp-local.zip
 ```
 
-在 Console「Skill」页导入该 zip、完成审批/启用，并把 Skill 绑到测试 Agent；然后用
-`draft_schedule` 创建 `SKILL_PLAN`，`argv` 至少包含：
+### 1. 启动依赖
+
+```bash
+# Fake MSSP（Skill 取数）；平台其它服务用 scripts/dev.sh 启动
+./tools/fake-business-platform/services.sh start mssp
+./tools/fake-business-platform/services.sh status
+
+# 需要验证「Skill 自己经 MSSP 发企微」时才开写；平台 PUSH 不需要它
+MSSP_WECOM_WRITE=1 ./tools/fake-business-platform/services.sh restart mssp
+```
+
+Fake MSSP 默认绑定 `127.0.0.1:18083`，本机 Worker 可直接访问；Worker 在容器/别的机器时，
+把 `MSSP_BASE_URL` 或 `config/api_config.json` 的 `base_url` 改成该网络内可达的地址。
+
+### 2. 导入并绑定
+
+在 Console「Skill」页导入 `skills/daily-duty-report-mssp-local.zip`、完成审批/启用，并把
+Skill 绑到测试 Agent。`argv` 示例（Fake MSSP 的 fixture 固定为 `2026-11-18`）：
 
 ```json
-["--company-id", "1001", "--date", "{{previous_day}}", "--no-wecom-push"]
+["--company-id", "1001", "--date", "2026-11-18", "--no-wecom-push"]
 ```
 
-`input` 可以留空；本 Skill 的 argparse 入口只读 argv。调度触发后，任务中心应能看到
-`report.txt` 与 `.xlsx` 附件。若开发 Worker 不在本机，需要把 `MSSP_BASE_URL` 指向
-Fake MSSP 在 Worker 网络内可达的地址，或改 `config/api_config.json` 的 `base_url`。
+`input` 可以留空；本 Skill 的 argparse 入口只读 argv。`--no-wecom-push` 表示**不**让
+Skill 自己经 MSSP 查群/发企微，避免和平台投递重复。
+
+### 3. 验证 WebChat 展示 + 附件
+
+1. 在 WebChat 会话里创建 `SKILL_PLAN`，交付位置选站内（`NONE`），触发时间设为 2 分钟后。
+2. 触发后在原会话应看到日报正文；任务中心应能看到同一次执行。
+3. 打开附件应能下载 `report.txt` 与 `安全事件及威胁实体封堵列表-20261118.xlsx`。
+
+### 4. 验证 WECOM 主动 push
+
+1. 选择已绑定的企微入口，创建 `SKILL_PLAN`，交付位置选 `WECOM`（`PUSH`）。
+2. 触发后企业微信会话应收到日报正文和 xlsx 附件。
+3. 数据库/日志核对：
+   - `runtime.message_delivery` 的 `status=DELIVERED`、`attempt_count` 合理；
+   - Gateway 日志出现 `im_background_delivery_total` 对应的成功路径；
+   - Connector 日志里对应 bot 仍是 `CONNECTED`。
+
+> 注意：Fake MSSP 的 `--enable-wecom-write` 只控制 **Skill 自己**经 MSSP 的查群/上传/
+> 发送接口，不会真的发到企业微信；真实主动 push 由平台的 WECOM 投递链路完成。
+
+### 5. 全部场景
+
+平台链路先各验一次 WebChat 和 WECOM 投递即可；11 个业务场景的逐条口径用真实包验证：
+
+```bash
+uv run python tools/fake-business-platform/real_skill_smoke.py --company-id 2101 --date 2026-11-18
+# 2101..2111，以及 1001..1004
+```
 
 > 这只是**平台链路**的手动验证版：场景 1-11 的完整内网口径请用
 > `tools/fake-business-platform/real_skill_smoke.py` 直接跑真实 Skill 包，不要用本

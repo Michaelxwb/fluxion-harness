@@ -289,7 +289,7 @@ uv run python tools/fake-business-platform/async_batch_check.py
 - `fixtures/mssp.json` — MSSP 确定性 fixtures（全资产/非全资产/空数据/场景 1-11）。
 - `smoke_check.py` — 上节的本地端到端冒烟。
 - `async_batch_check.py` — ASYNC BATCH Skill 的本地端到端（父计划 + 子文件）。
-- `services.sh` — 本地启停脚本（platform / mcp / mcp-headers，以及 `async-batch` 端到端命令）。
+- `services.sh` — 本地启停脚本（platform / mssp / mcp / mcp-headers，以及 `async-batch`、`real-skill` 命令）。
 
 MSSP 模式的回归用例：
 
@@ -298,8 +298,10 @@ uv run python -m pytest -q tests/tools/test_fake_mssp_platform.py tests/tools/te
 uv run python -m pytest -q tests/agent_worker/test_local_report_skill.py
 ```
 
-本地回归 Skill 在 `tests/fixtures/skills/daily-duty-report-mssp-local/`（SKILL.md 内有
-argv/stdin 双入口与 fixtures 说明）。
+本地回归 Skill 在 `skills/daily-duty-report-mssp-local/`（SKILL.md 内有
+argv/stdin 双入口、fixtures 说明，以及手动导入平台后验证 WebChat / WECOM 投递的步骤）。
+`./tools/fake-business-platform/services.sh start` 会连同 `mssp` 一起启动；
+`./tools/fake-business-platform/services.sh real-skill 1001` 只启动 `mssp` 并跑真实包。
 
 ## 用真实内网 Skill 手动验证 Fake MSSP
 
@@ -326,6 +328,6 @@ uv run python tools/fake-business-platform/real_skill_smoke.py --company-id 2107
 `--no-wecom-push`，不会触碰企微发送；`--with-wecom-query` 只做只读查群。
 
 > 这条路径用于验证“真实内网包 + fake 平台”的协议/场景兼容；平台调度的 SKILL_PLAN
-> argv/stdin 回归仍用 `tests/fixtures/skills/daily-duty-report-mssp-local/`，两者不要混为
+> argv/stdin 回归仍用 `skills/daily-duty-report-mssp-local/`，两者不要混为
 > 一谈。真实包需要 `session-manager`，平台手工导入真实包时仍必须配置对应的平台会话；
 > 本地快速验证用上面的 smoke 命令即可。

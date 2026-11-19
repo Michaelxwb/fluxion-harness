@@ -211,6 +211,208 @@ def alert_count(company_id: str, date_str: str) -> int:
     return int(total)
 
 
+def _xdr_values(value: Any) -> list[str]:
+    if isinstance(value, dict):
+        data = value.get("data")
+        if isinstance(data, list):
+            return [str(item.get("originalValue") or item.get("renderValue") or "") for item in data if isinstance(item, dict)]
+        if value.get("originalValue") not in (None, ""):
+            return [str(value["originalValue"])]
+        return []
+    if isinstance(value, list):
+        out: list[str] = []
+        for item in value:
+            out.extend(_xdr_values(item))
+        return out
+    return [] if value in (None, "") else [str(value)]
+
+
+def alert_rows(company_id: str, date_str: str) -> list[dict[str, Any]]:
+    start_sec, end_sec = day_bounds(date_str)
+    body = _xdr_count_body(start_sec, end_sec)
+    body["table"]["pageSize"] = 500
+    body["table"]["pageNum"] = 1
+    data = shared.post_json_raw("xdr_alert_table", body, company_id=company_id)
+    payload = data.get("data") or {}
+    return list(payload.get("data") or [])
+
+
+def new_assets(company_id: str, date_str: str, full_asset: bool) -> list[dict[str, Any]]:
+    start_sec, end_sec = day_bounds(date_str)
+    body = {
+        "order": "asc", "offset": 0, "limit": 100,
+        "service_status": [] if full_asset else [1, 3],
+        "is_alive": -1, "ip_url_keyword": "", "asset_type": [],
+        "business_level": [], "first_time": [start_sec * 1000, end_sec * 1000],
+        "update_time": [], "keyword": "", "asset_tag": [], "agent_status": [],
+        "af_defend_status": "", "database": [], "middleware": [], "os": [],
+        "developing_languages": [], "development_framework": [], "server_port": [],
+        "company_id": str(company_id), "asset_group_id": "all",
+        "authorization_type": [1, 2, 3] if full_asset else [],
+    }
+    data = shared.post_json("asset_query", body, company_id=company_id)
+    return list((data.get("data") or {}).get("list") or [])
+
+
+def devices(company_id: str) -> list[dict[str, Any]]:
+    data = shared.post_json(
+        "branch_dev", {"offset": 0, "limit": 100, "type": 0, "status": 0}, company_id=company_id
+    )
+    return list((data.get("data") or {}).get("list") or [])
+
+
+def new_whitelist(company_id: str, date_str: str) -> list[dict[str, Any]]:
+    start_sec, end_sec = day_bounds(date_str)
+    data = shared.post_json(
+        "whitelist_list",
+        {"offset": 0, "limit": 100, "valid_time": [start_sec * 1000, end_sec * 1000]},
+        company_id=company_id,
+    )
+    return list((data.get("data") or {}).get("list") or [])
+
+
+def _row_host(row: dict[str, Any]) -> str:
+    values = _xdr_values(row.get("hostIp")) or _xdr_values(row.get("dstIp"))
+    return values[0] if values else ""
+
+
+def _row_sources(row: dict[str, Any]) -> list[str]:
+    return _xdr_values(row.get("srcIp"))
+
+
+def _row_type(row: dict[str, Any]) -> str:
+    return str((row.get("name") or {}).get("renderValue") or (row.get("name") or {}).get("originalValue") or "未知类型").replace("告警", "")
+
+
+def _share(part: int, total: int) -> float:
+    return (part / total * 100.0) if total else 0.0
+
+
+def _pct_text(value: float) -> str:
+    text = f"{value:.1f}".rstrip("0").rstrip(".")
+    return text
+
+
+def scene_text(
+    *,
+    current: list[dict[str, Any]],
+    previous: list[dict[str, Any]],
+    events: list[dict[str, Any]],
+    company_id: str,
+    date_str: str,
+    full_asset: bool,
+) -> str:
+    """场景 1-11 的本地近似判定：与真实 Skill 的阈值/顺序一致，不编造未取到的数。"""
+    for event in events:
+        if event.get("manage_sub_type") == "DEVICE_OFFLINE":
+            name = str(event.get("dev_name") or "组件")
+            return (
+                f"本期共发现外部威胁 {len(current)} 起，较上一统计周期持平。"
+                f"由于{name}发生设备离线和日志中断，影响本期统计数据的完整性，"
+                "当前无法确认外部攻击活动是否发生变化。"
+            )
+    try:
+        white = new_whitelist(company_id, date_str)
+    except FetchError:
+        white = []
+    if white:
+        names = "、".join(f"【{item.get('name')}】" for item in white[:3])
+        return (
+            f"本期共发现外部威胁 {len(current)} 起，较上一统计周期持平。"
+            f"由于本期新增了{names}等告警白名单，可能影响本期统计数据的完整性，"
+            "当前无法确认外部攻击活动是否发生变化。"
+        )
+    cur, prev = len(current), len(previous)
+    if cur == 0 and prev == 0:
+        return "两期均未发现外部威胁。"
+    if prev == 0:
+        top = _top_threat(current)
+        return (
+            f"本期共发现外部威胁 {cur} 起，因上一统计周期未发现外部威胁数据，"
+            "暂不对外部威胁趋势变化的主要原因进行分析。"
+            + (f"本期主要的外部威胁是：{top}。" if top else "")
+        )
+    rate = (cur - prev) / prev * 100
+    if rate >= 20:
+        delta = cur - prev
+        try:
+            assets = new_assets(company_id, date_str, full_asset)
+        except FetchError:
+            assets = []
+        if assets:
+            asset_ips = {str(item.get("asset") or "") for item in assets}
+            added = sum(1 for row in current if _row_host(row) in asset_ips)
+            if added > 20 and _share(added, delta) > 10:
+                return (
+                    f"本期共发现外部威胁 {cur} 起，较上期增加 {delta} 起，增幅 {_pct_text(rate)}%，"
+                    "整体呈显著上升趋势，变化主要是环境或数据发生调整："
+                    f"新增的 {len(assets)} 个资产共产生 {added} 条外部威胁告警，"
+                    f"占全部增长量的 {_pct_text(_share(added, delta))}%。"
+                    "因统计数据范围发生变化，当前不能直接判断实际攻击活动增强。"
+                )
+        try:
+            devs = devices(company_id)
+        except FetchError:
+            devs = []
+        if devs:
+            names = {str(item.get("dev_name") or "") for item in devs}
+            added = sum(
+                1 for row in current
+                if any(name and name in value for value in _xdr_values(row.get("devSourceNames")) for name in names)
+            )
+            if added > 20 and _share(added, delta) > 10:
+                return (
+                    f"本期共发现外部威胁 {cur} 起，较上一统计周期增加 {delta} 起，增幅 {_pct_text(rate)}%，"
+                    "整体呈显著上升趋势，变化主要是环境或数据发生调整："
+                    f"新增的{next(iter(names))}组件共产生 {added} 起新增外部威胁，"
+                    f"占全部增长量的 {_pct_text(_share(added, delta))}%。"
+                    "因统计数据范围发生变化，当前不能直接判断实际攻击活动增强。"
+                )
+        return _scene11(current, previous, cur, prev, rate)
+    if rate <= -20:
+        return _scene11(current, previous, cur, prev, rate)
+    types = _type_counts(current)
+    old_types = _type_counts(previous)
+    top_type = max(types, key=types.get) if types else ""
+    return (
+        f"本期共发现外部威胁 {cur} 起，较上一统计周期{'增加' if cur > prev else '减少' if cur < prev else '持平'}"
+        f"{' ' + str(abs(cur - prev)) + ' 起' if cur != prev else ''}"
+        f"{'，上升 ' + _pct_text(rate) + '%' if rate > 0 else '，下降 ' + _pct_text(abs(rate)) + '%' if rate < 0 else ''}，"
+        "整体保持基本稳定，攻击类型、攻击源数量和主要目标资产与上期基本一致"
+        + (f"，仍以{top_type}为主。" if top_type else "。")
+    )
+
+
+def _type_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for row in rows:
+        name = _row_type(row)
+        counts[name] = counts.get(name, 0) + 1
+    return counts
+
+
+def _top_threat(rows: list[dict[str, Any]]) -> str:
+    if not rows:
+        return ""
+    row = rows[0]
+    host = _row_host(row)
+    return f"针对{host}的{_row_type(row)}新增 1 起"
+
+
+def _scene11(current: list[dict[str, Any]], previous: list[dict[str, Any]], cur: int, prev: int, rate: float) -> str:
+    delta = abs(cur - prev)
+    direction = "增加" if cur > prev else "减少"
+    magnitude = "增幅" if cur > prev else "降幅"
+    top = _top_threat(current) if cur else ""
+    return (
+        f"本期共发现外部威胁 {cur} 起，较上期{direction} {delta} 起，{magnitude} {_pct_text(abs(rate))}%，"
+        f"整体呈{'明显上升' if rate >= 50 else '上升' if rate > 0 else '明显下降' if rate <= -50 else '下降'}趋势"
+        + (f"，其中最主要的外部威胁：{top}，占本期新增量的 {_pct_text(_share(1, delta))}%，"
+           "因数量未达到主要贡献因素的最小数量阈值（20条），当前证据不足以确认本期外部威胁趋势变化的主要原因。"
+           if top and cur > prev else "。")
+    )
+
+
 def _event_body(
     company_id: str,
     date_str: str,
@@ -680,9 +882,13 @@ def generate(
         missing.append("安全日志数量")
         log(f"[取数缺项] 安全日志：{exc}")
 
+    current_rows: list[dict[str, Any]] = []
+    previous_rows: list[dict[str, Any]] = []
     try:
-        current_alerts = alert_count(company_id, date_str)
-        previous_alerts = alert_count(company_id, previous_date(date_str))
+        current_rows = alert_rows(company_id, date_str)
+        previous_rows = alert_rows(company_id, previous_date(date_str))
+        current_alerts = len(current_rows)
+        previous_alerts = len(previous_rows)
     except FetchError as exc:
         current_alerts = previous_alerts = 0
         missing.append("安全告警数量")
@@ -706,7 +912,14 @@ def generate(
     if "外部威胁" in missing:
         threat_section = "本期外部威胁数据暂不可用。"
     else:
-        threat_section = threat_text(current_alerts, previous_alerts)
+        threat_section = scene_text(
+            current=current_rows,
+            previous=previous_rows,
+            events=rows,
+            company_id=company_id,
+            date_str=date_str,
+            full_asset=full_asset,
+        )
 
     tail = ""
     if not no_wecom_push:

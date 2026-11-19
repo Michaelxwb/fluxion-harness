@@ -15,7 +15,7 @@ from tests.tools.mssp_support import (
     PATH_SERVICE_INFO,
     PATH_WECOM_MESSAGE,
     PATH_WECOM_QUERY,
-    PATH_XDR_ALERT_COUNT,
+    PATH_XDR_ALERT_TABLE,
     REPORT_DATE,
     running_mssp,
 )
@@ -23,7 +23,7 @@ from tests.tools.mssp_support import (
 pytestmark = pytest.mark.integration
 
 ROOT = Path(__file__).resolve().parents[2]
-SKILL_ROOT = ROOT / "tests/fixtures/skills/daily-duty-report-mssp-local"
+SKILL_ROOT = ROOT / "skills/daily-duty-report-mssp-local"
 RUN = SKILL_ROOT / "scripts/run.py"
 CRON = SKILL_ROOT / "scripts/cron_entry.py"
 
@@ -177,9 +177,9 @@ def test_500_on_event_table_degrades_and_keeps_the_report(tmp_path: Path) -> Non
     assert list(tmp_path.rglob("report.txt"))
 
 
-def test_401_on_xdr_count_marks_alert_and_threat_sections_missing(tmp_path: Path) -> None:
+def test_401_on_xdr_table_marks_alert_and_threat_sections_missing(tmp_path: Path) -> None:
     with running_mssp() as platform:
-        platform.inject(path=PATH_XDR_ALERT_COUNT, http_status=401, times=1)
+        platform.inject(path=PATH_XDR_ALERT_TABLE, http_status=401, times=1)
         completed = run_argv(platform, tmp_path, "1001")
     assert completed.returncode == 0, completed.stderr
     report = completed.stdout

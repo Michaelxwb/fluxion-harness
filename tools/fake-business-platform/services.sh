@@ -12,17 +12,20 @@
 #   ./services.sh status             # 看状态与地址
 #   ./services.sh logs <服务>        # 跟踪某个服务的日志
 #   ./services.sh async-batch        # 对 platform 服务跑 ASYNC BATCH Skill 端到端
+#   ./services.sh real-skill 1001    # 真实内网 Skill 对 Fake MSSP（需真实包）
 #
 # PID、日志与就绪信息落在 .data/fake-business-platform/（已被 .gitignore 覆盖）。
 #
 # 服务表（名称: 端口 / 用途）：
 #   platform      18080  mssw 模式业务平台（Skill 与 MSSM 适配器走这条）
+#   mssp          18083  MSSP/SOAR 网关（daily-duty-report / fake MSSP 走这条）
 #   mcp           18081  MCP Streamable HTTP，Authorization: Bearer
 #   mcp-headers   18082  MCP Streamable HTTP，自定义请求头（含一个 secret 头）
 #
-# 可用环境变量覆盖：HOST / PLATFORM_MODE / PLATFORM_PORT / MCP_PORT /
-# MCP_HEADERS_PORT / FAKE_AK / FAKE_SK / MCP_TOKEN / MCP_APP_ID /
-# MCP_PLATFORM_UID / MCP_API_KEY / PYTHON / START_TIMEOUT / STOP_TIMEOUT
+# 可用环境变量覆盖：HOST / PLATFORM_MODE / PLATFORM_PORT / MSSP_PORT /
+# MSSP_WECOM_WRITE / MCP_PORT / MCP_HEADERS_PORT / FAKE_AK / FAKE_SK /
+# MCP_TOKEN / MCP_APP_ID / MCP_PLATFORM_UID / MCP_API_KEY / PYTHON /
+# START_TIMEOUT / STOP_TIMEOUT
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -38,6 +41,8 @@ RUN_DIR="${RUN_DIR:-$REPO_ROOT/.data/fake-business-platform}"
 HOST="${HOST:-0.0.0.0}"
 PLATFORM_MODE="${PLATFORM_MODE:-mssw}"
 PLATFORM_PORT="${PLATFORM_PORT:-18080}"
+MSSP_PORT="${MSSP_PORT:-18083}"
+MSSP_WECOM_WRITE="${MSSP_WECOM_WRITE:-0}"
 MCP_PORT="${MCP_PORT:-18081}"
 MCP_HEADERS_PORT="${MCP_HEADERS_PORT:-18082}"
 FAKE_AK="${FAKE_AK:-test-ak}"
@@ -49,7 +54,7 @@ MCP_API_KEY="${MCP_API_KEY:-test-key}"
 START_TIMEOUT="${START_TIMEOUT:-10}"
 STOP_TIMEOUT="${STOP_TIMEOUT:-5}"
 
-SERVICES="platform mcp mcp-headers"
+SERVICES="platform mssp mcp mcp-headers"
 
 usage() {
     sed -n '2,25p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
@@ -59,6 +64,7 @@ usage() {
 port_of() {
     case "$1" in
         platform) printf '%s' "$PLATFORM_PORT" ;;
+        mssp) printf '%s' "$MSSP_PORT" ;;
         mcp) printf '%s' "$MCP_PORT" ;;
         mcp-headers) printf '%s' "$MCP_HEADERS_PORT" ;;
         *) return 1 ;;
@@ -68,6 +74,7 @@ port_of() {
 port_env_var() {
     case "$1" in
         platform) printf 'PLATFORM_PORT' ;;
+        mssp) printf 'MSSP_PORT' ;;
         mcp) printf 'MCP_PORT' ;;
         mcp-headers) printf 'MCP_HEADERS_PORT' ;;
         *) return 1 ;;
@@ -173,6 +180,12 @@ build_args() {
         platform)
             ARGS=(--platform "$PLATFORM_MODE" --host "$HOST" --port "$PLATFORM_PORT"
                 --ak "$FAKE_AK" --sk "$FAKE_SK")
+            ;;
+        mssp)
+            ARGS=(--platform mssp --host "$HOST" --port "$MSSP_PORT")
+            if [ "$MSSP_WECOM_WRITE" = "1" ]; then
+                ARGS+=(--enable-wecom-write)
+            fi
             ;;
         mcp)
             ARGS=(--host "$HOST" --port "$MCP_PORT"
@@ -332,6 +345,17 @@ cmd_async_batch() {
     RUN_DIR="$RUN_DIR" "$PYTHON" "$ROOT/async_batch_check.py"
 }
 
+cmd_real_skill() {
+    resolve_targets mssp && cmd_start || return 1
+    local extra=()
+    if [ "$#" -gt 0 ] && [ "${1#-}" = "$1" ]; then
+        extra+=(--company-id "$1")
+        shift
+    fi
+    printf '真实内网 Skill 对 Fake MSSP 冒烟（输出 .data/real-mssp-skill/）\n'
+    "$PYTHON" "$ROOT/real_skill_smoke.py" --base-url "$(url_of mssp)" "${extra[@]}" "$@"
+}
+
 cmd_logs() {
     local name=${1:-platform} log
     if ! is_known "$name"; then
@@ -383,6 +407,9 @@ main() {
             ;;
         async-batch)
             cmd_async_batch
+            ;;
+        real-skill)
+            cmd_real_skill "$@"
             ;;
         *)
             printf '未知命令：%s\n\n' "$command" >&2

@@ -79,7 +79,7 @@ SKILL_ID = uuid.UUID("5a1d0c1e-0000-4000-8000-000000023001")
 SKILL_KEY = "daily-duty-report-mssp-local"
 REPORT_DATE = "2026-11-18"
 REPORT_ATTACHMENT = "安全事件及威胁实体封堵列表-20261118.xlsx"
-SKILL_ROOT = Path(__file__).resolve().parents[1] / "fixtures/skills/daily-duty-report-mssp-local"
+SKILL_ROOT = Path(__file__).resolve().parents[2] / "skills/daily-duty-report-mssp-local"
 #: 固定 09:00 槽是过去时间：绝对 deadline 留够未来时间，执行器的单次上限才是 300s 而非 1s。
 SETTINGS: dict[str, Any] = {"task": {"default_deadline_hours": 24 * 365 * 10}}
 
