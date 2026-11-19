@@ -995,23 +995,18 @@
 .chat-task-run-result-body {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-gutter: stable;
 }
 
-.chat-task-run-result.is-truncated::after {
-  content: '';
-  position: absolute;
-  right: 13px;
-  bottom: 12px;
-  left: 13px;
-  height: 26px;
-  border-radius: 0 0 8px 8px;
-  background: linear-gradient(transparent, var(--semi-color-success-light-default));
-  pointer-events: none;
+.chat-task-run-result-body::-webkit-scrollbar {
+  width: 6px;
 }
 
-.chat-task-run-result.is-failed.is-truncated::after {
-  background: linear-gradient(transparent, var(--semi-color-danger-light-default));
+.chat-task-run-result-body::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--semi-color-fill-2);
 }
 
 .chat-task-run-detail-foot {

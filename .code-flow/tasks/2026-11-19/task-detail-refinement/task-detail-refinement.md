@@ -236,3 +236,58 @@
 - 尚未执行
 - 2026-11-19T13:38:13.795Z PASS commands=1/1 executed=1 deduped=0 elapsed=16330ms tests=70089a1b1702 head=90e511744efa dirty=1
   - schedule-onescreen PASS exit=0
+
+## TASK-005: 运行结果在整页一屏内恢复内部滚动
+
+- **Status**: done
+- **Depends**: TASK-004
+- **Source**: 用户反馈 2026-11-19：运行结果区域需要支持上下滚动
+- **Scenarios**: task-detail-refinement:S-09
+- **Spec-Refs**: ui/harness-ui#RULE-ui-001, frontend/harness-frontend#RULE-front-001
+- **Paths**: apps/console-platform/frontend/src/modules/webchat/task-center/ScheduleDetailPanel.tsx, apps/console-platform/frontend/src/modules/webchat/task-center.css
+- **E2E**:
+- **Skip-Tests**: false
+- **Skip-Reason**:
+
+### Tests
+
+```json
+[
+  {
+    "id": "schedule-result-inner-scroll",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/frontend/test_scheduled_v2_task_center_ui.py", "tests/frontend/test_capacity_webchat_webchat_i18n.py"],
+    "timeout": 600,
+    "parallel": false
+  }
+]
+```
+
+### Description
+
+- 保持整页一屏（无页面纵向滚动）与 10 条运行。
+- 「运行结果」正文改为内部上下滚动，展示完整文本；滚动不影响页面。
+- 移除底部渐隐与截断类；复制仍复制全文。
+- 文件与发送结果继续保持紧凑并同屏可见。
+
+### Checklist
+
+- [x] 1440×900 下页面无纵向滚动。
+- [x] 运行结果正文可上下滚动，滚动条在结果卡片内。
+- [x] 滚动结果时页面位置不变，文件/发送结果仍同屏可见。
+- [x] 复制仍为完整正文。
+
+### Spec Delta
+
+```json
+[]
+```
+
+### Log
+
+- [2026-11-19] created
+
+### Verification
+
+- 尚未执行
+- 2026-11-19T13:44:02.576Z PASS commands=1/1 executed=1 deduped=0 elapsed=17955ms tests=d416778fef0c head=52f31b463646 dirty=1
+  - schedule-result-inner-scroll PASS exit=0
