@@ -957,10 +957,11 @@ class AuthCacheSyncState(StandardColumnsMixin, Base):
     每个 `(tenant, scope)` 一行：
 
     - `scope="TENANT"` 是租户级屏障协调行：记录在途失效的 `operation_id`、阶段
-      （`PREPARING` → `COMMITTED` → `READY`）、影响范围、随机 `cache_fence`。恢复器重启后
-      按持久阶段决定"业务是否已提交"，据此清理或补同步，期间维持屏障关闭。
-    - `scope="PLATFORM"` 记录某平台的非密 `policy_epoch` 与可用性；配置轮换激活时换 epoch，
-      Gateway 每次缓存命中都比对该 epoch。
+      （两态 `PREPARING` → `READY`；`COMMITTED` 只在"回填 CAS + 版本比对"完整形态才需要，
+      本实现不写入）、影响范围、随机 `cache_fence`。恢复器重启后把非 `READY` 行重放并收敛到
+      `READY`，期间维持屏障关闭。
+    - `scope="PLATFORM"` 记录某平台的非密 `policy_epoch` 与可用性；配置轮换激活时换 epoch。
+      注意：MSSWWEB 热路径本期走 plain 键、不消费 epoch，见设计 §3.1.2 已知取舍。
 
     本表**不存因子或 token**：`policy_epoch` 是不可逆的激活版本，协调行只带 id 与计数。
     """
@@ -984,7 +985,7 @@ class AuthCacheSyncState(StandardColumnsMixin, Base):
     scope_key: Mapped[str] = mapped_column(
         sa.String(64), nullable=False, server_default=sa.text("''")
     )
-    #: 屏障阶段（仅 TENANT 行有意义）：`PREPARING` / `COMMITTED` / `READY`。
+    #: 屏障阶段（仅 TENANT 行有意义）：两态 `PREPARING` / `READY`（不写入 `COMMITTED`）。
     phase: Mapped[str] = mapped_column(
         sa.String(16), nullable=False, server_default=sa.text("'READY'")
     )

@@ -296,6 +296,10 @@ class ExternalIdentityService:
         if bot is None:
             # 入口不存在或不属于本租户：统一报未找到，不泄露跨租户存在性。
             raise AppError(ErrorCode.COMMON_NOT_FOUND)
+        if bot.channel != _EXTERNAL_PLATFORM_CHANNEL:
+            # 外部身份只服务于外部断言通道。不校验就能把 MSSW 用户的身份授权到
+            # WebChat 等其它通道的入口上，越权放行了一个本不该连通的通道。
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
 
         existing = await self._repo.find_grant(tenant_id, identity_id, channel_account_id)
         if existing is None:

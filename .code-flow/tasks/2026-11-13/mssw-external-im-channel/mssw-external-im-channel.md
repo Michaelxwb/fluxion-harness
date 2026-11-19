@@ -413,25 +413,35 @@
 
 ### Description
 
-实现「撤权秒级生效」的核心机制：PG 状态机 + Redis 屏障 + 版本号 + fence CAS。
+实现「撤权秒级生效」的核心机制：PG 协调表 + Redis 屏障 + 版本号 + fence CAS（Console 侧），
+以及 MSSWWEB 热路径的 plain 读缓存（Gateway 侧）。
 
-关键点：
-1. PG 状态机 `PREPARING → COMMITTED → READY` + Redis 屏障；`auth_revision` 与 `policy_epoch` 双版本。
+关键点（以代码事实为准）：
+1. PG 状态机**两态** `PREPARING → READY`（`auth_cache_invalidator.py`；不保留 `COMMITTED`，
+   它只在"回填 CAS + 版本比对"完整形态才需要）+ Redis 屏障；`auth_revision` 与 `policy_epoch` 双版本。
 2. 所有权限变更（grant/revoke、用户停用、Agent/入口启停删除、身份编辑删除）接入统一失效服务，禁止旁路写。
 3. fence CAS 保证并发变更不丢；advisory lock + Lua 同槽保证原子（E-12）。
 4. 崩溃恢复：`main.py` 接流量前恢复同步状态并核对平台激活版本（E-13）。
-5. `GET /identity` **永远查 PG**（成功后写 Redis），资源请求 Redis-first + revision 校验（E-10）。
+5. **MSSWWEB 热路径走 plain 键**（`read_credential_plain` / `read_permission_plain` / `touch_*`），
+   **不消费屏障/fence/版本**：撤权即时生效靠"权限层被 `invalidate` 删除 → 网关 miss → 回源 Console
+   重查"这条链路，而非版本比对；凭证层只缓存验签结论。`GET /identity`（`describe`）不写缓存、
+   回最新 PG 状态（E-10）。屏障/revision 为完整形态预留，见设计 §3.1.2 已知取舍。
 6. 屏障期间返回可重试的不可用，**不能放行旧授权**（E-07）。
 7. 配置变化需换激活版本，与普通重启区别对待（E-14）。
 8. 失效降级必须可见（warning 日志 + 指标），不静默吞。
 
+> **已知取舍（§3.1.2 定稿）**：热路径不做屏障检查/版本比对/epoch 比对，缺口是"失效与并发回源
+> 交错时旧授权可能在 TTL 内回填"的窄窗口。若后续要求"严格零窗口"，需把屏障协议接进 Gateway
+> 读侧（`read_permission(expected_user_version=..., expected_epoch=...)`）并让 `_write_state`
+> 真正经过 `COMMITTED`。
+
 ### Checklist
 
-- [x] 状态机三态与屏障实现，版本号单调递增
+- [x] 状态机两态（PREPARING→READY）与屏障实现，版本号单调递增
 - [x] 所有权限写路径接入失效服务，无旁路（E-05）
 - [x] 并发撤权不丢更新（fence CAS，E-12）
 - [x] 重启后同步状态可恢复，无旧授权穿透（E-13）
-- [ ] `/identity` 永远读 PG；资源接口命中失效 revision 时拒绝（E-10）— 消费侧由 TASK-007/010 落地
+- [x] `/identity`（`describe`）永远读 PG 不写缓存；MSSWWEB 资源请求走 plain 权限层，miss 即回源（E-10）
 - [ ] 长流期间撤权可被 SSE 复核感知（E-07）— 由 TASK-010 落地
 - [ ] 配置变化换版本与普通重启可区分（E-14）— 由 TASK-012 落地
 - [x] 失效失败有可见告警，不静默
@@ -690,7 +700,7 @@
 让 Runtime 支持「同一 user + 同一 Agent 跨入口共享」，并补上来源追踪、未读 EXISTS、已读水位、删除与 resume。
 
 关键点：
-1. 会话列表按 `user + agent` 聚合，不再按入口过滤；item 带来源 `entry_id`/`channel`/`has_unread`（S-11）。
+1. 会话列表按 `user + agent` 聚合，不再按入口过滤；item 带来源 `entry_id`/`has_unread`（S-11，**不含 `channel`**，与契约 `WebchatConversationItem` 一致）。
 2. 详情/历史/取消/删除/产物按 user + Agent 核属，**不做 entry/channel 断言**（入口只有入口级接口才校验）。
 3. 隐式 thread 指针被显式 `conversation_id` 取代时，必须三方核属，且受理前检查、事务内复查、实际解析三处一致。
 4. 通知来源跟随 Run，会话可见性另查；不因 Run 来源不同回退到会话来源（B-05）。

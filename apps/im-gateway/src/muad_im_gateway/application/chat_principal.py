@@ -267,6 +267,11 @@ class ChatPrincipalGate:
 
         **凭证命中不代表权限可信**：授权只从权限层读，权限层被 `invalidate` 删除后必然
         回源，因此撤权即时生效。凭证无关的授权窗口由设计 §3.1.2 的「已知取舍」界定。
+
+        **本路径不校验屏障/用户版本/平台 epoch**：这里只读 plain 键（无 fence、无 CAS）。
+        `AuthCacheStore` 的屏障/revision 协议是完整形态预留，MSSWWEB 热路径本期不消费；
+        撤权即时生效靠的是"权限层被删除→miss→回源 Console 重查"，而非版本比对。缺口是
+        失效与并发回源交错时旧授权可能在 TTL 内的回填窗口（见设计 §3.1.2 已知取舍）。
         """
         cache = self._auth_cache
         if cache is None:
@@ -352,8 +357,17 @@ class ChatPrincipalGate:
             )
         except (KeyError, TypeError, ValueError):
             return None
+        if result.expires_at <= datetime.now(tz=UTC):
+            # 绝对到期已过：权限层不能凭闲置窗口继续放行（凭证层按到期封顶，这里必须一致）。
+            # 视为未命中，交给调用方回源；回源会用 `max_session_age` 重新裁决。
+            return None
         try:
-            await cache.touch_permission(self._tenant_id, platform_user_id)
+            await cache.touch_permission(
+                self._tenant_id,
+                platform_user_id,
+                expires_at_epoch=result.expires_at.timestamp(),
+                now_epoch=datetime.now(tz=UTC).timestamp(),
+            )
         except AuthCacheUnavailable:
             # 续期失败不影响本次结论；下次命中自然回源。
             logger.warning("external_permission_touch_failed")

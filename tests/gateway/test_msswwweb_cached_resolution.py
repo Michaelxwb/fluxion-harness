@@ -153,6 +153,8 @@ async def _prime(cache, result: ExternalPrincipalResult) -> None:
             separators=(",", ":"),
             sort_keys=True,
         ),
+        expires_at_epoch=expires_at.timestamp(),
+        now_epoch=now.timestamp(),
     )
 
 

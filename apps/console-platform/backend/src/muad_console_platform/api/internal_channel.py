@@ -186,6 +186,7 @@ async def external_principal(
             tenant_id,
             payload.platform_key,
             payload.assertion.get_secret_value(),
+            channel=payload.channel,
             entry_id=payload.entry_id,
         )
     except PlatformUnavailable as exc:

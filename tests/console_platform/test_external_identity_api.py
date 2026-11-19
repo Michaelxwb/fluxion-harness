@@ -163,6 +163,50 @@ async def test_same_identity_cannot_bind_two_users(client: AsyncClient, tenant: 
     assert second.json()["code"] == "IDENTITY_ALREADY_BOUND"
 
 
+async def test_grant_rejects_entry_from_another_channel(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    """外部身份只能授权到外部断言通道的入口。
+
+    不校验入口通道就能把 MSSW 用户的身份挂到 WebChat 入口上——两个本不该连通的
+    通道被授权打通了。入口存在但通道不对，仍按「未找到」拒绝（不泄露跨通道存在性）。
+    """
+    user_id = await _create_user(client, tenant)
+    agent = await client.post(
+        "/api/v1/agents",
+        json={
+            "key": f"agent-{uuid.uuid4().hex[:8]}",
+            "name": "WebChat Agent",
+            "instructions": "You are helpful.",
+            "model_id": str(tenant.model_id),
+            "runtime_config": {},
+        },
+        headers=_headers(tenant),
+    )
+    assert agent.status_code == 200, agent.text
+    webchat_entry = await client.post(
+        f"/api/v1/agents/{agent.json()['data']['id']}/channels",
+        json={"channel": "WEBCHAT", "bot_id": f"wc-{uuid.uuid4().hex[:8]}", "name": "WC"},
+        headers=_headers(tenant),
+    )
+    assert webchat_entry.status_code in (200, 201), webchat_entry.text
+    entry_id = webchat_entry.json()["data"]["channel_account_id"]
+
+    created = await client.put(
+        f"/api/v1/users/{user_id}/external-identities",
+        json={"platform_key": "mssw", "identity": {"expert_id": _expert_id(), "tenant_id": "t1"}},
+        headers=_headers(tenant),
+    )
+    identity_id = created.json()["data"]["identity_id"]
+
+    granted = await client.post(
+        f"/api/v1/users/{user_id}/external-identities/{identity_id}/grants",
+        json={"channel_account_id": entry_id},
+        headers=_headers(tenant),
+    )
+    assert granted.status_code == 404, granted.text
+
+
 async def test_grant_and_revoke_entry(client: AsyncClient, tenant: TenantContext) -> None:
     """授权后可查回；解绑只删授权，身份保留。"""
     user_id = await _create_user(client, tenant)

@@ -488,22 +488,49 @@ class AuthCacheStore:
         return raw.decode() if isinstance(raw, (bytes, bytearray)) else str(raw)
 
     async def write_permission_plain(
-        self, tenant_id: str, user_id: uuid.UUID, payload: str
+        self,
+        tenant_id: str,
+        user_id: uuid.UUID,
+        payload: str,
+        *,
+        expires_at_epoch: float,
+        now_epoch: float,
     ) -> None:
-        """写入权限层，TTL 用 Store 的闲置窗口。"""
-        if self._ttl <= 0:
+        """写入权限层，TTL 与凭证层同口径：``max(0, min(闲置窗口, expires_at - now))``。
+
+        首写也按会话绝对到期封顶，而不是只用闲置窗口——否则配置了 max_session_age 时，
+        权限层可以比会话本身活得更久（读侧虽已兜底，但让两层 TTL 语义一致更不易误判）。
+        """
+        remaining = int(expires_at_epoch - now_epoch)
+        ttl_sec = max(0, min(self._ttl, remaining))
+        if ttl_sec <= 0:
             return
         try:
-            await self._client.set(permission_key(tenant_id, user_id), payload, ex=self._ttl)
+            await self._client.set(permission_key(tenant_id, user_id), payload, ex=ttl_sec)
         except Exception as exc:  # noqa: BLE001
             raise AuthCacheUnavailable(type(exc).__name__) from exc
 
-    async def touch_permission(self, tenant_id: str, user_id: uuid.UUID) -> bool:
-        """命中后续期闲置窗口。"""
-        if self._ttl <= 0:
+    async def touch_permission(
+        self,
+        tenant_id: str,
+        user_id: uuid.UUID,
+        *,
+        expires_at_epoch: float,
+        now_epoch: float,
+    ) -> bool:
+        """命中后续期闲置窗口，但**绝不越过绝对到期**（与 `touch_credential` 同口径）。
+
+        只续闲置窗口会让权限层在会话到期后继续放行；这里按
+        ``max(0, min(闲置窗口, expires_at - now))`` 封顶。
+        """
+        remaining = int(expires_at_epoch - now_epoch)
+        ttl = max(0, min(self._ttl, remaining))
+        if ttl <= 0:
             return False
         try:
-            return bool(await self._client.expire(permission_key(tenant_id, user_id), self._ttl))
+            return bool(
+                await self._client.expire(permission_key(tenant_id, user_id), ttl)
+            )
         except Exception as exc:  # noqa: BLE001
             raise AuthCacheUnavailable(type(exc).__name__) from exc
 

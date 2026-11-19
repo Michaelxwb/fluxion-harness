@@ -251,10 +251,25 @@ async def _entry_id_of(session: AsyncSession, run: RunRecord) -> _EntryAttributi
                 run_entry,
                 row.channel_account_id,
             )
-        return _EntryAttribution(uuid.UUID(str(run_entry)))
+        return _EntryAttribution(_parse_entry_id(run.tenant_id, run.id, run_entry))
     if row.channel_account_id is None:
         return _EntryAttribution(None)
-    return _EntryAttribution(uuid.UUID(str(row.channel_account_id)))
+    return _EntryAttribution(_parse_entry_id(run.tenant_id, run.id, row.channel_account_id))
+
+
+def _parse_entry_id(tenant_id: str, run_id: uuid.UUID, raw: object) -> uuid.UUID | None:
+    """解析入口 id；坏值按「无入口归属」处理并留痕，绝不让它冒泡。
+
+    该函数在 Run 终态写通知的事务内被调用，抛异常会**整体回滚终态**，用户会看到
+    Run 未终态或终态却无通知。内部一致性错误不该回滚用户结果。
+    """
+    try:
+        return uuid.UUID(str(raw))
+    except (TypeError, ValueError):
+        logger.error(
+            "entry_id_unparseable tenant=%s run_id=%s raw=%r", tenant_id, run_id, raw
+        )
+        return None
 
 
 async def _existing_receipt(

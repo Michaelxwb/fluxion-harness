@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..infrastructure.repositories.external_identity_repository import (
     ExternalIdentityRepository,
 )
+from .channel_admin_service import MSSWWEB_CHANNEL
 from .external_assertion.config import (
     ExternalPlatformConfig,
     PlatformConfigError,
@@ -76,6 +77,7 @@ class ExternalAssertionService:
         platform_key: str,
         assertion: str,
         *,
+        channel: str | None = None,
         entry_id: uuid.UUID | None = None,
     ) -> dict[str, object]:
         """返回可直接序列化的主体结果。
@@ -83,7 +85,11 @@ class ExternalAssertionService:
         抛出 :class:`PlatformUnavailable`（503）或 :class:`ExternalAssertionRejected`（401）。
         身份层面的拒绝（未绑定 / 无授权 / 停用）**不抛异常**，而是以 ``allowed=false`` +
         ``reason`` 返回 —— 与契约 ``ExternalPrincipalResult`` 的形状一致。
+
+        ``channel`` 由调用方（Gateway）给出：外部断言只在 `MSSWWEB` 通道有效，传入别的
+        通道直接拒绝，避免一个断言被挪用到其它通道的身份解析上。
         """
+        _check_channel(channel)
         settings = process_settings()
         config = _require_config(platform_key)
         verified = _verify(assertion, config, platform_key, settings)
@@ -139,6 +145,7 @@ class ExternalAssertionService:
         platform_key: str,
         assertion: str,
         *,
+        channel: str | None = None,
         entry_id: uuid.UUID | None = None,
     ) -> dict[str, object]:
         """`GET /identity` 的权威数据（API-01）：回答「此人能否用机器人」。
@@ -149,6 +156,7 @@ class ExternalAssertionService:
         验签失败仍抛 :class:`ExternalAssertionRejected`（401）：签名/算法/因子/时效属于
         「无效请求」，把它说成「没有权限」会误导外部平台去引导用户绑定，方向就错了。
         """
+        _check_channel(channel)
         config = _require_config(platform_key)
         verified = _verify(assertion, config, platform_key, process_settings())
         resolved = await resolve_principal(self._repository, tenant_id, config, verified, entry_id=entry_id)
@@ -240,7 +248,13 @@ class ExternalAssertionService:
         if cache is None:  # pragma: no cover - 调用方已判空
             return
         try:
-            await cache.write_permission_plain(tenant_id, user_id, payload)
+            await cache.write_permission_plain(
+                tenant_id,
+                user_id,
+                payload,
+                expires_at_epoch=expires_at.timestamp(),
+                now_epoch=datetime.now(tz=UTC).timestamp(),
+            )
         except Exception as exc:  # noqa: BLE001 - 缓存层边界
             _LOGGER.warning(
                 "external assertion permission write failed (%s); gateway will re-resolve",
@@ -262,6 +276,21 @@ def _grant_payload(view: GrantView) -> dict[str, object]:
         "allowed": view.allowed,
         "reason": view.reason,
     }
+
+
+def _check_channel(channel: str | None) -> None:
+    """外部断言只在外部断言通道有效；给了别的通道直接拒绝。
+
+    `channel` 为 ``None`` 时视为调用方未声明（Gateway 老版本），保持向后兼容；
+    一旦声明就必须是 `MSSWWEB`，否则一个断言可能被挪用到其它通道做身份解析。
+    """
+    if channel is not None and channel != MSSWWEB_CHANNEL:
+        # 复用 `EXTERNAL_ASSERTION_INVALID`：对外语义就是「这个断言在本通道无效」，
+        # 不新增错误码，避免连带消息目录与前端映射一起扩。
+        raise ExternalAssertionRejected(
+            _DEFAULT_REJECTION_CODE,
+            f"断言通道 {channel} 不是外部断言通道",
+        )
 
 
 def _require_config(platform_key: str) -> ExternalPlatformConfig:

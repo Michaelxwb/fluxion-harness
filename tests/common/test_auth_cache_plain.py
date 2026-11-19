@@ -221,10 +221,63 @@ async def test_permission_layer_roundtrip_and_touch() -> None:
     client = FakeRedis()
     store = AuthCacheStore(client, ttl_sec=60)
     uid = uuid.uuid4()
-    await store.write_permission_plain("t1", uid, '{"allowed":true}')
+    await store.write_permission_plain(
+        "t1", uid, '{"allowed":true}', expires_at_epoch=1_000 + 3_600, now_epoch=1_000
+    )
     assert await store.read_permission_plain("t1", uid) == '{"allowed":true}'
-    assert await store.touch_permission("t1", uid) is True
+    assert (
+        await store.touch_permission(
+            "t1", uid, expires_at_epoch=1_000 + 3_600, now_epoch=1_000
+        )
+        is True
+    )
     assert client.ttls[permission_key("t1", uid)] == 60
+
+
+@pytest.mark.asyncio
+async def test_touch_permission_is_capped_by_absolute_expiry() -> None:
+    """会话到期后权限层不得凭闲置窗口继续放行。"""
+    client = FakeRedis()
+    store = AuthCacheStore(client, ttl_sec=3_600)
+    uid = uuid.uuid4()
+    await store.write_permission_plain(
+        "t1", uid, '{"allowed":true}', expires_at_epoch=1_000 + 3_600, now_epoch=1_000
+    )
+    # 只剩 20 秒到绝对到期：续期只能给 20，不能给满 3600。
+    assert (
+        await store.touch_permission("t1", uid, expires_at_epoch=1_020, now_epoch=1_000)
+        is True
+    )
+    assert client.ttls[permission_key("t1", uid)] == 20
+    # 已过绝对到期：不给续期。
+    assert (
+        await store.touch_permission("t1", uid, expires_at_epoch=900, now_epoch=1_000)
+        is False
+    )
+
+
+@pytest.mark.asyncio
+async def test_permission_first_write_is_capped_by_absolute_expiry() -> None:
+    """首写也按到期封顶：会话只剩 20 秒时权限层不能活满 3600（与凭证层同口径）。"""
+    client = FakeRedis()
+    store = AuthCacheStore(client, ttl_sec=3_600)
+    uid = uuid.uuid4()
+    await store.write_permission_plain(
+        "t1", uid, '{"allowed":true}', expires_at_epoch=1_020, now_epoch=1_000
+    )
+    assert client.ttls[permission_key("t1", uid)] == 20
+
+
+@pytest.mark.asyncio
+async def test_permission_first_write_skipped_when_already_expired() -> None:
+    """已过绝对到期时不写入：避免留下一个比会话活得更久的权限结论。"""
+    client = FakeRedis()
+    store = AuthCacheStore(client, ttl_sec=3_600)
+    uid = uuid.uuid4()
+    await store.write_permission_plain(
+        "t1", uid, '{"allowed":true}', expires_at_epoch=900, now_epoch=1_000
+    )
+    assert await store.read_permission_plain("t1", uid) is None
 
 
 @pytest.mark.asyncio

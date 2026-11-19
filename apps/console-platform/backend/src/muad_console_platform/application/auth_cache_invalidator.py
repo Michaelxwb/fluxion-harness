@@ -52,8 +52,13 @@ from ..metrics import AUTH_CACHE_INVALIDATION_METRIC, record_reason
 logger = logging.getLogger(__name__)
 
 #: 屏障阶段常量。
+#:
+#: 当前实现是两态机：PREPARING（关闭屏障 + 写 fence）→ READY（打开屏障）。原设计的
+#: 三态（中间还有 COMMITTED）只有在本模块接入"回填 CAS + 版本比对"的完整形态时才需要，
+#: 而 MSSWWEB 热路径本期走 plain 键、不消费屏障（见 `muad_common.auth_cache` 与
+#: `chat_principal._try_cached_external`）。故 **不保留 `PHASE_COMMITTED`**：一个永远不被
+#: 写入的常量只会让人误以为存在第三条路径。
 PHASE_PREPARING = "PREPARING"
-PHASE_COMMITTED = "COMMITTED"
 PHASE_READY = "READY"
 SCOPE_TENANT = "TENANT"
 SCOPE_PLATFORM = "PLATFORM"
@@ -224,9 +229,9 @@ class AuthCacheDirectory:
     async def recover_tenant(self, tenant_id: str) -> None:
         """启动恢复：把上次中断留下的非 READY 协调行收敛到 READY。
 
-        `PREPARING`/`COMMITTED` 都表示"上次失效可能没跑完"：清掉受影响用户的权限缓存并按 PG
-        当前版本重新发布，再置 READY。期间屏障维持关闭；失败记录 `last_error` 并保持关闭
-        （不放行旧授权），由下次启动或运维重试。
+        任何非 `READY`（即 `PREPARING`）都表示"上次失效可能没跑完"：清掉受影响用户的权限缓存
+        并按 PG 当前版本重新发布，再置 READY。期间屏障维持关闭；失败记录 `last_error` 并保持
+        关闭（不放行旧授权），由下次启动或运维重试。
         """
         if self._cache is None:
             return

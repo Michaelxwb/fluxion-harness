@@ -400,7 +400,11 @@ class WebchatResourceService:
     async def list_conversations(
         self, identity: ChatIdentity, entry_id: UUID, *, page: int, page_size: int | None
     ) -> WebchatConversationPage:
-        """API-14：入口会话列表（Owner 的公开投影原样校验，不重排/不补字段）。"""
+        """API-14：入口会话列表（Owner 的公开投影原样校验，不重排/不补字段）。
+
+        `entry_agnostic=True` 是设计意图（§API-05 / RULE-08 / S-11）：会话按 user+Agent 聚合，
+        WebChat 与 MSSWWEB 互相可见；`entry_id` 只用于鉴权与来源，**不是过滤条件**。
+        """
         ref = self._resolve_entry(identity, entry_id)
         data = await self._runtime.list_conversations(
             ref.entry_id,
@@ -409,6 +413,7 @@ class WebchatResourceService:
             agent_id=ref.agent_id,
             page=page,
             page_size=page_size,
+            # 跨入口共享：同一 user+Agent 的会话不按入口切分（设计 §API-05）。
             entry_agnostic=True,
         )
         return _project(WebchatConversationPage, data)
@@ -416,7 +421,11 @@ class WebchatResourceService:
     async def get_conversation(
         self, identity: ChatIdentity, conversation_id: UUID
     ) -> WebchatConversationDetail:
-        """API-15：解析归属（含当前授权）后走入口显式详情端点。"""
+        """API-15：解析归属（含当前授权）后走入口显式详情端点。
+
+        `entry_agnostic=True`：详情读取恒按 user+Agent 聚合（§API-05），入口仅作来源；
+        真正的安全边界是 `_resolve_scope` 的当前 Agent 授权复核，而非入口核属。
+        """
         scope = await self._resolve_scope(identity, conversation_id)
         data = await self._runtime.get_conversation(
             conversation_id,
@@ -424,6 +433,7 @@ class WebchatResourceService:
             user_id=identity.principal.platform_user_id,
             agent_id=scope.agent_id,
             entry_id=scope.entry_id,
+            # 入口显式只用于把 entry_id 交给 Owner 做归属记录，隔离交给 user+Agent。
             entry_agnostic=True,
         )
         return _project(WebchatConversationDetail, data)
@@ -431,7 +441,13 @@ class WebchatResourceService:
     async def delete_conversation(
         self, identity: ChatIdentity, conversation_id: UUID
     ) -> WebchatConversationDeletion:
-        """API-16：删除自己的会话；入口/Agent 由 Owner 从会话行核，调用方不自报。"""
+        """API-16：删除自己的会话；入口/Agent 由 Owner 从会话行核，调用方不自报。
+
+        **删除不要求 Agent 当前授权**（与 `get_conversation`/`list_messages` 不同）：这里不调
+        `_resolve_scope` 复核授权，是与 `conversation_deletion.py` docstring 一致的**有意设计**
+        ——撤权后用户仍应能清理自己的历史。越权边界由 Owner 按 `(tenant, user, conversation_id)`
+        核属承担，不会删到别人或别的用户的会话。
+        """
         data = await self._runtime.delete_conversation(
             conversation_id,
             tenant_id=self._tenant_id,
@@ -448,7 +464,11 @@ class WebchatResourceService:
         page_size: int | None,
         through_seq: int | None,
     ) -> WebchatMessagePage:
-        """API-09：解析归属后走入口显式消息端点（固定水位分页由 Owner 裁决）。"""
+        """API-09：解析归属后走入口显式消息端点（固定水位分页由 Owner 裁决）。
+
+        `entry_agnostic=True`：历史消息同样按 user+Agent 聚合（§API-05），入口仅来源；
+        授权边界仍是 `_resolve_scope` 的当前 Agent 授权复核。
+        """
         scope = await self._resolve_scope(identity, conversation_id)
         data = await self._runtime.list_messages(
             conversation_id,
@@ -459,6 +479,7 @@ class WebchatResourceService:
             page=page,
             page_size=page_size,
             through_seq=through_seq,
+            # 跨入口共享历史：不按入口切分（设计 §API-05 / RULE-08）。
             entry_agnostic=True,
         )
         return _project(WebchatMessagePage, data)

@@ -320,6 +320,50 @@ async def test_resolve_raises_platform_unavailable_when_no_platform_configured(
         await service.resolve("t1", "mssw", "any.assertion.token")
 
 
+async def test_resolve_rejects_assertion_on_another_channel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """断言只能用在外部断言通道上；声明了别的通道直接拒绝，且不访问存储。"""
+    from muad_common import SharedSettings
+    from muad_console_platform.application import external_assertion_service as svc_mod
+
+    touched: list[str] = []
+
+    class _RecordingRepo:
+        def __init__(self, *_a, **_k) -> None:
+            pass
+
+        def __getattr__(self, name: str):
+            touched.append(name)
+            raise AssertionError(f"通道不匹配不得访问存储方法 {name}")
+
+    monkeypatch.setattr(svc_mod, "ExternalIdentityRepository", _RecordingRepo)
+    monkeypatch.setattr(
+        svc_mod, "process_settings", lambda: SharedSettings(external_assertion_platforms_json="")
+    )
+    service = svc_mod.ExternalAssertionService(session=None)  # type: ignore[arg-type]
+
+    with pytest.raises(svc_mod.ExternalAssertionRejected):
+        await service.resolve("t1", "mssw", "any.assertion.token", channel="WEBCHAT")
+    assert touched == [], "通道检查必须先于任何存储访问"
+
+
+async def test_resolve_treats_missing_channel_as_unspecified(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """未声明通道（老调用方）保持向后兼容：不因通道被拒，继续走配置检查。"""
+    from muad_common import SharedSettings
+    from muad_console_platform.application import external_assertion_service as svc_mod
+
+    monkeypatch.setattr(
+        svc_mod, "process_settings", lambda: SharedSettings(external_assertion_platforms_json="")
+    )
+    service = svc_mod.ExternalAssertionService(session=None)  # type: ignore[arg-type]
+
+    with pytest.raises(svc_mod.PlatformUnavailable):
+        await service.resolve("t1", "mssw", "any.assertion.token", channel=None)
+
+
 async def test_resolve_raises_platform_unavailable_before_touching_storage(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -448,7 +492,13 @@ class _FakeCache:
         self.credentials[(tenant_id, platform_key, token_hash)] = payload
 
     async def write_permission_plain(
-        self, tenant_id: str, user_id: object, payload: str
+        self,
+        tenant_id: str,
+        user_id: object,
+        payload: str,
+        *,
+        expires_at_epoch: float,
+        now_epoch: float,
     ) -> None:
         if self.fail:
             raise RuntimeError("redis down")

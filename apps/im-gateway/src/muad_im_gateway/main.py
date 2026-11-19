@@ -6,6 +6,7 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
+from decimal import Decimal
 
 import redis.asyncio
 from fastapi import FastAPI
@@ -538,10 +539,21 @@ def _single_external_platform_key(settings: SharedSettings) -> str | None:
     """
     raw = getattr(settings, "external_assertion_platforms_json", "") or ""
     try:
-        parsed = json.loads(raw) if raw.strip() else {}
+        # `parse_float=Decimal`：平台 id 可能是超长数字，按 float 解析会丢精度，
+        # 导致键与 Console 侧写的不一致。
+        parsed = json.loads(raw, parse_float=Decimal) if raw.strip() else {}
     except ValueError:
         return None
     if not isinstance(parsed, dict):
+        return None
+    if len(parsed) > 1:
+        # 一个通道只能对应一个平台。静默取第一个会让多配的平台不报错却永不生效，
+        # 属于「改了没反应」的典型来源——显式失败，走既有的 503 路径。
+        logger.error(
+            "external_assertion_platforms_ambiguous count=%d keys=%s",
+            len(parsed),
+            ",".join(sorted(parsed)),
+        )
         return None
     return next(iter(parsed), None)
 
