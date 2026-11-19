@@ -135,6 +135,8 @@ async function prepare(page: Page, index: number, mode: string, options: {
       };
     }
     if (path.endsWith('/skills/layout/artifacts/version')) data = skillArtifact;
+    // 用户详情的外部 IM 身份卡：平台/身份是数组契约，不能拿分页对象冒充。
+    if (path === '/api/v1/external-platforms' || path.endsWith('/external-identities')) data = [];
     return route.fulfill({ json: { code: '0', msg: '', data } });
   });
   await page.goto(`/${entry.path}`);

@@ -18,14 +18,14 @@ from __future__ import annotations
 import re
 import uuid
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any
 
 import sqlalchemy as sa
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts import RunRequest, RunStatus
+from muad_contracts import WEB_SURFACE_CHANNELS, RunRequest, RunStatus
 from muad_contracts.platform_settings import parse_platform_settings
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -80,6 +80,10 @@ class ConversationScope:
     entry_id: uuid.UUID
     external_thread_id: str
     entry_agnostic: bool = False
+    #: 跨入口共享的通道 allowlist（`entry_agnostic=True` 时生效）：只允许来源入口属于这些
+    #: 通道；同一入口仅在来源行缺失时兼容放行，来源行存在仍按真实通道判定。
+    #: None 表示不按通道过滤。
+    channel_types: tuple[str, ...] | None = None
 
 
 def scope_of(request: RunRequest, tenant_id: str) -> ConversationScope:
@@ -91,6 +95,18 @@ def scope_of(request: RunRequest, tenant_id: str) -> ConversationScope:
         entry_id=request.channel.entry_id,
         external_thread_id=request.channel.external_thread_id,
     )
+
+
+def conversation_scope_of(request: RunRequest, tenant_id: str) -> ConversationScope:
+    """显式会话的核属：Web 面允许同 user + Agent 跨 Web 入口续聊，企微等 IM 通道保持严格。
+
+    Web 面共用同一套会话数据，发送入口只决定本次 Run 的来源与投递路由，不改变会话的创建来源。
+    来源通道 allowlist 由查询层强制，跨面（如从 Web 继续企微会话）仍 404。
+    """
+    scope = scope_of(request, tenant_id)
+    if request.channel.type not in WEB_SURFACE_CHANNELS:
+        return scope
+    return replace(scope, entry_agnostic=True, channel_types=WEB_SURFACE_CHANNELS)
 
 
 def normalize_title_text(text: str) -> str:
@@ -146,13 +162,61 @@ def conversation_recency_key() -> ColumnElement[datetime]:
     return sa.func.coalesce(last_user_message_at, Conversation.create_time)
 
 
+#: Console 拥有的入口账号只读投影（同一 PG）：这里只需要 `id/tenant/channel` 判断来源通道。
+_BOT_ACCOUNT = sa.table(
+    "bot_account",
+    sa.column("id", sa.Uuid()),
+    sa.column("tenant_id", sa.String(64)),
+    sa.column("channel", sa.String(32)),
+    schema="control",
+)
+
+
+def channel_types_condition(
+    tenant_id: str, entry_id: uuid.UUID, channel_types: tuple[str, ...] | None
+) -> ColumnElement[bool] | None:
+    """来源通道 allowlist：只允许 allowlist 内的来源；同一入口在来源行缺失时兼容放行。
+
+    同一入口且 `control.bot_account` 行存在时，必须按真实通道判定（企微会话不能因为
+    `entry_id` 恰好等于自身来源就绕过 Web allowlist）；只有来源行缺失的测试/历史数据才按
+    「同一入口」兼容放行。跨入口一律要求来源行存在且通道在 allowlist 内。
+    """
+    if not channel_types:
+        return None
+    source_has_account = (
+        sa.select(_BOT_ACCOUNT.c.id)
+        .where(
+            _BOT_ACCOUNT.c.id == Conversation.channel_account_id,
+            _BOT_ACCOUNT.c.tenant_id == tenant_id,
+        )
+        .correlate(Conversation)
+        .exists()
+    )
+    web_source = Conversation.channel_account_id.in_(
+        sa.select(_BOT_ACCOUNT.c.id).where(
+            _BOT_ACCOUNT.c.tenant_id == tenant_id,
+            _BOT_ACCOUNT.c.channel.in_(channel_types),
+        )
+    )
+    return sa.or_(
+        sa.and_(Conversation.channel_account_id == entry_id, ~source_has_account),
+        web_source,
+    )
+
+
 def _scope_conditions(scope: ConversationScope) -> list[Any]:
-    return [
+    conditions: list[Any] = [
         Conversation.tenant_id == scope.tenant_id,
         Conversation.user_id == scope.user_id,
         Conversation.agent_id == scope.agent_id,
         Conversation.is_deleted.is_(False),
     ]
+    channel_condition = channel_types_condition(
+        scope.tenant_id, scope.entry_id, scope.channel_types
+    )
+    if channel_condition is not None:
+        conditions.append(channel_condition)
+    return conditions
 
 
 #: 占用「活跃会话」名额的 Run 状态（与 `uq_run_record_active_conversation` 同源）。

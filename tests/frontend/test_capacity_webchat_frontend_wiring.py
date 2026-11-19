@@ -119,7 +119,6 @@ REQUIRED_KEYS = (
     "chat.page.conversationFailed",
     "chat.page.conversationUnavailable",
     "chat.page.conversationInvalid",
-    "chat.page.conversationMismatch",
     "chat.composer.error.failed",
     "chat.composer.error.empty",
     "chat.thread.attachmentUnavailable",
@@ -305,8 +304,7 @@ const {
   chatPageResolutionNeeded,
   conversationErrorKey,
   chatActionFailureKey,
-  CONVERSATION_ID_INVALID,
-  CONVERSATION_ENTRY_MISMATCH
+  CONVERSATION_ID_INVALID
 } = mod;
 
 const TENANT_ID = '__TENANT_ID__';
@@ -640,8 +638,7 @@ const obs = {};
       none: conversationErrorKey(null),
       unknown: conversationErrorKey('SOMETHING_ELSE'),
       notFound: conversationErrorKey('COMMON_NOT_FOUND'),
-      invalid: conversationErrorKey(CONVERSATION_ID_INVALID),
-      mismatch: conversationErrorKey(CONVERSATION_ENTRY_MISMATCH)
+      invalid: conversationErrorKey(CONVERSATION_ID_INVALID)
     },
     actionKeys: {
       none: chatActionFailureKey(null),
@@ -1688,7 +1685,6 @@ def test_b102_empty_lists_and_field_boundaries_are_deterministic(
         "unknown": "chat.page.conversationFailed",
         "notFound": "chat.page.conversationUnavailable",
         "invalid": "chat.page.conversationInvalid",
-        "mismatch": "chat.page.conversationMismatch",
     }
     assert boundaries["actionKeys"] == {
         "none": "chat.thread.localFailed",

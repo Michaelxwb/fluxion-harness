@@ -298,7 +298,7 @@ def test_schedule_list_renders_v2_facts_with_empty_and_error_states() -> None:
         "listUsers",
         "actor_user_id",
         "actor_name",
-        "actionColumn(150)",
+        "actionColumn(190)",
         "columnGrowth",
         "schedule.badge.pendingHuman",
         "schedule.badge.needsAttention",

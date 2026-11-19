@@ -66,6 +66,10 @@ from .infrastructure.platform_settings_client import ConsolePlatformSettingsClie
 from .infrastructure.streams import DeliveryStreams
 from .metrics import install_gateway_metrics
 
+#: 本地流式对话面的挂载前缀：路由本身不带 prefix，装配根是唯一挂载事实。
+WEBCHAT_API_PREFIX = "/api/v1/webchat"
+MSSWWEB_API_PREFIX = "/api/v1/msswwweb"
+
 logger = logging.getLogger(__name__)
 
 SERVICE_NAME = "muad-im-gateway"
@@ -520,10 +524,10 @@ app.include_router(webhook_router)
 def _build_webchat_surfaces(settings: SharedSettings) -> dict[str, ChatSurface]:
     """按配置生成要挂载的 surface 表：WEBCHAT 恒定，MSSWWEB 仅在启用外部断言平台时加。"""
     surfaces: dict[str, ChatSurface] = {
-        "/api/v1/webchat": ChatSurface(channel="WEBCHAT", auth_kind="USER_TOKEN"),
+        WEBCHAT_API_PREFIX: ChatSurface(channel="WEBCHAT", auth_kind="USER_TOKEN"),
     }
     if _external_platforms_configured(settings):
-        surfaces["/api/v1/msswwweb"] = ChatSurface(
+        surfaces[MSSWWEB_API_PREFIX] = ChatSurface(
             channel="MSSWWEB",
             auth_kind="EXTERNAL_ASSERTION",
             platform_key=_single_external_platform_key(settings),
@@ -565,7 +569,7 @@ def mount_webchat_surfaces(target_app: FastAPI, settings: SharedSettings) -> Non
     for prefix in surfaces:
         target_app.include_router(webchat_router, prefix=prefix)
     # 通知中心只挂 WEBCHAT 面（MSSWWEB 不暴露通知中心，设计 §I4）。
-    target_app.include_router(webchat_notification_router, prefix="/api/v1/webchat")
+    target_app.include_router(webchat_notification_router, prefix=WEBCHAT_API_PREFIX)
 
 
 mount_webchat_surfaces(app, SharedSettings())

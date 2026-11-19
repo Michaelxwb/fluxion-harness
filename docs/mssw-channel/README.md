@@ -4,7 +4,9 @@
 
 ## 一分钟了解
 
-新增 `MSSWWEB` 通道，BFF 是**后端服务**，带 JWT 直接转发请求过来。**验签在 Console**（网关不持因子、不持库），验签后按平台配置的 `identity_keys` 解析身份，映射到我方平台用户，再复用现有会话能力。`MSSWWEB` 通道名对应 `platform_key=mssw`。
+新增 `MSSWWEB` 通道，BFF 是**后端服务**，带 JWT 直接转发请求过来。**验签在 Console**（网关不持因子、不持库），验签后按平台配置的 `identity_keys` 解析身份，映射到我方平台用户，再复用现有会话能力。`MSSWWEB` 通道名对应 `platform_key=mssw`。会话在 **Web 面（`WEBCHAT`/`MSSWWEB`）按 user+Agent 跨入口共享，企微不进入 Web 列表**。
+
+**通用化边界**：这是「JWT 类外部平台」的通用方案。新增同类平台只加平台配置与入口，不复制 handler；参数化改造与接入旅程见 `.code-flow/.../mssw-external-im-channel.backend.design.md` §3.1.3。若将来接非 JWT 平台（OAuth2、mTLS），身份模型与会话层可复用，认证适配层需另写。
 
 ## 文档地图
 

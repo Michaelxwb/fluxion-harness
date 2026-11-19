@@ -249,7 +249,8 @@ test('S-10 WebChat 入口：选网页入口后不要求 Bot Secret，创建提�
   await page.getByTestId('create-channel').click();
   const modal = page.locator('.semi-modal');
   await modal.locator('.semi-select').first().click();
-  await page.locator('.semi-select-option', { hasText: '网页入口' }).click();
+  // 通道列表同时有「网页入口」(WEBCHAT) 与「MSSW 网页入口」(MSSWWEB)：必须精确选前者。
+  await page.locator('.semi-select-option').filter({ hasText: /^网页入口$/ }).click();
   await expect(modal.getByRole('textbox', { name: /Bot Secret/ })).toHaveCount(0);
   await modal.getByRole('textbox', { name: /通道名称/ }).fill('Web');
   await modal.getByRole('textbox', { name: /入口标识/ }).fill('webchat-e2e');

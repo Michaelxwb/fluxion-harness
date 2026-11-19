@@ -134,7 +134,6 @@ CONVERSATION_KEYS = (
     "chat.sidebar.failed",
     "chat.page.conversationFailed",
     "chat.page.conversationInvalid",
-    "chat.page.conversationMismatch",
     "chat.page.conversationUnavailable",
 )
 

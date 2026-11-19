@@ -265,13 +265,13 @@ ExternalIdentitySection
 |---|---|
 | `agentId` | 由当前授权入口选择得到；共享侧栏的查询维度，校验详情仍必须匹配此 Agent |
 | `sendEntryId` | 本次实际发送/新建/上传的入口，必须来自当前用户可用入口；切换入口不重写历史来源 |
-| `conversationOrigin` | 详情/列表中的 `entry_id/channel`，是创建来源，可空；不用于拒绝同用户同 Agent 的会话 |
+| `conversationOrigin` | 详情/列表中的 `entry_id/channel`，是创建来源，可空；不用于拒绝同用户同 Agent 的 Web 面会话；企微来源由服务端 allowlist 拒绝 |
 | `conversationId` | 当前显式会话；所属用户由服务端核验，前端不得用 URL 或来源字段自报身份 |
 | `viewWatermarks` | 同次详情的 `{historyThroughSeq:last_seq, notificationThroughSeq:notification_through_seq}`；只对完成展示的对应视图提交已读 |
 
-1. `webchatApi.listConversations(entryId, paging)` 调 `GET /api/v1/webchat/entries/{entry_id}/conversations`（入口维度路径，服务端带 `entry_agnostic=true` 按 user+Agent 聚合，入口只作鉴权与来源，不是过滤条件）。所有请求仍通过 service 层，组件/状态模块不得另写 fetch。
-2. `ChatPage.applyConversation`、会话选择和 URL 恢复移除来源入口相等判断，保留 Agent 匹配、有效响应及服务端 403/404 处理；无可用来源标签不阻止加载。
-3. 对来自 A 的会话，在 B 发消息仍用 `/entries/B/messages` 并显式传该 conversation_id；上传也用 B。不能把 A 回写当前入口，也不能在 URL 刷新时偷偷切换用户或 Agent。等待确认时对现有 Run resume，不能新建替代 Run。
+1. `webchatApi.listConversations(entryId, paging)` 调 `GET /api/v1/webchat/entries/{entry_id}/conversations`（入口维度路径，服务端带 `entry_agnostic=true` + `channel_types=WEBCHAT,MSSWWEB` 按 user+Agent 聚合，入口只作鉴权与来源，不是过滤条件）。所有请求仍通过 service 层，组件/状态模块不得另写 fetch。
+2. `ChatPage.applyConversation`、会话选择和 URL 恢复移除来源入口相等判断，保留 Agent 匹配、有效响应及服务端 403/404 处理；Web 面来源入口不同不阻止加载，企微来源由服务端 allowlist 返回 404。
+3. 对来自 A 的 Web 会话，在 B 发消息仍用 `/entries/B/messages` 并显式传该 conversation_id；上传也用 B。不能把 A 回写当前入口，也不能在 URL 刷新时偷偷切换用户或 Agent。等待确认时对现有 Run resume，不能新建替代 Run。
 4. 列表读取、详情/历史读取、发送及 SSE 使用可取消请求或选择代次，丢弃切换前晚到的响应。跨 Agent/用户切换时清空旧列表、详情、流、上传暂存和水位；同 Agent 换入口保留有权会话。
 5. 发送入口解绑/停用时刷新可用入口：尚有同 Agent 入口时允许用户选择继续，否则禁用发送/上传并说明原因。Agent 撤权清空该 Agent 受保护视图、停止 SSE，不强制退出仍有效的 WebChat 登录；用户停用/会话撤销按认证失败处理。
 6. 凭证/权限 miss 由服务端重建，前端不靠定时调用 `/identity` 或重新登录实现撤权。服务端拒绝后不得继续展示“发送成功”或把旧 optimistic 状态当持久记录。

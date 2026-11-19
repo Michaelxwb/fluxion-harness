@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Protocol
@@ -33,7 +34,13 @@ from uuid import UUID, uuid4
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts import BotSnapshotItem, ChannelContext, ChannelName, RunRequest
+from muad_contracts import (
+    WEB_SURFACE_CHANNELS,
+    BotSnapshotItem,
+    ChannelContext,
+    ChannelName,
+    RunRequest,
+)
 from muad_contracts.im import InboundEvent
 from muad_contracts.webchat import (
     ExternalIdentityGrant,
@@ -113,6 +120,8 @@ class WebchatOwnerPort(Protocol):
         agent_id: UUID,
         page: int,
         page_size: int | None,
+        entry_agnostic: bool = False,
+        channel_types: Sequence[str] | None = None,
     ) -> dict[str, Any]: ...
 
     async def delete_conversation(
@@ -127,6 +136,8 @@ class WebchatOwnerPort(Protocol):
         user_id: UUID,
         agent_id: UUID,
         entry_id: UUID,
+        entry_agnostic: bool = False,
+        channel_types: Sequence[str] | None = None,
     ) -> dict[str, Any]: ...
 
     async def list_messages(
@@ -140,6 +151,8 @@ class WebchatOwnerPort(Protocol):
         page: int,
         page_size: int | None,
         through_seq: int | None,
+        entry_agnostic: bool = False,
+        channel_types: Sequence[str] | None = None,
     ) -> dict[str, Any]: ...
 
     async def resolve_conversation_scope(
@@ -404,6 +417,7 @@ class WebchatResourceService:
 
         `entry_agnostic=True` 是设计意图（§API-05 / RULE-08 / S-11）：会话按 user+Agent 聚合，
         WebChat 与 MSSWWEB 互相可见；`entry_id` 只用于鉴权与来源，**不是过滤条件**。
+        `channel_types` 把共享限制在 Web 面：企微来源不进入 Web 会话列表。
         """
         ref = self._resolve_entry(identity, entry_id)
         data = await self._runtime.list_conversations(
@@ -413,8 +427,9 @@ class WebchatResourceService:
             agent_id=ref.agent_id,
             page=page,
             page_size=page_size,
-            # 跨入口共享：同一 user+Agent 的会话不按入口切分（设计 §API-05）。
+            # 跨 Web 入口共享：同一 user+Agent 的 Web 会话不按入口切分（设计 §API-05）。
             entry_agnostic=True,
+            channel_types=WEB_SURFACE_CHANNELS,
         )
         return _project(WebchatConversationPage, data)
 
@@ -433,8 +448,10 @@ class WebchatResourceService:
             user_id=identity.principal.platform_user_id,
             agent_id=scope.agent_id,
             entry_id=scope.entry_id,
-            # 入口显式只用于把 entry_id 交给 Owner 做归属记录，隔离交给 user+Agent。
+            # 入口显式只用于把 entry_id 交给 Owner 做归属记录，隔离交给 user+Agent；
+            # 来源通道 allowlist 阻止 Web 面通过 URL 直达企微会话。
             entry_agnostic=True,
+            channel_types=WEB_SURFACE_CHANNELS,
         )
         return _project(WebchatConversationDetail, data)
 
@@ -479,8 +496,9 @@ class WebchatResourceService:
             page=page,
             page_size=page_size,
             through_seq=through_seq,
-            # 跨入口共享历史：不按入口切分（设计 §API-05 / RULE-08）。
+            # 跨 Web 入口共享历史：不按入口切分（设计 §API-05 / RULE-08），企微来源仍隔离。
             entry_agnostic=True,
+            channel_types=WEB_SURFACE_CHANNELS,
         )
         return _project(WebchatMessagePage, data)
 

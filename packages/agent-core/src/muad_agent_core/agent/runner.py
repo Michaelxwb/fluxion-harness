@@ -686,7 +686,7 @@ class AgentRunner:
             messages.extend(followed)
             # 回合收口**必须走 finally**：中途被取消/超时打断时，已经跑完的那些同样是"发生过的事"
             # ——此前审计是逐条写的，中断时那些行已经落了；不收口等于把它们抹掉。
-            await self._finish_tool_round(state, messages, executed)
+            await self._finish_tool_round(state, messages, executed, unexecuted)
         await self._emit_post_model(state)
         complete = {
             **state,
@@ -863,13 +863,20 @@ class AgentRunner:
         state: AgentRunState,
         messages: list[ModelMessage],
         executed: Sequence[tuple[int, str, str, str]],
+        unexecuted: Sequence[PendingToolCall],
     ) -> None:
         """回合末收口：先让端口按**整轮**决定谁要外置（可改写消息内容），再逐条报完成。
 
         顺序是硬约束：`tool.completed` 上挂着产物 id，它进了 canonical 行、历史重建靠它把产物
-        找回来，所以必须等整批判定落定之后再发。
+        找回来，所以必须等整批判定落定之后再发。预算截断的调用也要报一条 `TOOL_BUDGET_EXHAUSTED`
+        结果：canonical 回合必须始终是「assistant 声明 + 每个声明的 tool 结果」的完整单元，
+        否则 checkpoint 的完整回合校验和后续历史重建都会看到孤儿声明。
         """
         if not executed:
+            for call in unexecuted:
+                await self._notify_tool_completed(
+                    state, call.call_id, call.tool_name, "ERROR", None, TOOL_BUDGET_EXHAUSTED
+                )
             return
         if self._round_results is not None:
             indexes = [index for index, *_ in executed]
@@ -889,6 +896,10 @@ class AgentRunner:
                 # 没外置 ⇒ 正文必须随事件带走：库里那条 canonical 行若只留工具名，下一 Run 重建
                 # 历史时这条结果就**净丢了**（任务 id、查询结论、短正文都找不回来）。
                 None if artifact_id is not None else content,
+            )
+        for call in unexecuted:
+            await self._notify_tool_completed(
+                state, call.call_id, call.tool_name, "ERROR", None, TOOL_BUDGET_EXHAUSTED
             )
 
     async def _round_results_or_inline(

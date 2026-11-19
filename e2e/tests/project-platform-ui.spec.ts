@@ -173,6 +173,11 @@ async function mockApi(page: Page, state: MockState): Promise<void> {
       });
       return;
     }
+    // 用户详情里的外部 IM 身份卡：平台/身份是数组契约，不能拿分页对象冒充。
+    if (path === '/api/v1/external-platforms' || path === '/api/v1/users/user-1/external-identities') {
+      await route.fulfill({ json: envelope([]) });
+      return;
+    }
     await route.fulfill({ json: envelope(pageData([])) });
   });
 }

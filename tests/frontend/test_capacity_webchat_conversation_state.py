@@ -43,7 +43,6 @@ SRC = FRONTEND / "src"
 MODULE = SRC / "modules/webchat"
 CONVERSATION_STATE_TS = MODULE / "conversationState.ts"
 USE_CONVERSATIONS_TS = MODULE / "hooks/useConversations.ts"
-CHAT_PAGE_TSX = MODULE / "ChatPage.tsx"
 CLIENT_CONFIG_TS = MODULE / "clientConfig.ts"
 SERVICE_TS = MODULE / "services/webchatApi.ts"
 TYPES_TS = MODULE / "types.ts"
@@ -155,7 +154,6 @@ const {
   applyOlderHistoryPage,
   chatConversationSearch,
   ConversationStateError,
-  CONVERSATION_ENTRY_MISMATCH,
   createWebchatClient,
   createClientConfigService,
   setChatContextId,
@@ -459,7 +457,6 @@ const obs = {};
       value: chatConversationSearch(CONVERSATION_1)
     },
     codes: {
-      mismatch: CONVERSATION_ENTRY_MISMATCH,
       limitInvalid: limitCode
     }
   };
@@ -623,6 +620,27 @@ const obs = {};
     lateApplied,
     backTo1,
     cleared,
+    order: requestLog(start),
+    detailGets: countDetailGets(start),
+    historyGets: countGets(start, '/messages')
+  };
+}
+
+// ---- 3a) 跨入口来源：`entry_id` 只是 metadata，同用户+Agent 的选择必须放行 -----------------------
+{
+  const state = newState(4);
+  const start = requests.length;
+  script = [{ status: 200, data: conversationPage([ITEM_1, ITEM_2], 1, 2, 2) }];
+  await state.open(ENTRY_A);
+  script = [
+    { status: 200, data: detail(CONVERSATION_2, '乙会话', ENTRY_B, null) },
+    { status: 200, data: messagePage(historyRange(1, 2), 1, 40, 2, 2) }
+  ];
+  await state.select(CONVERSATION_2);
+  obs.crossEntry = {
+    selection: selectionOf(state.snapshot()),
+    originEntry: state.snapshot().selection.conversation?.entry_id ?? null,
+    history: historyOf(state.snapshot().history),
     order: requestLog(start),
     detailGets: countDetailGets(start),
     historyGets: countGets(start, '/messages')
@@ -1150,7 +1168,6 @@ def test_b278_conversation_state_module_keeps_the_service_and_transport_boundari
         "applyOlderHistoryPage",
         "chatConversationSearch",
         "ConversationStateError",
-        "CONVERSATION_ENTRY_MISMATCH",
     ):
         assert symbol in source, f"会话状态模块必须导出真实接缝：{symbol}"
     assert "AbortController" in compact, "视图作用域必须有真实中止信号（切换即释放旧请求）"
@@ -1178,14 +1195,6 @@ def test_b278_conversation_state_module_keeps_the_service_and_transport_boundari
     assert not re.search(r"\bcancel\b", stripped), "会话状态层结构上没有取消能力（不取消旧 Run）"
     assert not PAGE_SIZE_LITERAL.search(stripped), "分页默认不得复制数值（只来自投影/服务端）"
     assert not LOCALE_KEY.search(stripped), "状态层不持有文案键（词条由展示层引用）"
-
-    # 与 ChatPage 的本地码同值：同一事实（会话不属于所选入口）只有一个稳定码。
-    chat_page = _strip_comments(_read(CHAT_PAGE_TSX))
-    match = re.search(r"CONVERSATION_ENTRY_MISMATCH\s*=\s*'([A-Z_]+)'", chat_page)
-    assert match, "ChatPage 必须继续导出 CONVERSATION_ENTRY_MISMATCH"
-    assert f"CONVERSATION_ENTRY_MISMATCH = '{match.group(1)}'" in source, (
-        "会话状态层的入口不匹配码必须与 ChatPage 同值（不新增第三个码）"
-    )
 
 
 def test_b278_hook_binds_the_state_to_identity_boundaries_and_the_config_projection(
@@ -1263,7 +1272,6 @@ def test_b278_pure_merges_keep_identity_order_dedupe_and_url_rendering(
         "value": f"conversation={CONVERSATION_1}",
     }, "URL 渲染只吃所选会话 ID（空选择不写参数）"
     assert observed["codes"] == {
-        "mismatch": "CONVERSATION_ENTRY_MISMATCH",
         "limitInvalid": "CONVERSATION_SCOPE_LIMIT_INVALID",
     }, "本地边界码必须是稳定码（上界非法显式失败）"
 
@@ -1409,6 +1417,23 @@ def test_b278_selection_never_leaks_late_responses_into_the_new_conversation(
         f"GET /webchat/conversations/{CONVERSATION_1}",
         f"GET /webchat/conversations/{CONVERSATION_1}/messages",
     ], f"选择期间只发所属会话的读请求：{observed['order']}"
+
+
+def test_b278_cross_entry_origin_does_not_block_selection(
+    conversation_state: dict[str, Any],
+) -> None:
+    """`entry_id` 只是创建来源：同用户+Agent 的跨入口会话必须可选、可读消息。"""
+    observed = conversation_state["crossEntry"]
+    assert observed["selection"]["conversationId"] == CONVERSATION_2
+    assert observed["selection"]["errorCode"] is None, "跨入口来源不得被本地拒绝"
+    assert observed["originEntry"] == ENTRY_B, "详情来源入口必须原样保留（只作 metadata）"
+    assert observed["history"]["count"] == 2, "跨入口恢复后仍按 API-09 读取消息首屏"
+    assert observed["detailGets"] == 1 and observed["historyGets"] == 1
+    assert observed["order"] == [
+        f"GET /webchat/entries/{ENTRY_A}/conversations",
+        f"GET /webchat/conversations/{CONVERSATION_2}",
+        f"GET /webchat/conversations/{CONVERSATION_2}/messages",
+    ], f"跨入口选择只读详情与消息，不按来源入口改请求路径：{observed['order']}"
 
 
 def test_b278_late_message_pages_are_fenced_after_the_selection_moves(

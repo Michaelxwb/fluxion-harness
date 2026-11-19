@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol
@@ -206,11 +206,17 @@ def build_headers(
 
 
 def _read_scope(
-    user_id: UUID, agent_id: UUID, entry_id: UUID, *, entry_agnostic: bool = False
+    user_id: UUID,
+    agent_id: UUID,
+    entry_id: UUID,
+    *,
+    entry_agnostic: bool = False,
+    channel_types: Sequence[str] | None = None,
 ) -> dict[str, str]:
     """入口显式读取的核属维度（与 TASK-050 内部端点的查询参数同形）。
 
-    `entry_agnostic=True` 时按 user + Agent 核属/聚合（跨入口共享会话），入口只作来源。
+    `entry_agnostic=True` 时按 user + Agent 核属/聚合（跨入口共享会话），入口只作来源；
+    `channel_types` 是来源通道 allowlist（逗号分隔），Web 面只共享 WEBCHAT/MSSWWEB。
     """
     params = {
         "user_id": str(user_id),
@@ -219,6 +225,8 @@ def _read_scope(
     }
     if entry_agnostic:
         params["entry_agnostic"] = "true"
+    if channel_types:
+        params["channel_types"] = ",".join(channel_types)
     return params
 
 
@@ -478,6 +486,7 @@ class RuntimeClient:
         page: int,
         page_size: int | None,
         entry_agnostic: bool = False,
+        channel_types: Sequence[str] | None = None,
     ) -> dict[str, Any]:
         """API-14 入口会话列表（内部受信面；入口显式，跨入口时按 user + Agent 聚合）。"""
         params = {
@@ -489,6 +498,8 @@ class RuntimeClient:
             params["page_size"] = str(page_size)
         if entry_agnostic:
             params["entry_agnostic"] = "true"
+        if channel_types:
+            params["channel_types"] = ",".join(channel_types)
         return await self._get_internal_json(
             INTERNAL_CONVERSATIONS_PATH.format(entry_id=entry_id), tenant_id, params
         )
@@ -502,12 +513,19 @@ class RuntimeClient:
         agent_id: UUID,
         entry_id: UUID,
         entry_agnostic: bool = False,
+        channel_types: Sequence[str] | None = None,
     ) -> dict[str, Any]:
         """API-15 会话详情（入口显式核属后的公开投影；跨入口时按 user + Agent）。"""
         return await self._get_internal_json(
             INTERNAL_CONVERSATION_PATH.format(conversation_id=conversation_id),
             tenant_id,
-            _read_scope(user_id, agent_id, entry_id, entry_agnostic=entry_agnostic),
+            _read_scope(
+                user_id,
+                agent_id,
+                entry_id,
+                entry_agnostic=entry_agnostic,
+                channel_types=channel_types,
+            ),
         )
 
     async def list_messages(
@@ -522,10 +540,17 @@ class RuntimeClient:
         page_size: int | None,
         through_seq: int | None,
         entry_agnostic: bool = False,
+        channel_types: Sequence[str] | None = None,
     ) -> dict[str, Any]:
         """API-09 固定水位分页（首屏冻结、后页沿用；游标语义由 Owner 裁决，跨入口按 user + Agent）。"""
         params = {
-            **_read_scope(user_id, agent_id, entry_id, entry_agnostic=entry_agnostic),
+            **_read_scope(
+                user_id,
+                agent_id,
+                entry_id,
+                entry_agnostic=entry_agnostic,
+                channel_types=channel_types,
+            ),
             "page": str(page),
         }
         if page_size is not None:

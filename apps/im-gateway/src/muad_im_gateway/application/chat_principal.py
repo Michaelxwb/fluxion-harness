@@ -357,7 +357,10 @@ class ChatPrincipalGate:
             )
         except (KeyError, TypeError, ValueError):
             return None
-        if result.expires_at <= datetime.now(tz=UTC):
+        expires_at = result.expires_at
+        if not isinstance(expires_at, datetime):
+            return None
+        if expires_at <= datetime.now(tz=UTC):
             # 绝对到期已过：权限层不能凭闲置窗口继续放行（凭证层按到期封顶，这里必须一致）。
             # 视为未命中，交给调用方回源；回源会用 `max_session_age` 重新裁决。
             return None
@@ -365,7 +368,7 @@ class ChatPrincipalGate:
             await cache.touch_permission(
                 self._tenant_id,
                 platform_user_id,
-                expires_at_epoch=result.expires_at.timestamp(),
+                expires_at_epoch=expires_at.timestamp(),
                 now_epoch=datetime.now(tz=UTC).timestamp(),
             )
         except AuthCacheUnavailable:

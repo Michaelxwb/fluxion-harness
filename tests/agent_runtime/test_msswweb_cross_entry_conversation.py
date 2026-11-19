@@ -17,10 +17,17 @@ import pytest
 from muad_agent_runtime.application.channel_conversations import (
     ConversationScope,
     assert_entry_attribution,
+    conversation_scope_of,
 )
 from muad_agent_runtime.application.webchat_history import _conversation_item
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_contracts import (
+    WEB_SURFACE_CHANNELS,
+    ChannelContext,
+    MessageInput,
+    RunRequest,
+)
 
 
 def _scope(*, entry_id: uuid.UUID, entry_agnostic: bool) -> ConversationScope:
@@ -77,3 +84,30 @@ def test_conversation_item_carries_source_entry_and_unread() -> None:
     assert item.entry_id == entry
     assert item.has_unread is True
     assert item.conversation_id == row.id
+
+
+def _request(channel_type: str, entry_id: uuid.UUID) -> RunRequest:
+    return RunRequest(
+        agent_id=uuid.uuid4(),
+        platform_user_id=uuid.uuid4(),
+        conversation_id=uuid.uuid4(),
+        channel=ChannelContext(type=channel_type, entry_id=entry_id, bot_id="bot"),
+        message=MessageInput(id=str(uuid.uuid4()), text="继续"),
+    )
+
+
+def test_web_surface_explicit_conversation_scope_is_entry_agnostic() -> None:
+    """WebChat/MSSWWEB 的显式续聊按 user + Agent 聚合，但来源通道限定在 Web 面。"""
+    entry = uuid.uuid4()
+    for channel in ("WEBCHAT", "MSSWWEB"):
+        scope = conversation_scope_of(_request(channel, entry), "t1")
+        assert scope.entry_agnostic is True
+        assert scope.channel_types == WEB_SURFACE_CHANNELS
+        assert scope.entry_id == entry
+
+
+def test_wecom_explicit_conversation_scope_stays_strict() -> None:
+    """企微不参与 Web 面共享：显式续聊仍按原入口严格核属。"""
+    scope = conversation_scope_of(_request("WECOM", uuid.uuid4()), "t1")
+    assert scope.entry_agnostic is False
+    assert scope.channel_types is None

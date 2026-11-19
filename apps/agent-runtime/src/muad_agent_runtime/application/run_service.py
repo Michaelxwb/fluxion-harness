@@ -34,6 +34,7 @@ from muad_artifact_store import NfsArtifactStore
 from muad_common import process_settings
 from muad_common.db_counters import db_stage, db_stage_scope
 from muad_contracts import (
+    WEB_SURFACE_CHANNELS,
     AsyncToolPolicy,
     AttachmentRef,
     CancelSource,
@@ -136,6 +137,7 @@ from .channel_conversations import (
     CONVERSATION_ARCHIVED,
     ConversationScope,
     assert_entry_attribution,
+    conversation_scope_of,
     create_entry_conversation,
     enforce_conversation_limit,
     load_explicit_conversation,
@@ -1316,7 +1318,7 @@ class RunService:
         if request.conversation_id is not None:
             conversation, active = await load_explicit_conversation_with_active_run(
                 self._session,
-                scope_of(request, tenant_id),
+                conversation_scope_of(request, tenant_id),
                 request.conversation_id,
                 active_statuses=ACTIVE_RUN_STATUSES,
             )
@@ -1347,7 +1349,7 @@ class RunService:
         if request.conversation_id is not None:
             conversation, active = await load_explicit_conversation_with_active_run(
                 self._session,
-                scope_of(request, tenant_id),
+                conversation_scope_of(request, tenant_id),
                 request.conversation_id,
                 active_statuses=ACTIVE_RUN_STATUSES,
             )
@@ -1932,10 +1934,11 @@ class RunService:
         - 显式 `conversation_id`：核 tenant/user/agent/**entry** 同时归属，缺失即显式拒绝；
         - 无显式会话的入口：按 (tenant,user,agent,入口,外线线程) 锁内切换当前指针。
         """
-        scope = scope_of(request, tenant_id)
         if request.conversation_id is not None:
-            return await load_explicit_conversation(self._session, scope, request.conversation_id)
-        return await resolve_pointer_conversation(self._session, scope)
+            return await load_explicit_conversation(
+                self._session, conversation_scope_of(request, tenant_id), request.conversation_id
+            )
+        return await resolve_pointer_conversation(self._session, scope_of(request, tenant_id))
 
     async def _resolve_message_uploads(
         self, request: RunRequest, tenant_id: str, settings: Mapping[str, Any]
@@ -2005,10 +2008,20 @@ class RunService:
                 now=now,
             )
         if conversation.status == CONVERSATION_ARCHIVED and conversation_policy is not None:
+            # 跨 Web 入口续聊时，会话上限与归档仍按**创建来源入口**收敛；本次 Run 的渠道
+            # 只决定投递来源，不把会话挪到发送入口。
+            conversation_scope = scope_of(request, tenant_id)
+            if (
+                request.channel.type in WEB_SURFACE_CHANNELS
+                and conversation.channel_account_id is not None
+            ):
+                conversation_scope = replace(
+                    conversation_scope, entry_id=conversation.channel_account_id
+                )
             overage = await promote_archived_conversation(
                 self._session,
                 conversation,
-                scope_of(request, tenant_id),
+                conversation_scope,
                 conversation_policy,
                 now=now,
             )

@@ -589,11 +589,11 @@ WHERE is_deleted = false;
 | API-02 | 客户端配置 | GET | `/client-config` | 复用；对 BFF 的字段定义在 `bff-agent-integration.md` §4.2 |
 | API-03 | 入口列表 | GET | `/entries` | 只返回**已授权**的入口；每项带 `allowed`+`reason` 区分"没授权"（不在列表）与"授权了但不可用"（在列表但 `allowed=false`） |
 | API-04 | 创建会话 | POST | `/entries/{entry_id}/conversations` | 入口作为本次会话的来源/展示 |
-| API-05 | 会话列表 | GET | `/entries/{entry_id}/conversations` | `entry_id` 只用于鉴权与归属（当前用户对该入口的权限、入口当前绑定的 Agent），**不是过滤条件**；按 user+Agent 聚合（跨入口共享），item 带来源 `entry_id`/`has_unread`，**不含 `channel`** |
+| API-05 | 会话列表 | GET | `/entries/{entry_id}/conversations` | `entry_id` 只用于鉴权与归属（当前用户对该入口的权限、入口当前绑定的 Agent），**不是过滤条件**；按 user+Agent + `channel_types=WEBCHAT,MSSWWEB` 聚合（Web 面跨入口共享，企微不出现），item 带来源 `entry_id`/`has_unread`，**不含 `channel`** |
 | API-06 | 提交消息 | POST | `/entries/{entry_id}/messages` | 入口作为本次 Run 的来源 |
-| API-07 | 会话详情 | GET | `/conversations/{id}` | user+agent 核属；不做 entry/channel 断言。返回**会话当前状态**（`has_unread`/`confirmation`/`notification_through_seq`），与分页接口互补：进入对话页先调它拿状态与水位，再调 API-09 拉历史 |
+| API-07 | 会话详情 | GET | `/conversations/{id}` | user+agent 核属；来源入口不做相等断言，但 Web 面只允许 `WEBCHAT/MSSWWEB` 来源（企微 404）。返回**会话当前状态**（`has_unread`/`confirmation`/`notification_through_seq`），与分页接口互补：进入对话页先调它拿状态与水位，再调 API-09 拉历史 |
 | API-08 | 删除会话 | DELETE | `/conversations/{id}` | user 级；沿用现有幂等 delete |
-| API-09 | 历史消息 | GET | `/conversations/{id}/messages` | user+agent；不做 entry/channel 断言 |
+| API-09 | 历史消息 | GET | `/conversations/{id}/messages` | user+agent；来源入口不做相等断言，但 Web 面只允许 `WEBCHAT/MSSWWEB` 来源（企微 404） |
 | API-10 | 会话已读 | POST | `/conversations/{id}/read` | 带通知水位；只标已看到 |
 | API-11 | 上传附件 | POST | `/entries/{entry_id}/attachments` | 入口作为来源 |
 | API-12 | 取消 Run | POST | `/runs/{run_id}/cancel` | user 级 |
@@ -619,7 +619,7 @@ WHERE is_deleted = false;
 | 接口ID | 名称 | 方法 | 路径 | 说明 |
 |--------|------|------|------|------|
 | API-20 | 会话已读 | POST | `/internal/webchat/conversations/{id}/read` | 服务身份；带水位 |
-| API-25 | 会话列表 | GET | `/internal/webchat/entries/{entry_id}/conversations` | `entry_agnostic=true` 时按 user+Agent 聚合（跨入口共享），入口只作来源；Gateway 的 API-05 用它 |
+| API-25 | 会话列表 | GET | `/internal/webchat/entries/{entry_id}/conversations` | `entry_agnostic=true` + `channel_types`（Web 面传 `WEBCHAT,MSSWWEB`）时按 user+Agent + 来源通道聚合，入口只作来源；Gateway 的 API-05 用它 |
 | API-26 | 授权同步状态（ADMIN） | GET | `/api/v1/auth-cache-sync` | 当前租户同步状态与可安全展示的操作摘要 |
 | 既有 | 会话详情 | GET | `/internal/webchat/conversations/{id}` | 同快照返回 `last_seq`、active_run 与 `notification_through_seq` |
 
@@ -972,8 +972,8 @@ flowchart TD
 | `/identity` | 用户级 external_identity；未绑定 nullable | 只返回 grants；entry 不参与主体 | 每个 grant 判 Agent |
 | `GET /entries` | 用户级主体 | 只列 grants 中的入口 | 是 |
 | 创建会话/发消息/上传 | 用户级主体 | 入口是本次来源；必须已授权 | 是 |
-| 用户+Agent 会话列表 | 用户+Agent | 跨入口聚合；只展示来源 | 是 |
-| 会话详情/消息 | 用户+Agent | 不做 entry/channel 断言 | 是 |
+| 用户+Agent 会话列表 | 用户+Agent | Web 面跨入口聚合；来源通道限 `WEBCHAT/MSSWWEB` | 是 |
+| 会话详情/消息 | 用户+Agent | 来源入口不做相等断言；Web 面来源通道限 `WEBCHAT/MSSWWEB` | 是 |
 | 删除会话 | 用户 | 无 | **否**（现有幂等 delete，含 tombstone） |
 | 取消 Run | 用户 | 无 | **否** |
 | resume | 用户+Agent | 无 | **是**（Agent 撤权默认拒绝） |

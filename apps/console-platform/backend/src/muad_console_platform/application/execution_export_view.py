@@ -240,7 +240,7 @@ def _timeline(bundle: ExecutionExportBundle) -> list[dict[str, Any]]:
     if bundle.kind == "TASK":
         task_rows = _section_rows(bundle, "task.task_event")
         if task_rows:
-            return _task_event_timeline(bundle, task_rows)
+            return _task_event_timeline(bundle, list(task_rows))
     rows = _section_rows(bundle, "runtime.canonical_event")
     events: list[dict[str, Any]] = []
     previous = None

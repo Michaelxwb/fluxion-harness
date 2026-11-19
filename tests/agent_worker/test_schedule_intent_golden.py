@@ -45,6 +45,10 @@ class RecordingDraftClient:
     def __init__(self) -> None:
         self.calls: list[dict[str, Any]] = []
 
+    async def list_delivery_targets(self, **kwargs: Any) -> dict[str, Any]:
+        """Golden 用例不验证出站目标；显式返回空列表，让投递推导走默认来源路由。"""
+        return {"items": []}
+
     async def create_schedule_draft(self, **kwargs: Any) -> dict[str, Any]:
         self.calls.append(kwargs)
         draft = cast(dict[str, Any], kwargs["draft"])

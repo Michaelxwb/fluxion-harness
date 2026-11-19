@@ -133,12 +133,77 @@ async def _purge_tenant(tenant_id: str) -> None:
         await session.commit()
 
 
+async def _purge_control_entries(tenant_id: str) -> None:
+    async with get_session_factory()() as session:
+        for table in ("bot_account", "agent_definition", "model_definition"):
+            await session.execute(
+                sa.text(f"DELETE FROM control.{table} WHERE tenant_id = :tenant_id"),
+                {"tenant_id": tenant_id},
+            )
+        await session.commit()
+
+
+async def _seed_control_entries(
+    tenant: TenantContext, channels: tuple[str, ...]
+) -> dict[str, uuid.UUID]:
+    """真实 `control` 行：来源入口的 channel 是 Web/企微共享边界的事实来源。"""
+    model_id = uuid.uuid4()
+    entries = {channel: uuid.uuid4() for channel in channels}
+    async with get_session_factory()() as session:
+        await session.execute(
+            sa.text(
+                "INSERT INTO control.model_definition (id, tenant_id, key, name, model_id)"
+                " VALUES (:id, :tenant_id, :key, :name, :model_id)"
+            ),
+            {
+                "id": model_id,
+                "tenant_id": tenant.tenant_id,
+                "key": f"model-{uuid.uuid4().hex[:12]}",
+                "name": "capacity-model",
+                "model_id": f"model-{uuid.uuid4().hex[:12]}",
+            },
+        )
+        await session.execute(
+            sa.text(
+                "INSERT INTO control.agent_definition"
+                " (id, tenant_id, key, name, instructions, model_id)"
+                " VALUES (:id, :tenant_id, :key, :name, 'test', :model_id)"
+            ),
+            {
+                "id": tenant.agent_id,
+                "tenant_id": tenant.tenant_id,
+                "key": f"agent-{uuid.uuid4().hex[:12]}",
+                "name": "capacity-agent",
+                "model_id": model_id,
+            },
+        )
+        for channel, entry_id in entries.items():
+            await session.execute(
+                sa.text(
+                    "INSERT INTO control.bot_account"
+                    " (id, tenant_id, channel, name, bot_id, agent_id)"
+                    " VALUES (:id, :tenant_id, :channel, :name, :bot_id, :agent_id)"
+                ),
+                {
+                    "id": entry_id,
+                    "tenant_id": tenant.tenant_id,
+                    "channel": channel,
+                    "name": f"{channel}-entry",
+                    "bot_id": f"bot-{uuid.uuid4().hex}",
+                    "agent_id": tenant.agent_id,
+                },
+            )
+        await session.commit()
+    return entries
+
+
 @pytest.fixture
 async def scope_tenant(tenant: TenantContext) -> AsyncIterator[TenantContext]:
     try:
         yield tenant
     finally:
         await _purge_tenant(tenant.tenant_id)
+        await _purge_control_entries(tenant.tenant_id)
 
 
 async def _seed_conversation(
@@ -298,13 +363,14 @@ def _request(
     external_user_id: str = "ext-b249",
     external_conversation_id: str = THREAD_A,
     attachments: list[AttachmentRef] | None = None,
+    channel_type: str = "WECOM",
 ) -> RunRequest:
     return RunRequest(
         agent_id=agent_id or tenant.agent_id,
         platform_user_id=user_id or tenant.platform_user_id,
         conversation_id=conversation_id,
         channel=ChannelContext(
-            type="WECOM",
+            type=channel_type,
             entry_id=entry_id,
             bot_id=bot_id if bot_id is not None else f"bot-{entry_id.hex[:8]}",
             external_user_id=external_user_id,
@@ -494,6 +560,71 @@ async def test_b249_explicit_conversation_is_scoped_to_tenant_user_agent_entry(
         assert error.code == ErrorCode.COMMON_NOT_FOUND
     finally:
         await _purge_tenant(foreign.tenant_id)
+
+
+async def test_web_surfaces_share_conversations_but_wecom_stays_isolated(
+    scope_tenant: TenantContext,
+    fake_resolve: FakeResolveClient,
+    executor_factory: ExecutorFactory,
+    execution_supervisor_boundary: ExecutionSupervisor,
+) -> None:
+    """WebChat/MSSWWEB 互相续聊；企微来源既不能从 Web 列表出现，也不能从 Web 续聊。"""
+    tenant = scope_tenant
+    entries = await _seed_control_entries(tenant, ("WEBCHAT", "MSSWWEB", "WECOM"))
+    web_source = entries["WEBCHAT"]
+    web_send = entries["MSSWWEB"]
+    wecom_source = entries["WECOM"]
+
+    conversation_id = await _seed_conversation(
+        tenant, entry_id=web_source, thread=THREAD_A
+    )
+    await _append_user_message(tenant.tenant_id, conversation_id, "网页历史")
+
+    start = await _start(
+        tenant,
+        fake_resolve,
+        executor_factory,
+        execution_supervisor_boundary,
+        _request(
+            tenant,
+            channel_type="MSSWWEB",
+            conversation_id=conversation_id,
+            entry_id=web_send,
+            text="跨 Web 入口继续",
+        ),
+    )
+    await _drain(start)
+    assert start.conversation_id == conversation_id
+    row = await _read_conversation(conversation_id)
+    assert row is not None
+    assert row["channel_account_id"] == web_source, "续聊不得改写会话的创建来源"
+    async with get_session_factory()() as session:
+        run = await session.get(RunRecord, start.run_id)
+        assert run is not None and run.channel_json is not None
+        assert run.channel_json["type"] == "MSSWWEB"
+        assert run.channel_json["entry_id"] == str(web_send), (
+            "本次 Run 的来源/投递入口必须是实际发送入口"
+        )
+
+    wecom_conversation = await _seed_conversation(
+        tenant, entry_id=wecom_source, thread=THREAD_B
+    )
+    error = await _rejects(
+        _start(
+            tenant,
+            fake_resolve,
+            executor_factory,
+            execution_supervisor_boundary,
+            _request(
+                tenant,
+                channel_type="WEBCHAT",
+                conversation_id=wecom_conversation,
+                entry_id=web_send,
+                text="跨面续聊企微",
+            ),
+        )
+    )
+    assert error.code == ErrorCode.COMMON_NOT_FOUND
 
 
 # --------------------------------------------------------------------------------------

@@ -24,9 +24,10 @@ import uuid
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
-from muad_api import ApiResponse, ok
+from muad_api import ApiResponse, AppError, ok
+from muad_api.error_codes import ErrorCode
 from muad_api.security import require_internal_service
-from muad_contracts import MAX_PAGE_SIZE
+from muad_contracts import BUILTIN_CHANNEL_NAMES, MAX_PAGE_SIZE
 from muad_contracts.platform_settings import WebchatSettings, parse_platform_settings
 from muad_contracts.webchat import (
     WebchatMarkReadRequest,
@@ -68,6 +69,8 @@ Checksum = Annotated[str, Query(min_length=1)]
 EntryId = Annotated[uuid.UUID, Query()]
 #: 跨入口共享会话：调用方显式声明按 user + Agent 聚合/核属，入口只作来源（默认严格按入口）。
 EntryAgnostic = Annotated[bool, Query()]
+#: 跨入口来源通道 allowlist（逗号分隔）：只允许这些通道的入口账号作为会话来源。
+ChannelTypes = Annotated[str | None, Query()]
 ThroughSeq = Annotated[int | None, Query(ge=0)]
 AfterSeq = Annotated[int, Query(ge=0)]
 
@@ -97,6 +100,16 @@ def _conversation_policy(webchat: WebchatSettings) -> ConversationPolicy:
     )
 
 
+def _channel_types(value: str | None) -> tuple[str, ...] | None:
+    """逗号分隔的来源通道 allowlist：去重保序、只接受内建通道名；空值表示不过滤。"""
+    if value is None:
+        return None
+    parts = tuple(dict.fromkeys(part.strip().upper() for part in value.split(",") if part.strip()))
+    if not parts or any(part not in BUILTIN_CHANNEL_NAMES for part in parts):
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+    return parts
+
+
 def _scope(
     tenant_id: str,
     *,
@@ -104,6 +117,7 @@ def _scope(
     agent_id: uuid.UUID,
     entry_id: uuid.UUID,
     entry_agnostic: bool = False,
+    channel_types: tuple[str, ...] | None = None,
 ) -> HistoryScope:
     return HistoryScope(
         tenant_id=tenant_id,
@@ -111,6 +125,7 @@ def _scope(
         agent_id=agent_id,
         entry_id=entry_id,
         entry_agnostic=entry_agnostic,
+        channel_types=channel_types,
     )
 
 
@@ -212,10 +227,12 @@ async def list_entry_conversations(
     page: PageNumber = 1,
     page_size: PageSize = None,
     entry_agnostic: EntryAgnostic = False,
+    channel_types: ChannelTypes = None,
 ) -> ApiResponse[dict[str, Any]]:
     """API-14：入口会话列表（仅本主体/入口/Agent，按最近活动倒序）。
 
-    `entry_agnostic=true` 时按 user + Agent 聚合（跨入口共享会话），入口只作来源。
+    `entry_agnostic=true` 时按 user + Agent 聚合（跨入口共享会话），入口只作来源；
+    `channel_types` 进一步限定来源通道（Web 面传 Web allowlist，企微不进入）。
     """
     webchat = await _webchat_settings(settings_client, tenant_id)
     size = page_size if page_size is not None else webchat.history_page_size
@@ -226,6 +243,7 @@ async def list_entry_conversations(
             agent_id=agent_id,
             entry_id=entry_id,
             entry_agnostic=entry_agnostic,
+            channel_types=_channel_types(channel_types),
         ),
         page=page,
         page_size=size,
@@ -245,6 +263,7 @@ async def get_conversation(
     agent_id: AgentId,
     entry_id: EntryId,
     entry_agnostic: EntryAgnostic = False,
+    channel_types: ChannelTypes = None,
 ) -> ApiResponse[dict[str, Any]]:
     """API-15：核属后的会话详情（活跃 Run 供打开历史后的恢复；跨入口时按 user + Agent）。"""
     webchat = await _webchat_settings(settings_client, tenant_id)
@@ -255,6 +274,7 @@ async def get_conversation(
             agent_id=agent_id,
             entry_id=entry_id,
             entry_agnostic=entry_agnostic,
+            channel_types=_channel_types(channel_types),
         ),
         conversation_id,
         policy=_conversation_policy(webchat),
@@ -314,6 +334,7 @@ async def list_messages(
     page_size: PageSize = None,
     through_seq: ThroughSeq = None,
     entry_agnostic: EntryAgnostic = False,
+    channel_types: ChannelTypes = None,
 ) -> ApiResponse[dict[str, Any]]:
     """API-09：可见消息固定水位分页（首屏冻结 `through_seq`，后页沿用；跨入口按 user + Agent）。"""
     webchat = await _webchat_settings(settings_client, tenant_id)
@@ -325,6 +346,7 @@ async def list_messages(
             agent_id=agent_id,
             entry_id=entry_id,
             entry_agnostic=entry_agnostic,
+            channel_types=_channel_types(channel_types),
         ),
         conversation_id,
         page=page,

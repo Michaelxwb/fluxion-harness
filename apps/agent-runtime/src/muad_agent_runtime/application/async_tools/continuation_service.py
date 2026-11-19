@@ -135,9 +135,22 @@ async def _write_checkpoint(
 
 
 async def _ensure_complete_round(session: AsyncSession, run: RunRecord) -> None:
-    declared = await session.scalar(select(CanonicalEvent).where(CanonicalEvent.tenant_id == run.tenant_id,
-        CanonicalEvent.run_id == run.id, CanonicalEvent.event_type == "ASSISTANT_TURN",
-        CanonicalEvent.is_deleted.is_(False)).order_by(CanonicalEvent.seq.desc()).limit(1))
+    """Checkpoint 只能落在完整工具回合之后：每个声明的 tool_call 都必须有结果事件。
+
+    预算截断的调用也由 Kernel 以 `TOOL_BUDGET_EXHAUSTED` 结果补一条 TOOL_CALL，因此这条
+    双向配对没有例外；缺失任何一条都说明回合没收口，不能落 checkpoint。
+    """
+    declared = await session.scalar(
+        select(CanonicalEvent)
+        .where(
+            CanonicalEvent.tenant_id == run.tenant_id,
+            CanonicalEvent.run_id == run.id,
+            CanonicalEvent.event_type == "ASSISTANT_TURN",
+            CanonicalEvent.is_deleted.is_(False),
+        )
+        .order_by(CanonicalEvent.seq.desc())
+        .limit(1)
+    )
     if declared is None:
         return
     payload = JSON_OBJECT.validate_python(declared.payload_json)
