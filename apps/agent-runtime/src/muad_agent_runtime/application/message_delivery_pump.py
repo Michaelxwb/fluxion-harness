@@ -393,6 +393,7 @@ class GatewayMessageDeliverySender:
             message_id=intent.message_id,
             delivery_attempt_id=attempt_id,
             delivery_epoch=lease_epoch,
+            target_key=intent.target_key,
             agent_id=intent.agent_id,
             platform_user_id=intent.platform_user_id,
         )

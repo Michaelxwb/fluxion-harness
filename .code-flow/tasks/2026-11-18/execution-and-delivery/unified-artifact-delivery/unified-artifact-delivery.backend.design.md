@@ -307,7 +307,7 @@ UNIQUE (tenant_id, task_id, message_key, target_key)
 
 - 请求：`tenant_id`、`owner_type`、`owner_id`、`message_key`、`kind`、`target_key`、`route`、`payload{text, attachments[]}`。
 - 校验：服务身份 + tenant；owner 存在且未软删；附件属于 owner；路由属于同一用户-Agent 且在 `OUTBOUND_CHANNELS`；payload 有界。
-- 幂等：`(tenant_id, message_key, target_key)` 返回首次结果；不重复发送。
+- 幂等：`(tenant_id, message_key, target_key)` 返回首次结果；同一 message_key 的不同目标互不覆盖。Gateway 的投递去重键也必须带 `target_key`，否则第二个 bot 会被当成重放。
 - 返回：`delivery_id`、`status`、`message_key`；outbox 据此置 `APPLIED`/`FAILED`。
 - 不回传正文/凭据；错误码稳定（路由失效、owner 不存在、附件越权等）。
 
@@ -316,7 +316,7 @@ UNIQUE (tenant_id, task_id, message_key, target_key)
 - `ScheduleDraftRequest.delivery_route` 可选；PUSH 由“用户是否有已绑定出站身份”决定：有则默认选最近活跃/绑定的目标，没有则 NONE；不再由 `entry_channel` 决定，也不读历史 route 快照。
 - 删除 `schedule_drafts.py` 的 `entry_delivery_capability`/`ensure_delivery_target` 入口相等限制；同步 `schedule_confirm.py` 的 route 解析（确认时也按显式目标，不按入口）。
 - 校验：路由属于同一 tenant/user/agent、通道在 `OUTBOUND_CHANNELS`、绑定有效；不满足则 `SCHEDULE_DELIVERY_UNSUPPORTED`。
-- 有已绑定出站身份 → 默认 PUSH 到最近活跃/绑定的目标；没有绑定 → NONE。创建入口只作来源元数据，不参与默认值。
+- 有已绑定出站身份 → 默认 PUSH；同一用户有多个有效启用身份时逐个目标扇出（每个 bot 一条 `message_delivery`，按 `target_key` 去重），正常单身份时只有一条。没有绑定 → NONE。创建入口只作来源元数据，不参与默认值。
 - 新增只读目标列表（调度默认目标）：Console `GET /internal/channel/targets` + Worker `GET /internal/schedules/delivery-targets`，从用户绑定的出站 `channel_identity` + 启用 bot 投影，返回安全标签与 `DeliveryRouteInput`；通道集合由 `OUTBOUND_CHANNELS` 拥有，新增 IM 通道不在这里加分支。前端不展示 route 内部 ID/通道，也不拼接 URL。没有目标时返回空列表。
 - Schedule Revision 冻结 `delivery_intent` + `delivery_route_id`；Task 执行按冻结路由 push。
 - Web pull 不是 `delivery_intent`：只要有 Web 入口，任务中心/详情始终可读。

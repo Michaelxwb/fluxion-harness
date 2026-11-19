@@ -20,6 +20,7 @@ from muad_contracts import (
     AttachmentRef,
     BotSnapshotItem,
     ChannelResolveResponse,
+    DeliveryRequest,
     DeliveryResponse,
 )
 from muad_im_connector.channels.wecom.adapter import ConnectionState, WeComAdapter
@@ -33,6 +34,7 @@ from muad_im_gateway.api.deps import (
     get_registry,
 )
 from muad_im_gateway.channels.base import ChannelAdapterUnavailable, ChannelRegistry
+from muad_im_gateway.api.delivery import _dedupe_key
 from muad_im_gateway.channels.fake import FakeChannelAdapter
 from muad_im_gateway.infrastructure.dedupe import (
     DedupeStore,
@@ -1189,3 +1191,10 @@ async def test_terminal_delivery_renders_abandoned_as_broken_stream_text() -> No
         )
     assert response.status_code == 200, response.text
     assert "中断" in adapter.sent[0][1].text
+
+
+def test_dedupe_key_is_partitioned_by_target() -> None:
+    body = DeliveryRequest.model_validate(delivery_body())
+    other = body.model_copy(update={"target_key": "WECOM:other"})
+    assert _dedupe_key(body) != _dedupe_key(other)
+    assert _dedupe_key(body) == _dedupe_key(body)

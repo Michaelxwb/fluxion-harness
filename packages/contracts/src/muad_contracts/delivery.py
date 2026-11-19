@@ -115,9 +115,13 @@ class DeliveryRequest(ContractModel):
     artifact_ids: list[UUID] = Field(default_factory=list)
     #: 发起本次 Run 的入站消息身份（终态用于找回**原消息**的回复流；后台任务为空）。
     message_id: str | None = None
-    #: 投递仲裁身份（Runtime 投递泵的租约）：发送端按 (tenant, delivery_key) 持久去重与 fencing。
+    #: 投递仲裁身份（Runtime 投递泵的租约）：发送端按 (tenant, delivery_key, target_key)
+    #: 持久去重与 fencing；同一个 message_key 可以扇出到多个目标。
     delivery_attempt_id: UUID | None = None
     delivery_epoch: int | None = None
+    #: 渠道中立的稳定目标身份（`WECOM:<route-hash>`）。单目标旧调用可省略；
+    #: 多目标扇出时网关据此区分同一 message_key 的不同收件人。
+    target_key: str | None = Field(default=None, max_length=160)
     #: 受理时的接收者/Agent 身份：Gateway 在真实发送前按原入口复核权限，
     #: 授权被撤销或接收者/Agent 变了就不发（与受理时的身份比对）。
     agent_id: UUID | None = None

@@ -55,6 +55,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from agent_worker.conftest import TenantContext
+from muad_agent_worker.application import task_message_outbox as outbox_module
 from muad_agent_worker.application.task_message_outbox import _result_text
 from agent_worker.helpers import fetch_task, internal_service_headers, persist_task
 
@@ -360,6 +361,48 @@ async def test_completed_task_with_push_route_freezes_multi_attachment_message(
     ]
     assert await _task_deliveries(tenant, execution.id) == []
     assert (await fetch_task(tenant, execution.id)).status == "COMPLETED"
+
+
+async def test_two_bound_identities_each_get_an_outbox_row(
+    outbox_tenant: _Tenant, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tenant = outbox_tenant.context
+    owner, agent = uuid.uuid4(), uuid.uuid4()
+    route_id = await _seed_route(tenant, platform_user_id=owner)
+    schedule, revision = await _seed_schedule(
+        tenant, owner=owner, agent=agent, route_id=route_id
+    )
+    execution = await _seed_execution(
+        tenant, schedule, revision, owner=owner, agent=agent
+    )
+    await _seed_artifact(
+        outbox_tenant, execution.id, filename="a.txt", content=b"a"
+    )
+    second_route = DeliveryRouteInput(
+        channel="WECOM", bot_id="bot-second", external_user_id=EXTERNAL_USER_ID
+    )
+
+    async def two_targets(session, task):
+        del session, task
+        return [
+            outbox_module._PushRoute(
+                route=_sample_route(), target_key=delivery_target_key(_sample_route())
+            ),
+            outbox_module._PushRoute(
+                route=second_route, target_key=delivery_target_key(second_route)
+            ),
+        ]
+
+    monkeypatch.setattr(outbox_module, "_identity_push_routes", two_targets)
+    assert await _finish(tenant, execution.id, TerminalStatus.COMPLETED) is True
+
+    rows = await _outbox_rows(tenant, execution.id)
+    assert len(rows) == 2
+    assert {row.target_key for row in rows} == {
+        delivery_target_key(_sample_route()),
+        delivery_target_key(second_route),
+    }
+    assert {row.message_key for row in rows} == {f"execution:{execution.id}:final"}
 
 
 async def test_failed_and_cancelled_terminals_never_write_outbox(

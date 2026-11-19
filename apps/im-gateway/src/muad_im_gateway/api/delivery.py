@@ -113,7 +113,7 @@ async def deliver(
     - 其余通道 ⇒ `im.outbound` 入队 + **有界等待结果**：请求面进程不持有渠道连接/secret，
       Web-Com 之类的有状态通道由 Connector 消费。超时回可重试错误，不把"已入队"当"已送达"。
     """
-    key = f"{DELIVERY_DEDUPE_PREFIX}:{body.delivery_key}"
+    key = _dedupe_key(body)
     trace_id = current_trace_id() or ""
     _require_gateway_tenant(body, gateway_tenant)
     # 有主动投递能力（IM 绑定）的入口才做发送前复核：撤权/换人一律不发。
@@ -203,6 +203,14 @@ def _require_gateway_tenant(body: DeliveryRequest, gateway_tenant: str) -> None:
         raise AppError(ErrorCode.FORBIDDEN)
 
 
+def _dedupe_key(body: DeliveryRequest) -> str:
+    """同一 message_key 的不同目标必须各有占位/成功键，否则第二个 bot 会被当成重放。"""
+    key = f"{DELIVERY_DEDUPE_PREFIX}:{body.delivery_key}"
+    if body.target_key:
+        key = f"{key}:{body.target_key}"
+    return key
+
+
 def _fingerprint(body: DeliveryRequest) -> str:
     """请求指纹（`RULE-api-002`）：规范化 JSON 的 SHA256，**含 endpoint 与 tenant_id**。
 
@@ -219,6 +227,7 @@ def _fingerprint(body: DeliveryRequest) -> str:
         "endpoint": DELIVERY_ENDPOINT,
         "tenant_id": body.tenant_id,
         "delivery_key": body.delivery_key,
+        "target_key": body.target_key,
         "route": body.route.model_dump(mode="json"),
         "message_type": body.message.type,
         "artifact_ids": sorted(str(value) for value in body.artifact_ids),

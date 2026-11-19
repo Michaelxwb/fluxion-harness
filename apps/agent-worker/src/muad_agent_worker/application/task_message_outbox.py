@@ -28,6 +28,7 @@ from muad_contracts import (
     MessageDeliveryPayloadInput,
     delivery_target_key,
 )
+from muad_contracts.enums import OUTBOUND_CHANNELS
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -81,8 +82,8 @@ async def enqueue_task_message_outbox(
     if task.parent_id is not None:
         # JOIN/BATCH 子任务不直接向用户投递；父任务终态聚合子产物。
         return False
-    push = await _push_route(session, task)
-    if push is None:
+    pushes = await _push_routes(session, task)
+    if not pushes:
         return False
     attachments = await _output_attachments(session, task)
     if not attachments:
@@ -92,44 +93,49 @@ async def enqueue_task_message_outbox(
         attachments=attachments,
     )
     message_key = f"execution:{task.id}:final"
-    values = {
-        "tenant_id": task.tenant_id,
-        "task_id": task.id,
-        "message_key": message_key,
-        "kind": MESSAGE_KIND_TASK_RESULT,
-        "target_key": push.target_key,
-        "route_json": push.route.model_dump(mode="json"),
-        "payload_json": payload.model_dump(mode="json"),
-        "status": OUTBOX_PENDING,
-        "attempts": 0,
-        "next_attempt_at": moment,
-    }
-    inserted = (
-        await session.execute(
-            pg_insert(TaskMessageOutbox)
-            .values(id=uuid.uuid4(), **values)
-            .on_conflict_do_nothing(
-                index_elements=[
-                    TaskMessageOutbox.tenant_id,
-                    TaskMessageOutbox.task_id,
-                    TaskMessageOutbox.message_key,
-                    TaskMessageOutbox.target_key,
-                ]
+    written = False
+    for push in pushes:
+        values = {
+            "tenant_id": task.tenant_id,
+            "task_id": task.id,
+            "message_key": message_key,
+            "kind": MESSAGE_KIND_TASK_RESULT,
+            "target_key": push.target_key,
+            "route_json": push.route.model_dump(mode="json"),
+            "payload_json": payload.model_dump(mode="json"),
+            "status": OUTBOX_PENDING,
+            "attempts": 0,
+            "next_attempt_at": moment,
+        }
+        inserted = (
+            await session.execute(
+                pg_insert(TaskMessageOutbox)
+                .values(id=uuid.uuid4(), **values)
+                .on_conflict_do_nothing(
+                    index_elements=[
+                        TaskMessageOutbox.tenant_id,
+                        TaskMessageOutbox.task_id,
+                        TaskMessageOutbox.message_key,
+                        TaskMessageOutbox.target_key,
+                    ]
+                )
+                .returning(TaskMessageOutbox.id)
             )
-            .returning(TaskMessageOutbox.id)
-        )
-    ).scalar_one_or_none()
-    if inserted is None:
-        existing_id = await session.scalar(
-            sa.select(TaskMessageOutbox.id).where(
-                TaskMessageOutbox.tenant_id == task.tenant_id,
-                TaskMessageOutbox.task_id == task.id,
-                TaskMessageOutbox.message_key == message_key,
-                TaskMessageOutbox.target_key == push.target_key,
+        ).scalar_one_or_none()
+        if inserted is None:
+            existing_id = await session.scalar(
+                sa.select(TaskMessageOutbox.id).where(
+                    TaskMessageOutbox.tenant_id == task.tenant_id,
+                    TaskMessageOutbox.task_id == task.id,
+                    TaskMessageOutbox.message_key == message_key,
+                    TaskMessageOutbox.target_key == push.target_key,
+                )
             )
-        )
-        if existing_id is None:
-            return False
+            if existing_id is None:
+                continue
+        written = True
+    if not written:
+        return False
     # 立即任务在创建时就建了 `task_delivery` 行；outbox 接手后同事务作废它，避免双发。
     await session.execute(
         sa.update(TaskDelivery)
@@ -145,10 +151,32 @@ async def enqueue_task_message_outbox(
     return True
 
 
-async def _push_route(session: AsyncSession, task: TaskExecution) -> _PushRoute | None:
-    """解析这条 Task 的 PUSH 路由：定时看冻结 Revision，立即任务看创建时的投递记录。"""
+async def _push_routes(session: AsyncSession, task: TaskExecution) -> list[_PushRoute]:
+    """All push targets for this task: every valid bound identity, then frozen fallback.
+
+    A user normally has one identity; if several are bound (the edge case), each enabled
+    bot gets its own outbox row and therefore its own delivery. The frozen revision route
+    is the fallback when no identity is currently readable (for example old test rows).
+    """
     if task.schedule_revision_id is not None:
-        return await _revision_push_route(session, task)
+        revision = await session.scalar(
+            sa.select(TaskScheduleRevision).where(
+                TaskScheduleRevision.id == task.schedule_revision_id,
+                TaskScheduleRevision.tenant_id == task.tenant_id,
+                TaskScheduleRevision.is_deleted.is_(False),
+            )
+        )
+        if (
+            revision is None
+            or revision.delivery_intent != DELIVERY_INTENT_PUSH
+            or revision.delivery_route_id is None
+        ):
+            return []
+        identity_routes = await _identity_push_routes(session, task)
+        if identity_routes:
+            return identity_routes
+        fallback = await _route_row_to_push(session, task, revision.delivery_route_id)
+        return [fallback] if fallback is not None else []
     delivery_route_id = await session.scalar(
         sa.select(TaskDelivery.delivery_route_id).where(
             TaskDelivery.tenant_id == task.tenant_id,
@@ -159,8 +187,86 @@ async def _push_route(session: AsyncSession, task: TaskExecution) -> _PushRoute 
         )
     )
     if delivery_route_id is None:
-        return None
-    return await _route_row_to_push(session, task, delivery_route_id)
+        return []
+    identity_routes = await _identity_push_routes(session, task)
+    if identity_routes:
+        return identity_routes
+    fallback = await _route_row_to_push(session, task, delivery_route_id)
+    return [fallback] if fallback is not None else []
+
+
+_CHANNEL_IDENTITY = sa.table(
+    "channel_identity",
+    sa.column("tenant_id", sa.String()),
+    sa.column("channel", sa.String()),
+    sa.column("external_user_id", sa.String()),
+    sa.column("bot_account_id", sa.Uuid()),
+    sa.column("platform_user_id", sa.Uuid()),
+    sa.column("is_deleted", sa.Boolean()),
+    sa.column("bound_at", sa.DateTime(timezone=True)),
+    sa.column("last_active_at", sa.DateTime(timezone=True)),
+    schema="control",
+)
+_BOT_ACCOUNT = sa.table(
+    "bot_account",
+    sa.column("id", sa.Uuid()),
+    sa.column("tenant_id", sa.String()),
+    sa.column("bot_id", sa.String()),
+    sa.column("agent_id", sa.Uuid()),
+    sa.column("enabled", sa.Boolean()),
+    sa.column("is_deleted", sa.Boolean()),
+    schema="control",
+)
+
+
+async def _identity_push_routes(
+    session: AsyncSession, task: TaskExecution
+) -> list[_PushRoute]:
+    """Current valid outbound identities for this task's actor + agent, de-duplicated."""
+    rows = (
+        await session.execute(
+            sa.select(
+                _CHANNEL_IDENTITY.c.channel,
+                _BOT_ACCOUNT.c.bot_id,
+                _CHANNEL_IDENTITY.c.external_user_id,
+            )
+            .select_from(
+                _CHANNEL_IDENTITY.join(
+                    _BOT_ACCOUNT, _BOT_ACCOUNT.c.id == _CHANNEL_IDENTITY.c.bot_account_id
+                )
+            )
+            .where(
+                _CHANNEL_IDENTITY.c.tenant_id == task.tenant_id,
+                _CHANNEL_IDENTITY.c.platform_user_id == task.actor_user_id,
+                _BOT_ACCOUNT.c.agent_id == task.agent_id,
+                _CHANNEL_IDENTITY.c.is_deleted.is_(False),
+                _BOT_ACCOUNT.c.is_deleted.is_(False),
+                _BOT_ACCOUNT.c.enabled.is_(True),
+                _CHANNEL_IDENTITY.c.channel.in_(sorted(OUTBOUND_CHANNELS)),
+            )
+            .order_by(
+                sa.func.coalesce(
+                    _CHANNEL_IDENTITY.c.last_active_at, _CHANNEL_IDENTITY.c.bound_at
+                ).desc(),
+                _CHANNEL_IDENTITY.c.external_user_id,
+            )
+        )
+    ).all()
+    pushes: list[_PushRoute] = []
+    seen: set[str] = set()
+    for row in rows:
+        route = DeliveryRouteInput(
+            channel=str(row.channel),
+            bot_id=str(row.bot_id),
+            external_user_id=str(row.external_user_id),
+            external_conversation_id=None,
+        )
+        key = delivery_target_key(route)
+        if key in seen:
+            continue
+        seen.add(key)
+        pushes.append(_PushRoute(route=route, target_key=key))
+    return pushes
 
 
 async def _revision_push_route(
