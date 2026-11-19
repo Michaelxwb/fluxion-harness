@@ -45,6 +45,6 @@
 
 ## 4. 全量 acceptance 说明
 
-`make acceptance` 首轮 19 个失败中，与本需求相关的 S-46/S-47、附件往返和 capacity E-15 已修复并复跑通过。
-E-04/S-10/E-15/S-45 与 E-19 已修复复跑通过；仅旧 `task_delivery` 的 B-127 恢复仍失败，详见
-`run-failure-reporting/acceptance.md` 第 4 节。
+`make acceptance` 最终 **528 passed / 2 skipped**，无失败。过程中修复了旧用例漂移（E-04/
+S-10/E-15/S-45/S-46/S-47/E-19）以及两个真实问题：投递循环 stale 判据未覆盖在飞网络调用、
+显式交付后终态消息重复挂载同一附件。见 `run-failure-reporting/acceptance.md` 第 4 节。

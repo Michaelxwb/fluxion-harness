@@ -1346,7 +1346,7 @@ TASK 导出的 timeline/events 来自 task_event；`tasks[].events` 按 entity_i
 ### Log
 
 - [2026-11-18] created
-- [2026-11-19] docs + acceptance records; browser E2E covered REMINDER/SKILL_PLAN/AGENT_TURN cards, PUSH target and confirmation; E-04 pending external env
+- [2026-11-19] docs + acceptance records; browser E2E covered REMINDER/SKILL_PLAN/AGENT_TURN cards, PUSH target and confirmation; full `make acceptance` 528 passed; E-04 pending external env
 - [2026-11-18T21:53:31.624Z] started tests=b451a018483c
 
 ### Verification

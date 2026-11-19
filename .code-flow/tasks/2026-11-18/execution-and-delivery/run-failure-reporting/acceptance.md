@@ -60,25 +60,23 @@
 
 ## 4. 全量 `make acceptance` 结果（2026-11-19）
 
-首轮：509 passed / 19 failed / 2 skipped。失败分三类：
+最终结果：**528 passed / 2 skipped / 10 deselected**，无失败。
 
-1. **本需求引入、已修复并复跑通过**：
-   - B-234 重试安全与 capacity E-15：Skill fixture 补结构化 `retryable` 失败信封；
-   - S-46 渠道中立：把展示标签移到 `muad_contracts.enums.CHANNEL_DISPLAY_LABELS`，核心域零渠道字面量；
-   - S-47 WebChat 产物交付：断言从 Gateway push 改为目标会话 `ARTIFACT_CREATED` 事实；
-   - 附件往返两条在隔离进程内单独复跑通过（首轮为同批共享状态干扰）。
-2. **已修复的旧验收**：
-   - `test_e_04.py`：补 `ChannelContext` 与 `CancelSource`，4 条通过；
-   - `test_s_10.py` / `test_e_15.py`：移除已删除的 `intent_key`/`delivery_key`/`execution_mode` 旧字段，2 条通过；
-   - `test_s_45.py`：确认 Model/MCP/Memory 域变更为后续需求事实后，重生成非干扰基线，3 条通过；
-   - `test_stream_delivery.py::test_e19...`：改为读 `message_delivery`/attempt，重置尝试计数并从回执推导 outcome，1 条通过。
-3. **旧投递循环恢复（已修复）**：
-   - `test_b127_retryable_failure_recovers_after_injection_cleared` 第二次尝试长期 PENDING 的根因是
-     `worker.delivery` 的 stale 判据只按轮询节拍（3×）而没有覆盖单次 Gateway 有界等待 + Connector
-     往返 + HTTP 超时；监督器把在飞尝试杀掉，留下 PENDING 行等 300s lease。
-   - 修复：`worker.delivery` / `worker.message_outbox` 的 stale 预算覆盖网络调用上限（不改变
-     正常轮询节拍，也不放宽真正停摆的检测）。
-   - 定向复跑 `test_worker_delivery.py`：4 passed。
-4. **外部环境**：E-04 内网真实任务仍 pending（无内网凭据/Connector）。
+修复过程中的三类问题均已处理：
 
-本需求相关的单元、契约、集成、浏览器路径均已通过；上述第 2 类不是本需求新增回归，但归档前应由对应 Owner 决定是更新用例还是接受已知失败。
+1. **本需求引入的断言漂移**：B-234/capacity E-15 的 Skill fixture 补结构化 `retryable`
+   失败信封；S-46 渠道标签集中到 `muad_contracts.enums.CHANNEL_DISPLAY_LABELS`；
+   S-47 WebChat 交付断言改为目标会话 `ARTIFACT_CREATED`；E-19 改读
+   `message_delivery`/attempt 并从回执推导 outcome。
+2. **旧验收用例漂移**：E-04 补 `ChannelContext`/`CancelSource`；S-10/E-15 去掉已删除的
+   `intent_key`/`delivery_key`/`execution_mode`；S-45 在确认 Model/MCP/Memory 域变更属于
+   后续需求事实后重生成非干扰基线。
+3. **修复两个真实产品问题**：
+   - `worker.delivery` / `worker.message_outbox` 的监督 stale 判据只按轮询节拍，未覆盖
+     单次 Gateway 有界等待 + Connector 往返 + HTTP 超时，导致在飞尝试被监督器杀掉并留下
+     `PENDING`；已让 stale 预算覆盖网络调用上限（B-127 通过）。
+   - 显式 `deliver_artifact` 成功后终态消息又自动挂载同一附件，用户会收到两份文件；已在
+     成功交付后写会话 `ARTIFACT_CREATED` 事实，终态附件按附件身份去重（archive E2E 通过）。
+
+外部环境：E-04 内网真实 `daily-duty-report` 任务仍需目标内网凭据与企微 Connector，保持
+`pending`，不能记为通过。
