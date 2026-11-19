@@ -13,7 +13,7 @@
 
 ## TASK-001: 扩展 Fire/LastFire 的运行摘要字段
 
-- **Status**: draft
+- **Status**: done
 - **Depends**:
 - **Source**: task-detail-redesign.backend.design.md#3.4, #3.5
 - **Scenarios**: task-detail-redesign:S-01, task-detail-redesign:S-02, task-detail-redesign:E-03, task-detail-redesign:B-03, task-detail-redesign:B-06
@@ -49,13 +49,13 @@
 
 ### Checklist
 
-- [ ] `FireItem` / `LastFireSummary` 契约字段与前端类型一致。
-- [ ] `schedule_read.fire_history()` 批量返回 `duration_ms` / `artifact_count`。
-- [ ] `schedule_read._last_fires()` 返回 `execution_id` / `duration_ms` / `artifact_count`。
-- [ ] 耗时回退、运行中为 null、跳过/准入失败为 null 的边界已覆盖。
-- [ ] 产物数按 `OUTPUT` + `logical_file_id` 去重，多版本不重复。
-- [ ] 一页 6 条不产生 N+1；查询带 tenant/soft-delete。
-- [ ] Worker/contracts/gateway 测试通过。
+- [x] `FireItem` / `LastFireSummary` 契约字段与前端类型一致。
+- [x] `schedule_read.fire_history()` 批量返回 `duration_ms` / `artifact_count`。
+- [x] `schedule_read._last_fires()` 返回 `execution_id` / `duration_ms` / `artifact_count`。
+- [x] 耗时回退、运行中为 null、跳过/准入失败为 null 的边界已覆盖。
+- [x] 产物数按 `OUTPUT` + `logical_file_id` 去重，多版本不重复。
+- [x] 一页 6 条不产生 N+1；查询带 tenant/soft-delete。
+- [x] Worker/contracts/gateway 测试通过。
 
 ### Spec Delta
 
@@ -66,11 +66,13 @@
 ### Log
 
 - [2026-11-19] created
+- [2026-11-19T11:25:31.129Z] started tests=5564e75a598e
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-19T11:33:40.010Z PASS commands=1/1 executed=1 deduped=0 elapsed=37106ms tests=5564e75a598e head=5b5ae4343e77 dirty=1
+  - run-summary-backend PASS exit=0
 ## TASK-002: 重构定时任务详情为等高两栏 + 统一分页
 
 - **Status**: draft

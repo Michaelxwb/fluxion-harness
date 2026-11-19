@@ -26,6 +26,7 @@ from muad_contracts import (
     FireItem,
     FireStatus,
     HumanRespondRequest,
+    LastFireSummary,
     OperationWatermark,
     PendingAttentionItem,
     PendingPage,
@@ -262,6 +263,37 @@ class TestHistoryAndPending:
             "DST_GAP_SKIPPED",
             "DST_FOLD_SECOND_SKIPPED",
         }
+
+    def test_fire_summaries_expose_optional_run_facts(self) -> None:
+        execution_id = uuid.uuid4()
+        fire = FireItem(
+            fire_id=uuid.uuid4(),
+            scheduled_at=NOW,
+            status=FireStatus.EXECUTION_CREATED,
+            execution_id=execution_id,
+            duration_ms=16_770,
+            artifact_count=2,
+        )
+        assert fire.duration_ms == 16_770
+        assert fire.artifact_count == 2
+
+        default = FireItem(
+            fire_id=uuid.uuid4(), scheduled_at=NOW, status=FireStatus.SKIPPED
+        )
+        assert default.execution_id is None
+        assert default.duration_ms is None
+        assert default.artifact_count == 0
+
+        last = LastFireSummary(
+            scheduled_at=NOW,
+            status=FireStatus.EXECUTION_CREATED,
+            execution_id=execution_id,
+            duration_ms=16_770,
+            artifact_count=2,
+        )
+        assert last.execution_id == execution_id
+        assert last.duration_ms == 16_770
+        assert last.artifact_count == 2
 
     def test_pending_items_are_discriminated_by_kind(self) -> None:
         human = PendingPage(
