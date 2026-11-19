@@ -553,3 +553,25 @@ async def cancel_schedule(
         settings_client=settings_client,
         canceller=canceller,
     )
+
+
+@router.delete("/{schedule_id}")
+async def delete_schedule(
+    schedule_id: uuid.UUID,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    actor_user_id: RequiredActorUserId,
+) -> ApiResponse[Any]:
+    """用户删除：软删自己的 Schedule（任意状态）；历史 Fire/Execution/事件保留。"""
+    ensure_tenant_consistent(request, tenant_id)
+    await ScheduleService(session, now=await database_now(session)).soft_delete(
+        schedule_id,
+        tenant_id=tenant_id,
+        actor_user_id=actor_user_id,
+    )
+    await session.commit()
+    return ok(
+        request.app.state.message_catalog,
+        {"schedule_id": str(schedule_id), "deleted": True},
+    )

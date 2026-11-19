@@ -1192,3 +1192,42 @@ async def test_lifecycle_actions_are_owner_scoped(
 
     assert response.status_code == 404, response.text
     assert (await read_schedule(tenant, seeded.schedule_id)).status == "ACTIVE"
+
+
+@pytest.mark.parametrize("status", ["ACTIVE", "PAUSED", "ENDED", "CANCELLED"])
+async def test_user_can_soft_delete_any_schedule_status(
+    client: AsyncClient, tenant: TenantContext, status: str
+) -> None:
+    seeded = await seed_schedule(tenant, status=status)
+
+    response = await client.delete(
+        f"/internal/schedules/{seeded.schedule_id}", headers=headers(tenant)
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["data"] == {
+        "schedule_id": str(seeded.schedule_id),
+        "deleted": True,
+    }
+    row = await read_schedule(tenant, seeded.schedule_id)
+    assert row.is_deleted is True
+    listed = await client.get("/internal/schedules", headers=headers(tenant))
+    assert str(seeded.schedule_id) not in {
+        item["schedule_id"] for item in listed.json()["data"]["items"]
+    }
+
+
+async def test_user_delete_is_owner_scoped(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    seeded = await seed_schedule(tenant)
+
+    response = await client.delete(
+        f"/internal/schedules/{seeded.schedule_id}",
+        headers=internal_service_headers(
+            tenant.tenant_id, **{"X-Actor-User-Id": str(uuid.uuid4())}
+        ),
+    )
+
+    assert response.status_code == 404, response.text
+    assert (await read_schedule(tenant, seeded.schedule_id)).is_deleted is False

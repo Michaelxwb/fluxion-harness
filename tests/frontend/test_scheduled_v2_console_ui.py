@@ -274,8 +274,9 @@ def test_schedule_list_has_no_create_entry_and_keeps_deep_link() -> None:
     assert "searchParams.get('scheduleId')" in page
     for forbidden in ("createSchedule", "CreateSchedule", "schedule-create", "POST /schedules"):
         assert forbidden not in page, f"不得出现创建入口：{forbidden}"
-    # 只有帮助弹窗；没有表单弹窗。
-    assert page.count("<Modal") == 1
+    # 不再有“如何创建”帮助按钮/弹窗，也没有创建表单。
+    assert "schedule-help" not in page
+    assert page.count("<Modal") == 0
     assert "Form" not in page
     assert "require_admin" not in page and "role ===" not in page, "权限保持现状，不引入 ADMIN-only"
 
@@ -297,7 +298,7 @@ def test_schedule_list_renders_v2_facts_with_empty_and_error_states() -> None:
         "listUsers",
         "actor_user_id",
         "actor_name",
-        "actionColumn(190)",
+        "actionColumn(150)",
         "columnGrowth",
         "schedule.badge.pendingHuman",
         "schedule.badge.needsAttention",
@@ -323,6 +324,8 @@ def test_schedule_actions_only_use_the_post_actions_service() -> None:
     rows = _read(ROW_ACTIONS)
     for testid in ("schedule-pause-", "schedule-resume-", "schedule-cancel-", "schedule-delete-"):
         assert testid in rows, testid
+    assert "const terminal = !pausable && !resumable;" in rows
+    assert "terminal ? null : (" in rows, "终态不再显示暂停/取消，但删除始终可用"
     assert "CancelScheduleModal" in rows
     assert "admission_error" in rows, "恢复时准入失败要显式给出修复指引"
 

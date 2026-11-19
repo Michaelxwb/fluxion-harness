@@ -36,7 +36,7 @@ export function ScheduleRowActions({ schedule, onMutated, onDeleted }: ScheduleR
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const pausable = schedule.status === 'ACTIVE';
   const resumable = schedule.status === 'PAUSED' || schedule.status === 'NEEDS_ATTENTION';
-  if (!pausable && !resumable) return <span>-</span>;
+  const terminal = !pausable && !resumable;
 
   const confirmCancel = async (scope: CancelScope): Promise<void> => {
     if (cancelTarget === null) return;
@@ -58,7 +58,7 @@ export function ScheduleRowActions({ schedule, onMutated, onDeleted }: ScheduleR
         >
           {t('schedule.action.pause')}
         </Button>
-      ) : (
+      ) : resumable ? (
         <Button
           theme="borderless"
           data-testid={`schedule-resume-${schedule.schedule_id}`}
@@ -75,15 +75,17 @@ export function ScheduleRowActions({ schedule, onMutated, onDeleted }: ScheduleR
         >
           {t('schedule.action.resume')}
         </Button>
+      ) : null}
+      {terminal ? null : (
+        <Button
+          theme="borderless"
+          data-testid={`schedule-cancel-${schedule.schedule_id}`}
+          disabled={actions.pending !== null}
+          onClick={() => setCancelTarget(schedule.schedule_id)}
+        >
+          {t('schedule.action.cancel')}
+        </Button>
       )}
-      <Button
-        theme="borderless"
-        data-testid={`schedule-cancel-${schedule.schedule_id}`}
-        disabled={actions.pending !== null}
-        onClick={() => setCancelTarget(schedule.schedule_id)}
-      >
-        {t('schedule.action.cancel')}
-      </Button>
       <ConfirmAction
         type="danger"
         title={t('schedule.confirm.delete')}

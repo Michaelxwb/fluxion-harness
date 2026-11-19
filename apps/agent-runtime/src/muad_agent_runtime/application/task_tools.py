@@ -73,6 +73,7 @@ GET_SCHEDULE_TOOL = "get_schedule"
 PAUSE_SCHEDULE_TOOL = "pause_schedule"
 RESUME_SCHEDULE_TOOL = "resume_schedule"
 CANCEL_SCHEDULE_TOOL = "cancel_schedule"
+DELETE_SCHEDULE_TOOL = "delete_schedule"
 GET_TASK_TOOL = "get_task"
 LIST_TASKS_TOOL = "list_tasks"
 CANCEL_TASK_TOOL = "cancel_task"
@@ -578,6 +579,17 @@ class BackgroundTaskToolSet:
                 ToolConcurrency.SERIAL,
                 None,
             ),
+            (
+                DELETE_SCHEDULE_TOOL,
+                "Delete one of the user's schedules in any status. It is a soft delete from "
+                "the user's list; Fire/Execution/event history is kept. Use it only when the "
+                "user explicitly asks to delete that schedule.",
+                _schema({"schedule_id": _STRING, "query": _STRING}, ()),
+                ToolEffect.WRITE,
+                self._delete_schedule,
+                ToolConcurrency.SERIAL,
+                None,
+            ),
         )
 
     def _task_specs(self) -> tuple[ToolSpec, ...]:
@@ -991,6 +1003,16 @@ class BackgroundTaskToolSet:
 
     async def _cancel_schedule(self, arguments: Mapping[str, Any], *, call_id: str) -> dict[str, Any]:
         return await self._lifecycle(arguments, call_id=call_id, action="cancel")
+
+    async def _delete_schedule(self, arguments: Mapping[str, Any], *, call_id: str) -> dict[str, Any]:
+        target = await self._resolve_schedule(arguments)
+        return await self._client.delete_schedule(
+            tenant_id=self._context.tenant_id,
+            schedule_id=uuid.UUID(str(target["schedule_id"])),
+            actor_user_id=self._context.actor_user_id,
+            idempotency_key=submission_idempotency_key(self._context, call_id),
+            trace_id=self._context.trace_id,
+        )
 
     async def _lifecycle(
         self,

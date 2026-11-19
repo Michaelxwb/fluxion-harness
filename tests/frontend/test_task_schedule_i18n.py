@@ -76,9 +76,6 @@ REQUIRED_KEYS = (
     "task.empty",
     "task.loadFailed",
     "schedule.title",
-    "schedule.help.action",
-    "schedule.help.title",
-    "schedule.help.content",
     "schedule.filter.status",
     "schedule.filter.agent",
     "schedule.filter.user",
@@ -242,15 +239,6 @@ def test_b130_status_labels_are_localized_not_schema_keys() -> None:
         assert zh[key] != en[key], f"{key} 未本地化"
         assert zh[key] != key.split(".")[-1], f"{key} 是裸 schema key"
         assert en[key] != key.split(".")[-1], f"{key} 是裸 schema key"
-
-
-def test_b130_schedule_help_does_not_promise_console_orchestration() -> None:
-    zh, en = _locales()
-    assert "Agent" in zh["schedule.help.content"], "schedule.help.content 未说明由 Agent 产生"
-    assert "Agent" in en["schedule.help.content"], "schedule.help.content 未说明由 Agent 产生"
-    assert "Console 创建" not in zh["schedule.help.content"]
-    assert "create in console" not in en["schedule.help.content"].lower()
-    assert "console can create" not in en["schedule.help.content"].lower()
 
 
 def test_b130_error_catalog_covers_task_schedule_codes() -> None:

@@ -32,6 +32,7 @@ import sqlalchemy as sa
 from muad_agent_core.tools import ToolRegistry
 from muad_agent_runtime.application.task_client import TaskSubmissionContext, WorkerTaskClient
 from muad_agent_runtime.application.task_tools import (
+    DELETE_SCHEDULE_TOOL,
     DRAFT_SCHEDULE_TOOL,
     DRAFT_SCHEDULE_UPDATE_TOOL,
     LIST_DELIVERY_TARGETS_TOOL,
@@ -718,6 +719,30 @@ async def test_ambiguous_target_returns_candidates_instead_of_guessing(
     assert candidate_ids == {first["schedule_id"], second["schedule_id"]}
     assert missing["error"]["code"] == "SCHEDULE_NOT_FOUND"
     assert exact["status"] == "PAUSED"
+
+
+async def test_delete_schedule_tool_accepts_any_status(
+    tenant: TenantContext, conversation: uuid.UUID
+) -> None:
+    created = await _create_schedule(tenant, conversation, name="待删除任务")
+    client = _client()
+    try:
+        registry = _registry(_context(tenant, conversation), client)
+        deleted = await _invoke(
+            registry,
+            DELETE_SCHEDULE_TOOL,
+            {"schedule_id": created["schedule_id"]},
+        )
+    finally:
+        await client.aclose()
+
+    assert deleted == {"schedule_id": created["schedule_id"], "deleted": True}
+    async with worker_session_factory()() as session:
+        is_deleted = await session.scalar(
+            text("SELECT is_deleted FROM task.task_schedule WHERE id = :id"),
+            {"id": created["schedule_id"]},
+        )
+    assert is_deleted is True
 
 
 async def test_update_draft_shows_the_diff_and_binds_the_config_version(

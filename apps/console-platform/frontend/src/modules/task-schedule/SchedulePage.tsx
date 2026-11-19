@@ -1,6 +1,6 @@
 import { actionColumn } from '../../components/common/tableLayout';
 import { ScheduleRowActions } from './ScheduleRowActions';
-import { Button, Modal, Select, Tag } from '@douyinfe/semi-ui';
+import { Select, Tag } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
@@ -91,7 +91,6 @@ export function SchedulePage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [helpVisible, setHelpVisible] = useState(false);
   const [detailScheduleId, setDetailScheduleId] = useState<string | null>(null);
   const [historyTaskId, setHistoryTaskId] = useState<string | null>(null);
   const [detailReloadKey, setDetailReloadKey] = useState(0);
@@ -172,11 +171,6 @@ export function SchedulePage() {
       <PageHeader title={t('schedule.title')} />
       <PageSection>
         <ModuleToolbar
-          actions={
-            <Button data-testid="schedule-help" onClick={() => setHelpVisible(true)}>
-              {t('schedule.help.action')}
-            </Button>
-          }
           search={
             <>
               <Select
@@ -243,13 +237,13 @@ export function SchedulePage() {
         <RemoteTable<ScheduleListItem>
           rowKey="schedule_id"
           className="schedule-table app-table-fit app-table-nowrap"
-          columnGrowth={{ name: 0.55, agent_id: 0.15, actor_user_id: 0.15, timezone: 0.15 }}
+          columnGrowth={{ name: 1 }}
           loading={loading}
           columns={[
             {
               title: t('schedule.columns.name'),
               dataIndex: 'name',
-              width: 240,
+              width: 220,
               ellipsis: true,
               render: (value: string, record: ScheduleListItem) => (
                 <EntityLink
@@ -263,7 +257,7 @@ export function SchedulePage() {
             {
               title: t('schedule.columns.agent'),
               dataIndex: 'agent_id',
-              width: 140,
+              width: 110,
               ellipsis: true,
               render: (_: unknown, record: ScheduleListItem) => (
                 <EntityNameText name={record.agent_name} id={record.agent_id} />
@@ -272,7 +266,7 @@ export function SchedulePage() {
             {
               title: t('schedule.columns.user'),
               dataIndex: 'actor_user_id',
-              width: 140,
+              width: 110,
               ellipsis: true,
               render: (_: unknown, record: ScheduleListItem) => (
                 <EntityNameText name={record.actor_name} id={record.actor_user_id} />
@@ -281,14 +275,14 @@ export function SchedulePage() {
             {
               title: t('schedule.columns.mode'),
               dataIndex: 'mode',
-              width: 90,
+              width: 80,
               render: (value: string) => scheduleModeLabel(translate, value)
             },
-            { title: t('schedule.columns.timezone'), dataIndex: 'timezone', width: 120, ellipsis: true },
+            { title: t('schedule.columns.timezone'), dataIndex: 'timezone', width: 100, ellipsis: true },
             {
               title: t('schedule.columns.status'),
               dataIndex: 'status',
-              width: 90,
+              width: 80,
               render: (value: string) => (
                 <StatusTag
                   status={value}
@@ -300,7 +294,7 @@ export function SchedulePage() {
             {
               title: t('schedule.columns.attention'),
               dataIndex: 'pending_human',
-              width: 90,
+              width: 80,
               render: (_: unknown, record: ScheduleListItem) => (
                 <AttentionBadge record={record} t={translate} />
               )
@@ -308,7 +302,7 @@ export function SchedulePage() {
             {
               title: t('schedule.columns.nextFireAt'),
               dataIndex: 'next_fire_at',
-              width: 175,
+              width: 170,
               render: (value: string | null, record: ScheduleListItem) => (
                 <span data-testid={`schedule-next-fire-${record.schedule_id}`}>
                   {value ? <DateTimeText value={value} /> : '-'}
@@ -318,10 +312,18 @@ export function SchedulePage() {
             {
               title: t('schedule.columns.lastFireAt'),
               dataIndex: 'last_fire',
-              width: 320,
+              width: 210,
               render: (value: ScheduleListItem['last_fire']) =>
                 value ? (
-                  <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      flexDirection: 'row',
+                      gap: 6,
+                      alignItems: 'center',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
                     <DateTimeText value={value.scheduled_at} />
                     <StatusTag
                       status={value.status}
@@ -338,21 +340,18 @@ export function SchedulePage() {
                 )
             },
             {
-              ...actionColumn(190),
+              ...actionColumn(150),
               title: t('schedule.columns.actions'),
-              render: (_: unknown, record: ScheduleListItem) =>
-                ['ACTIVE', 'PAUSED', 'NEEDS_ATTENTION'].includes(record.status) ? (
-                  <ScheduleRowActions
-                    schedule={record}
-                    onMutated={() => {
-                      setDetailReloadKey((value) => value + 1);
-                      void reload();
-                    }}
-                    onDeleted={() => onScheduleDeleted(record.schedule_id)}
-                  />
-                ) : (
-                  '-'
-                )
+              render: (_: unknown, record: ScheduleListItem) => (
+                <ScheduleRowActions
+                  schedule={record}
+                  onMutated={() => {
+                    setDetailReloadKey((value) => value + 1);
+                    void reload();
+                  }}
+                  onDeleted={() => onScheduleDeleted(record.schedule_id)}
+                />
+              )
             }
           ]}
           dataSource={items}
@@ -370,15 +369,6 @@ export function SchedulePage() {
           }
         />
       </PageSection>
-      <Modal
-        centered
-        visible={helpVisible}
-        title={t('schedule.help.title')}
-        footer={null}
-        onCancel={() => setHelpVisible(false)}
-      >
-        <p data-testid="schedule-help-content">{t('schedule.help.content')}</p>
-      </Modal>
       <ScheduleDetailSideSheet
         scheduleId={detailScheduleId}
         reloadKey={detailReloadKey}

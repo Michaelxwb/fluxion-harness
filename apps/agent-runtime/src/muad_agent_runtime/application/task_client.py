@@ -314,6 +314,25 @@ class WorkerTaskClient:
             actor_user_id=actor_user_id,
         )
 
+    async def delete_schedule(
+        self,
+        *,
+        tenant_id: str,
+        schedule_id: uuid.UUID,
+        actor_user_id: uuid.UUID,
+        idempotency_key: str,
+        trace_id: str = "",
+    ) -> dict[str, Any]:
+        """用户删除任意状态的 Schedule：软删；历史 Fire/Execution/事件保留。"""
+        return await self._request(
+            "DELETE",
+            f"{SCHEDULES_PATH}/{schedule_id}",
+            tenant_id=tenant_id,
+            trace_id=trace_id,
+            idempotency_key=idempotency_key,
+            actor_user_id=actor_user_id,
+        )
+
     async def list_open_human_interactions(
         self,
         *,
