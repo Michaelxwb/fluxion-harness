@@ -1,7 +1,7 @@
 ---
 {
   "description": "IM 网关、通道与 WebChat",
-  "next_rule": 7
+  "next_rule": 8
 }
 ---
 
@@ -18,6 +18,9 @@
 
 - [RULE-im-005] 会话删除是 Owner 侧的软删：置 `is_deleted` 即可让列表、详情、消息、续聊与产物下载一致不可见；删除请求内先按既有取消语义处理该会话的活跃 Run 再软删，不等 Run 终态；删除幂等，重复删除返回成功；删除同时软删该会话的通知，且通知写入侧对已软删会话不再产出入箱行。
 
+- [RULE-im-006] **外部 JWT 平台复用同一套会话面**：接入以 `ChatSurface(channel, auth_kind, entry_resolver)` 抽象表达，同一 router/service 按 channel 多挂载，新平台只注册 surface 与适配器，不复制 handler。通道名必须参数化——任何以字面量硬编码通道名来决定 Run 落库通道、能力分组（拉取式流式 / 出站推送）或路由挂载的位置，都必须改为取当前 surface 的 channel；漏改任一处即表现为 Run 落错通道或产物交付走错路径。
+  - ✅ 适配器以 `name=` 参数化，装配根按 surface 列表逐项挂载；Run 组装从 surface 取 channel。
+  - ❌ 在 `_run_request`、取消/恢复分支或产物交付判定里写死 `"WEBCHAT"`；为每个平台复制一份 router。
 - [RULE-006] 任务中心的服务与响应契约只依赖可信 Principal 和授权 Agent 范围，数据归属为租户、平台用户与 Agent，入口及渠道仅作来源元数据。不同 surface 复用同一读写及分页契约；定时结果和人工待处理由任务实体直接投影，不写会话通知。任务产物按执行 owner 核属并读取请求指定的不可变版本与校验值，不要求会话身份；未授权、软删或内部留档不得暴露。
 
 ## Conventions

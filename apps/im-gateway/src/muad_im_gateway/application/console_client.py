@@ -20,7 +20,11 @@ from muad_contracts import (
     ChannelSkillsResponse,
     InboundAuditRequest,
 )
-from muad_contracts.webchat import ChatPrincipalResponse
+from muad_contracts.webchat import (
+    ChatPrincipalResponse,
+    ExternalIdentityView,
+    ExternalPrincipalResult,
+)
 from pydantic import BaseModel, SecretStr
 
 from .envelope import decode_json, error_code_from_payload, require_data_model
@@ -41,6 +45,10 @@ DELIVERY_AUDIT_PATH = "/internal/channel/artifact-delivery"
 #: CHAT 身份核验（设计 API-12；TASK-043 建）：网关唯一的 CHAT 核验出口——不持库、不解析凭据，
 #: 主体与授权集合只从 Console 的响应导出（TASK-044 消费）。
 CHAT_PRINCIPAL_PATH = "/internal/channel/chat-principal"
+#: 外部平台断言主体核验（设计 API-16；MSSWWEB 面）：Gateway 只转发 `soc-token` 原文，
+#: 验签与身份解析全在 Console（RULE-02：验签只做在 Console）。
+EXTERNAL_PRINCIPAL_PATH = "/internal/channel/external-principal"
+EXTERNAL_IDENTITY_PATH = "/internal/channel/external-identity"
 #: CHAT 上下文头：浏览器请求必须携带的比对值，网关原样转发给 Console（两层都比对）。
 CHAT_CONTEXT_HEADER = "X-Chat-Context"
 #: 取件直链签发（TASK-008 建）。降级链要用：适配器拿不到 Console 进程里的令牌，只能问它要。
@@ -97,11 +105,36 @@ class ConsoleClientPort(Protocol):
         """
         ...
 
+    async def external_principal(
+        self,
+        assertion: SecretStr,
+        *,
+        tenant_id: str,
+        platform_key: str,
+        channel: str,
+    ) -> ExternalPrincipalResult:
+        """核验外部平台断言并取回受信主体（设计 API-16；MSSWWEB 面）。
+
+        断言原文只作输入凭据（`SecretStr`，本层不打印）；`platform_key`/`channel` 来自
+        surface 配置。503/401 等按封套上抛，`allowed=false` 走正常返回值交调用方处置。
+        """
+        ...
+
+    async def external_identity(
+        self,
+        assertion: SecretStr,
+        *,
+        tenant_id: str,
+        platform_key: str,
+        channel: str,
+        entry_id: UUID | None = None,
+    ) -> ExternalIdentityView:
+        """权限查询（API-01）：断言 → 逐入口 `allowed`/`reason` + `auth_revision`。"""
+        ...
+
     async def audit(self, request: InboundAuditRequest, tenant_id: str) -> None: ...
 
-    async def delivery_audit(
-        self, request: ArtifactDeliveryAuditRequest, tenant_id: str
-    ) -> None: ...
+    async def delivery_audit(self, request: ArtifactDeliveryAuditRequest, tenant_id: str) -> None: ...
 
     async def issue_fetch_link(self, artifact_id: UUID, *, tenant_id: str) -> str | None:
         """签发一条签名取件直链；**签不出来返回 `None`**（产物已清掉 / Console 不通）。
@@ -175,9 +208,7 @@ class ConsoleClient:
             params["channels"] = ",".join(sorted(channels))
         if not include_secret:
             params["include_secret"] = "false"
-        return await self._request_model(
-            "GET", BOTS_PATH, BotSnapshotResponse, tenant_id, params=params
-        )
+        return await self._request_model("GET", BOTS_PATH, BotSnapshotResponse, tenant_id, params=params)
 
     async def channel_skills(
         self,
@@ -224,6 +255,56 @@ class ConsoleClient:
             headers={CHAT_CONTEXT_HEADER: str(chat_context)},
         )
 
+    async def external_principal(
+        self,
+        assertion: SecretStr,
+        *,
+        tenant_id: str,
+        platform_key: str,
+        channel: str,
+    ) -> ExternalPrincipalResult:
+        """核验外部平台断言并取回受信主体（设计 API-16；MSSWWEB 面）。
+
+        断言原文只进请求体（不打印/不进异常文本）；`platform_key`/`channel` 用于 Console
+        定位平台配置。平台未配置 → 503、断言不可信 → 401，错误码按封套原样上抛；
+        `allowed=false`（未绑定/无入口授权/停用）是**正常返回值**，由调用方转成 401/403。
+        """
+        return await self._request_model(
+            "POST",
+            EXTERNAL_PRINCIPAL_PATH,
+            ExternalPrincipalResult,
+            tenant_id,
+            json_body={
+                "platform_key": platform_key,
+                "channel": channel,
+                "assertion": assertion.get_secret_value(),
+            },
+        )
+
+    async def external_identity(
+        self,
+        assertion: SecretStr,
+        *,
+        tenant_id: str,
+        platform_key: str,
+        channel: str,
+        entry_id: UUID | None = None,
+    ) -> ExternalIdentityView:
+        """权限查询（API-01）：断言 → 逐入口 `allowed`/`reason` + `auth_revision`。
+
+        `entry_id` 为「问这个入口能不能用」；不传则问「能不能用，以及哪些入口可用」。
+        """
+        body: dict[str, object] = {
+            "platform_key": platform_key,
+            "channel": channel,
+            "assertion": assertion.get_secret_value(),
+        }
+        if entry_id is not None:
+            body["entry_id"] = str(entry_id)
+        return await self._request_model(
+            "POST", EXTERNAL_IDENTITY_PATH, ExternalIdentityView, tenant_id, json_body=body
+        )
+
     async def audit(self, request: InboundAuditRequest, tenant_id: str) -> None:
         """写一条入站审计（设计 API-10）。
 
@@ -242,9 +323,7 @@ class ConsoleClient:
         if response.status_code >= 400:
             raise AppError(error_code_from_payload(decode_json(response)))
 
-    async def delivery_audit(
-        self, request: ArtifactDeliveryAuditRequest, tenant_id: str
-    ) -> None:
+    async def delivery_audit(self, request: ArtifactDeliveryAuditRequest, tenant_id: str) -> None:
         """写一条**交付**审计（设计 API-03）。
 
         与入站审计同一落点风格：网关不持库，交付结局只能经 console 内部端点交过去。
@@ -280,9 +359,7 @@ class ConsoleClient:
             logger.warning("fetch_link_request_failed artifact_id=%s", artifact_id)
             return None
         if response.status_code >= 400:
-            logger.warning(
-                "fetch_link_rejected artifact_id=%s status=%s", artifact_id, response.status_code
-            )
+            logger.warning("fetch_link_rejected artifact_id=%s status=%s", artifact_id, response.status_code)
             return None
         data = decode_json(response)
         payload = data.get("data") if isinstance(data, dict) else None

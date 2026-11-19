@@ -11,6 +11,25 @@ class AgentAccessGrantRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
+    async def list_user_ids_for_agent(
+        self, tenant_id: str, agent_id: uuid.UUID
+    ) -> tuple[uuid.UUID, ...]:
+        """该 Agent 当前被授权的全部有效用户（Agent 停用/删除后的认证缓存失效范围）。"""
+        rows = await self._session.scalars(
+            select(AgentAccessGrant.user_id)
+            .join(AgentDefinition, AgentDefinition.id == AgentAccessGrant.agent_id)
+            .join(PlatformUser, PlatformUser.id == AgentAccessGrant.user_id)
+            .where(
+                AgentAccessGrant.agent_id == agent_id,
+                AgentAccessGrant.is_deleted.is_(False),
+                AgentDefinition.tenant_id == tenant_id,
+                PlatformUser.tenant_id == tenant_id,
+                PlatformUser.is_deleted.is_(False),
+            )
+            .distinct()
+        )
+        return tuple(dict.fromkeys(rows))
+
     async def has_active_grant(
         self,
         tenant_id: str,

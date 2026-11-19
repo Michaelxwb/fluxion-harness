@@ -33,8 +33,14 @@ from muad_contracts import (
     InboundAuditRequest,
     RunRequest,
 )
+from muad_contracts.webchat import (
+    ChatPrincipalResponse,
+    ExternalIdentityView,
+    ExternalPrincipalResult,
+)
 from muad_im_connector.channels.wecom.sdk_port import WeComInboundEvent, WeComInboundMessage
 from muad_im_gateway.application.runtime_client import SseEvent
+from pydantic import SecretStr
 
 
 class FakeConsoleClient:
@@ -57,6 +63,18 @@ class FakeConsoleClient:
         #: 交付审计（TASK-006/007）：E-06 靠它断言「交付结局有没有留痕、写了几次」
         self.delivery_audit_calls: list[tuple[ArtifactDeliveryAuditRequest, str]] = []
         self.delivery_audit_error: AppError | None = None
+        #: CHAT 主体核验（API-12）与外部断言核验（API-16）：默认未配置即报错，
+        #: 免得用例忘配却被当成"核验通过"。
+        self.chat_principal_response: ChatPrincipalResponse | None = None
+        self.chat_principal_error: AppError | None = None
+        self.chat_principal_calls: list[tuple[SecretStr, str, UUID]] = []
+        self.external_principal_response: ExternalPrincipalResult | None = None
+        self.external_principal_error: AppError | None = None
+        self.external_principal_calls: list[tuple[SecretStr, str, str, str]] = []
+        #: API-01 权限查询：`GET /identity` 的 Console 侧调用记录。
+        self.external_identity_response: ExternalIdentityView | None = None
+        self.external_identity_error: AppError | None = None
+        self.external_identity_calls: list[tuple[SecretStr, str, str, str, UUID | None]] = []
 
     async def resolve(
         self,
@@ -101,9 +119,7 @@ class FakeConsoleClient:
         if self.audit_error is not None:
             raise self.audit_error
 
-    async def delivery_audit(
-        self, request: ArtifactDeliveryAuditRequest, tenant_id: str
-    ) -> None:
+    async def delivery_audit(self, request: ArtifactDeliveryAuditRequest, tenant_id: str) -> None:
         self.delivery_audit_calls.append((request, tenant_id))
         if self.delivery_audit_error is not None:
             raise self.delivery_audit_error
@@ -121,6 +137,54 @@ class FakeConsoleClient:
             raise self.skills_error
         items = [ChannelSkillItem.model_validate(skill) for skill in self.skills]
         return ChannelSkillsResponse(items=items, page=page, page_size=page_size, total=len(items))
+
+    async def chat_principal(
+        self,
+        session_token: SecretStr,
+        *,
+        tenant_id: str,
+        chat_context: UUID,
+    ) -> ChatPrincipalResponse:
+        """API-12：默认未配置即抛错，避免用例忘了设响应却被当作核验通过。"""
+        self.chat_principal_calls.append((session_token, tenant_id, chat_context))
+        if self.chat_principal_error is not None:
+            raise self.chat_principal_error
+        if self.chat_principal_response is None:
+            raise AssertionError("chat_principal_response not configured")
+        return self.chat_principal_response
+
+    async def external_principal(
+        self,
+        assertion: SecretStr,
+        *,
+        tenant_id: str,
+        platform_key: str,
+        channel: str,
+    ) -> ExternalPrincipalResult:
+        """API-16：记录「断言原文 / 部署租户 / 平台 / 通道」四个入参，其余同上。"""
+        self.external_principal_calls.append((assertion, tenant_id, platform_key, channel))
+        if self.external_principal_error is not None:
+            raise self.external_principal_error
+        if self.external_principal_response is None:
+            raise AssertionError("external_principal_response not configured")
+        return self.external_principal_response
+
+    async def external_identity(
+        self,
+        assertion: SecretStr,
+        *,
+        tenant_id: str,
+        platform_key: str,
+        channel: str,
+        entry_id: UUID | None = None,
+    ) -> ExternalIdentityView:
+        """API-01：记录五个入参（含「问哪个入口」），其余同上。"""
+        self.external_identity_calls.append((assertion, tenant_id, platform_key, channel, entry_id))
+        if self.external_identity_error is not None:
+            raise self.external_identity_error
+        if self.external_identity_response is None:
+            raise AssertionError("external_identity_response not configured")
+        return self.external_identity_response
 
 
 class FakeRuntimeClient:
@@ -363,9 +427,7 @@ class ConsoleProcess:
 
     def __init__(self) -> None:
         self._process: subprocess.Popen[bytes] | None = None
-        self._log = tempfile.NamedTemporaryFile(
-            prefix="console-test-", suffix=".log", delete=False
-        )
+        self._log = tempfile.NamedTemporaryFile(prefix="console-test-", suffix=".log", delete=False)
         self.url = ""
 
     def start(self, tmp_root: Path) -> None:
@@ -402,8 +464,7 @@ class ConsoleProcess:
         while time.monotonic() < deadline:
             if self._process.poll() is not None:
                 raise RuntimeError(
-                    "console exited early: "
-                    f"{Path(self._log.name).read_text(errors='replace')[-1200:]}"
+                    f"console exited early: {Path(self._log.name).read_text(errors='replace')[-1200:]}"
                 )
             try:
                 with httpx.Client(timeout=1.0) as client:

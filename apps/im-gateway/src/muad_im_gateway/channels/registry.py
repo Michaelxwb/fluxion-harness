@@ -38,6 +38,16 @@ logger = logging.getLogger(__name__)
 SnapshotChangeCallback = Callable[[tuple[BotSnapshotItem, ...]], Awaitable[None]]
 
 
+def external_platforms_enabled(settings: SharedSettings) -> bool:
+    """是否配置了外部断言平台（MSSWWEB 面的启用开关）。
+
+    只判断配置是否非空：具体平台的验签/身份键解析在认证侧（TASK-007/012）负责，
+    Gateway 注册表只需知道"该面是否启用"。
+    """
+    raw = getattr(settings, "external_assertion_platforms_json", "") or ""
+    return raw.strip() not in ("", "{}")
+
+
 def build_channel_registry(
     settings: SharedSettings, *, routed_sink: ConnectorCommandSink | None = None
 ) -> ChannelRegistry:
@@ -47,7 +57,11 @@ def build_channel_registry(
     出站写 `im.outbound`；没有 sink（未接线）时装配仍成立，任何发送都显式失败。
     """
     registry = ChannelRegistry()
-    registry.register(WebchatChannelAdapter())
+    # 本地流式对话面：WEBCHAT 恒定注册；MSSWWEB 只有在配置了外部断言平台时才注册，
+    # 未启用的部署与原来完全一致（不暴露该面，见设计 §I4 / RULE-im-006）。
+    registry.register(WebchatChannelAdapter(name="WEBCHAT"))
+    if external_platforms_enabled(settings):
+        registry.register(WebchatChannelAdapter(name="MSSWWEB"))
     for config in parse_webhook_channels(settings.gateway_webhook_channels):
         registry.register(
             WebhookChannelAdapter(

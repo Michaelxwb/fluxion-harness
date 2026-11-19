@@ -31,6 +31,7 @@ from muad_api.error_codes import ErrorCode
 from muad_contracts import MAX_PAGE_SIZE
 from muad_contracts.webchat import (
     WebchatHistoryQuery,
+    WebchatMarkReadRequest,
     WebchatMessageRequest,
     WebchatResumeRequest,
 )
@@ -50,6 +51,7 @@ from ..application.webchat_config import (
     WebchatClientConfigService,
     WebchatTransportBudget,
 )
+from ..application.webchat_core import ChatSurface
 from ..application.webchat_service import WebchatResourceService
 from ..application.webchat_streams import (
     HEARTBEAT_FRAME,
@@ -59,8 +61,14 @@ from ..application.webchat_streams import (
     WebchatStreamBudget,
     WebchatStreamService,
 )
+from ..application.webchat_surfaces import get_webchat_surface
 from ..application.webchat_uploads import WebchatUploadService
-from .deps import ChatIdentityDep, ChatStreamGuardDep
+from .deps import (
+    ChatCredentialsDep,
+    ChatIdentityDep,
+    ChatPrincipalGateDep,
+    ChatStreamGuardDep,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -72,9 +80,17 @@ async def no_store(response: Response) -> None:
     response.headers["Cache-Control"] = NO_STORE_CACHE_CONTROL
 
 
-router = APIRouter(
-    prefix="/api/v1/webchat", tags=["webchat"], dependencies=[Depends(no_store)]
-)
+#: 路由自身不带 prefix：装配根按 surface 逐个 `include_router(router, prefix=...)` 多挂载，
+#: 同一套 handler 服务 WEBCHAT 与 MSSWWEB（设计 §ChatSurface / RULE-im-006）。
+router = APIRouter(tags=["webchat"], dependencies=[Depends(no_store)])
+
+#: 通知中心（列表/已读/SSE）只属于 WEBCHAT 面：MSSWWEB 不暴露通知中心（设计 §I4），
+#: 装配根只把 `notification_router` 挂到 WEBCHAT 前缀。
+notification_router = APIRouter(tags=["webchat-notifications"], dependencies=[Depends(no_store)])
+
+#: surface 解析搬到独立模块 `application.webchat_surfaces`，`api/webchat.py` 与
+#: `api/deps.py` 共用，避免相互 import 成环。
+WebchatSurfaceDep = Annotated[ChatSurface, Depends(get_webchat_surface)]
 
 IdempotencyKey = Annotated[str, Header(alias="Idempotency-Key", min_length=1)]
 PageNumber = Annotated[int, Query(ge=1)]
@@ -87,19 +103,19 @@ LastEventId = Annotated[str | None, Header(alias="Last-Event-ID")]
 SnapshotReady = Annotated[bool, Query()]
 
 
-def get_webchat_service(request: Request) -> WebchatResourceService:
-    """资源服务：Owner 客户端 + 入口快照 + 部署租户（装配根发布的状态值，网关不持库）。"""
+def get_webchat_service(request: Request, surface: WebchatSurfaceDep) -> WebchatResourceService:
+    """资源服务：Owner 客户端 + 入口快照 + 部署租户 + 当前 surface（网关不持库）。"""
     runtime: RuntimeClient = request.app.state.runtime_client
     entries: BotSnapshotCache = request.app.state.bot_snapshot
     tenant_id: str = request.app.state.tenant_id
-    return WebchatResourceService(runtime=runtime, entries=entries, tenant_id=tenant_id)
+    return WebchatResourceService(runtime=runtime, entries=entries, tenant_id=tenant_id, surface=surface)
 
 
 WebchatServiceDep = Annotated[WebchatResourceService, Depends(get_webchat_service)]
 
 
-def get_webchat_upload_service(request: Request) -> WebchatUploadService:
-    """上传服务：Owner 客户端 + 入口快照 + 设置源 + 共享存储 + 启动硬预算（装配根发布的状态值）。"""
+def get_webchat_upload_service(request: Request, surface: WebchatSurfaceDep) -> WebchatUploadService:
+    """上传服务：Owner 客户端 + 入口快照 + 设置源 + 共享存储 + 启动硬预算 + 当前 surface。"""
     runtime: RuntimeClient = request.app.state.runtime_client
     entries: BotSnapshotCache = request.app.state.bot_snapshot
     return WebchatUploadService(
@@ -109,6 +125,7 @@ def get_webchat_upload_service(request: Request) -> WebchatUploadService:
         store=request.app.state.artifact_store,
         tenant_id=request.app.state.tenant_id,
         hard_max_bytes=request.app.state.chat_upload_hard_max_bytes,
+        surface=surface,
     )
 
 
@@ -127,9 +144,7 @@ def get_webchat_artifact_service(request: Request) -> WebchatArtifactService:
     )
 
 
-WebchatArtifactServiceDep = Annotated[
-    WebchatArtifactService, Depends(get_webchat_artifact_service)
-]
+WebchatArtifactServiceDep = Annotated[WebchatArtifactService, Depends(get_webchat_artifact_service)]
 
 
 def get_webchat_config_service(request: Request) -> WebchatClientConfigService:
@@ -146,9 +161,7 @@ def get_webchat_config_service(request: Request) -> WebchatClientConfigService:
     )
 
 
-WebchatConfigServiceDep = Annotated[
-    WebchatClientConfigService, Depends(get_webchat_config_service)
-]
+WebchatConfigServiceDep = Annotated[WebchatClientConfigService, Depends(get_webchat_config_service)]
 
 
 def get_webchat_sse_ledger(request: Request) -> SseBufferLedger:
@@ -261,6 +274,38 @@ async def list_entries(
     return ok(request.app.state.message_catalog, page.model_dump(mode="json"))
 
 
+@router.get("/identity")
+async def describe_identity(
+    request: Request,
+    credentials: ChatCredentialsDep,
+    gate: ChatPrincipalGateDep,
+    surface: WebchatSurfaceDep,
+    entry_id: uuid.UUID | None = None,
+) -> ApiResponse[Any]:
+    """API-01：外部平台的权限查询——此人能否使用本平台机器人。
+
+    与 `/entries` 的分工必须分清：`/entries` 是资源接口（拒绝走 401/403），本接口是**查询**
+    （未通过是正常结论，恒 200 + `allowed=false` + `reason`）。外部平台据此决定「不展示功能」
+    还是「展示但提示无权限」。
+
+    三类「断言不可信」仍属无效请求，不是权限结论：无 `soc-token` → 401；
+    签名/算法/因子/时效不合法 → 401；平台未配置 → 503。
+    """
+    assertion = credentials.assertion
+    if assertion is None:
+        # WebChat 的会话凭据在断言面不构成凭据（RULE-01），也不该被当成「有权限」回答。
+        raise AppError(ErrorCode.UNAUTHORIZED)
+    if surface.platform_key is None:
+        raise AppError(ErrorCode.EXTERNAL_PLATFORM_UNAVAILABLE)
+    view = await gate.describe_external(
+        assertion,
+        platform_key=surface.platform_key,
+        channel=surface.channel,
+        entry_id=entry_id,
+    )
+    return ok(request.app.state.message_catalog, view.model_dump(mode="json"))
+
+
 @router.post("/entries/{entry_id}/messages", status_code=202)
 async def submit_message(
     entry_id: uuid.UUID,
@@ -272,9 +317,7 @@ async def submit_message(
 ) -> ApiResponse[Any]:
     """API-06：显式会话提交；受理持久化后才返回 202，长流不占本处理器。"""
     started = time.monotonic()
-    accepted = await service.submit_message(
-        chat, entry_id, payload, idempotency_key=idempotency_key
-    )
+    accepted = await service.submit_message(chat, entry_id, payload, idempotency_key=idempotency_key)
     elapsed = time.monotonic() - started
     if elapsed > 1.0:
         logger.warning("webchat_submit_slow", extra={"elapsed_ms": int(elapsed * 1000)})
@@ -350,6 +393,24 @@ async def delete_conversation(
     return ok(request.app.state.message_catalog, deletion.model_dump(mode="json"))
 
 
+@router.post("/conversations/{conversation_id}/read")
+async def mark_conversation_read(
+    conversation_id: uuid.UUID,
+    payload: WebchatMarkReadRequest,
+    request: Request,
+    chat: ChatIdentityDep,
+    service: WebchatServiceDep,
+) -> ApiResponse[Any]:
+    """会话级已读（幂等）：把 ≤ `notification_through_seq` 的通知标记为已读。
+
+    为什么需要它：会话列表与详情都返回 `has_unread`，但 MsswWeb 面不挂通知中心
+    （`/notifications/*` 只在 WebChat 面），没有这条路径红点只增不减。水位超前由 Owner
+    判 `CURSOR_AHEAD`，他主体/未知会话先判 404（不泄露存在性）。
+    """
+    receipt = await service.mark_conversation_read(chat, conversation_id, payload.notification_through_seq)
+    return ok(request.app.state.message_catalog, receipt.model_dump(mode="json"))
+
+
 @router.get("/conversations/{conversation_id}/messages")
 async def list_messages(
     conversation_id: uuid.UUID,
@@ -375,7 +436,7 @@ async def list_messages(
     return ok(request.app.state.message_catalog, view.model_dump(mode="json"))
 
 
-@router.get("/notifications")
+@notification_router.get("/notifications")
 async def list_notifications(
     request: Request,
     chat: ChatIdentityDep,
@@ -389,13 +450,11 @@ async def list_notifications(
     通知是用户级事实：受信调用只携带本次 Console 核验的 `platform_user_id`；`CURSOR_AHEAD`
     连同真实 feed 水位显式上抛（不静默夹取成空页）；页大小缺省由 Owner 从平台设置派生。
     """
-    page_view = await service.list_notifications(
-        chat, after_seq=after_seq, page=page, page_size=page_size
-    )
+    page_view = await service.list_notifications(chat, after_seq=after_seq, page=page, page_size=page_size)
     return ok(request.app.state.message_catalog, page_view.model_dump(mode="json"))
 
 
-@router.post("/notifications/{notification_id}/read")
+@notification_router.post("/notifications/{notification_id}/read")
 async def mark_notification_read(
     notification_id: uuid.UUID,
     request: Request,
@@ -480,12 +539,8 @@ async def _notification_frames(
     """先订阅再回填，live 信号按 seq 去重；慢订阅返回 None 让客户端带游标重连。"""
     cursor = after_seq
     unread_count = 0
-    async with hub.subscribe(
-        chat.principal.tenant_id, chat.principal.platform_user_id
-    ) as queue:
-        watermark = await hub.watermark(
-            chat.principal.tenant_id, chat.principal.platform_user_id
-        )
+    async with hub.subscribe(chat.principal.tenant_id, chat.principal.platform_user_id) as queue:
+        watermark = await hub.watermark(chat.principal.tenant_id, chat.principal.platform_user_id)
         if watermark is None:
             # Redis 不可用/键缺失：客户端刚做过权威 REST 快照才可信；否则按页有界追平。
             pages = 0 if snapshot_ready else _NOTIFICATION_BACKFILL_PAGES
@@ -495,9 +550,7 @@ async def _notification_frames(
             # 客户端已通过初始 REST 同步拿到该水位及之前的事实，只需 live 增量。
             pages = 0
         for _ in range(pages):
-            page = await service.list_notifications(
-                chat, after_seq=cursor, page=1, page_size=MAX_PAGE_SIZE
-            )
+            page = await service.list_notifications(chat, after_seq=cursor, page=1, page_size=MAX_PAGE_SIZE)
             unread_count = page.unread_count
             for item in page.items:
                 if item.seq <= cursor:
@@ -530,12 +583,8 @@ async def _notification_frames(
                     unread_count += 1
                     yield _notification_frame(live_item, unread_count)
                     continue
-            page = await service.list_notifications(
-                chat, after_seq=signal.seq - 1, page=1, page_size=1
-            )
-            live_item = next(
-                (entry for entry in page.items if entry.seq == signal.seq), None
-            )
+            page = await service.list_notifications(chat, after_seq=signal.seq - 1, page=1, page_size=1)
+            live_item = next((entry for entry in page.items if entry.seq == signal.seq), None)
             if live_item is None:
                 cursor = signal.seq
                 continue
@@ -544,7 +593,7 @@ async def _notification_frames(
             yield _notification_frame(live_item, unread_count)
 
 
-@router.get("/notifications/stream")
+@notification_router.get("/notifications/stream")
 async def stream_notifications(
     chat: ChatIdentityDep,
     service: WebchatServiceDep,
@@ -562,11 +611,7 @@ async def stream_notifications(
     """
     cursor = _resume_cursor(after_seq, last_event_id) or 0
     return StreamingResponse(
-        guard.rechecked(
-            _notification_frames(
-                chat, service, hub, cursor, heartbeat, snapshot_ready=snapshot
-            )
-        ),
+        guard.rechecked(_notification_frames(chat, service, hub, cursor, heartbeat, snapshot_ready=snapshot)),
         media_type=SSE_MEDIA_TYPE,
         headers=SSE_STREAM_HEADERS,
     )

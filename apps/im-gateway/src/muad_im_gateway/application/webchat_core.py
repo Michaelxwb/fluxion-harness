@@ -34,7 +34,8 @@ from .runtime_client import RunAdmission
 
 logger = logging.getLogger(__name__)
 
-#: 本通道的公开入口词表（与 `BotSnapshotItem.channel` 同源）。
+#: WEBCHAT 通道名常量；其余同构通道（如 MSSWWEB）由 `WebchatSurface.channel` 携带，
+#: 本模块不再新增通道字面量——把通道名参数化，才能同一套 SYNC 逻辑按通道多挂载。
 WEBCHAT_CHANNEL: ChannelName = "WEBCHAT"
 
 
@@ -48,7 +49,7 @@ class SyncRunOwner(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class WebchatChannelIdentity:
-    """统一核心的通道身份：与注册表里的 `WebchatChannelAdapter.name` 同值。"""
+    """统一核心的通道身份：与注册表里对应 adapter 的 `name` 同值。"""
 
     channel: ChannelName = WEBCHAT_CHANNEL
 
@@ -56,17 +57,39 @@ class WebchatChannelIdentity:
 WEBCHAT_CHANNEL_IDENTITY = WebchatChannelIdentity()
 
 
-def _run_request(event: InboundEvent, principal: SyncPrincipal) -> RunRequest:
+@dataclass(frozen=True, slots=True)
+class ChatSurface:
+    """一个「本地流式对话通道」的装配上下文（设计 §ChatSurface 抽象）。
+
+    WEBCHAT 与 MSSWWEB 共享同一套 router / service / core，差异只有 `channel` 名与
+    认证方式（`auth_kind`）。把通道名放进这个对象按 surface 注入，避免在 application
+    层写死任一通道字面量（架构用例 test_b09 会拒绝）。
+    """
+
+    channel: ChannelName
+    #: 认证方式：`USER_TOKEN`（WebChat：Console 签发 CHAT token）或
+    #: `EXTERNAL_ASSERTION`（MSSWWEB：上游 platform 断言）。认证分支在 `api/deps.py` 落地。
+    auth_kind: str = "USER_TOKEN"
+    #: 外部断言面所属的 `platform_key`（仅 `EXTERNAL_ASSERTION` 用到）；来自 Secret 配置，
+    #: 视为非敏感标识。Gateway 转发到 Console 的 `external-principal` 时原样带上。
+    platform_key: str | None = None
+
+    @property
+    def identity(self) -> WebchatChannelIdentity:
+        return WebchatChannelIdentity(channel=self.channel)
+
+
+def _run_request(event: InboundEvent, principal: SyncPrincipal, *, channel: ChannelName) -> RunRequest:
     """渠道中立事件 + 已验证主体 → Runtime 提交契约（显式会话、暂存上传原样保留）。"""
     if event.external_conversation_id is None:
-        # WebChat 提交**永远**带显式会话（API-06 形状）：缺失是调用方错误，不猜最新指针。
+        # 本地流式提交**永远**带显式会话（API-06 形状）：缺失是调用方错误，不猜最新指针。
         raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
     return RunRequest(
         agent_id=principal.agent_id,
         platform_user_id=principal.platform_user_id,
         conversation_id=UUID(event.external_conversation_id),
         channel=ChannelContext(
-            type=WEBCHAT_CHANNEL,
+            type=channel,
             entry_id=principal.entry_id,
             bot_id=event.bot_id,
             external_user_id=event.external_user_id,
@@ -81,11 +104,13 @@ def _run_request(event: InboundEvent, principal: SyncPrincipal) -> RunRequest:
     )
 
 
-def build_webchat_message_gateway(owner: SyncRunOwner) -> MessageGateway:
-    """装配 WebChat SYNC 端口：核心做通道校验，端口只做事件→提交契约的映射。"""
+def build_webchat_message_gateway(
+    owner: SyncRunOwner, *, channel: ChannelName = WEBCHAT_CHANNEL
+) -> MessageGateway:
+    """装配本地流式 SYNC 端口：核心做通道校验，端口只做事件→提交契约的映射。"""
 
     async def admit_sync(event: InboundEvent, principal: SyncPrincipal) -> SyncAdmission:
-        request = _run_request(event, principal)
+        request = _run_request(event, principal, channel=channel)
         admission = await owner.submit_run(
             request,
             tenant_id=principal.tenant_id,

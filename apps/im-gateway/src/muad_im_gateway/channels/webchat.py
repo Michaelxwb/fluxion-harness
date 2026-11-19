@@ -46,13 +46,19 @@ class WebchatDeliverySink(Protocol):
 
 
 class WebchatChannelAdapter:
-    """标准 WEBCHAT 适配器：无长连接、无 secret，入站 SYNC、出站映射到统一封套。"""
+    """本地流式对话适配器：无长连接、无 secret，入站 SYNC、出站映射到统一封套。
 
-    name: ChannelName = "WEBCHAT"
+    通道名由构造参数决定：同一实现服务 WEBCHAT 与 MSSWWEB（设计 §ChatSurface /
+    RULE-im-006）。两者都 `delivers_locally`，差异只在 `channel` 名。
+    """
+
     #: 本通道出站由 Gateway 自己的持久入箱/SSE 面完成（`LocalDeliverySurface`）。
     delivers_locally = True
 
-    def __init__(self, *, sink: WebchatDeliverySink | None = None) -> None:
+    def __init__(
+        self, *, name: ChannelName = "WEBCHAT", sink: WebchatDeliverySink | None = None
+    ) -> None:
+        self.name = name
         self._sink = sink
         self._entries: tuple[BotSnapshotItem, ...] = ()
 

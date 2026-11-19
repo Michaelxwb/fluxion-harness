@@ -1,7 +1,7 @@
 ---
 {
   "description": "表设计、迁移与索引",
-  "next_rule": 2
+  "next_rule": 3
 }
 ---
 
@@ -12,6 +12,12 @@
 - [RULE-data-001] 产品表统一 id/is_deleted/create_time/update_time，时间统一 timestamptz，JSON 配置使用 jsonb；普通软删除实体以未删除行建立部分唯一，稳定身份注册表及不可变历史、回执按身份完整唯一。业务归属在同 Owner Schema 内使用物理外键，跨 Owner Schema、操作者及需独立保留的审计来源使用逻辑 UUID；多态审计引用由写入方校验实体归属。同 Owner 的结果发件引用实际事件身份，不能依赖已经失效的任务与事件序号复合关系。关键查询字段、互斥 owner 和业务唯一性必须由共享契约对应的物理列、约束及索引承载。
 
 - [RULE-001] 共享执行基础设施必须使用显式 owner 联合与互斥归属约束；调用方携带服务身份，由资源所有者复核租户、操作者和 Agent，不能把提交结果的 Task 标识复用为 operation owner。Runtime 持有其容量、异步操作、结果收件箱及产物的写入权，Worker 经所有者内部 API 使用 Task 能力；跨 Owner 引用为逻辑身份，禁止直接写入其它 Owner 表。
+
+- [RULE-data-002] **外部身份与入口授权分两表**：`external_identity` 为用户级，回答「这个外部标识对应哪个平台用户」，唯一键 `(tenant_id, platform_key, identity_hash)` WHERE `is_deleted=false`，并索引 `(tenant_id, platform_user_id)`；`entry_access_grant` 为入口授权，回答「这个身份能在哪个入口下使用」，唯一键 `(tenant_id, external_identity_id, bot_account_id)` WHERE `is_deleted=false`，并索引 `(tenant_id, bot_account_id, external_identity_id)` 以支撑入口停用时反查受影响身份。
+  - **身份与授权分离**：解绑入口只软删 grant，身份保留，重绑后历史会话归属不变；编辑身份只重算 `identity_hash`，不改变历史归属。
+  - **不改旧表**：既有 `channel_identity`（`channel:bot_id:external_user_id` 主动绑定模型）保持不变，新模型与之并存。
+  - **按 hash 定位不扫用户表**：查询必须带 `tenant_id`，禁止全局扫描。
+  - ✅ 一次查询 `(tenant, platform_key, identity_hash)` 直接命中身份，再按身份查 grant；❌ 把身份与入口塞进同一张表、用 `channel:bot_id:user` 拼接当身份键。
 
 ## Conventions
 

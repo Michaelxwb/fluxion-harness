@@ -41,6 +41,15 @@ spec:
                 name: muad-im-gateway
                 port:
                   number: 8003
+          # 2b) MSSWWEB 外部断言面 → Gateway（与 webchat 共享 handler，仅认证方式不同）。
+          #     必须列在 /api 之前，否则会被普通 Console API 规则吞掉。
+          - path: /api/v1/msswwweb
+            pathType: Prefix
+            backend:
+              service:
+                name: muad-im-gateway
+                port:
+                  number: 8003
           # 3) 普通 Console API 保持原路由 → Console。
           - path: /api
             pathType: Prefix
@@ -95,6 +104,13 @@ spec:
     - http:
         paths:
           - path: /api/v1/webchat/runs
+            pathType: Prefix
+            backend:
+              service:
+                name: muad-im-gateway
+                port:
+                  number: 8003
+          - path: /api/v1/msswwweb/runs
             pathType: Prefix
             backend:
               service:

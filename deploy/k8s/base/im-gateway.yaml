@@ -52,6 +52,14 @@ spec:
                 secretKeyRef:
                   name: muad-external
                   key: INTERNAL_SERVICE_TOKEN
+            # 外部平台验签因子（单键 JSON）。网关据此判定是否挂载 MSSWWEB 面与启用外部断言平台；
+            # 空/缺省 = 仅 WEBCHAT 面。与 Console 同源，避免两侧判定不一致。
+            - name: EXTERNAL_ASSERTION_PLATFORMS_JSON
+              valueFrom:
+                secretKeyRef:
+                  name: muad-external
+                  key: EXTERNAL_ASSERTION_PLATFORMS_JSON
+                  optional: true
             # —— 分池 HTTP 连接预算（每进程；池名与 GATEWAY_HTTP_POOLS 一致）——
             # 只声明本进程真实创建的池：control（Console 短控制/认证/设置）、
             # stream（Runtime 持久事件流）、upload（webchat 受信登记）、

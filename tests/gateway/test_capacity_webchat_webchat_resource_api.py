@@ -231,6 +231,8 @@ class _RuntimeProbe:
         self.capacity_full = False
         self.run_status = "RUNNING"
         self.run_owner = PLATFORM_USER_ID
+        #: 会话级已读：置 true 时 Owner 回 `CURSOR_AHEAD`（水位超前于最新 seq）。
+        self.through_seq_ahead = False
         self.scope_agent_id = AGENT_ID
         self.streams_released: list[str] = []
         self.streams_closed_before_terminal: list[str] = []
@@ -378,6 +380,23 @@ class _RuntimeProbe:
                     "page": 2,
                     "page_size": 10,
                     "total": 11,
+                }
+            )
+
+        @runtime_app.post("/internal/webchat/conversations/{conversation_id}/read")
+        async def _conversation_read(conversation_id: str, request: Request) -> Response:
+            body = await request.json()
+            self._record(
+                f"/internal/webchat/conversations/{conversation_id}/read", request, body
+            )
+            if self.through_seq_ahead:
+                return _error("CURSOR_AHEAD", 400)
+            return _json(
+                {
+                    "conversation_id": conversation_id,
+                    "notification_through_seq": body["notification_through_seq"],
+                    # 标读后若仍有更新的通知，Owner 回 true——BFF 据此决定要不要继续轮询。
+                    "has_unread": False,
                 }
             )
 
@@ -636,7 +655,11 @@ async def test_b252_entries_list_projects_only_enabled_authorized_webchat_entrie
     console_probe: _ConsoleProbe,
     runtime_probe: _RuntimeProbe,
 ) -> None:
-    """API-05：只列已启用且获授权的 WEBCHAT 入口；字段恰三个、无角色/凭据。"""
+    """API-05：只列已启用且获授权的 WEBCHAT 入口；无角色/凭据。
+
+    `allowed` / `reason` 供断言面「置灰已授权但不可用入口」；WebChat 面 `grants` 为空，
+    退回旧口径，恒为 `allowed=true / reason=null`。
+    """
     async with _gateway_client(stub_console, runtime_probe) as client:
         response = await client.get(ENTRIES_URL, headers=_chat_headers())
 
@@ -645,9 +668,21 @@ async def test_b252_entries_list_projects_only_enabled_authorized_webchat_entrie
     data = response.json()["data"]
     assert data["total"] == 1 and data["page"] == 1
     assert data["items"] == [
-        {"entry_id": str(ENTRY_ID), "agent_id": str(AGENT_ID), "display_name": "网页助手"}
+        {
+            "entry_id": str(ENTRY_ID),
+            "agent_id": str(AGENT_ID),
+            "display_name": "网页助手",
+            "allowed": True,
+            "reason": None,
+        }
     ]
-    assert set(data["items"][0]) == {"entry_id", "agent_id", "display_name"}
+    assert set(data["items"][0]) == {
+        "entry_id",
+        "agent_id",
+        "display_name",
+        "allowed",
+        "reason",
+    }
     assert CONSOLE_ROLE_FIELDS.isdisjoint(set(data["items"][0]))
     assert SESSION_TOKEN not in response.text
     # 授权/入口事实来自 Console（主体+授权集合）与快照；不触达 Runtime。
@@ -832,6 +867,8 @@ async def test_b252_conversation_create_and_list_delegate_to_owner(
                 "last_run_id": str(RUN_ID),
                 "status": "ACTIVE",
                 "active_run_status": "RUNNING",
+                "has_unread": False,
+                "entry_id": None,
             }
         ],
         "page": 2,
@@ -844,9 +881,59 @@ async def test_b252_conversation_create_and_list_delegate_to_owner(
     assert read.query == {
         "user_id": str(PLATFORM_USER_ID),
         "agent_id": str(AGENT_ID),
+        # 跨入口共享：同一用户+Agent 的会话在任何入口都可见（TASK-007）。
+        "entry_agnostic": "true",
         "page": "2",
         "page_size": "10",
     }
+
+
+async def test_b253_conversation_read_marks_through_seq_after_scope_check(
+    stub_console: StubConsole,
+    console_probe: _ConsoleProbe,
+    runtime_probe: _RuntimeProbe,
+) -> None:
+    """API-11：会话级已读——先解归属再转发水位，他主体不得触达 Owner。
+
+    这条路径只服务 MsswWeb（该面不挂通知中心）；没有它，`has_unread` 只增不减。
+    """
+    async with _gateway_client(stub_console, runtime_probe) as client:
+        response = await client.post(
+            f"{CONVERSATION_URL}/read",
+            headers=_chat_headers(),
+            json={"notification_through_seq": 9},
+        )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["data"] == {
+        "conversation_id": str(CONVERSATION_ID),
+        "notification_through_seq": 9,
+        "has_unread": False,
+    }
+    paths = list(runtime_probe.calls)
+    assert paths.index(f"/internal/webchat/conversations/{CONVERSATION_ID}/scope") < paths.index(
+        f"/internal/webchat/conversations/{CONVERSATION_ID}/read"
+    ), "归属校验必须先于标读"
+    sent = runtime_probe.calls[f"/internal/webchat/conversations/{CONVERSATION_ID}/read"][0].body
+    assert sent == {"notification_through_seq": 9}
+
+
+async def test_b253_conversation_read_rejects_cursor_ahead(
+    stub_console: StubConsole,
+    console_probe: _ConsoleProbe,
+    runtime_probe: _RuntimeProbe,
+) -> None:
+    """水位超前最新 seq：Owner 回 `CURSOR_AHEAD`，网关原样透出（不偷偷截断）。"""
+    runtime_probe.through_seq_ahead = True
+    async with _gateway_client(stub_console, runtime_probe) as client:
+        response = await client.post(
+            f"{CONVERSATION_URL}/read",
+            headers=_chat_headers(),
+            json={"notification_through_seq": 999},
+        )
+
+    assert response.status_code == 400, response.text
+    assert response.json()["code"] == "CURSOR_AHEAD"
 
 
 async def test_b252_conversation_detail_and_history_resolve_scope_then_read_entry_scoped(
@@ -869,6 +956,8 @@ async def test_b252_conversation_detail_and_history_resolve_scope_then_read_entr
         "title": "容量检查",
         "status": "ACTIVE",
         "last_seq": 12,
+        "has_unread": False,
+        "notification_through_seq": 0,
         "last_run_id": str(RUN_ID),
         "active_run": {
             "id": str(RUN_ID),
@@ -908,10 +997,13 @@ async def test_b252_conversation_detail_and_history_resolve_scope_then_read_entr
         {"user_id": str(PLATFORM_USER_ID)},
     ], "详情与历史各自解析一次归属（只带受信主体）"
     detail_read = runtime_probe.calls[f"/internal/webchat/conversations/{CONVERSATION_ID}"][0]
+    # `entry_id` 是「从哪个入口访问」，而 `entry_agnostic=true` 表示会话本身跨入口共享
+    # （同一用户+Agent 的会话在任一入口都能读，TASK-007）；两者并不矛盾。
     assert detail_read.query == {
         "user_id": str(PLATFORM_USER_ID),
         "agent_id": str(AGENT_ID),
         "entry_id": str(ENTRY_ID),
+        "entry_agnostic": "true",
     }
     history_read = runtime_probe.calls[
         f"/internal/webchat/conversations/{CONVERSATION_ID}/messages"
@@ -920,6 +1012,7 @@ async def test_b252_conversation_detail_and_history_resolve_scope_then_read_entr
         "user_id": str(PLATFORM_USER_ID),
         "agent_id": str(AGENT_ID),
         "entry_id": str(ENTRY_ID),
+        "entry_agnostic": "true",
         "page": "1",
         "page_size": "50",
         "through_seq": "7",

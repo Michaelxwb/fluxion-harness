@@ -125,12 +125,33 @@ def test_agent_route_registered() -> None:
 def test_channel_form_supports_webchat_entries() -> None:
     """[S-10] IM 接入表单可选 WEBCHAT：网页入口不要求/不提交 Bot Secret。"""
     source = _source("ChannelFormModal.tsx")
-    assert "type ChannelKind = 'WECOM' | 'WEBCHAT'" in source
+    assert "'WEBCHAT'" in source and "'MSSWWEB'" in source
     assert 'field="channel"' in source
     assert "disabled={props.channel !== null}" in source, "编辑已有入口时通道不可改"
     assert "channel," in source and "values.channel" in source, "创建时通道按表单值提交"
-    assert "channelKind === DEFAULT_CHANNEL ?" in source, "WEBCHAT 不渲染 secret 字段"
-    assert "if (channel === DEFAULT_CHANNEL) {" in source, "只有企微入口提交 secret"
+    # 无 secret 通道（WEBCHAT / MSSWWEB）不渲染 secret 输入、不提交 secret。
+    # 断言行为判据而非具体表达式，避免以后再加一个无 secret 通道就要改测试。
+    assert "!isSecretless(channelKind) ?" in source, "无 secret 通道不渲染 secret 字段"
+    assert "if (!isSecretless(channel)) {" in source, "只有企微入口提交 secret"
+
+
+def test_channel_form_offers_msswweb_entries() -> None:
+    """[S-01] FEAT-11：Agent 页要能新建 MSSWWEB 入口（无 secret，填 bot_id）。
+
+    后端 `SECRETLESS_CHANNELS` 已含 MSSWWEB，缺口只在前端下拉框；这条守住前端不再退回两值。
+    """
+    source = _source("ChannelFormModal.tsx")
+    assert "type ChannelKind = 'WECOM' | 'WEBCHAT' | 'MSSWWEB'" in source
+    assert "{ value: 'MSSWWEB', label: t('agent.channel.channelMsswweb') }" in source
+    # 不能再用「非 WEBCHAT 即 WECOM」的归一，否则选中 MSSWWEB 会被改写成 WECOM 建出去。
+    assert "values.channel === WEBCHAT_CHANNEL ? WEBCHAT_CHANNEL : DEFAULT_CHANNEL" not in source
+
+
+def test_channel_list_renders_msswweb_label() -> None:
+    """[FEAT-11] 入口列表要显示 MSSWWEB 的可读名称，而不是原始枚举值。"""
+    source = _source("AgentDetailSideSheet.tsx")
+    assert "value === 'MSSWWEB'" in source
+    assert "agent.channel.channelMsswweb" in source
 
 
 def test_webchat_entry_exposes_chat_link() -> None:

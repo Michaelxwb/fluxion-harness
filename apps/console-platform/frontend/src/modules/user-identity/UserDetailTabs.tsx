@@ -54,6 +54,7 @@ import {
   type WebchatTokenMetadata
 } from './services/users';
 import { ExperienceTab } from '../learning/ExperienceTab';
+import { ExternalIdentitySection } from './ExternalIdentitySection';
 import { MemoryTab } from './MemoryTab';
 import { UserChatTokenCard } from './UserChatTokenCard';
 
@@ -538,7 +539,11 @@ function CredentialsTab(props: { userId: string }) {
   );
 }
 
-function IdentityTab(props: { userId: string; canManageToken: boolean }) {
+function IdentityTab(props: {
+  userId: string;
+  canManageToken: boolean;
+  onUserMutated?(): void;
+}) {
   const { t } = useTranslation();
   const list = useAsyncList<Identity>(
     (page, pageSize) => listIdentities(props.userId, { page, page_size: pageSize }),
@@ -655,6 +660,12 @@ function IdentityTab(props: { userId: string; canManageToken: boolean }) {
       </TabState>
       <TabPagination list={list} />
       <div className="detail-hint">{t('user.identities.hint')}</div>
+      {/* 外部平台身份与 IM 身份同属「这个用户以什么身份接入」，放在同一页签下。 */}
+      <ExternalIdentitySection
+        userId={props.userId}
+        canManage={props.canManageToken}
+        onMutated={props.onUserMutated}
+      />
     </div>
   );
 }
@@ -752,7 +763,11 @@ export function UserDetailTabs(props: UserDetailTabsProps) {
         </Tabs.TabPane>
       )}
       <Tabs.TabPane itemKey="identities" tab={`${t('user.tabs.identities')} (${user.identity_count})`}>
-        <IdentityTab userId={user.id} canManageToken={isAdmin} />
+        <IdentityTab
+          userId={user.id}
+          canManageToken={isAdmin}
+          onUserMutated={props.onUserMutated}
+        />
       </Tabs.TabPane>
       <Tabs.TabPane itemKey="memory" tab={`${t('user.tabs.memory')} (${user.memory_count})`}>
         <MemoryTab userId={user.id} canManage={isAdmin} onMutated={props.onUserMutated} />

@@ -524,9 +524,11 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
                   render: (value: string) =>
                     value === 'WEBCHAT'
                       ? t('agent.channel.channelWebchat')
-                      : value === 'WECOM'
-                        ? t('agent.channel.channelWecom')
-                        : value
+                      : value === 'MSSWWEB'
+                        ? t('agent.channel.channelMsswweb')
+                        : value === 'WECOM'
+                          ? t('agent.channel.channelWecom')
+                          : value
                 },
                 {
                   title: t('agent.relation.chatLink'),

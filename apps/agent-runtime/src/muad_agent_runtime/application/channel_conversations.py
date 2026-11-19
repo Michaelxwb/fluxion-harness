@@ -67,13 +67,19 @@ _POINTER_KEY_COLUMNS = (
 
 @dataclass(frozen=True, slots=True)
 class ConversationScope:
-    """入口会话的核属维度：租户/用户/Agent/入口账号（可归属时）/外线线程。"""
+    """入口会话的核属维度：租户/用户/Agent/入口账号（可归属时）/外线线程。
+
+    `entry_agnostic=False`（默认）：入口是硬核属维度——读写必须命中请求入口，越权一律 404。
+    `entry_agnostic=True`：同一 user + Agent 跨入口共享会话（设计 RULE-im-006 / S-06），
+    详情/历史/取消/删除/产物按 user + Agent 核属，入口只作来源元数据，不再作为可见性断言。
+    """
 
     tenant_id: str
     user_id: uuid.UUID
     agent_id: uuid.UUID
     entry_id: uuid.UUID
     external_thread_id: str
+    entry_agnostic: bool = False
 
 
 def scope_of(request: RunRequest, tenant_id: str) -> ConversationScope:
@@ -315,7 +321,12 @@ async def enforce_conversation_limit(
 
 
 def assert_entry_attribution(conversation: Conversation, scope: ConversationScope) -> None:
-    """入口核属（严格）：会话必须属于请求的入口账号；跨入口一律 `COMMON_NOT_FOUND`。"""
+    """入口核属（严格）：会话必须属于请求的入口账号；跨入口一律 `COMMON_NOT_FOUND`。
+
+    `scope.entry_agnostic=True` 时跳过：同一 user + Agent 跨入口共享会话，入口不是边界。
+    """
+    if scope.entry_agnostic:
+        return
     if conversation.channel_account_id != scope.entry_id:
         raise AppError(ErrorCode.COMMON_NOT_FOUND)
 

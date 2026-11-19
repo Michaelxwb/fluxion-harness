@@ -44,6 +44,7 @@ from .chat_principal import ChatIdentity
 from .inbound_attachments import kind_for
 from .platform_settings import resolve_platform_settings
 from .ports import PlatformSettingsClient, PlatformSettingsSnapshot
+from .webchat_core import WEBCHAT_CHANNEL, ChatSurface
 from .webchat_service import WebchatEntrySource, resolve_authorized_entry
 
 logger = logging.getLogger(__name__)
@@ -108,6 +109,7 @@ class WebchatUploadService:
         store: NfsArtifactStore,
         tenant_id: str,
         hard_max_bytes: int,
+        surface: ChatSurface | None = None,
     ) -> None:
         if isinstance(hard_max_bytes, bool) or hard_max_bytes <= 0:
             raise ValueError("hard_max_bytes must be a positive integer")
@@ -117,6 +119,8 @@ class WebchatUploadService:
         self._store = store
         self._tenant_id = tenant_id
         self._hard_max_bytes = hard_max_bytes
+        # 上传归属与**本次发送入口**一致：入口解析按当前 surface 的通道过滤，不写死 WEBCHAT。
+        self._surface = surface or ChatSurface(channel=WEBCHAT_CHANNEL)
 
     async def upload(
         self,
@@ -127,7 +131,9 @@ class WebchatUploadService:
         content_type: str | None,
     ) -> WebchatUpload:
         """流式接收一个上传：字节落共享存储后经受信端口登记，返回权威元信息。"""
-        ref = resolve_authorized_entry(self._entries, identity, entry_id)
+        ref = resolve_authorized_entry(
+            self._entries, identity, entry_id, channel=self._surface.channel
+        )
         limits = await self._limits()
         reader = _MultipartReader(stream, _boundary_of(content_type))
         sink = _StagingSink(

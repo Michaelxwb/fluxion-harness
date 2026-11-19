@@ -8,6 +8,7 @@ from .auth import public_router as auth_public_router
 from .auth import router as auth_router
 from .credentials import router as credentials_router
 from .deps import get_current_account, require_admin
+from .external_platforms import router as external_platforms_router
 from .internal_artifacts import router as internal_artifacts_router
 from .internal_channel import router as internal_channel_router
 from .internal_platform_settings import router as internal_platform_settings_router
@@ -58,6 +59,8 @@ router.include_router(authenticated)
 admin = APIRouter(dependencies=[Depends(require_admin), Depends(require_csrf)])
 admin.include_router(accounts_router)
 admin.include_router(users_router)
+# 外部平台元数据与入口候选（API-17/19）：仅 ADMIN，只读，不含任何验签因子。
+admin.include_router(external_platforms_router)
 admin.include_router(learning_router)
 # 凭据类管理仅 ADMIN（13-console-auth 设计 §2.4：前端隐藏 + 后端 403 兜底）。
 admin.include_router(credentials_router)

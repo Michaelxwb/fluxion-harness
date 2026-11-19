@@ -75,6 +75,8 @@ TASK_ARTIFACT_VERSION_PATH = "/internal/artifacts/{artifact_id}/versions/{versio
 #: 受信活动收件箱端口（TASK-064/070）：按用户 feed seq 增量读取 + 显式已读。
 INTERNAL_NOTIFICATIONS_PATH = "/internal/webchat/notifications"
 INTERNAL_NOTIFICATION_READ_PATH = "/internal/webchat/notifications/{notification_id}/read"
+#: 会话级已读（≤ 该水位的通知）：MsswWeb 面没有通知中心，靠这条路径清红点。
+INTERNAL_CONVERSATION_READ_PATH = "/internal/webchat/conversations/{conversation_id}/read"
 CANCEL_ACTIVE_PATH = "/v1/runs/cancel-active"
 #: 受信聊天路由端口（TASK-025）：入站文本先判「是不是 Human 回答」，NONE 才继续建 Run。
 HUMAN_ROUTING_PATH = "/v1/human-routing"
@@ -203,13 +205,21 @@ def build_headers(
     return headers
 
 
-def _read_scope(user_id: UUID, agent_id: UUID, entry_id: UUID) -> dict[str, str]:
-    """入口显式读取的核属维度（与 TASK-050 内部端点的查询参数同形）。"""
-    return {
+def _read_scope(
+    user_id: UUID, agent_id: UUID, entry_id: UUID, *, entry_agnostic: bool = False
+) -> dict[str, str]:
+    """入口显式读取的核属维度（与 TASK-050 内部端点的查询参数同形）。
+
+    `entry_agnostic=True` 时按 user + Agent 核属/聚合（跨入口共享会话），入口只作来源。
+    """
+    params = {
         "user_id": str(user_id),
         "agent_id": str(agent_id),
         "entry_id": str(entry_id),
     }
+    if entry_agnostic:
+        params["entry_agnostic"] = "true"
+    return params
 
 
 def _admission_from_headers(headers: httpx.Headers) -> RunAdmission | None:
@@ -467,8 +477,9 @@ class RuntimeClient:
         agent_id: UUID,
         page: int,
         page_size: int | None,
+        entry_agnostic: bool = False,
     ) -> dict[str, Any]:
-        """API-14 入口会话列表（内部受信面；入口显式）。"""
+        """API-14 入口会话列表（内部受信面；入口显式，跨入口时按 user + Agent 聚合）。"""
         params = {
             "user_id": str(user_id),
             "agent_id": str(agent_id),
@@ -476,6 +487,8 @@ class RuntimeClient:
         }
         if page_size is not None:
             params["page_size"] = str(page_size)
+        if entry_agnostic:
+            params["entry_agnostic"] = "true"
         return await self._get_internal_json(
             INTERNAL_CONVERSATIONS_PATH.format(entry_id=entry_id), tenant_id, params
         )
@@ -488,12 +501,13 @@ class RuntimeClient:
         user_id: UUID,
         agent_id: UUID,
         entry_id: UUID,
+        entry_agnostic: bool = False,
     ) -> dict[str, Any]:
-        """API-15 会话详情（入口显式核属后的公开投影）。"""
+        """API-15 会话详情（入口显式核属后的公开投影；跨入口时按 user + Agent）。"""
         return await self._get_internal_json(
             INTERNAL_CONVERSATION_PATH.format(conversation_id=conversation_id),
             tenant_id,
-            _read_scope(user_id, agent_id, entry_id),
+            _read_scope(user_id, agent_id, entry_id, entry_agnostic=entry_agnostic),
         )
 
     async def list_messages(
@@ -507,9 +521,13 @@ class RuntimeClient:
         page: int,
         page_size: int | None,
         through_seq: int | None,
+        entry_agnostic: bool = False,
     ) -> dict[str, Any]:
-        """API-09 固定水位分页（首屏冻结、后页沿用；游标语义由 Owner 裁决）。"""
-        params = {**_read_scope(user_id, agent_id, entry_id), "page": str(page)}
+        """API-09 固定水位分页（首屏冻结、后页沿用；游标语义由 Owner 裁决，跨入口按 user + Agent）。"""
+        params = {
+            **_read_scope(user_id, agent_id, entry_id, entry_agnostic=entry_agnostic),
+            "page": str(page),
+        }
         if page_size is not None:
             params["page_size"] = str(page_size)
         if through_seq is not None:
@@ -643,6 +661,21 @@ class RuntimeClient:
         return await self._post_internal_json(
             INTERNAL_NOTIFICATION_READ_PATH.format(notification_id=notification_id),
             {},
+            tenant_id,
+            params={"user_id": str(user_id)},
+        )
+
+    async def mark_conversation_read(
+        self, conversation_id: UUID, through_seq: int, *, tenant_id: str, user_id: UUID
+    ) -> dict[str, Any]:
+        """会话级已读：把 ≤ `through_seq` 的通知标记为已读（BFF 清红点）。
+
+        通知中心本身只挂在 WebChat 面，但 MsswWeb 面同样返回 `has_unread`；没有这条路径，
+        红点只增不减。水位合法性（不超前于最新 seq）由 Owner 判定，这里只做转发与归属。
+        """
+        return await self._post_internal_json(
+            INTERNAL_CONVERSATION_READ_PATH.format(conversation_id=conversation_id),
+            {"notification_through_seq": through_seq},
             tenant_id,
             params={"user_id": str(user_id)},
         )

@@ -119,3 +119,83 @@ class BindCode(StandardColumnsMixin, Base):
     used_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     used_channel_identity_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
     created_by: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+
+
+class ExternalIdentity(StandardColumnsMixin, Base):
+    """用户级外部身份（RULE-data-002）：回答「这个外部标识对应哪个平台用户」。
+
+    与旧 ``channel_identity`` 的区别：身份不绑定某个入口，``bot_account_id`` 不在本表；
+    入口授权见 :class:`EntryAccessGrant`。``identity_hash`` 由平台 ``identity_keys``
+    提取的字段按 key 排序做规范 JSON 再 sha256 得到，字段集合变更会让历史行无法复算。
+    """
+
+    __tablename__ = "external_identity"
+    __table_args__ = (
+        sa.Index(
+            "uq_external_identity_tenant_platform_hash",
+            "tenant_id",
+            "platform_key",
+            "identity_hash",
+            unique=True,
+            postgresql_where=sa.text("is_deleted = false"),
+        ),
+        sa.Index("ix_external_identity_tenant_user", "tenant_id", "platform_user_id"),
+        {"schema": "control"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    platform_key: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    platform_user_id: Mapped[uuid.UUID] = mapped_column(
+        sa.Uuid(),
+        sa.ForeignKey("control.platform_user.id"),
+        nullable=False,
+    )
+    identity_hash: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    identity_json: Mapped[dict[str, Any]] = mapped_column(
+        JSONB,
+        nullable=False,
+        server_default=sa.text("'{}'::jsonb"),
+    )
+    status: Mapped[str] = mapped_column(
+        sa.String(16),
+        nullable=False,
+        server_default=sa.text("'ACTIVE'"),
+    )
+
+
+class EntryAccessGrant(StandardColumnsMixin, Base):
+    """入口授权（RULE-data-002）：回答「这个身份能在哪个入口下使用」。
+
+    解绑只软删本表行，:class:`ExternalIdentity` 保留 —— 重绑后历史会话归属不变。
+    """
+
+    __tablename__ = "entry_access_grant"
+    __table_args__ = (
+        sa.Index(
+            "uq_entry_access_grant_tenant_identity_bot",
+            "tenant_id",
+            "external_identity_id",
+            "bot_account_id",
+            unique=True,
+            postgresql_where=sa.text("is_deleted = false"),
+        ),
+        sa.Index(
+            "ix_entry_access_grant_tenant_bot_identity",
+            "tenant_id",
+            "bot_account_id",
+            "external_identity_id",
+        ),
+        {"schema": "control"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    external_identity_id: Mapped[uuid.UUID] = mapped_column(
+        sa.Uuid(),
+        sa.ForeignKey("control.external_identity.id"),
+        nullable=False,
+    )
+    bot_account_id: Mapped[uuid.UUID] = mapped_column(
+        sa.Uuid(),
+        sa.ForeignKey("control.bot_account.id"),
+        nullable=False,
+    )

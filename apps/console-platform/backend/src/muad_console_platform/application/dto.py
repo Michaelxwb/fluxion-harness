@@ -727,3 +727,77 @@ class AuditExportCreateRequest(BaseModel):
     trace_id: str | None = Field(default=None, max_length=64)
     start_time: datetime | None = None
     end_time: datetime | None = None
+
+
+# ---------------------------------------------------------------------------
+# 外部平台身份（API-17 ~ API-24）：管理员手工登记，身份与入口授权分两表。
+# ---------------------------------------------------------------------------
+
+
+class ExternalPlatformItem(BaseModel):
+    """API-17：平台元数据投影。**不含任何验签因子**。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    platform_key: str
+    display_name: str
+    configured: bool
+    identity_keys: list[str]
+    identity_field_labels: dict[str, str] = Field(default_factory=dict)
+
+
+class ExternalEntryItem(BaseModel):
+    """API-19：可绑定的入口（一行 bot_account）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    entry_id: uuid.UUID
+    bot_id: str
+    name: str
+    channel: str
+    agent_id: uuid.UUID
+    agent_name: str
+    granted: bool
+
+
+class ExternalEntryGrantItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    entry_id: uuid.UUID
+    bot_id: str
+    name: str
+
+
+class ExternalIdentityItem(BaseModel):
+    """API-24：用户级外部身份 + 其入口授权。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    identity_id: uuid.UUID
+    platform_key: str
+    identity: dict[str, str]
+    status: str
+    grants: list[ExternalEntryGrantItem] = Field(default_factory=list)
+
+
+class ExternalIdentityUpsertRequest(BaseModel):
+    """API-18：字段集合必须与平台 `identity_keys` 完全一致。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    platform_key: str = Field(min_length=1, max_length=64)
+    identity: dict[str, str]
+
+
+class ExternalIdentityUpdateRequest(BaseModel):
+    """API-21：编辑身份，只允许改提升值，不允许换 `platform_key`。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    identity: dict[str, str]
+
+
+class ExternalGrantCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    channel_account_id: uuid.UUID

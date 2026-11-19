@@ -21,12 +21,14 @@ AUDIT_RESOURCE_TYPE = "AGENT"
 WECOM_CHANNEL = "WECOM"
 #: 通用网页稳定入口：配置显示名/Agent/允许来源，不携带企微 secret。
 WEBCHAT_CHANNEL = "WEBCHAT"
+#: 外部平台网页入口：身份由上游 JWT 断言给出，验签因子走 Secret，入口本身无 secret。
+MSSWWEB_CHANNEL = "MSSWWEB"
 #: 没有企微凭据的稳定入口通道：创建与更新都不接受 secret（显式拒绝，不静默存一份没人消费的凭据）。
-SECRETLESS_CHANNELS = frozenset({WEBCHAT_CHANNEL})
+SECRETLESS_CHANNELS = frozenset({WEBCHAT_CHANNEL, MSSWWEB_CHANNEL})
 
 
 def entry_secret(channel_name: str, secret: str | None) -> str | None:
-    """按通道裁决企微凭据：企微入口必须携带；稳定入口（WEBCHAT）不得携带。"""
+    """按通道裁决企微凭据：企微入口必须携带；稳定入口（WEBCHAT/MSSWWEB）不得携带。"""
     provided = secret or None
     if channel_name in SECRETLESS_CHANNELS:
         if provided is not None:

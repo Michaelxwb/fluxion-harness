@@ -4,7 +4,7 @@ from enum import StrEnum
 # 路由由 `ChannelRegistry` 的适配器名决定）；下面列出的是内建通道名，供默认值/文档与
 # 机检（一处声明）使用。放在 leaves 模块（仅依赖标准库），避免 channel ↔ tasks 的循环导入。
 # 机检：tests/test_attachment_contract.py::test_b07_channel_enum_is_defined_in_exactly_one_place
-BUILTIN_CHANNEL_NAMES: tuple[str, ...] = ("WECOM", "WEBCHAT")
+BUILTIN_CHANNEL_NAMES: tuple[str, ...] = ("WECOM", "WEBCHAT", "MSSWWEB")
 #: 兼容别名：类型上是开放 string（WECOM=企微机器人；WEBCHAT=通用网页稳定入口）。
 ChannelName = str
 
@@ -352,4 +352,4 @@ OUTBOUND_CHANNELS: frozenset[ChannelName] = frozenset({"WECOM"})
 #: 出站由**本进程的持久会话流**完成的通道（站内入口）：产物不经过 IM 出站管道，直接落目标
 #: 会话的 canonical 流（`artifact.created`），由该会话的订阅面与历史面读取同一事实。
 #: 与 `OUTBOUND_CHANNELS` 一起覆盖内建通道；不属于任一组的未知通道必须显式拒绝，不猜。
-LOCAL_STREAM_CHANNELS: frozenset[ChannelName] = frozenset({"WEBCHAT"})
+LOCAL_STREAM_CHANNELS: frozenset[ChannelName] = frozenset({"WEBCHAT", "MSSWWEB"})

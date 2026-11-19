@@ -2,7 +2,7 @@ import uuid
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, Query, Request
-from muad_api import ApiResponse, InternalServiceDep, ok
+from muad_api import ApiResponse, AppError, ErrorCode, InternalServiceDep, ok
 from muad_contracts import (
     DEFAULT_PAGE_SIZE,
     ArtifactDeliveryAuditRequest,
@@ -10,13 +10,22 @@ from muad_contracts import (
     ChannelResolveRequest,
     InboundAuditRequest,
 )
-from muad_contracts.webchat import ChatPrincipalRequest
+from muad_contracts.webchat import (
+    ChatPrincipalRequest,
+    ExternalIdentityQuery,
+    ExternalPrincipalRequest,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.artifact_delivery_audit_service import ArtifactDeliveryAuditService
 from ..application.channel_identity_service import ChannelIdentityService
 from ..application.channel_service import ChannelService
 from ..application.channel_skills_service import ChannelSkillsService
+from ..application.external_assertion_service import (
+    ExternalAssertionRejected,
+    ExternalAssertionService,
+    PlatformUnavailable,
+)
 from ..application.inbound_audit_service import InboundAuditService
 from ..infrastructure.db import get_session
 from ..metrics import BIND_METRIC, count_outcome
@@ -66,9 +75,7 @@ async def bots(
 ) -> ApiResponse[Any]:
     """入口快照：`channels`（逗号分隔）限定调用方拥有的通道，避免泄露别人的 bot secret。"""
     wanted = (
-        frozenset(item.strip().upper() for item in channels.split(",") if item.strip())
-        if channels
-        else None
+        frozenset(item.strip().upper() for item in channels.split(",") if item.strip()) if channels else None
     )
     snapshot = await ChannelService(session).bots(
         tenant_id,
@@ -155,3 +162,64 @@ async def chat_principal(
         tenant_id, payload, chat_context=chat_context
     )
     return ok(request.app.state.message_catalog, resolved.model_dump(mode="json"))
+
+
+@router.post("/external-principal")
+async def external_principal(
+    payload: ExternalPrincipalRequest,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    internal_service: InternalServiceDep,
+) -> ApiResponse[Any]:
+    """外部平台断言核验（对应契约 `ExternalPrincipalResult`）。
+
+    服务身份与部署租户先过门控；断言原文只作输入凭据，始终不进出响应与日志。
+    三类结果：平台未配置 → 503 `EXTERNAL_PLATFORM_UNAVAILABLE`；断言不可信 → 401；
+    身份未绑定 / 无入口授权 / 用户停用 → 200 + `allowed=false` + `reason`。
+    """
+    service = ExternalAssertionService(
+        session, cache=getattr(request.app.state, "auth_cache", None)
+    )
+    try:
+        resolved = await service.resolve(
+            tenant_id,
+            payload.platform_key,
+            payload.assertion.get_secret_value(),
+            channel=payload.channel,
+            entry_id=payload.entry_id,
+        )
+    except PlatformUnavailable as exc:
+        raise AppError(ErrorCode.EXTERNAL_PLATFORM_UNAVAILABLE) from exc
+    except ExternalAssertionRejected as exc:
+        raise AppError(ErrorCode(exc.code)) from exc
+    return ok(request.app.state.message_catalog, resolved)
+
+
+@router.post("/external-identity")
+async def external_identity(
+    payload: ExternalIdentityQuery,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    internal_service: InternalServiceDep,
+) -> ApiResponse[Any]:
+    """外部身份权限查询（API-01 的 Console 侧，供网关投影 `GET /identity`）。
+
+    与 `/external-principal` 判定同源、表达不同：这里回逐入口 `allowed`/`reason` 与
+    `auth_revision`，让外部平台能区分「没授权」与「授权了但不可用」。断言不可信仍是
+    401（无效请求不是权限结论）；平台未配置 503。
+    """
+    service = ExternalAssertionService(session)
+    try:
+        described = await service.describe(
+            tenant_id,
+            payload.platform_key,
+            payload.assertion.get_secret_value(),
+            entry_id=payload.entry_id,
+        )
+    except PlatformUnavailable as exc:
+        raise AppError(ErrorCode.EXTERNAL_PLATFORM_UNAVAILABLE) from exc
+    except ExternalAssertionRejected as exc:
+        raise AppError(ErrorCode(exc.code)) from exc
+    return ok(request.app.state.message_catalog, described)

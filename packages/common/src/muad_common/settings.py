@@ -69,6 +69,20 @@ class SharedSettings(BaseSettings):
     skill_output_max_file_mib: int = Field(default=16, ge=1)
     skill_output_max_total_mib: int = Field(default=64, ge=1)
     migrations_dir: str = "./migrations/versions"
+    #: 外部平台验签因子（JSON 对象，按 platform_key 索引）。**只用环境变量 / Secret 注入**，
+    #: 不落库、不回显、不进日志。空 = 未配置任何外部平台，对应通道认证返回 503。
+    #: 每个平台的键：public_key / issuer / audience / salt / identity_keys /
+    #: identity_field_labels / display_name。
+    external_assertion_platforms_json: str = Field(default="", repr=False)
+    #: 断言最大会话年龄（秒）：``exp`` 恒为 -1 不可信，用签发自报时间兜底。
+    #:
+    #: ≤0 关闭该闸——验签侧 ``_check_max_age`` 与到期计算 ``_session_expires_at`` 都按此处理，
+    #: 关闭时只保留上游给出的正数 ``exp`` 约束。上游 token 的 ``login_time`` 是登录时刻、
+    #: 不随使用滑动（Redis TTL 续期不重签 JWT），所以本值应覆盖一个完整工作日，否则活跃用户
+    #: 会在达到该年龄时被 SSE 复核中断；具体值以部署配置为准。
+    external_assertion_max_session_age_sec: int = Field(default=0, ge=0)
+    #: 外部断言结果缓存 TTL（秒）；具体值以部署配置为准。
+    external_assertion_cache_ttl_sec: int = Field(default=60, ge=1)
 
     console_platform_url: str = "http://127.0.0.1:8000"
     agent_runtime_url: str = "http://127.0.0.1:8001"
