@@ -19,6 +19,12 @@
 
 - [RULE-004] Schema 只允许 `control`/`runtime`/`task`，不得新建框架私有 schema，也不得放入无 ORM 模型的表。
 
+- [RULE-data-002] **外部身份与入口授权分两表**：`external_identity` 为用户级，回答「这个外部标识对应哪个平台用户」，唯一键 `(tenant_id, platform_key, identity_hash)` WHERE `is_deleted=false`，并索引 `(tenant_id, platform_user_id)`；`entry_access_grant` 为入口授权，回答「这个身份能在哪个入口下使用」，唯一键 `(tenant_id, external_identity_id, bot_account_id)` WHERE `is_deleted=false`，并索引 `(tenant_id, bot_account_id, external_identity_id)` 以支撑入口停用时反查受影响身份。
+  - **身份与授权分离**：解绑入口只软删 grant，身份保留，重绑后历史会话归属不变；编辑身份只重算 `identity_hash`，不改变历史归属。
+  - **不改旧表**：既有 `channel_identity`（`channel:bot_id:external_user_id` 主动绑定模型）保持不变，新模型与之并存。
+  - **按 hash 定位不扫用户表**：查询必须带 `tenant_id`，禁止全局扫描。
+  - ✅ 一次查询 `(tenant, platform_key, identity_hash)` 直接命中身份，再按身份查 grant；❌ 把身份与入口塞进同一张表、用 `channel:bot_id:user` 拼接当身份键。
+
 ## Conventions
 
 - **稳定 key 不因软删除而重置**：`user_memory` 的 `(tenant_id,user_id,memory_key)` 与 `memory_scope` 的 `(tenant_id,user_id)` 使用完整唯一。历史对稳定 `origin_id` 建同 Owner FK，执行对象/actor/command 是逻辑审计引用；history/receipt/job 的 `is_deleted` CHECK 恒 false。同族的新注册表同样使用完整唯一（含 tombstone）：`runtime.model_capacity`（0022）、`runtime.run_admission_policy`（0023，另有 `is_deleted=false` CHECK）、`runtime.channel_notification_feed`（0026）。

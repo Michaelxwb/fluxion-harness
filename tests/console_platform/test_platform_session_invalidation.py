@@ -5,9 +5,9 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
-import redis.asyncio as redis
 from httpx import AsyncClient
 from muad_common import SharedSettings
+from muad_common.redis_client import create_redis_client
 from muad_console_platform.application.platform_adapter_service import build_default_registry
 from muad_console_platform.infrastructure.db import get_session_factory
 from muad_console_platform.infrastructure.models.control import PlatformUser
@@ -60,7 +60,19 @@ def alt_adapter_registered() -> AsyncIterator[None]:
 
 @pytest.fixture
 async def redis_client() -> AsyncIterator[Any]:
-    client = redis.from_url(SharedSettings().require_redis_url(), decode_responses=True)  # type: ignore[no-untyped-call]
+    # 与生产同构：集群模式下裸 `Redis.from_url` 的多 key DEL 会被 MOVED 打回。
+    settings = SharedSettings()
+    seeds = [
+        item.strip()
+        for item in (settings.redis_cluster_seeds or "").split(",")
+        if item.strip()
+    ]
+    client = create_redis_client(
+        settings.require_redis_url(),
+        mode=settings.redis_mode,
+        seeds=seeds,
+        decode_responses=True,
+    )
     try:
         yield client
     finally:

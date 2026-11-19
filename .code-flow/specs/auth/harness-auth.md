@@ -1,5 +1,5 @@
 ---
-{"description": "认证、会话、RBAC 与 CHAT", "next_rule": 1}
+{"description": "认证、会话、RBAC 与 CHAT", "next_rule": 4}
 ---
 
 # harness-auth
@@ -7,6 +7,16 @@
 ## Rules
 
 - [RULE-auth-001] 授权为三层关系：User→Agent（AgentAccessGrant）、Agent→Skill/MCP（Binding）、SELECTED 资源再叠加 SkillUserGrant/McpUserGrant；Effective Capability 公式必须含 `is_deleted=false` 与资源/Agent `enabled`；绑定无启停开关、授权无到期时间；不建三元授权、不做 MCP Tool 级授权；未授权资源不得进入 Prompt/ToolRegistry/Skill Catalog。
+
+- [RULE-auth-002] **外部断言按固定五步链校验**：① 验签（算法白名单，拒绝 `none` 等非预期算法）→ ② AES 因子以「加密期望值 + 密文比对」校验 `aud`/`iss`（不解密 padding 非标准的密文）→ ③ claim 策略（最大会话年龄等，兜底 `exp` 不可信的情形）→ ④ 按平台配置的 `identity_keys` 提取身份字段（全部必填、集合完全一致、值非空）并计算 `identity_hash` → ⑤ 按 `(tenant, platform_key, identity_hash)` 查外部身份与入口授权。任一步失败即 fail-closed。
+  - **未绑定不得伪造主体**：验签通过但查无外部身份时返回可空主体 + `reason=UNBOUND`，绝不虚构 `platform_user`。
+  - **身份命中不等于可访问**：身份存在但当前入口无授权时，主体照常返回、`allowed=false` + `reason=NO_ENTRY_GRANT`。两者必须可区分，不得都报成未绑定。
+  - ✅ 五步顺序执行、失败即拒；`UNBOUND` / `NO_ENTRY_GRANT` / `USER_DISABLED` / `NO_AGENT_GRANT` 各有独立 reason。
+  - ❌ 跳过算法白名单；用解码而非密文比对校验 `aud`/`iss`；身份查无就临时建档；把「无入口授权」报成 `UNBOUND`。
+
+- [RULE-auth-003] **外部断言缓存必须分层：凭证层以断言完整哈希为键，权限层复用既有 `perm:` 失效链路**：凭证层可缓存验签结论（命中即跳过五步链），安全性来自「键是断言原文的 SHA-256」——任何改动都会 miss 并回源完整校验；权限层（Agent 与入口授权）**不得**与凭证同键，必须走既有 `perm:<user_id>` 层，使撤销授权/停用用户或 Agent/删除身份等变更**即时生效**。凭证项必须自带绝对到期（首次校验时按 claim 策略算出，续期不得延长），续期只重置闲置窗口。不得以用户 ID、身份字段等可预测值作凭证键。凭证键必须含**平台标识**（置于租户 hash tag 之后，不得放在之前而打散同租户槽位），使反向索引可按平台区分，避免解绑某平台身份时连带清除其它平台凭证；权限层键不加平台段（跨平台共用）。凭证反向索引必须可回收，不得无界增长。Redis 不可用时回源完整校验，不得因「缓存读不到」而放行。凭证层与权限层**只能由 Console 写入**（验签与授权解析的唯一权威），网关只读与续期；缺失任一层的生产者会让读取端永远回源，等同于没有缓存。
+    - ✅ 凭证命中跳过验签但仍读权限层；撤权后权限层失效即回源 PG；`touch` 后 TTL = `min(闲置窗口, expires_at - now)`，闲置窗口取既有缓存 TTL 配置，不新增同名键。
+  - ❌ 把授权快照塞进凭证缓存（撤权将延迟到 TTL 到期）；用 `platform_user_id` 或身份字段做凭证键；凭证键缺平台段；把平台段放到租户 hash tag 之前；`touch` 越过 `expires_at`；Redis 失败时按「无缓存即可信」放行；外部断言凭证与 WebChat 会话键混用。
 
 ## Conventions
 

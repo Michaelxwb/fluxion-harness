@@ -3,18 +3,60 @@
 ---
 # MSSW 外部 IM 入口 验收场景
 
-> **修订版本**：v1.2；状态为待实现/待人工执行，本文不代表验收已通过。
+> **修订版本**：v1.3；状态为待实现/待人工执行，本文不代表验收已通过。
 
 > 这是给**人工测试者**使用的验收清单，不是 E2E 代码或测试注册表。
 > 每个场景保留 S-/E-/B- 编号，供 design 和 Task 的 `Scenarios` 字段引用。
 > 步骤用用户能执行的界面动作、CLI 命令或 API 请求描述；期望写用户可观察的结果。
 > 本次接入方是业务平台 BFF，因此部分场景以 API 请求为主；Console 管理面场景以页面操作为主。
 
+## 自动化覆盖对照（v1.3 实测）
+
+API 层已由 `tests/acceptance/msswweb/` 持续回归覆盖；浏览器/长流时序场景仍需人工执行。
+
+| 场景 | 自动化 | 位置 |
+|------|--------|------|
+| S-01 建入口 | 人工（Console 页面） | — |
+| S-02 建身份并授权 | 部分（API 等价路径） | `admin_api.py` 的 upsert/grant 调用被 E-05/E-07 复用 |
+| S-03 完整对话 | ✅ pytest 全链路（真实 LLM 探针） | `test_full_conversation.py` |
+| S-04 停止生成 | 人工（需真实长回答中途取消） | — |
+| S-04b 无 Console 权限泄露 | ✅ | `test_auth_surface.py::test_auth_entries_carry_no_console_permissions` |
+| S-05 浏览/刷新历史 | 人工（浏览器刷新） | — |
+| S-06 附件归属 | 人工（附件上传/下载本体无验收用例） | ——注：`test_auth_surface.py::test_s06_disabled_agent_keeps_entry_listed_but_greyed_out` 测的是 Agent 置灰，非附件 |
+| S-07~S-11 | 人工 | — |
+| E-01 断言不可信 | ✅ | `test_auth_surface.py`（4 变体）+ `test_identity_api.py`（401） |
+| E-02 未绑定/无入口授权 | ✅ | 同上（UNBOUND / NO_ENTRY_GRANT） |
+| E-03 平台未配置/配置损坏 | ✅ | `test_platform_config_isolation.py`（4 变体 + 不触达存储） |
+| E-04 用户停用 | ✅ | `test_identity_api.py`（USER_DISABLED） |
+| E-04b 不同用户会话隔离 | ✅ | `test_cross_user_isolation.py`（他人会话/消息/删除/取消/列举均拿不到） |
+| E-05 撤权即时生效 | ✅ | `test_auth_surface.py`（撤权后入口不可见） |
+| E-06 重复提交 | ✅ | `test_conversation_boundaries.py`（不产生第二个 Run） |
+| E-07 Agent 停用 | ✅ | `test_identity_api.py`（AGENT_DISABLED + 资源接口同步拒绝） |
+| E-08 长流中撤权 | 人工（需真实长回答 + 中途撤权） | 单元层有 `ChatStreamGuard` 重放覆盖 |
+| E-09 因子轮换 | ✅ | `test_auth_surface.py`（旧私钥 token 失效） |
+| E-10 Redis 缓存失效 | **不适用**：当前实现无 Redis 认证缓存（每次直查控制库） | 由 E-05 的「即时生效」等价覆盖 |
+| E-11 跨租户隔离 | ✅ | `test_auth_surface.py`（伪造租户头不越界）+ `tests/gateway/test_msswwweb_chat_auth.py`（跨租户主体 403） |
+| E-10 Redis 缓存失效/不可用 | **不适用**：缓存层已实现并写入，但读路径未接入（每次直查控制库）；详见该场景内的说明 | — |
+| E-12~E-13 缓存与重启一致性 | **不适用**：认证读路径无 Redis 缓存（每次直查控制库） | — |
+| E-14 配置变化与普通重启的区别 | ✅ | `test_platform_config_isolation.py::test_e14_rotated_config_rejects_tokens_signed_by_old_key` |
+| B-01 空列表/缺会话 | ✅ | `test_conversation_boundaries.py` |
+| B-02 超龄 token | ✅ | `test_auth_surface.py` |
+| B-03 文本超限 | ✅（改写为「上限下发」） | 见该用例 docstring：服务端**不做**长度校验，属既有缺口 |
+| B-04~B-06 | 人工 | — |
+
+**接口现状更正（v1.3）**：早期本文多处以 `GET /api/v1/msswwweb/identity` 描述「入口可用查询」。
+该接口在 TASK-001~012 中**未被分配**，因此实现缺失；v1.3 已按 API-01 补齐（`Gateway → POST
+/internal/channel/external-identity → Console`），语义为「权限查询恒 200 + `allowed`/`reason`/
+`grants[]`/`auth_revision`」。验签不合法仍为 401（无效请求不是权限结论），平台未配置为 503。
+
+**行为变更（v1.3）**：Agent 停用现在会同时拒绝资源接口（提交消息），此前旧授权仍可放行。
+详见 `backend.design.md` 的「判定同源」与「行为变更的影响面」。
+
 ## 公共前置
 
 - Console、Gateway、Runtime 已启动。
 - Console 的 Secret 已配置 `mssw` 因子（公钥、issuer、audience、salt）。
-- 已创建 MSSWWEB 入口（`entry_id` 已知），并已把测试用户的 MSSW `user_id` 绑定到平台用户。
+- 已创建 MSSWWEB 入口（`entry_id` 已知），并已把测试用户的 MSSW 身份（`expert_id` = `_id` + `tenant_id`）绑定到平台用户。
 - 已准备一条**真实签发**的 MSSW `soc-token`（测试账号，未过期/或被允许的 `exp=-1`）。
 - 测试工具：curl 或业务平台 BFF 代理；SSE 用 `curl -N` 或浏览器 DevTools。
 
@@ -42,9 +84,9 @@
 - **前置**：已有 MSSWWEB 入口；用户已存在；平台 `identity_keys` 已知（如 `["expert_id","tenant_id"]`）。
 - **步骤**：
   1. 打开用户详情 → 外部身份。
-  2. 点击“新建外部身份”，输入身份 JSON：
-     - 单字段示例：`{"user_id": "6620c18c73c760c6b6ca527f"}`；
-     - 多字段示例：`{"expert_id": "E123", "tenant_id": "1001"}`。
+  2. 点击“新建外部身份”，按平台 `identity_keys` 动态渲染的字段填写：
+     - MSSW 当前配置：`{"expert_id": "6620c18c73c760c6b6ca527f", "tenant_id": "1001"}`（`expert_id` 即 JWT 的 `_id`，24 位 hex）；
+     - 表单标签显示为「专家 ID（24 位）」「租户 ID」。
   3. 提交，得到用户级外部身份。
   4. 在该身份下“添加入口”，选择一个 MSSWWEB 入口并授权。
   5. 刷新身份/授权列表。
@@ -61,7 +103,7 @@
 - **前置**：S-02 已完成；BFF 可携带 `soc-token` 调用。
 - **步骤**：
   1. 调 `GET /api/v1/msswwweb/identity`，携带 `soc-token`。
-  2. 调 `GET /api/v1/msswwweb/entries`，拿到入口。
+  2. 调 `GET /api/v1/msswwweb/entries`，拿到入口（返回全部已授权入口，每项带 `allowed`/`reason`；不可用的入口仍会出现，`allowed=false`）。
   3. 调 `POST /api/v1/msswwweb/entries/{entry_id}/conversations` 创建会话。
   4. 调 `POST /api/v1/msswwweb/entries/{entry_id}/messages` 发送一条文本，带 `Idempotency-Key`。
   5. 用返回的 `run_id` 打开 `GET /api/v1/msswwweb/runs/{run_id}/events`。
@@ -93,10 +135,10 @@
 - **负责**：待 plan 分配
 - **前置**：用户至少有一个会话，且有一轮 Run 已完成但未读。
 - **步骤**：
-  1. 调 `GET /api/v1/msswwweb/conversations?agent_id=...`。
-  2. 找到有未读通知的会话，观察 `has_unread` 与来源 `entry_id`/`channel`。
+  1. 调 `GET /api/v1/msswwweb/entries/{entry_id}/conversations`（路径里的入口用于鉴权，列表按用户+Agent 聚合）。
+  2. 找到有未读通知的会话，观察 `has_unread` 与来源 `entry_id`。
   3. 取该会话详情，记录同次返回的 `last_seq=C` 与 `notification_through_seq=N`，显示其当前状态/确认提示。
-  4. 用 `through_seq=C` 获取历史并展示；随后调会话 read，body 为 `{"through_seq":N}`。
+  4. 用 `through_seq=C` 获取历史并展示；随后调会话 read，body 为 `{"notification_through_seq":N}`。
   5. 再查一次会话列表。
 - **期望**：
   - 列表按最近活动倒序；同用户+Agent 跨入口聚合；第一条是最新会话。
@@ -185,7 +227,7 @@
 - **期望**：
   - 确认动作能真正继续同一个 Run，不新建 Run/会话。
   - resume 后产生预期副作用（如记忆保存）。
-  - Agent 授权撤销后 resume 返回 403/409，不继续执行；取消仍可用。
+  - Agent 授权撤销后 resume 返回 403（当前授权集合已不含该 Agent），不继续执行；取消仍可用。
   - 重复/过期确认按稳定错误处理。
 
 ## S-11 同用户同 Agent 跨入口共享
@@ -262,6 +304,10 @@
   - U2 的资源一律 404/403，不泄露存在性。
   - 不产生跨用户副作用；同用户操作正常。
   - 通知：WebChat 可以看到 U1 的 MSSW 通知（用户级共享），看不到 U2 的。
+- **自动化**：步骤 4 的「不同用户隔离」由 `tests/acceptance/msswweb/test_cross_user_isolation.py`
+  覆盖（U2 有同一入口授权，读/列/删他人会话、取消他人 Run 全部 404，且删除被拒后会话仍在）；
+  步骤 1~3、5 的「同用户跨入口共享」由 `tests/gateway/test_msswwweb_surface.py` 与
+  `tests/agent_runtime/test_msswweb_cross_entry_conversation.py` 覆盖核心逻辑，真实浏览器时序仍人工执行。
 
 
 ## E-05 Agent 授权撤销
@@ -341,18 +387,42 @@
 
 ## E-10 Redis 缓存 revision 失效/不可用
 
+> **当前状态（2026-11-18 更新）：读侧仍未接入，接入方案已定稿**（见 `backend.design.md` §3.1.2）。
+>
+> 现状：`muad_common.auth_cache` 的分层原语与失效流程已实现并在 Console 装配，
+> `AuthCacheDirectory.invalidate` 已被管理面多处调用（撤权、停用用户/Agent、身份增删改、
+> 入口解绑等），但凭证层 `read_credential` / `write_credential` **仍无调用方**；外部断言路径
+> 每次直查 PG，Gateway 未 import 该模块。因此**本条场景当前不适用**，正确性由「不缓存 + 每次
+> 直查」保证。
+>
+> **接入后的预期行为**（按 §3.1.2 实现，届时本条转为适用）：
+> - 「命中凭证层不查 Console」——成立，凭证键是断言原文的 SHA-256，命中即跳过验签。
+> - 「不等待缓存到期，两入口立即反映新权限」——成立，但由**权限层**失效保证，不是凭证层；
+>   凭证层不存授权，命中后仍要读权限层。
+> - 「Redis 不可用」——**直接回源完整校验**（可用性优先），与 `auth_cache` 既有 fail-closed
+>   契约不同，实现时须显式区分这条降级路径。
+> - 解绑入口授权**只删权限层、不删凭证层**；凭证命中后权限层已失效，故仍即时生效。
+>
+> **续期口径**：接入后凭证层命中时重设 TTL，但 TTL = `min(external_assertion_cache_ttl_sec, expires_at - now)`，
+> **绝对到期不延长**。`RedisSessionStore` 的 WebChat 会话续期是另一套（独立键空间），不复用。
+>
+> **已知缺口**：未接 `policy_epoch`——平台公钥轮换后，旧凭证只能在自然过期（闲置窗口或
+> `expires_at`）前继续被接受；凭证反向索引 `useridx` 目前只有添加、无容量上限与回收，长期
+> 会无界增长。二者须在实现中补齐，或在验收中明确接受。
+
 - **负责**：待 plan 分配
-- **前置**：已通过 `/identity` 写入 Redis；用户有绑定/授权。
+- **前置**：§3.1.2 的凭证缓存已实现并部署（当前未实现，此时本条不适用）；用户有绑定/授权。
 - **步骤**：
-  1. 连续调资源接口，确认命中 Redis（不查 Console）。
+  1. 连续调资源接口，确认命中凭证层（不查 Console）。
   2. 管理员解绑入口或撤销 Agent 授权；收到成功后立即直接请求资源，不先刷新身份。
   3. 再查身份及入口列表，确认反映相同权限。
   4. 无变更进行时临时停 Redis，请求身份和资源；再在 Redis 不可用时尝试管理撤权并查看其实际结果。
-- **期望**：
-  - revision 变化后旧缓存不再放行。
-  - Redis 不可用且授权状态可确认时有界回源；同步未完成时明确不可用，不继续用旧权限。
-  - 无法完成失效的管理操作不假报成功；恢复依赖后状态可收敛，页面可刷新确认。
+- **期望**（按 §3.1.2 的窄方案；括号内是它与完整形态 `barrier:`/revision 方案的差异）：
+  - 撤权/停用/解绑后旧缓存不再放行——由**权限层**删除保证，下一次请求回源 PG 即反映新权限（不走 revision 状态机）。
+  - Redis 不可用且授权状态可确认时**直接回源完整校验**（可用性优先，不是 `auth_cache` 既有的 fail-closed 503）；回源结果与直查 PG 一致。
+  - 无法完成失效的管理操作不假报成功——`AuthCacheDirectory.invalidate` 仍 fail-closed 抛错使业务回滚，恢复依赖后由 `recover_tenant` 收敛。
   - 不等待缓存到期或服务重启，两个入口立即反映新权限。
+  - 删除入口后该入口用户的凭证层一并清除；入口启停/改配只删权限层（详见 §3.1.2「各变更点实际失效范围」）。
 
 ## E-11 Agent 撤权后的 resume
 
@@ -363,7 +433,7 @@
   2. 调 `POST /runs/{run_id}/resume`。
   3. 调 `POST /runs/{run_id}/cancel`。
 - **期望**：
-  - resume 返回 403/409，不继续执行、不产生副作用。
+  - resume 返回 403（`FORBIDDEN`：当前授权集合已不含该 Run 所属 Agent；若 Run 已终结则为 404 `NO_ACTIVE_RUN`），不继续执行、不产生副作用。
   - cancel 仍成功（用户级清理/停止）。
   - 不把 resume 当作清理例外。
 

@@ -6,7 +6,7 @@ import uuid
 import httpx
 import pytest
 from muad_contracts.shared_egress import SharedEgressPolicy
-from muad_platform_sdk.shared_redis import MeteringUnavailable, SharedRedisMeter
+from muad_platform_sdk.shared_redis import SharedRedisMeter
 from redis.asyncio import Redis, RedisCluster
 from redis.cluster import key_slot
 
@@ -82,27 +82,25 @@ async def acquire(meter, policy, attempt):
                              attempt_id=attempt, lease_seconds=30)
 
 
-async def test_promotion_blocks_existing_epoch_without_resetting_counts(cluster_meter):
+async def test_promotion_recovers_existing_epoch_without_resetting_counts(cluster_meter):
     client, meter, policy = cluster_meter
     pending = await acquire(meter, policy, "before-promotion")
     before = await client.hgetall(meter._key("guard"))
     await promote_replica(client, meter._key("guard"))
     # Controlled promotion keeps the counter, and the externally supplied epoch
-    # remains unchanged. The server-generation check must still refuse use.
+    # remains unchanged. The monotonic cluster epoch permits an atomic rebind.
     assert await client.get(meter._bucket("route", "total")) == "1"
-    with pytest.raises(MeteringUnavailable, match="SERVER_GENERATION"):
-        await acquire(meter, policy, "after-promotion")
-    with pytest.raises(MeteringUnavailable, match="SERVER_GENERATION"):
-        await meter.consume(pending)
-    with pytest.raises(MeteringUnavailable, match="SERVER_GENERATION"):
-        await meter.resume_execution("execution", max_requests=10)
-    with pytest.raises(MeteringUnavailable, match="SERVER_GENERATION"):
-        await meter.publish(policy)
-    assert await client.hgetall(meter._key("guard")) == before
+    recovered = await acquire(meter, policy, "after-promotion")
+    await meter.consume(pending)
+    await meter.resume_execution("execution", max_requests=10)
+    await meter.publish(policy)
+    after = await client.hgetall(meter._key("guard"))
+    assert after["server_generation"] != before["server_generation"]
     assert await client.get(meter._bucket("route", "total")) == "1"
+    assert recovered is not None
 
 
-async def test_failback_to_same_process_still_blocks_old_generation(cluster_meter):
+async def test_failback_to_same_process_recovers_with_new_cluster_epoch(cluster_meter):
     client, meter, policy = cluster_meter
     await acquire(meter, policy, "before-two-promotions")
     key = meter._key("guard")
@@ -116,26 +114,26 @@ async def test_failback_to_same_process_still_blocks_old_generation(cluster_mete
         await promote_replica(client, key, takeover=True)
         assert (await owner(client, key))["primary"][:2] == original
         assert (await admin.info("server"))["run_id"] == run_id
-        with pytest.raises(MeteringUnavailable, match="SERVER_GENERATION"):
-            await acquire(meter, policy, "after-failback")
+        permit = await acquire(meter, policy, "after-failback")
+        assert permit is not None
         assert await client.get(meter._bucket("route", "total")) == "1"
     finally:
         await admin.aclose()
 
 
-async def test_real_cluster_promotion_closes_host_owned_stream(cluster_meter, http_probe):
+async def test_real_cluster_promotion_keeps_host_owned_stream_usable(cluster_meter, http_probe):
     _, meter, policy = cluster_meter
     probe, url = http_probe
     sender = transport(meter, timeout=10, interval=0.1)
     async with httpx.AsyncClient(trust_env=False, timeout=None) as client:
         request = client.build_request("GET", url + "/stream")
-        with pytest.raises(MeteringUnavailable, match="supervision unavailable"):
-            async with sender.stream(client, request, policy=policy, target_instance_id="platform",
-                                     route_id="GET /assets") as response:
-                chunks = response.aiter_bytes()
-                assert await anext(chunks) == b"first\n"
-                await promote_replica(cluster_meter[0], meter._key("guard"))
-                await anext(chunks)
+        async with sender.stream(client, request, policy=policy, target_instance_id="platform",
+                                 route_id="GET /assets") as response:
+            chunks = response.aiter_bytes()
+            assert await anext(chunks) == b"first\n"
+            await promote_replica(cluster_meter[0], meter._key("guard"))
+            await asyncio.sleep(0.3)
+            await response.aclose()
         assert response.is_closed
         await asyncio.wait_for(probe.closed.wait(), 1)
     assert probe.calls == 1

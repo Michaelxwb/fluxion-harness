@@ -370,10 +370,11 @@ class _EntryAttribution:
 
 
 async def _entry_id_of(session: AsyncSession, run: RunRecord) -> _EntryAttribution:
-    """会话的入口归属与可见性：NULL 只可能是历史未归属会话（新会话必带入口）。
+    """通知的来源入口跟随本次 **Run**，会话可见性另查会话行（RULE-im-006 / S-06）。
 
-    `run.channel_json` 与 `conversation.channel_account_id` 是同一事实的两份载体：
-    两者都带入口且不一致是内部一致性错误，显式留 ERROR 痕迹（以会话行为准）。
+    跨入口共享会话时，同一会话可先后落到不同入口；通知来源必须是「这次 Run 落在哪个入口」，
+    而不是会话创建时的入口。`run.channel_json["entry_id"]` 是权威来源；历史 Run 缺该字段时
+    回落会话行入口（`conversation.channel_account_id`）。
 
     会话已软删（用户主动删除）时返回 `deleted=True`：调用方跳过写入并留可区分的告警——
     「删除后再写一条指回已删会话的通知」既不新鲜也不可点开，属于应当消失的残留。
@@ -386,19 +387,39 @@ async def _entry_id_of(session: AsyncSession, run: RunRecord) -> _EntryAttributi
             )
         )
     ).first()
-    if row is None or row.channel_account_id is None:
+    if row is None:
         return _EntryAttribution(None)
     if row.is_deleted:
         return _EntryAttribution(None, deleted=True)
-    channel_entry = (run.channel_json or {}).get("entry_id")
-    if channel_entry is not None and str(channel_entry) != str(row.channel_account_id):
+    run_entry = (run.channel_json or {}).get("entry_id")
+    if run_entry is not None:
+        # 来源跟随 Run：本次 Run 落在哪个入口，就记哪个入口（与会话创建入口可能不同）。
+        if row.channel_account_id is not None and str(run_entry) != str(row.channel_account_id):
+            logger.info(
+                "run_entry_attribution_diverged run_id=%s channel_entry=%s conversation_entry=%s",
+                run.id,
+                run_entry,
+                row.channel_account_id,
+            )
+        return _EntryAttribution(_parse_entry_id(run.tenant_id, run.id, run_entry))
+    if row.channel_account_id is None:
+        return _EntryAttribution(None)
+    return _EntryAttribution(_parse_entry_id(run.tenant_id, run.id, row.channel_account_id))
+
+
+def _parse_entry_id(tenant_id: str, run_id: uuid.UUID, raw: object) -> uuid.UUID | None:
+    """解析入口 id；坏值按「无入口归属」处理并留痕，绝不让它冒泡。
+
+    该函数在 Run 终态写通知的事务内被调用，抛异常会**整体回滚终态**，用户会看到
+    Run 未终态或终态却无通知。内部一致性错误不该回滚用户结果。
+    """
+    try:
+        return uuid.UUID(str(raw))
+    except (TypeError, ValueError):
         logger.error(
-            "run_entry_attribution_mismatch run_id=%s channel_entry=%s conversation_entry=%s",
-            run.id,
-            channel_entry,
-            row.channel_account_id,
+            "entry_id_unparseable tenant=%s run_id=%s raw=%r", tenant_id, run_id, raw
         )
-    return _EntryAttribution(uuid.UUID(str(row.channel_account_id)))
+        return None
 
 
 async def _existing_receipt(

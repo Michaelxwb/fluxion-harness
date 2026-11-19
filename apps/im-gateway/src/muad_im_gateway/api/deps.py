@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import Depends, Header, Request
+from fastapi import Depends, Request
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_im_core import InboundPublisher
@@ -17,10 +17,15 @@ from ..application.chat_principal import (
     ChatStreamGuard,
 )
 from ..application.console_client import CHAT_CONTEXT_HEADER, ConsoleClientPort
+from ..application.webchat_core import ChatSurface
+from ..application.webchat_surfaces import get_webchat_surface
 from ..channels.base import ChannelRegistry
 from ..infrastructure.artifact_resolver import ArtifactResolverPort
 from ..infrastructure.dedupe import DedupeStore
 from ..infrastructure.streams import DeliveryStreams
+
+#: 外部平台断言请求头（RULE-01：MSSWWEB 面只认它，Cookie/Authorization 一律拒绝）。
+SOC_TOKEN_HEADER = "soc-token"
 
 
 def get_registry(request: Request) -> ChannelRegistry:
@@ -97,6 +102,7 @@ def get_chat_principal_gate(
         console,
         tenant_id=tenant,
         session_store=getattr(request.app.state, "session_store", None),
+        auth_cache=getattr(request.app.state, "auth_cache", None),
     )
 
 
@@ -108,26 +114,42 @@ def get_chat_auth_recheck_sec(request: Request) -> float:
 
 async def get_chat_credentials(
     request: Request,
-    chat_context: Annotated[uuid.UUID, Header(alias=CHAT_CONTEXT_HEADER)],
+    surface: Annotated[ChatSurface, Depends(get_webchat_surface)],
 ) -> ChatSessionCredentials:
-    """CHAT 请求凭据：Cookie 原文 + `X-Chat-Context`。
+    """CHAT 请求凭据：按 surface 的认证方式取。
 
-    缺失/空 Cookie 一律 401（没有凭据就没有主体）；上下文头缺失/非法由 FastAPI 校验拒为 422
-    ——与 Console 内部端点同一口径（两处都不接受"没有上下文的聊天请求"）。
+    - `EXTERNAL_ASSERTION`（MSSWWEB）：**只**认 `soc-token` 请求头（RULE-01：Cookie/Authorization
+      一律拒绝），无会话上下文；
+    - `USER_TOKEN`（WebChat）：Cookie 原文 + `X-Chat-Context`（缺失上下文头仍是 422）。
+
+    两条路径都不会把"没有凭据"当成合法主体。
     """
+    if surface.auth_kind == "EXTERNAL_ASSERTION":
+        assertion = request.headers.get(SOC_TOKEN_HEADER, "")
+        if not assertion.strip():
+            raise AppError(ErrorCode.UNAUTHORIZED)
+        return ChatSessionCredentials(assertion=SecretStr(assertion))
     session_token = request.cookies.get(CHAT_SESSION_COOKIE, "")
     if not session_token.strip():
         raise AppError(ErrorCode.UNAUTHORIZED)
-    return ChatSessionCredentials(
-        session_token=SecretStr(session_token), chat_context=chat_context
-    )
+    raw_context = request.headers.get(CHAT_CONTEXT_HEADER, "")
+    try:
+        chat_context = uuid.UUID(raw_context)
+    except (ValueError, AttributeError) as exc:
+        # 与 FastAPI Header 校验同口径：缺失/非法上下文头视为 422 级别的坏请求。
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR) from exc
+    return ChatSessionCredentials(session_token=SecretStr(session_token), chat_context=chat_context)
 
 
 async def get_chat_identity(
-    gate: ChatPrincipalGateDep, credentials: ChatCredentialsDep
+    gate: ChatPrincipalGateDep,
+    credentials: ChatCredentialsDep,
+    surface: Annotated[ChatSurface, Depends(get_webchat_surface)],
 ) -> ChatIdentity:
     """受信 CHAT 主体：读写/SSE/下载共用（跨部署租户 403、上下文不匹配 409）。"""
-    return await gate.resolve(credentials)
+    return await gate.resolve_credentials(
+        credentials, platform_key=surface.platform_key, channel=surface.channel
+    )
 
 
 def get_chat_stream_guard(
@@ -135,9 +157,17 @@ def get_chat_stream_guard(
     credentials: ChatCredentialsDep,
     identity: ChatIdentityDep,
     recheck_sec: ChatAuthRecheckDep,
+    surface: Annotated[ChatSurface, Depends(get_webchat_surface)],
 ) -> ChatStreamGuard:
     """长流复核器：SSE 路由用它包裹事件流（空闲也复核、到 `expires_at` 即停）。"""
-    return ChatStreamGuard(gate, credentials, identity, recheck_sec=recheck_sec)
+    return ChatStreamGuard(
+        gate,
+        credentials,
+        identity,
+        recheck_sec=recheck_sec,
+        platform_key=surface.platform_key,
+        channel=surface.channel,
+    )
 
 
 ChatPrincipalGateDep = Annotated[ChatPrincipalGate, Depends(get_chat_principal_gate)]

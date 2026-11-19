@@ -42,6 +42,8 @@ HTTP_POOL_WAIT_METRIC: Final = "console_http_pool_wait_total"
 CONFIG_FAILURE_METRIC: Final = "console_config_failure_total"
 # 单次执行链路导出：kind/format/status 都是封闭枚举，不含执行 ID 或内容。
 EXECUTION_EXPORT_METRIC: Final = "execution_export_total"
+# 认证缓存同步失效（设计 §管理变更的同步失效协议）：按结局计数，失败必须可见。
+AUTH_CACHE_INVALIDATION_METRIC: Final = "auth_cache_invalidation_total"
 
 #: Console 出站池名（封闭枚举；`batch` 是既有批量测试自建客户端的池）。
 ConsolePool = Literal["control", "model", "batch"]
@@ -104,6 +106,12 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
         COUNTER,
         ("kind", "format", "status"),
         "Single execution-chain exports by kind, format and outcome",
+    ),
+    (
+        AUTH_CACHE_INVALIDATION_METRIC,
+        COUNTER,
+        ("reason",),
+        "Auth-cache synchronous invalidation outcomes by bounded reason",
     ),
 )
 

@@ -75,6 +75,26 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.global.existingSecret }}
                   key: INTERNAL_SERVICE_TOKEN
+            # 外部 IM 平台验签因子（单键 JSON，按 platform_key 索引；含公钥/issuer/audience/salt
+            # 与 identity_keys/identity_field_labels/display_name）。空/缺省 = 未配置外部平台，
+            # 行为与接入前一致（仅 WEBCHAT）；未配置该键时容器照常启动，不阻断其它通道。
+            # 与 `deploy/k8s/base/console-platform.yaml` 的同名项必须保持一致——两套清单并存，
+            # CD 实际部署走 Helm chart。
+            - name: EXTERNAL_ASSERTION_PLATFORMS_JSON
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.existingSecret }}
+                  key: EXTERNAL_ASSERTION_PLATFORMS_JSON
+                  optional: true
+            # 外部断言的最大会话年龄（秒）。上游 token 的 login_time 是登录时刻、随使用不滑动
+            # （Redis TTL 续期不重签 JWT），SSE 复核按 login_time + 本值中断会话，因此必须覆盖
+            # 一个完整工作日；配 0 等于关闭该闸（只保留上游正数 exp 约束）。
+            - name: EXTERNAL_ASSERTION_MAX_SESSION_AGE_SEC
+              value: {{ .Values.externalAssertion.maxSessionAgeSec | quote }}
+            # 断言验签结果缓存的闲置窗口（秒）。写入 TTL 与命中续期上限同值，
+            # 实际取 min(本值, expires_at - now)。必须与 Gateway 配同一值。
+            - name: EXTERNAL_ASSERTION_CACHE_TTL_SEC
+              value: {{ .Values.externalAssertion.cacheTtlSec | quote }}
             - name: CONTROL_HTTP_MAX_CONNECTIONS
               value: "32"
             - name: CONTROL_HTTP_MAX_KEEPALIVE

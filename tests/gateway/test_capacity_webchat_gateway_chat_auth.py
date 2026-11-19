@@ -428,7 +428,13 @@ async def test_b244_chat_identity_carries_no_console_permissions(
 
     assert isinstance(identity, ChatIdentity)
     assert set(identity.principal.model_dump()) == PRINCIPAL_FIELDS
-    assert {f.name for f in dataclasses.fields(identity)} == {"principal", "expires_at", "agents"}
+    # `grants` 是断言面的逐入口裁决（WebChat 面为空元组），也是 `/entries` 标可用性的来源。
+    assert {f.name for f in dataclasses.fields(identity)} == {
+        "principal",
+        "expires_at",
+        "agents",
+        "grants",
+    }
     assert CONSOLE_ROLE_FIELDS.isdisjoint(set(identity.principal.model_dump()))
 
 

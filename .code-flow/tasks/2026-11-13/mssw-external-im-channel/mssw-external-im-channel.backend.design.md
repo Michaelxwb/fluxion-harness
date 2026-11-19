@@ -191,10 +191,90 @@ design_template: full
 3. **入口权限与用户身份分离**：`external_identity`（用户级）+ `entry_access_grant`（入口授权）；解绑只删 grant，身份保留，清理能力闭合。
 4. **平台级身份 schema**：`identity_keys` 属于平台，放平台 Secret/ConfigMap，不建元数据表；不是每个入口一套；绑定 JSON 多字段 AND。
 5. **认证缓存**：`/identity` 永远查 Console/PG；凭证与当前权限分层缓存；解绑/撤权成功前删除对应权限缓存，并阻止旧回源结果再次写入；TTL 不提供撤权保证。WebChat 与 MSSWWEB 共用权限层。
+
+   > **实现状态（2026-11-18 更新）**：**读侧接入方案见 §3.1.2**。上一条所列的 `muad_common.auth_cache` 分层原语（凭证层 + 权限层 + 屏障回填 + revision 校验）仍无调用方，属完整形态；本期先落地一个**范围更窄、与 WebChat 会话缓存同构**的方案：只缓存「验签结论 + 授权快照」，不做屏障协议、不引入 revision 状态机、不动 WebChat。取舍与风险见 §3.1.2。
+   >
+   > 在该方案落地前，实际行为仍是：认证路径每次直查 PG（不读缓存），撤权即时生效由「直查」保证，而非缓存失效；NFR-PERF-01 的「缓存命中」时延项在接入前无法测量。
+
 6. **resume 不是清理**：要求用户 ACTIVE + 当前 Agent 授权；entry 不是边界；Agent 撤权默认拒绝。
 7. **不做 IM 通道数据隔离**：不再按 entry/channel 对按 ID 资源做 404 断言；不同用户才隔离。
 8. **来源保留在后台**：会话来源是创建时入口；每个 Run 来源是本次实际入口；通知/交付跟随来源 Run。页面不强制增加来源标签，来源不参与共享资源授权。
 9. **立即失效的边界**：管理端成功响应前完成失效；其后新认证决策不能使用旧授权。既有长流收到通知后重查，且有截止时间兜底；缓存删除不等于撤销已受理 Run 的执行快照或回滚已经发生的副作用。
+
+#### 3.1.2 外部断言会话缓存（2026-11-18 定稿，已实现）
+
+**范围**：MSSWWEB（`EXTERNAL_ASSERTION`）认证面。**复用 `muad_common.auth_cache` 的分层结构**（凭证层 `cred:` / 权限层 `perm:`），不做自建缓存。
+
+**目标**：同一张断言被反复请求时，把「RSA 验签 + AES 解密 + 身份查询」降为一次 Redis 读；授权仍走权限层，从而**撤权即时生效**。
+
+##### 分层口径
+
+| 层 | 键 | 值 | 失效时机 |
+|---|---|---|---|
+| 凭证层 | `muad:authcache:{<tenant>}:cred:<platform_key>:<token_hash>`（tenant 由 Redis Cluster hash tag 包裹） | 验签结论：`platform_user_id`、`external_identity_id`、`expires_at`、`auth_method="EXTERNAL_ASSERTION"`。**不含任何 Agent/grant** | 自然到期（`expires_at`）或闲置超时；停用用户/删除身份时连同凭证批量删 |
+| 权限层 | `muad:authcache:{<tenant>}:perm:<user_id>` | 该用户当前可用的 Agent 与入口授权 | **任何授权/身份/入口/用户变化**（既有失效链路 `AuthCacheDirectory.invalidate`，含撤销入口授权） |
+
+**反向索引已存在**：凭证写入后由 `_add_reverse_index` 记入 `muad:authcache:{<tenant>}:useridx:<platform_key>:<user_id>`（Set，**需按平台拆分**，见「平台隔离」），`delete_credentials(tenant_id, user_id, *, platform_keys)` 先逐平台 `SMEMBERS` 再删凭证键（必须给平台：集群下 `SCAN` 不能跨节点枚举）**并删除索引本身**。**索引带 TTL**：Set 无法逐成员过期，写入时对索引整体 `EXPIRE`（取凭证的同口径 TTL），只要该用户还有活凭证索引就持续续期，凭证全部过期后索引整体消失，不会无界增长。
+
+**各变更点的实际失效范围**（已核实）：
+
+| 变更 | 权限层 | 凭证层 |
+|---|---|---|
+| 授予/撤销 Agent 授权 | 删 | 不删 |
+| 停用用户 | 删 | **删** |
+| 登记外部身份 | 删 | 不删（`bump_revision=False`，无 `delete_credentials`） |
+| 编辑/删除外部身份 | 删 | **删**（两者都传 `delete_credentials=True`） |
+| **解绑入口授权** | 删 | **不删** |
+| Agent 停用/删除、入口启停/改配 | 删（反查用户集合） | 不删 |
+| **删除入口** | 删 | **删**（`agents.py` 的 `remove_agent_channel` 传 `delete_credentials=True`） |
+
+因此「撤权即时生效」由**权限层**保证；解绑入口不解凭证，是因为凭证不含授权——凭证命中后仍要读权限层，而权限层已失效，故仍是即时生效。凭证层只在「停用用户/编辑/删除身份/删除入口」时一并清除：停用或编辑身份意味着该断言对应的主体或其身份字段已变，旧凭证不该再命中；删除入口会取消该入口下的全部 grant，凭证也可能被挪作它用，故连凭证一起删更保守。**登记**新身份不删凭证（该用户此前可能无任何凭证，删也无意义），只删权限层。这一档与「入口启停/改配」不同，后者只删权限层。
+
+**权限层与 WebChat 共用**（§3.1.1 第 5 条定稿）：权限层的键是 `platform_user.id`（即各面都叫 `platform_user_id` 的那个内部用户主键），不是平台侧自然人标识。因此「共用」只在**同一断言解析到同一 `platform_user`** 时成立：同一自然人若在两个平台各建一条 `external_identity` 且指向同一 `platform_user`，权限天然共享；若指向不同 `platform_user`，则各自独立、互不可见。这是身份模型的有意结果，不是缓存引入的耦合；跨平台 Agent 授权可见性由身份映射决定，不由 `perm:` 键决定。共用带来的收益是**不新建失效链路**——撤销授权、停用用户/Agent、删除身份、解绑入口都会命中既有 `invalidate`，下一次请求权限层未命中即回源 PG，撤权**即时生效**，不受闲置窗口影响。
+
+**为什么凭证命中可以跳过验签**：凭证键是断言原文的 SHA-256（复用 `muad_common.session_store.hash_session_token`，与 Console `hash_chat_token` 同口径）。断言任何改动（签名、`iss`/`aud`、`_id`、`login_time`）都会改变哈希 → miss → 回源完整验签。命中即等价于「这张一模一样的断言已经验过且结论未过期」，不存在绕过签名校验的路径。
+
+##### 请求流程
+
+1. 读凭证层。命中且未过 `expires_at` → 重设 TTL（闲置窗口），跳过验签；否则回源 Console 完整验签后写入。
+2. 读权限层。命中直接用；未命中回源 PG 并回填。
+3. 两层分别判定，**凭证命中不代表权限可信**（§3.1.1 第 5 条「凭证与当前权限分层缓存」）。
+
+**实现前置**：现有 `auth_cache` 的读写接口都强制 `expected_user_version` / `start_fence` / 屏障参与，是为完整形态设计的；本期要「跳过屏障协议」就不能直接复用它们。因此需要在本节实现时**新增精简读写入口**（无 fence、无屏障、直接 GET/SET+EXPIRE），并复用既有的键格式、反向索引与 `invalidate` 失效链路。这是本节最主要的新增代码量。
+
+##### 参数与边界
+
+| 项 | 口径 |
+|---|---|
+| 写入方 | 凭证层与权限层**均仅 Console 写**（验签与授权解析都只在 Console，RULE-02）。Gateway 只读两层、只做续期，从不写入——这样「权威结论」只有一个来源。现成的读取接口是 `AuthCacheStore.read_credential(tenant_id, token_hash, user_id, *, expected_user_version, platform_key, expected_epoch)`，写入是 `write_credential(tenant_id, user_id, token_hash, payload, *, start_fence, expected_user_version, ...)`——参数带 fence 与版本号，对应 §3.1.1 的完整形态；本期若要跳过屏障协议，需要**新增一个不带 barrier 的精简读写入口**，而不是直接调用这两个方法 |
+| 续期 | 凭证层只重置**闲置窗口**，永不越过 `expires_at`。**注意 `auth_cache` 现有原语不提供 `touch`**（`RedisSessionStore` 才有）；本期需新增「重设 TTL 且取 `min(external_assertion_cache_ttl_sec, expires_at - now)`」的能力，TTL 计算可直接复用 `RedisSessionStore._ttl_seconds` 的口径 |
+| 绝对上限 | `expires_at = min(now + max_session_age_sec, login_time + max_session_age_sec, 正数 exp)`，首次算出后不变。`external_assertion_max_session_age_sec` 的字段约束是 `ge=0`（负数在启动即被拒），因此**只有 `= 0` 能表示关闭**该路约束（与验签侧 `_check_max_age` 一致），此时 `expires_at` 仅由上游正数 `exp` 决定 |
+| 会话上下文 | **凭证层不校验** `session_id`：同一断言可打开多个会话，凭证不绑定 `conversation_id`。注意不能照搬 WebChat 的命中分支——它强制 `session_id == X-Chat-Context`（否则 `AUTH_CONTEXT_CHANGED`）且要求 `auth_method == "USER_TOKEN"`，两条对断言面都不成立，实现时须按认证方式分流 |
+| 与 WebChat 的差异 | WebChat 会话的绝对上限来自**来源 Token 的到期时间**（`min(now + session_ttl_hours, token.expires_at)`），`session_ttl_hours` 实际是**滑动 idle TTL**。断言面上游 `exp = -1`，没有来源到期可依，因此**必须**由 `external_assertion_max_session_age_sec` 承担绝对上限，两者不能直接类同 |
+| 平台隔离 | 凭证键**必须含平台段**：`muad:authcache:{<tenant>}:cred:<platform_key>:<token_hash>`；反向索引同为 `...:useridx:<platform_key>:<user_id>`。理由：只靠 `token_hash` 虽然不会误命中，但 `useridx` 会把同一用户各平台凭证混在一个集合里，解绑某平台身份时会连带清掉其它平台凭证。平台段须置于 `{<tenant>}` **之后**——`{<tenant>}` 是 Redis Cluster hash tag，放前面会打散同租户的槽位，破坏屏障与批量删除。权限层 `perm:<user_id>` 不加平台段（跨平台共用） |
+| Redis 故障 | **直接回源完整校验**（可用性优先，不 fail closed）。凭证层读失败 → 走 Console 验签；权限层读失败 → 查 PG |
+| 配置 | 闲置窗口**复用既有 `external_assertion_cache_ttl_sec`**（`settings.py` 已有，`main.py` 用它构造 `AuthCacheStore(ttl_sec=...)`，即凭证/权限条目的写入 TTL，**不新增同名配置**，避免两个 TTL 并存只生效一个）；绝对上限为 `external_assertion_max_session_age_sec`。两者的关系：写入与续期都用 `min(external_assertion_cache_ttl_sec, expires_at - now)`，即闲置窗口是上限、绝对到期是硬封顶 |
+
+##### 已知取舍
+
+1. **绝对上限关闭时的长期凭据**：`max_session_age_sec = 0` 且上游 `exp = -1` 时凭证层无时间上限，只能靠 `external_assertion_cache_ttl_sec` 的闲置窗口清理（**持续活跃的断言永不失效**，因为每次命中都续期）。这是「关闭绝对上限」的必然结果，但**权限层仍随授权变化即时失效**，故安全影响限于「凭证本身不过期」，不是「撤权失效」。
+1.1 **未接 `policy_epoch`（平台公钥轮换缺口）**：平台更换验签公钥后，用旧私钥签发的断言在缓存里仍会被接受，直到自然过期（闲置窗口或 `expires_at`）。`auth_cache` 已有 `platform:` 键承载 `policy_epoch`，本期不启用。若要求「轮换即时失效」，需在写入时带 epoch、读取时比对，并在轮换时递增；否则须在验收中明确接受该窗口。
+1.2 **反向索引增长（已缓解）**：`useridx` 写入时对索引整体 `EXPIRE`，随凭证 TTL 续期、凭证全过期后整体消失；`delete_credentials` 显式删索引。残留风险仅剩「同一用户在同一平台反复新建凭证、索引成员在两次删除之间累积」——成员数量受该平台活跃 token 数约束，不再是无限增长。
+2. **Redis 成为认证依赖**：与 WebChat 一致，Redis 不可用触发全量回源，Console + PG 需承受该峰值。
+3. **NFR-PERF-01 的时延目标须在接入后实测**，不在设计阶段承诺数值。
+
+##### 与完整形态（§3.1.1 第 5 条）的差距
+
+本方案**复用** `auth_cache` 的键格式、反向索引与 `invalidate` 失效链路，但**不启用**其屏障回填协议（`barrier:` / `fence` / `auth_cache_sync_state` 状态机 / 恢复器）。缺口是「失效期间的并发回填」：若一次撤权与一个并发回源请求交错，后者可能把旧授权写回权限层并带 TTL。该窗口很小但存在；要求「严格零窗口」时需启用屏障协议。
+
+##### 实现清单（本节的落地范围）
+
+1. `auth_cache.py`：`credential_key(tenant_id, platform_key, token_hash)` 与 `user_reverse_index_key(tenant_id, platform_key, user_id)` 增加 `platform_key` 参数（置于 `{tenant}` 之后），新增精简读写 `read_credential_plain` / `write_credential_plain` / `touch_credential` 与权限层对应的 `read_permission_plain` / `write_permission_plain` / `touch_permission`（无 fence、无屏障，维护按平台划分的 `useridx`）；`delete_credentials` 改为必须给 `platform_keys`（集群下不能 `SCAN` 跨节点枚举）。**现有调用点必须同步改签名**：`tests/console_platform/test_auth_cache_invalidation.py` 直接调用了 `credential_key(tenant, "hash")`。
+2. Console `ExternalAssertionService.resolve()`：验签+查库成功后写凭证层；**同时写权限层**（存 `allowed`/`reason`/`agents`/`grants`/`expires_at`，与内部主体端点响应同形），未指定 `entry_id` 时才写——收敛子集不能覆盖全量结论。`describe()` 不写缓存（它要回最新状态）。写入失败只记 WARNING，不影响本次结果。
+   - **这是实现阶段才发现的前置条件**：权限层原本没有任何生产写入者，不补这一项，网关闭中后永远 miss 回源，「读权限层」形同虚设。
+3. Gateway `ChatPrincipalGate.resolve_external()`：加「读凭证层 → 命中则 touch 并跳过验签 → 再读权限层 → 未命中回源」分支；Redis 故障时直接回源。
+4. **不新增配置项**：闲置窗口复用既有 `external_assertion_cache_ttl_sec`（`AuthCacheStore` 的写入 TTL），绝对上限复用既有 `external_assertion_max_session_age_sec`；chart 若需调值只改现有键，不引入 `external_assertion_idle_ttl_sec`。
+5. 测试：命中跳过验签、`expires_at` 封顶、`max_session_age_sec=0` 时不设年龄上限、解绑入口后权限层即时失效、删除入口后凭证层同步失效、Redis 故障回源、篡改断言 miss；并修正第 1 项提到的既有 `credential_key` 调用点。
 
 **评审项 A-03 / A-06 / D-04 定稿**
 
@@ -302,6 +382,7 @@ graph LR
     "audience": "<plaintext>",
     "salt": "<AES key material>",
     "identity_keys": ["expert_id", "tenant_id"],
+    "identity_field_labels": {"expert_id": "专家 ID（24 位）", "tenant_id": "租户 ID"},
     "login_source": "mssw"
   }
 }
@@ -314,6 +395,7 @@ graph LR
 - **单公钥 `public_key`**：轮换必须先关闭该平台认证并失效缓存，再替换、重启、核对版本、重新激活；不做多公钥数组。
 - **`login_source` 可选**：写了就校验签名 claim 必须相等；不写就不校验。
 - **`identity_keys` 直接放 Secret**：与验签因子同一份平台配置；它不是密钥，但当前开发阶段无存量数据，放一起最简单，不建元数据表。
+- **`identity_field_labels` 给管理员看**：`identity_keys` 是 JWT claim 名（`expert_id`、`tenant_id`），管理员看不懂。Console 用它渲染输入框标签，提交时仍用 claim 名。缺失时前端回退到 claim 名本身，不阻断。三处需同步：平台配置示例、`GET /external-platforms` 返回（只回 label，不回因子）、前端表单渲染。
 - **`configured=false`**：用一个非密平台 key 列表（ConfigMap `EXTERNAL_PLATFORM_KEYS=mssw` 或静态已知列表）判断 Secret 是否缺失；不落库。
 - **`max_session_age_sec` 不进 Secret**：非敏感，放全局 `EXTERNAL_ASSERTION_MAX_SESSION_AGE_SEC`（ConfigMap/设置），所有外部平台共用；MSSP 如需独立值再加。
 - **`enabled` 不配**：可用性来自有效配置与已激活的配置版本；Secret 删除/损坏并被服务加载后，该平台保持不可用。未热更新的进程不会自动感知 Secret 环境变量变化。
@@ -392,13 +474,13 @@ WHERE is_deleted = false;
 
 | 接口ID | 名称 | 方法 | 路径 | 说明 |
 |--------|------|------|------|------|
-| API-01 | 权限/入口可用 | GET | `/identity` | 永远查 PG；返回用户级主体 + grants + allowed/reason；成功后写 Redis |
-| API-02 | 客户端配置 | GET | `/client-config` | 复用 |
-| API-03 | 入口列表 | GET | `/entries` | 当前用户可用的入口授权 + Agent |
+| API-01 | 权限/入口可用 | GET | `/identity` | 永远查 PG；返回用户级主体 + grants + allowed/reason + auth_revision |
+| API-02 | 客户端配置 | GET | `/client-config` | 复用；对 BFF 的字段定义在 `bff-agent-integration.md` §4.2 |
+| API-03 | 入口列表 | GET | `/entries` | 只返回**已授权**的入口；每项带 `allowed`+`reason` 区分"没授权"（不在列表）与"授权了但不可用"（在列表但 `allowed=false`） |
 | API-04 | 创建会话 | POST | `/entries/{entry_id}/conversations` | 入口作为本次会话的来源/展示 |
-| API-05 | 用户+Agent 会话列表 | GET | `/conversations?agent_id=` | 跨入口聚合；item 带来源 `entry_id`/`channel`/`has_unread` |
+| API-05 | 会话列表 | GET | `/entries/{entry_id}/conversations` | `entry_id` 只用于鉴权与归属（当前用户对该入口的权限、入口当前绑定的 Agent），**不是过滤条件**；按 user+Agent 聚合（跨入口共享），item 带来源 `entry_id`/`has_unread`，**不含 `channel`** |
 | API-06 | 提交消息 | POST | `/entries/{entry_id}/messages` | 入口作为本次 Run 的来源 |
-| API-07 | 会话详情 | GET | `/conversations/{id}` | user+agent 核属；不做 entry/channel 断言 |
+| API-07 | 会话详情 | GET | `/conversations/{id}` | user+agent 核属；不做 entry/channel 断言。返回**会话当前状态**（`has_unread`/`confirmation`/`notification_through_seq`），与分页接口互补：进入对话页先调它拿状态与水位，再调 API-09 拉历史 |
 | API-08 | 删除会话 | DELETE | `/conversations/{id}` | user 级；沿用现有幂等 delete |
 | API-09 | 历史消息 | GET | `/conversations/{id}/messages` | user+agent；不做 entry/channel 断言 |
 | API-10 | 会话已读 | POST | `/conversations/{id}/read` | 带通知水位；只标已看到 |
@@ -426,7 +508,7 @@ WHERE is_deleted = false;
 | 接口ID | 名称 | 方法 | 路径 | 说明 |
 |--------|------|------|------|------|
 | API-20 | 会话已读 | POST | `/internal/webchat/conversations/{id}/read` | 服务身份；带水位 |
-| API-25 | 用户+Agent 会话列表 | GET | `/internal/webchat/conversations?agent_id=` | 用户级聚合；来源字段 |
+| API-25 | 会话列表 | GET | `/internal/webchat/entries/{entry_id}/conversations` | `entry_agnostic=true` 时按 user+Agent 聚合（跨入口共享），入口只作来源；Gateway 的 API-05 用它 |
 | API-26 | 授权同步状态（ADMIN） | GET | `/api/v1/auth-cache-sync` | 当前租户同步状态与可安全展示的操作摘要 |
 | 既有 | 会话详情 | GET | `/internal/webchat/conversations/{id}` | 同快照返回 `last_seq`、active_run 与 `notification_through_seq` |
 
@@ -480,16 +562,18 @@ WHERE is_deleted = false;
 
 **处理逻辑**：Gateway 取 `soc-token` → Console 按当前平台配置验签并查 PG → 返回主体、权限版本、配置版本及权限集合 → 按下文屏障协议写凭证/权限两层缓存。回填失败若源于版本或屏障变化，必须丢弃整份旧响应后重查，不能用未成功回填的旧主体直接放行。未绑定结果第一版不缓存。
 
+> **实现状态（2026-11-17）**：只实现了前半段——Gateway 转发断言、Console 验签并查 PG、返回主体与 `grants`。后半段「写凭证/权限两层缓存」**未实现**，见 §「认证缓存」下的实现状态说明。当前表现：每次请求都走完「验签 + 查 PG」，没有缓存读写。
+
 ---
 
 #### API-10: `POST /api/v1/msswwweb/conversations/{id}/read`
 
-**请求**：`soc-token` header；body `{ "through_seq": 123 }`。这里是会话详情返回的 `notification_through_seq`，属于用户通知 feed 序号，不能使用 `last_seq`、历史 `through_seq` 或 SSE id 替代。
+**请求**：`soc-token` header；body `{ "notification_through_seq": 123 }`。这里是会话详情返回的 `notification_through_seq`，属于用户通知 feed 序号，不能使用 `last_seq`、历史 `through_seq` 或 SSE id 替代。
 
 **响应**
 
 ```json
-{ "conversation_id": "uuid", "read_count": 3, "read_at": "2026-11-13T10:00:00Z" }
+{ "conversation_id": "uuid", "notification_through_seq": 123, "has_unread": false }
 ```
 
 **处理逻辑**：按 `(tenant,user,conversation)` 核属 → Runtime 按同一范围 UPDATE `seq <= through_seq AND read_at IS NULL AND is_deleted=false`；幂等，零更新成功；晚到通知保留未读。先校验非负整数及不超过当前用户已提交 feed 水位，超前返回 `CURSOR_AHEAD`；不保存一个会自动吃掉未来通知的已读上限。
@@ -527,7 +611,7 @@ WHERE is_deleted = false;
   "external_identity_id": "uuid-or-null",
   "expires_at": "2026-11-14T10:00:00Z",
   "platform_key": "mssw",
-  "identity": {"expert_id": "E123", "tenant_id": "1001"},
+  "identity": {"expert_id": "6620c18c73c760c6b6ca527f", "tenant_id": "1001"},
   "grants": [
     {"entry_id": "uuid", "agent_id": "uuid", "entry_name": "...", "channel": "MSSWWEB", "allowed": true, "reason": null}
   ],
@@ -572,13 +656,16 @@ flowchart TD
       "channel": "MSSWWEB",
       "configured": true,
       "identity_keys": ["expert_id", "tenant_id"],
+      "identity_field_labels": {"expert_id": "专家 ID（24 位）", "tenant_id": "租户 ID"},
       "login_source": "mssw"
     }
   ]
 }
 ```
 
-平台元数据来自 Secret（`platform_key`/`channel`/`identity_keys`）；`configured` 表示 Secret 中是否有该平台。不返回公钥、salt、issuer/audience。非密平台 key 列表（ConfigMap/静态列表）用于 Secret 缺失时仍能显示 `configured=false`；不落库。
+平台元数据来自 Secret（`platform_key`/`channel`/`identity_keys`/`identity_field_labels`）；`configured` 表示 Secret 中是否有该平台。不返回公钥、salt、issuer/audience。非密平台 key 列表（ConfigMap/静态列表）用于 Secret 缺失时仍能显示 `configured=false`；不落库。
+
+`identity_field_labels` 只用于前端渲染输入框标签；缺失时不返回该字段，前端回退展示 claim 名。
 
 ---
 
@@ -589,7 +676,7 @@ flowchart TD
 ```json
 {
   "platform_key": "mssw",
-  "identity": {"expert_id": "E123", "tenant_id": "1001"}
+  "identity": {"expert_id": "6620c18c73c760c6b6ca527f", "tenant_id": "1001"}
 }
 ```
 
@@ -601,7 +688,7 @@ flowchart TD
   "platform_key": "mssw",
   "channel": "MSSWWEB",
   "platform_user_id": "uuid",
-  "identity": {"expert_id": "E123", "tenant_id": "1001"},
+  "identity": {"expert_id": "6620c18c73c760c6b6ca527f", "tenant_id": "1001"},
   "identity_keys": ["expert_id", "tenant_id"],
   "auth_revision": 7,
   "grants": []
@@ -612,7 +699,7 @@ flowchart TD
 
 #### API-21: `PUT /api/v1/users/{user_id}/external-identities/{identity_id}`
 
-**请求**：`{ "identity": {"expert_id": "E456", "tenant_id": "1001"} }`
+**请求**：`{ "identity": {"expert_id": "6620c18c73c760c6b6ca5280", "tenant_id": "1001"} }`
 
 **响应**：同 API-18（含 grants/auth_revision）。
 
@@ -670,27 +757,27 @@ flowchart TD
 
 #### API-20: `POST /internal/webchat/conversations/{id}/read`
 
-**请求**：`user_id` query；body `{ "through_seq": 123 }`；服务身份门控。
+**请求**：`user_id` query；body `{ "notification_through_seq": 123 }`；服务身份门控。
 
 **响应**
 
 ```json
-{ "conversation_id": "uuid", "read_count": 3, "read_at": "2026-11-13T10:00:00Z" }
+{ "conversation_id": "uuid", "notification_through_seq": 123, "has_unread": false }
 ```
 
 **处理逻辑**：与 API-10 同一通知水位语义；校验水位不超前后按 `(tenant,user,conversation)` 更新，追加 `seq <= through_seq AND read_at IS NULL AND is_deleted=false`；PG `now()`；不碰消息、交付状态或 feed 水位。
 
 ---
 
-#### API-25: `GET /internal/webchat/conversations?agent_id=...`
+#### API-25: `GET /internal/webchat/entries/{entry_id}/conversations`
 
-**用途**：用户+Agent 跨入口会话列表；Gateway 的 `GET /conversations?agent_id=` 用它。
+**用途**：会话列表；Gateway 的 `GET /entries/{entry_id}/conversations` 用它（带 `entry_agnostic=true`）。
 
-**请求**：`tenant`（头）、`user_id`、`agent_id`、`page/page_size`。
+**请求**：`tenant`（头）、`user_id`、`agent_id`、路径 `entry_id`、查询 `entry_agnostic`、`page/page_size`。
 
-**响应**：`WebchatConversationPage`，item 增加 `entry_id`/`channel`/`has_unread`；按 `last_message_at DESC NULLS LAST, id DESC`。
+**响应**：`WebchatConversationPage`，item 带 `entry_id`/`has_unread`（**无 `channel`**）；按 `last_message_at DESC NULLS LAST, id DESC`。
 
-**处理逻辑**：`WHERE tenant,user,agent,is_deleted=false`，不再按 entry 过滤；未读用 EXISTS + 新索引；来源字段来自 `conversation.channel_account_id`/`channel`。
+**处理逻辑**：`entry_agnostic=true` 时 `WHERE tenant,user,agent,is_deleted=false`（不按 entry 过滤，跨入口共享）；`entry_agnostic=false` 时追加 `channel_account_id = entry_id` 严格核属（越权 404）；未读用 EXISTS + 新索引；来源字段来自 `conversation.channel_account_id`。
 
 ---
 
@@ -722,9 +809,11 @@ flowchart TD
 | Console | WebChat auth / source token 管理 | exchange 不再缓存 agents；退出/源 Token 撤销清理关联凭证；`/me` 与 Gateway miss 共用 PG 有效会话恢复 |
 | Console | `main.py` | 加载 Registry；接流量前恢复同步状态并核对平台激活版本 |
 | Common | `session_store.py` / 新权限 cache store | 移除 `SessionRecord.agents`；实现版本/屏障的原子校验、回填 CAS、反向索引；无旧结构回退分支 |
-| Common | `packages/common/src/muad_common/settings.py` | `external_assertion_platforms_json`（`repr=False`）+ 全局 `external_assertion_max_session_age_sec`、`external_assertion_cache_ttl_sec`（默认 1h，非敏感） |
+| Common | `packages/common/src/muad_common/settings.py` | `external_assertion_platforms_json`（`repr=False`）+ 全局 `external_assertion_max_session_age_sec`、`external_assertion_cache_ttl_sec`（非敏感；默认值以代码为准，不在此处固化） |
 | Contracts | `packages/contracts/src/muad_contracts/webchat.py` | `has_unread`、已读回执、外部身份/未绑定契约、`ChatAuthMethod` 扩值 |
-| Contracts | `packages/contracts/src/muad_contracts/enums.py` | `MSSWWEB` 进 `BUILTIN_CHANNEL_NAMES`、`LOCAL_STREAM_CHANNELS` |
+| Contracts | `packages/contracts/src/muad_contracts/enums.py` | `MSSWWEB` 进 `BUILTIN_CHANNEL_NAMES`、`LOCAL_STREAM_CHANNELS`；**不进** `OUTBOUND_CHANNELS`（BFF 拉取模式无主动投递，进错会让产物交付抛 `ATTACHMENT_WRITE_UNAVAILABLE`） |
+| Tests | `tests/architecture/test_channel_neutrality.py` | **`CHANNEL_TOKENS` 必须加 `"msswwweb"`**；建议同时加一条「注册表里的每个通道名都必须在词表中」的断言——否则以后新增通道忘了加词，机检变成**假绿灯**（全绿但什么都没检查到） |
+| Tests | `tests/test_attachment_contract.py`（两处）、`tests/agent_worker/test_capacity_webchat_worker_notifications.py` | 三处硬断言 `BUILTIN_CHANNEL_NAMES == ("WECOM","WEBCHAT")` 需同步为三元组；两组必须**完全划分**内建通道 |
 | Runtime | `api/webchat_history.py` | 用户+Agent 会话列表；`POST /internal/webchat/conversations/{id}/read` 带水位 |
 | Runtime | `application/channel_notification_queries.py` | `mark_conversation_read(through_seq)`；用户级通知 |
 | Runtime | `application/webchat_history.py` | `_conversation_page` 按 user+agent；`has_unread` EXISTS；来源字段 |
@@ -733,6 +822,24 @@ flowchart TD
 | Runtime | `application/channel_uploads.py` / upload 查询 | 暂存上传核属与本次发送入口一致；引用历史产物按用户+Agent；不把会话创建入口当本次上传入口 |
 | WebChat UI | `services/webchatApi.ts` / `ChatPage.tsx` / `conversationState.ts` | user+Agent 共享列表；移除源入口相等校验；分离当前发送入口与会话来源；详情/历史水位配对 |
 | Deploy | `deploy/k8s/base/secret.example.yaml`、`console-platform.yaml` | Secret key（`optional: true`）+ Console env；平台元数据 |
+
+**通道名参数化的 6 个具体位置（B6）**
+
+上表 `webchat_service.py` / `webchat_core.py` 两行说"参数化 `channel`"，但实际有 **6 处**写死，必须逐一改到：
+
+| # | 位置 | 现状 | 漏改后果 |
+|---|---|---|---|
+| ① | `webchat_service.py` `list_entries` | 过滤 `channel == "WEBCHAT"` | MSSWWEB 入口被过滤，入口列表恒空 |
+| ② | `webchat_service.py` `resolve_authorized_entry` | 同上 | MSSWWEB 入口一律 404 |
+| ③ | `webchat_service.py` `submit_message` 的 `InboundEvent` | 写死 `"WEBCHAT"` | 事件标错通道 |
+| ④ | `webchat_service.py` `submit_message` 的 adapter 选择 | 写死 `WEBCHAT_CHANNEL_IDENTITY` | 受理走 WebChat 适配器身份 |
+| ⑤ | `webchat_service.py` `create_conversation` 的 `ChannelContext` | 写死 `"WEBCHAT"` | 会话记成 WebChat 来源 |
+| ⑥ | **`webchat_core.py` `_run_request` 的 `ChannelContext`** | 写死 `"WEBCHAT"` | **Run 真正落库的通道**；`submit_message` 只构造 `InboundEvent` 交给 `admit_sync`，`RunRequest.channel` 在 `_run_request` 组装，**漏改 ⑥ 则 ③④⑤ 全部无效** |
+
+两条必须知道的约束：
+
+- **①→② 有顺序依赖**：① 产出的入口快照是 ② 的输入，只改 ② 仍会 404，**必须一起改**。
+- **测试兜底**：集成测试必须断言 `RunRequest.channel == "MSSWWEB"`，而不是只断言 HTTP 202——202 只表示受理成功，通道错了也一样返回 202。
 
 **API-26：`GET /api/v1/auth-cache-sync`（ADMIN）**
 
@@ -783,21 +890,37 @@ flowchart TD
 
 `/identity` 的 reason 词表：
 
-| reason | 含义 |
-|--------|------|
-| `UNBOUND` | 验签通过但没有用户级外部身份 |
-| `NO_ENTRY_GRANT` | 用户级身份存在，但没有请求入口或可用入口的 grant；不丢弃主体 |
-| `ENTRY_DISABLED` | 入口禁用/删除 |
-| `AGENT_DISABLED` | Agent 禁用/删除 |
-| `NO_AGENT_GRANT` | 无 Agent 授权 |
-| `USER_DISABLED` | 平台用户停用 |
+| reason | 含义 | 判定依据 |
+|--------|------|----------|
+| `UNBOUND` | 验签通过但没有用户级外部身份 | 无 `external_identity` 记录；不构造主体 |
+| `NO_ENTRY_GRANT` | 身份存在，但该入口没有授权；或入口本身已停用 | 无 grant 记录，或 `BotAccount.enabled=false` |
+| `NO_AGENT_GRANT` | 入口绑定的 Agent 行不存在（已删除） | 授权 + 入口存在，Agent 查询结果为 NULL |
+| `AGENT_DISABLED` | 入口绑定的 Agent 被停用 | `AgentDefinition.enabled=false` |
+| `USER_DISABLED` | 平台用户停用 | `external_identity.status != ACTIVE`；此时所有入口统一报此原因 |
+
+**逐入口优先级**（`_grant_views`，高 → 低）：用户停用 → 入口停用 → Agent 不存在 → Agent 停用 → 可用。
+用户停用单独排在最前，是为了不因「Agent 恰好也被停用」而把原因说成 `AGENT_DISABLED`——排查方向会因此跑偏。
 
 - Console 内部端点对停用用户返回 403；Gateway 的 `/identity` handler 把它投影为 200 + `reason=USER_DISABLED`，资源接口保持 403。
 - 新错误码必须同时登记 `packages/api-kit/src/muad_api/error_codes.py` 与 `config/api-messages.yaml`（双向断言）。
 
+**判定同源（实现口径，2026-11 起）**：`external-principal`（资源接口）与 `/identity`（权限查询）共用
+`resolve_principal` 一个判定，`allowed` 不可能不一致；两者只在**表达方式**上分叉（资源接口把 `allowed=false`
+转成 401/403，权限查询恒 200 + `allowed=false`）。
+
+由此带来一个**有意的行为变更**：早期 `external-principal` 只校验「有没有授权」，不看 Agent 状态，
+因此 Agent 被停用后旧授权仍能把用户放进来。现在 Agent 停用会一并拒绝资源接口，与
+`resolve_service` 对其他通道的判定一致。同时，未指定 `entry_id` 的查询在「没有任何可用入口」时
+整体 `allowed=false`（先前口径是「授权存在即放行」）。
+
+**行为变更的影响面**（发布前须知）：
+
+- 存量已授权但 Agent 处于停用的用户，升级后会立刻无法进入对话/发消息——这是期望的收口，但需要在发布说明中提示运营方先检查停用 Agent 的授权情况。
+- `/entries` 本就过滤不可用入口，因此表现不变；变化的是「直接提交消息」这条路径不再放行。
+
 #### 3.4.3 验签实现要点
 
-- `AesFactorCodec` 隔离 `derive_key(salt)`、`encrypt(plaintext)`、`decrypt(ciphertext)`；在 R-01 确认前**不允许猜派生算法**，用测试向量驱动。
+- `AesFactorCodec` 隔离 `derive_key(salt)`、`encrypt(plaintext)`、`decrypt(ciphertext)`。**派生算法已确认**：`salt` 右侧补 `\x00` 到 32 字节（`salt` 长度须 ≤32），PKCS#7 补位，ECB 模式（`docs/mssw-channel/01-jwt-spec.md` §3）。实现时用实测测试向量驱动，**不允许改用其他派生方式**。
 - PyJWT：`algorithms=["RS256"]`；`audience=<AES(audience)>`；`issuer=[<AES(issuer)>]`；`leeway` 由配置定义；`exp=-1` 时 `verify_exp=False`，正数时启用。
 - 单公钥 `public_key` 验签；轮换按平台关闭、失效、替换重启、核对并激活新 epoch 执行，不做多公钥数组。
 - `login_source` 可选：配置了才校验签名 claim 相等；不配置不校验。
@@ -806,7 +929,7 @@ flowchart TD
 - 一个平台一套 `identity_keys`；绑定/编辑必须同 key 集合；MSSP 未来加平台元数据，不改代码。
 - `email`/`email_login`/`phone_login` 不解密、不落库。
 - `soc-token` 长度设置上限（如 4KB，具体值由配置定义，并与 nginx header buffer 对齐）；超限直接 401，不解析。
-- 最大会话年龄：取全局 `EXTERNAL_ASSERTION_MAX_SESSION_AGE_SEC`；优先 `login_time`（秒）/`time`（毫秒），缺失时拒绝（无法界定有效期），不默认无限。
+- 最大会话年龄：取全局 `EXTERNAL_ASSERTION_MAX_SESSION_AGE_SEC`；签发时刻取 `login_time`（**string，Unix 毫秒**）或 `time`（**int64，同值毫秒**），**缺失时拒绝**（无法界定有效期，否则 `exp=-1` 的 token 可无限续订）。**不吃 `iat`**——上游从不发该字段，读了也取不到值，等于让上限校验空转。
 - `expires_at` = min(now + max_age, login_time + max_age, 正数 exp)；用于 SSE 复核停止点，不滑动。
 - `session_id` = `uuid5(固定命名空间, tenant|platform_key|platform_user_id|sha256(soc_token))`；只用于日志/流身份，不落库。
 - MSSWWEB **不要求** `X-Chat-Context`（无 Cookie 会话可切）；`soc-token` 是唯一凭据。WebChat 保持现有 Cookie + `X-Chat-Context` 口径。
@@ -1051,8 +1174,9 @@ location /api/v1/msswwweb {
 | 依赖 | 内容 | 状态 | 风险 |
 |------|------|------|------|
 | Python 依赖 | 新增 PyJWT 2.x（外部断言验签）；AES 用现有 `cryptography` | 待评审 | 低 |
-| MSSW | 公钥、issuer、audience、salt、测试 token、AES 实现/向量 | 待提供 | 高（R-01） |
-| MSSW | `login-source=mssw` 真实口径 | 待确认 | 中（R-02） |
+| MSSW | **生产环境**公钥、issuer、audience、salt | 待提供（需求方"后续会给"） | 只阻塞生产联调 |
+| MSSW | AES key 派生算法 | ~~待提供~~ **已确认**：`salt` 右补 `\x00` 到 32 字节，PKCS#7，ECB | 已解除 |
+| MSSW | `login-source` 真实口径 | 首版不配置该可选校验，无需确认 | 已消解 |
 | 运维 | Secret 注入 Console；MSSWWEB 入口 | 待执行 | 中 |
 | 业务平台 BFF | SSE 透传、错误码处理 | 待联调 | 中 |
 
@@ -1060,8 +1184,8 @@ location /api/v1/msswwweb {
 
 | 风险ID | 类型 | 描述 | 概率 | 影响 | 应对 | 场景 |
 |--------|------|------|------|------|------|------|
-| R-01 | 技术 | AES-ECB 派生未知 | 高 | 阻塞 | 先做 spike：源码/测试向量 | E-01 |
-| R-02 | 契约 | 样例 `login-source=mss` vs `mssw` | 高 | 若启用可选校验会全量 401 | 真实 token 联调；按实际值配置或首版不启用 `login_source` | E-01 |
+| R-01 | 技术 | ~~AES-ECB 派生未知~~ **已确认** | ~~高~~ 已解除 | ~~阻塞~~ | 按 `01-jwt-spec.md` §3 的派生算法实现，实测向量驱动 | E-01 |
+| R-02 | 契约 | 样例 `login-source=mss` vs `mssw` | 中 | 若启用该可选校验会全量 401 | **首版不配置 `login_source`**，风险消解 | E-01 |
 | R-03 | 安全 | `exp=-1` 无过期 | 中 | 盗用长期有效 | 最大年龄 + 绑定/停用复核 | B-02 |
 | R-04 | 性能 | `/identity` 查 PG、资源接口 Redis-first | 中 | 首次慢/缓存旧权限 | Redis cache + auth_revision；控制池/DB 预算；p95/p99 实测 | S-03 |
 | R-05 | 集成 | BFF 缓冲 SSE | 中 | 首帧/心跳被压 | 接入指南明确不缓冲 | E-08 |
@@ -1144,5 +1268,27 @@ location /api/v1/msswwweb {
 以上只支撑基础设施语义，不证明本方案已实现或达到性能目标；实际正确性、故障恢复、查询计划与延迟需由后续 Task 测试及隔离环境压测验证。
 
 ---
+
+## 实现期发现（2026-11，验收阶段记录）
+
+验收（TASK-013）过程中发现、已修复或已确认不影响本次需求的差异，记录在此以免后续重复排查。
+
+**已修复**：
+
+1. **拒绝路径一律 500**：Console 的 `/internal/channel/external-principal` 在 `allowed=false` 时多回一个 `error_code` 字段，而契约 `ExternalPrincipalResult` 为 `extra="forbid"`，网关反序列化失败 → 所有拒绝（未绑定/无授权/停用/Agent 停用）都表现为 500 `COMMON_INTERNAL_ERROR`。已删除该字段；错误码由网关按 `reason` 自行映射。
+2. **配置写错返回 500**：`load_platform_configs` 对坏 JSON 抛 `PlatformConfigError`，此前未捕获。现统一转为 `PlatformUnavailable`（503），并在日志中留 warning。
+3. **撤权后 `/entries` 越界 500**：`grant_views` 为空时取首元素越界。现明确回落为 `NO_ENTRY_GRANT`。
+4. **外部断言路径漏判 Agent 状态**：见 `## 3.4.2` 的「判定同源 / 行为变更」。
+5. **`AGENT_DISABLED` 缺错误码映射**：此前落到通用 `FORBIDDEN`，现映射为 `EXTERNAL_ASSERTION_NOT_GRANTED`（与「无授权」同属可用性拒绝；细分原因由 `/identity` 的 `reason` 承担）。
+
+**未修复（既有缺口，不属于本次范围）**：
+
+- **提交文本长度服务端不校验**：`webchat.text_max_bytes` 只下发在 `client-config` 里供客户端拦截；`submit_message` 不做长度判断，超限文本会被受理（202）。WebChat 面同样如此，修它属跨通道行为变更，需单独评估。验收用例 `test_b03_client_config_exposes_text_limit_for_client_side_guard` 按实际行为断言，并在 docstring 中记录。
+- **重复提交的终态是 409 `RUN_BUSY`**：同一 `message_id` 重发时，若首轮仍在执行，会话级并发闸先拦下。效果上仍是「不会跑两遍」，但与「返回同一个 run_id」不同；验收按实际终态断言。
+
+**场景编号与实现的偏差**：
+
+- 早期 scenarios 以 `/identity` 描述权限查询，但该接口在 TASK-001~012 中未被任何 Task 认领，实现缺失。本次已补齐。
+- scenarios 中 E-10、E-12~E-14 以「Redis 认证缓存 + revision 失效」为前提，而实现**不存在**该缓存（外部断言每次直查控制库）。相关场景已改写为「撤权即时生效」（E-05 覆盖）；若将来引入缓存，这批场景需要重新定义。
 
 *文档结束*

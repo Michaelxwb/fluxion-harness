@@ -292,6 +292,7 @@ def seed_v2_schedule(
     cron: str | None = "0 9 * * *",
     recurrence_kind: str = "CRON",
     run_at: datetime | None = None,
+    next_fire_at: datetime | None = None,
     name: str | None = None,
     input_template: dict[str, Any] | None = None,
     with_submission_event: bool = False,
@@ -348,7 +349,7 @@ def seed_v2_schedule(
                     "owner": live_stack.platform_user_id,
                     "agent": live_stack.agent_id,
                     "name": name or f"e2e-schedule-{schedule_id.hex[:8]}",
-                    "next_fire": run_at or datetime.now(UTC),
+                    "next_fire": next_fire_at or run_at or datetime.now(UTC),
                 },
             )
             await session.execute(

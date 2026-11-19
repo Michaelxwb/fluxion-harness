@@ -127,7 +127,11 @@ class WebchatArtifactService:
             checksum=checksum,
         )
         scope = _project(WebchatConversationScope, data.get("scope"))
-        resolved = resolve_authorized_entry(self._entries, identity, scope.entry_id)
+        # 产物下载按 user + Agent 归属（设计 API-15）：不做通道断言，入口只作来源标识，
+        # 同用户同 Agent 跨入口共享的产物不因调用方通道不同而拒绝。
+        resolved = resolve_authorized_entry(
+            self._entries, identity, scope.entry_id, channel=None
+        )
         if resolved.agent_id != scope.agent_id:
             # 入口当前绑定已换 Agent：旧会话的字节不在新 Agent 名下交付（404 不泄露存在性）。
             logger.warning("webchat_artifact_entry_agent_changed")

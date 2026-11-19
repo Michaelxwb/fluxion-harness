@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
+from decimal import Decimal
 
 import redis.asyncio
 from fastapi import FastAPI
@@ -16,6 +18,7 @@ from muad_api import (
 from muad_api.catalog import MessageCatalog
 from muad_artifact_store import NfsArtifactStore
 from muad_common import SharedSettings
+from muad_common.auth_cache import AuthCacheStore
 from muad_common.redis_client import (
     RedisClient,
     RedisTopologyMismatch,
@@ -35,6 +38,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from .api.delivery import router as delivery_router
 from .api.health import readiness_checks, readiness_detail
 from .api.task_center import build_task_center_router
+from .api.webchat import notification_router as webchat_notification_router
 from .api.webchat import router as webchat_router
 from .api.webhook import router as webhook_router
 from .application.channel_delivery import ActiveChannelDelivery, ConsoleDeliveryPermission
@@ -47,10 +51,12 @@ from .application.inbound_streams import InboundStreamConsumer
 from .application.notification_streams import NotificationStreamHub
 from .application.runtime_client import RuntimeClient
 from .application.task_center import WEBCHAT_SURFACE
+from .application.webchat_core import ChatSurface
 from .application.webchat_streams import SseBufferLedger
 from .application.worker_client import WorkerClient
 from .channels.base import ChannelRegistry
 from .channels.registry import build_channel_registry, dispatch_snapshot
+from .channels.registry import external_platforms_enabled as _external_platforms_configured
 from .channels.routed import parse_routed_channels
 from .channels.webhook import parse_webhook_channels
 from .infrastructure.artifact_resolver import HttpArtifactResolver
@@ -106,6 +112,8 @@ class _GatewayResources:
     #: 本部署是否声明了经 Redis Stream 的通道面（远程 Connector / webhook）：决定 Redis 是否
     #: 是就绪硬依赖（WebChat-only 部署不经过 Stream）。
     stream_reliant: bool
+    #: 外部断言的凭证层/权限层缓存（只读）；None 时每次回源 Console 完整验签。
+    auth_cache: AuthCacheStore | None = None
 
     def publish(self, app: FastAPI) -> None:
         """初始化成功后才公开运行时状态：探针与投递/聊天 API 都从这里读依赖。"""
@@ -124,6 +132,7 @@ class _GatewayResources:
         app.state.inbound_publisher = self.inbound_publisher
         app.state.notification_hub = self.notification_hub
         app.state.session_store = self.session_store
+        app.state.auth_cache = self.auth_cache
         app.state.stream_reliant = self.stream_reliant
         # Webchat 路由（TASK-052/054/055/057/061）消费的状态值：装配根是唯一发布点，
         # 值来自同一个 SharedSettings（预算/上限的唯一来源，不在路由层另抄一份默认值）。
@@ -262,14 +271,10 @@ def _build_inbound(
         settings_client=settings_client,
         # Run 终态交付的同键协调（设计 §3.6）：活跃会话收尾与兜底主动交付共用
         # `run:{run_id}:terminal`，经 Runtime 的受信 API-18 端口 reserve/ack（网关不持库）。
-        channel_delivery=ActiveChannelDelivery(
-            runtime, permission=ConsoleDeliveryPermission(console)
-        ),
+        channel_delivery=ActiveChannelDelivery(runtime, permission=ConsoleDeliveryPermission(console)),
         # 聊天入口的用户动作（TASK-025）：Draft 确认走 Worker 的 API-27，Human 回答先由
         # Runtime 按 user+agent+会话裁决——Gateway 不直接改 Execution，也不猜是哪一个问题。
-        schedules=ChatScheduleService(
-            owner=worker, routes=runtime, tenant_id=settings.default_tenant_id
-        ),
+        schedules=ChatScheduleService(owner=worker, routes=runtime, tenant_id=settings.default_tenant_id),
         # 在飞受理上限：每进程启动预算（§3.7 GATEWAY_MAX_CONCURRENT_HANDLERS）。
         max_concurrent_handlers=settings.gateway_max_concurrent_handlers,
         # 排队上限（全局/每路由/命令三条）：同一处启动预算（§3.7 GATEWAY_MAX_PENDING_*）。
@@ -303,9 +308,7 @@ async def _build_resources(
     settings: SharedSettings, catalog: MessageCatalog, pools: GatewayHttpPools
 ) -> _GatewayResources:
     """按启动设置组装运行时资源；中途失败时回收已创建的部分（分池由调用方收尾）。"""
-    console, runtime, settings_client, artifacts, worker = _build_outbound_clients(
-        settings, pools
-    )
+    console, runtime, settings_client, artifacts, worker = _build_outbound_clients(settings, pools)
     redis = _build_redis(settings)
     try:
         pubsub_redis = await _build_pubsub_redis(settings)
@@ -383,6 +386,10 @@ async def _build_resources(
         )
         notification_hub = NotificationStreamHub(pubsub_redis, key_client=redis)
         session_store = RedisSessionStore(redis)
+        # 只读凭证层/权限层：TTL 用与 Console 相同的闲置窗口配置，网关只做读取与续期。
+        auth_cache = AuthCacheStore(
+            redis, ttl_sec=settings.external_assertion_cache_ttl_sec
+        )
         return _GatewayResources(
             registry=registry,
             dedupe=dedupe,
@@ -409,6 +416,7 @@ async def _build_resources(
                 parse_routed_channels(settings.gateway_routed_channels)
                 or parse_webhook_channels(settings.gateway_webhook_channels)
             ),
+            auth_cache=auth_cache,
         )
     except BaseException:
         # 半初始化不发布、也不留资源：自有的 dedupe/streams（Redis 连接）在这里回收；HTTP
@@ -425,9 +433,7 @@ def _start_background(resources: _GatewayResources) -> list[asyncio.Task[None]]:
     机器人连接由注册表 `start_all`/`stop_all` 启停；公开 SSE 订阅由进程账本登记/释放。
     每条循环一条任务、命名可观测；退出路径在 lifespan 统一取消并等待收尾（不吞异常）。
     """
-    tasks = [
-        asyncio.create_task(resources.snapshot.run_forever(), name=SNAPSHOT_LOOP_NAME)
-    ]
+    tasks = [asyncio.create_task(resources.snapshot.run_forever(), name=SNAPSHOT_LOOP_NAME)]
     tasks.extend(
         asyncio.create_task(
             resources.inbound.consume(adapter),
@@ -436,16 +442,8 @@ def _start_background(resources: _GatewayResources) -> list[asyncio.Task[None]]:
         for adapter in resources.registry.started_adapters
     )
     # 入站 Stream 消费组：Connector/Webhook 持久化后的统一入口（IM ASYNC 路径）。
-    tasks.append(
-        asyncio.create_task(
-            resources.inbound_consumer.run_forever(), name=INBOUND_STREAM_LOOP_NAME
-        )
-    )
-    tasks.append(
-        asyncio.create_task(
-            resources.notification_hub.run_forever(), name="gateway.notifications"
-        )
-    )
+    tasks.append(asyncio.create_task(resources.inbound_consumer.run_forever(), name=INBOUND_STREAM_LOOP_NAME))
+    tasks.append(asyncio.create_task(resources.notification_hub.run_forever(), name="gateway.notifications"))
     return tasks
 
 
@@ -499,9 +497,7 @@ class _ServerErrorLogMiddleware:
 
         async def send_wrapper(message: Message) -> None:
             if message["type"] == "http.response.start" and message["status"] >= 500:
-                logger.warning(
-                    "gateway_5xx", extra={"path": scope["path"], "status": message["status"]}
-                )
+                logger.warning("gateway_5xx", extra={"path": scope["path"], "status": message["status"]})
             await send(message)
 
         await self._app(scope, receive, send_wrapper)
@@ -516,8 +512,63 @@ install_health_probes(
 app.include_router(delivery_router)
 # 通用 Webhook 入站（S-07）：`/channels/{channel}/events` —— 通道由配置装配，不新增部署单元。
 app.include_router(webhook_router)
-# Webchat 公开面（TASK-052/054/055/057/061）：HTTP 聊天/上传/下载与公开 SSE 的实际注册点。
-app.include_router(webchat_router)
+
+
+# 本地流式对话面：同一套 router 按 surface 多挂载（设计 §ChatSurface / RULE-im-006）。
+# WEBCHAT（Console 签发的 CHAT token）与 MSSWWEB（上游 platform 断言）共享 handler，
+# 仅通道名与认证方式不同；通道字面量只在本装配根出现，api/application 层保持中立。
+def _build_webchat_surfaces(settings: SharedSettings) -> dict[str, ChatSurface]:
+    """按配置生成要挂载的 surface 表：WEBCHAT 恒定，MSSWWEB 仅在启用外部断言平台时加。"""
+    surfaces: dict[str, ChatSurface] = {
+        "/api/v1/webchat": ChatSurface(channel="WEBCHAT", auth_kind="USER_TOKEN"),
+    }
+    if _external_platforms_configured(settings):
+        surfaces["/api/v1/msswwweb"] = ChatSurface(
+            channel="MSSWWEB",
+            auth_kind="EXTERNAL_ASSERTION",
+            platform_key=_single_external_platform_key(settings),
+        )
+    return surfaces
+
+
+def _single_external_platform_key(settings: SharedSettings) -> str | None:
+    """从 Secret 配置解析外部断言平台的 `platform_key`（channel 与平台一一对应）。
+
+    未配置/无法解析时返回 `None`：认证会在转发 `external-principal` 前以 503 失败，
+    而不是把错误藏进验签结果里。
+    """
+    raw = getattr(settings, "external_assertion_platforms_json", "") or ""
+    try:
+        # `parse_float=Decimal`：平台 id 可能是超长数字，按 float 解析会丢精度，
+        # 导致键与 Console 侧写的不一致。
+        parsed = json.loads(raw, parse_float=Decimal) if raw.strip() else {}
+    except ValueError:
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    if len(parsed) > 1:
+        # 一个通道只能对应一个平台。静默取第一个会让多配的平台不报错却永不生效，
+        # 属于「改了没反应」的典型来源——显式失败，走既有的 503 路径。
+        logger.error(
+            "external_assertion_platforms_ambiguous count=%d keys=%s",
+            len(parsed),
+            ",".join(sorted(parsed)),
+        )
+        return None
+    return next(iter(parsed), None)
+
+
+def mount_webchat_surfaces(target_app: FastAPI, settings: SharedSettings) -> None:
+    """把本地流式对话面按 surface 挂到 `target_app`（WEBCHAT 面含通知中心）。"""
+    surfaces = _build_webchat_surfaces(settings)
+    target_app.state.webchat_surfaces = surfaces
+    for prefix in surfaces:
+        target_app.include_router(webchat_router, prefix=prefix)
+    # 通知中心只挂 WEBCHAT 面（MSSWWEB 不暴露通知中心，设计 §I4）。
+    target_app.include_router(webchat_notification_router, prefix="/api/v1/webchat")
+
+
+mount_webchat_surfaces(app, SharedSettings())
 # 任务中心表面（TASK-024）：WebChat 的任务读面/用户动作/产物下载见
 # `api/task_center.py`；MSSWWEB 的同形路由另立需求，本进程不挂。
 app.include_router(build_task_center_router(WEBCHAT_SURFACE))

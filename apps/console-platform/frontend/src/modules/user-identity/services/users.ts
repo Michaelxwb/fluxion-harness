@@ -318,3 +318,137 @@ export async function revokeWebchatToken(
     })
   );
 }
+
+// --- 外部 IM 平台身份（TASK-005 管理面接口）：platform_key 驱动录入与入口授权 ---------------------
+
+/** 外部平台元数据：`identity_keys`/`identity_field_labels` 决定录入弹窗渲染哪些字段。 */
+export interface ExternalPlatformItem {
+  platform_key: string;
+  display_name: string;
+  configured: boolean;
+  identity_keys: string[];
+  identity_field_labels: Record<string, string>;
+}
+
+/** 平台下可授权的入口（bot_account）；`granted` 表示该身份是否已授权此入口。 */
+export interface ExternalEntryItem {
+  entry_id: string;
+  bot_id: string;
+  name: string;
+  channel: string;
+  agent_id: string;
+  agent_name: string;
+  granted: boolean;
+}
+
+/** 已授权入口的最小投影（撤销时以 `entry_id` 定位授权）。 */
+export interface ExternalEntryGrantItem {
+  entry_id: string;
+  bot_id: string;
+  name: string;
+}
+
+/** 外部身份：`identity` 的键集合必须与平台 `identity_keys` 完全一致（服务端强校验）。 */
+export interface ExternalIdentityItem {
+  identity_id: string;
+  platform_key: string;
+  identity: Record<string, string>;
+  status: string;
+  grants: ExternalEntryGrantItem[];
+}
+
+export async function listExternalPlatforms(
+  options: RequestOptions = {}
+): Promise<ExternalPlatformItem[]> {
+  return unwrap(await api.get<ApiResponse<ExternalPlatformItem[]>>('/external-platforms', options));
+}
+
+export async function listPlatformEntries(
+  platformKey: string,
+  params: {
+    user_id?: string;
+    /** 传了就只按该身份的授权判定 `granted`；授权弹窗必须传，否则跨身份串味。 */
+    identity_id?: string;
+    query?: string;
+    page?: number;
+    page_size?: number;
+  },
+  options: RequestOptions = {}
+): Promise<ExternalEntryItem[]> {
+  return unwrap(
+    await api.get<ApiResponse<ExternalEntryItem[]>>(
+      `/external-platforms/${platformKey}/entries`,
+      { params, ...options }
+    )
+  );
+}
+
+export async function listExternalIdentities(
+  id: string,
+  options: RequestOptions = {}
+): Promise<ExternalIdentityItem[]> {
+  return unwrap(
+    await api.get<ApiResponse<ExternalIdentityItem[]>>(`/users/${id}/external-identities`, options)
+  );
+}
+
+export async function upsertExternalIdentity(
+  id: string,
+  input: { platform_key: string; identity: Record<string, string> },
+  options: RequestOptions = {}
+): Promise<ExternalIdentityItem> {
+  return unwrap(
+    await api.put<ApiResponse<ExternalIdentityItem>>(
+      `/users/${id}/external-identities`,
+      input,
+      options
+    )
+  );
+}
+
+export async function updateExternalIdentity(
+  id: string,
+  identityId: string,
+  input: { identity: Record<string, string> },
+  options: RequestOptions = {}
+): Promise<ExternalIdentityItem> {
+  return unwrap(
+    await api.put<ApiResponse<ExternalIdentityItem>>(
+      `/users/${id}/external-identities/${identityId}`,
+      input,
+      options
+    )
+  );
+}
+
+export async function deleteExternalIdentity(
+  id: string,
+  identityId: string,
+  options: RequestOptions = {}
+): Promise<void> {
+  await api.delete(`/users/${id}/external-identities/${identityId}`, options);
+}
+
+export async function grantExternalEntry(
+  id: string,
+  identityId: string,
+  channelAccountId: string,
+  options: RequestOptions = {}
+): Promise<ExternalIdentityItem> {
+  return unwrap(
+    await api.post<ApiResponse<ExternalIdentityItem>>(
+      `/users/${id}/external-identities/${identityId}/grants`,
+      { channel_account_id: channelAccountId },
+      options
+    )
+  );
+}
+
+export async function revokeExternalEntry(
+  id: string,
+  identityId: string,
+  entryId: string,
+  options: RequestOptions = {}
+): Promise<void> {
+  await api.delete(`/users/${id}/external-identities/${identityId}/grants/${entryId}`, options);
+}

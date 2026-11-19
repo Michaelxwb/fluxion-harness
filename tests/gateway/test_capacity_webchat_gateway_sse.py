@@ -949,6 +949,34 @@ async def test_malformed_progress_frame_is_skipped_and_the_cursor_advances(
     assert [event["seq"] for event in checkpoints] == [3], "被跳过的帧必须由 checkpoint 推进游标"
 
 
+async def test_cancelled_run_surfaces_a_cancelled_terminal_and_closes_the_stream(
+    stub_console: StubConsole,
+    console_probe: _ConsoleProbe,
+    runtime_probe: _RuntimeProbe,
+) -> None:
+    """S-04：停止生成后 Run 终态为 CANCELLED，SSE 收到一条 run.terminal 且流随即结束。"""
+    runtime_probe.plan = _StreamPlan(
+        frames=[
+            (3, "message.delta", {"delta": "部分"}),
+            (4, "run.completed", {"status": "CANCELLED"}),
+        ],
+        watermark=4,
+    )
+    async with _gateway_env(stub_console, runtime_probe) as env:
+        async with _chat_client(env) as client:
+            response = await client.get(
+                EVENTS_URL, headers=_chat_headers(), params={"after_seq": 2}
+            )
+            assert response.status_code == 200, response.text
+            body = response.text
+
+    events = _public_events([frame for frame in _parse_sse(body) if not frame.is_heartbeat])
+    public = [event for event in events if event["type"] != "checkpoint"]
+    assert [event["type"] for event in public] == ["message.delta", "run.terminal"]
+    terminal = public[-1]
+    assert terminal["data"]["status"] == "CANCELLED", "取消终态必须透传 CANCELLED"
+
+
 async def test_malformed_confirmation_is_dropped_but_the_stream_continues(
     stub_console: StubConsole,
     console_probe: _ConsoleProbe,

@@ -15,6 +15,12 @@
 
 - [RULE-002] 平台失败原因在离开适配器前必须把本次 `ak`/`sk`/`headers` 的具体值替换为 `***`，再进入 Skill stderr 或工具结果；日志只记 code 与状态，不记原文。
 
+- [RULE-secret-002] **外部平台验签因子只放 Secret，不进数据库**：公钥、issuer、audience、salt 等因子来自环境变量 / K8s Secret，不得落 Owner 表、不回显、不写日志，也不进入审计快照；管理员可见的只有平台元数据（是否已配置、`identity_keys`、字段中文名），不含任何因子值。
+  - **缺失只影响该通道**：Secret 缺失或损坏时进程仍须启动，仅使该通道的认证返回不可用（503）；不得因一个外部平台未配置而阻断启动或影响其它通道。
+  - **配置错误在启动期暴露**：因子能加载但解析失败（如公钥格式错误、`identity_keys` 为空）应在启动期显式报错，而不是等到首个请求才 500。
+  - ✅ 因子经 `Secret` 注入、加载进 `repr=False` 的设置对象；对外接口只回 `configured` 与键名。
+  - ❌ 把公钥或 salt 写进表、写进快照、写进响应；缺因子时整个服务起不来。
+
 ## Conventions
 
 - 所有密钥明文存于各 Owner 表并以主键引用：模型 `control.model_credential.api_key`（逻辑模型 `model_definition` 只保留 `provider_key`，经 `model_deployment` 复合 FK 引用同租户凭据；旧 `model_definition.api_key`/`base_url` 已由 0027 物理删除）、Bot `bot_account.secret`、MCP `mcp_server.auth_secret`、用户/共享凭据 `user_credential_ref.credential_json` / `shared_credential_ref.credential_json`。**平台侧例外**：`project_platform.auth_secret` 是历史遗留的**休眠列**——模型与迁移里确有该列，但 `platform_service.create/update` 从不读写、平台快照不回显、`tests/console_platform/test_platforms_api.py` 断言响应不含它。平台凭据一律走用户/共享凭据表；该列**不得读写，待迁移剔除**。与 `harness-project-platform` 的同名条目对称（两处必须一起改）。

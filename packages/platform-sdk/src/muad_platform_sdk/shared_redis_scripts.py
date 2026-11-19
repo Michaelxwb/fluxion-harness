@@ -26,7 +26,32 @@ local function server_generation(guard, initialize)
   if not pinned then
     return initialize and redis.call('HGET', guard, 'initialized') ~= '1', generation
   end
-  return pinned == generation, generation
+  if pinned == generation then return true, generation end
+  -- A Redis Cluster promotion/failback creates a new process id and advances
+  -- the cluster epoch.  The epoch is the topology's monotonic fencing token;
+  -- accept that transition only when the persisted state is already complete.
+  if mode == 'cluster' then
+    local old_run, old_epoch = string.match(pinned, '^([^:]+):(%d+)$')
+    local new_run, new_epoch = string.match(generation, '^([^:]+):(%d+)$')
+    if not old_run or not new_run or #old_run ~= 40 or #new_run ~= 40 or
+       not string.match(old_run, '^[0-9a-f]+$') or not string.match(new_run, '^[0-9a-f]+$') then
+      return false, generation
+    end
+    if not old_epoch or not new_epoch or tonumber(new_epoch) <= tonumber(old_epoch) or
+       redis.call('HGET', guard, 'initialized') ~= '1' then
+      return false, generation
+    end
+  else
+    -- Standalone persistence restart changes run_id but has no topology epoch.
+    -- Only a fully initialized guard with a well-formed previous run_id may
+    -- rebind; missing/corrupt generation remains fail-closed.
+    if #pinned ~= 40 or not string.match(pinned, '^[0-9a-f]+$') or
+       redis.call('HGET', guard, 'initialized') ~= '1' then
+      return false, generation
+    end
+  end
+  redis.call('HSET', guard, 'server_generation', generation)
+  return true, generation
 end
 """
 

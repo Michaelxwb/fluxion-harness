@@ -6,8 +6,10 @@
 from __future__ import annotations
 
 import hashlib
+import time
 import uuid
 import zipfile
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -15,7 +17,7 @@ import pytest
 import redis.asyncio as redis
 from sqlalchemy import text
 
-from .environment import LiveStack, cleanup, require, run_db, seed_v2_schedule
+from .environment import SCHEDULER_POLL_INTERVAL_SEC, LiveStack, cleanup, require, run_db, seed_v2_schedule
 
 SERVICE_HEALTH = ("console_url", "runtime_url", "worker_url", "worker2_url", "gateway_url", "channel_url")
 
@@ -137,7 +139,11 @@ def test_b139_cleanup_removes_task_schedule_route_submission_and_probe_data(
     live_stack: LiveStack, http: httpx.Client
 ) -> None:
     """清理按依赖顺序移除 Task/Event/Schedule/Route/Submission 与探针数据。"""
-    seed_v2_schedule(live_stack, with_submission_event=True)
+    seed_v2_schedule(
+        live_stack, with_submission_event=True, next_fire_at=datetime.now(UTC) + timedelta(days=1)
+    )
+    # The two live schedulers must not create a new execution during cleanup.
+    time.sleep(2 * SCHEDULER_POLL_INTERVAL_SEC + 0.1)
 
     probe_response = http.post(
         f"{live_stack.channel_url}/probe/deliveries",
@@ -170,6 +176,7 @@ def test_b139_cleanup_removes_task_schedule_route_submission_and_probe_data(
     assert before["task.delivery_route"] == 1
     assert before["task.task_submission"] == 1
     assert before["task.task_event"] == 1
+    assert before["task.task_execution"] == 0
 
     from muad_common import SharedSettings
 

@@ -53,6 +53,7 @@ from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.runtime import (
     Artifact,
     CanonicalEvent,
+    ChannelNotification,
     Conversation,
     RunInterrupt,
     RunRecord,
@@ -93,12 +94,17 @@ CONVERSATION_STATUSES: tuple[ConversationStatus, ...] = ("ACTIVE", "ARCHIVED")
 
 @dataclass(frozen=True, slots=True)
 class HistoryScope:
-    """历史读取的核属维度：入口与 Agent 都显式（详情/消息由受信调用方传入后复核）。"""
+    """历史读取的核属维度：入口与 Agent 都显式（详情/消息由受信调用方传入后复核）。
+
+    `entry_agnostic` 见 `ConversationScope`：会话列表按 user + Agent 聚合、详情/消息按
+    user + Agent 核属时置 True，入口不再作为可见性断言（跨入口共享会话）。
+    """
 
     tenant_id: str
     user_id: uuid.UUID
     agent_id: uuid.UUID
     entry_id: uuid.UUID
+    entry_agnostic: bool = False
 
 
 def _conversation_scope(scope: HistoryScope) -> ConversationScope:
@@ -109,6 +115,7 @@ def _conversation_scope(scope: HistoryScope) -> ConversationScope:
         agent_id=scope.agent_id,
         entry_id=scope.entry_id,
         external_thread_id="",
+        entry_agnostic=scope.entry_agnostic,
     )
 
 
@@ -124,9 +131,11 @@ def _conversation_conditions(
         Conversation.tenant_id == scope.tenant_id,
         Conversation.user_id == scope.user_id,
         Conversation.agent_id == scope.agent_id,
-        Conversation.channel_account_id == scope.entry_id,
         Conversation.is_deleted.is_(False),
     ]
+    if not scope.entry_agnostic:
+        # 严格模式仍按入口过滤；跨入口共享会话时按 user + Agent 聚合，入口只作来源。
+        conditions.append(Conversation.channel_account_id == scope.entry_id)
     if cutoff is not None:
         # 保留期以最近一次真实可见活动为准；NULL 回落创建时间（与本列表的排序口径一致）。
         conditions.append(
@@ -242,8 +251,16 @@ def _conversation_status(raw: str) -> ConversationStatus:
     return raw
 
 
-def _conversation_item(row: Any, active_status: ActiveRunStatus | None) -> WebchatConversationItem:
-    """列表项投影：标题用读取层占位，最近活动缺失回落 `create_time`（不返回 NULL 时间）。"""
+def _conversation_item(
+    row: Any,
+    active_status: ActiveRunStatus | None,
+    *,
+    has_unread: bool,
+) -> WebchatConversationItem:
+    """列表项投影：标题用读取层占位，最近活动缺失回落 `create_time`（不返回 NULL 时间）。
+
+    `entry_id` 是来源元数据（会话创建入口），`has_unread` 由 EXISTS 判定后注入。
+    """
     return WebchatConversationItem(
         conversation_id=row.id,
         title=display_title(row.title),
@@ -252,6 +269,8 @@ def _conversation_item(row: Any, active_status: ActiveRunStatus | None) -> Webch
         last_run_id=row.last_run_id,
         status=_conversation_status(row.status),
         active_run_status=active_status,
+        entry_id=row.channel_account_id,
+        has_unread=has_unread,
     )
 
 
@@ -347,8 +366,13 @@ class WebchatHistoryService:
         rows, total = await self._conversation_page(
             scope, page=page, page_size=page_size, cutoff=cutoff
         )
-        active = await self._active_run_statuses(scope, [row.id for row in rows])
-        items = [_conversation_item(row, active.get(row.id)) for row in rows]
+        conversation_ids = [row.id for row in rows]
+        active = await self._active_run_statuses(scope, conversation_ids)
+        unread = await self._unread_conversation_ids(scope, conversation_ids)
+        items = [
+            _conversation_item(row, active.get(row.id), has_unread=row.id in unread)
+            for row in rows
+        ]
         return WebchatConversationPage(items=items, page=page, page_size=page_size, total=total)
 
     async def get_conversation(
@@ -372,6 +396,7 @@ class WebchatHistoryService:
         if entry_id is None:
             # 核属已保证入口归属；这里防御式显式失败，不返回不可归属的网页历史。
             raise AppError(ErrorCode.COMMON_NOT_FOUND)
+        has_unread, through_seq = await self._notification_snapshot(scope, conversation.id)
         return WebchatConversationDetail(
             conversation_id=conversation.id,
             entry_id=entry_id,
@@ -381,6 +406,8 @@ class WebchatHistoryService:
             last_seq=conversation.last_seq,
             last_run_id=conversation.last_run_id,
             active_run=await self._active_run_view(conversation),
+            has_unread=has_unread,
+            notification_through_seq=through_seq,
         )
 
     async def resolve_conversation_scope(
@@ -457,6 +484,7 @@ class WebchatHistoryService:
                 Conversation.last_message_at,
                 Conversation.last_run_id,
                 Conversation.status,
+                Conversation.channel_account_id,
             )
             .where(*conditions)
             .order_by(Conversation.last_message_at.desc().nullslast(), Conversation.id.desc())
@@ -467,6 +495,52 @@ class WebchatHistoryService:
             sa.select(sa.func.count().label("total")).select_from(Conversation).where(*conditions)
         )
         return await _paged_rows(self._session, page_stmt=page_stmt, total_stmt=total_stmt)
+
+    async def _unread_conversation_ids(
+        self, scope: HistoryScope, conversation_ids: Sequence[uuid.UUID]
+    ) -> set[uuid.UUID]:
+        """会话级未读：一页一条 EXISTS 查询（先分页再判未读，未读不是分页条件）。
+
+        未读口径与通知收件箱一致：本用户、未读（`read_at IS NULL`）、未删除。
+        """
+        if not conversation_ids:
+            return set()
+        rows = await self._session.execute(
+            sa.select(ChannelNotification.conversation_id)
+            .where(
+                ChannelNotification.tenant_id == scope.tenant_id,
+                ChannelNotification.user_id == scope.user_id,
+                ChannelNotification.conversation_id.in_(conversation_ids),
+                ChannelNotification.read_at.is_(None),
+                ChannelNotification.is_deleted.is_(False),
+            )
+            .distinct()
+        )
+        return {row.conversation_id for row in rows}
+
+    async def _notification_snapshot(
+        self, scope: HistoryScope, conversation_id: uuid.UUID
+    ) -> tuple[bool, int]:
+        """会话详情的未读与通知水位：一次快照取齐（不得从 canocical/SSE 序号推）。
+
+        `through_seq` 是本会话通知序号的最大值（已读水位以此为上限）；`has_unread` 同口径判定。
+        """
+        row = (
+            await self._session.execute(
+                sa.select(
+                    sa.func.max(ChannelNotification.seq).label("through_seq"),
+                    sa.func.count()
+                    .filter(ChannelNotification.read_at.is_(None))
+                    .label("unread"),
+                ).where(
+                    ChannelNotification.tenant_id == scope.tenant_id,
+                    ChannelNotification.user_id == scope.user_id,
+                    ChannelNotification.conversation_id == conversation_id,
+                    ChannelNotification.is_deleted.is_(False),
+                )
+            )
+        ).one()
+        return bool(row.unread), int(row.through_seq or 0)
 
     async def _active_run_statuses(
         self, scope: HistoryScope, conversation_ids: Sequence[uuid.UUID]

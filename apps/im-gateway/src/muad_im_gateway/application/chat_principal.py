@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from collections.abc import AsyncIterator, Callable
@@ -33,12 +34,20 @@ from uuid import UUID
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_common.auth_cache import AuthCacheStore, AuthCacheUnavailable
 from muad_common.session_store import (
     RedisSessionStore,
     SessionStoreUnavailable,
     hash_session_token,
 )
-from muad_contracts.webchat import ChatAuthMethod, ChatAuthorizedAgent, ChatPrincipal
+from muad_contracts.webchat import (
+    ChatAuthMethod,
+    ChatAuthorizedAgent,
+    ChatPrincipal,
+    ExternalIdentityGrant,
+    ExternalIdentityView,
+    ExternalPrincipalResult,
+)
 from pydantic import SecretStr
 
 from .console_client import ConsoleClientPort
@@ -54,6 +63,23 @@ def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 
+#: 断言被拒原因 → 错误码（Console 已判过，本层仅转出；缺省 403）。
+_EXTERNAL_DENIAL_CODES = {
+    "UNBOUND": ErrorCode.EXTERNAL_ASSERTION_UNBOUND,
+    "NO_ENTRY_GRANT": ErrorCode.EXTERNAL_ASSERTION_NOT_GRANTED,
+    "NO_AGENT_GRANT": ErrorCode.EXTERNAL_ASSERTION_NOT_GRANTED,
+    # Agent 被停用目前没有独立错误码，与「无授权」同归可用性拒绝：对调用方而言
+    # 都是「这个入口现在不能用」，区分原因由 `/identity` 的 `reason` 承担。
+    "AGENT_DISABLED": ErrorCode.EXTERNAL_ASSERTION_NOT_GRANTED,
+    "USER_DISABLED": ErrorCode.EXTERNAL_ASSERTION_USER_DISABLED,
+}
+
+#: 「身份本身不可用」的拒绝原因——只有这些在取主体阶段直接失败。
+#: 入口级原因（NO_ENTRY_GRANT / NO_AGENT_GRANT / AGENT_DISABLED）不在此列：
+#: 身份是好的，只是当前没有可用入口，交由具体资源操作逐次判定（见 `resolve_external`）。
+_IDENTITY_LEVEL_DENIALS = frozenset({"UNBOUND", "USER_DISABLED"})
+
+
 @dataclass(frozen=True, slots=True)
 class ChatSessionCredentials:
     """一次 CHAT 请求携带的凭据：Cookie 原文 + `X-Chat-Context`。
@@ -61,8 +87,11 @@ class ChatSessionCredentials:
     原文以 `SecretStr` 保存（`repr`/日志无明文）；长流复核要用它**原样重放**，故随请求上下文传递。
     """
 
-    session_token: SecretStr
-    chat_context: UUID
+    #: WebChat（USER_TOKEN）：Console 签发的会话 token 原文 + `X-Chat-Context`。
+    session_token: SecretStr | None = None
+    chat_context: UUID | None = None
+    #: MSSWWEB（EXTERNAL_ASSERTION）：上游平台的 `soc-token` 断言原文；无会话上下文。
+    assertion: SecretStr | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,6 +101,18 @@ class ChatIdentity:
     principal: ChatPrincipal
     expires_at: datetime
     agents: tuple[ChatAuthorizedAgent, ...]
+    #: 逐入口裁决（仅断言面有）：`/entries` 据此标 `allowed`/`reason`。
+    #: `USER_TOKEN` 面为空元组——该面没有「入口级不可用」概念，不可用入口直接不出现。
+    grants: tuple[ExternalIdentityGrant, ...] = ()
+
+
+def _require_session_credentials(
+    credentials: ChatSessionCredentials,
+) -> tuple[SecretStr, UUID]:
+    """USER_TOKEN 路径必须带会话 token + 上下文；断言凭据走这里说明分流错了。"""
+    if credentials.session_token is None or credentials.chat_context is None:
+        raise AppError(ErrorCode.UNAUTHORIZED)
+    return credentials.session_token, credentials.chat_context
 
 
 class ChatPrincipalGate:
@@ -83,20 +124,40 @@ class ChatPrincipalGate:
         *,
         tenant_id: str,
         session_store: RedisSessionStore | None = None,
+        auth_cache: AuthCacheStore | None = None,
     ) -> None:
         self._console = console
         self._tenant_id = tenant_id
         self._session_store = session_store
+        #: 外部断言的凭证层/权限层；未装配时每次都回源 Console 完整验签。
+        self._auth_cache = auth_cache
+
+    async def resolve_credentials(
+        self,
+        credentials: ChatSessionCredentials,
+        *,
+        platform_key: str | None = None,
+        channel: str | None = None,
+    ) -> ChatIdentity:
+        """按凭据类型分流：有断言走外部断言面，否则走 WebChat 会话 token。"""
+        if credentials.assertion is not None:
+            if platform_key is None or channel is None:
+                raise AppError(ErrorCode.EXTERNAL_PLATFORM_UNAVAILABLE)
+            return await self.resolve_external(
+                credentials.assertion, platform_key=platform_key, channel=channel
+            )
+        return await self.resolve(credentials)
 
     async def resolve(self, credentials: ChatSessionCredentials) -> ChatIdentity:
         """核验并导出主体；跨部署租户 403、上下文不匹配 409，会话/Token 失效沿用 Console 错误码。"""
+        token, context = _require_session_credentials(credentials)
         if self._session_store is not None:
             return await self._resolve_from_session_store(credentials)
         started = time.monotonic()
         response = await self._console.chat_principal(
-            credentials.session_token,
+            token,
             tenant_id=self._tenant_id,
-            chat_context=credentials.chat_context,
+            chat_context=context,
         )
         elapsed = time.monotonic() - started
         if elapsed > 1.0:
@@ -107,7 +168,7 @@ class ChatPrincipalGate:
         principal = response.principal
         if principal.tenant_id != self._tenant_id:
             raise AppError(ErrorCode.FORBIDDEN)
-        if principal.session_id != credentials.chat_context:
+        if principal.session_id != context:
             raise AppError(ErrorCode.AUTH_CONTEXT_CHANGED)
         return ChatIdentity(
             principal=principal,
@@ -115,12 +176,10 @@ class ChatPrincipalGate:
             agents=tuple(response.agents),
         )
 
-
-    async def _resolve_from_session_store(
-        self, credentials: ChatSessionCredentials
-    ) -> ChatIdentity:
+    async def _resolve_from_session_store(self, credentials: ChatSessionCredentials) -> ChatIdentity:
         """Redis 命中才放行；miss/Redis 故障一律重新认证，不回源 Console。"""
-        token_hash = hash_session_token(credentials.session_token.get_secret_value())
+        token, context = _require_session_credentials(credentials)
+        token_hash = hash_session_token(token.get_secret_value())
         try:
             record = await self._session_store.read(token_hash)  # type: ignore[union-attr]
         except SessionStoreUnavailable as exc:
@@ -129,7 +188,7 @@ class ChatPrincipalGate:
             raise AppError(ErrorCode.UNAUTHORIZED)
         if record.tenant_id != self._tenant_id:
             raise AppError(ErrorCode.FORBIDDEN)
-        if record.session_id != credentials.chat_context:
+        if record.session_id != context:
             raise AppError(ErrorCode.AUTH_CONTEXT_CHANGED)
         try:
             alive = await self._session_store.touch(  # type: ignore[union-attr]
@@ -156,6 +215,186 @@ class ChatPrincipalGate:
             ),
         )
 
+    async def resolve_external(
+        self, assertion: SecretStr, *, platform_key: str, channel: str
+    ) -> ChatIdentity:
+        """核验外部平台断言并导出主体（MSSWWEB / EXTERNAL_ASSERTION，设计 API-16）。
+
+        只把断言原文转发给 Console（验签只在 Console，RULE-02）；本层再核一次跨部署租户。
+        `allowed=false`（未绑定/无入口授权/用户停用/Agent 停用）按原因转 401/403，不把断言
+        送进错误文本。
+
+        **判定与 `/identity` 同源**：`allowed` 由 Console 的 `resolve_principal` 统一给出，
+        本层不做二次放宽。这意味着 Agent 被停用后，旧授权**不再**能放行——这是有意的收口，
+        详见 `resolve_principal` 的 docstring。
+        """
+        cached = await self._try_cached_external(assertion, platform_key=platform_key)
+        result = (
+            cached
+            if cached is not None
+            else await self._console.external_principal(
+                assertion,
+                tenant_id=self._tenant_id,
+                platform_key=platform_key,
+                channel=channel,
+            )
+        )
+        # 「身份级不可用」才拦在这里：查无此人（UNBOUND）、用户停用（USER_DISABLED）。
+        #
+        # 「入口级不可用」（NO_ENTRY_GRANT / NO_AGENT_GRANT / AGENT_DISABLED）**不**在这层拦：
+        # 身份是有效的，只是「此刻没有可用入口」。若在此拒绝，`/entries` 会变成 403 而不是
+        # 空列表，前端会误判为「会话失效」去引导重新绑定——方向反了。入口级判定交给
+        # 具体资源操作（提交消息等），`/entries` 则据 `agents` 集合自然过滤成空列表。
+        if not result.allowed and result.reason in _IDENTITY_LEVEL_DENIALS:
+            raise AppError(_EXTERNAL_DENIAL_CODES.get(result.reason, ErrorCode.FORBIDDEN))
+        principal = result.principal
+        if principal is None or result.expires_at is None:  # 契约已保证，防御式兜底
+            raise AppError(ErrorCode.EXTERNAL_ASSERTION_INVALID)
+        if principal.tenant_id != self._tenant_id:
+            raise AppError(ErrorCode.FORBIDDEN)
+        return ChatIdentity(
+            principal=principal,
+            expires_at=result.expires_at,
+            agents=tuple(result.agents),
+            grants=tuple(result.grants),
+        )
+
+    async def _try_cached_external(
+        self, assertion: SecretStr, *, platform_key: str
+    ) -> ExternalPrincipalResult | None:
+        """凭证层命中 → 读权限层 → 构造主体。任一环节 miss / Redis 故障都返回 ``None``
+        （调用方回源 Console 完整验签），不 fail closed——可用性优先。
+
+        **凭证命中不代表权限可信**：授权只从权限层读，权限层被 `invalidate` 删除后必然
+        回源，因此撤权即时生效。凭证无关的授权窗口由设计 §3.1.2 的「已知取舍」界定。
+
+        **本路径不校验屏障/用户版本/平台 epoch**：这里只读 plain 键（无 fence、无 CAS）。
+        `AuthCacheStore` 的屏障/revision 协议是完整形态预留，MSSWWEB 热路径本期不消费；
+        撤权即时生效靠的是"权限层被删除→miss→回源 Console 重查"，而非版本比对。缺口是
+        失效与并发回源交错时旧授权可能在 TTL 内的回填窗口（见设计 §3.1.2 已知取舍）。
+        """
+        cache = self._auth_cache
+        if cache is None:
+            return None
+        token_hash = hash_session_token(assertion.get_secret_value())
+        now = _utc_now()
+        try:
+            raw = await cache.read_credential_plain(
+                self._tenant_id, platform_key, token_hash
+            )
+        except AuthCacheUnavailable:
+            return None
+        if raw is None:
+            return None
+        try:
+            record = json.loads(raw)
+            expires_at_epoch = float(record["expires_at_epoch"])
+            platform_user_id = UUID(record["platform_user_id"])
+            session_id = UUID(record["session_id"])
+        except (ValueError, KeyError, TypeError):
+            # 缓存内容损坏：当作 miss，回源重建。
+            return None
+        if now.timestamp() >= expires_at_epoch:
+            return None
+        try:
+            alive = await cache.touch_credential(
+                self._tenant_id,
+                platform_key,
+                token_hash,
+                platform_user_id,
+                expires_at_epoch=expires_at_epoch,
+                now_epoch=now.timestamp(),
+            )
+        except AuthCacheUnavailable:
+            return None
+        if not alive:
+            return None
+        permission = await self._read_cached_permission(
+            cache, platform_user_id, session_id=session_id
+        )
+        if permission is None:
+            return None
+        return permission
+
+    async def _read_cached_permission(
+        self,
+        cache: AuthCacheStore,
+        platform_user_id: UUID,
+        *,
+        session_id: UUID,
+    ) -> ExternalPrincipalResult | None:
+        """读权限层并还原成 `ExternalPrincipalResult`。
+
+        还原后交由调用方走**与回源完全相同**的判定，因此 `allowed=false` 的缓存结论
+        （含 USER_DISABLED 等身份级拒绝）不会被当成放行——权限层缓存的是结论，不是豁免。
+        miss / 损坏 / Redis 故障都返回 ``None``（回源）。
+        """
+        try:
+            raw = await cache.read_permission_plain(self._tenant_id, platform_user_id)
+        except AuthCacheUnavailable:
+            return None
+        if raw is None:
+            return None
+        try:
+            data = json.loads(raw)
+        except ValueError:
+            return None
+        try:
+            result = ExternalPrincipalResult.model_validate(
+                {
+                    "allowed": data["allowed"],
+                    "reason": data.get("reason"),
+                    "principal": {
+                        "tenant_id": self._tenant_id,
+                        "platform_user_id": str(platform_user_id),
+                        "session_id": str(session_id),
+                        "auth_method": "EXTERNAL_ASSERTION",
+                    },
+                    "agents": data["agents"],
+                    "grants": data["grants"],
+                    "expires_at": data["expires_at"],
+                }
+            )
+        except (KeyError, TypeError, ValueError):
+            return None
+        if result.expires_at <= datetime.now(tz=UTC):
+            # 绝对到期已过：权限层不能凭闲置窗口继续放行（凭证层按到期封顶，这里必须一致）。
+            # 视为未命中，交给调用方回源；回源会用 `max_session_age` 重新裁决。
+            return None
+        try:
+            await cache.touch_permission(
+                self._tenant_id,
+                platform_user_id,
+                expires_at_epoch=result.expires_at.timestamp(),
+                now_epoch=datetime.now(tz=UTC).timestamp(),
+            )
+        except AuthCacheUnavailable:
+            # 续期失败不影响本次结论；下次命中自然回源。
+            logger.warning("external_permission_touch_failed")
+        return result
+
+    async def describe_external(
+        self,
+        assertion: SecretStr,
+        *,
+        platform_key: str,
+        channel: str,
+        entry_id: UUID | None = None,
+    ) -> ExternalIdentityView:
+        """权限查询投影（`GET /identity`，设计 API-01）。
+
+        与 :meth:`resolve_external` 的区别是**不把拒绝变成异常**：权限查询的「不行」是正常
+        结果，交给调用方以 200 + `allowed=false` 返回。只有「断言本身不可信」（401）、
+        「平台未配置」（503）这两类才抛。
+        """
+        return await self._console.external_identity(
+            assertion,
+            tenant_id=self._tenant_id,
+            platform_key=platform_key,
+            channel=channel,
+            entry_id=entry_id,
+        )
+
 
 class ChatStreamGuard:
     """长流（SSE）复核：空闲也定时复核、到 `expires_at` 即停、不每 token 查控制面。
@@ -171,6 +410,8 @@ class ChatStreamGuard:
         identity: ChatIdentity,
         *,
         recheck_sec: float,
+        platform_key: str | None = None,
+        channel: str | None = None,
         now: Callable[[], datetime] = _utc_now,
     ) -> None:
         if recheck_sec <= 0:
@@ -179,6 +420,8 @@ class ChatStreamGuard:
         self._credentials = credentials
         self._identity = identity
         self._recheck_sec = recheck_sec
+        self._platform_key = platform_key
+        self._channel = channel
         self._now = now
 
     async def rechecked[ItemT](self, events: AsyncIterator[ItemT]) -> AsyncIterator[ItemT]:
@@ -227,4 +470,6 @@ class ChatStreamGuard:
         """到点复核：到期即停；否则经 Console 重放凭据（撤销/失效在此抛错终止流）。"""
         if self._now() >= self._identity.expires_at:
             raise AppError(ErrorCode.CHAT_SESSION_EXPIRED)
-        self._identity = await self._gate.resolve(self._credentials)
+        self._identity = await self._gate.resolve_credentials(
+            self._credentials, platform_key=self._platform_key, channel=self._channel
+        )

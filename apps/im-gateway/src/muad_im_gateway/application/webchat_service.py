@@ -33,9 +33,10 @@ from uuid import UUID, uuid4
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts import BotSnapshotItem, ChannelContext, RunRequest
+from muad_contracts import BotSnapshotItem, ChannelContext, ChannelName, RunRequest
 from muad_contracts.im import InboundEvent
 from muad_contracts.webchat import (
+    ExternalIdentityGrant,
     WebchatConversationCreated,
     WebchatConversationDeletion,
     WebchatConversationDetail,
@@ -43,6 +44,7 @@ from muad_contracts.webchat import (
     WebchatConversationScope,
     WebchatEntry,
     WebchatEntryPage,
+    WebchatMarkReadReceipt,
     WebchatMessageAccepted,
     WebchatMessagePage,
     WebchatMessageRequest,
@@ -59,7 +61,11 @@ from pydantic import BaseModel, ValidationError
 
 from .chat_principal import ChatIdentity
 from .runtime_client import RunAdmission
-from .webchat_core import WEBCHAT_CHANNEL, WEBCHAT_CHANNEL_IDENTITY, build_webchat_message_gateway
+from .webchat_core import (
+    WEBCHAT_CHANNEL,
+    ChatSurface,
+    build_webchat_message_gateway,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -154,6 +160,10 @@ class WebchatOwnerPort(Protocol):
         self, notification_id: UUID, *, tenant_id: str, user_id: UUID
     ) -> dict[str, Any]: ...
 
+    async def mark_conversation_read(
+        self, conversation_id: UUID, through_seq: int, *, tenant_id: str, user_id: UUID
+    ) -> dict[str, Any]: ...
+
 
 class WebchatEntrySource(Protocol):
     """入口快照的只读面（生产实现是 `BotSnapshotCache`，装配根按同形发布）。"""
@@ -192,33 +202,76 @@ class WebchatResourceService:
     """API-05/06/08/09/14/15 的应用服务：授权判定 + 请求组装 + 公开投影校验。"""
 
     def __init__(
-        self, *, runtime: WebchatOwnerPort, entries: WebchatEntrySource, tenant_id: str
+        self,
+        *,
+        runtime: WebchatOwnerPort,
+        entries: WebchatEntrySource,
+        tenant_id: str,
+        surface: ChatSurface | None = None,
     ) -> None:
         self._runtime = runtime
         self._entries = entries
         self._tenant_id = tenant_id
-        # WebChat 提交走统一消息核心的 SYNC 入口（API-08）：渠道校验在核心，端口只做映射。
-        self._messages = build_webchat_message_gateway(runtime)
+        # 同一套 SYNC 逻辑按 surface 挂载：WEBCHAT 与 MSSWWEB 仅 `channel` 不同。
+        self._surface = surface or ChatSurface(channel=WEBCHAT_CHANNEL)
+        # 本地流式提交走统一消息核心的 SYNC 入口（API-08）：渠道校验在核心，端口只做映射。
+        self._messages = build_webchat_message_gateway(
+            runtime, channel=self._surface.channel
+        )
 
     # --- API-05 ---------------------------------------------------------------------
     def list_entries(self, identity: ChatIdentity) -> WebchatEntryPage:
-        """仅列已启用且当前用户获 Agent 授权的 WEBCHAT 入口；授权来自本次 Console 核验。"""
-        authorized = {agent.agent_id: agent.name for agent in identity.agents}
-        items = [
-            WebchatEntry(
-                entry_id=item.bot_account_id,
-                agent_id=item.agent_id,
-                display_name=authorized[item.agent_id],
-            )
-            for item in self._entries.items
-            if item.enabled and item.channel == WEBCHAT_CHANNEL and item.agent_id in authorized
-        ]
+        """列当前用户获授权的入口；授权来自本次 Console 核验。
+
+        断言面（`identity.grants` 非空）与 WebChat 面口径不同，这不是实现分歧而是产品差异：
+
+        - **断言面**：返回**全部已授权入口**，逐项标 `allowed` / `reason`。已授权但不可用的
+          入口（机器人停用、Agent 被删）也出现，`allowed=false` —— BFF 据此「展示但置灰」
+          （BFF 对接文档 §4.3）。
+        - **WebChat 面**：`grants` 为空，退回旧口径——只列「快照里启用且已授权」的入口，
+          `allowed` 恒为 true。该面由 Console 前端驱动，没有「置灰不可用入口」的需求。
+        """
+        if identity.grants:
+            items = self._entries_from_grants(identity.grants)
+        else:
+            authorized = {agent.agent_id: agent.name for agent in identity.agents}
+            items = [
+                WebchatEntry(
+                    entry_id=item.bot_account_id,
+                    agent_id=item.agent_id,
+                    display_name=authorized[item.agent_id],
+                )
+                for item in self._entries.items
+                if item.enabled
+                and item.channel == self._surface.channel
+                and item.agent_id in authorized
+            ]
         if len(items) > MAX_ENTRIES:
             # 入口数是"当前授权入口"的完整集合，不允许静默截断（截断=看不见的入口）。
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
         return WebchatEntryPage(
             items=items, page=1, page_size=max(len(items), 1), total=len(items)
         )
+
+    def _entries_from_grants(
+        self, grants: tuple[ExternalIdentityGrant, ...]
+    ) -> list[WebchatEntry]:
+        """把逐入口裁决投影成入口项（断言面口径：不可用的也列出并标原因）。
+
+        按 `channel` 过滤：同一身份可能在别的通道也有授权（如已迁到 MSSWWEB 的旧企微
+        入口），那些与本面无关，不能混进列表。
+        """
+        return [
+            WebchatEntry(
+                entry_id=grant.entry_id,
+                agent_id=grant.agent_id,
+                display_name=grant.entry_name,
+                allowed=grant.allowed,
+                reason=grant.reason,
+            )
+            for grant in grants
+            if grant.channel == self._surface.channel
+        ]
 
     # --- API-06 ---------------------------------------------------------------------
     async def submit_message(
@@ -234,7 +287,7 @@ class WebchatResourceService:
         principal = identity.principal
         event = InboundEvent(
             event_id=uuid4(),
-            channel=WEBCHAT_CHANNEL,
+            channel=self._surface.channel,
             tenant_id=self._tenant_id,
             # `bot_id` 只保留平台标识；入口身份由 `SyncPrincipal.entry_id` 显式携带。
             bot_id=ref.bot_id,
@@ -254,7 +307,7 @@ class WebchatResourceService:
         )
         started = time.monotonic()
         admission = await self._messages.admit_sync(
-            event, adapter=WEBCHAT_CHANNEL_IDENTITY, principal_context=context
+            event, adapter=self._surface.identity, principal_context=context
         )
         admission_ms = (time.monotonic() - started) * 1000
         if admission_ms > 1000:
@@ -283,7 +336,7 @@ class WebchatResourceService:
             tenant_id=self._tenant_id,
             idempotency_key=idempotency_key,
             channel=ChannelContext(
-                type=WEBCHAT_CHANNEL,
+                type=self._surface.channel,
                 entry_id=ref.entry_id,
                 bot_id=ref.bot_id,
                 external_user_id=str(principal.platform_user_id),
@@ -311,8 +364,15 @@ class WebchatResourceService:
     async def resume_run(
         self, identity: ChatIdentity, run_id: UUID, request: WebchatResumeRequest
     ) -> WebchatResumeReceipt:
-        """待确认恢复：显式绑定原 Run/submission/source；回执取恢复后的**受理投影**。"""
-        await self._owned_run(identity, run_id)
+        """待确认恢复：显式绑定原 Run/submission/source；回执取恢复后的**受理投影**。
+
+        恢复要求原用户仍有该 Run 所属 Agent 的**当前**授权（撤权后不可续跑）；Run 归属按 user
+        核验，用户是否可用由签发身份的认证层保证（停用用户拿不到可用身份）。
+        """
+        state = await self._owned_run(identity, run_id)
+        authorized = {agent.agent_id for agent in identity.agents}
+        if UUID(str(state.get("agent_id"))) not in authorized:
+            raise AppError(ErrorCode.FORBIDDEN)
         principal = identity.principal
         admission = await self._runtime.resume_run(
             run_id,
@@ -340,7 +400,11 @@ class WebchatResourceService:
     async def list_conversations(
         self, identity: ChatIdentity, entry_id: UUID, *, page: int, page_size: int | None
     ) -> WebchatConversationPage:
-        """API-14：入口会话列表（Owner 的公开投影原样校验，不重排/不补字段）。"""
+        """API-14：入口会话列表（Owner 的公开投影原样校验，不重排/不补字段）。
+
+        `entry_agnostic=True` 是设计意图（§API-05 / RULE-08 / S-11）：会话按 user+Agent 聚合，
+        WebChat 与 MSSWWEB 互相可见；`entry_id` 只用于鉴权与来源，**不是过滤条件**。
+        """
         ref = self._resolve_entry(identity, entry_id)
         data = await self._runtime.list_conversations(
             ref.entry_id,
@@ -349,13 +413,19 @@ class WebchatResourceService:
             agent_id=ref.agent_id,
             page=page,
             page_size=page_size,
+            # 跨入口共享：同一 user+Agent 的会话不按入口切分（设计 §API-05）。
+            entry_agnostic=True,
         )
         return _project(WebchatConversationPage, data)
 
     async def get_conversation(
         self, identity: ChatIdentity, conversation_id: UUID
     ) -> WebchatConversationDetail:
-        """API-15：解析归属（含当前授权）后走入口显式详情端点。"""
+        """API-15：解析归属（含当前授权）后走入口显式详情端点。
+
+        `entry_agnostic=True`：详情读取恒按 user+Agent 聚合（§API-05），入口仅作来源；
+        真正的安全边界是 `_resolve_scope` 的当前 Agent 授权复核，而非入口核属。
+        """
         scope = await self._resolve_scope(identity, conversation_id)
         data = await self._runtime.get_conversation(
             conversation_id,
@@ -363,13 +433,21 @@ class WebchatResourceService:
             user_id=identity.principal.platform_user_id,
             agent_id=scope.agent_id,
             entry_id=scope.entry_id,
+            # 入口显式只用于把 entry_id 交给 Owner 做归属记录，隔离交给 user+Agent。
+            entry_agnostic=True,
         )
         return _project(WebchatConversationDetail, data)
 
     async def delete_conversation(
         self, identity: ChatIdentity, conversation_id: UUID
     ) -> WebchatConversationDeletion:
-        """API-16：删除自己的会话；入口/Agent 由 Owner 从会话行核，调用方不自报。"""
+        """API-16：删除自己的会话；入口/Agent 由 Owner 从会话行核，调用方不自报。
+
+        **删除不要求 Agent 当前授权**（与 `get_conversation`/`list_messages` 不同）：这里不调
+        `_resolve_scope` 复核授权，是与 `conversation_deletion.py` docstring 一致的**有意设计**
+        ——撤权后用户仍应能清理自己的历史。越权边界由 Owner 按 `(tenant, user, conversation_id)`
+        核属承担，不会删到别人或别的用户的会话。
+        """
         data = await self._runtime.delete_conversation(
             conversation_id,
             tenant_id=self._tenant_id,
@@ -386,7 +464,11 @@ class WebchatResourceService:
         page_size: int | None,
         through_seq: int | None,
     ) -> WebchatMessagePage:
-        """API-09：解析归属后走入口显式消息端点（固定水位分页由 Owner 裁决）。"""
+        """API-09：解析归属后走入口显式消息端点（固定水位分页由 Owner 裁决）。
+
+        `entry_agnostic=True`：历史消息同样按 user+Agent 聚合（§API-05），入口仅来源；
+        授权边界仍是 `_resolve_scope` 的当前 Agent 授权复核。
+        """
         scope = await self._resolve_scope(identity, conversation_id)
         data = await self._runtime.list_messages(
             conversation_id,
@@ -397,6 +479,8 @@ class WebchatResourceService:
             page=page,
             page_size=page_size,
             through_seq=through_seq,
+            # 跨入口共享历史：不按入口切分（设计 §API-05 / RULE-08）。
+            entry_agnostic=True,
         )
         return _project(WebchatMessagePage, data)
 
@@ -438,9 +522,30 @@ class WebchatResourceService:
         )
         return _project(WebchatNotificationReadReceipt, data)
 
+    async def mark_conversation_read(
+        self, identity: ChatIdentity, conversation_id: UUID, through_seq: int
+    ) -> WebchatMarkReadReceipt:
+        """会话级已读：把 ≤ `through_seq` 的通知标为已读（BFF 清红点用）。
+
+        与 `mark_notification_read` 的分工：那条按「单条通知」标读，只挂在 WebChat 面；
+        MsswWeb 面没有通知中心，BFF 拿着会话列表的 `has_unread` 却无从下手，因此这里提供
+        会话级入口。**归属先于标读**：先按会话解析作用域（他主体/不存在即 404，不泄露存在性），
+        再把水位交给 Owner 校验——超前水位由 Owner 回 `CURSOR_AHEAD`，本地不预先截断。
+        """
+        await self._resolve_scope(identity, conversation_id)
+        data = await self._runtime.mark_conversation_read(
+            conversation_id,
+            through_seq,
+            tenant_id=self._tenant_id,
+            user_id=identity.principal.platform_user_id,
+        )
+        return _project(WebchatMarkReadReceipt, data)
+
     # --- 内部：授权与归属 -------------------------------------------------------------
     def _resolve_entry(self, identity: ChatIdentity, entry_id: UUID) -> ResolvedEntry:
-        return resolve_authorized_entry(self._entries, identity, entry_id)
+        return resolve_authorized_entry(
+            self._entries, identity, entry_id, channel=self._surface.channel
+        )
 
     async def _resolve_scope(
         self, identity: ChatIdentity, conversation_id: UUID
@@ -473,12 +578,19 @@ class ResolvedEntry:
 
 
 def resolve_authorized_entry(
-    entries: WebchatEntrySource, identity: ChatIdentity, entry_id: UUID
+    entries: WebchatEntrySource,
+    identity: ChatIdentity,
+    entry_id: UUID,
+    *,
+    channel: ChannelName | None = WEBCHAT_CHANNEL,
 ) -> ResolvedEntry:
     """入口 → (agent, entry)：未启用/非本通道/未知一律 404，未授权 Agent 越权 403。
 
     入口事实只来自入口快照、授权只来自本次 Console 核验的授权集合：入口显式读写面与上传面
     共用这一条裁决，不复制第二份判定。
+
+    `channel=None` 表示**不做通道断言**：产物下载按 user + Agent 归属（设计 API-15），入口只作
+    来源标识，跨入口共享的产物不因调用方通道不同而拒绝。
     """
     item = next(
         (
@@ -486,7 +598,7 @@ def resolve_authorized_entry(
             for candidate in entries.items
             if candidate.bot_account_id == entry_id
             and candidate.enabled
-            and candidate.channel == WEBCHAT_CHANNEL
+            and (channel is None or candidate.channel == channel)
         ),
         None,
     )
