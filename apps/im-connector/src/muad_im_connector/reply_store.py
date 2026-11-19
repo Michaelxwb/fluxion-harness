@@ -129,14 +129,25 @@ class ReplyStore:
         return value is not None
 
     @staticmethod
-    def delivery_key(tenant_id: str, delivery_key: str) -> str:
-        return f"muad:im:delivery:{tenant_id}:{delivery_key}"
+    def delivery_key(
+        tenant_id: str, delivery_key: str, target_key: str | None = None
+    ) -> str:
+        """投递回执键：同一逻辑投递键对**不同目标**必须各自仲裁。
+
+        `target_key` 是渠道中立的稳定目标身份（Gateway 用 `WECOM:<route-hash>` 区分
+        bot/会话）。缺省时保留旧键形状——单目标旧调用与既有回执的语义不变。
+        """
+        base = f"muad:im:delivery:{tenant_id}:{delivery_key}"
+        return base if target_key is None else f"{base}:{target_key}"
 
     async def delivery_receipt(
-        self, *, tenant_id: str, delivery_key: str
+        self, *, tenant_id: str, delivery_key: str, target_key: str | None = None
     ) -> dict[str, Any] | None:
         raw = await cast(
-            Awaitable[Any], self._redis.hgetall(self.delivery_key(tenant_id, delivery_key))
+            Awaitable[Any],
+            self._redis.hgetall(
+                self.delivery_key(tenant_id, delivery_key, target_key)
+            ),
         )
         if not raw:
             return None
@@ -153,12 +164,13 @@ class ReplyStore:
         *,
         tenant_id: str,
         delivery_key: str,
+        target_key: str | None = None,
         delivery_epoch: int,
         status: str,
         code: str = "",
         detail: str = "",
     ) -> None:
-        key = self.delivery_key(tenant_id, delivery_key)
+        key = self.delivery_key(tenant_id, delivery_key, target_key)
         async with self._redis.pipeline(transaction=False) as pipe:
             pipe.hset(
                 key,

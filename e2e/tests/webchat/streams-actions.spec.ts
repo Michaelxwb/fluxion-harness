@@ -791,7 +791,8 @@ asyncio.run(main())
     const submittedA = await submitMessage(session, user.entry.entryId, {
       conversationId: conversationA,
       messageId: randomUUID(),
-      text: 'E-103 迟到数据验收'
+      // 长消息把 A 撑成可滚动高度；切到空会话 B 再切回 A 时，滚动位置必须回到最新一条。
+      text: 'E-103 迟到数据验收 ' + 'long '.repeat(300)
     });
     expect(submittedA.status, JSON.stringify(submittedA.body)).toBe(202);
     const lateRunId = submittedA.body?.data?.run_id as string;
@@ -825,6 +826,22 @@ asyncio.run(main())
     const aTexts = await page.locator('.chat-message-content').allTextContents();
     expect(aTexts.filter((text) => text === '迟到数据归位')).toHaveLength(1);
     expect(runCountOf(conversationA)).toBe(1);
+    // 重复点击同一会话也要回到最新一条：消息数不变，只有选择代次变化；旧实现会停在用户上翻的位置。
+    const messageViewport = page.getByTestId('chat-panel-messages');
+    await messageViewport.evaluate((node) => {
+      node.scrollTop = 0;
+    });
+    await expect.poll(() => messageViewport.evaluate((node) => node.scrollTop)).toBe(0);
+    await page
+      .locator(`[data-testid="chat-sidebar-item"][data-conversation-id="${conversationA}"]`)
+      .click();
+    await expect
+      .poll(() =>
+        messageViewport.evaluate(
+          (node) => node.scrollHeight - node.scrollTop - node.clientHeight
+        )
+      )
+      .toBeLessThanOrEqual(2);
   });
 
   test('E-102 未授权入口/过载/受理超时/幂等冲突明确状态，重试沿用原消息ID', async ({

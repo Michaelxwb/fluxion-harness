@@ -108,9 +108,13 @@ class DeliveryCommand(ContractModel):
     #: 会话内回复目标；epoch/过期不匹配时 Connector 必须降级主动发送并回报 DEGRADED。
     reply_ref: str | None = None
     stream_id: str | None = None
-    #: 逻辑投递键与投递租约身份（终态命令必填）：Connector 按 (tenant, delivery_key) 做
-    #: 持久去重与 fencing；`epoch` 仍是 bot 连接租约，两者不得混用。
+    #: 逻辑投递键与投递租约身份（终态命令必填）：Connector 按
+    #: (tenant, delivery_key, target_key) 做持久去重与 fencing；`epoch` 仍是 bot 连接
+    #: 租约，两者不得混用。
     delivery_key: str | None = None
+    #: 渠道中立的稳定目标身份：同一逻辑投递键可扇出到多个目标，Connector 的持久去重
+    #: 必须按 (tenant, delivery_key, target_key) 区分，否则第二个收件目标会被当成回放。
+    target_key: str | None = Field(default=None, max_length=160)
     delivery_attempt_id: UUID | None = None
     delivery_epoch: int | None = None
     epoch: int = Field(default=0, ge=0)

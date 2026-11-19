@@ -155,26 +155,30 @@ export interface MessagesController {
  */
 export function useMessages(
   port: MessageHistoryPort,
-  conversationId: string | null
+  conversationId: string | null,
+  selectionGeneration = 0
 ): MessagesController {
   const viewportRef = useRef<HTMLDivElement>(null);
   const pending = useRef<MessageAnchorMeasurement | null>(null);
-  const scrolledConversation = useRef<string | null>(null);
+  const scrolledSelection = useRef<string | null>(null);
   const [failureCode, setFailureCode] = useState<string | null>(null);
   const history = conversationId === null ? EMPTY_MESSAGES_HISTORY : port.historyFor(conversationId);
+  // 会话 + 选择代次：重复点击同一会话也会刷新首屏，必须重新定位到最新一条；只按
+  // conversationId 记“已定位”会保留上一次上翻的位置，打开后看起来停在旧消息里。
+  const selectionKey = conversationId === null ? null : `${conversationId}:${selectionGeneration}`;
 
   // 切换会话/首屏落地后定位到最新一条：真实滚动容器是 `.chat-panel-messages`，不是线程本身。
   useLayoutEffect(() => {
     if (conversationId === null) {
-      scrolledConversation.current = null;
+      scrolledSelection.current = null;
       return;
     }
     if (history.items.length === 0) return;
     const element = viewportRef.current;
-    if (element === null || scrolledConversation.current === conversationId) return;
+    if (element === null || scrolledSelection.current === selectionKey) return;
     element.scrollTop = element.scrollHeight;
-    scrolledConversation.current = conversationId;
-  }, [conversationId, history.items.length, viewportRef]);
+    scrolledSelection.current = selectionKey;
+  }, [conversationId, selectionGeneration, selectionKey, history.items.length, viewportRef]);
 
   const loadOlder = useCallback(() => {
     if (conversationId === null) return;

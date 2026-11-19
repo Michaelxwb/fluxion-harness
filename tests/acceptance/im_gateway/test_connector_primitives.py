@@ -201,6 +201,7 @@ async def test_inbound_sweep_marks_stale_received_as_lost_and_never_creates_run(
 @dataclass
 class RecordingChannel:
     bot: str = BOT
+    bots: tuple[str, ...] = ()
     ready: bool = True
     replies: list[tuple[str, str]] | None = None
     streams: list[tuple[str, str, str, bool]] | None = None
@@ -214,7 +215,7 @@ class RecordingChannel:
         self.artifacts = []
 
     def has_bot(self, bot_id: str) -> bool:
-        return bot_id == self.bot and self.ready
+        return self.ready and bot_id in {self.bot, *self.bots}
 
     def route_key(self, route: DeliveryRouteInput) -> str:
         return f"{route.bot_id}:{route.external_user_id}"
@@ -334,6 +335,67 @@ async def test_stream_deltas_without_reply_ref_are_buffered_and_sent_once(redis:
     assert second.status is CommandStatus.ACCEPTED
     assert terminal.status is CommandStatus.DELIVERED
     assert channel.actives == ["你好！"], "没有回调时只能在终态主动发送一次"
+
+
+async def test_same_delivery_key_fans_out_to_each_target(redis: Redis) -> None:
+    """同一 delivery_key 扇出到两个 bot：回执必须按 target_key 分开。
+
+    回归：回执键只看 (tenant, delivery_key) 时，第二个 bot 的命令命中第一条的回执，
+    Connector 直接重放 DELIVERED 而不再发送——Gateway/Runtime 两侧都显示已送达。
+    """
+    manager, lease = await _lease(redis)
+    other_bot = "e2e-connector-bot-2"
+    other_lease = await manager.acquire(TENANT, other_bot)
+    assert other_lease is not None
+    replies = ReplyStore(redis)
+    key = f"execution:{uuid.uuid4()}:final"
+    channel = RecordingChannel(bots=(other_bot,))
+    executor = CommandExecutor(
+        adapter=channel, leases=manager, replies=replies, owner_id=manager.owner_id
+    )
+
+    first_command = _command(
+        DeliveryKind.TEXT,
+        text="first",
+        delivery_key=key,
+        target_key="WECOM:first",
+        epoch=lease.epoch,
+    )
+    first = await executor.execute(first_command)
+    await executor.remember_delivery(first_command, first)
+    second_command = _command(
+        DeliveryKind.TEXT,
+        text="second",
+        bot_id=other_bot,
+        delivery_key=key,
+        target_key="WECOM:second",
+        epoch=other_lease.epoch,
+    )
+    second = await executor.execute(second_command)
+    await executor.remember_delivery(second_command, second)
+
+    assert first.status is CommandStatus.DELIVERED
+    assert second.status is CommandStatus.DELIVERED
+    assert channel.actives == ["first", "second"], "两个目标都必须真实发送"
+
+    replay_command = _command(
+        DeliveryKind.TEXT,
+        text="first",
+        delivery_key=key,
+        target_key="WECOM:first",
+        epoch=lease.epoch,
+    )
+    replay = await executor.execute(replay_command)
+    assert replay.status is CommandStatus.DELIVERED
+    assert channel.actives == ["first", "second"], "同一目标的重放不得再次发送"
+
+    for target_key in ("WECOM:first", "WECOM:second"):
+        assert (
+            await replies.delivery_receipt(
+                tenant_id=TENANT, delivery_key=key, target_key=target_key
+            )
+            is not None
+        ), f"{target_key} 必须有独立回执"
 
 
 async def test_outbound_runner_consumes_command_and_writes_result(redis: Redis) -> None:
