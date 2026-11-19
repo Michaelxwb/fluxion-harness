@@ -6,7 +6,6 @@
  * 运行列表与详情共用同一份 Fire/Execution 事实；等待不是失败，跳过/准入失败不请求执行详情。
  */
 
-import { IconInfoCircle } from '@douyinfe/semi-icons';
 import { Banner, Button, Empty, Skeleton, Typography } from '@douyinfe/semi-ui';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -38,6 +37,7 @@ import {
 } from './taskCenterState';
 import { ScheduleActionsBar } from './ScheduleActionsBar';
 import { formatBytes } from './TaskArtifactList';
+import { TaskInfoButton, TaskInfoPopover } from './TaskInfoPopover';
 import { formatResult } from './taskResult';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
@@ -524,24 +524,14 @@ function ScheduleMetrics(props: { state: ScheduleDetailState }) {
   );
 }
 
-function TechInfo(props: { state: ScheduleDetailState; open: boolean }) {
+function TechInfo(props: { state: ScheduleDetailState }) {
   const { t } = useTranslation();
   const detail = props.state.detail;
   const execution = props.state.execution.detail;
   if (detail === null) return null;
   const budget = detail.budget === null ? [] : budgetEntries(detail.budget);
   return (
-    <div
-      className="chat-task-tech-popover"
-      data-testid="chat-task-tech"
-      hidden={!props.open}
-      role="dialog"
-      aria-label={t('chat.taskCenter.detail.techInfo')}
-    >
-      <div className="chat-task-tech-popover-head">
-        <strong>{t('chat.taskCenter.detail.techInfo')}</strong>
-        <span>{t('chat.taskCenter.detail.techInfoHint')}</span>
-      </div>
+    <>
       <dl className="chat-task-fact-list">
         <Fact label={t('chat.taskCenter.detail.timezone')} testId="chat-task-center-timezone">
           {detail.timezone}
@@ -607,7 +597,7 @@ function TechInfo(props: { state: ScheduleDetailState; open: boolean }) {
           </>
         )}
       </dl>
-    </div>
+    </>
   );
 }
 
@@ -788,26 +778,6 @@ export function ScheduleDetailPanel(props: ScheduleDetailPanelProps) {
     state.fires.items.find((fire) => fire.fire_id === selectedFireId) ?? null;
 
   useEffect(() => {
-    if (!techOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setTechOpen(false);
-    };
-    const onPointerDown = (event: MouseEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target?.closest('.chat-task-tech-popover') || target?.closest('.chat-task-tech-button')) {
-        return;
-      }
-      setTechOpen(false);
-    };
-    document.addEventListener('keydown', onKeyDown);
-    document.addEventListener('mousedown', onPointerDown);
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      document.removeEventListener('mousedown', onPointerDown);
-    };
-  }, [techOpen]);
-
-  useEffect(() => {
     const items = state.fires.items;
     if (items.length === 0) {
       if (selectedFireId !== null) setSelectedFireId(null);
@@ -820,7 +790,8 @@ export function ScheduleDetailPanel(props: ScheduleDetailPanelProps) {
       state.execution.executionId === null
         ? undefined
         : items.find((fire) => fire.execution_id === state.execution.executionId);
-    const next = byExecution ?? items[0];
+    const next =
+      byExecution ?? items.find((fire) => fire.execution_id !== null) ?? items[0];
     setSelectedFireId(next.fire_id);
     if (next.execution_id !== null && state.execution.executionId !== next.execution_id) {
       props.onOpenExecution(next.execution_id);
@@ -893,15 +864,11 @@ export function ScheduleDetailPanel(props: ScheduleDetailPanelProps) {
               <div className="chat-task-detail-hero-main">
                 <div className="chat-task-detail-title-line">
                   <Typography.Title heading={4}>{state.detail.name}</Typography.Title>
-                  <button
-                    type="button"
-                    className="chat-task-tech-button"
-                    aria-label={t('chat.taskCenter.detail.techInfo')}
-                    aria-expanded={techOpen}
-                    onClick={() => setTechOpen((open) => !open)}
-                  >
-                    <IconInfoCircle size="small" />
-                  </button>
+                  <TaskInfoButton
+                    open={techOpen}
+                    label={t('chat.taskCenter.detail.techInfo')}
+                    onToggle={() => setTechOpen((open) => !open)}
+                  />
                   <ScheduleStatusTag status={state.detail.status} />
                   {state.detail.status === 'ENDED' && state.detail.end_reason !== null ? (
                     <span data-testid="chat-task-center-end-reason">
@@ -928,7 +895,15 @@ export function ScheduleDetailPanel(props: ScheduleDetailPanelProps) {
                     })}
                   </p>
                 )}
-                <TechInfo state={state} open={techOpen} />
+                <TaskInfoPopover
+                  open={techOpen}
+                  title={t('chat.taskCenter.detail.techInfo')}
+                  hint={t('chat.taskCenter.detail.techInfoHint')}
+                  testId="chat-task-tech"
+                  onClose={() => setTechOpen(false)}
+                >
+                  <TechInfo state={state} />
+                </TaskInfoPopover>
               </div>
               {props.actions ? (
                 <ScheduleActionsBar

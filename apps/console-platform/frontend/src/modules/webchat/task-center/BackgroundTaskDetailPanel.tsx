@@ -6,9 +6,8 @@
  * 技术字段与原始 JSON 收在任务名旁的技术信息弹层。
  */
 
-import { IconInfoCircle } from '@douyinfe/semi-icons';
 import { Banner, Button, Skeleton, Typography } from '@douyinfe/semi-ui';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DateTimeText } from '../../../components/common/DateTimeText';
@@ -21,6 +20,7 @@ import { ExecutionStatusTag } from './labels';
 import type { AgentOption } from './ScheduleListPanel';
 import { isNotFoundCode } from './taskCenterState';
 import { CompactTaskArtifactGrid } from './TaskArtifactList';
+import { TaskInfoButton, TaskInfoPopover } from './TaskInfoPopover';
 import { TaskResultSection } from './TaskResultSection';
 import { formatResult } from './taskResult';
 
@@ -65,29 +65,30 @@ function durationLabel(t: (key: string, options?: Record<string, unknown>) => st
   });
 }
 
-function techLabel(t: (key: string) => string, detail: ExecutionDetail): string {
-  return detail.result_artifacts.length === 0
-    ? t('chat.taskCenter.detail.keepInTask')
-    : t('chat.taskCenter.detail.deliveryTargets');
+function deliveryTargets(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  detail: ExecutionDetail
+): string {
+  const labels = new Map<string, string | null>();
+  for (const artifact of detail.result_artifacts) {
+    for (const delivery of artifact.deliveries ?? []) {
+      labels.set(delivery.target_key, delivery.target_label ?? null);
+    }
+  }
+  if (labels.size === 0) return t('chat.taskCenter.detail.keepInTask');
+  const head =
+    [...labels.values()].find((label) => label !== null && label !== '') ??
+    t('chat.taskCenter.detail.delivery.PUSH');
+  return labels.size > 1 ? `${head} · ${labels.size}` : head;
 }
 
-function TechInfo(props: { detail: ExecutionDetail; agents?: readonly AgentOption[]; open: boolean }) {
+function TechInfo(props: { detail: ExecutionDetail; agents?: readonly AgentOption[] }) {
   const { t } = useTranslation();
   const detail = props.detail;
   const raw = formatResult(detail.result);
   const name = agentName(props.agents, detail.agent_id);
   return (
-    <div
-      className="chat-task-tech-popover chat-background-tech-popover"
-      data-testid="chat-background-tech"
-      hidden={!props.open}
-      role="dialog"
-      aria-label={t('chat.taskCenter.detail.techInfo')}
-    >
-      <div className="chat-task-tech-popover-head">
-        <strong>{t('chat.taskCenter.detail.techInfo')}</strong>
-        <span>{t('chat.taskCenter.detail.techInfoHint')}</span>
-      </div>
+    <>
       <dl className="chat-task-fact-list">
         <Fact label={t('chat.taskCenter.background.fact.agent')} testId="chat-background-fact-agent">
           {name ?? t('chat.taskCenter.background.fact.unknown')}
@@ -120,14 +121,14 @@ function TechInfo(props: { detail: ExecutionDetail; agents?: readonly AgentOptio
             : t('chat.taskCenter.background.fact.none')}
         </Fact>
         <Fact label={t('chat.taskCenter.detail.deliveryTargets')} testId="chat-background-fact-delivery">
-          {techLabel(t, detail)}
+          {deliveryTargets(t, detail)}
         </Fact>
       </dl>
       <details className="chat-background-tech-raw">
         <summary>{t('chat.taskCenter.background.result.raw')}</summary>
         <pre data-testid="chat-background-result-body">{raw}</pre>
       </details>
-    </div>
+    </>
   );
 }
 
@@ -136,6 +137,7 @@ function Hero(props: {
   agents?: readonly AgentOption[];
   techOpen: boolean;
   onToggleTech(): void;
+  onCloseTech(): void;
   onDownloadAll(): void;
 }) {
   const { t } = useTranslation();
@@ -146,15 +148,11 @@ function Hero(props: {
       <div className="chat-background-detail-hero-main">
         <div className="chat-background-detail-title-line">
           <Typography.Title heading={4}>{detail.skill_name}</Typography.Title>
-          <button
-            type="button"
-            className="chat-task-tech-button"
-            aria-label={t('chat.taskCenter.detail.techInfo')}
-            aria-expanded={props.techOpen}
-            onClick={props.onToggleTech}
-          >
-            <IconInfoCircle size="small" />
-          </button>
+          <TaskInfoButton
+            open={props.techOpen}
+            label={t('chat.taskCenter.detail.techInfo')}
+            onToggle={props.onToggleTech}
+          />
         </div>
         <p className="chat-background-detail-subtitle">
           <TaskTypeTag taskType={detail.task_type} />
@@ -181,7 +179,16 @@ function Hero(props: {
             {t('chat.taskCenter.background.row.hasArtifacts')}
           </span>
         ) : null}
-        <TechInfo detail={detail} agents={props.agents} open={props.techOpen} />
+        <TaskInfoPopover
+          open={props.techOpen}
+          title={t('chat.taskCenter.detail.techInfo')}
+          hint={t('chat.taskCenter.detail.techInfoHint')}
+          testId="chat-background-tech"
+          className="chat-background-tech-popover"
+          onClose={props.onCloseTech}
+        >
+          <TechInfo detail={detail} agents={props.agents} />
+        </TaskInfoPopover>
       </div>
       <div className="chat-background-detail-actions">
         <Button
@@ -247,26 +254,8 @@ export function BackgroundTaskDetailPanel(props: BackgroundTaskDetailPanelProps)
   const showError = state.errorCode !== null && !notFound;
   const parentId = detail?.parent_id ?? null;
   const hasChildren = (detail?.children.total ?? 0) > 0 && detail?.parent_id === null;
-
-  useEffect(() => {
-    if (!techOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setTechOpen(false);
-    };
-    const onPointerDown = (event: MouseEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target?.closest('.chat-task-tech-popover') || target?.closest('.chat-task-tech-button')) {
-        return;
-      }
-      setTechOpen(false);
-    };
-    document.addEventListener('keydown', onKeyDown);
-    document.addEventListener('mousedown', onPointerDown);
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      document.removeEventListener('mousedown', onPointerDown);
-    };
-  }, [techOpen]);
+  const hasArtifacts =
+    (detail?.artifact_total ?? 0) > 0 || (detail?.result_artifacts.length ?? 0) > 0;
 
   const downloadAll = () => {
     for (const artifact of detail?.result_artifacts ?? []) {
@@ -276,7 +265,10 @@ export function BackgroundTaskDetailPanel(props: BackgroundTaskDetailPanelProps)
 
   const locateFailedChild = () => {
     if (typeof document === 'undefined') return;
-    const target = document.querySelector('[data-testid="chat-background-children"]');
+    const target =
+      document.querySelector(
+        '[data-testid="chat-background-children"] [data-testid="chat-background-child-row"][data-status="FAILED"]'
+      ) ?? document.querySelector('[data-testid="chat-background-children"]');
     target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
@@ -357,29 +349,34 @@ export function BackgroundTaskDetailPanel(props: BackgroundTaskDetailPanelProps)
             agents={props.agents}
             techOpen={techOpen}
             onToggleTech={() => setTechOpen((open) => !open)}
+            onCloseTech={() => setTechOpen(false)}
             onDownloadAll={downloadAll}
           />
           <TaskResultSection detail={detail} onLocateFailedChild={locateFailedChild} />
-          <div className={`chat-background-body-split${hasChildren ? '' : ' is-single'}`}>
-            <FilesPanel
-              detail={detail}
-              downloads={props.downloads}
-              onDownloadArtifact={props.onDownloadArtifact}
-            />
-            {hasChildren ? (
-              <ChildTaskTable
-                items={detail.children.items}
-                page={detail.children.page}
-                pageSize={detail.children.page_size}
-                total={detail.children.total}
-                phase={state.childrenPhase}
-                errorCode={state.childrenErrorCode}
-                onPage={props.onChildPage}
-                onOpenChild={props.onOpenChild}
-                onRetry={() => props.onChildPage(detail.children.page)}
-              />
-            ) : null}
-          </div>
+          {hasArtifacts || hasChildren ? (
+            <div className={`chat-background-body-split${hasChildren ? '' : ' is-single'}`}>
+              {hasArtifacts ? (
+                <FilesPanel
+                  detail={detail}
+                  downloads={props.downloads}
+                  onDownloadArtifact={props.onDownloadArtifact}
+                />
+              ) : null}
+              {hasChildren ? (
+                <ChildTaskTable
+                  items={detail.children.items}
+                  page={detail.children.page}
+                  pageSize={detail.children.page_size}
+                  total={detail.children.total}
+                  phase={state.childrenPhase}
+                  errorCode={state.childrenErrorCode}
+                  onPage={props.onChildPage}
+                  onOpenChild={props.onOpenChild}
+                  onRetry={() => props.onChildPage(detail.children.page)}
+                />
+              ) : null}
+            </div>
+          ) : null}
         </>
       )}
     </section>

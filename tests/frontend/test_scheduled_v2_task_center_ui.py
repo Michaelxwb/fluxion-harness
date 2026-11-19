@@ -1284,7 +1284,10 @@ def test_fire_history_pages_and_keeps_dst_events_separate(
     assert pages["dstEventTypes"] == ["DST_GAP_SKIPPED"], "DST 是独立事件字段"
     assert pages["retentionFrom"] == CLEANED_BEFORE
     assert (pages["page"], pages["total"]) == (2, 3)
-    assert pages["params"] == [{"page": 1, "page_size": 6}, {"page": 2, "page_size": 2}], "首屏固定 6 条，翻页沿用服务端 page_size"
+    assert pages["params"] == [
+        {"page": 1, "page_size": 6},
+        {"page": 2, "page_size": 2},
+    ], "首屏固定 6 条，翻页沿用服务端 page_size"
 
 
 def test_switching_schedule_drops_the_old_target(task_center_logic: dict[str, Any]) -> None:
@@ -1364,6 +1367,8 @@ def test_detail_shows_the_frozen_summary_without_internals(
     assert GOAL_SECRET not in markup, "不得展示内部目标"
     assert 'aria-label="任务详情"' in markup
     assert 'aria-label="返回列表"' in _tag(markup, "chat-task-center-back")
+    assert 'data-testid="chat-task-tech"' in markup, "技术信息默认渲染但关闭"
+    assert 'aria-label="关闭"' in markup, "技术信息弹层提供关闭按钮"
 
 
 def test_fire_statuses_stay_separate_facts(task_center_render: dict[str, Any]) -> None:

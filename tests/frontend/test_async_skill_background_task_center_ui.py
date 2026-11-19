@@ -951,6 +951,18 @@ def _no_children_detail() -> dict[str, Any]:
     return state
 
 
+def _no_artifacts_detail() -> dict[str, Any]:
+    state = _no_children_detail()
+    state["detail"].update(
+        {
+            "result": {"text": "本次任务只返回了文本结论。"},
+            "result_artifacts": [],
+            "artifact_total": 0,
+        }
+    )
+    return state
+
+
 def _child_detail() -> dict[str, Any]:
     state = json.loads(json.dumps(DETAIL_OVERRIDES))
     state["detail"].update(
@@ -992,6 +1004,7 @@ SCENARIOS = (
     {"id": "detail-running-zh", "locale": "zh-CN", "kind": "detail", "state": _running_detail()},
     {"id": "detail-child-zh", "locale": "zh-CN", "kind": "detail", "state": _child_detail()},
     {"id": "detail-no-children-zh", "locale": "zh-CN", "kind": "detail", "state": _no_children_detail()},
+    {"id": "detail-no-artifacts-zh", "locale": "zh-CN", "kind": "detail", "state": _no_artifacts_detail()},
     {"id": "detail-notfound-zh", "locale": "zh-CN", "kind": "detail",
      "state": {"detail": None, "phase": "ERROR", "errorCode": "COMMON_NOT_FOUND"}},
     {"id": "detail-children-error-zh", "locale": "zh-CN", "kind": "detail",
@@ -1280,6 +1293,9 @@ def test_detail_shows_result_counts_and_facts(background_render: dict[str, Any])
     assert 'data-testid="chat-background-count-succeeded"' in markup
     assert 'data-testid="chat-background-count-failed"' in markup
     assert 'data-testid="chat-background-result"' in markup
+    assert 'data-testid="chat-background-tech"' in markup
+    assert "推送到会话 · 2" in markup, "技术信息展示真实投递目标数，不重复标签本身"
+    assert 'aria-label="关闭"' in markup, "技术信息弹层提供关闭按钮"
 
 
 def test_artifacts_show_delivery_states_without_faking_missing_data(
@@ -1350,6 +1366,18 @@ def test_detail_without_children_uses_single_layout(
     assert "chat-background-body-split is-single" in markup
     assert 'data-testid="chat-background-children"' not in markup
     assert "0 项" not in markup
+
+
+def test_detail_without_artifacts_hides_the_empty_file_card(
+    background_render: dict[str, Any],
+) -> None:
+    markup = background_render["markup"]["detail-no-artifacts-zh"]
+    assert "本次任务只返回了文本结论。" in markup
+    assert "任务已成功完成" in markup
+    assert 'data-testid="chat-background-artifacts"' not in markup, "无产物不渲染空文件卡"
+    assert "共 0 个" not in markup
+    assert "chat-background-body-split" not in markup, "无文件且无子任务时不留空栏"
+    assert 'data-testid="chat-background-children"' not in markup
 
 def test_detail_states_are_real(background_render: dict[str, Any]) -> None:
     markup = background_render["markup"]

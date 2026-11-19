@@ -737,14 +737,42 @@
 
 .chat-task-tech-popover-head {
   display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.chat-task-tech-popover-head > div {
+  display: flex;
   flex-direction: column;
   gap: 3px;
-  margin-bottom: 10px;
+  min-width: 0;
 }
 
 .chat-task-tech-popover-head span {
   color: var(--semi-color-text-2);
   font-size: 12px;
+}
+
+.chat-task-tech-close {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--semi-color-text-2);
+  cursor: pointer;
+}
+
+.chat-task-tech-close:hover {
+  background: var(--semi-color-fill-0);
+  color: var(--semi-color-text-0);
 }
 
 .chat-task-tech-popover .chat-task-fact-list {

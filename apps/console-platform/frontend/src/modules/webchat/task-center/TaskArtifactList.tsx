@@ -216,9 +216,6 @@ export function CompactTaskArtifactGrid(props: TaskArtifactListProps) {
                   </span>
                 )}
               </span>
-              <span hidden>
-                {artifact.media_type} · v{artifact.version} · {artifact.checksum}
-              </span>
             </div>
             <Button
               size="small"
