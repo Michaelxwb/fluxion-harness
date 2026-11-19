@@ -1,0 +1,1358 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>任务详情改版 · 交互稿 v2</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0e1015;
+    --surface: #15181f;
+    --surface-2: #1a1e26;
+    --surface-3: #20252f;
+    --surface-hover: #242a35;
+    --border: #292f3a;
+    --border-strong: #394150;
+    --text: #edf1f7;
+    --text-2: #a6aebe;
+    --text-3: #747e90;
+    --primary: #5b83ff;
+    --primary-strong: #3f6cff;
+    --primary-soft: rgba(91, 131, 255, .13);
+    --success: #3ccf98;
+    --success-soft: rgba(60, 207, 152, .12);
+    --warning: #f0b657;
+    --warning-soft: rgba(240, 182, 87, .12);
+    --danger: #f07171;
+    --danger-soft: rgba(240, 113, 113, .12);
+    --shadow: 0 20px 60px rgba(0, 0, 0, .32);
+    --radius: 14px;
+    --radius-sm: 10px;
+    --mono: "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  html[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f1f4f9;
+    --surface: #ffffff;
+    --surface-2: #ffffff;
+    --surface-3: #f4f7fb;
+    --surface-hover: #eef3fa;
+    --border: #e4e9f1;
+    --border-strong: #d3dbe8;
+    --text: #1b2230;
+    --text-2: #5d6879;
+    --text-3: #8b95a5;
+    --primary: #3568f0;
+    --primary-strong: #2558dc;
+    --primary-soft: rgba(53, 104, 240, .08);
+    --success: #14966d;
+    --success-soft: rgba(20, 150, 109, .08);
+    --warning: #b8780f;
+    --warning-soft: rgba(184, 120, 15, .09);
+    --danger: #d64c4c;
+    --danger-soft: rgba(214, 76, 76, .08);
+    --shadow: 0 20px 60px rgba(35, 50, 80, .1);
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { min-height: 100%; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(900px 420px at 18% -10%, rgba(91, 131, 255, .10), transparent 65%),
+      var(--bg);
+    color: var(--text);
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font: inherit; color: inherit; }
+  button:focus-visible, summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  svg.icon { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .mono { font-family: var(--mono); }
+
+  /* ---------- shell ---------- */
+  .app { min-height: 100vh; }
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 58px; padding: 0 30px;
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--surface) 82%, transparent);
+    backdrop-filter: blur(18px);
+  }
+  .topbar-left, .topbar-right, .tabs, .utility, .utility-right { display: flex; align-items: center; }
+  .topbar-left { gap: 22px; }
+  .topbar-right { gap: 12px; }
+  .logo {
+    width: 28px; height: 28px; border-radius: 9px;
+    display: grid; place-items: center;
+    font-size: 13px; font-weight: 800; letter-spacing: -.4px;
+    color: #fff; background: linear-gradient(145deg, #6f92ff, #3d66ef);
+    box-shadow: 0 6px 16px rgba(63, 108, 255, .35);
+  }
+  .tabs { gap: 6px; }
+  .tab {
+    border: 0; background: transparent; color: var(--text-3);
+    padding: 6px 12px; border-radius: 8px; cursor: pointer;
+  }
+  .tab:hover { color: var(--text); background: var(--surface-3); }
+  .tab.active { color: var(--text); background: var(--surface-3); font-weight: 600; }
+  .draft-badge {
+    padding: 3px 9px; border: 1px solid var(--border-strong); border-radius: 999px;
+    color: var(--text-2); font-size: 11px; letter-spacing: .2px;
+  }
+
+  .workspace { max-width: 1240px; margin: 0 auto; padding: 24px 30px 70px; }
+  .utility { justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+  .utility-right { gap: 12px; }
+  .back {
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 0; background: transparent; color: var(--text-2);
+    padding: 4px 0; cursor: pointer;
+  }
+  .back:hover { color: var(--text); }
+  .segmented {
+    display: flex; gap: 2px; padding: 3px;
+    border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2);
+  }
+  .seg {
+    border: 0; background: transparent; color: var(--text-3);
+    padding: 5px 12px; border-radius: 7px; cursor: pointer; font-size: 13px;
+  }
+  .seg.active { color: var(--text); background: var(--surface-hover); font-weight: 600; }
+  .ghost {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 7px 11px; border: 1px solid var(--border); border-radius: 9px;
+    background: var(--surface-2); color: var(--text-2); cursor: pointer; font-size: 13px;
+  }
+  .ghost:hover { border-color: var(--border-strong); color: var(--text); }
+  .ghost .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--warning); box-shadow: 0 0 0 3px var(--warning-soft); }
+
+  /* ---------- page header ---------- */
+  .page[hidden] { display: none !important; }
+  .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 30px; margin-bottom: 22px; }
+  .page-head-main { min-width: 0; }
+  .title-line { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 12px; }
+  h1 { margin: 0; font-size: 26px; line-height: 1.25; letter-spacing: -.5px; font-weight: 650; }
+  .subtitle { margin: 7px 0 0; color: var(--text-2); font-size: 13.5px; display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+  .subtitle .accent { color: var(--primary); font-weight: 550; }
+  .subtitle .sep { color: var(--text-3); }
+  .page-actions { display: flex; align-items: center; gap: 9px; flex: none; padding-top: 3px; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    height: 34px; padding: 0 14px; border-radius: 9px;
+    border: 1px solid var(--border); background: var(--surface-2);
+    color: var(--text); cursor: pointer; font-size: 13px; font-weight: 550;
+    transition: background .15s ease, border-color .15s ease, transform .15s ease;
+  }
+  .btn:hover { background: var(--surface-hover); border-color: var(--border-strong); }
+  .btn.primary { background: var(--primary-strong); border-color: transparent; color: #fff; box-shadow: 0 6px 18px rgba(63, 108, 255, .22); }
+  .btn.primary:hover { background: var(--primary); }
+  .btn.small { height: 30px; padding: 0 11px; font-size: 12.5px; }
+  .btn.danger-ghost { color: var(--danger); border-color: transparent; background: transparent; }
+  .btn.danger-ghost:hover { background: var(--danger-soft); border-color: transparent; }
+  .icon-btn {
+    width: 34px; height: 34px; display: inline-grid; place-items: center;
+    border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2);
+    color: var(--text-2); cursor: pointer;
+  }
+  .icon-btn:hover { background: var(--surface-hover); color: var(--text); border-color: var(--border-strong); }
+  .icon-btn.bare { border-color: transparent; background: transparent; }
+  .icon-btn.bare:hover { background: var(--surface-3); }
+  .link {
+    display: inline-flex; align-items: center; gap: 5px;
+    border: 0; background: transparent; color: var(--primary);
+    padding: 2px 0; cursor: pointer; font-size: 13px; font-weight: 550;
+  }
+  .link:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .link.muted { color: var(--text-2); font-weight: 450; }
+
+  /* ---------- pills ---------- */
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 24px; padding: 0 9px; border-radius: 999px;
+    font-size: 12px; font-weight: 600; white-space: nowrap;
+    border: 1px solid transparent;
+  }
+  .pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .pill.success { color: var(--success); background: var(--success-soft); border-color: color-mix(in srgb, var(--success) 22%, transparent); }
+  .pill.warning { color: var(--warning); background: var(--warning-soft); border-color: color-mix(in srgb, var(--warning) 22%, transparent); }
+  .pill.danger { color: var(--danger); background: var(--danger-soft); border-color: color-mix(in srgb, var(--danger) 22%, transparent); }
+  .pill.neutral { color: var(--text-2); background: var(--surface-3); border-color: var(--border); }
+  .pill.tiny { height: 21px; padding: 0 8px; font-size: 11.5px; }
+
+  /* ---------- metrics ---------- */
+  .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .metric {
+    position: relative; overflow: hidden;
+    padding: 15px 16px 14px; border: 1px solid var(--border); border-radius: var(--radius);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 94%, #fff 6%), var(--surface-2));
+  }
+  .metric.accent::after {
+    content: ""; position: absolute; inset: auto -30px -50px auto;
+    width: 120px; height: 120px; border-radius: 50%;
+    background: var(--primary-soft); filter: blur(8px);
+  }
+  .metric-label { display: flex; align-items: center; gap: 6px; color: var(--text-3); font-size: 12px; }
+  .metric-value { display: block; margin-top: 6px; font-size: 18px; font-weight: 650; letter-spacing: -.2px; font-variant-numeric: tabular-nums; }
+  .metric-value .pill { vertical-align: 2px; margin-left: 5px; }
+  .metric-note { display: block; margin-top: 4px; color: var(--text-3); font-size: 12px; }
+  .metric.accent .metric-value { color: var(--text); }
+
+  /* ---------- cards / layout ---------- */
+  .split { display: grid; grid-template-columns: minmax(0, 1.42fr) minmax(360px, .98fr); gap: 18px; align-items: stretch; }
+  .card {
+    border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--surface-2);
+  }
+  .card-head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 14px;
+    padding: 17px 18px 13px;
+  }
+  .card-head h2 { margin: 0; font-size: 15.5px; font-weight: 650; letter-spacing: -.15px; }
+  .card-sub { margin: 3px 0 0; color: var(--text-3); font-size: 12px; }
+  .card-body { padding: 0 18px 18px; }
+  .card-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px 16px; border-top: 1px solid var(--border); }
+  .section-label { margin: 18px 18px 8px; color: var(--text-3); font-size: 11.5px; font-weight: 650; letter-spacing: .5px; text-transform: uppercase; }
+
+  /* ---------- runs ---------- */
+  .run-list { padding: 0 10px 10px; }
+  .day-label { padding: 6px 8px 7px; color: var(--text-3); font-size: 11.5px; font-weight: 600; }
+  .runs-card, .detail-card { display: flex; flex-direction: column; }
+  .run-list { flex: 1; padding: 0 10px 10px; }
+  .app-pagination {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    margin-top: auto; padding: 10px 16px 14px; border-top: 1px solid var(--border);
+    color: var(--text-3); font-size: 12px;
+  }
+  .app-pagination-controls { display: flex; align-items: center; gap: 7px; }
+  .app-pagination-page { min-width: 42px; text-align: center; font-variant-numeric: tabular-nums; }
+  .pg-btn {
+    width: 26px; height: 26px; display: grid; place-items: center;
+    border: 1px solid var(--border); border-radius: 7px; background: var(--surface-2);
+    color: var(--text-2); cursor: pointer;
+  }
+  .pg-btn:hover:not(:disabled) { background: var(--surface-hover); color: var(--text); }
+  .pg-btn:disabled { opacity: .4; cursor: not-allowed; }
+  .run-row {
+    width: 100%; display: grid; grid-template-columns: 78px 74px minmax(0, 1fr) auto 16px;
+    align-items: center; gap: 10px;
+    padding: 11px 10px; border: 1px solid transparent; border-radius: 10px;
+    background: transparent; color: var(--text); text-align: left; cursor: pointer;
+  }
+  .run-row:hover { background: var(--surface-3); }
+  .run-row.is-selected { background: var(--primary-soft); border-color: color-mix(in srgb, var(--primary) 32%, transparent); }
+  .run-time { display: flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; }
+  .run-time b { font-size: 14px; font-weight: 650; }
+  .run-time small { color: var(--text-3); font-size: 11px; }
+  .run-meta { color: var(--text-2); font-size: 12.5px; }
+  .run-files { display: inline-flex; align-items: center; gap: 5px; justify-self: end; color: var(--text-3); font-size: 12px; }
+  .run-row .chev { color: var(--text-3); }
+  .run-row.is-selected .chev { color: var(--primary); }
+
+  /* ---------- run detail ---------- */
+  .detail-card { overflow: hidden; }
+  .detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 17px 18px 14px; border-bottom: 1px solid var(--border); }
+  .detail-head h2 { margin: 0; font-size: 15.5px; font-weight: 650; }
+  .detail-head p { margin: 4px 0 0; color: var(--text-3); font-size: 12px; }
+  .result-banner { margin: 16px 18px 0; padding: 13px 14px; border-radius: 11px; border: 1px solid color-mix(in srgb, var(--success) 20%, transparent); background: var(--success-soft); }
+  .result-banner .result-title { display: flex; align-items: center; gap: 7px; color: var(--success); font-size: 12.5px; font-weight: 650; }
+  .result-banner p { margin: 6px 0 0; color: var(--text-2); font-size: 12.5px; line-height: 1.6; }
+  .result-banner.is-failed { border-color: color-mix(in srgb, var(--danger) 22%, transparent); background: var(--danger-soft); }
+  .result-banner.is-failed .result-title { color: var(--danger); }
+  .detail-files { padding: 0 12px 6px; }
+  .file-row {
+    display: flex; align-items: center; gap: 11px;
+    padding: 10px 6px; border-radius: 9px;
+  }
+  .file-row:hover { background: var(--surface-3); }
+  .file-icon {
+    width: 34px; height: 34px; flex: none; border-radius: 9px;
+    display: grid; place-items: center;
+    font-size: 9.5px; font-weight: 750; letter-spacing: .2px;
+    background: var(--surface-3); color: var(--text-2); border: 1px solid var(--border);
+  }
+  .file-icon.xls { color: var(--success); background: var(--success-soft); border-color: color-mix(in srgb, var(--success) 18%, transparent); }
+  .file-icon.csv { color: var(--primary); background: var(--primary-soft); border-color: color-mix(in srgb, var(--primary) 18%, transparent); }
+  .file-icon.json { color: var(--warning); background: var(--warning-soft); border-color: color-mix(in srgb, var(--warning) 18%, transparent); }
+  .file-icon.txt { color: var(--text-2); }
+  .file-body { min-width: 0; flex: 1; }
+  .file-body strong { display: block; font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-meta { display: flex; align-items: center; gap: 6px; margin-top: 2px; color: var(--text-3); font-size: 11.5px; }
+  .delivered { display: inline-flex; align-items: center; gap: 4px; color: var(--success); font-size: 11.5px; }
+  .detail-foot { display: flex; justify-content: space-between; gap: 12px; margin-top: auto; padding: 13px 18px 16px; border-top: 1px solid var(--border); }
+  .delivery-list { display: flex; flex-direction: column; gap: 2px; padding: 0 18px 8px; }
+  .delivery-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; color: var(--text-2); font-size: 12px; }
+  .delivery-row .bot { width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; background: var(--surface-3); color: var(--text-3); }
+  .delivery-row .who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .delivery-row .time { color: var(--text-3); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+
+  /* ---------- technical popover ---------- */
+  .page-head-main { position: relative; }
+  .info-btn {
+    width: 24px; height: 24px; flex: none; display: inline-grid; place-items: center;
+    border: 0; border-radius: 6px; background: transparent; color: var(--text-3); cursor: pointer;
+    vertical-align: 2px;
+  }
+  .info-btn:hover { color: var(--text); background: var(--surface-3); }
+  .tech-popover {
+    position: absolute; top: calc(100% + 12px); left: 0; z-index: 15;
+    width: min(620px, calc(100vw - 60px));
+    border: 1px solid var(--border); border-radius: 12px;
+    background: var(--surface-2); box-shadow: var(--shadow);
+  }
+  .tech-popover[hidden] { display: none; }
+  .pop-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 15px 16px 10px; }
+  .pop-head h3 { margin: 0; font-size: 14px; font-weight: 650; }
+  .pop-head p { margin: 3px 0 0; color: var(--text-3); font-size: 11.5px; }
+  .tech-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 20px; padding: 2px 16px 16px; }
+  .tech-grid > div { min-width: 0; }
+  .tech-grid dt { color: var(--text-3); font-size: 11.5px; }
+  .tech-grid dd { margin: 3px 0 0; color: var(--text-2); font-size: 12.5px; overflow-wrap: anywhere; }
+  .tech-grid code { font-family: var(--mono); font-size: 11.5px; color: var(--text-2); }
+
+  /* ---------- background page ---------- */
+  .result-card { padding: 20px 20px 16px; margin-bottom: 18px; }
+  .result-main { display: flex; align-items: center; gap: 22px; }
+  .ring {
+    --p: 80;
+    width: 92px; height: 92px; flex: none; border-radius: 50%;
+    background: conic-gradient(var(--success) calc(var(--p) * 1%), var(--warning) 0);
+    display: grid; place-items: center; position: relative;
+  }
+  .ring::before { content: ""; position: absolute; inset: 7px; border-radius: 50%; background: var(--surface-2); }
+  .ring-inner { position: relative; display: grid; place-items: center; line-height: 1; }
+  .ring-inner strong { font-size: 23px; font-weight: 700; letter-spacing: -1px; }
+  .ring-inner span { margin-top: 4px; color: var(--text-3); font-size: 10.5px; }
+  .result-copy { min-width: 0; }
+  .result-copy h2 { margin: 0; font-size: 18px; font-weight: 650; letter-spacing: -.25px; }
+  .result-copy p { margin: 5px 0 0; color: var(--text-2); font-size: 13px; }
+  .result-copy p b { color: var(--text); font-weight: 600; }
+  .result-actions { display: flex; align-items: center; gap: 14px; margin-top: 11px; }
+  .bar { display: flex; height: 7px; gap: 3px; margin-top: 19px; border-radius: 999px; overflow: hidden; background: var(--surface-3); }
+  .bar span { display: block; height: 100%; border-radius: 999px; }
+  .bar .ok { background: var(--success); }
+  .bar .warn { background: var(--warning); }
+  .legend { display: flex; gap: 18px; margin-top: 9px; color: var(--text-3); font-size: 11.5px; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .legend i { width: 7px; height: 7px; border-radius: 2px; display: inline-block; }
+  .legend i.ok { background: var(--success); }
+  .legend i.warn { background: var(--warning); }
+  .legend i.idle { background: var(--border-strong); }
+
+  .bg-split { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(330px, .85fr); gap: 18px; align-items: stretch; }
+  .files-card, .subtasks-card { display: flex; flex-direction: column; }
+  .subtask-list { flex: 1; }
+  .subtasks-foot { margin-top: auto; }
+  .demo-line { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; color: var(--text-3); font-size: 11.5px; }
+  .demo-badge { padding: 1px 6px; border: 1px dashed color-mix(in srgb, var(--warning) 55%, transparent); border-radius: 5px; color: var(--warning); font-size: 10px; font-weight: 600; }
+  .chip {
+    height: 23px; padding: 0 9px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--surface-2); color: var(--text-3); cursor: pointer; font-size: 11px;
+  }
+  .chip:hover { color: var(--text); border-color: var(--border-strong); }
+  .chip.active { color: var(--text); border-color: var(--border-strong); background: var(--surface-hover); font-weight: 600; }
+  .page.no-children .bg-split { grid-template-columns: minmax(0, 1fr); }
+  .page.no-children .subtasks-card { display: none; }
+  .page.no-children .file-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .page.no-children .bar, .page.no-children .legend { display: none; }
+  .page.no-children .result-card { margin-bottom: 18px; }
+  .file-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 0 14px 16px; }
+  .file-card {
+    display: flex; align-items: center; gap: 10px; min-width: 0;
+    padding: 10px 10px 10px 11px; border: 1px solid var(--border); border-radius: 10px;
+    background: color-mix(in srgb, var(--surface-3) 60%, transparent);
+  }
+  .file-card:hover { border-color: var(--border-strong); background: var(--surface-3); }
+  .file-card .file-body strong { font-size: 12px; }
+  .subtask-list { padding: 0 10px 8px; }
+  .subtask-row {
+    width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 62px auto 14px;
+    align-items: center; gap: 8px; padding: 9px 8px;
+    border: 1px solid transparent; border-radius: 9px; background: transparent;
+    text-align: left; cursor: pointer;
+  }
+  .subtask-row:hover { background: var(--surface-3); }
+  .subtask-name { font-size: 12.5px; font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .subtask-meta { color: var(--text-3); font-size: 11.5px; text-align: right; white-space: nowrap; }
+  .subtask-row.failed .subtask-meta { color: var(--danger); }
+  .subtask-row .chev { color: var(--text-3); }
+  .subtasks-foot { padding: 11px 18px 15px; border-top: 1px solid var(--border); }
+  .raw-result { margin: 4px 18px 18px; }
+  .raw-result summary { color: var(--text-2); font-size: 12.5px; cursor: pointer; }
+  .raw-result pre {
+    max-height: 220px; overflow: auto; margin: 9px 0 0; padding: 12px 14px;
+    border: 1px solid var(--border); border-radius: 9px; background: var(--surface);
+    color: var(--text-2); font-family: var(--mono); font-size: 11.5px; line-height: 1.6;
+  }
+
+  /* ---------- notes / annotations ---------- */
+  .note-tag {
+    display: none; align-items: center; height: 20px; padding: 0 7px;
+    border: 1px dashed color-mix(in srgb, var(--warning) 55%, transparent);
+    border-radius: 6px; color: var(--warning); font-size: 10.5px; font-weight: 600;
+    white-space: nowrap;
+  }
+  body.notes-on .note-tag { display: inline-flex; }
+  body.notes-on .note-target { outline: 1px dashed color-mix(in srgb, var(--warning) 45%, transparent); outline-offset: 3px; border-radius: 8px; }
+  .flash { outline: 1px dashed var(--warning); outline-offset: 3px; border-radius: 8px; }
+
+  .notes-drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 40;
+    width: 380px; max-width: 92vw; padding: 22px 22px 40px;
+    background: var(--surface); border-left: 1px solid var(--border);
+    box-shadow: var(--shadow); transform: translateX(104%);
+    transition: transform .22s ease; overflow-y: auto;
+  }
+  .notes-drawer.open { transform: translateX(0); }
+  .scrim { position: fixed; inset: 0; z-index: 30; background: rgba(0,0,0,.42); opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+  .scrim.open { opacity: 1; pointer-events: auto; }
+  .notes-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .notes-head h2 { margin: 0; font-size: 17px; font-weight: 650; }
+  .notes-head p { margin: 5px 0 0; color: var(--text-3); font-size: 12px; }
+  .note-item { display: flex; gap: 11px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .note-num {
+    width: 23px; height: 23px; flex: none; display: grid; place-items: center;
+    border-radius: 7px; background: var(--warning-soft); color: var(--warning);
+    font-size: 11px; font-weight: 700;
+  }
+  .note-item h3 { margin: 1px 0 3px; font-size: 13px; font-weight: 600; }
+  .note-item p { margin: 0; color: var(--text-2); font-size: 12px; line-height: 1.6; }
+  .note-item .removed { color: var(--danger); font-size: 11.5px; margin-top: 5px; display: block; }
+  .notes-question { margin-top: 20px; padding: 14px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface-3); }
+  .notes-question h3 { margin: 0 0 8px; font-size: 12.5px; }
+  .notes-question ol { margin: 0; padding-left: 18px; color: var(--text-2); font-size: 12px; line-height: 1.8; }
+
+  /* ---------- menu / dialog / toast ---------- */
+  .menu-wrap { position: relative; }
+  .menu {
+    position: absolute; top: 40px; right: 0; z-index: 12; min-width: 168px;
+    padding: 5px; border: 1px solid var(--border); border-radius: 10px;
+    background: var(--surface-2); box-shadow: var(--shadow);
+  }
+  .menu[hidden] { display: none; }
+  .menu button {
+    width: 100%; display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px; border: 0; border-radius: 7px; background: transparent;
+    text-align: left; color: var(--text-2); cursor: pointer; font-size: 12.5px;
+  }
+  .menu button:hover { background: var(--surface-3); color: var(--text); }
+  .menu button.danger { color: var(--danger); }
+  .menu button.danger:hover { background: var(--danger-soft); }
+
+  .dialog-scrim { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 24px; background: rgba(0,0,0,.5); }
+  .dialog-scrim[hidden] { display: none; }
+  .dialog {
+    width: 420px; max-width: 100%; padding: 22px;
+    border: 1px solid var(--border); border-radius: 15px; background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+  .dialog h3 { margin: 0; font-size: 17px; font-weight: 650; }
+  .dialog p { margin: 8px 0 18px; color: var(--text-2); font-size: 13px; }
+  .dialog-actions { display: flex; justify-content: flex-end; gap: 9px; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 28px; z-index: 60;
+    transform: translate(-50%, 16px); opacity: 0; pointer-events: none;
+    padding: 9px 14px; border: 1px solid var(--border-strong); border-radius: 10px;
+    background: var(--surface-2); color: var(--text); font-size: 12.5px;
+    box-shadow: var(--shadow); transition: opacity .18s ease, transform .18s ease;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  @media (max-width: 1080px) {
+    .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .split, .bg-split { grid-template-columns: minmax(0, 1fr); }
+    .page.no-children .file-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 760px) {
+    .topbar { padding: 0 16px; }
+    .workspace { padding: 18px 16px 60px; }
+    .utility { flex-direction: column; align-items: stretch; gap: 10px; }
+    .utility-right { justify-content: space-between; }
+    .back { white-space: nowrap; align-self: flex-start; }
+    .page-head { flex-direction: column; gap: 16px; }
+    .page-actions { flex-wrap: wrap; }
+    .title-line h1 { font-size: 20px; }
+    .file-grid, .page.no-children .file-grid { grid-template-columns: minmax(0, 1fr); }
+    .tech-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .tech-popover { width: calc(100vw - 32px); }
+    .run-row { grid-template-columns: 66px 70px minmax(0, 1fr) 16px; }
+    .run-meta, .run-files { display: none; }
+    .app-pagination { font-size: 11.5px; }
+    .app-pagination > span { max-width: 150px; }
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5l11 7-11 7V5z"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 10-2.3 5.7"/><path d="M20 4v7h-7"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3l9 16H3L12 3z"/><path d="M12 9v4M12 16h.01"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></symbol>
+  <symbol id="i-arrow-up-right" viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A8.5 8.5 0 1111.2 3 6.6 6.6 0 0021 12.8z"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 2l9 5-9 5-9-5 9-5z"/><path d="M3 12l9 5 9-5M3 17l9 5 9-5"/></symbol>
+</svg>
+
+<div class="app">
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="logo">M</div>
+      <nav class="tabs" aria-label="主导航">
+        <button class="tab" type="button">对话</button>
+        <button class="tab active" type="button" aria-current="page">任务</button>
+      </nav>
+    </div>
+    <div class="topbar-right">
+      <span class="draft-badge">交互稿 v2 · 待对齐</span>
+      <button class="icon-btn bare" id="themeBtn" type="button" aria-label="切换主题" title="切换主题">
+        <svg class="icon"><use href="#i-moon"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <div class="utility">
+      <button class="back" type="button" id="backBtn">
+        <svg class="icon"><use href="#i-back"/></svg>返回任务列表
+      </button>
+      <div class="utility-right">
+        <div class="segmented" role="tablist" aria-label="任务详情类型">
+          <button class="seg active" type="button" data-view="schedule" role="tab" aria-selected="true">定时任务</button>
+          <button class="seg" type="button" data-view="background" role="tab" aria-selected="false">后台任务</button>
+        </div>
+        <button class="ghost" id="notesBtn" type="button" aria-expanded="false">
+          <svg class="icon" style="width:14px;height:14px"><use href="#i-layers"/></svg>
+          改动说明<span class="dot"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ==================== SCHEDULE ==================== -->
+    <section class="page" data-page="schedule" aria-label="定时任务详情">
+      <header class="page-head">
+        <div class="page-head-main">
+          <div class="title-line">
+            <h1>客户1001-11月18日值守日报</h1>
+            <button class="info-btn" id="scheduleInfoBtn" type="button" aria-label="技术信息" aria-expanded="false" title="技术信息">
+              <svg class="icon" style="width:15px;height:15px"><use href="#i-info"/></svg>
+            </button>
+            <span class="pill success" id="scheduleStatus"><span class="dot"></span>进行中</span>
+            <span class="note-tag">01</span>
+            <span class="note-tag">10</span>
+          </div>
+          <p class="subtitle" id="scheduleSubtitle">
+            <svg class="icon" style="width:14px;height:14px"><use href="#i-calendar"/></svg>
+            每 5 分钟运行一次
+            <span class="sep">·</span>
+            <span class="accent">下次运行 今天 17:40</span>
+          </p>
+          <div class="tech-popover" id="scheduleTech" hidden>
+            <div class="pop-head">
+              <div>
+                <h3>技术信息</h3>
+                <p>排查问题时使用，日常不需要关注。</p>
+              </div>
+              <button class="icon-btn bare" type="button" data-close-tech="scheduleTech" aria-label="关闭技术信息">
+                <svg class="icon" style="width:14px;height:14px"><use href="#i-x"/></svg>
+              </button>
+            </div>
+            <div class="tech-grid">
+              <div><dt>时区</dt><dd>Asia/Shanghai（北京时间）</dd></div>
+              <div><dt>配置版本</dt><dd>1</dd></div>
+              <div><dt>Revision</dt><dd>1</dd></div>
+              <div><dt>依赖技能</dt><dd><code>SKILL-66beebbb-aafe-49d7-8389-3792ed43371b</code></dd></div>
+              <div><dt>运行快照</dt><dd>schema 4 · 5.5 KB</dd></div>
+              <div><dt>投递方式</dt><dd>PUSH（主动发送到会话）</dd></div>
+            </div>
+          </div>
+        </div>
+        <div class="page-actions">
+          <button class="btn primary" id="pauseBtn" type="button">
+            <svg class="icon"><use href="#i-pause"/></svg><span>暂停任务</span>
+          </button>
+          <button class="btn" type="button" data-toast="打开修改向导（沿用现有流程）">
+            <svg class="icon"><use href="#i-edit"/></svg>修改
+          </button>
+          <div class="menu-wrap">
+            <button class="icon-btn" id="moreBtn" type="button" aria-label="更多操作" aria-expanded="false">
+              <svg class="icon"><use href="#i-more"/></svg>
+            </button>
+            <div class="menu" id="moreMenu" hidden>
+              <button type="button" data-toast="已刷新任务状态">
+                <svg class="icon"><use href="#i-refresh"/></svg>刷新状态
+              </button>
+              <button type="button" data-toast="打开任务运行记录">
+                <svg class="icon"><use href="#i-list"/></svg>全部运行记录
+              </button>
+              <button class="danger" type="button" id="cancelItem">
+                <svg class="icon"><use href="#i-x"/></svg>取消任务
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <section class="metrics" aria-label="任务概览">
+        <article class="metric accent note-target">
+          <span class="metric-label"><svg class="icon" style="width:13px;height:13px"><use href="#i-calendar"/></svg>下次运行</span>
+          <strong class="metric-value">今天 17:40</strong>
+          <span class="metric-note">约 5 分钟后</span>
+        </article>
+        <article class="metric">
+          <span class="metric-label"><svg class="icon" style="width:13px;height:13px"><use href="#i-clock"/></svg>最近一次</span>
+          <strong class="metric-value">17:35 <span class="pill tiny success">成功</span></strong>
+          <span class="metric-note">用时 17 秒 · 生成 2 个文件</span>
+        </article>
+        <article class="metric">
+          <span class="metric-label"><svg class="icon" style="width:13px;height:13px"><use href="#i-send"/></svg>结果发送到</span>
+          <strong class="metric-value">企微 · 2 个机器人</strong>
+          <span class="metric-note" style="color:var(--success)">两个机器人都已送达</span>
+        </article>
+        <article class="metric">
+          <span class="metric-label"><svg class="icon" style="width:13px;height:13px"><use href="#i-refresh"/></svg>运行次数</span>
+          <strong class="metric-value">24 次</strong>
+          <span class="metric-note">最近 6 次全部成功</span>
+        </article>
+      </section>
+
+      <div class="split">
+        <section class="card runs-card">
+          <header class="card-head">
+            <div>
+              <h2>最近运行</h2>
+              <p class="card-sub">按时间倒序 · 每页 6 条</p>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span class="note-tag">03</span>
+              <span class="note-tag">11</span>
+            </div>
+          </header>
+          <div class="run-list" id="runList"></div>
+          <div class="app-pagination">
+            <span id="pgRange">显示第 1-6 条，共 24 条</span>
+            <div class="app-pagination-controls">
+              <button class="pg-btn" type="button" id="pgPrev" aria-label="上一页" disabled>
+                <svg class="icon" style="width:13px;height:13px"><use href="#i-back"/></svg>
+              </button>
+              <span class="app-pagination-page" id="pgPage">1 / 4</span>
+              <button class="pg-btn" type="button" id="pgNext" aria-label="下一页">
+                <svg class="icon" style="width:13px;height:13px;transform:rotate(180deg)"><use href="#i-back"/></svg>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <aside class="card detail-card" id="runDetail" aria-live="polite">
+          <header class="detail-head">
+            <div>
+              <h2 id="detailTitle">17:35 的运行</h2>
+              <p id="detailSub">今天 17:35 · 成功 · 用时 17 秒</p>
+            </div>
+            <span class="note-tag">04</span>
+          </header>
+          <div class="result-banner" id="detailBanner">
+            <div class="result-title"><svg class="icon" style="width:14px;height:14px"><use href="#i-check"/></svg>运行成功</div>
+            <p id="detailResult">已生成值守日报，并发送到 2 个企微机器人。</p>
+          </div>
+          <h3 class="section-label">生成的文件</h3>
+          <div class="detail-files" id="detailFiles"></div>
+          <h3 class="section-label">发送结果</h3>
+          <div class="delivery-list" id="detailDeliveries">
+            <div class="delivery-row">
+              <span class="bot"><svg class="icon" style="width:13px;height:13px"><use href="#i-send"/></svg></span>
+              <span class="who">企微机器人 1</span>
+              <span class="time" data-sent-at>17:35:22</span>
+              <span class="delivered"><svg class="icon" style="width:12px;height:12px"><use href="#i-check"/></svg>已送达</span>
+            </div>
+            <div class="delivery-row">
+              <span class="bot"><svg class="icon" style="width:13px;height:13px"><use href="#i-send"/></svg></span>
+              <span class="who">企微机器人 2</span>
+              <span class="time" data-sent-at>17:35:23</span>
+              <span class="delivered"><svg class="icon" style="width:12px;height:12px"><use href="#i-check"/></svg>已送达</span>
+            </div>
+          </div>
+          <footer class="detail-foot">
+            <button class="link" type="button" data-toast="打开这次运行的完整详情（结果、发送记录、技术信息）">
+              查看完整运行详情 <svg class="icon" style="width:13px;height:13px"><use href="#i-arrow-up-right"/></svg>
+            </button>
+            <button class="link muted" type="button" data-toast="已开始打包下载 2 个文件">下载全部</button>
+          </footer>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ==================== BACKGROUND ==================== -->
+    <section class="page" data-page="background" aria-label="后台任务详情" hidden>
+      <header class="page-head">
+        <div class="page-head-main">
+          <div class="title-line">
+            <h1>fake-platform-async-batch</h1>
+            <button class="info-btn" id="bgInfoBtn" type="button" aria-label="技术信息" aria-expanded="false" title="技术信息">
+              <svg class="icon" style="width:15px;height:15px"><use href="#i-info"/></svg>
+            </button>
+            <span class="pill warning" id="bgStatus"><span class="dot"></span>部分成功</span>
+            <span class="note-tag">07</span>
+            <span class="note-tag">10</span>
+          </div>
+          <p class="subtitle" id="bgSubtitle">
+            <svg class="icon" style="width:14px;height:14px"><use href="#i-layers"/></svg>
+            批量任务
+            <span class="sep">·</span>
+            <span id="bgChildCount">5 个子任务</span>
+            <span class="sep">·</span>
+            2026-11-18 10:37 开始，用时 15 秒
+          </p>
+          <p class="demo-line" id="childrenDemo">
+            <span class="demo-badge">演示</span>布局状态：
+            <button class="chip active" type="button" data-children="yes">有子任务</button>
+            <button class="chip" type="button" data-children="no">无子任务</button>
+            <span class="note-tag">12</span>
+          </p>
+          <div class="tech-popover" id="bgTechPopover" hidden>
+            <div class="pop-head">
+              <div>
+                <h3>技术信息</h3>
+                <p>Agent、任务 ID、原始结果等，排查问题时使用。</p>
+              </div>
+              <button class="icon-btn bare" type="button" data-close-tech="bgTechPopover" aria-label="关闭技术信息">
+                <svg class="icon" style="width:14px;height:14px"><use href="#i-x"/></svg>
+              </button>
+            </div>
+            <div class="tech-grid">
+              <div><dt>执行 Agent</dt><dd>安全值守助手</dd></div>
+              <div><dt>任务类型</dt><dd>BATCH（批量）</dd></div>
+              <div><dt>任务 ID</dt><dd class="mono">fake-platform-async-batch</dd></div>
+              <div><dt>开始时间</dt><dd>2026-11-18 10:37:42</dd></div>
+              <div><dt>结束时间</dt><dd>2026-11-18 10:37:57</dd></div>
+              <div><dt>投递</dt><dd>未请求推送到会话</dd></div>
+            </div>
+            <details class="raw-result" id="bgRaw">
+              <summary>查看原始结果 JSON</summary>
+              <pre id="bgRawJson">{
+  "mode": "BEST_EFFORT",
+  "total": 5,
+  "failed": 1,
+  "cancelled": 0,
+  "succeeded": 4
+}</pre>
+            </details>
+          </div>
+        </div>
+        <div class="page-actions">
+          <button class="btn" type="button" data-toast="已开始打包下载 8 个文件">
+            <svg class="icon"><use href="#i-download"/></svg>下载全部文件
+          </button>
+          <button class="icon-btn" type="button" aria-label="刷新" data-toast="已刷新任务结果">
+            <svg class="icon"><use href="#i-refresh"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <section class="card result-card">
+        <div class="result-main">
+          <div class="ring" style="--p:80" aria-label="5 项中 4 项成功">
+            <div class="ring-inner"><strong>4</strong><span>/ 5 成功</span></div>
+          </div>
+          <div class="result-copy">
+            <h2 id="bgResultTitle">任务已完成，但有 1 个子任务失败</h2>
+            <p id="bgResultDesc">失败的是 <b>report-C</b>：数据源响应超时。其余结果已生成，可以正常下载。</p>
+            <div class="result-actions" id="bgResultActions">
+              <button class="btn small" type="button" id="failedTaskBtn">
+                <svg class="icon" style="width:14px;height:14px"><use href="#i-alert"/></svg>查看失败子任务
+              </button>
+              <button class="link muted" type="button" id="rawResultBtn">查看原始结果</button>
+            </div>
+          </div>
+        </div>
+        <div class="bar" role="img" aria-label="成功 4，失败 1，取消 0">
+          <span class="ok" style="width:80%"></span>
+          <span class="warn" style="width:20%"></span>
+        </div>
+        <div class="legend">
+          <span><i class="ok"></i>成功 4</span>
+          <span><i class="warn"></i>失败 1</span>
+          <span><i class="idle"></i>取消 0</span>
+        </div>
+      </section>
+
+      <div class="bg-split">
+        <section class="card files-card">
+          <header class="card-head">
+            <div>
+              <h2>结果文件</h2>
+              <p class="card-sub">8 个文件 · 共 4.6 KB</p>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span class="note-tag">08</span>
+              <button class="btn small" type="button" data-toast="已开始打包下载 8 个文件">
+                <svg class="icon" style="width:14px;height:14px"><use href="#i-download"/></svg>全部下载
+              </button>
+            </div>
+          </header>
+          <div class="file-grid">
+            <div class="file-card">
+              <div class="file-icon csv">CSV</div>
+              <div class="file-body"><strong>report-A.csv</strong><span class="file-meta">CSV 表格 · 91 B</span></div>
+              <button class="icon-btn bare" type="button" aria-label="下载 report-A.csv" data-toast="下载 report-A.csv"><svg class="icon"><use href="#i-download"/></svg></button>
+            </div>
+            <div class="file-card">
+              <div class="file-icon json">JSON</div>
+              <div class="file-body"><strong>report-A.json</strong><span class="file-meta">JSON 数据 · 701 B</span></div>
+              <button class="icon-btn bare" type="button" aria-label="下载 report-A.json" data-toast="下载 report-A.json"><svg class="icon"><use href="#i-download"/></svg></button>
+            </div>
+            <div class="file-card">
+              <div class="file-icon csv">CSV</div>
+              <div class="file-body"><strong>report-B.csv</strong><span class="file-meta">CSV 表格 · 91 B</span></div>
+              <button class="icon-btn bare" type="button" aria-label="下载 report-B.csv" data-toast="下载 report-B.csv"><svg class="icon"><use href="#i-download"/></svg></button>
+            </div>
+            <div class="file-card">
+              <div class="file-icon json">JSON</div>
+              <div class="file-body"><strong>report-B.json</strong><span class="file-meta">JSON 数据 · 701 B</span></div>
+              <button class="icon-btn bare" type="button" aria-label="下载 report-B.json" data-toast="下载 report-B.json"><svg class="icon"><use href="#i-download"/></svg></button>
+            </div>
+            <div class="file-card">
+              <div class="file-icon csv">CSV</div>
+              <div class="file-body"><strong>report-D.csv</strong><span class="file-meta">CSV 表格 · 91 B</span></div>
+              <button class="icon-btn bare" type="button" aria-label="下载 report-D.csv" data-toast="下载 report-D.csv"><svg class="icon"><use href="#i-download"/></svg></button>
+            </div>
+            <div class="file-card">
+              <div class="file-icon json">JSON</div>
+              <div class="file-body"><strong>report-D.json</strong><span class="file-meta">JSON 数据 · 701 B</span></div>
+              <button class="icon-btn bare" type="button" aria-label="下载 report-D.json" data-toast="下载 report-D.json"><svg class="icon"><use href="#i-download"/></svg></button>
+            </div>
+            <div class="file-card">
+              <div class="file-icon csv">CSV</div>
+              <div class="file-body"><strong>report-E.csv</strong><span class="file-meta">CSV 表格 · 91 B</span></div>
+              <button class="icon-btn bare" type="button" aria-label="下载 report-E.csv" data-toast="下载 report-E.csv"><svg class="icon"><use href="#i-download"/></svg></button>
+            </div>
+            <div class="file-card">
+              <div class="file-icon json">JSON</div>
+              <div class="file-body"><strong>report-E.json</strong><span class="file-meta">JSON 数据 · 701 B</span></div>
+              <button class="icon-btn bare" type="button" aria-label="下载 report-E.json" data-toast="下载 report-E.json"><svg class="icon"><use href="#i-download"/></svg></button>
+            </div>
+          </div>
+        </section>
+
+        <aside class="card subtasks-card">
+          <header class="card-head">
+            <div>
+              <h2>子任务</h2>
+              <p class="card-sub">5 项 · 点击查看详情</p>
+            </div>
+            <span class="note-tag">09</span>
+          </header>
+          <div class="subtask-list">
+            <button class="subtask-row" type="button" data-toast="打开子任务 report-A 的详情">
+              <span class="subtask-name">report-A</span>
+              <span class="pill tiny success">成功</span>
+              <span class="subtask-meta">2 个文件</span>
+              <svg class="icon chev" style="width:13px;height:13px"><use href="#i-chevron"/></svg>
+            </button>
+            <button class="subtask-row" type="button" data-toast="打开子任务 report-B 的详情">
+              <span class="subtask-name">report-B</span>
+              <span class="pill tiny success">成功</span>
+              <span class="subtask-meta">2 个文件</span>
+              <svg class="icon chev" style="width:13px;height:13px"><use href="#i-chevron"/></svg>
+            </button>
+            <button class="subtask-row failed" type="button" data-toast="打开子任务 report-C 的失败详情">
+              <span class="subtask-name">report-C</span>
+              <span class="pill tiny danger">失败</span>
+              <span class="subtask-meta">数据源超时</span>
+              <svg class="icon chev" style="width:13px;height:13px"><use href="#i-chevron"/></svg>
+            </button>
+            <button class="subtask-row" type="button" data-toast="打开子任务 report-D 的详情">
+              <span class="subtask-name">report-D</span>
+              <span class="pill tiny success">成功</span>
+              <span class="subtask-meta">2 个文件</span>
+              <svg class="icon chev" style="width:13px;height:13px"><use href="#i-chevron"/></svg>
+            </button>
+            <button class="subtask-row" type="button" data-toast="打开子任务 report-E 的详情">
+              <span class="subtask-name">report-E</span>
+              <span class="pill tiny success">成功</span>
+              <span class="subtask-meta">2 个文件</span>
+              <svg class="icon chev" style="width:13px;height:13px"><use href="#i-chevron"/></svg>
+            </button>
+          </div>
+          <div class="subtasks-foot">
+            <button class="link" type="button" data-toast="打开完整的子任务列表">
+              查看子任务详情 <svg class="icon" style="width:13px;height:13px"><use href="#i-arrow-up-right"/></svg>
+            </button>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- notes drawer -->
+<aside class="notes-drawer" id="notesDrawer" aria-label="改动说明">
+  <div class="notes-head">
+    <div>
+      <h2>这一版改了什么</h2>
+      <p>目标是让不懂技术的用户 10 秒内看懂任务状态和结果。</p>
+    </div>
+    <button class="icon-btn bare" id="notesClose" type="button" aria-label="关闭改动说明">
+      <svg class="icon"><use href="#i-x"/></svg>
+    </button>
+  </div>
+
+  <div class="note-item">
+    <span class="note-num">01</span>
+    <div>
+      <h3>标题只保留任务名</h3>
+      <p>频率、状态、下次运行放在副标题里；“任务详情”这种重复标题去掉。</p>
+      <span class="removed">删除：名称里的“（每5分钟循环）”、页头“任务详情”</span>
+    </div>
+  </div>
+  <div class="note-item">
+    <span class="note-num">02</span>
+    <div>
+      <h3>首屏只回答四个问题</h3>
+      <p>下次什么时候跑、上次跑得怎么样、结果发到哪里、一共跑了多少次。</p>
+      <span class="removed">删除：配置版本、Revision、依赖 UUID、时区、投递枚举</span>
+    </div>
+  </div>
+  <div class="note-item">
+    <span class="note-num">03</span>
+    <div>
+      <h3>一个运行只显示一个状态</h3>
+      <p>“已创建执行”和“已完成”合成一个“成功”，用户不需要理解触发和执行的差别。</p>
+    </div>
+  </div>
+  <div class="note-item">
+    <span class="note-num">04</span>
+    <div>
+      <h3>运行记录和结果并排</h3>
+      <p>点左边任意一条，右边直接看结果和文件，不用滚到页面底部再展开一大块。</p>
+    </div>
+  </div>
+  <div class="note-item">
+    <span class="note-num">05</span>
+    <div>
+      <h3>文件行说人话</h3>
+      <p>只留文件名、类型、大小、是否送达。下载是主操作。</p>
+      <span class="removed">删除：MIME、版本、sha256 校验值、重复的“企微 已交付”徽标</span>
+    </div>
+  </div>
+  <div class="note-item">
+    <span class="note-num">06</span>
+    <div>
+      <h3>没有内容的区块不占位</h3>
+      <p>无夏令时事件、保留策略提示、未请求推送等全部不展示；技术字段收进任务名旁的技术信息入口。</p>
+    </div>
+  </div>
+  <div class="note-item">
+    <span class="note-num">07</span>
+    <div>
+      <h3>后台任务先给结论</h3>
+      <p>用“4 成功 / 1 失败”+ 进度条替代原始 JSON 和四张重复计数卡，并直接指出失败项。</p>
+      <span class="removed">删除：BEST_EFFORT、total/failed JSON、总项数四卡</span>
+    </div>
+  </div>
+  <div class="note-item">
+    <span class="note-num">08</span>
+    <div>
+      <h3>文件改成两列卡片</h3>
+      <p>8 个文件一屏能扫完，下载按钮固定在右侧，不再重复“未请求推送”。</p>
+    </div>
+  </div>
+  <div class="note-item">
+    <span class="note-num">09</span>
+    <div>
+      <h3>子任务可下钻</h3>
+      <p>失败项直接显示原因摘要，点进去看完整错误和产物；Agent UUID 不再占据首屏。</p>
+    </div>
+  </div>
+  <div class="note-item">
+    <span class="note-num">10</span>
+    <div>
+      <h3>技术信息挂在任务名旁</h3>
+      <p>点任务名后面的小 i 弹出，不再在页面底部占一整块；排查时才打开。</p>
+      <span class="removed">删除：底部整块“技术信息”折叠卡</span>
+    </div>
+  </div>
+  <div class="note-item">
+    <span class="note-num">11</span>
+    <div>
+      <h3>运行列表使用统一分页</h3>
+      <p>每页 6 条，底部沿用系统分页组件；左右两栏等高，详情内容不足时由底部操作区撑住。</p>
+      <span class="removed">删除：单独的“查看全部”链接</span>
+    </div>
+  </div>
+  <div class="note-item">
+    <span class="note-num">12</span>
+    <div>
+      <h3>无子任务时自动改布局</h3>
+      <p>隐藏子任务卡，文件卡全宽；顶部从“4/5”改成单一“已完成”，不再暴露不存在的子任务计数。</p>
+      <span class="removed">删除：空的子任务卡、0 项计数条</span>
+    </div>
+  </div>
+
+  <div class="notes-question">
+    <h3>实现备注（数据/接口）</h3>
+    <ol>
+      <li>“用时 / 2 个文件”数据库里有：execution.started_at/finished_at、artifact.task_id，补 FireItem 字段即可，不需要迁移。</li>
+      <li>“发送到 2 个机器人”可从产物的 deliveries 聚合；纯文本运行没有这层数据，建议先不显示。</li>
+      <li>“下载全部”没有打包接口，现阶段只能逐个触发下载，或后续加 ZIP 接口。</li>
+    </ol>
+  </div>
+
+  <div class="notes-question">
+    <h3>已确认</h3>
+    <ol>
+      <li>每页 6 条 + 统一分页。</li>
+      <li>无子任务时隐藏子任务卡、文件卡全宽。</li>
+      <li>技术信息挂在任务名旁，所有用户可见。</li>
+    </ol>
+    <h3 style="margin-top:12px">还需确认：用时口径</h3>
+    <ol>
+      <li>推荐显示“端到端用时”：计划触发 → 最后一个机器人发送完成（当前实测约 17 秒）。</li>
+      <li>如果只看执行本身，则约 0.3–0.7 秒；对用户意义不大，但更接近“执行耗时”。</li>
+    </ol>
+  </div>
+</aside>
+<div class="scrim" id="scrim"></div>
+
+<!-- cancel dialog -->
+<div class="dialog-scrim" id="cancelDialog" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="cancelTitle">
+    <h3 id="cancelTitle">取消这个定时任务？</h3>
+    <p>取消后不会再自动运行，已经生成的结果和文件会保留，也可以随时重新创建。</p>
+    <div class="dialog-actions">
+      <button class="btn" type="button" id="cancelKeep">保留任务</button>
+      <button class="btn primary" type="button" id="cancelConfirm" style="background:var(--danger);box-shadow:none">取消任务</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+  const html = document.documentElement;
+  const themeBtn = document.getElementById('themeBtn');
+  const setTheme = (theme) => {
+    html.dataset.theme = theme;
+    themeBtn.innerHTML = theme === 'dark'
+      ? '<svg class="icon"><use href="#i-moon"/></svg>'
+      : '<svg class="icon"><use href="#i-sun"/></svg>';
+  };
+  themeBtn.addEventListener('click', () => setTheme(html.dataset.theme === 'dark' ? 'light' : 'dark'));
+
+  let toastTimer;
+  const toast = (message) => {
+    const el = document.getElementById('toast');
+    el.textContent = message;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 1800);
+  };
+  document.querySelectorAll('[data-toast]').forEach((el) => {
+    el.addEventListener('click', () => toast(el.dataset.toast));
+  });
+  document.getElementById('backBtn').addEventListener('click', () => toast('返回任务列表'));
+
+  const flash = (el) => {
+    el.classList.add('flash');
+    window.setTimeout(() => el.classList.remove('flash'), 1600);
+  };
+  const scheduleTech = document.getElementById('scheduleTech');
+  const bgTechPopover = document.getElementById('bgTechPopover');
+  const scheduleInfoBtn = document.getElementById('scheduleInfoBtn');
+  const bgInfoBtn = document.getElementById('bgInfoBtn');
+  const closeTech = () => {
+    scheduleTech.hidden = true;
+    bgTechPopover.hidden = true;
+    scheduleInfoBtn.setAttribute('aria-expanded', 'false');
+    bgInfoBtn.setAttribute('aria-expanded', 'false');
+  };
+  const toggleTech = (popover, button) => {
+    const open = popover.hidden;
+    closeTech();
+    popover.hidden = !open;
+    button.setAttribute('aria-expanded', open ? 'true' : 'false');
+  };
+  scheduleInfoBtn.addEventListener('click', (event) => {
+    event.stopPropagation();
+    toggleTech(scheduleTech, scheduleInfoBtn);
+  });
+  bgInfoBtn.addEventListener('click', (event) => {
+    event.stopPropagation();
+    toggleTech(bgTechPopover, bgInfoBtn);
+  });
+  document.querySelectorAll('[data-close-tech]').forEach((btn) => {
+    btn.addEventListener('click', closeTech);
+  });
+  document.addEventListener('click', (event) => {
+    if (event.target.closest('.tech-popover') || event.target.closest('.info-btn')) return;
+    closeTech();
+  });
+
+  document.getElementById('failedTaskBtn').addEventListener('click', () => {
+    const row = document.querySelector('.subtask-row.failed');
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    flash(row);
+    toast('已定位到失败的子任务 report-C');
+  });
+  document.getElementById('rawResultBtn').addEventListener('click', (event) => {
+    event.stopPropagation();
+    closeTech();
+    bgTechPopover.hidden = false;
+    bgInfoBtn.setAttribute('aria-expanded', 'true');
+    document.getElementById('bgRaw').open = true;
+    bgTechPopover.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    flash(bgTechPopover);
+    toast('已展开原始结果');
+  });
+
+  // background: with / without child tasks
+  const bgPage = document.querySelector('[data-page="background"]');
+  const bgStatus = document.getElementById('bgStatus');
+  const bgChildCount = document.getElementById('bgChildCount');
+  const bgResultTitle = document.getElementById('bgResultTitle');
+  const bgResultDesc = document.getElementById('bgResultDesc');
+  const bgFailedBtn = document.getElementById('failedTaskBtn');
+  const bgRawJson = document.getElementById('bgRawJson');
+  const setChildren = (hasChildren) => {
+    bgPage.classList.toggle('no-children', !hasChildren);
+    document.querySelectorAll('#childrenDemo .chip').forEach((chip) => {
+      chip.classList.toggle('active', chip.dataset.children === (hasChildren ? 'yes' : 'no'));
+    });
+    const ring = bgPage.querySelector('.ring');
+    const ringInner = bgPage.querySelector('.ring-inner');
+    if (hasChildren) {
+      bgStatus.className = 'pill warning';
+      bgStatus.innerHTML = '<span class="dot"></span>部分成功';
+      bgChildCount.textContent = '5 个子任务';
+      ring.style.setProperty('--p', '80');
+      ringInner.innerHTML = '<strong>4</strong><span>/ 5 成功</span>';
+      bgResultTitle.textContent = '任务已完成，但有 1 个子任务失败';
+      bgResultDesc.innerHTML = '失败的是 <b>report-C</b>：数据源响应超时。其余结果已生成，可以正常下载。';
+      bgFailedBtn.hidden = false;
+      bgRawJson.textContent = '{\n  "mode": "BEST_EFFORT",\n  "total": 5,\n  "failed": 1,\n  "cancelled": 0,\n  "succeeded": 4\n}';
+    } else {
+      bgStatus.className = 'pill success';
+      bgStatus.innerHTML = '<span class="dot"></span>已完成';
+      bgChildCount.textContent = '单次任务';
+      ring.style.setProperty('--p', '100');
+      ringInner.innerHTML = '<strong>✓</strong><span>已完成</span>';
+      bgResultTitle.textContent = '任务已成功完成';
+      bgResultDesc.textContent = '已生成 8 个结果文件，可直接下载。';
+      bgFailedBtn.hidden = true;
+      bgRawJson.textContent = '{\n  "mode": "BEST_EFFORT",\n  "total": 1,\n  "failed": 0,\n  "cancelled": 0,\n  "succeeded": 1\n}';
+    }
+  };
+  document.querySelectorAll('#childrenDemo .chip').forEach((chip) => {
+    chip.addEventListener('click', () => setChildren(chip.dataset.children === 'yes'));
+  });
+
+  // page switch
+  document.querySelectorAll('.seg').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.seg').forEach((b) => {
+        const active = b === btn;
+        b.classList.toggle('active', active);
+        b.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      document.querySelectorAll('.page').forEach((page) => {
+        page.hidden = page.dataset.page !== btn.dataset.view;
+      });
+      closeTech();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+
+  // schedule runs + unified pagination
+  const files = [
+    { name: '安全事件及威胁实体封堵列表-20261118.xlsx', type: 'xls', label: 'Excel 表格', size: '6.5 KB' },
+    { name: 'report.txt', type: 'txt', label: '文本文件', size: '1.4 KB' }
+  ];
+  const allRuns = Array.from({ length: 24 }, (_, i) => {
+    const totalMinutes = 17 * 60 + 35 - i * 5;
+    const time = `${String(Math.floor(totalMinutes / 60)).padStart(2, '0')}:${String(totalMinutes % 60).padStart(2, '0')}`;
+    const seconds = [17, 18, 16, 19, 17][i % 5];
+    return {
+      time,
+      duration: `${seconds} 秒`,
+      sentAt: [`${time}:22`, `${time}:23`],
+      title: '已生成值守日报，并发送到 2 个企微机器人。'
+    };
+  });
+  const pageSize = 6;
+  let page = 1;
+  let selectedIndex = 0;
+  const runList = document.getElementById('runList');
+  const pgRange = document.getElementById('pgRange');
+  const pgPage = document.getElementById('pgPage');
+  const pgPrev = document.getElementById('pgPrev');
+  const pgNext = document.getElementById('pgNext');
+  const detailTitle = document.getElementById('detailTitle');
+  const detailSub = document.getElementById('detailSub');
+  const detailResult = document.getElementById('detailResult');
+  const detailFiles = document.getElementById('detailFiles');
+  const renderFiles = () => {
+    detailFiles.innerHTML = files.map((file) => `
+      <div class="file-row">
+        <div class="file-icon ${file.type}">${file.type === 'xls' ? 'XLS' : 'TXT'}</div>
+        <div class="file-body">
+          <strong title="${file.name}">${file.name}</strong>
+          <span class="file-meta">${file.label} · ${file.size}
+            <span class="delivered"><svg class="icon" style="width:12px;height:12px"><use href="#i-check"/></svg>已发送</span>
+          </span>
+        </div>
+        <button class="icon-btn bare" type="button" aria-label="下载 ${file.name}" data-toast="下载 ${file.name}">
+          <svg class="icon"><use href="#i-download"/></svg>
+        </button>
+      </div>
+    `).join('');
+    detailFiles.querySelectorAll('[data-toast]').forEach((el) => {
+      el.addEventListener('click', () => toast(el.dataset.toast));
+    });
+  };
+  const renderDetail = (run) => {
+    detailTitle.textContent = `${run.time} 的运行`;
+    detailSub.textContent = `今天 ${run.time} · 成功 · 用时 ${run.duration}`;
+    detailResult.textContent = run.title;
+    renderFiles();
+    document.querySelectorAll('#detailDeliveries [data-sent-at]').forEach((el, index) => {
+      el.textContent = run.sentAt[index];
+    });
+  };
+  const totalPages = Math.ceil(allRuns.length / pageSize);
+  const renderPage = () => {
+    const start = (page - 1) * pageSize;
+    const items = allRuns.slice(start, start + pageSize);
+    runList.innerHTML = '<div class="day-label">今天</div>' + items.map((run, offset) => {
+      const index = start + offset;
+      return `
+        <button class="run-row${index === selectedIndex ? ' is-selected' : ''}" type="button" data-run="${index}">
+          <span class="run-time"><b>${run.time}</b></span>
+          <span class="pill tiny success">成功</span>
+          <span class="run-meta">用时 ${run.duration}</span>
+          <span class="run-files"><svg class="icon" style="width:13px;height:13px"><use href="#i-file"/></svg>2 个文件</span>
+          <svg class="icon chev"><use href="#i-chevron"/></svg>
+        </button>`;
+    }).join('');
+    runList.querySelectorAll('.run-row').forEach((row) => {
+      row.addEventListener('click', () => {
+        selectedIndex = Number(row.dataset.run);
+        runList.querySelectorAll('.run-row').forEach((item) => item.classList.remove('is-selected'));
+        row.classList.add('is-selected');
+        renderDetail(allRuns[selectedIndex]);
+      });
+    });
+    pgRange.textContent = `显示第 ${start + 1}-${Math.min(start + pageSize, allRuns.length)} 条，共 ${allRuns.length} 条`;
+    pgPage.textContent = `${page} / ${totalPages}`;
+    pgPrev.disabled = page <= 1;
+    pgNext.disabled = page >= totalPages;
+    renderDetail(allRuns[selectedIndex]);
+  };
+  const goPage = (next) => {
+    if (next < 1 || next > totalPages) return;
+    page = next;
+    const start = (page - 1) * pageSize;
+    if (selectedIndex < start || selectedIndex >= start + pageSize) selectedIndex = start;
+    renderPage();
+  };
+  pgPrev.addEventListener('click', () => goPage(page - 1));
+  pgNext.addEventListener('click', () => goPage(page + 1));
+  renderPage();
+
+  // notes drawer
+  const body = document.body;
+  const drawer = document.getElementById('notesDrawer');
+  const scrim = document.getElementById('scrim');
+  const notesBtn = document.getElementById('notesBtn');
+  const setNotes = (open) => {
+    body.classList.toggle('notes-on', open);
+    drawer.classList.toggle('open', open);
+    scrim.classList.toggle('open', open);
+    notesBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  };
+  notesBtn.addEventListener('click', () => setNotes(!drawer.classList.contains('open')));
+  document.getElementById('notesClose').addEventListener('click', () => setNotes(false));
+  scrim.addEventListener('click', () => setNotes(false));
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      setNotes(false);
+      closeTech();
+      document.getElementById('moreMenu').hidden = true;
+      document.getElementById('cancelDialog').hidden = true;
+    }
+  });
+
+  // more menu + cancel
+  const moreBtn = document.getElementById('moreBtn');
+  const moreMenu = document.getElementById('moreMenu');
+  moreBtn.addEventListener('click', (event) => {
+    event.stopPropagation();
+    moreMenu.hidden = !moreMenu.hidden;
+    moreBtn.setAttribute('aria-expanded', moreMenu.hidden ? 'false' : 'true');
+  });
+  document.addEventListener('click', () => {
+    moreMenu.hidden = true;
+    moreBtn.setAttribute('aria-expanded', 'false');
+  });
+  document.getElementById('cancelItem').addEventListener('click', (event) => {
+    event.stopPropagation();
+    moreMenu.hidden = true;
+    document.getElementById('cancelDialog').hidden = false;
+  });
+  document.getElementById('cancelKeep').addEventListener('click', () => {
+    document.getElementById('cancelDialog').hidden = true;
+  });
+  document.getElementById('cancelConfirm').addEventListener('click', () => {
+    document.getElementById('cancelDialog').hidden = true;
+    document.getElementById('scheduleStatus').className = 'pill neutral';
+    document.getElementById('scheduleStatus').innerHTML = '<span class="dot"></span>已取消';
+    document.getElementById('scheduleSubtitle').innerHTML = '这个任务已取消，不会再自动运行。已生成的结果会保留。';
+    document.getElementById('pauseBtn').disabled = true;
+    document.getElementById('pauseBtn').style.opacity = '.45';
+    document.getElementById('pauseBtn').style.cursor = 'not-allowed';
+    toast('任务已取消');
+  });
+
+  // pause / resume
+  document.getElementById('pauseBtn').addEventListener('click', () => {
+    const status = document.getElementById('scheduleStatus');
+    const subtitle = document.getElementById('scheduleSubtitle');
+    const button = document.getElementById('pauseBtn');
+    if (!status.textContent.includes('已暂停')) {
+      status.className = 'pill warning';
+      status.innerHTML = '<span class="dot"></span>已暂停';
+      subtitle.innerHTML = '已暂停 · 恢复后会继续每 5 分钟运行';
+      button.innerHTML = '<svg class="icon"><use href="#i-play"/></svg><span>恢复任务</span>';
+      toast('任务已暂停，下次运行前不会自动触发');
+    } else {
+      status.className = 'pill success';
+      status.innerHTML = '<span class="dot"></span>进行中';
+      subtitle.innerHTML = '<svg class="icon" style="width:14px;height:14px"><use href="#i-calendar"/></svg> 每 5 分钟运行一次 <span class="sep">·</span> <span class="accent">下次运行 今天 17:40</span>';
+      button.innerHTML = '<svg class="icon"><use href="#i-pause"/></svg><span>暂停任务</span>';
+      toast('任务已恢复');
+    }
+  });
+</script>
+</body>
+</html>
