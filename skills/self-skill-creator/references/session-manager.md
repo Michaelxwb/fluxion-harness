@@ -1,6 +1,6 @@
 # 平台登录态：Skill 先调 session-manager get-state
 
-Skill 访问受保护业务平台时，自己调用 `session-manager get-state --skill-name <skill>` 获取登录态文件，然后直接读该文件发 `requests` 请求。`muad_skill_http` 不再解析登录态，也不执行 session-manager。
+Skill 访问受保护业务平台时，自己调用 `session-manager get-state --skill-name <skill>` 获取登录态文件，然后直接读该文件发 `requests` 请求。平台不代发业务请求，登录态只由 Skill 自行读取。
 
 ## 脚本写法
 
@@ -45,9 +45,9 @@ response = requests.get(base_url + "/api/v1/items", headers={"Cookie": cookie}, 
 
 ## 本地开发
 
-本地没有 session-manager。模板在 `MUAD_SESSION_KEY` 不存在时直接读
-`~/.muad-local/session-state.json`。用 SDK 的 `build_local_state` /
-`merge_local_states` 从浏览器复制的 Cookie 生成该文件即可；不要提交填好的状态文件。
+本地没有 session-manager。把同形状的 state 文件放到 `MUAD_LOCAL_SESSION_STATE` 指向的路径，
+模板脚本在 `MUAD_SESSION_SOCKET` 不存在时会优先使用它（`tools/fake-business-platform/`
+可以生成这种 state 并做端到端验证）。不要提交填好的状态文件——里面是真实 Cookie。
 
 ## browser 能力
 

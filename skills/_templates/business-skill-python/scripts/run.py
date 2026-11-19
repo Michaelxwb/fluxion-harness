@@ -79,6 +79,10 @@ def load_platform_state(state_file: str) -> tuple[str, dict[str, str]]:
     headers: dict[str, str] = {}
     if cookie_pairs:
         headers["Cookie"] = "; ".join(cookie_pairs)
+    for key, value in (profile.get("hostHeader") or {}).items():
+        headers[str(key)] = str(value)
+    if profile.get("referer"):
+        headers["Referer"] = str(profile["referer"])
     for mapping in profile.get("csrf") or []:
         if not isinstance(mapping, dict):
             continue
