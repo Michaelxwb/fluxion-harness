@@ -196,6 +196,35 @@ async def test_channel_without_local_adapter_enqueues_one_command() -> None:
     assert command.created_at is not None
 
 
+async def test_fanout_to_two_targets_enqueues_distinct_commands() -> None:
+    """同一 delivery_key 扇出到两个目标：命令必须各带 target_key。
+
+    Connector 的持久回执按 (tenant, delivery_key, target_key) 仲裁；Gateway 在命令上
+    丢掉 target_key 会让第二个 bot 命中第一个目标的回执而不发送。
+    """
+    streams = _Streams()
+    task_id = uuid.uuid4()
+    bodies: list[dict[str, Any]] = []
+    for bot_id, target_key in (("bot-1", "WECOM:first"), ("bot-2", "WECOM:second")):
+        body = _body()
+        body["task_id"] = str(task_id)
+        body["delivery_key"] = f"execution:{task_id}:final"
+        body["target_key"] = target_key
+        body["route"]["bot_id"] = bot_id
+        bodies.append(body)
+
+    async with _client(ChannelRegistry(), streams) as client:
+        for body in bodies:
+            response = await client.post(DELIVERIES_URL, json=body)
+            assert response.status_code == 200, response.text
+
+    assert [command.bot_id for command in streams.commands] == ["bot-1", "bot-2"]
+    assert [command.target_key for command in streams.commands] == [
+        "WECOM:first",
+        "WECOM:second",
+    ]
+
+
 async def test_non_local_adapter_uses_the_stream() -> None:
     """有适配器但不具备进程内直发能力（webhook）⇒ 同样交给 im.outbound。"""
     streams = _Streams()

@@ -409,6 +409,7 @@ def _build_command(body: DeliveryRequest, catalog: MessageCatalog) -> DeliveryCo
         artifact=artifact,
         attachments=tuple(message.attachments),
         delivery_key=body.delivery_key,
+        target_key=body.target_key,
         delivery_attempt_id=body.delivery_attempt_id,
         delivery_epoch=body.delivery_epoch,
         created_at=datetime.now(UTC),

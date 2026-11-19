@@ -189,7 +189,9 @@ class CommandExecutor:
         # 不管 command_id 是新的还是旧的；旧投递 epoch 的命令不得重新获得发送资格。
         if command.delivery_key:
             receipt = await self._replies.delivery_receipt(
-                tenant_id=command.tenant_id, delivery_key=command.delivery_key
+                tenant_id=command.tenant_id,
+                delivery_key=command.delivery_key,
+                target_key=command.target_key,
             )
             if receipt is not None:
                 stored_epoch = int(receipt.get("delivery_epoch") or 0)
@@ -611,9 +613,11 @@ class CommandExecutor:
     async def remember_delivery(
         self, command: DeliveryCommand, result: CommandResult
     ) -> None:
-        """把终态/降级的真实发送结果按 (tenant, delivery_key) 持久化，供重复命令重放。
+        """把终态/降级的真实发送结果按 (tenant, delivery_key, target_key) 持久化。
 
-        失败（FAILED/RETRY/FENCED/EXPIRED）不冻结：它们必须允许后续尝试重新获得发送资格。
+        同一逻辑投递键可以扇出到多个目标；目标身份不进键，第二个收件人会被当成回放
+        而永远收不到内容。失败（FAILED/RETRY/FENCED/EXPIRED）不冻结：它们必须允许
+        后续尝试重新获得发送资格。
         """
         if not command.delivery_key:
             return
@@ -622,6 +626,7 @@ class CommandExecutor:
         await self._replies.remember_delivery(
             tenant_id=command.tenant_id,
             delivery_key=command.delivery_key,
+            target_key=command.target_key,
             delivery_epoch=command.delivery_epoch or 0,
             status=result.status.value,
             code=result.code,
