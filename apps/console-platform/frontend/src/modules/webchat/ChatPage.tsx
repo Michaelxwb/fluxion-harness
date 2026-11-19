@@ -1765,6 +1765,16 @@ export default function ChatPage() {
     void restore();
   }, [restore]);
 
+  // CHAT 路由固定占满视口：页面本身不滚动，唯一滚动视口是消息区。
+  // 部分浏览器在窗口/扩展横幅变化后会把根节点撑高，导致整页可上滚；这里锁住文档滚动并复位。
+  useLayoutEffect(() => {
+    if (typeof document === 'undefined') return;
+    const root = document.documentElement;
+    root.classList.add('chat-route-active');
+    window.scrollTo(0, 0);
+    return () => root.classList.remove('chat-route-active');
+  }, []);
+
   // 端口只暴露稳定引用（控制器方法引用在页面生命周期内稳定），避免每渲染重建状态服务。
   const limitsPort = useMemo<ConversationLimitsPort>(() => ({ limits: config.limits }), [config.limits]);
   const conversations = useConversations(client, auth, limitsPort, MAX_SCOPED_CONVERSATIONS);
