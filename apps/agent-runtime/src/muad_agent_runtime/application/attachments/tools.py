@@ -829,8 +829,29 @@ class AttachmentToolSet:
             # 没拿到结论（超时/传输/网关拒绝）⇒ 一律按"失败可重试"报，**绝不**说已交付
             return DELIVERY_RESULT_FAILED.format(reason=str(exc), artifact_id=row.id)
         if response.outcome == _DEGRADED_OUTCOME:
+            await self._publish_explicit_delivery(row)
             return DELIVERY_RESULT_DEGRADED.format(url=response.fallback_url or "")
+        await self._publish_explicit_delivery(row)
         return DELIVERY_RESULT_DELIVERED.format(artifact_id=row.id, filename=_filename(row))
+
+    async def _publish_explicit_delivery(self, row: Artifact) -> None:
+        """显式交付成功后落一条会话事实：终态消息按附件身份去重，不再重复推同一文件。"""
+        if self._run_id is None or self._conversation_id is None:
+            return
+        try:
+            await publish_artifact_to_conversation(
+                self._session_factory,
+                tenant_id=self._tenant_id,
+                conversation_id=self._conversation_id,
+                run_id=self._run_id,
+                artifact_id=row.id,
+            )
+        except Exception as exc:  # noqa: BLE001 - 已真实发送；事实写入失败只影响去重，不回滚交付
+            logger.warning(
+                "explicit_artifact_publication_failed artifact_id=%s error=%s",
+                row.id,
+                type(exc).__name__,
+            )
 
     def _store(self) -> NfsArtifactStore:
         return NfsArtifactStore(self._artifact_root)

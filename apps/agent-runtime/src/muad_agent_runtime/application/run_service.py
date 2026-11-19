@@ -3773,10 +3773,25 @@ class RunService:
                 .order_by(Artifact.logical_file_id, Artifact.version.desc())
             )
         ).scalars()
+        explicitly_delivered = set(
+            await session.scalars(
+                sa.select(CanonicalEvent.artifact_id).where(
+                    CanonicalEvent.tenant_id == tenant_id,
+                    CanonicalEvent.run_id == run_id,
+                    CanonicalEvent.event_type == "ARTIFACT_CREATED",
+                    CanonicalEvent.artifact_id.is_not(None),
+                    CanonicalEvent.is_deleted.is_(False),
+                )
+            )
+        )
         latest: dict[uuid.UUID, Artifact] = {}
         for row in rows:
             latest.setdefault(row.logical_file_id, row)
-        return [attachment_ref(row).model_dump(mode="json") for row in latest.values()]
+        return [
+            attachment_ref(row).model_dump(mode="json")
+            for row in latest.values()
+            if row.id not in explicitly_delivered
+        ]
 
     def _terminal_start(self, run: RunRecord) -> RunStart:
         # 事件生成器在响应开始后才消费，此时请求级 Session 已释放：先把身份抄成普通值，
