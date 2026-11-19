@@ -8,7 +8,7 @@
 >
 > **实测验证**：2026-11-13 用开发环境真实 token 跑通（本文第 5 节）。
 >
-> 本文记录**对方代码的事实**，不是我们的设计决策；取舍见 `02-requirements.md`。
+> 本文记录**对方代码的事实**，不是我们的设计决策；取舍见 `.code-flow/tasks/2026-11-13/mssw-external-im-channel/mssw-external-im-channel.backend.design.md`。
 
 ## 1. Token 结构
 

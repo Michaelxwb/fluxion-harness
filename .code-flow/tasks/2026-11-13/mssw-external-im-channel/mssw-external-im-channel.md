@@ -146,10 +146,10 @@
 
 ```json
 [
-  {"id":"DELTA-001","op":"add","target":"im/harness-im","rule":"外部 JWT 平台接入以 ChatSurface(channel, auth_kind, entry_resolver) 抽象复用同一套 router/service：新平台只注册 surface 与适配器，不复制 handler。通道名必须参数化——任何以字面量硬编码通道名决定 Run 落库、能力分组或路由的位置都必须改为取当前 surface 的 channel。","evidence":"backend.design.md#26；docs/mssw-channel/02-requirements.md §3.6 六处写死清单"},
-  {"id":"DELTA-002","op":"add","target":"auth/harness-auth","rule":"外部断言认证按固定五步链校验：验签（算法白名单）→ AES 因子加密期望值比对 → claim 策略（最大会话年龄等）→ 按平台配置的 identity_keys 提取身份字段并计算 identity_hash → 按 (tenant, platform_key, identity_hash) 查外部身份。验签通过但无身份记录时返回可空主体（allowed=false + reason），不得伪造 platform_user 身份继续处理。","evidence":"backend.design.md；docs/mssw-channel/02-requirements.md §3.3"},
-  {"id":"DELTA-003","op":"add","target":"secret/harness-secret","rule":"外部平台的验签因子（公钥、issuer、audience、salt）只存放于 Secret，不落库、不回显、不写日志。Secret 缺失或损坏只让该通道的认证返回不可用（503），不影响进程启动与其它通道；配置错误在启动期暴露为显式错误。","evidence":"backend.design.md#26；docs/mssw-channel/02-requirements.md §3.2"},
-  {"id":"DELTA-004","op":"add","target":"persistence/harness-data","rule":"外部身份与入口授权分为两张表：external_identity 为用户级（唯一 (tenant_id, platform_key, identity_hash) WHERE is_deleted=false），entry_access_grant 为入口授权（唯一 (tenant_id, external_identity_id, bot_account_id) WHERE is_deleted=false）。解绑只删 grant 不删身份，编辑身份保留历史会话归属。旧 channel_identity 表不改动。","evidence":"backend.design.md#表结构；docs/mssw-channel/02-requirements.md §2.3"}
+  {"id":"DELTA-001","op":"add","target":"im/harness-im","rule":"外部 JWT 平台接入以 ChatSurface(channel, auth_kind, entry_resolver) 抽象复用同一套 router/service：新平台只注册 surface 与适配器，不复制 handler。通道名必须参数化——任何以字面量硬编码通道名决定 Run 落库、能力分组或路由的位置都必须改为取当前 surface 的 channel。","evidence":"backend.design.md#26（六处通道写死清单见同文件 §3.1.3）"},
+  {"id":"DELTA-002","op":"add","target":"auth/harness-auth","rule":"外部断言认证按固定五步链校验：验签（算法白名单）→ AES 因子加密期望值比对 → claim 策略（最大会话年龄等）→ 按平台配置的 identity_keys 提取身份字段并计算 identity_hash → 按 (tenant, platform_key, identity_hash) 查外部身份。验签通过但无身份记录时返回可空主体（allowed=false + reason），不得伪造 platform_user 身份继续处理。","evidence":"backend.design.md（认证五步链见 §3.1.2）"},
+  {"id":"DELTA-003","op":"add","target":"secret/harness-secret","rule":"外部平台的验签因子（公钥、issuer、audience、salt）只存放于 Secret，不落库、不回显、不写日志。Secret 缺失或损坏只让该通道的认证返回不可用（503），不影响进程启动与其它通道；配置错误在启动期暴露为显式错误。","evidence":"backend.design.md#26（Secret 因子与失败关闭约定）"},
+  {"id":"DELTA-004","op":"add","target":"persistence/harness-data","rule":"外部身份与入口授权分为两张表：external_identity 为用户级（唯一 (tenant_id, platform_key, identity_hash) WHERE is_deleted=false），entry_access_grant 为入口授权（唯一 (tenant_id, external_identity_id, bot_account_id) WHERE is_deleted=false）。解绑只删 grant 不删身份，编辑身份保留历史会话归属。旧 channel_identity 表不改动。","evidence":"backend.design.md#表结构"}
 ]
 ```
 
@@ -993,3 +993,43 @@ MSSW 的身份在 Cookie `soc-token`。Playwright 用 `context.addCookies()` 种
   `tests/gateway/test_capacity_webchat_gateway_chat_auth.py`、
   `tests/acceptance/msswweb`，结果 85 passed / 0 failed（`EXIT_CODE=0`），无残留 pytest/uvicorn 进程。
 - 浏览器层（S-02 / S-03 SSE 与 UI / S-05）待人工执行并记录。
+
+---
+
+## 附：新增第二个 JWT 外部平台的扩展性结论（2026-11-19）
+
+> 补充说明，非本期（MSSWWEB 单平台）落地范围。详情与逐文件落点见 `mssw-external-im-channel.backend.design.md#3.1.3`。
+
+**前提**：新接入的第二个 JWT 平台**与本平台同签名算法（RS256）、同密文格式（AES-ECB `aud`/`iss`）**——验签的算法/签名/密文三段天然复用、`verifier.py` 不用改。
+
+**结论**：同算法同密文下，验签核心与身份/授权层（Console）**已天然多平台**；新增平台工作量集中在「Gateway surface 装配（路由前缀 + 断言头）」与「把时效字段 / 通道名提为平台配置」两处。
+
+**可扩展（纯配置，改 Secret 即生效）**：平台元数据、`identity_keys`（身份字段 / 校验字段）、`identity_field_labels`、`public_key`/`issuer`/`audience`/`salt`、`display_name`。
+
+**天然复用、无需改**：签名算法白名单（`_ALLOWED_ALGS`=RS256，已覆盖）、签名校验（PKCS1v15+SHA256）、`aud`/`iss` 密文比对（AES-ECB+salt）——因新平台同算法同密文。
+
+**需要参数化改造的三项（一次性改造，之后按平台配置）**：
+
+- **时效字段**：`verifier.py._issued_at_seconds` 写死读 `("login_time","time")` + 毫秒 `/1000`。改造：`ExternalPlatformConfig` 增 `issue_time_keys`/`issue_time_unit`（带默认值），`_issued_at_seconds` 改按 config 解析。
+- **channel**：`_check_channel`、`grant_entry` 硬要求 `== MSSWWEB`。改造：`ExternalPlatformConfig` 增 `channel`（默认 `MSSWWEB`），两处改为按平台配置比对。**`grant_entry` 的 `config.channel` 取自被授权身份的 `platform_key`（`BotAccount` 无 `platform_key` 字段、入口表只有 `channel`）**。**`BotAccount.channel` 是 `sa.String(32)` 普通字符串、不是 PG 枚举，独立通道名无需迁移**（对上文旧稿「DB 枚举」「bot 所属平台」的更正是以代码为准）。
+- **`soc-token` 断言头**：Gateway `api/deps.py` 的 `SOC_TOKEN_HEADER` 模块常量。改造：`ChatSurface` 增 `assertion_header` 字段、`get_chat_credentials` 读 surface（默认 `soc-token`）。
+
+> **「配置化」的准确边界**：当前三项都是代码写死的值，**不存在「零改动只填 Secret」的路径**。需先做一次**协议无关的参数化改造**（R 项），改造默认值等于现行为，故 MSSWWEB 不受影响；改造完成后，新增同协议平台只是填 Secret 对应键（P 项）。若新平台完全沿用 `MSSWWEB`/`soc-token`/同时效字段，则改造后无需为新平台额外配置。
+
+**多平台现状纠正**：不是「不支持多平台」，而是「装配把单通道钉死单平台」。Console 侧 `_require_platform(platform_key)` 按配置取、天然多平台；瓶颈是 `main._build_webchat_surfaces` 只挂一个 `/api/v1/msswwweb`、`_single_external_platform_key` 在平台数 `>1` 时返回 `None` 导致 503。
+
+**与 TASK-007 的关系**：TASK-007 关键点第 3 条「路由前缀固定 `/api/v1/msswwweb`（决策 I4），不做成平台变量」**只对本期的单平台成立**；新增第二平台时该约束由 §3.1.3 的「装配循环化」取代——按配置为每个外部断言平台各挂一套 `/api/v1/<surface>`。
+
+**改造清单（R 一次性参数化 / P 新增平台装配）**：
+
+- **R（改造一次，MSSWWEB 行为不变）**：① 配置模型加 `issue_time_keys`/`issue_time_unit`/`channel`（带默认值）+ `_KNOWN_KEYS` 登记；② `_issued_at_seconds` 读 config；③ `_check_channel` 读 `config.channel`；④ `grant_entry` 按 bot 所属平台 `config.channel` 比对；⑤ `ChatSurface.assertion_header` + `get_chat_credentials` 读 surface。
+- **P（接入具体平台时）**：⑥ Gateway 装配循环化（按配置生成多套 surface）；⑦ Secret 增平台项 + 路由随装配生成。
+- **不动**：`verifier.py` 算法/签名/密文、Console `resolve`/`describe`/身份/授权、`auth_cache`（平台段已隔离）。
+
+**接入操作旅程（改造后，详见设计 §3.1.3 六）**：① 取上游因子 → ② 配 Secret 平台项 → ③ 配断言头/路由（默认则免）→ ④ Gateway 注册通道（P 项一次改造已覆盖，无需再改）→ ⑤ Console 通道集合 + 前端下拉（P 项一次改造已覆盖，无需再改）→ ⑥ `GET /external-platforms` 确认出现 → ⑦ 建入口 → ⑧ 建外部身份 → ⑨ 授权入口 → ⑩ 端到端联调 → ⑪ 撤权/到期验证。**代码改造只发生在一次性 R/P 项**；对情况 A（新平台与 MSSWWEB 同为无 Secret、ID 当入口标识），接入实际就是「填 Secret + 界面建入口/身份/授权 + 联调」，不为其改代码。
+
+**「情况 A」= 本期扩展性目标**：新平台形态与 `MSSWWEB` 一致（无 Secret、`bot_id` 为入口标识）。P 项第 7 步一次性把 `SECRETLESS_CHANNELS` 改为「内置 ∪ 配置平台通道」、前端下拉动态化后，情况 A 新平台自动复用 MSSWWEB 表单，前端零额外代码。**情况 B（新平台有 Secret 或字段语义不同）/ C（有独有表单字段）不承诺配置化**，出现时另立前端需求。
+
+**多平台装配两条硬约束**：① **废弃 `_single_external_platform_key` 的「全局单平台」假设**——每平台配置各自绑定 surface，不再「全局挑一个」（现 `len>1` 即 503）；② **多平台必须多通道，不能共用同一 `channel` 名**——`bot_account` 只有 `channel` 无 `platform_key`，共用通道则入口/授权/路由无法区分而冲突。正确形态：一平台一 `platform_key` 一 `channel` 一路由前缀。「复用 MSSWWEB 通道」只适用于单平台场景。
+
+**配置不能满足的点（需代码/前端/产品决策）**：通知/任务中心对 MSSWWEB 面刻意不暴露（是否给新平台属产品决策）。通道注册名、`SECRETLESS_CHANNELS`、前端 `ChannelKind`/下拉/**`AgentDetailSideSheet` 通道展示名**均为**一次性改造项（P 项）**，改造后情况 A 不再每平台改代码（展示名从映射取，否则新平台显示裸通道名）。
