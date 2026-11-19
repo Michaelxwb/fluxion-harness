@@ -241,6 +241,28 @@ def test_401_on_xdr_table_marks_alert_and_threat_sections_missing(tmp_path: Path
     assert "本期以下项目取数暂不可用：安全告警数量、外部威胁。" in report
 
 
+def test_scheduled_task_skips_skill_side_wecom_push_without_the_flag(
+    tmp_path: Path,
+) -> None:
+    with running_mssp() as platform:
+        env = os.environ.copy()
+        env["MSSP_BASE_URL"] = platform.base_url
+        env["SKILL_OUTPUT_DIR"] = str(tmp_path)
+        env["MUAD_TASK_ID"] = "execution-1"
+        completed = subprocess.run(
+            [sys.executable, str(RUN), "--company-id", "1001", "--date", REPORT_DATE],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=60,
+            check=False,
+        )
+        stats = platform.stats()
+    assert completed.returncode == 0, completed.stderr
+    assert stats["counts"].get(PATH_WECOM_QUERY) is None
+    assert stats["writes"] == {"uploads": 0, "sends": 0, "duplicates": 0}
+
+
 def test_no_wecom_push_skips_the_group_query(tmp_path: Path) -> None:
     with running_mssp() as platform:
         completed = run_argv(platform, tmp_path, "1001")

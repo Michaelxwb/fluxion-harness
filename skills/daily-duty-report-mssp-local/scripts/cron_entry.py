@@ -74,6 +74,9 @@ def parse_business(payload: dict[str, Any]) -> tuple[str, str | None, bool]:
         no_push = True
     else:
         no_push = False
+    # 平台调度：外部投递归平台；Skill 不在定时任务里再发一次企微。
+    if not no_push and os.environ.get("MUAD_TASK_ID"):
+        no_push = True
     return company_id, date, no_push
 
 

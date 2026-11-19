@@ -60,7 +60,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     company_id = args.company_id
     date = args.date
-    no_wecom_push = args.no_wecom_push
+    # 平台调度的外部投递由平台负责；Skill 自己不要在定时任务里再发一次企微。
+    # 手工 CLI 没有 MUAD_TASK_ID，仍可显式测试 Skill 自己的查群/推送。
+    no_wecom_push = args.no_wecom_push or bool(os.environ.get("MUAD_TASK_ID"))
     try:
         if not company_id:
             from_stdin = _stdin_business()

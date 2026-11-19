@@ -1,6 +1,6 @@
 ---
 name: daily-duty-report-mssp-local
-description: "本地回归用「每日值守总结」Skill（Smoke 测试平台 MSSP 端点）。与 daily-duty-report-mssp 同形态，保留 argparse 与 stdin 双入口，输出头三项计数、外部威胁趋势、威胁实体、安全事件和真实 xlsx 附件。"
+description: "每日值守总结（Smoke 测试平台 MSSP 端点）。用户只需给出客户 ID 和日期；平台定时任务按已绑定企微身份默认投递，Skill 不自己发企微。输出正文和 xlsx 附件。"
 ---
 
 # 本地值守日报（Smoke 测试平台 MSSP 端点）
@@ -86,6 +86,20 @@ stdout 只有正文；诊断走 stderr。正文结构：
 落盘目录：`$SKILL_OUTPUT_DIR/值守日报存档/<客户名>_<客户ID>/<日期>/`
 （未设置 `SKILL_OUTPUT_DIR` 时是当前目录 `.skill-output/`），含 `report.txt`
 与真实 xlsx 附件。
+
+## 自然语言参数（平台调度）
+
+用户不需要说内部参数。把口语映射到：
+
+| 用户说法 | 参数 |
+|---|---|
+| “客户 1001” | `company_id=1001` |
+| “2026-11-18 的值守日报” / “昨天的日报” | `date=2026-11-18` |
+| “按默认方式发我” | 平台按已绑定 IM 身份默认投递；Skill 不自己发企微 |
+
+平台调度会设置 `MUAD_TASK_ID`，此时 `run.py` / `cron_entry.py` 自动跳过 Skill
+自己的企微查群/推送，避免和平台投递重复。手工 CLI 仍可显式测试 `--no-wecom-push`
+之外的行为。
 
 ## 手动导入平台做定时任务验证
 
