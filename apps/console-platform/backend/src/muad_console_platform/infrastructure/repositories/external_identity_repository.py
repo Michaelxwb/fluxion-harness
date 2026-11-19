@@ -182,19 +182,28 @@ class ExternalIdentityRepository:
         query: str,
         offset: int,
         limit: int,
-    ) -> list[BotAccount]:
-        """可绑定入口候选：服务端过滤 + 分页，避免前端本地过滤冒充完整搜索。"""
-        stmt = select(BotAccount).where(
-            BotAccount.tenant_id == tenant_id,
-            BotAccount.channel == channel,
-            BotAccount.is_deleted.is_(False),
+    ) -> list[tuple[BotAccount, str]]:
+        """可绑定入口候选：服务端过滤 + 分页，避免前端本地过滤冒充完整搜索。
+
+        同时带出所绑 Agent 的名称（列表要展示，前端不该只显示 `-`）。Agent 只 join
+        名称、不按 `is_deleted` 再过滤——入口存在但其 Agent 已被删时仍要列出来，
+        由后端在别处裁决其可用性，而不是在这里把整行藏掉。
+        """
+        stmt = (
+            select(BotAccount, AgentDefinition.name.label("agent_name"))
+            .outerjoin(AgentDefinition, AgentDefinition.id == BotAccount.agent_id)
+            .where(
+                BotAccount.tenant_id == tenant_id,
+                BotAccount.channel == channel,
+                BotAccount.is_deleted.is_(False),
+            )
         )
         if query.strip():
             pattern = f"%{query.strip()}%"
             stmt = stmt.where(or_(BotAccount.name.ilike(pattern), BotAccount.bot_id.ilike(pattern)))
         stmt = stmt.order_by(BotAccount.create_time.desc(), BotAccount.id.desc())
-        rows = await self._session.scalars(stmt.offset(offset).limit(limit))
-        return list(rows)
+        rows = (await self._session.execute(stmt.offset(offset).limit(limit))).all()
+        return [(bot, agent_name or "") for bot, agent_name in rows]
 
     async def list_identity_ids_for_bot(
         self,

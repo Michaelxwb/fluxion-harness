@@ -270,10 +270,10 @@ class ExternalIdentityService:
                 name=bot.name,
                 channel=bot.channel,
                 agent_id=bot.agent_id,
-                agent_name="",
+                agent_name=agent_name,
                 granted=bot.id in granted,
             )
-            for bot in bot_accounts
+            for bot, agent_name in bot_accounts
         ]
 
     async def grant_entry(

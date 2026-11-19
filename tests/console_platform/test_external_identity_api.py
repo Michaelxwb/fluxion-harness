@@ -246,6 +246,8 @@ async def test_list_entries_marks_granted(client: AsyncClient, tenant: TenantCon
     rows = before.json()["data"]
     match = [row for row in rows if row["entry_id"] == entry_id]
     assert match and match[0]["granted"] is False
+    # 入口绑定了 Agent，列表必须回真实名字而不是空串（前端会把它显示成 `-`）。
+    assert match[0]["agent_name"] == "Entry Agent"
 
     created = await client.put(
         f"/api/v1/users/{user_id}/external-identities",
