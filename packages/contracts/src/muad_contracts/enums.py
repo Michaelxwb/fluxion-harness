@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from enum import StrEnum
 
 # 通道名的**唯一**声明处。契约字段是**开放的 string**（新增通道只写适配器，不改这里：
@@ -5,11 +6,33 @@ from enum import StrEnum
 # 机检（一处声明）使用。放在 leaves 模块（仅依赖标准库），避免 channel ↔ tasks 的循环导入。
 # 机检：tests/test_attachment_contract.py::test_b07_channel_enum_is_defined_in_exactly_one_place
 BUILTIN_CHANNEL_NAMES: tuple[str, ...] = ("WECOM", "WEBCHAT", "MSSWWEB")
-#: Web 对话面：同一 user + Agent 的会话在 WebChat/MSSWWEB 之间共享；企微不进入 Web 会话列表。
-#: 顺序稳定，供内部读取面的 `channel_types` allowlist 与测试断言复用。
+#: Web 对话面的**内建基线**：同一 user + Agent 的会话在 WebChat/MSSWWEB 之间共享；企微不进入
+#: Web 会话列表。外部 JWT 平台（如 MSSPWEB）在运行时按其 `channel` 追加（见
+#: `web_surface_channels`），因此读取面用的 allowlist 必须走该函数、不要再直读本常量。
+#: 顺序稳定，供默认值、测试断言与机检复用。
 WEB_SURFACE_CHANNELS: tuple[str, ...] = ("WEBCHAT", "MSSWWEB")
 #: 兼容别名：类型上是开放 string（WECOM=企微机器人；WEBCHAT=通用网页稳定入口）。
 ChannelName = str
+
+
+def web_surface_channels(
+    external_channels: "Iterable[ChannelName]" = (),
+) -> tuple[ChannelName, ...]:
+    """合成 Web 对话面的通道 allowlist：内建基线 + 当前启用的外部 JWT 平台通道。
+
+    外部平台（`EXTERNAL_ASSERTION_PLATFORMS_JSON` 里配置的每个 `channel`）与内建 Web 面同属
+    「站内入口」——同一 user + Agent 跨入口共享会话、产物走本进程持久流。读取面的
+    `channel_types` allowlist 必须包含它们，否则新建的会话能写入却读不出（列表/详情出现
+    「聊得了但看不到历史」）。按配置动态合成，新增平台无需改代码。
+
+    `external_channels` 由调用方从平台配置解析后传入（gateway: 注册的 surface 通道；
+    runtime/worker: 平台配置的 channel 集合）。去重保序，内建在前。
+    """
+    seen: dict[ChannelName, None] = {}
+    for channel in (*WEB_SURFACE_CHANNELS, *external_channels):
+        if channel:
+            seen.setdefault(channel, None)
+    return tuple(seen)
 
 
 class RunStatus(StrEnum):

@@ -5,7 +5,7 @@ from importlib import import_module
 from uuid import uuid4
 
 import pytest
-from muad_contracts import SUPPORTED_UPLOAD_FORMATS
+from muad_contracts import SUPPORTED_UPLOAD_FORMATS, WEB_SURFACE_CHANNELS, web_surface_channels
 from muad_contracts.platform_settings import WebchatSettings
 from pydantic import BaseModel, ValidationError
 
@@ -323,3 +323,21 @@ def test_b205_response_invariants_reject_ambiguous_restoration_or_pages() -> Non
             submission_id=uuid4(), source_event_id=uuid4(), prompt="choose", expires_at=ISSUED,
             options=[{"value": "same", "label": "first"}, {"value": "same", "label": "second"}],
         )
+
+
+def test_web_surface_channels_appends_external_platform_channels() -> None:
+    """外部 JWT 平台通道（如 MSSPWEB）必须并入 Web 面 allowlist，否则会话写入后读不出。"""
+    base = web_surface_channels()
+    assert base == WEB_SURFACE_CHANNELS  # 无外部平台时等于内建基线
+
+    merged = web_surface_channels(["MSSPWEB"])
+    assert "MSSPWEB" in merged
+    # 内建基线仍在（跨入口共享照旧）。
+    for channel in WEB_SURFACE_CHANNELS:
+        assert channel in merged
+    # 内建在前、外部在后，便于稳定断言。
+    assert merged[: len(WEB_SURFACE_CHANNELS)] == WEB_SURFACE_CHANNELS
+
+    # 去重：重复传入或与内建重名都不产生重复项。
+    assert web_surface_channels(["MSSPWEB", "MSSPWEB"]) == ("WEBCHAT", "MSSWWEB", "MSSPWEB")
+    assert web_surface_channels(["WEBCHAT"]) == WEB_SURFACE_CHANNELS
