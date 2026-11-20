@@ -1,7 +1,7 @@
 ---
 {
   "description": "API 封套、错误码与幂等",
-  "next_rule": 2
+  "next_rule": 6
 }
 ---
 
@@ -13,6 +13,14 @@
 - [RULE-api-001] Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一 `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status` 只来自 `config/api-messages.yaml`。
 
 - [RULE-001] 自然语言调度的创建与关键更新必须先生成完整 Draft，再由真实用户经鉴权 surface 明确确认；模型工具上下文不能确认自身提案。确认事实绑定 owner、完整载荷 hash、目标与配置版本、有效期及唯一用户动作引用，确认与配置生效、首次幂等响应同事务提交。幂等重放先于已消费或过期 Draft 检查；更新以 Draft 冻结版本 CAS，冲突不得覆盖配置或消耗确认。
+
+- [RULE-002] SKILL_PLAN 必须按 invocation_contract.invocation 校验调用通道与参数：argv 只支持长选项（boolean 为存在型开关），argv 与 stdin 只能使用声明的通道，未知/重复/--help/--version/缺必填必须拒绝；能否为空由 schema.required 决定；SKILL:<uuid>:* 必须返回 allowed_values，裸 tools_allow=* 保持合法。
+
+- [RULE-003] Draft 创建/更新必须同步执行调度预检（依赖、通道、渲染后 schema、Snapshot）；预检不得执行 Skill、不得创建 Execution/Fire/Revision/投递，失败不得落 Draft。
+
+- [RULE-004] Draft Confirm 必须用当前依赖与下一次触发重跑调度预检；失败不得创建或更新 Schedule；REMINDER 不参与 Skill 契约预检；并发 confirm 仍只允许一次成功。
+
+- [RULE-005] Authoring 必须按 Skill invocation_contract 生成 SKILL_PLAN 并选择 argv/stdin 通道；缺必填业务值只向用户提一个业务问题，禁止静默降级为 AGENT_TURN；技术参数错误必须作为结构化字段错误返回给 agent。
 
 ## Conventions
 
@@ -200,3 +208,11 @@ if len(password) < policy.min_password_length:
 ## Applied Deltas
 
 - {"source":"2026-11-15/scheduled-task-v2/scheduled-task-v2.md#TASK-012#DELTA-001","op":"add","rule":"RULE-001","payload_sha256":"6814a17bac83f67dc716b4b7efcf523951c33515e4d4b64a0bf465a51c1e18da","at":"2026-11-16T05:09:15.751Z"}
+
+- {"source":"2026-11-20/scheduled-skill-invocation/scheduled-skill-invocation.md#TASK-002#DELTA-002","op":"add","rule":"RULE-002","payload_sha256":"fe4614e8a49371a80988fc871416025d7011f82ef58dcb57032df4308e8da884","at":"2026-11-20T13:18:06.407Z"}
+
+- {"source":"2026-11-20/scheduled-skill-invocation/scheduled-skill-invocation.md#TASK-003#DELTA-003","op":"add","rule":"RULE-003","payload_sha256":"b5d600bb632ae5957a8b72084c3768293dea1782ef11e9b21787f8330781cb96","at":"2026-11-20T13:18:06.407Z"}
+
+- {"source":"2026-11-20/scheduled-skill-invocation/scheduled-skill-invocation.md#TASK-004#DELTA-004","op":"add","rule":"RULE-004","payload_sha256":"e885270e62abd6bb7e3925bb928cb00c36c632ebd0dcd05e9c9a8a9336a03c86","at":"2026-11-20T13:18:06.407Z"}
+
+- {"source":"2026-11-20/scheduled-skill-invocation/scheduled-skill-invocation.md#TASK-006#DELTA-006","op":"add","rule":"RULE-005","payload_sha256":"acc7708c02737f260b09d8b9ea3a57422cee78f00e55935845eabe9125fa8a6c","at":"2026-11-20T13:18:06.407Z"}

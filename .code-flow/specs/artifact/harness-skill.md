@@ -1,7 +1,7 @@
 ---
 {
   "description": "Skill 产物、缓存与子进程",
-  "next_rule": 4
+  "next_rule": 6
 }
 ---
 
@@ -16,6 +16,10 @@
 - [RULE-002] 非 Skill 产物必须使用 `skills/` 之外的前缀（导出用 `exports/{tenant}/{export_id}/...`，工具大结果用 `tools/{tenant}/{run_id}/{artifact_id}/result.bin`）；孤儿清理只扫 `skills/**`，禁止复用该前缀。
 
 - [RULE-003] `NfsArtifactStore.resolve` 必须校验解析路径落在 `root` 内且不等于 `root`，否则抛 `ValueError(invalid storage_key)`；禁止用 `root / storage_key` 直接拼接。
+
+- [RULE-004] 可执行 Skill 可在 SKILL.md frontmatter 声明 invocation_contract（version、invocation=argv|stdin、参数 schema）；定时任务新 Draft 必须声明，对话直接调用有声明时校验；契约随不可变 artifact 版本冻结，导入链路必须保留，缺失或非法时不得进入调度。
+
+- [RULE-005] 对话直接调用 Skill 时，若默认入口声明 invocation_contract，必须在启动子进程或提交异步操作前按同一通道/参数 schema 校验；失败返回 SKILL_INVOCATION_INVALID（retryable=true）且不启动执行；辅助脚本不套用主入口契约；load_skill.manifest 返回 entrypoint 与 invocation_contract；无契约时保持现有行为。
 
 ## Conventions
 
@@ -69,3 +73,7 @@
 - {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-004","op":"add","rule":"RULE-002","payload_sha256":"9e706d1fbd1842dad69a605d1d1904f54c571fd5a2fc28b9c3037a6266fd16dc","at":"2026-11-18T14:06:44.261Z"}
 
 - {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-005","op":"add","rule":"RULE-003","payload_sha256":"36cc951d588e314846b1cc5f21426ac786f18935f1a6ec46471da1d51a66a322","at":"2026-11-18T14:06:44.261Z"}
+
+- {"source":"2026-11-20/scheduled-skill-invocation/scheduled-skill-invocation.md#TASK-001#DELTA-001","op":"add","rule":"RULE-004","payload_sha256":"6b4dcbe5db91886efd30ba011070d13461ca198c362761212e37c041e69b0aba","at":"2026-11-20T13:18:06.406Z"}
+
+- {"source":"2026-11-20/scheduled-skill-invocation/scheduled-skill-invocation.md#TASK-008#DELTA-008","op":"add","rule":"RULE-005","payload_sha256":"a9d34e87b9b7b63a8a8b049a252acc36a1bd71dd7b4a0f3e5efa3f0d8a21c264","at":"2026-11-20T13:18:06.408Z"}
