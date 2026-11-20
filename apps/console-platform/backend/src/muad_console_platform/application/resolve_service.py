@@ -524,6 +524,15 @@ class ScheduleResolveService:
                 catalog_revision=server.catalog_revision or None,
             )
         pair = by_skill.get(entry.skill_id)
+        if entry.tool_name == "*":
+            raise AppError(
+                ErrorCode.SCHEDULE_TOOL_WILDCARD_UNSUPPORTED,
+                data={
+                    "admission_code": "WILDCARD_NOT_SUPPORTED",
+                    "repair": "PROVIDE_TOOL_NAME",
+                    "allowed_values": [f"SKILL:{entry.skill_id}:execute"],
+                },
+            )
         if pair is None:
             raise _admission_error(
                 ErrorCode.SCHEDULE_DEPENDENCY_MISSING, "SKILL_MISSING", REPAIR_UPDATE_DEPENDENCY

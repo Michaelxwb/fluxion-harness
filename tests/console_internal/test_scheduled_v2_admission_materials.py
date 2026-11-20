@@ -396,6 +396,28 @@ async def test_agentic_rejects_missing_and_revoked_tools(
     assert revoked_server.json()["data"]["admission_code"] == "TOOL_REVOKED"
 
 
+async def test_agentic_rejects_skill_tool_wildcard(
+    client: AsyncClient, tenant: TenantContext, materials: Materials
+) -> None:
+    response = await client.post(
+        URL,
+        json=_payload(
+            tenant,
+            mode="AGENTIC",
+            allowlist=[
+                {"source": "SKILL", "skill_id": str(materials.skill_id), "tool_name": "*"}
+            ],
+        ),
+        headers=service_headers(tenant.tenant_id),
+    )
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == "SCHEDULE_TOOL_WILDCARD_UNSUPPORTED"
+    assert body["data"]["admission_code"] == "WILDCARD_NOT_SUPPORTED"
+    assert body["data"]["allowed_values"] == [f"SKILL:{materials.skill_id}:execute"]
+
+
 async def test_service_identity_and_tenant_isolation(
     client: AsyncClient, tenant: TenantContext
 ) -> None:

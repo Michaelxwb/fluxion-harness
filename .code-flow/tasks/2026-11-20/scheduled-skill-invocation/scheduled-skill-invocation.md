@@ -134,7 +134,7 @@
   - skill-contract-import PASS exit=0
 ## TASK-002: 调用通道校验与工具通配拒绝
 
-- **Status**: in-progress
+- **Status**: done
 - **Depends**: TASK-001
 - **Source**: scheduled-skill-invocation.backend.design.md §3.3.2、§3.5.3、§3.5.4
 - **Scenarios**: E-01, E-02, E-04, E-05, E-06, B-01, B-06, B-07
@@ -188,14 +188,14 @@
 
 ### Checklist
 
-- [ ] argv 结构校验覆盖必填、可选、boolean、未知、重复、`--help`/`--version`、短选项/位置参数。
-- [ ] boolean 只接受裸 flag；`=true` / `=false` 拒绝；校验值与实际执行值一致。
-- [ ] 零参数 `argv=[]` / `input={}` 在 schema 无 required 时合法；另一通道仍必须为空。
-- [ ] 模板值在结构阶段通过，渲染后非法值被拒绝。
-- [ ] `invocation=argv` + 非空 input、`invocation=stdin` + 非空 argv 返回通道错配。
-- [ ] `SKILL:<uuid>:*` 拒绝并返回完整 allowed_values；裸 `*` 不回归。
-- [ ] Authoring 在出 Draft 前就能返回同样的字段错误。
-- [ ] 测试使用真实 `ResolvedSkill`/`ScheduleDraftService`，不 mock 校验边界。
+- [x] argv 结构校验覆盖必填、可选、boolean、未知、重复、`--help`/`--version`、短选项/位置参数。
+- [x] boolean 只接受裸 flag；`=true` / `=false` 拒绝；校验值与实际执行值一致。
+- [x] 零参数 `argv=[]` / `input={}` 在 schema 无 required 时合法；另一通道仍必须为空。
+- [x] 模板值在结构阶段通过，渲染后非法值被拒绝。
+- [x] `invocation=argv` + 非空 input、`invocation=stdin` + 非空 argv 返回通道错配。
+- [x] `SKILL:<uuid>:*` 拒绝并返回完整 allowed_values；裸 `*` 不回归。
+- [x] Authoring 在出 Draft 前就能返回同样的字段错误。
+- [x] 测试使用真实 `ResolvedSkill`/`ScheduleDraftService`，不 mock 校验边界。
 
 ### Spec Delta
 
@@ -221,7 +221,8 @@
 - 尚未执行
 
 <a id="task-003"></a>
-
+- 2026-11-20T07:43:02.041Z PASS commands=1/1 executed=1 deduped=0 elapsed=6149ms tests=be51c430409c head=815a4301ac5a dirty=1
+  - invocation-tools PASS exit=0
 ## TASK-003: Draft 调度预检与零副作用
 
 - **Status**: draft

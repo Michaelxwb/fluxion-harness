@@ -342,6 +342,7 @@ def materials_error(exc: ScheduleMaterialsError) -> AppError:
         str(ErrorCode.SCHEDULE_DEPENDENCY_MISSING),
         str(ErrorCode.SCHEDULE_GRANT_DENIED),
         str(ErrorCode.SCHEDULE_DELIVERY_UNSUPPORTED),
+        str(ErrorCode.SCHEDULE_TOOL_WILDCARD_UNSUPPORTED),
     ):
         code = exc.code
     elif admission_code in _GRANT_ADMISSION_CODES:
@@ -351,7 +352,11 @@ def materials_error(exc: ScheduleMaterialsError) -> AppError:
     else:
         # 一次网络探测不构成长期可用保证：瞬时不可用是「现在无法受理」，不是依赖缺陷。
         code = str(ErrorCode.SCHEDULE_ADMISSION_FAILED)
-    return AppError(code, data={"admission_code": admission_code, "repair": error.repair})
+    data = {"admission_code": admission_code, "repair": error.repair}
+    for key in ("allowed_values", "entry"):
+        if key in exc.data:
+            data[key] = exc.data[key]
+    return AppError(code, data=data)
 
 
 class ScheduleDraftPreflight:

@@ -28,6 +28,7 @@ from .draft_shell import (
     extract_draft_archive,
 )
 from .executor import ScriptSkillExecutor
+from .invocation import SkillInvocationError, validate_skill_invocation
 from .package import SkillManifest, SkillPackage, SkillPackageError
 from .sandboxed import SandboxedSkillExecutor, build_sandboxed_skill_executor
 
@@ -55,6 +56,7 @@ __all__ = [
     "SkillExecutionResult",
     "SkillExecutionStatus",
     "SkillExecutor",
+    "SkillInvocationError",
     "SkillManifest",
     "SkillOutputLimitError",
     "SkillPackage",
@@ -63,4 +65,5 @@ __all__ = [
     "checksum_file",
     "collect_outputs",
     "collect_outputs_async",
+    "validate_skill_invocation",
 ]
