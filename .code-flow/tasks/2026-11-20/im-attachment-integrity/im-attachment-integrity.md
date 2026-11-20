@@ -506,3 +506,62 @@ Connector 通过 Console 内部 `platform-settings` 快照读取，按租户缓�
 - 尚未执行
 - 2026-11-20T13:38:30.735Z PASS commands=1/1 executed=1 deduped=0 elapsed=8859ms tests=1ebbb296b715 head=65fd35c9237b dirty=1
   - task-result-verbatim PASS exit=0
+
+## TASK-009: Connector 入站循环故障隔离
+
+- **Status**: done
+- **Depends**: TASK-002
+- **Source**: 2026-11-20 实测反馈（企微发消息无回复）
+- **Scenarios**: im-attachment-integrity:S-01, im-attachment-integrity:S-05
+- **Spec-Refs**: test/harness-test#RULE-test-001
+- **Paths**: apps/im-connector/src/muad_im_connector/runtime.py, tests/im_connector/test_runtime_inbound.py
+- **E2E**:
+- **Skip-Tests**: false
+- **Skip-Reason**:
+
+### Tests
+
+```json
+[
+  {
+    "id": "connector-inbound-loop",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/im_connector/test_runtime_inbound.py", "tests/im_core/test_inbound_batch.py"],
+    "timeout": 600,
+    "parallel": false
+  }
+]
+```
+
+### Description
+
+修复实测中的企微“发消息没回”：
+
+- **根因**：`_batch_frame` 声明为 `async def`，但 `_publish_inbound` 直接 `frame = self._batch_frame(message)`，把 coroutine 当 `BatchFrame` 使用；首条命令消息在 `flush_route` 触发 `AttributeError: 'coroutine' object has no attribute 'route'`，`connector.inbound` 任务退出，后续消息滞留在队列里。
+- 将 `_batch_frame` 改为同步函数（无 `await` 逻辑），从源头消除 coroutine 泄漏。
+- `_inbound_loop` 对单条消息处理加故障隔离：记录 message_id/bot_id + 异常类型并继续消费，不能因为一条坏消息永久停掉整个入站循环。
+- 回归覆盖：命令消息直接发布、普通文本进入批次后发布、单条消息抛异常后下一条仍被处理。
+
+### Checklist
+
+- [x] `_batch_frame` 返回 `BatchFrame`，不再返回 coroutine。
+- [x] 命令消息不经过批次也能发布。
+- [x] 普通文本经批次窗口后发布。
+- [x] 单条消息异常只记日志/指标，不终止 `connector.inbound` 循环。
+- [x] 既有批次/发布测试通过。
+
+### Spec Delta
+
+```json
+[]
+```
+
+### Log
+
+- [2026-11-20] created
+- [2026-11-20T14:02:07.393Z] started tests=c6dbac996e09
+
+### Verification
+
+- 尚未执行
+- 2026-11-20T14:02:57.162Z PASS commands=1/1 executed=1 deduped=0 elapsed=3253ms tests=c6dbac996e09 head=aebc2ebf41ed dirty=1
+  - connector-inbound-loop PASS exit=0

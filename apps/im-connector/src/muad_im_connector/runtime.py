@@ -344,7 +344,20 @@ class ConnectorRuntime:
     async def _inbound_loop(self) -> None:
         while not self._stopped.is_set():
             message = await self._queue.get()
-            await self._publish_inbound(message)
+            try:
+                await self._publish_inbound(message)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # noqa: BLE001 - 单条坏消息不能停掉整个入站循环
+                record_inbound("failed")
+                logger.error(
+                    "connector_inbound_failed bot_id=%s message_id=%s error=%s: %s",
+                    message.bot_id,
+                    message.message_id,
+                    type(exc).__name__,
+                    exc,
+                    exc_info=True,
+                )
 
     async def _publish_inbound(self, message: WeComInboundMessage) -> None:
         owned = self._owned.get((self._tenant_id, message.bot_id))
@@ -381,7 +394,7 @@ class ConnectorRuntime:
             return
         await coordinator.complete(await self._event_for(message))
 
-    async def _batch_frame(self, message: WeComInboundMessage) -> BatchFrame:
+    def _batch_frame(self, message: WeComInboundMessage) -> BatchFrame:
         return BatchFrame(
             channel=self._adapter.name,
             tenant_id=self._tenant_id,
