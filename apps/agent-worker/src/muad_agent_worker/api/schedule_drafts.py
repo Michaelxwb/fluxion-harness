@@ -25,13 +25,21 @@ from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.platform_settings import resolve_platform_settings
-from ..application.schedule_confirm import ConfirmIdentity, ScheduleConfirmService
+from ..application.schedule_confirm import (
+    DRAFT_STATUS_PENDING,
+    ConfirmIdentity,
+    ScheduleConfirmService,
+    payload_request,
+)
 from ..application.schedule_drafts import (
     DraftIdentity,
+    ScheduleDraftPreflight,
     ScheduleDraftService,
     load_draft,
+    owned_draft,
     parse_draft_request,
 )
+from ..application.schedule_quota import ScheduleQuota
 from ..application.schedule_read import ScheduleReadService
 from ..application.schedule_trial_run import (
     ScheduleTrialRunService,
@@ -236,6 +244,8 @@ async def confirm_schedule_draft(
     session: Session,
     actor_user_id: RequiredActorUserId,
     scope: ConfirmationScope,
+    materials_client: ScheduleMaterialsClientDep,
+    settings_client: PlatformSettingsClientDep,
 ) -> ApiResponse[Any]:
     """API-27：用户确认 Draft 并执行（创建/更新）。确认请求本体就是唯一生效入口。"""
     parsed = _parse_confirm(body)
@@ -262,10 +272,43 @@ async def confirm_schedule_draft(
     if first is not None:
         # 重放优先于过期/状态检查：同键同指纹即使 Draft 已 CONFIRMED 也原样返回首次结果。
         return ok(request.app.state.message_catalog, first.response_json)
+    settings = await _settings(settings_client, tenant_id)
+    now = await database_now(session)
+    draft = await owned_draft(
+        session,
+        draft_id,
+        tenant_id=tenant_id,
+        owner_user_id=actor_user_id,
+    )
+    surface = scope.surface if scope is not None else None
+    ref = scope.ref if scope is not None else None
+    can_preflight = (
+        surface is not None
+        and bool(ref)
+        and draft.draft_hash == parsed.draft_hash
+        and draft.status == DRAFT_STATUS_PENDING
+        and draft.expires_at > now
+    )
+    dispatch_check = None
+    if can_preflight:
+        preflight = await ScheduleDraftPreflight(
+            materials_client,
+            quota=ScheduleQuota.from_settings(settings),
+            settings=settings,
+            now=now,
+        ).run(
+            payload_request(draft),
+            identity=DraftIdentity(
+                tenant_id=tenant_id,
+                owner_user_id=actor_user_id,
+                agent_id=draft.agent_id,
+            ),
+        )
+        dispatch_check = preflight.dispatch_check
     service = ScheduleConfirmService(
         session,
         submissions=submissions,
-        now=await database_now(session),
+        now=now,
     )
     response = await service.confirm(
         draft_id,
@@ -278,6 +321,7 @@ async def confirm_schedule_draft(
         ),
         idempotency_key=idempotency_key,
         fingerprint=fingerprint,
+        dispatch_check=dispatch_check,
     )
     await session.commit()
     return ok(request.app.state.message_catalog, response)

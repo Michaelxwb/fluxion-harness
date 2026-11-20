@@ -304,7 +304,7 @@
   - draft-preflight PASS exit=0
 ## TASK-004: Confirm 重跑预检门禁
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-003
 - **Source**: scheduled-skill-invocation.backend.design.md §3.5.2
 - **Scenarios**: S-02, E-07, E-09, B-03
@@ -347,12 +347,12 @@
 
 ### Checklist
 
-- [ ] 创建 Draft 后撤销授权/发布不兼容版本，Confirm 稳定失败且不建 Schedule。
-- [ ] Confirm 成功时 Revision 的 `preflight_json` 是本次最新检查。
-- [ ] `REMINDER` 不受 Skill 契约影响。
-- [ ] 并发 confirm 只有一个成功。
-- [ ] 预检失败后 Draft 仍 PENDING，可修正后重试。
-- [ ] 错误封套/`data` 与 Draft 预检一致。
+- [x] 创建 Draft 后撤销授权/发布不兼容版本，Confirm 稳定失败且不建 Schedule。
+- [x] Confirm 成功时 Revision 的 `preflight_json` 是本次最新检查。
+- [x] `REMINDER` 不受 Skill 契约影响。
+- [x] 并发 confirm 只有一个成功。
+- [x] 预检失败后 Draft 仍 PENDING，可修正后重试。
+- [x] 错误封套/`data` 与 Draft 预检一致。
 
 ### Spec Delta
 
@@ -371,13 +371,15 @@
 ### Log
 
 - [2026-11-20] created
+- [2026-11-20T07:59:03.735Z] started tests=93c392d3f018
 
 ### Verification
 
 - 尚未执行
 
 <a id="task-005"></a>
-
+- 2026-11-20T08:00:03.450Z PASS commands=1/1 executed=1 deduped=0 elapsed=25616ms tests=93c392d3f018 head=51009cf3ab1e dirty=1
+  - confirm-preflight PASS exit=0
 ## TASK-005: Fire 重校验与显式失败
 
 - **Status**: draft
