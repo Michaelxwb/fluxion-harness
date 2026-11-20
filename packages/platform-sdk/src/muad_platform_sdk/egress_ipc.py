@@ -39,6 +39,7 @@ from .egress_ipc_protocol import AttemptMetadata as AttemptMetadata
 from .shared_redis import LimitScope, MeteringUnavailable, SharedLimitExceeded, SharedPermit, SharedRedisMeter
 
 logger = logging.getLogger(__name__)
+PlatformBaseURLLoader = Callable[[], Awaitable[tuple[str, ...]]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,7 +47,6 @@ class EgressTarget:
     target_instance_id: str
     route_id: str
     policy: SharedEgressPolicy | None = None
-    business_http: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,8 +58,8 @@ class InvocationEgressBroker:
     def __init__(
         self,
         *,
-        meter: SharedRedisMeter,
-        invocation: TrustedInvocation,
+        meter: SharedRedisMeter | None,
+        invocation: TrustedInvocation | None,
         resolve: Callable[
             [AttemptMetadata],
             EgressTarget | UncontrolledTarget | None | Awaitable[EgressTarget | UncontrolledTarget | None],
@@ -69,6 +69,7 @@ class InvocationEgressBroker:
         max_connections: int = 32,
         renewal_interval_seconds: float = 1.0,
         observe: AttemptObserver | None = None,
+        load_platform_base_urls: PlatformBaseURLLoader | None = None,
     ) -> None:
         lifetimes = (deadline_seconds, cleanup_seconds, renewal_interval_seconds)
         if (
@@ -80,6 +81,8 @@ class InvocationEgressBroker:
         self._meter, self._invocation = meter, invocation
         self._resolve, self._deadline, self._cleanup = resolve, deadline_seconds, cleanup_seconds
         self._observe = observe
+        self._load_platform_base_urls = load_platform_base_urls
+        self._platform_base_urls: tuple[str, ...] = ()
         self._max_connections = max_connections
         self._renewal_interval = renewal_interval_seconds
         self._handlers: set[asyncio.Task[None]] = set()
@@ -94,9 +97,31 @@ class InvocationEgressBroker:
         self._child_started = False
         self._ever_admitted = False
 
+    @classmethod
+    def for_tracing(
+        cls, *, observe: AttemptObserver, deadline_seconds: float, cleanup_seconds: float,
+        load_platform_base_urls: PlatformBaseURLLoader | None = None,
+    ) -> Self:
+        return cls(
+            meter=None, invocation=None, resolve=lambda _: EgressTarget("", ""),
+            observe=observe, deadline_seconds=deadline_seconds, cleanup_seconds=cleanup_seconds,
+            load_platform_base_urls=load_platform_base_urls,
+        )
+
+    @property
+    def enforces_limits(self) -> bool:
+        return self._meter is not None
+
+    def _require_meter(self) -> SharedRedisMeter:
+        if self._meter is None:
+            raise RuntimeError("request permit requires a meter")
+        return self._meter
+
     async def __aenter__(self) -> Self:
         if self._server is not None or self._closing:
             raise RuntimeError("invocation broker is single-use")
+        if self._load_platform_base_urls is not None:
+            self._platform_base_urls = await self._load_platform_base_urls()
         self._expires_at = asyncio.get_running_loop().time() + self._deadline
         directory = Path(tempfile.mkdtemp(prefix="fx-egress-", dir="/tmp"))
         os.chmod(directory, 0o700)
@@ -146,7 +171,7 @@ class InvocationEgressBroker:
         await self.stop_admissions()
         for permit in tuple(self._pending.values()):
             try:
-                await self._meter.release(permit)
+                await self._require_meter().release(permit)
             except MeteringUnavailable:
                 logger.warning("egress_ipc_stopped_lease_release_failed")
             else:
@@ -188,48 +213,56 @@ class InvocationEgressBroker:
             return
         audit = AttemptAudit(self._observe, origin=request.origin, path=request.path,
                              method=request.method)
+        url = request.origin + request.path
+        platform_request = any(url == base or url.startswith(base + "/") for base in self._platform_base_urls)
         try:
-            await self._controlled_begin(reader, writer, target, audit)
+            await self._controlled_begin(reader, writer, target, audit, platform_request=platform_request)
         finally:
             await audit.finish(sys.exception())
 
     async def _controlled_begin(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter,
-        target: EgressTarget, audit: AttemptAudit,
+        target: EgressTarget, audit: AttemptAudit, *, platform_request: bool,
     ) -> None:
-        if self.exhausted.is_set():
-            raise SharedLimitExceeded("TOTAL", "", 0, scope=self.exhausted_scope or "execution")
-        policy = target.policy or await self._meter.current_policy()
-        permit = await self._meter.admit(
-            policy,
-            target_instance_id=target.target_instance_id,
-            route_id=target.route_id,
-            attempt_id=audit.attempt_id,
-            invocation=self._invocation,
-            lease_seconds=self._expires_at - asyncio.get_running_loop().time() + self._cleanup,
-        )
-        if permit is not None:
-            if permit.rule_ids:
-                self._pending[permit.attempt_id] = permit
-            await self._meter.consume(permit)
-            self._ever_admitted = True
-        audit.business_trace_id = uuid4()
+        permit = await self._admit(target, audit.attempt_id)
+        audit.business_trace_id = uuid4() if platform_request else None
         await self._reply(writer, {
             "ok": True, "controlled": True, "attempt_id": audit.attempt_id,
-            "business_trace_id": str(audit.business_trace_id),
-            "overwrite_csrf": target.business_http,
+            "business_trace_id": str(audit.business_trace_id) if audit.business_trace_id else None,
             "remaining_seconds": self._expires_at - asyncio.get_running_loop().time(),
         })
         audit.sent = True
         completion = await self._completion(reader, permit)
         audit.status_code, audit.error_code = completion.status_code, completion.error_code
         if permit is not None:
-            await self._meter.release(permit)
+            await self._require_meter().release(permit)
             self._pending.pop(permit.attempt_id, None)
         # The observer runs before the acknowledgement, so callers can inspect
         # a completed attempt immediately after consuming/closing its response.
         await audit.finish()
         await self._reply(writer, {"ok": True})
+
+    async def _admit(self, target: EgressTarget, attempt_id: str) -> SharedPermit | None:
+        meter = self._meter
+        if meter is None:
+            return None
+        if self.exhausted.is_set():
+            raise SharedLimitExceeded("TOTAL", "", 0, scope=self.exhausted_scope or "execution")
+        policy = target.policy or await meter.current_policy()
+        permit = await meter.admit(
+            policy,
+            target_instance_id=target.target_instance_id,
+            route_id=target.route_id,
+            attempt_id=attempt_id,
+            invocation=self._invocation,
+            lease_seconds=self._expires_at - asyncio.get_running_loop().time() + self._cleanup,
+        )
+        if permit is not None:
+            if permit.rule_ids:
+                self._pending[permit.attempt_id] = permit
+            await meter.consume(permit)
+            self._ever_admitted = True
+        return permit
 
     async def _completion(
         self, reader: asyncio.StreamReader, permit: SharedPermit | None,
@@ -242,7 +275,7 @@ class InvocationEgressBroker:
                     remaining = self._expires_at - asyncio.get_running_loop().time()
                     if remaining <= 0:
                         raise TimeoutError("execution deadline")
-                    await self._meter.renew(permit, lease_seconds=remaining + self._cleanup)
+                    await self._require_meter().renew(permit, lease_seconds=remaining + self._cleanup)
             return CompletionRequest.model_validate_json(incoming.result())
         finally:
             incoming.cancel()

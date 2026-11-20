@@ -26,7 +26,13 @@ from .egress_identity_registry import (
     IdentityUnavailable,
     ScopeIdentity,
 )
-from .egress_ipc import AttemptMetadata, EgressTarget, InvocationEgressBroker, UncontrolledTarget
+from .egress_ipc import (
+    AttemptMetadata,
+    EgressTarget,
+    InvocationEgressBroker,
+    PlatformBaseURLLoader,
+    UncontrolledTarget,
+)
 from .egress_segment_supervisor import SourceSegmentSupervisor
 from .egress_segments import FencedRedisMeter
 from .egress_source_authority import PGSegmentAuthority, SourceClaim, SourceReader
@@ -150,7 +156,10 @@ class HostEgressExecution:
         self._require_open()
         return TrustedInvocation(str(self._scope.id), str(scope.id), self._meter.grant.segment_id)
 
-    def broker(self, invocation: TrustedInvocation, *, deadline_seconds: float) -> InvocationEgressBroker:
+    def broker(
+        self, invocation: TrustedInvocation, *, deadline_seconds: float,
+        load_platform_base_urls: PlatformBaseURLLoader | None = None,
+    ) -> InvocationEgressBroker:
         self._require_open()
         self._validate_invocation(invocation)
         broker = InvocationEgressBroker(
@@ -161,6 +170,7 @@ class HostEgressExecution:
             cleanup_seconds=self._settings.lifetime.cleanup_seconds,
             renewal_interval_seconds=self._settings.lifetime.renewal_interval_seconds,
             observe=self._observe,
+            load_platform_base_urls=load_platform_base_urls,
         )
         self._brokers.append(broker)
         return broker

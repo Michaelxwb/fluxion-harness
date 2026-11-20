@@ -74,11 +74,7 @@ def _resolver(meter: SharedRedisMeter) -> Callable[[AttemptMetadata], Awaitable[
         selected = resolve_policy_target(current, request)
         if selected is not None:
             return selected
-        business_http = any(
-            rule.http_match is not None and rule.http_match.origin == request.origin
-            for rule in current.rules
-        )
-        return EgressTarget("__unmatched__", "__unmatched__", current, business_http=business_http)
+        return EgressTarget("__unmatched__", "__unmatched__", current)
 
     return resolve
 

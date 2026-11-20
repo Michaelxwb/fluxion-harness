@@ -126,7 +126,7 @@ from .context_compaction import RuntimeContextCompactor, SummaryRunner, make_sum
 from .context_settings import FrozenLearning, PoolExecutionPolicy
 from .draft_shell import build_draft_shell_runner, build_draft_tools
 from .draft_tools import SkillDraftTools
-from .egress_execution import run_egress
+from .egress_execution import run_egress, run_platform_trace_loader, run_trace_observer
 from .mcp_runtime_adapter import McpRuntimeAdapter, McpServerDefinition, McpToolDefinition
 from .memory_observability import memory_audit_preview
 from .memory_queries import MemoryReadScope
@@ -2140,6 +2140,8 @@ def build_registry(
         draft_shell_context=bindings.draft_context,
         draft_tools=bindings.draft_tools,
         egress=egress,
+        trace_observer=run_trace_observer(request),
+        load_platform_base_urls=run_platform_trace_loader(request),
     )
     _register_run_artifacts(registry, request, delivery_client)
     _register_other_tools(registry, request, task_client=task_client, mcp_adapter=mcp_adapter, memory=memory)

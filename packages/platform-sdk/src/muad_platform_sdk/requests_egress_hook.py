@@ -82,14 +82,13 @@ def _replace_method(target: object, name: str, replacement: object) -> None:
     setattr(target, name, replacement)
 
 
-def _traced_request(
-    request: PreparedRequest, business_trace_id: str, *, overwrite_csrf: bool,
-) -> PreparedRequest:
+def _traced_request(request: PreparedRequest, business_trace_id: str | None) -> PreparedRequest:
+    if business_trace_id is None:
+        return request
     # Keep these per-send headers off the original, which requests may copy for redirects.
     outgoing = request.copy()
     outgoing.headers["TraceId"] = business_trace_id
-    if overwrite_csrf:
-        outgoing.headers["X-Csrftoken"] = str(uuid4())
+    outgoing.headers["X-Csrftoken"] = str(uuid4())
     return outgoing
 
 
@@ -252,9 +251,7 @@ class RequestsEgressHook:
         attempt = PhysicalAttempt(lease)
         try:
             bounded_args, bounded_kwargs = deadline_arguments(args, kwargs, lease.remaining_seconds)
-            outgoing = _traced_request(
-                request, lease.business_trace_id, overwrite_csrf=lease.overwrite_csrf,
-            )
+            outgoing = _traced_request(request, lease.business_trace_id)
             response = run_attempt(
                 attempt, lambda: self._adapter_send(adapter, outgoing, *bounded_args, **bounded_kwargs),
             )

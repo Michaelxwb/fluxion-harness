@@ -85,13 +85,18 @@ def get_json(base_url: str, path: str, headers: dict[str, str]) -> dict:
     payload = response.json()
     if not isinstance(payload, dict):
         raise RuntimeError(f"{path} returned a non-object payload")
+    if path in (PING_PATH, TARGETS_PATH):
+        sent_trace = response.request.headers.get("TraceId")
+        if not sent_trace or payload.get("traceId") != sent_trace:
+            raise RuntimeError(f"{path} did not echo the sent TraceId")
     return payload
 
 
 def main() -> int:
     base_url, headers = load_platform_state(resolve_state_file())
-    trace = uuid.uuid4().hex
-    headers["Traceid"] = trace
+    # Standalone smoke runs also need a TraceId. The Runtime may replace it
+    # independently for each request, so compare the echo to the sent request.
+    headers["TraceId"] = str(uuid.uuid4())
     result = {
         "ok": True,
         "platform": PLATFORM,
@@ -99,8 +104,6 @@ def main() -> int:
         "ping": get_json(base_url, PING_PATH, headers),
         "targets": get_json(base_url, TARGETS_PATH, headers),
     }
-    if result["ping"].get("traceId") != trace:
-        raise RuntimeError("Traceid was not echoed by the platform")
     out_dir = os.environ.get("SKILL_OUTPUT_DIR", "").strip()
     if out_dir:
         target = Path(out_dir)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from functools import partial
 
 from muad_agent_core.sandbox.spec import TERMINATE_GRACE_SEC
 from muad_agent_core.skill import SkillExecutionRequest, SkillExecutionResult, SkillExecutor
@@ -10,8 +11,10 @@ from muad_common import SharedSettings
 from muad_contracts.egress_budget import EffectiveEgressBudget
 from muad_contracts.egress_identity import egress_operation_key
 from muad_platform_sdk.configured_egress import configured_host_egress
-from muad_platform_sdk.egress_audit_store import EgressAuditIdentity
+from muad_platform_sdk.console_egress import load_platform_trace_base_urls
+from muad_platform_sdk.egress_audit_store import DatabaseAttemptObserver, EgressAuditIdentity
 from muad_platform_sdk.egress_identity_registry import IdentityUnavailable
+from muad_platform_sdk.egress_ipc import InvocationEgressBroker, PlatformBaseURLLoader
 from muad_platform_sdk.egress_source_authority import SourceClaim
 from muad_platform_sdk.host_egress_execution import HostEgressExecution
 from muad_platform_sdk.shared_redis import MeteringUnavailable
@@ -39,12 +42,15 @@ def task_source_claim(task: TaskExecution) -> SourceClaim:
 
 
 async def _bound_request(
-    host: HostEgressExecution, task: TaskExecution, skill_key: str, request: SkillExecutionRequest
+    host: HostEgressExecution, task: TaskExecution, skill_key: str, request: SkillExecutionRequest,
+    load_platform_base_urls: PlatformBaseURLLoader,
 ) -> SkillExecutionRequest:
     invocation = await host.host_invocation(
         operation_key=egress_operation_key("TASK_SKILL", str(task.id)), skill_key=skill_key
     )
-    broker = host.broker(invocation, deadline_seconds=request.timeout_sec)
+    broker = host.broker(
+        invocation, deadline_seconds=request.timeout_sec, load_platform_base_urls=load_platform_base_urls,
+    )
     context = request.platform_context
     if context is not None:
         context = replace(
@@ -74,6 +80,8 @@ async def execute_task_skill_with_egress(
     if sessions is not None:
         bound_sessions = sessions
         provider = lambda: bound_sessions  # noqa: E731 - lazy storage capture for disabled paths
+    identity = EgressAuditIdentity(task.tenant_id, task.actor_user_id, task.source_run_id, task.id)
+    load_platform_base_urls = partial(load_platform_trace_base_urls, settings, task.tenant_id)
     async with configured_host_egress(
         settings=settings,
         policy=policy,
@@ -81,16 +89,26 @@ async def execute_task_skill_with_egress(
         session_factory=provider,
         claim=lambda: task_source_claim(task),
         reader=read_task_source_lease,
-        audit_identity=EgressAuditIdentity(task.tenant_id, task.actor_user_id, task.source_run_id, task.id),
+        audit_identity=identity,
         minimum_stop_margin_seconds=4 * TERMINATE_GRACE_SEC,
         tenant_id=task.tenant_id if task.execution_snapshot_json.get("egress_enabled") is True else None,
     ) as host:
         if host is None:
+            if sessions is not None:
+                cleanup = settings.egress_cleanup_sec
+                observer = DatabaseAttemptObserver(sessions, identity, timeout_seconds=cleanup)
+                broker = InvocationEgressBroker.for_tracing(
+                    observe=observer, deadline_seconds=request.timeout_sec, cleanup_seconds=cleanup,
+                    load_platform_base_urls=load_platform_base_urls,
+                )
+                request = replace(request, egress_broker=broker)
             return await executor.execute(request)
         if skill_key is None:
             raise MeteringUnavailable("controlled Task requires a frozen Skill key")
 
         async def controlled() -> SkillExecutionResult:
-            return await executor.execute(await _bound_request(host, task, skill_key, request))
+            return await executor.execute(await _bound_request(
+                host, task, skill_key, request, load_platform_base_urls,
+            ))
 
         return await host.run(controlled)

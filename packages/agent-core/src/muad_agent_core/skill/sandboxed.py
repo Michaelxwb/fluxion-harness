@@ -16,6 +16,7 @@ import tempfile
 import time
 import uuid
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 
 from muad_platform_sdk.adapter.mss_config import PlatformAuthError
@@ -282,7 +283,9 @@ class SandboxedSkillExecutor:
     ) -> SkillExecutionResult:
         """按受信 platform_context 注入 session-manager；无平台时行为不变。"""
         if request.egress_broker is not None and script.suffix.lower() != ".py":
-            raise SkillExecutionError("EGRESS_CLIENT_UNSUPPORTED")
+            if request.egress_broker.enforces_limits:
+                raise SkillExecutionError("EGRESS_CLIENT_UNSUPPORTED")
+            request = replace(request, egress_broker=None)
         dev_unsafe = getattr(runner, "name", "") == "dev-unsafe"
         skill_name = ""
         if request.platform_context is not None:

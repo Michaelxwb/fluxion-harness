@@ -73,3 +73,15 @@ async def internal_egress_policy(
     require_service_identity(x_internal_service, service_token(request))
     policy = await current_egress_policy(session, tenant_id)
     return ok(request.app.state.message_catalog, policy.model_dump(mode="json"))
+
+
+@router.get("/platform-trace-base-urls")
+async def internal_platform_trace_base_urls(
+    request: Request, tenant_id: TenantId, session: Session,
+    x_internal_service: Annotated[str | None, Header()] = None,
+) -> ApiResponse[Any]:
+    from ..application.egress_policy import platform_trace_base_urls
+
+    require_service_identity(x_internal_service, service_token(request))
+    urls = await platform_trace_base_urls(session, tenant_id)
+    return ok(request.app.state.message_catalog, {"base_urls": list(urls)})
