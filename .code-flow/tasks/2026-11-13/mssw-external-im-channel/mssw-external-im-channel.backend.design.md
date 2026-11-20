@@ -319,6 +319,7 @@ design_template: full
 - **平台（platform）**＝「这张 JWT 由谁签发、用哪把公钥验」的验签配置单元，标识是 `platform_key`（现为 `mssw`），落在 `external_assertion_platforms_json` 的一项里（公钥/issuer/audience/salt/identity_keys…）。`platform_key` 也存在于 `external_identity` 表（用户外部身份按平台隔离）。
 - **通道（channel）**＝「消息从哪条管道进」的系统标签（`WECOM`/`WEBCHAT`/`MSSWWEB`…），落在 `bot_account.channel`（入口）与 `ChannelContext.type` 上，决定路由前缀与入口归属。**`bot_account` 表没有 `platform_key` 字段**——入口只认通道名。
 - **关系：平台 ↔ 通道一一对应，是「校验层的约定」，不是 DB 唯一约束**。当前由 `_check_channel`（断言通道必须等于 `MSSWWEB`）与 `grant_entry`（入口通道必须等于该身份平台所配通道）两处逻辑强制。DB 层没有 `platform_key↔channel` 唯一索引，因此**改造后仍应保留「一平台一通道」约束**：若把两个平台配成同一个 `channel` 名，入口层（只按 `channel` 区分）将无法分辨二者而冲突。一个平台对应一个入口通道，`mssw` 平台 → `MSSWWEB` 通道 → `/api/v1/msswwweb` 路由即此关系的实例。
+- **通道命名规范（外部平台通道必须遵守）**：`channel` 取值必须匹配 `^[A-Za-z0-9]+web$`（不区分大小写地以 `web` 结尾，其余为字母数字），原因有二：① 路由前缀由 `/api/v1/<channel 小写>` 派生，反代（nginx）需用一条正则 `^/api/v1/[a-z0-9]+web(?:/|$)` 覆盖所有外部平台前缀，同时不误吞 Console 的 `/api/v1/*` 业务前缀与 `/api/v1/webchat`；② 契约层 `ChannelName = str` 本身**不约束字符集**，若不在平台配置层显式约束，错误命名（如把环境标识 `UAT` 塞进通道名得到 `MSSPWEBUAT`）会绕过反代正则、表现为前端通道选不通或 404，且没有明确报错。**环境标识（UAT/PRD 等）应放在 `display_name`，不得进入 `channel`**。该匹配在 `config.py` 解析平台项时校验，不满足即抛 `PlatformConfigError`（启动期失败，而非运行期静默 404）。
 
 **三、需要设计扩展性的三项：参数化改造方案（一次性改造，之后新增平台纯配置）**
 
@@ -342,7 +343,7 @@ design_template: full
 **多平台装配的两条必须遵守的约束（P 项落地时）**
 
 1. **废弃 `_single_external_platform_key` 的「全局单平台」假设**：它是为「一个 MSSWWEB 通道选一个平台」写的，`len>1` 即 503。多平台装配时，每个 surface 应**直接绑定它自己配置项的 `platform_key`**（遍历平台配置、逐个构造 `ChatSurface(platform_key=该项.platform_key, channel=该项.channel, assertion_header=...)`），不再经过「全局挑一个」的逻辑。否则多平台永远触发 503。
-2. **多平台必须多通道，不能共用同一 `channel` 名**：`bot_account` 只有 `channel` 没有 `platform_key`，入口层只能按通道名区分。若两个平台配成同一个 `channel`（如都想用 `MSSWWEB` 共用一扇门），入口、`grant_entry`（按身份 `platform_key` 取 `config.channel` 再比 `bot.channel`）、路由前缀都无法区分二者，必然冲突。**正确形态：一平台一 `platform_key` 一 `channel` 一路由前缀（`/api/v1/<channel 小写>`）**。「复用 MSSWWEB 通道」只适用于「就一个外部平台」的场景；一旦要第二平台，必须给它独立通道名。
+2. **多平台必须多通道，不能共用同一 `channel` 名**：`bot_account` 只有 `channel` 没有 `platform_key`，入口层只能按通道名区分。若两个平台配成同一个 `channel`（如都想用 `MSSWWEB` 共用一扇门），入口、`grant_entry`（按身份 `platform_key` 取 `config.channel` 再比 `bot.channel`）、路由前缀都无法区分二者，必然冲突。**正确形态：一平台一 `platform_key` 一 `channel` 一路由前缀（`/api/v1/<channel 小写>`）**。「复用 MSSWWEB 通道」只适用于「就一个外部平台」的场景；一旦要第二平台，必须给它独立通道名。**每个通道名还必须满足上面的「通道命名规范」（`^[A-Za-z0-9]+web$`）**——通道名决定路由前缀，只有遵守该规范，反代才能用一条正则覆盖全部外部平台前缀而不误吞 Console 路径；不满足时 `config.py` 解析阶段即报错。
 
 **五、参数化改造清单（一次性改造；完成后新增同协议平台即纯配置，供后续需求承接）**
 

@@ -8,6 +8,8 @@
 
 **通用化边界**：这是「JWT 类外部平台」的通用方案。新增同类平台只加平台配置与入口，不复制 handler；参数化改造与接入旅程见 `.code-flow/.../mssw-external-im-channel.backend.design.md` §3.1.3。若将来接非 JWT 平台（OAuth2、mTLS），身份模型与会话层可复用，认证适配层需另写。
 
+**通道命名规范（接入新平台必读）**：平台配置里的 `channel` 必须形如 `^[A-Za-z0-9]+web$`（以 `web` 结尾、其余为字母数字，如 `MSSWWEB`、`MSSPWEB`）。它决定路由前缀 `/api/v1/<channel 小写>`，反代用一条正则覆盖所有外部平台前缀；不遵守会让前端通道选不通或请求 404，且无明确报错。**环境标识（UAT/PRD）放 `display_name`，不要放进 `channel`**（`MSSPWEBUAT` 这类命名不合法）。
+
 ## 文档地图
 
 | 文档 | 内容 |

@@ -1030,6 +1030,51 @@ MSSW 的身份在 Cookie `soc-token`。Playwright 用 `context.addCookies()` 种
 
 **「情况 A」= 本期扩展性目标**：新平台形态与 `MSSWWEB` 一致（无 Secret、`bot_id` 为入口标识）。P 项第 7 步一次性把 `SECRETLESS_CHANNELS` 改为「内置 ∪ 配置平台通道」、前端下拉动态化后，情况 A 新平台自动复用 MSSWWEB 表单，前端零额外代码。**情况 B（新平台有 Secret 或字段语义不同）/ C（有独有表单字段）不承诺配置化**，出现时另立前端需求。
 
-**多平台装配两条硬约束**：① **废弃 `_single_external_platform_key` 的「全局单平台」假设**——每平台配置各自绑定 surface，不再「全局挑一个」（现 `len>1` 即 503）；② **多平台必须多通道，不能共用同一 `channel` 名**——`bot_account` 只有 `channel` 无 `platform_key`，共用通道则入口/授权/路由无法区分而冲突。正确形态：一平台一 `platform_key` 一 `channel` 一路由前缀。「复用 MSSWWEB 通道」只适用于单平台场景。
+**多平台装配三条硬约束**：① **废弃 `_single_external_platform_key` 的「全局单平台」假设**——每平台配置各自绑定 surface，不再「全局挑一个」（现 `len>1` 即 503）；② **多平台必须多通道，不能共用同一 `channel` 名**——`bot_account` 只有 `channel` 无 `platform_key`，共用通道则入口/授权/路由无法区分而冲突。正确形态：一平台一 `platform_key` 一 `channel` 一路由前缀。「复用 MSSWWEB 通道」只适用于单平台场景；③ **通道名必须匹配 `^[A-Za-z0-9]+web$`（以 `web` 结尾、其余字母数字）**——路由前缀由 `/api/v1/<channel 小写>` 派生，反代用一条正则 `^/api/v1/[a-z0-9]+web(?:/|$)` 覆盖所有外部平台前缀且不误吞 Console 的 `/api/v1/*` 业务前缀与 `/api/v1/webchat`。契约层 `ChannelName = str` 不约束字符集，故该约束必须在平台配置解析时显式校验（不满足抛 `PlatformConfigError`，启动期失败）。**环境标识（UAT/PRD 等）放 `display_name`，不得进入 `channel`**——`MSSPWEBUAT` 这类命名会绕过反代正则、表现为前端通道选不通或请求 404 且无明确报错。
 
 **配置不能满足的点（需代码/前端/产品决策）**：通知/任务中心对 MSSWWEB 面刻意不暴露（是否给新平台属产品决策）。通道注册名、`SECRETLESS_CHANNELS`、前端 `ChannelKind`/下拉/**`AgentDetailSideSheet` 通道展示名**均为**一次性改造项（P 项）**，改造后情况 A 不再每平台改代码（展示名从映射取，否则新平台显示裸通道名）。
+
+---
+
+## TASK-014: 外部平台通道命名规范沉淀
+
+- **Status**: pending
+- **Depends**: TASK-007
+- **Source**: mssw-external-im-channel.backend.design.md（术语·通道定义与「多平台装配必守约束」）
+- **Scenarios**:
+- **Spec-Refs**: im/harness-im
+- **Paths**: .code-flow/specs/im/harness-im.md
+- **E2E**:
+- **Skip-Tests**: true
+- **Skip-Reason**: 纯规范沉淀，无代码可执行；Delta 由 cf-task:archive 应用
+
+### Tests
+
+```json
+[]
+```
+
+### Description
+
+第二轮平台接入（`mssp`）暴露：通道名被配成 `MSSPWEBUAT`（把环境标识 `UAT` 塞进通道名），导致反代正则 `^/api/v1/[a-z0-9]+web` 匹配不到、请求落到 Console 上游 404，前端通道下拉也因两个平台 `channel` 撞名而选不通。根因是**契约层 `ChannelName = str` 不约束字符集，通道命名规范从未写进规范**。
+
+本任务把该约束沉淀为 `im/harness-im` 的规则：外部平台通道名必须匹配 `^[A-Za-z0-9]+web$`，环境标识放 `display_name`。同步修改既有 `RULE-im-006` 的补充（Conventions 处），不改既有规则文本本身。
+
+### Checklist
+
+- [ ] 新规则有稳定 `RULE-im-010`，编号取自 `next_rule`（`im` 9→10）
+- [ ] 规则写规范不写实现值（不写具体平台名以外的配置值）
+- [ ] 配 ✅/❌ 对照示例
+- [ ] Spec Delta JSON 合法，`target` 相对 `.code-flow/specs` 且不带 `.md`,`im` 的 `next_rule` 同步 +1
+
+### Spec Delta
+
+```json
+[
+  {"id":"DELTA-014","op":"add","target":"im/harness-im","rule":"外部 JWT 平台的通道名必须匹配 ^[A-Za-z0-9]+web$（不区分大小写地以 web 结尾、其余为字母数字）。通道名决定路由前缀 /api/v1/<channel 小写>，反代需用一条正则覆盖所有外部平台前缀且不误吞 Console 的 /api/v1/* 业务前缀与 webchat；契约层 ChannelName 不约束字符集，故该约束须在平台配置解析期显式校验，不满足则启动期报错。环境/部署标识（如 UAT/PRD）放 display_name，不得进入 channel。✅ MSSWWEB、MSSPWEB；❌ MSSPWEBUAT、mssp、custom-channel。","evidence":"backend.design.md 术语·通道定义「通道命名规范」与「多平台装配必守约束」第 3 条；第二轮 mssp 接入暴露的 regex 漏匹配与前端下拉撞名"}
+]
+```
+
+### Log
+
+- [2026-11-20] created（第二轮 mssp 接入暴露通道命名无约束问题后沉淀）
