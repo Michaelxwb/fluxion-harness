@@ -137,6 +137,44 @@ def test_tool_failure_envelope_keeps_output_truncated() -> None:
     assert outcome.evidence.output_truncated is True
 
 
+def test_tool_failure_envelope_previews_platform_sessions() -> None:
+    from muad_agent_core.tools import tool_failure_outcome
+
+    outcome = tool_failure_outcome(
+        json.dumps(
+            {
+                "error": {
+                    "code": "PLATFORM_AUTH_REJECTED",
+                    "message": "platform session unavailable",
+                },
+                "platform_sessions": {
+                    "platforms": [
+                        {"key": "smoke_platform", "available": True},
+                        {
+                            "key": "mssw_bad",
+                            "available": False,
+                            "error": {
+                                "code": "PLATFORM_AUTH_REJECTED",
+                                "detail": {
+                                    "http_status": 401,
+                                    "message": "signature invalid",
+                                },
+                            },
+                        },
+                    ]
+                },
+            }
+        )
+    )
+
+    assert outcome is not None
+    assert outcome.failure_layer is FailureLayer.TOOL
+    assert (
+        "platform_sessions: smoke_platform=ok; "
+        "mssw_bad=PLATFORM_AUTH_REJECTED(http=401) signature invalid"
+    ) in outcome.evidence.preview
+
+
 def test_evidence_preview_is_redacted_and_truncation_is_visible() -> None:
     secret = "token=super-secret-value"
     outcome = skill_execution_outcome(

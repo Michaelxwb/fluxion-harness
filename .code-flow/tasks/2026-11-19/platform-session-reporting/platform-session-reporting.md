@@ -203,7 +203,7 @@
 - **Source**: platform-session-reporting.design.md#3.2, #3.4, #3.5
 - **Scenarios**: platform-session-reporting:S-03, platform-session-reporting:S-04, platform-session-reporting:E-03, platform-session-reporting:B-05
 - **Spec-Refs**: platform/harness-project-platform#RULE-platform-001, worker/harness-worker, test/harness-test
-- **Paths**: apps/agent-runtime/src/muad_agent_runtime/application/run_service.py, apps/agent-runtime/src/muad_agent_runtime/application/finalization/**, apps/agent-worker/src/muad_agent_worker/worker/**, tests/agent_runtime/test_finalization_facts.py, tests/agent_runtime/test_finalization_render.py, tests/agent_runtime/test_finalization_funnel.py, tests/agent_runtime/test_workspace_shell_tool.py, tests/agent_worker/test_async_background_error_delivery.py, tests/agent_worker/test_execution_outcomes.py
+- **Paths**: apps/agent-runtime/src/muad_agent_runtime/application/run_service.py, apps/agent-runtime/src/muad_agent_runtime/application/finalization/**, apps/agent-worker/src/muad_agent_worker/worker/**, packages/agent-core/src/muad_agent_core/tools/outcome.py, tests/agent_runtime/test_finalization_facts.py, tests/agent_runtime/test_finalization_render.py, tests/agent_runtime/test_finalization_funnel.py, tests/agent_runtime/test_workspace_shell_tool.py, tests/agent_core/test_outcome_parser.py, tests/agent_worker/test_async_background_error_delivery.py, tests/agent_worker/test_execution_outcomes.py
 - **E2E**:
 - **Skip-Tests**: false
 - **Skip-Reason**:
@@ -214,7 +214,7 @@
 [
   {
     "id": "finalization-report",
-    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_runtime/test_finalization_facts.py", "tests/agent_runtime/test_finalization_render.py", "tests/agent_runtime/test_finalization_funnel.py", "tests/agent_runtime/test_workspace_shell_tool.py"],
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_runtime/test_finalization_facts.py", "tests/agent_runtime/test_finalization_render.py", "tests/agent_runtime/test_finalization_funnel.py", "tests/agent_runtime/test_workspace_shell_tool.py", "tests/agent_core/test_outcome_parser.py"],
     "timeout": 600,
     "parallel": false
   },
@@ -231,14 +231,14 @@
 
 让现有失败出口真正读到 TASK-003 的报告，不新增字段或迁移：
 
-- `run_service` / finalization 从失败结果的 `stderr` 前部读取有界摘要（现有 `evidence_preview`）；逐平台告知；结构化 `platform_sessions` 供模型；
+- `run_service` / finalization 从失败结果的 `stderr` 前部或工具错误载荷的 `platform_sessions` 读取有界摘要（现有 `evidence_preview`）；逐平台告知；结构化 `platform_sessions` 供模型；
 - 覆盖 B-05：显式 `execute platforms` 的预登录失败，命令未执行，本次回复仍能看到 MSSP/MSSW 结果；不能声称 CLI 已执行；
 - agent-worker 同类失败转任务错误时保留 `platform_sessions`/摘要，复用现有失败展示/投递；不改状态、重试决策或成功结果；
 - 不新增审计列、不强制外置、不改变 Runner 终止规则。
 
 ### Checklist
 
-- [x] finalization 从 `stderr` 前部摘要逐平台告知；2 平台在 1 KiB/300 字预算内可读。
+- [x] finalization 从 `stderr` 前部或工具错误载荷摘要逐平台告知；2 平台在 1 KiB/300 字预算内可读。
 - [x] B-05 预登录失败：命令未执行、报告仍在本次回复；不声称 CLI 已执行。
 - [x] Worker 任务失败消息保留诊断；成功结果不变。
 - [x] 无新审计字段/迁移；Runner 终止规则不变。
@@ -254,11 +254,15 @@
 
 - [2026-11-20] created
 - [2026-11-20T04:27:34.519Z] started tests=346ea897415d
+- [2026-11-20T05:30:40.323Z] reopen: B-05 人工验收发现失败回复只有运行终止摘要
 
 ### Verification
 
 - 尚未执行
 - 2026-11-20T04:32:12.906Z PASS commands=2/2 executed=2 deduped=0 elapsed=23806ms tests=346ea897415d head=5c071efe7084 dirty=1
+  - finalization-report PASS exit=0
+  - worker-diagnostic PASS exit=0
+- 2026-11-20T05:31:18.385Z PASS commands=2/2 executed=2 deduped=0 elapsed=17709ms tests=56ac2ee03004 head=abc89d1a1c44 dirty=1 tests-changed
   - finalization-report PASS exit=0
   - worker-diagnostic PASS exit=0
 ## TASK-005: 敏感值擦除与无会话平台报告
