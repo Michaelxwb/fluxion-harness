@@ -43,6 +43,8 @@ SKILL_FRONTMATTER = {
             "properties": {
                 "case": {"type": "string"},
                 "customer": {"type": "string"},
+                "index": {"type": "integer"},
+                "gate": {"type": "string"},
             },
             "required": [],
             "additionalProperties": False,
