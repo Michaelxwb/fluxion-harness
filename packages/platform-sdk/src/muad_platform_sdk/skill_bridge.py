@@ -221,6 +221,8 @@ async def _write_state(
     if not requested:
         raise PlatformAuthError("PLATFORM_SESSION_REQUIRED")
     report = await access.collect_batch(requested, refresh=refresh)
+    if report.hard_error is not None:
+        raise access.batch_error(requested)
     first = report.first_failure()
     if first is not None:
         raise PlatformAuthError(

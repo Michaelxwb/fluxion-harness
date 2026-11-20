@@ -13,10 +13,13 @@ from typing import Any, cast
 
 import httpx
 from muad_common.redis_client import create_redis_client
+from redis.exceptions import RedisClusterException, RedisError
 
 from .adapter import MSSAdapter, PlatformAdapterRegistry
 from .adapter.mss_config import PlatformAuthError
 from .platform_transport import PlatformBudgetScope
+from .request_budget import LocalRateLimitError
+from .shared_redis import SharedLimitExceeded
 from .session.manager import SessionRequest
 from .session.redis_manager import RedisPlatformSessionManager
 from .types import PlatformConfig, PlatformSession, SecretValue, SessionMode
@@ -29,6 +32,16 @@ _AUTHORIZATION_DENIALS = frozenset(
 _HARD_RESOLUTION_CODES = frozenset(
     {"PLATFORM_ACCESS_UNAVAILABLE", "PLATFORM_RESOLVE_FAILED", "PLATFORM_RESOLVE_INVALID"}
 )
+
+
+def _interrupt_reason(exc: BaseException) -> str:
+    if isinstance(exc, LocalRateLimitError):
+        return "budget_exhausted"
+    if isinstance(exc, SharedLimitExceeded):
+        return "rate_limited"
+    if isinstance(exc, (RedisError, RedisClusterException)):
+        return "store_unavailable"
+    return "check_interrupted"
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,6 +93,8 @@ class PlatformSessionReport:
 
     _order: list[str] = field(default_factory=list)
     _attempts: dict[str, PlatformAttempt] = field(default_factory=dict)
+    #: 基础设施/预算中断的分类器；由调用方决定是 hard failure 还是“报告已知项”。
+    hard_error: Exception | None = field(default=None, repr=False, compare=False)
 
     def record(self, attempt: PlatformAttempt) -> None:
         if attempt.key not in self._attempts:
@@ -235,6 +250,52 @@ class SkillPlatformAccess:
     async def _discover_keys(self) -> tuple[str, ...]:
         return tuple(item["key"] for item in await self.list_platforms() if item.get("available"))
 
+    def _mark_not_checked(
+        self,
+        keys: Sequence[str],
+        metadata: Mapping[str, Mapping[str, Any]],
+        exc: BaseException,
+    ) -> None:
+        reason = _interrupt_reason(exc)
+        for key in keys:
+            item = metadata.get(key, {})
+            self.report.record(
+                PlatformAttempt(
+                    key=key,
+                    name=str(item.get("name") or key),
+                    authentication=str(item.get("authentication") or "session"),
+                    available=None,
+                    reason=reason,
+                )
+            )
+        self.report.hard_error = exc
+
+    def batch_error(self, keys: Sequence[str]) -> PlatformAuthError:
+        exc = self.report.hard_error
+        detail: dict[str, object] | None = None
+        if isinstance(exc, LocalRateLimitError):
+            code, retryable = exc.code, exc.retryable
+        elif isinstance(exc, SharedLimitExceeded):
+            code = "LOCAL_BUDGET_EXHAUSTED" if exc.kind == "TOTAL" else "LOCAL_RATE_LIMITED"
+            retryable = False
+            detail = {
+                "limit_kind": exc.kind,
+                "scope": str(exc.scope),
+                "rule_id": exc.rule_id,
+            }
+        elif isinstance(exc, (RedisError, RedisClusterException)):
+            code, retryable = "PLATFORM_SESSION_STORE_UNAVAILABLE", True
+        elif isinstance(exc, PlatformAuthError):
+            code, retryable, detail = exc.code, exc.retryable, exc.detail
+        else:
+            code, retryable = "PLATFORM_RESOLVE_FAILED", True
+        return PlatformAuthError(
+            code,
+            retryable=retryable,
+            detail=detail,
+            platform_sessions=self.report.payload(keys),
+        )
+
     async def collect_batch(
         self,
         keys: Sequence[str],
@@ -244,11 +305,12 @@ class SkillPlatformAccess:
     ) -> PlatformSessionReport:
         """按请求顺序逐平台解析/获取，记录最后报告；不抛出平台级失败。
 
-        基础设施错误（Console 解析/服务不可用、Redis、预算/限流）仍原样抛出；
+        基础设施/预算/限流中断时保留已知结果，并把当前及剩余平台标成未检查；
+        调用方用 ``hard_error``/``batch_error()`` 决定是硬失败还是返回报告。
         缺凭据、授权拒绝、认证失败和各平台自身错误只进入报告。
         """
         meta = metadata or {}
-        for key in keys:
+        for index, key in enumerate(keys):
             item = meta.get(key, {})
             name = str(item.get("name") or key)
             authentication = str(item.get("authentication") or "session")
@@ -256,7 +318,8 @@ class SkillPlatformAccess:
                 platform, request, manager = await self.resolve_platform(key)
             except PlatformAuthError as exc:
                 if exc.code in _HARD_RESOLUTION_CODES:
-                    raise
+                    self._mark_not_checked(keys[index:], meta, exc)
+                    return self.report
                 self.report.record(
                     PlatformAttempt(
                         key=key,
@@ -301,6 +364,9 @@ class SkillPlatformAccess:
                     )
                 )
                 continue
+            except (LocalRateLimitError, SharedLimitExceeded, RedisError, RedisClusterException) as exc:
+                self._mark_not_checked(keys[index:], meta, exc)
+                return self.report
             if state is None:
                 self.report.record(
                     PlatformAttempt(
@@ -416,6 +482,8 @@ class SkillPlatformAccess:
             return self.report
         requested = tuple(dict.fromkeys(self.context.platform_keys))
         await self.collect_batch(requested)
+        if self.report.hard_error is not None:
+            raise self.batch_error(requested)
         first = self.report.first_failure()
         if first is not None:
             raise PlatformAuthError(

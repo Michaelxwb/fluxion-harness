@@ -21,6 +21,7 @@ from pathlib import Path
 import pytest
 from muad_platform_sdk import PlatformConfig, PlatformSession, SecretValue, SessionMode
 from muad_platform_sdk.adapter.mss_config import PlatformAuthError
+from muad_platform_sdk.request_budget import LocalRateLimitError
 from muad_platform_sdk.session.manager import SessionRequest
 from muad_platform_sdk.skill_access import SkillPlatformAccess, SkillPlatformContext
 from muad_platform_sdk.skill_bridge import SessionBrokerBudget, skill_platform_environment
@@ -49,6 +50,11 @@ class _FailingManager:
             "PLATFORM_AUTH_REJECTED",
             detail={"http_status": 401, "message": "denied"},
         )
+
+
+class _BudgetManager:
+    async def acquire(self, request: SessionRequest) -> PlatformSession:
+        raise LocalRateLimitError("EXECUTION", "run", "rule-budget", "TOTAL", 1, 1)
 
 
 class _NoAuthAdapter:
@@ -89,6 +95,7 @@ def _patch_resolver(
     missing: frozenset[str] = frozenset(),
     failing: frozenset[str] = frozenset(),
     rejecting: frozenset[str] = frozenset(),
+    budget: frozenset[str] = frozenset(),
     adapter_key: str = "mss-session",
     credential_mode: str = "USER_ONLY",
 ) -> None:
@@ -115,7 +122,11 @@ def _patch_resolver(
             SecretValue(value="{}", version="1"),
         )
         if key in rejecting:
-            manager: _Manager | _FailingManager | _RejectingManager = _RejectingManager()
+            manager: _Manager | _FailingManager | _RejectingManager | _BudgetManager = (
+                _RejectingManager()
+            )
+        elif key in budget:
+            manager = _BudgetManager()
         elif key in failing:
             manager = _FailingManager()
         else:
@@ -421,6 +432,21 @@ async def test_list_platforms_marks_no_session_platform_as_not_checked(
     payload = json.loads(completed.stdout)
     assert payload["platforms"][0]["available"] is None
     assert payload["platforms"][0]["reason"] == "session_not_applicable"
+
+
+async def test_list_platforms_budget_interruption_marks_remaining_not_checked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_list(monkeypatch, ("mssp", "mssw"))
+    _patch_resolver(monkeypatch, budget=frozenset({"mssw"}))
+    async with skill_platform_environment(_context(()), "probe-skill") as session:
+        completed = await _run_cli_list(dict(session.env))
+
+    assert completed.returncode == 0, completed.stderr
+    payload = json.loads(completed.stdout)
+    assert payload["platforms"][0]["available"] is True
+    assert payload["platforms"][1]["available"] is None
+    assert payload["platforms"][1]["reason"] == "budget_exhausted"
 
 
 async def test_sandbox_root_maps_socket_state_and_readonly_mounts(
