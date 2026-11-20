@@ -112,7 +112,6 @@ export function TaskDetailSideSheet(props: TaskDetailSideSheetProps) {
     <DetailSideSheet
       visible={props.taskId !== null}
       title={t('task.detail.title')}
-      actions={detail ? <ExportExecutionButton kind="TASK" id={detail.task_id} /> : undefined}
       subtitle={
         detail
           ? `${taskStatusFallback(translate, detail.status).label} · ${taskTypeLabel(
@@ -132,6 +131,7 @@ export function TaskDetailSideSheet(props: TaskDetailSideSheetProps) {
         {detail ? (
           <TaskBasicDetails
             detail={detail}
+            exportAction={<ExportExecutionButton kind="TASK" id={props.taskId} />}
             onOpenSchedule={props.onOpenSchedule}
             onOpenRun={props.onOpenRun}
           />

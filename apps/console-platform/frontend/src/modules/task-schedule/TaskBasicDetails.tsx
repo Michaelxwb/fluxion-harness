@@ -13,6 +13,7 @@ type Field = readonly [label: string, value: ReactNode];
 
 export interface TaskBasicDetailsProps {
   detail: TaskDetail;
+  exportAction?: ReactNode;
   onOpenSchedule?(id: string): void;
   onOpenRun?(id: string): void;
 }
@@ -140,6 +141,7 @@ export function TaskBasicDetails(props: TaskBasicDetailsProps) {
           {detail.cancel_requested && CANCELLABLE_TASK_STATUSES.includes(detail.status) ? (
             <span data-testid="task-cancel-requested">{t('task.cancel.requested')}</span>
           ) : null}
+          {props.exportAction}
         </div>
       </div>
       <TaskNotices detail={detail} />

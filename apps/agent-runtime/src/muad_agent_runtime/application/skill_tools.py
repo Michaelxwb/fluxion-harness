@@ -733,17 +733,17 @@ class SkillToolSet:
         try:
             result = await runner.run(_draft_shell_request(arguments, context, call_id, self._timeout_sec))
         except DraftShellError as exc:
-            payload: dict[str, Any] = {"error": {"code": exc.code, "message": exc.message}}
+            error_payload: dict[str, Any] = {"error": {"code": exc.code, "message": exc.message}}
             if exc.retryable:
-                payload["error"]["retryable"] = True
+                error_payload["error"]["retryable"] = True
             if exc.result is not None:
-                payload["stdout"] = exc.result.stdout
-                payload["stderr"] = exc.result.stderr
-                payload["exit_code"] = exc.result.exit_code
-                payload["output_truncated"] = exc.result.output_truncated
+                error_payload["stdout"] = exc.result.stdout
+                error_payload["stderr"] = exc.result.stderr
+                error_payload["exit_code"] = exc.result.exit_code
+                error_payload["output_truncated"] = exc.result.output_truncated
             if exc.platform_sessions:
-                payload["platform_sessions"] = exc.platform_sessions
-            return json.dumps(payload, ensure_ascii=False)
+                error_payload["platform_sessions"] = exc.platform_sessions
+            return json.dumps(error_payload, ensure_ascii=False)
         except SkillToolError as exc:
             return _error_result(exc.code, exc.message)
         except ValueError as exc:

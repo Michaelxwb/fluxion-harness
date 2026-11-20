@@ -19,9 +19,9 @@ from .adapter import MSSAdapter, PlatformAdapterRegistry
 from .adapter.mss_config import PlatformAuthError
 from .platform_transport import PlatformBudgetScope
 from .request_budget import LocalRateLimitError
-from .shared_redis import SharedLimitExceeded
 from .session.manager import SessionRequest
 from .session.redis_manager import RedisPlatformSessionManager
+from .shared_redis import SharedLimitExceeded
 from .types import PlatformConfig, PlatformSession, SecretValue, SessionMode
 
 #: Console 拒绝（无权限/无凭据）只收敛该平台，不把整个执行判为失败；其余错误原样上抛。
@@ -254,7 +254,7 @@ class SkillPlatformAccess:
         self,
         keys: Sequence[str],
         metadata: Mapping[str, Mapping[str, Any]],
-        exc: BaseException,
+        exc: Exception,
     ) -> None:
         reason = _interrupt_reason(exc)
         for key in keys:

@@ -58,11 +58,13 @@ def test_uvicorn_records_use_the_same_redacted_output(tmp_path, monkeypatch):
     root = logging.getLogger()
     monkeypatch.setattr(root, "handlers", [])
     monkeypatch.setattr(root, "level", root.level)
+    monkeypatch.setattr(root.manager, "disable", logging.NOTSET)
     for name in ("uvicorn", "uvicorn.error", "uvicorn.access", "uvicorn.asgi", "httpx", "httpcore"):
         logger = logging.getLogger(name)
         monkeypatch.setattr(logger, "handlers", [])
+        monkeypatch.setattr(logger, "disabled", False)
         monkeypatch.setattr(logger, "propagate", logger.propagate)
-        monkeypatch.setattr(logger, "level", logger.level)
+        monkeypatch.setattr(logger, "level", logging.NOTSET)
     server = logging.getLogger("uvicorn")
     server.addHandler(logging.StreamHandler(old_output))
     server.propagate = False

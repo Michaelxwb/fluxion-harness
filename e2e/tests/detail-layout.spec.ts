@@ -163,14 +163,21 @@ for (const [index, entry] of cases.entries()) {
     test(`${entry.path} details share compact layout in ${mode}`, async ({ page }, testInfo) => {
       await prepare(page, index, mode);
       const sheet = page.getByRole('dialog');
-      await expect(sheet.locator('.detail-grid').first()).toBeVisible();
-      await expect(sheet.locator('.detail-section-title').first()).toHaveText('基本信息');
+      const task = entry.path === 'tasks';
+      const gridSelector = task ? '.task-detail-section:last-of-type .task-detail-fields' : '.detail-grid';
+      await expect(sheet.locator(gridSelector).first()).toBeVisible();
+      if (task) {
+        await expect(sheet.getByRole('heading', { name: '任务来源' })).toBeVisible();
+        await expect(sheet.getByTestId('task-detail-error')).toContainText('ERROR');
+      } else {
+        await expect(sheet.locator('.detail-section-title').first()).toHaveText('基本信息');
+      }
       await expectDetailHeadingTypography(sheet, mode);
       await expect.poll(() => sheet.evaluate((node) => Math.round(node.getBoundingClientRect().right))).toBe(mode === 'mobile' ? 390 : 1280);
-      const layout = await sheet.evaluate((node) => {
+      const layout = await sheet.evaluate((node, selector) => {
         const rect = node.getBoundingClientRect();
         const body = node.querySelector('.semi-sidesheet-body')!;
-        const grid = node.querySelector('.detail-grid')!;
+        const grid = node.querySelector(selector)!;
         const header = node.querySelector('.semi-sidesheet-header')!;
         return {
           width: rect.width, left: rect.left, right: rect.right,
@@ -178,12 +185,12 @@ for (const [index, entry] of cases.entries()) {
           columns: getComputedStyle(grid).gridTemplateColumns.split(' ').length,
           padding: getComputedStyle(header).paddingTop
         };
-      });
+      }, gridSelector);
       expect(layout.width).toBeCloseTo(mode === 'mobile' ? 390 : 920, 0);
       expect(layout.left).toBeGreaterThanOrEqual(-1);
       expect(layout.right).toBeLessThanOrEqual((mode === 'mobile' ? 390 : 1280) + 1);
       expect(layout.overflow).toBe(false);
-      expect(layout.columns).toBe(mode === 'mobile' ? 1 : 2);
+      expect(layout.columns).toBe(mode === 'mobile' ? 1 : task ? 3 : 2);
       expect(layout.padding).toBe(mode === 'mobile' ? '12px' : '16px');
       await expect(sheet.locator('.semi-sidesheet-close')).toBeInViewport({ ratio: 1 });
       await expect(sheet.locator('.detail-actions')).toHaveCount(0);

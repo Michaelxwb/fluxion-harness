@@ -206,6 +206,7 @@ async def _write_state(
             "version": 2,
             "platforms": access.report.payload(keys)["platforms"],
         }
+    requested: tuple[str, ...]
     if platform_key is not None:
         allowed = await access.allowed_keys()
         if platform_key not in allowed:
