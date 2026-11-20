@@ -40,3 +40,4 @@ def test_session_manager_help_exposes_execution_platform_contract() -> None:
     assert "session-manager list-platforms" in payload["usage"]
     assert "session-manager get-state --platform <key>" in payload["usage"]
     assert "session-manager refresh --platform <key>" in payload["usage"]
+    assert "checks actual login state" in payload["notes"]["list-platforms"]

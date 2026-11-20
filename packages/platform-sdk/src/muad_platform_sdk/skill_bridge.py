@@ -185,9 +185,19 @@ async def _write_state(
     ledger: _BudgetLedger,
 ) -> dict[str, Any]:
     if platform_key is None and not legacy_mode:
+        catalog = await access.list_platforms()
+        keys = tuple(
+            str(item["key"]) for item in catalog if isinstance(item, dict) and item.get("key")
+        )
+        metadata = {
+            str(item["key"]): item
+            for item in catalog
+            if isinstance(item, dict) and item.get("key")
+        }
+        await access.collect_batch(keys, metadata=metadata)
         return {
             "version": 2,
-            "platforms": await access.list_platforms(),
+            "platforms": access.report.payload(keys)["platforms"],
         }
     keys = await access.allowed_keys()
     if platform_key is not None:

@@ -5,8 +5,9 @@ from __future__ import annotations
 import hashlib
 import json
 import ssl
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import StrEnum
 from typing import Any, cast
 
@@ -18,12 +19,95 @@ from .adapter.mss_config import PlatformAuthError
 from .platform_transport import PlatformBudgetScope
 from .session.manager import SessionRequest
 from .session.redis_manager import RedisPlatformSessionManager
-from .types import PlatformConfig, SecretValue
+from .types import PlatformConfig, PlatformSession, SecretValue, SessionMode
 
 #: Console 拒绝（无权限/无凭据）只收敛该平台，不把整个执行判为失败；其余错误原样上抛。
 _AUTHORIZATION_DENIALS = frozenset(
     {"PLATFORM_ACCESS_DENIED", "PLATFORM_ACCESS_UNAVAILABLE", "CREDENTIAL_MISSING"}
 )
+#: 这些错误说明执行级基础设施不可用，不能降级成某个平台的结果条目。
+_HARD_RESOLUTION_CODES = frozenset(
+    {"PLATFORM_ACCESS_UNAVAILABLE", "PLATFORM_RESOLVE_FAILED", "PLATFORM_RESOLVE_INVALID"}
+)
+
+
+@dataclass(frozen=True, slots=True)
+class PlatformAttempt:
+    """一个平台在本批次中的最近一次结果；只投影安全字段。"""
+
+    key: str
+    name: str
+    authentication: str
+    available: bool | None
+    expires_at: datetime | None = None
+    code: str | None = None
+    detail: dict[str, object] | None = None
+    retryable: bool = False
+    reason: str | None = None
+    session: PlatformSession | None = field(default=None, repr=False, compare=False)
+
+    def payload(self) -> dict[str, object]:
+        item: dict[str, object] = {
+            "key": self.key,
+            "name": self.name,
+            "authentication": self.authentication,
+        }
+        if self.available is None:
+            item["available"] = None
+            if self.reason:
+                item["reason"] = self.reason
+            return item
+        if self.available:
+            item["available"] = True
+            item["expiresAt"] = self.expires_at.isoformat() if self.expires_at else None
+            return item
+        item["available"] = False
+        error: dict[str, object] = {"code": self.code or "PLATFORM_SESSION_REQUIRED"}
+        if self.detail:
+            error["detail"] = self.detail
+        if self.retryable:
+            error["retryable"] = True
+        item["error"] = error
+        return item
+
+
+@dataclass(slots=True)
+class PlatformSessionReport:
+    """执行级最后报告：按请求顺序保存每个平台最近一次结果。
+
+    不持久化、不跨执行共享；每次采集覆盖同一平台，顺序按首次出现。
+    """
+
+    _order: list[str] = field(default_factory=list)
+    _attempts: dict[str, PlatformAttempt] = field(default_factory=dict)
+
+    def record(self, attempt: PlatformAttempt) -> None:
+        if attempt.key not in self._attempts:
+            self._order.append(attempt.key)
+        self._attempts[attempt.key] = attempt
+
+    def payload(self, keys: Sequence[str] | None = None) -> dict[str, object]:
+        order = list(keys) if keys is not None else list(self._order)
+        return {
+            "platforms": [
+                self._attempts[key].payload() for key in order if key in self._attempts
+            ]
+        }
+
+    @property
+    def has_failures(self) -> bool:
+        return any(attempt.available is False for attempt in self._attempts.values())
+
+    @property
+    def has_success(self) -> bool:
+        return any(attempt.available is True for attempt in self._attempts.values())
+
+    def successes(self) -> tuple[PlatformAttempt, ...]:
+        return tuple(
+            attempt
+            for key in self._order
+            if (attempt := self._attempts.get(key)) is not None and attempt.available is True
+        )
 
 
 class PlatformScope(StrEnum):
@@ -80,6 +164,8 @@ class SkillPlatformAccess:
         self._resolved_bindings: dict[
             str, tuple[PlatformConfig, SessionRequest, RedisPlatformSessionManager]
         ] = {}
+        #: 执行级最后报告：只保存在 broker 生命周期内，供 list/start/get-state 共用。
+        self.report = PlatformSessionReport()
 
     async def close(self) -> None:
         if self.redis:
@@ -134,6 +220,94 @@ class SkillPlatformAccess:
 
     async def _discover_keys(self) -> tuple[str, ...]:
         return tuple(item["key"] for item in await self.list_platforms() if item.get("available"))
+
+    async def collect_batch(
+        self,
+        keys: Sequence[str],
+        *,
+        metadata: Mapping[str, Mapping[str, Any]] | None = None,
+    ) -> PlatformSessionReport:
+        """按请求顺序逐平台解析/获取，记录最后报告；不抛出平台级失败。
+
+        基础设施错误（Console 解析/服务不可用、Redis、预算/限流）仍原样抛出；
+        缺凭据、授权拒绝、认证失败和各平台自身错误只进入报告。
+        """
+        meta = metadata or {}
+        for key in keys:
+            item = meta.get(key, {})
+            name = str(item.get("name") or key)
+            authentication = str(item.get("authentication") or "session")
+            try:
+                platform, request, manager = await self.resolve_platform(key)
+            except PlatformAuthError as exc:
+                if exc.code in _HARD_RESOLUTION_CODES:
+                    raise
+                self.report.record(
+                    PlatformAttempt(
+                        key=key,
+                        name=name,
+                        authentication=authentication,
+                        available=False,
+                        code=exc.code,
+                        detail=exc.detail,
+                        retryable=exc.retryable,
+                    )
+                )
+                continue
+            name = str(item.get("name") or platform.name or key)
+            authentication = str(
+                item.get("authentication")
+                or ("none" if platform.credential_mode == "NONE" else "session")
+            )
+            adapter = self.registry.get(platform.adapter_key)
+            if adapter.session_mode is not SessionMode.SESSION:
+                self.report.record(
+                    PlatformAttempt(
+                        key=key,
+                        name=name,
+                        authentication=authentication,
+                        available=None,
+                        reason="session_not_applicable",
+                    )
+                )
+                continue
+            try:
+                state = await manager.acquire(request)
+            except PlatformAuthError as exc:
+                self.report.record(
+                    PlatformAttempt(
+                        key=key,
+                        name=name,
+                        authentication=authentication,
+                        available=False,
+                        code=exc.code,
+                        detail=exc.detail,
+                        retryable=exc.retryable,
+                    )
+                )
+                continue
+            if state is None:
+                self.report.record(
+                    PlatformAttempt(
+                        key=key,
+                        name=name,
+                        authentication=authentication,
+                        available=None,
+                        reason="session_not_available",
+                    )
+                )
+                continue
+            self.report.record(
+                PlatformAttempt(
+                    key=key,
+                    name=name,
+                    authentication=authentication,
+                    available=True,
+                    expires_at=state.expires_at,
+                    session=state,
+                )
+            )
+        return self.report
 
     async def list_platforms(self) -> list[dict[str, Any]]:
         ctx = self.context

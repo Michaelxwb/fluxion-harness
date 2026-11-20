@@ -19,7 +19,11 @@ def main() -> int:
             "session-manager list-platforms",
             "session-manager get-state --platform <key>",
             "session-manager refresh --platform <key>",
-        ]}))
+        ], "notes": {
+            "list-platforms": "checks actual login state; reports per-platform availability",
+            "get-state": "returns the execution-scoped session state file",
+            "refresh": "refreshes one platform session explicitly",
+        }}))
         return 0
     command: str
     platform: str | None = None
