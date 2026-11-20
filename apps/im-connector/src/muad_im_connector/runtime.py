@@ -51,6 +51,7 @@ from .channels.wecom.sdk_port import (
 from .lease import BotLease, RedisLeaseManager
 from .metrics import record_inbound, record_lease, record_snapshot, set_owned_bots
 from .outbound import ConnectorChannelPort, OutboundRunner
+from .platform_settings import ConnectorPlatformSettings
 from .reply_store import ReplyStore
 
 logger = logging.getLogger(__name__)
@@ -100,6 +101,7 @@ class ConnectorRuntime:
         outbound: OutboundRunner,
         snapshot: BotSnapshotCache,
         renew_sec: float,
+        platform_settings: ConnectorPlatformSettings | None = None,
         attachment_store: InboundAttachmentStore | None = None,
         max_attachment_bytes: int = MAX_ATTACHMENT_BYTES,
         inbound_queue_size: int = 10_000,
@@ -115,6 +117,7 @@ class ConnectorRuntime:
         self._outbound = outbound
         self._snapshot = snapshot
         self._renew_sec = renew_sec
+        self._platform_settings = platform_settings
         #: 入站附件落盘（设计 §3.2.1 ⑤）：**字节只在内持有连接的角色里取**，落共享存储后
         #: 上行只给 `AttachmentRef`（上层不接触 URL/aes_key）。
         self._attachment_store = attachment_store

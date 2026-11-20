@@ -11,7 +11,7 @@ Source 引用 `im-attachment-integrity.backend.design.md` / PRD 章节；场景�
 
 ## TASK-001: 新增批次配置与 Connector 设置读取
 
-- **Status**: draft
+- **Status**: done
 - **Depends**:
 - **Source**: im-attachment-integrity.backend.design.md#3.3, #3.4
 - **Scenarios**: im-attachment-integrity:B-05
@@ -46,11 +46,11 @@ Connector 通过 Console 内部 `platform-settings` 快照读取，按租户缓�
 
 ### Checklist
 
-- [ ] `ImSettings` 增加三个字段、范围与默认值；旧配置反序列化兼容。
-- [ ] `platform_settings_catalog` 增加三项，系统设置页按既有 catalog 渲染。
-- [ ] Connector 设置客户端按租户缓存，失败降级顺序正确且不阻断入站。
-- [ ] 页面修改上限后，新批次使用新值；旧批次不追溯。
-- [ ] 测试覆盖默认值、范围、缓存命中/失败/空快照。
+- [x] `ImSettings` 增加三个字段、范围与默认值；旧配置反序列化兼容。
+- [x] `platform_settings_catalog` 增加三项，系统设置页按既有 catalog 渲染。
+- [x] Connector 设置客户端按租户缓存，失败降级顺序正确且不阻断入站。
+- [x] 页面修改上限后，新批次使用新值；旧批次不追溯。
+- [x] 测试覆盖默认值、范围、缓存命中/失败/空快照。
 
 ### Spec Delta
 
@@ -61,11 +61,15 @@ Connector 通过 Console 内部 `platform-settings` 快照读取，按租户缓�
 ### Log
 
 - [2026-11-20] created
+- [2026-11-20T11:22:32.306Z] started tests=4bc6ceb75553
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-20T11:27:06.775Z FAIL commands=0/1 executed=1 deduped=0 elapsed=51068ms tests=4bc6ceb75553 head=deb93f4e7368 dirty=1
+  - batch-settings FAIL exit=1
+- 2026-11-20T11:28:05.872Z PASS commands=1/1 executed=1 deduped=0 elapsed=51298ms tests=4bc6ceb75553 head=deb93f4e7368 dirty=1
+  - batch-settings PASS exit=0
 ## TASK-002: Connector 批次、在途成员与 journal
 
 - **Status**: draft

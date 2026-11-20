@@ -93,6 +93,23 @@ _FIELD_META: dict[str, dict[str, Any]] = {
     "auth.session_ttl_hours": {"min": 1, "unit_key": "settings.unit.hours"},
     "locale.default_locale": {"enum": ["zh-CN", "en-US"]},
     "im.progress_interval_sec": {"min": 1.0, "unit_key": "settings.unit.seconds"},
+    "im.inbound_batch_quiet_ms": {
+        "min": 100,
+        "max": 2000,
+        "unit_key": "settings.unit.ms",
+        "effect_key": "settings.effect.new_message",
+    },
+    "im.inbound_batch_max_wait_ms": {
+        "min": 500,
+        "max": 30000,
+        "unit_key": "settings.unit.ms",
+        "effect_key": "settings.effect.new_message",
+    },
+    "im.inbound_batch_max_attachments": {
+        "min": 1,
+        "max": 20,
+        "effect_key": "settings.effect.new_message",
+    },
     "mcp.max_tools_per_server": {"min": 1},
     "capacity.max_open_runs_per_tenant": {"effect_key": "settings.effect.new_admission"},
     "capacity.max_open_runs_per_user": {"effect_key": "settings.effect.new_admission"},

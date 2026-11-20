@@ -209,9 +209,24 @@ class LocaleSettings:
 
 @dataclass(frozen=True, slots=True)
 class ImSettings:
-    """IM 回复生命周期内的展示节拍。"""
+    """IM 回复生命周期内的展示节拍与入站附件聚合窗口。"""
 
     progress_interval_sec: float = 5.0
+    #: 同一 route 最后一条帧到达后的静默等待；纯文本回复主要延迟。
+    inbound_batch_quiet_ms: int = field(
+        default=300,
+        metadata={"minimum": 100, "maximum": 2000, "unit": "ms"},
+    )
+    #: 从批次创建起的最长等待；超过仍存在待取件成员则整批失败。
+    inbound_batch_max_wait_ms: int = field(
+        default=5000,
+        metadata={"minimum": 500, "maximum": 30000, "unit": "ms"},
+    )
+    #: 单批最多附件数；达到上限后停止接收，超限整批拒绝并提示分批。
+    inbound_batch_max_attachments: int = field(
+        default=5,
+        metadata={"minimum": 1, "maximum": 20},
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -766,6 +781,19 @@ def _validate_locale(locale: LocaleSettings) -> None:
 
 def _validate_im(im: ImSettings) -> None:
     _at_least("im.progress_interval_sec", im.progress_interval_sec, 1.0)
+    for path, value, minimum, maximum in (
+        ("im.inbound_batch_quiet_ms", im.inbound_batch_quiet_ms, 100, 2000),
+        ("im.inbound_batch_max_wait_ms", im.inbound_batch_max_wait_ms, 500, 30000),
+        ("im.inbound_batch_max_attachments", im.inbound_batch_max_attachments, 1, 20),
+    ):
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise PlatformSettingsError(f"{path} 必须是整数")
+        if not minimum <= value <= maximum:
+            raise PlatformSettingsError(f"{path} 必须是 [{minimum}, {maximum}] 内的整数")
+    if im.inbound_batch_quiet_ms >= im.inbound_batch_max_wait_ms:
+        raise PlatformSettingsError(
+            "im.inbound_batch_quiet_ms 必须小于 im.inbound_batch_max_wait_ms"
+        )
 
 
 def _validate_mcp(mcp: McpSettings) -> None:
