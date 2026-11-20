@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -241,12 +242,20 @@ def test_external_platform_routes_reach_the_gateway() -> None:
 
 
 def test_nginx_routes_external_platform_prefix_to_the_gateway() -> None:
-    """nginx 侧同样要显式转发，否则落到 location /api 的 Console 上游。"""
+    """nginx 侧用一条正则覆盖所有外部平台通道前缀（`*web` 结尾），避免每接一个平台改一次。
+
+    否则请求落到 `location /api` 的 Console 上游，而该前缀在 Console 上不存在，表现为 404。
+    """
     conf = Path("build/nginx-build/nginx.conf").read_text(encoding="utf-8")
-    assert "location /api/v1/msswwweb {" in conf
-    assert "location /api/v1/msswwweb/runs {" in conf
-    # 两个 location 都必须指向 gateway_upstream
-    for header in ("location /api/v1/msswwweb {", "location /api/v1/msswwweb/runs {"):
+    # 两个正则 location 块（以 `web(?:/|$)` 段尾锚定，避免误吞 /api/v1/webchat）都必须转发到 gateway_upstream。
+    for header in ("location ~* ^/api/v1/[a-z0-9]+web/runs(?:/|$) {", "location ~* ^/api/v1/[a-z0-9]+web(?:/|$) {"):
+        assert header in conf, f"缺少 location: {header}"
         block = conf[conf.index(header) :]
         block = block[: block.index("}")]
         assert "gateway_upstream" in block, f"{header} 必须转发到 gateway_upstream"
+    # 历史前缀也必须落在正则覆盖范围（MSSWWEB→msswwweb 8 字符，MSSPWEB→msspweb）。
+    mssw_pat = re.compile(r"^/api/v1/[a-z0-9]+web(?:/|$)")
+    assert mssw_pat.match("/api/v1/msswwweb"), "正则必须覆盖 msswwweb"
+    assert mssw_pat.match("/api/v1/msswwweb/runs")
+    assert mssw_pat.match("/api/v1/msspweb"), "正则必须覆盖 msspweb"
+    assert not mssw_pat.match("/api/v1/webchat"), "正则不得误吞 webchat"
