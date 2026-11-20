@@ -23,6 +23,7 @@ from muad_agent_runtime.application.skill_tools import EXECUTE_SKILL_TOOL, EXECU
 from muad_agent_runtime.application.task_client import TaskSubmissionContext, WorkerTaskClient
 from muad_agent_runtime.application.task_tools import (
     DRAFT_SCHEDULE_TOOL,
+    GET_TASK_TOOL,
     LIST_SCHEDULES_TOOL,
     PAUSE_SCHEDULE_TOOL,
     BackgroundTaskToolSet,
@@ -449,6 +450,19 @@ async def test_b123_runtime_task_client_does_not_touch_task_schema() -> None:
     assert "muad_agent_worker" not in source
     assert "get_session" not in source
     assert "infrastructure.models" not in source
+
+
+def test_b125_get_task_contract_relays_result_verbatim() -> None:
+    """转发任务结果默认全文：这条提示是模型行为契约，不能被后续改描述时悄悄删掉。"""
+    registry = ToolRegistry()
+    BackgroundTaskToolSet(
+        client=cast(Any, object()), context=cast(Any, object()), skills=[]
+    ).register(registry)
+
+    description = registry.get(GET_TASK_TOOL).description
+    assert "verbatim" in description
+    assert "do not summarize" in description
+    assert "list_attachments(scope=task" in description
 
 
 ROUTE = DeliveryRouteInput(channel="WECOM", bot_id="bot-1", external_user_id="wotv-1")

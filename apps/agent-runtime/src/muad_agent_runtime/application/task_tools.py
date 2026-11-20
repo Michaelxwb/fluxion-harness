@@ -596,7 +596,11 @@ class BackgroundTaskToolSet:
         return (
             (
                 GET_TASK_TOOL,
-                "Get status and result of one of the user's background tasks.",
+                "Get status and result of one of the user's background tasks. When the user "
+                "asks to relay a completed task's result, copy result.text verbatim into your "
+                "reply: do not summarize, condense, or paraphrase it unless the user explicitly "
+                "asks for a summary. Its output files can be listed with "
+                "list_attachments(scope=task, task_id=...).",
                 _schema({"task_id": _STRING}, ("task_id",)),
                 ToolEffect.READ,
                 self._get_task,

@@ -449,3 +449,60 @@ Connector 通过 Console 内部 `platform-settings` 快照读取，按租户缓�
 - 尚未执行
 - 2026-11-20T13:27:42.735Z PASS commands=1/1 executed=1 deduped=0 elapsed=26314ms tests=541667c637c9 head=5f64c02e0842 dirty=1
   - task-artifact-discovery PASS exit=0
+
+## TASK-008: 定时任务结果转发默认全文
+
+- **Status**: done
+- **Depends**: TASK-007
+- **Source**: 2026-11-20 实测反馈（转发定时任务结果时正文被摘要）
+- **Scenarios**: im-attachment-integrity:S-02, im-attachment-integrity:S-06
+- **Spec-Refs**: im/harness-im#RULE-006, test/harness-test#RULE-test-001
+- **Paths**: apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py, tests/agent_runtime/test_task_handoff.py
+- **E2E**:
+- **Skip-Tests**: false
+- **Skip-Reason**:
+
+### Tests
+
+```json
+[
+  {
+    "id": "task-result-verbatim",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_runtime/test_task_handoff.py"],
+    "timeout": 600,
+    "parallel": false
+  }
+]
+```
+
+### Description
+
+用户要求转发定时/后台任务执行结果时，正文默认**全文照录**，不能擅自摘要：
+
+- `get_task` 的工具说明增加硬约束：用户要求转发已完成任务的结果时，原样复制 `result.text`，不得摘要、压缩或改写；只有用户明确要求摘要时才总结；
+- 同时提示 `list_attachments(scope=task, task_id=...)`，把“正文全文 + 任务产物”放在同一条可执行路径上；
+- 用工具契约测试锁住这条提示，避免后续改描述时退化。
+
+### Checklist
+
+- [x] `get_task` 说明明确要求 `result.text` 原文照录。
+- [x] 说明保留“用户明确要求摘要时才摘要”的例外。
+- [x] 说明包含任务产物列表入口。
+- [x] 既有任务工具测试通过。
+
+### Spec Delta
+
+```json
+[]
+```
+
+### Log
+
+- [2026-11-20] created
+- [2026-11-20T13:37:54.786Z] started tests=1ebbb296b715
+
+### Verification
+
+- 尚未执行
+- 2026-11-20T13:38:30.735Z PASS commands=1/1 executed=1 deduped=0 elapsed=8859ms tests=1ebbb296b715 head=65fd35c9237b dirty=1
+  - task-result-verbatim PASS exit=0
