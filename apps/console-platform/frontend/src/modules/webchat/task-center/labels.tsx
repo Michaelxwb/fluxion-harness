@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 
 import { StatusTag, type StatusColor, type StatusTagOption } from '../../../components/common/StatusTag';
 import type {
+  FireItem,
   FireStatus,
   ScheduleEndReason,
   ScheduleExecutionStatus,
@@ -156,6 +157,85 @@ export function ExecutionStatusTag(props: { status: ScheduleExecutionStatus | st
       fallback={fallback(t, props.status)}
     />
   );
+}
+
+export type RunDisplayStatus =
+  | 'SUCCESS'
+  | 'RUNNING'
+  | 'QUEUED'
+  | 'WAITING'
+  | 'FAILED'
+  | 'CANCELLED'
+  | 'SKIPPED'
+  | 'NOT_RUN';
+
+const RUN_STATUS_KEYS: Record<RunDisplayStatus, string> = {
+  SUCCESS: 'chat.taskCenter.run.status.SUCCESS',
+  RUNNING: 'chat.taskCenter.run.status.RUNNING',
+  QUEUED: 'chat.taskCenter.run.status.QUEUED',
+  WAITING: 'chat.taskCenter.run.status.WAITING',
+  FAILED: 'chat.taskCenter.run.status.FAILED',
+  CANCELLED: 'chat.taskCenter.run.status.CANCELLED',
+  SKIPPED: 'chat.taskCenter.run.status.SKIPPED',
+  NOT_RUN: 'chat.taskCenter.run.status.NOT_RUN'
+};
+
+const RUN_STATUS_COLORS: Record<RunDisplayStatus, StatusColor> = {
+  SUCCESS: 'green',
+  RUNNING: 'blue',
+  QUEUED: 'grey',
+  WAITING: 'amber',
+  FAILED: 'red',
+  CANCELLED: 'grey',
+  SKIPPED: 'grey',
+  NOT_RUN: 'red'
+};
+
+type RunStatusInput = Pick<FireItem, 'status' | 'execution_status'>;
+
+/** 一次运行只有一个用户状态：Execution 优先，其次 Fire 的跳过/准入失败。 */
+export function runDisplayStatus(fire: RunStatusInput): RunDisplayStatus {
+  const execution = fire.execution_status;
+  if (execution === 'COMPLETED') return 'SUCCESS';
+  if (execution === 'RUNNING') return 'RUNNING';
+  if (execution === 'QUEUED') return 'QUEUED';
+  if (execution === 'WAITING_EXTERNAL' || execution === 'WAITING_HUMAN') return 'WAITING';
+  if (execution === 'FAILED') return 'FAILED';
+  if (execution === 'CANCELLED') return 'CANCELLED';
+  if (fire.status === 'SKIPPED') return 'SKIPPED';
+  if (fire.status === 'FAILED_ADMISSION') return 'NOT_RUN';
+  if (fire.status === 'CANCELLED') return 'CANCELLED';
+  return 'QUEUED';
+}
+
+export function RunStatusTag(props: { fire: RunStatusInput }) {
+  const { t } = useTranslation();
+  const knownFireStatus =
+    props.fire.execution_status !== null ||
+    ['CREATED', 'EXECUTION_CREATED', 'SKIPPED', 'FAILED_ADMISSION', 'CANCELLED'].includes(
+      String(props.fire.status)
+    );
+  if (!knownFireStatus) {
+    return (
+      <StatusTag
+        status={String(props.fire.status)}
+        options={{}}
+        fallback={{
+          color: 'grey',
+          label: t('chat.taskCenter.unknownCode', { code: String(props.fire.status) })
+        }}
+      />
+    );
+  }
+  const status = runDisplayStatus(props.fire);
+  const options: Record<string, StatusTagOption> = {};
+  for (const key of Object.keys(RUN_STATUS_KEYS) as RunDisplayStatus[]) {
+    options[key] = {
+      color: RUN_STATUS_COLORS[key],
+      label: t(RUN_STATUS_KEYS[key])
+    };
+  }
+  return <StatusTag status={status} options={options} />;
 }
 
 export function endReasonLabel(t: Translate, reason: ScheduleEndReason | string): string {

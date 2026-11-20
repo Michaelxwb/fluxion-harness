@@ -555,6 +555,9 @@ export interface ScheduleLastFire {
   execution_status: ScheduleExecutionStatus | null;
   missed_count: number;
   dst_resolution: string | null;
+  execution_id: string | null;
+  duration_ms: number | null;
+  artifact_count: number;
 }
 
 export interface ScheduleListItem {
@@ -637,6 +640,8 @@ export interface FireItem {
   admission_error_code: string | null;
   execution_id: string | null;
   execution_status: ScheduleExecutionStatus | null;
+  duration_ms: number | null;
+  artifact_count: number;
 }
 
 export interface DstEvent {

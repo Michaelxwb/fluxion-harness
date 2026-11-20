@@ -14,10 +14,10 @@ from .egress_attempt_audit import EgressAttempt
 _INSERT = sa.text("""
 INSERT INTO runtime.egress_audit
   (tenant_id, run_id, task_id, user_id, target_type, target, operation, method,
-   policy_decision, status_code, result_status, latency_ms, error_code, attempt_id, phase)
+   policy_decision, status_code, result_status, latency_ms, error_code, attempt_id, phase, business_trace_id)
 VALUES
   (:tenant, :run, :task, :user, 'HTTP', :target, :operation, :method,
-   :decision, :status, :result, :latency, :error, :attempt, 'completed')
+   :decision, :status, :result, :latency, :error, :attempt, 'completed', CAST(:business_trace_id AS uuid))
 ON CONFLICT (tenant_id, attempt_id, phase) DO NOTHING
 """)
 
@@ -50,4 +50,5 @@ class DatabaseAttemptObserver:
                     "method": event.method, "decision": decision, "status": event.status_code,
                     "result": event.result_status, "latency": event.latency_ms, "error": event.error_code,
                     "attempt": event.attempt_id,
+                    "business_trace_id": event.business_trace_id,
                 })

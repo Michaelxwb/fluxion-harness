@@ -452,6 +452,30 @@ async def test_run_detail_includes_blocked_egress_in_timeline(
     )
     assert blocked["egress"]["operation"] == "GET /api/v1/ping"
     assert blocked["egress"]["error_code"] == "LIMIT_WINDOW"
+    assert blocked["egress"]["business_trace_id"] is None
+
+
+async def test_run_timeline_projects_business_request_trace(client: AsyncClient, tenant: TenantContext):
+    seed = await _run(tenant)
+    trace_id = uuid.uuid4()
+    async with get_session_factory()() as session:
+        async with session.begin():
+            for result, status, trace in [("COMPLETED", 200, trace_id), ("FAILED", 500, uuid.uuid4()),
+                                          ("COMPLETED", 200, None)]:
+                session.add(EgressAudit(
+                    tenant_id=tenant.tenant_id, run_id=seed.run_id, user_id=seed.actor_user_id,
+                    target_type="HTTP", target="https://platform.test", operation="GET /ping",
+                    method="GET", policy_decision="ALLOW", result_status=result, status_code=status,
+                    latency_ms=12, phase="completed", business_trace_id=trace,
+                ))
+    response = await client.get(f"/api/v1/runs/{seed.run_id}")
+    assert response.status_code == 200, response.text
+    rows = [event["egress"] for event in response.json()["data"]["timeline"]
+            if event["event_type"] == "EGRESS_REQUEST"]
+    by_status = {row["status_code"]: row for row in rows}
+    assert len(rows) == 2 and set(by_status) == {200, 500}
+    assert by_status[200]["business_trace_id"] == str(trace_id)
+    assert by_status[200]["latency_ms"] == 12
 
 
 async def test_run_detail_does_not_leak_input_text_or_event_payload(

@@ -815,7 +815,7 @@ function listScenario(scenario) {
 function detailScenario(scenario) {
   return React.createElement(ScheduleDetailPanel, {
     state: detailState(scenario.state ?? {}),
-    downloads: idleDownloads,
+    downloads: scenario.downloads ?? idleDownloads,
     onBack: noop,
     onRefresh: noop,
     onFirePage: noop,
@@ -1042,6 +1042,9 @@ SCENARIOS = (
      "state": {"items": [{**LIST_ITEMS[1], "status": "MYSTERY"}]}},
     {"id": "detail-zh", "locale": "zh-CN", "kind": "detail", "state": DETAIL_OVERRIDES},
     {"id": "detail-en", "locale": "en-US", "kind": "detail", "state": DETAIL_OVERRIDES},
+    {"id": "detail-download-failed-zh", "locale": "zh-CN", "kind": "detail",
+     "state": DETAIL_OVERRIDES,
+     "downloads": {"entries": {ARTIFACT_1: {"phase": "FAILED", "errorCode": "NETWORK_ERROR"}}}},
     {"id": "detail-wait-async-zh", "locale": "zh-CN", "kind": "detail",
      "state": _detail_with(execution=_execution_with("ASYNC_OPERATION"))},
     {"id": "detail-wait-batch-zh", "locale": "zh-CN", "kind": "detail",
@@ -1284,7 +1287,10 @@ def test_fire_history_pages_and_keeps_dst_events_separate(
     assert pages["dstEventTypes"] == ["DST_GAP_SKIPPED"], "DST 是独立事件字段"
     assert pages["retentionFrom"] == CLEANED_BEFORE
     assert (pages["page"], pages["total"]) == (2, 3)
-    assert pages["params"] == [{"page": 1}, {"page": 2, "page_size": 2}], "翻页沿用服务端 page_size"
+    assert pages["params"] == [
+        {"page": 1, "page_size": 10},
+        {"page": 2, "page_size": 2},
+    ], "首屏固定 10 条，翻页沿用服务端 page_size"
 
 
 def test_switching_schedule_drops_the_old_target(task_center_logic: dict[str, Any]) -> None:
@@ -1364,6 +1370,8 @@ def test_detail_shows_the_frozen_summary_without_internals(
     assert GOAL_SECRET not in markup, "不得展示内部目标"
     assert 'aria-label="任务详情"' in markup
     assert 'aria-label="返回列表"' in _tag(markup, "chat-task-center-back")
+    assert 'data-testid="chat-task-tech"' in markup, "技术信息默认渲染但关闭"
+    assert 'aria-label="关闭"' in markup, "技术信息弹层提供关闭按钮"
 
 
 def test_fire_statuses_stay_separate_facts(task_center_render: dict[str, Any]) -> None:
@@ -1375,6 +1383,7 @@ def test_fire_statuses_stay_separate_facts(task_center_render: dict[str, Any]) -
     assert "SKILL_ARTIFACT_UNAVAILABLE" in markup
     assert "未创建执行" in markup
     assert "查看执行" in markup, "有 execution_id 的行提供执行入口"
+    assert "chat-task-fire-metrics" in markup, "窄屏隐藏用时/文件数只隐藏这一部分"
     fire_section = markup.split('data-testid="chat-task-center-fires"')[1]
     fire_section = fire_section.split('data-testid="chat-task-center-dst-events"')[0]
     assert "夏令时事件" not in fire_section, "DST 不能混进 Fire 列表"
@@ -1382,6 +1391,13 @@ def test_fire_statuses_stay_separate_facts(task_center_render: dict[str, Any]) -
     assert "本地时间不存在，已跳过" in markup
     assert "2026-03-08 02:30 America/New_York" in markup
     assert "早于 " in markup and "已按保留策略清理" in markup
+
+
+def test_execution_download_failure_is_visible(task_center_render: dict[str, Any]) -> None:
+    markup = task_center_render["markup"]["detail-download-failed-zh"]
+    assert "网络异常，下载失败，请重试" in markup
+    assert 'data-testid="chat-task-artifact-error"' in markup
+    assert 'data-testid="chat-task-artifact-saved"' not in markup, "失败不能显示成功态"
 
 
 def test_execution_wait_kinds_are_not_failures(task_center_render: dict[str, Any]) -> None:
@@ -1401,6 +1417,10 @@ def test_execution_facts_artifacts_and_long_result(task_center_render: dict[str,
     assert 'data-testid="chat-task-execution-schema"' in markup
     assert "512 B" in markup, "Snapshot 字节数可读化"
     assert '<details' in markup and 'data-testid="chat-task-execution-result"' in markup
+    assert markup.index('data-testid="chat-task-tech"') < markup.index(
+        'data-testid="chat-task-execution-result"'
+    ), "原始结果只在技术信息弹层，不占运行详情首屏"
+    assert 'data-testid="chat-task-run-result-copy"' in markup, "运行结果支持一键复制"
     long_markup = task_center_render["markup"]["detail-long-result-zh"]
     assert LONG_RESULT_TEXT in long_markup
     assert "<details" in long_markup, "长结果折叠，不撑破布局"
@@ -1423,7 +1443,7 @@ def test_detail_labels_follow_the_locale(task_center_render: dict[str, Any]) -> 
     markup = task_center_render["markup"]["detail-en"]
     assert "Tool allowlist" in markup
     assert "Read-only: the task never writes new long-term memory" in markup
-    assert "Fire history" in markup
+    assert "Recent runs" in markup
     assert "Waiting for an external poll result (not a failure)" in markup
     assert "Back to list" in markup
 

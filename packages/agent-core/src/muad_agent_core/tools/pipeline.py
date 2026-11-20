@@ -29,6 +29,53 @@ JSON_OBJECT = TypeAdapter(dict[str, JsonValue])
 REDACTED_KEYS = frozenset({"api_key", "secret", "token", "password"})
 
 
+def schema_problem(error: jsonschema.ValidationError) -> str:
+    """把 schema 校验失败变成可归因的说明：只报字段与期望，**绝不回显实例值**。
+
+    入参可能含凭据，所以 `error.message` 里夹带的实例内容一律不用；字段名从
+    `error.absolute_path` 与 `error.instance` 的**键**里取，允许集从 `error.schema` 里取。
+    """
+    where = ".".join(str(part) for part in error.absolute_path) or "arguments"
+    schema = error.schema if isinstance(error.schema, Mapping) else {}
+    instance = error.instance
+    if error.validator == "required" and isinstance(instance, Mapping):
+        missing = [key for key in schema.get("required") or () if key not in instance]
+        if missing:
+            return "invalid tool arguments: missing required field(s) " + ", ".join(missing)
+    if error.validator == "additionalProperties" and isinstance(instance, Mapping):
+        allowed = [str(key) for key in (schema.get("properties") or {})]
+        unknown = sorted(str(key) for key in instance if str(key) not in set(allowed))
+        if unknown:
+            return (
+                "invalid tool arguments: unexpected field(s) "
+                + ", ".join(unknown)
+                + "; allowed: "
+                + ", ".join(sorted(allowed))
+            )
+    if error.validator == "type":
+        return f"invalid tool arguments: {where} must be {error.validator_value}"
+    if error.validator == "enum":
+        enum_values = error.validator_value
+        choices = (
+            ", ".join(str(item) for item in enum_values)
+            if isinstance(enum_values, (list, tuple))
+            else str(enum_values)
+        )
+        return f"invalid tool arguments: {where} must be one of {choices}"
+    if error.validator in {"minimum", "exclusiveMinimum", "maximum", "exclusiveMaximum"}:
+        op = {
+            "minimum": ">=",
+            "exclusiveMinimum": ">",
+            "maximum": "<=",
+            "exclusiveMaximum": "<",
+        }[error.validator]
+        return f"invalid tool arguments: {where} must be {op} {error.validator_value}"
+    if error.validator in {"minItems", "maxItems"}:
+        op = "at least" if error.validator == "minItems" else "at most"
+        return f"invalid tool arguments: {where} must have {op} {error.validator_value} item(s)"
+    return f"invalid tool arguments: {where} failed {error.validator}"
+
+
 def compute_args_hash(arguments: Mapping[str, object]) -> str:
     redacted = redact_value(
         {key: value for key, value in arguments.items() if key.lower() not in REDACTED_KEYS}
@@ -133,8 +180,10 @@ class ToolExecutionPipeline:
             result = self._result(
                 prepared, "NOT_FOUND", f"unknown tool: {prepared.tool_name}", "TOOL_NOT_FOUND"
             )
-        except (jsonschema.ValidationError, ValueError):
-            # Validator exceptions include the full instance, which may contain private tool input.
+        except jsonschema.ValidationError as exc:
+            # 实例可能含私有输入：只回字段与期望，不回显任何值。
+            result = self._result(prepared, "FAILED", schema_problem(exc), "SCHEMA_INVALID")
+        except ValueError:
             result = self._result(prepared, "FAILED", "invalid tool arguments", "SCHEMA_INVALID")
         except Exception as exc:
             error = str(getattr(exc, "code", "COMMON_INTERNAL_ERROR"))

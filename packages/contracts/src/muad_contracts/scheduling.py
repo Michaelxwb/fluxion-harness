@@ -557,6 +557,12 @@ class LastFireSummary(ContractModel):
     execution_status: TaskStatus | None = None
     missed_count: int = Field(default=0, ge=0)
     dst_resolution: DstResolution | None = None
+    #: 最近一次 Fire 对应的执行；首屏据此拉取一次执行详情（发送目标/文件）。
+    execution_id: UUID | None = None
+    #: 端到端耗时（计划触发 → 最后一个投递目标送达）；未结束为空。
+    duration_ms: int | None = None
+    #: 本次执行的 OUTPUT 产物数（按 logical_file_id 去重）。
+    artifact_count: int = Field(default=0, ge=0)
 
 
 class ScheduleListItem(ContractModel):
@@ -603,6 +609,10 @@ class FireItem(ContractModel):
     admission_error_code: str | None = None
     execution_id: UUID | None = None
     execution_status: TaskStatus | None = None
+    #: 端到端耗时（计划触发 → 最后一个投递目标送达）；未结束为空。
+    duration_ms: int | None = None
+    #: 本次执行的 OUTPUT 产物数（按 logical_file_id 去重）。
+    artifact_count: int = Field(default=0, ge=0)
 
 
 class DstEvent(ContractModel):

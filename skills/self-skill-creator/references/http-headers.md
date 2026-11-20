@@ -1,14 +1,12 @@
-# 对接平台的请求头：requests + Runtime Guard
+# 对接平台的请求头：requests + 登录态
 
-自建 Skill 访问受保护业务平台时，继续使用 `requests` 发请求。Skill 只负责两件事：
+自建 Skill 访问受保护业务平台时统一使用 `requests`。Skill 只做两件事：
 
-1. 用 `session-manager get-state --skill-name <skill>` 取登录态文件；
-2. 从状态文件读 `platforms.<平台名>.cookies` 拼 `Cookie` 头，读 `requestProfile.baseUrl` 作为 URL 前缀。
+1. 调 `session-manager get-state --skill-name <skill>` 取登录态文件；
+2. 从 `platforms.<平台名>` 读 `cookies` 与 `requestProfile`，拼请求头。
 
-`TraceId` 与 `X-Csrftoken` 不需要 Skill 处理：镜像启动钩子会加载
-`muad_skill_http.compat`，Runtime Guard 注入 `MUAD_REQUESTS_COMPAT=1` 与本 Pod
-所有启用平台的 `host:port` 白名单后，发往白名单主机的 `requests` 请求会被自动
-覆盖为新的 UUID v4，并计入执行级请求统计与限额。非白名单主机原样放行。
+平台只校验这些请求头**存在**，不校验取值（实测 CSRF / TraceId 用随机 UUID 同样可用）。
+但 Skill 侧不要手工构造敏感头——值从 `requestProfile` 取（审查规则 SS-R007 会告警手工构造）。
 
 ```python
 import json
@@ -33,41 +31,49 @@ def resolve_state_file():
 with open(resolve_state_file(), "r", encoding="utf-8") as handle:
     state = json.load(handle)
 section = state["platforms"][PLATFORM]
-base_url = section["requestProfile"]["baseUrl"].rstrip("/")
-cookie = "; ".join(
-    "%s=%s" % (item["name"], item["value"])
-    for item in section.get("cookies") or []
-)
+profile = section["requestProfile"]
+cookies = section.get("cookies") or []
+
+headers = {"Cookie": "; ".join("%s=%s" % (c["name"], c["value"]) for c in cookies)}
+headers.update(profile.get("hostHeader") or {})
+for mapping in profile.get("csrf") or []:
+    value = next((c["value"] for c in cookies if c["name"] == mapping["cookie"]), None)
+    if value:
+        headers[mapping["header"]] = value
+headers.update(profile.get("staticHeaders") or {})
+if profile.get("referer"):
+    headers["Referer"] = profile["referer"]
 
 response = requests.get(
-    base_url + "/api/v1/targets",
-    headers={"Cookie": cookie},
+    profile["baseUrl"].rstrip("/") + "/api/v1/targets",
+    headers=headers,
     timeout=30,
 )
 ```
 
-## Runtime Guard 负责什么
+## requestProfile 字段
 
-对白名单主机上的每个 `requests` 请求：
+| 字段 | 用途 |
+|---|---|
+| `baseUrl` | URL 前缀 |
+| `hostHeader` | `Host` 头；平台按 vhost 路由，缺了会 404 / 403 |
+| `staticHeaders` | 原样附加，恒含 `Timezone`，也可能含平台固定业务头 |
+| `csrf` | `[{cookie, header}]`：取同名 cookie 的值放进该 header |
+| `referer` | 有则加 `Referer` |
 
-1. `TraceId`：覆盖为新的 UUID v4；
-2. `X-Csrftoken`：覆盖为新的 UUID v4（MSSW/SOAR 只校验 header 存在）；
-3. 按归一化接口计数，超过 `MUAD_SKILL_REQUEST_LIMIT` 时拒绝发出下一个请求并以
-   86 退出；
-4. 写 trace spool 供 Console 审计展示。
+## 平台差异
 
-Cookie 值不进入 trace spool。
+平台差异由平台配置（Console → 项目平台）表达，不要写进 Skill 代码：
+
+- MSSP / MSSP-VMS：需要 `Host`、`Timezone`、CSRF 头；VMS 走 `/gateway/vuln-manager/` 前缀。
+- MSSW：不要带 `traceid`（事件详情会返回空 `data`），也不要带 `timezone`。
+- XDR 经 MSSP api-proxy：`Host` 用代理网关的值，`Referer` 用 XDR 自己的域名。
 
 ## Skill 不应做的事
 
-- 不要手工从 cookie 提取 CSRF 再写 header——Guard 会覆盖，且平台只要求 header 存在。
-- 不要硬编码 `TraceId`；每次请求必须不同。
-- 不要用 `httpx` / `urllib.request` / `http.client` 直连业务接口（不会被注入和统计）。
-- 不要用 `subprocess` 调 `curl`/`wget` 发业务请求——既不计入执行 trace，也不受请求上限约束。
+- 不要手工拼 CSRF / TraceId（SS-R007 告警）；从 `requestProfile` 取。
+- 不要硬编码 `baseUrl`、`Host`、内部域名或凭据（SS-R012）；客户 ID 由入参或客户查询接口得到。
+- 不要用 `httpx` / `aiohttp` / `urllib.request` / `http.client` 直连业务接口（SS-R006）。
+- 不要用 `subprocess` 调 `curl` / `wget` 发业务请求（SS-R008）：既不计入出网计量，也不进 trace。
 - 不要把 cookie / CSRF token 写进 stdout、日志或错误信息。
-
-## 平台差异放哪里
-
-平台 `baseUrl` 在 Console 的平台设置里配置，决定白名单主机。Cookie / CSRF
-的 cookie 名、Host、静态头等平台差异仍由登录态（session-manager 输出）表达，
-不写进 Skill 代码。
+- 401 / 403 不会自动续期；重新执行 `get-state` 后再发起请求。

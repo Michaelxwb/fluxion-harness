@@ -1,17 +1,16 @@
 /**
- * 后台任务结果区（design frontend §3.3 CMP-03、§3.6；TASK-005）。
+ * 后台任务结果摘要（改版）。
  *
- * 成功：结果正文 + 逻辑计数；失败：稳定错误码 + 原始正文。长错误默认折叠在 `<details>`
- * 内，可展开查看并复制；正文已由服务端脱敏，本组件不再二次加工内容。
- *
- * 运行中/等待不是失败：只显示状态说明，不渲染空的结果或错误区。
+ * 用户先看到「成功/失败/部分失败」的结论；有子任务时显示 4/5 环形图与失败项，
+ * 无子任务时显示单状态。原始 JSON 不再占据首屏，收进任务名旁的技术信息弹层。
  */
 
-import { Button, Typography } from '@douyinfe/semi-ui';
+import { Button } from '@douyinfe/semi-ui';
+import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { ExecutionDetail } from '../types';
-import { formatResult } from './taskResult';
+import { resultText } from './taskResult';
 
 const ACTIVE_STATUSES: ReadonlySet<string> = new Set([
   'QUEUED',
@@ -24,32 +23,6 @@ const ACTIVE_STATUSES: ReadonlySet<string> = new Set([
 export function errorSummaryLine(message: string | null): string {
   const first = (message ?? '').split('\n')[0]?.trim() ?? '';
   return first.length > 200 ? `${first.slice(0, 200)}…` : first;
-}
-
-function ResultCounts(props: { detail: ExecutionDetail }) {
-  const { t } = useTranslation();
-  const counts = props.detail.counts;
-  if (counts.total <= 0) return null;
-  return (
-    <dl className="chat-background-counts" data-testid="chat-background-counts">
-      <div>
-        <dt>{t('chat.taskCenter.background.counts.total')}</dt>
-        <dd data-testid="chat-background-count-total">{counts.total}</dd>
-      </div>
-      <div>
-        <dt>{t('chat.taskCenter.background.counts.succeeded')}</dt>
-        <dd data-testid="chat-background-count-succeeded">{counts.succeeded}</dd>
-      </div>
-      <div className="is-failed">
-        <dt>{t('chat.taskCenter.background.counts.failed')}</dt>
-        <dd data-testid="chat-background-count-failed">{counts.failed}</dd>
-      </div>
-      <div>
-        <dt>{t('chat.taskCenter.background.counts.cancelled')}</dt>
-        <dd data-testid="chat-background-count-cancelled">{counts.cancelled}</dd>
-      </div>
-    </dl>
-  );
 }
 
 function ErrorSection(props: { message: string; code: string | null }) {
@@ -90,46 +63,157 @@ function ErrorSection(props: { message: string; code: string | null }) {
   );
 }
 
-export function TaskResultSection(props: { detail: ExecutionDetail }) {
+export function TaskResultSection(props: {
+  detail: ExecutionDetail;
+  onLocateFailedChild?(): void;
+}) {
   const { t } = useTranslation();
   const detail = props.detail;
+  const counts = detail.counts;
   const errorMessage = (detail.error_message ?? '').trim();
+  const active = ACTIVE_STATUSES.has(detail.status);
   const failed =
     detail.status === 'FAILED' || (detail.status === 'CANCELLED' && detail.error_code !== null);
-  const active = ACTIVE_STATUSES.has(detail.status);
-  const result = formatResult(detail.result);
+  const hasChildren = detail.children.total > 0;
+  const total = counts.total > 0 ? counts.total : detail.children.total;
+  const succeeded = Math.max(0, Math.min(counts.succeeded, total));
+  const failedCount = Math.max(0, counts.failed);
+  const cancelled = Math.max(0, counts.cancelled);
+  const progress = total === 0 ? 0 : Math.max(0, Math.min(100, (succeeded / total) * 100));
+  const failedChild = detail.children.items.find((child) => child.status === 'FAILED');
+  const result = resultText(detail.result);
+
   return (
-    <section className="chat-background-section" data-testid="chat-background-result">
-      <header className="chat-background-section-header">
-        <Typography.Title heading={6}>{t('chat.taskCenter.background.result.title')}</Typography.Title>
-      </header>
+    <section
+      className="chat-background-summary-card"
+      data-testid="chat-background-result"
+    >
       {active ? (
         <p className="chat-background-running" data-testid="chat-background-running">
           {t('chat.taskCenter.background.result.running')}
         </p>
       ) : null}
-      {!active && failed && errorMessage !== '' ? (
-        <ErrorSection message={errorMessage} code={detail.error_code} />
-      ) : null}
-      {!active && failed && errorMessage === '' ? (
-        <p className="chat-background-error-summary" data-testid="chat-background-error-summary" role="alert">
-          {detail.error_code === null
-            ? t('chat.taskCenter.background.result.failed')
-            : t('chat.taskCenter.background.result.failedWithCode', { code: detail.error_code })}
-        </p>
-      ) : null}
-      {!active && !failed ? (
-        result === '' ? (
-          <p className="chat-background-muted" data-testid="chat-background-no-result">
-            {t('chat.taskCenter.execution.noResult')}
+
+      {!active && failed ? (
+        errorMessage === '' ? (
+          <p
+            className="chat-background-error-summary"
+            data-testid="chat-background-error-summary"
+            role="alert"
+          >
+            {detail.error_code === null
+              ? t('chat.taskCenter.background.result.failed')
+              : t('chat.taskCenter.background.result.failedWithCode', { code: detail.error_code })}
           </p>
         ) : (
-          <pre className="chat-background-result-body" data-testid="chat-background-result-body">
-            {result}
-          </pre>
+          <ErrorSection message={errorMessage} code={detail.error_code} />
         )
       ) : null}
-      <ResultCounts detail={detail} />
+
+      {!active && !failed ? (
+        <div className="chat-background-summary-main">
+          <div
+            className={`chat-background-ring${hasChildren ? '' : ' is-single'}`}
+            style={{ '--p': hasChildren ? progress : 100 } as CSSProperties}
+            aria-label={
+              hasChildren
+                ? `${succeeded} / ${total} ${t('chat.taskCenter.background.counts.succeeded')}`
+                : t('chat.taskCenter.background.single.completed')
+            }
+          >
+            <div className="chat-background-ring-inner">
+              {hasChildren ? (
+                <>
+                  <strong data-testid="chat-background-count-succeeded">{succeeded}</strong>
+                  <span>
+                    / <span data-testid="chat-background-count-total">{total}</span>{' '}
+                    {t('chat.taskCenter.background.counts.succeeded')}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <strong>✓</strong>
+                  <span>{t('chat.taskCenter.background.single.completed')}</span>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="chat-background-summary-copy">
+            <h3>
+              {hasChildren
+                ? failedCount > 0
+                  ? t('chat.taskCenter.background.partialFailureTitle', {
+                      total,
+                      failed: failedCount
+                    })
+                  : t('chat.taskCenter.background.summary.completedAll', { total })
+                : t('chat.taskCenter.background.single.completed')}
+            </h3>
+            <p>
+              {hasChildren
+                ? failedChild === undefined
+                  ? t('chat.taskCenter.background.summary.completedAllHint')
+                  : t('chat.taskCenter.background.summary.failedChild', {
+                      label: failedChild.label,
+                      reason:
+                        failedChild.error_message_summary ??
+                        failedChild.error_code ??
+                        t('chat.taskCenter.background.fact.unknown')
+                    })
+                : result === ''
+                  ? t('chat.taskCenter.background.single.noResult')
+                  : result.length > 220
+                    ? `${result.slice(0, 220)}…`
+                    : result}
+            </p>
+            {hasChildren && failedCount > 0 && props.onLocateFailedChild !== undefined ? (
+              <div className="chat-background-summary-actions">
+                <Button size="small" onClick={props.onLocateFailedChild}>
+                  {t('chat.taskCenter.background.summary.locateFailed')}
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {hasChildren && !active && !failed ? (
+        <>
+          <div
+            className="chat-background-progress"
+            role="img"
+            aria-label={`${succeeded} / ${total}`}
+          >
+            <span className="is-ok" style={{ width: `${progress}%` }} />
+            {failedCount > 0 ? (
+              <span
+                className="is-failed"
+                style={{ width: `${Math.min(100 - progress, (failedCount / total) * 100)}%` }}
+              />
+            ) : null}
+          </div>
+          <div className="chat-background-legend">
+            <span className="is-ok">
+              {t('chat.taskCenter.background.counts.succeeded')} {succeeded}
+            </span>
+            <span className="is-failed" data-testid="chat-background-count-failed">
+              {t('chat.taskCenter.background.counts.failed')} {failedCount}
+            </span>
+            <span>
+              {t('chat.taskCenter.background.counts.cancelled')} {cancelled}
+            </span>
+          </div>
+        </>
+      ) : null}
+
+      {hasChildren && !active && !failed && total > detail.children.items.length ? (
+        <p className="chat-background-muted">
+          {t('chat.taskCenter.background.artifacts.truncated', {
+            total,
+            shown: detail.children.items.length
+          })}
+        </p>
+      ) : null}
     </section>
   );
 }

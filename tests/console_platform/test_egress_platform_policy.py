@@ -118,6 +118,41 @@ async def test_invalid_or_unknown_platform_rules_cannot_be_saved(
     assert response.status_code == 400, response.text
 
 
+async def test_same_address_rules_conflict_even_with_different_platform_hosts(
+    client: AsyncClient, tenant: TenantContext, egress_platform: ProjectPlatform,
+):
+    async with get_session_factory()() as session:
+        other = ProjectPlatform(
+            tenant_id=tenant.tenant_id,
+            key="other-assets",
+            name="Other asset platform",
+            resolver_type="BASE_URL",
+            resolver_config_json=egress_platform.resolver_config_json,
+            adapter_key="generic-http",
+            adapter_config_json={"host_header": "other.inner.test"},
+            credential_mode="NONE",
+            enabled=True,
+        )
+        session.add(other)
+        await session.commit()
+        try:
+            payload = settings_payload()
+            egress = payload["settings"]["egress"]
+            rules = json.loads(egress["rules_json"])
+            rules.append({**rules[0], "target_instance_id": other.key})
+            egress["rules_json"] = json.dumps(rules)
+            rejected = await client.put("/api/v1/platform-settings", json=payload)
+            assert rejected.status_code == 400, rejected.text
+
+            rules[1]["path_template"] = "/orders/{id}"
+            egress["rules_json"] = json.dumps(rules)
+            saved = await client.put("/api/v1/platform-settings", json=payload)
+            assert saved.status_code == 200, saved.text
+        finally:
+            await session.delete(other)
+            await session.commit()
+
+
 async def test_default_empty_policy_is_unlimited(
     client: AsyncClient, tenant: TenantContext, internal_service_token
 ):

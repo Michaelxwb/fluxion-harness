@@ -184,3 +184,59 @@ async def test_invalid_original_arguments_never_reach_hook():
     pipeline = ToolExecutionPipeline(registry=_registry(), hooks=hooks)
     result = await pipeline.execute(pipeline.prepare(call_id="bad", tool_name="echo", arguments={"text": 4}))
     assert result.error_code == "SCHEMA_INVALID" and calls == [] and CALLS == []
+
+
+def _strict_registry() -> ToolRegistry:
+    registry = ToolRegistry()
+    registry.register(
+        ToolDefinition(
+            name="run",
+            description="run",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "command": {"type": "string"},
+                    "platforms": {"type": "array", "items": {"type": "string"}},
+                    "timeout_sec": {"type": "number", "exclusiveMinimum": 0},
+                },
+                "required": ["command"],
+                "additionalProperties": False,
+            },
+            effect=ToolEffect.EXTERNAL,
+            handler=_echo_handler,
+        )
+    )
+    return registry
+
+
+async def _schema_failure(arguments: dict[str, Any]) -> str:
+    pipeline = ToolExecutionPipeline(registry=_strict_registry())
+    result = await pipeline.execute(
+        pipeline.prepare(call_id="schema", tool_name="run", arguments=arguments)
+    )
+    assert result.error_code == "SCHEMA_INVALID"
+    assert CALLS == []
+    return result.content
+
+
+async def test_schema_error_names_unexpected_field_without_echoing_values() -> None:
+    content = await _schema_failure({"command": "curl secret-value", "mode": "mssp"})
+    assert "unexpected field(s) mode" in content
+    assert "allowed: command, platforms, timeout_sec" in content
+    assert "secret-value" not in content
+
+
+async def test_schema_error_names_field_with_wrong_type() -> None:
+    content = await _schema_failure({"command": "ok", "platforms": "mssp"})
+    assert "platforms must be array" in content
+    assert "mssp" not in content
+
+
+async def test_schema_error_names_missing_required_field() -> None:
+    content = await _schema_failure({"platforms": ["mssp"]})
+    assert "missing required field(s) command" in content
+
+
+async def test_schema_error_names_numeric_bound() -> None:
+    content = await _schema_failure({"command": "ok", "timeout_sec": 0})
+    assert "timeout_sec must be > 0" in content

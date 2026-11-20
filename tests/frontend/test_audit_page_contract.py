@@ -268,7 +268,7 @@ def test_error_path_renders_error_state_and_keeps_filters() -> None:
     assert "setFailed(true)" in catch
     assert "setQuery" not in catch, "查询失败必须保留筛选条件（不得重置 query）"
     assert "setItems" not in catch and "setTotal" not in catch, "查询失败不得清空已加载数据"
-    assert "listAudits(query)" in _compact(hook), "失败分支须来自 service 取数"
+    assert "listAudits(query,includeFilterOptions)" in _compact(hook), "失败分支须来自 service 取数"
 
     table = _read(TABLE)
     assert "options.failed?" in _compact(table), "错误态须在列表区按 failed 呈现"

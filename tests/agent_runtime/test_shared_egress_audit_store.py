@@ -20,10 +20,10 @@ async def test_terminal_audits_are_idempotent_tenant_scoped_and_visible_to_overv
     identity = EgressAuditIdentity("audit-" + uuid.uuid4().hex, uuid.uuid4(), uuid.uuid4())
     observer = DatabaseAttemptObserver(sessions, identity, timeout_seconds=2)
     success = EgressAttempt(uuid.uuid4().hex, "https://platform.test", "GET /assets", "GET",
-                            True, "COMPLETED", 200, 10, None)
+                            True, "COMPLETED", 200, 10, None, business_trace_id=uuid.uuid4())
     failure = replace(success, attempt_id=uuid.uuid4().hex, result_status="FAILED", status_code=503)
     blocked = replace(success, attempt_id=uuid.uuid4().hex, sent=False, result_status="BLOCKED",
-                      status_code=None, error_code="LIMIT_WINDOW")
+                      status_code=None, error_code="LIMIT_WINDOW", business_trace_id=None)
     for event in (success, success, failure, blocked):
         await observer(event)
     other = DatabaseAttemptObserver(sessions, replace(identity, tenant_id="other-" + identity.tenant_id),
@@ -45,6 +45,8 @@ async def test_terminal_audits_are_idempotent_tenant_scoped_and_visible_to_overv
             "tenant_id": identity.tenant_id, "now": now, "start": now - timedelta(days=1), "tz": "UTC",
         })
     assert len(rows) == 5 and {row.run_id for row in rows} == {identity.run_id}
+    stored_success = next(row for row in rows if row.attempt_id == success.attempt_id)
+    assert stored_success.business_trace_id == success.business_trace_id
     assert overview["egress"]["request_count"] == 3
     assert overview["egress"]["sent_count"] == 2
     assert overview["egress"]["completed_count"] == 1

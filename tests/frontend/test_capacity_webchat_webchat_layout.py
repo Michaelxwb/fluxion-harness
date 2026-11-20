@@ -938,6 +938,23 @@ def test_b291_compiled_artifact_keeps_chat_layout_rules(compiled_css: str) -> No
 # --------------------------------------------------------------------------- 桌面布局
 
 
+def test_b291_chat_page_locks_to_the_viewport(
+    module_css: dict[str, str], compiled_css: str
+) -> None:
+    """CHAT 路由固定占满视口：页面本身不滚动，只有消息区滚动。"""
+    css = module_css["webchat"]
+    page = _require_rule(css, ".chat-page")
+    assert "height: 100dvh" in page
+    assert "max-height: 100dvh" in page
+    assert "overflow: hidden" in page
+    tabs = _require_rule(compiled_css, ".chat-workspace-tabs")
+    assert "height: 100%" in tabs
+    root = _require_rule(css, "html.chat-route-active")
+    assert "overflow: hidden" in root
+    body = _require_rule(css, "html.chat-route-active body")
+    assert "overflow: hidden" in body
+
+
 def test_b291_shell_is_sidebar_plus_scrollable_workspace(module_css: dict[str, str]) -> None:
     """桌面：常显历史侧栏 + 单会话工作区；消息区是唯一滚动视口，输入固定在底部。"""
     css = module_css["webchat"]

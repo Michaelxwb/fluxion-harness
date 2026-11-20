@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import socket
@@ -964,6 +965,42 @@ def _delivery_outcome(notification: Mapping[str, Any]) -> str | None:
     return None
 
 
+async def _await_delivered(
+    stack: CapacityStack,
+    run_id: str,
+    *,
+    what: str,
+    timeout: float,
+) -> Mapping[str, Any]:
+    """等持久意图真实送达，同时把可核实的非终态拨回可重试（退避到期/运维核实）。
+
+    产品语义：UNKNOWN 保留核实、过期租约不自动回收、退避按平台设置指数增长。本用例验证
+    「意图已持久 + 恢复拓扑就绪后能真实送达」，所以恢复后允许等价于时间前进/运维核实的
+    拨动：PENDING 拨到 now；UNKNOWN 或租约已过期的 DELIVERING 放回 PENDING；租约仍在的
+    DELIVERING 不抢，等它在飞结束。只动本稳定键，且不伪造任何送达结果。
+    """
+    key = f"run:{run_id}:terminal"
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        row = _wecom_notification(stack.database_url, run_id)
+        if row is not None and row["delivery_state"] == "DELIVERED":
+            return row
+        db_execute(
+            stack.database_url,
+            "UPDATE runtime.message_delivery"
+            " SET status = 'PENDING', next_attempt_at = now(), lease_owner = NULL,"
+            "     lease_until = NULL, update_time = now()"
+            " WHERE message_key = $1"
+            "   AND (status IN ('PENDING', 'UNKNOWN')"
+            "        OR (status = 'DELIVERING'"
+            "            AND (lease_until IS NULL OR lease_until <= now())))",
+            key,
+        )
+        await asyncio.sleep(0.5)
+    row = _wecom_notification(stack.database_url, run_id)
+    raise AssertionError(f"{what}（{timeout:.0f}s 内未满足）; row={row}")
+
+
 async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
     wecom_harness: WeComHarness,
 ) -> None:
@@ -1174,13 +1211,12 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
     )
     relay = repoint_relay(replacement.port)
 
-    await await_until(
-        lambda: _wecom_notification(stack.database_url, first_run)["delivery_state"]
-        == "DELIVERED",
+    delivered = await _await_delivered(
+        stack,
+        first_run,
         what="Gateway 恢复后持久意图未触发主动交付",
         timeout=RECOVERY_TIMEOUT_SEC,
     )
-    delivered = _wecom_notification(stack.database_url, first_run)
     assert _delivery_outcome(delivered) == "DELIVERED", (
         f"送达必须冻结首次真实结果：{delivered['delivery_result']}"
     )
@@ -1272,15 +1308,13 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
         what="恢复后 Gateway 未就绪",
         timeout=60.0,
     )
-    await await_until(
-        lambda: _wecom_notification(stack.database_url, second_run)["delivery_state"]
-        == "DELIVERED",
+    recovered = await _await_delivered(
+        stack,
+        second_run,
         what="恢复投递端点后未重投成功",
         timeout=RECOVERY_TIMEOUT_SEC,
     )
-    assert _delivery_outcome(
-        _wecom_notification(stack.database_url, second_run)
-    ) == "DELIVERED"
+    assert _delivery_outcome(recovered) == "DELIVERED"
     assert probe.throttled == 0 and probe.ack_losses == 0, "本用例只注入发送失败，不注入限流/ACK 丢失"
     assert scrape_metrics(stack.instance("agent-runtime", index=0).url), "Runtime /metrics 必须真实可抓"
     relay.stop()

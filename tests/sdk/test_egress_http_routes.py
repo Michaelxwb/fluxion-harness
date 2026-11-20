@@ -44,23 +44,21 @@ def test_public_template_resolves_without_query_or_script_ids():
     )
 
 
-def test_more_specific_route_wins_and_authority_override_is_denied():
+def test_more_specific_route_wins_regardless_of_host():
     settings = policy([route(), route("/assets/export")])
     metadata = AttemptMetadata(origin="https://platform.test", method="GET", path="/assets/export")
     assert resolve_policy_target(settings, metadata).route_id == "GET /assets/export"
-    assert resolve_policy_target(settings, metadata.model_copy(update={"authority": "another.test"})) is None
+    overridden = metadata.model_copy(update={"authority": "another.test"})
+    assert resolve_policy_target(settings, overridden).route_id == "GET /assets/export"
 
 
-def test_configured_authority_is_allowed_and_other_override_is_denied():
-    settings = policy(
-        [{**route("/gateway/v1/order"), "authority": "inner.sangfor.com.cn"}],
-    )
+@pytest.mark.parametrize("host", [None, "platform.test", "inner.sangfor.com.cn", "other.test"])
+def test_platform_rule_matches_same_url_regardless_of_host(host):
+    settings = policy([{**route("/gateway/v1/order"), "authority": "inner.sangfor.com.cn"}])
     request = AttemptMetadata(
-        origin="https://platform.test", method="GET", path="/gateway/v1/order",
-        authority="inner.sangfor.com.cn",
+        origin="https://platform.test", method="GET", path="/gateway/v1/order", authority=host,
     )
     assert resolve_policy_target(settings, request).target_instance_id == "platform-instance"
-    assert resolve_policy_target(settings, request.model_copy(update={"authority": "other.test"})) is None
 
 
 def test_configured_authority_allows_unmatched_session_health_target():
@@ -75,7 +73,7 @@ def test_configured_authority_allows_unmatched_session_health_target():
     assert resolve_policy_target(settings, request) is None
 
 
-def test_same_origin_platforms_are_selected_by_configured_authority():
+def test_stored_overlapping_rules_cannot_be_disambiguated_by_host():
     settings = SharedEgressPolicy.model_validate({
         "revision": 1,
         "rules": [
@@ -97,13 +95,11 @@ def test_same_origin_platforms_are_selected_by_configured_authority():
             },
         ],
     })
-    target = resolve_policy_target(
-        settings,
-        AttemptMetadata(
-            origin="https://gateway.test", method="GET", path="/order", authority="two.internal"
-        ),
+    request = AttemptMetadata(
+        origin="https://gateway.test", method="GET", path="/order", authority="two.internal"
     )
-    assert (target.target_instance_id, target.route_id) == ("two", "GET /order")
+    with pytest.raises(MeteringUnavailable, match="ambiguous"):
+        resolve_policy_target(settings, request)
 
 
 @pytest.mark.parametrize(

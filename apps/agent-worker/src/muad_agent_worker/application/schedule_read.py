@@ -21,10 +21,12 @@ from muad_contracts import (
     DraftContext,
     DstEvent,
     DstEventType,
+    DstResolution,
     ExecutionDetail,
     FailureClass,
     FireHistoryPage,
     FireItem,
+    FireStatus,
     HistoryRetention,
     LastFireSummary,
     MemoryMode,
@@ -232,6 +234,25 @@ class HistoryWindow:
     execution_history_days: int
 
 
+@dataclass(frozen=True, slots=True)
+class ExecutionRunFacts:
+    """一次执行的读取事实：结束时间、最后投递、OUTPUT 产物数。"""
+
+    finished_at: datetime | None
+    last_delivered_at: datetime | None
+    artifact_count: int
+
+
+def _duration_ms(scheduled_at: datetime, facts: ExecutionRunFacts | None) -> int | None:
+    """端到端耗时：计划触发 → 最后投递（无投递回退执行结束）。未结束返回 None。"""
+    if facts is None:
+        return None
+    end = facts.last_delivered_at or facts.finished_at
+    if end is None:
+        return None
+    return max(0, int(round((end - scheduled_at).total_seconds() * 1000)))
+
+
 class ScheduleReadService:
     """读面查询集合；每个方法自我限定在调用方给出的可见范围内。"""
 
@@ -300,7 +321,7 @@ class ScheduleReadService:
             )
         ).all()
         schedule_ids = [schedule.id for schedule, _ in rows]
-        last_fires = await self._last_fires(schedule_ids)
+        last_fires = await self._last_fires(schedule_ids, tenant_id=tenant_id)
         waiting = await self._pending_human_schedule_ids(schedule_ids)
         items: list[ScheduleListItem] = []
         for schedule, revision in rows:
@@ -325,8 +346,61 @@ class ScheduleReadService:
             )
         return items, total
 
+    async def _execution_run_facts(
+        self, *, tenant_id: str, execution_ids: Sequence[uuid.UUID]
+    ) -> dict[uuid.UUID, ExecutionRunFacts]:
+        """批量读取执行事实；一页只查 3 次，不随 Fire 行数增长。"""
+        ids = tuple(dict.fromkeys(execution_ids))
+        if not ids:
+            return {}
+        execution_rows = (
+            await self._session.execute(
+                select(TaskExecution.id, TaskExecution.finished_at).where(
+                    TaskExecution.tenant_id == tenant_id,
+                    TaskExecution.id.in_(ids),
+                    TaskExecution.is_deleted.is_(False),
+                )
+            )
+        ).all()
+        finished = {row.id: row.finished_at for row in execution_rows}
+        delivery_rows = (
+            await self._session.execute(
+                sa.text(
+                    "SELECT owner_id, max(delivered_at) AS last_delivered "
+                    "FROM runtime.message_delivery "
+                    "WHERE tenant_id = :tenant_id AND owner_type = 'TASK' "
+                    "AND owner_id IN :execution_ids AND is_deleted = false "
+                    "AND message_key = 'execution:' || owner_id::text || ':' || 'final' "
+                    "GROUP BY owner_id"
+                ).bindparams(sa.bindparam("execution_ids", expanding=True)),
+                {"tenant_id": tenant_id, "execution_ids": ids},
+            )
+        ).all()
+        delivered = {row.owner_id: row.last_delivered for row in delivery_rows}
+        artifact_rows = (
+            await self._session.execute(
+                sa.text(
+                    "SELECT task_id, count(DISTINCT logical_file_id) AS n "
+                    "FROM runtime.artifact "
+                    "WHERE tenant_id = :tenant_id AND task_id IN :execution_ids "
+                    "AND artifact_type = 'OUTPUT' AND is_deleted = false "
+                    "GROUP BY task_id"
+                ).bindparams(sa.bindparam("execution_ids", expanding=True)),
+                {"tenant_id": tenant_id, "execution_ids": ids},
+            )
+        ).all()
+        counts = {row.task_id: int(row.n) for row in artifact_rows}
+        return {
+            execution_id: ExecutionRunFacts(
+                finished_at=finished.get(execution_id),
+                last_delivered_at=delivered.get(execution_id),
+                artifact_count=counts.get(execution_id, 0),
+            )
+            for execution_id in finished
+        }
+
     async def _last_fires(
-        self, schedule_ids: Sequence[uuid.UUID]
+        self, schedule_ids: Sequence[uuid.UUID], *, tenant_id: str
     ) -> dict[uuid.UUID, LastFireSummary]:
         if not schedule_ids:
             return {}
@@ -334,22 +408,43 @@ class ScheduleReadService:
             await self._session.execute(
                 select(ScheduleFire, TaskExecution.status)
                 .outerjoin(TaskExecution, TaskExecution.id == ScheduleFire.execution_id)
-                .where(ScheduleFire.schedule_id.in_(list(schedule_ids)))
+                .where(
+                    ScheduleFire.schedule_id.in_(list(schedule_ids)),
+                    ScheduleFire.tenant_id == tenant_id,
+                    ScheduleFire.is_deleted.is_(False),
+                )
                 .order_by(ScheduleFire.schedule_id, ScheduleFire.scheduled_at.desc())
             )
         ).all()
-        latest: dict[uuid.UUID, LastFireSummary] = {}
+        latest: dict[uuid.UUID, tuple[ScheduleFire, str | None]] = {}
         for fire, execution_status in rows:
             if fire.schedule_id in latest:
                 continue
-            latest[fire.schedule_id] = LastFireSummary(
+            latest[fire.schedule_id] = (fire, execution_status)
+        facts = await self._execution_run_facts(
+            tenant_id=tenant_id,
+            execution_ids=[
+                fire.execution_id
+                for fire, _ in latest.values()
+                if fire.execution_id is not None
+            ],
+        )
+        result: dict[uuid.UUID, LastFireSummary] = {}
+        for schedule_id, (fire, execution_status) in latest.items():
+            fact = facts.get(fire.execution_id) if fire.execution_id else None
+            result[schedule_id] = LastFireSummary(
                 scheduled_at=fire.scheduled_at,
-                status=fire.status,
+                status=FireStatus(fire.status),
                 execution_status=TaskStatus(execution_status) if execution_status else None,
                 missed_count=fire.missed_count,
-                dst_resolution=fire.dst_resolution,
+                dst_resolution=(
+                    DstResolution(fire.dst_resolution) if fire.dst_resolution else None
+                ),
+                execution_id=fire.execution_id,
+                duration_ms=_duration_ms(fire.scheduled_at, fact),
+                artifact_count=fact.artifact_count if fact else 0,
             )
-        return latest
+        return result
 
     async def _pending_human_schedule_ids(
         self, schedule_ids: Sequence[uuid.UUID]
@@ -368,7 +463,7 @@ class ScheduleReadService:
         return {row for row in rows.all() if row is not None}
 
     async def detail(self, *, schedule: TaskSchedule, revision: TaskScheduleRevision) -> ScheduleDetail:
-        last = (await self._last_fires([schedule.id])).get(schedule.id)
+        last = (await self._last_fires([schedule.id], tenant_id=schedule.tenant_id)).get(schedule.id)
         waiting = await self._pending_human_schedule_ids([schedule.id])
         payload = parse_schedule_payload(revision.payload_json)
         mode = ScheduleMode(revision.mode)
@@ -433,20 +528,30 @@ class ScheduleReadService:
                 .offset((page - 1) * page_size)
             )
         ).all()
-        items = [
-            FireItem(
-                fire_id=fire.id,
-                scheduled_at=fire.scheduled_at,
-                status=fire.status,
-                skip_reason=fire.skip_reason,
-                missed_count=fire.missed_count,
-                dst_resolution=fire.dst_resolution,
-                admission_error_code=fire.admission_error_code,
-                execution_id=fire.execution_id,
-                execution_status=TaskStatus(execution_status) if execution_status else None,
+        facts = await self._execution_run_facts(
+            tenant_id=schedule.tenant_id,
+            execution_ids=[
+                fire.execution_id for fire, _ in rows if fire.execution_id is not None
+            ],
+        )
+        items = []
+        for fire, execution_status in rows:
+            fact = facts.get(fire.execution_id) if fire.execution_id else None
+            items.append(
+                FireItem(
+                    fire_id=fire.id,
+                    scheduled_at=fire.scheduled_at,
+                    status=fire.status,
+                    skip_reason=fire.skip_reason,
+                    missed_count=fire.missed_count,
+                    dst_resolution=fire.dst_resolution,
+                    admission_error_code=fire.admission_error_code,
+                    execution_id=fire.execution_id,
+                    execution_status=TaskStatus(execution_status) if execution_status else None,
+                    duration_ms=_duration_ms(fire.scheduled_at, fact),
+                    artifact_count=fact.artifact_count if fact else 0,
+                )
             )
-            for fire, execution_status in rows
-        ]
         # DST 事件不是 Fire：它们在同一张事件表里，按页的时间窗对齐后一并返回。
         timezone = await self._schedule_timezone(schedule)
         dst_events = await self._dst_events(

@@ -19,6 +19,7 @@ class SharedHTTPMatch(SharedPolicyModel):
     origin: str
     method: Literal["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
     path_template: str
+    # Published platform routing metadata. Rule selection uses origin, method and path.
     authority: str | None = None
 
     @model_validator(mode="after")

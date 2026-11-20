@@ -118,7 +118,15 @@ async def seed_schedule(
 
 
 async def seed_fire(
-    tenant: TenantContext, schedule_id: uuid.UUID, revision_id: uuid.UUID, *, at: datetime
+    tenant: TenantContext,
+    schedule_id: uuid.UUID,
+    revision_id: uuid.UUID,
+    *,
+    at: datetime,
+    status: str = "SKIPPED",
+    skip_reason: str | None = "MISFIRE",
+    missed_count: int = 2,
+    execution_id: uuid.UUID | None = None,
 ) -> uuid.UUID:
     fire_id = uuid.uuid4()
     async with tenant.session_factory() as session, session.begin():
@@ -129,9 +137,10 @@ async def seed_fire(
                 schedule_id=schedule_id,
                 schedule_revision_id=revision_id,
                 scheduled_at=at,
-                status="SKIPPED",
-                skip_reason="MISFIRE",
-                missed_count=2,
+                status=status,
+                skip_reason=skip_reason,
+                missed_count=missed_count,
+                execution_id=execution_id,
             )
         )
     return fire_id
@@ -145,6 +154,8 @@ async def seed_execution(
     status: str = "QUEUED",
     wait_kind: str | None = None,
     wait_payload: dict[str, Any] | None = None,
+    started_at: datetime | None = None,
+    finished_at: datetime | None = None,
 ) -> uuid.UUID:
     execution_id = uuid.uuid4()
     async with tenant.session_factory() as session, session.begin():
@@ -167,6 +178,8 @@ async def seed_execution(
                 snapshot_hash=HASH,
                 snapshot_bytes=2048,
                 idempotency_key=f"k-{execution_id}",
+                started_at=started_at,
+                finished_at=finished_at,
             )
         )
     return execution_id
@@ -192,6 +205,71 @@ async def seed_interaction(
             )
         )
     return interaction_id
+
+
+async def seed_delivery(
+    tenant: TenantContext,
+    execution_id: uuid.UUID,
+    *,
+    target_key: str,
+    delivered_at: datetime | None,
+    status: str = "DELIVERED",
+    tenant_id: str | None = None,
+) -> uuid.UUID:
+    delivery_id = uuid.uuid4()
+    message_key = f"execution:{execution_id}:final"
+    async with get_session_factory()() as session, session.begin():
+        await session.execute(
+            sa.text(
+                "INSERT INTO runtime.message_delivery "
+                "(id, tenant_id, owner_type, owner_id, message_key, kind, target_key, "
+                " route_json, payload_json, status, delivered_at, is_deleted) "
+                "VALUES (:id, :tenant, 'TASK', :execution, :message_key, 'TASK_RESULT', "
+                " :target_key, CAST('{}' AS jsonb), CAST('{}' AS jsonb), :status, "
+                " :delivered_at, false)"
+            ),
+            {
+                "id": delivery_id,
+                "tenant": tenant_id or tenant.tenant_id,
+                "execution": execution_id,
+                "message_key": message_key,
+                "target_key": target_key,
+                "status": status,
+                "delivered_at": delivered_at,
+            },
+        )
+    return delivery_id
+
+
+async def seed_artifact(
+    tenant: TenantContext,
+    execution_id: uuid.UUID,
+    *,
+    logical_file_id: uuid.UUID,
+    version: int = 1,
+    tenant_id: str | None = None,
+) -> uuid.UUID:
+    artifact_id = uuid.uuid4()
+    async with get_session_factory()() as session, session.begin():
+        await session.execute(
+            sa.text(
+                "INSERT INTO runtime.artifact "
+                "(id, tenant_id, run_id, task_id, artifact_type, storage_key, media_type, "
+                " size, checksum, metadata_json, logical_file_id, version, is_deleted) "
+                "VALUES (:id, :tenant, NULL, :task, 'OUTPUT', :key, 'text/markdown', 12, "
+                " :checksum, CAST('{}' AS jsonb), :logical, :version, false)"
+            ),
+            {
+                "id": artifact_id,
+                "tenant": tenant_id or tenant.tenant_id,
+                "task": execution_id,
+                "key": f"tasks/{tenant_id or tenant.tenant_id}/{execution_id}/{artifact_id}/v{version}",
+                "checksum": HASH,
+                "logical": logical_file_id,
+                "version": version,
+            },
+        )
+    return artifact_id
 
 
 async def test_detail_projects_the_current_revision(tenant: TenantContext, client: AsyncClient) -> None:
@@ -267,8 +345,140 @@ async def test_fire_history_keeps_dst_events_apart_from_fires(
     assert response.status_code == 200, response.text
     data = response.json()["data"]
     assert [item["status"] for item in data["items"]] == ["SKIPPED"]
+    assert data["items"][0]["duration_ms"] is None
+    assert data["items"][0]["artifact_count"] == 0
     assert [event["event_type"] for event in data["dst_events"]] == ["DST_GAP_SKIPPED"]
     assert data["dst_events"][0]["local_date"] == "2026-03-08"
+
+
+async def test_fire_history_returns_end_to_end_duration_and_artifact_count(
+    tenant: TenantContext, client: AsyncClient
+) -> None:
+    schedule_id, revision_id = await seed_schedule(tenant)
+    execution_id = await seed_execution(
+        tenant,
+        schedule_id,
+        revision_id,
+        status="COMPLETED",
+        started_at=NOW,
+        finished_at=NOW + timedelta(seconds=2),
+    )
+    await seed_fire(
+        tenant,
+        schedule_id,
+        revision_id,
+        at=NOW,
+        status="EXECUTION_CREATED",
+        skip_reason=None,
+        missed_count=0,
+        execution_id=execution_id,
+    )
+    await seed_delivery(
+        tenant,
+        execution_id,
+        target_key="WECOM:first",
+        delivered_at=NOW + timedelta(seconds=12),
+    )
+    await seed_delivery(
+        tenant,
+        execution_id,
+        target_key="WECOM:second",
+        delivered_at=NOW + timedelta(seconds=10),
+    )
+    await seed_delivery(
+        tenant,
+        execution_id,
+        target_key="WECOM:pending",
+        delivered_at=None,
+        status="PENDING",
+    )
+    await seed_delivery(
+        tenant,
+        execution_id,
+        target_key="WECOM:other-tenant",
+        delivered_at=NOW + timedelta(seconds=60),
+        tenant_id="other-tenant",
+    )
+
+    logical_file_id = uuid.uuid4()
+    await seed_artifact(tenant, execution_id, logical_file_id=logical_file_id, version=1)
+    await seed_artifact(tenant, execution_id, logical_file_id=logical_file_id, version=2)
+    await seed_artifact(tenant, execution_id, logical_file_id=uuid.uuid4(), version=1)
+    await seed_artifact(
+        tenant,
+        execution_id,
+        logical_file_id=uuid.uuid4(),
+        tenant_id="other-tenant",
+    )
+
+    response = await client.get(
+        f"/internal/schedules/{schedule_id}/fires", headers=headers(tenant)
+    )
+
+    assert response.status_code == 200, response.text
+    item = response.json()["data"]["items"][0]
+    assert item["execution_status"] == "COMPLETED"
+    assert item["duration_ms"] == 12_000, "取最后一个目标的 delivered_at，忽略 pending/其他租户"
+    assert item["artifact_count"] == 2, "同一 logical_file_id 的多版本只算一个文件"
+
+    detail = await client.get(f"/internal/schedules/{schedule_id}", headers=headers(tenant))
+    last_fire = detail.json()["data"]["last_fire"]
+    assert last_fire["execution_id"] == str(execution_id)
+    assert last_fire["duration_ms"] == 12_000
+    assert last_fire["artifact_count"] == 2
+
+
+async def test_fire_duration_falls_back_to_finished_at_and_is_null_while_running(
+    tenant: TenantContext, client: AsyncClient
+) -> None:
+    schedule_id, revision_id = await seed_schedule(tenant)
+    completed = await seed_execution(
+        tenant,
+        schedule_id,
+        revision_id,
+        status="COMPLETED",
+        started_at=NOW,
+        finished_at=NOW + timedelta(seconds=3),
+    )
+    await seed_fire(
+        tenant,
+        schedule_id,
+        revision_id,
+        at=NOW,
+        status="EXECUTION_CREATED",
+        skip_reason=None,
+        missed_count=0,
+        execution_id=completed,
+    )
+    running = await seed_execution(
+        tenant,
+        schedule_id,
+        revision_id,
+        status="RUNNING",
+        started_at=NOW + timedelta(seconds=10),
+        finished_at=None,
+    )
+    await seed_fire(
+        tenant,
+        schedule_id,
+        revision_id,
+        at=NOW + timedelta(seconds=10),
+        status="EXECUTION_CREATED",
+        skip_reason=None,
+        missed_count=0,
+        execution_id=running,
+    )
+
+    response = await client.get(
+        f"/internal/schedules/{schedule_id}/fires", headers=headers(tenant)
+    )
+
+    assert response.status_code == 200, response.text
+    items = response.json()["data"]["items"]
+    assert [item["execution_status"] for item in items] == ["RUNNING", "COMPLETED"]
+    assert items[0]["duration_ms"] is None, "运行中不能伪造耗时"
+    assert items[0]["artifact_count"] == 0
+    assert items[1]["duration_ms"] == 3_000, "无投递时回退到执行结束时间"
 
 
 async def test_execution_detail_hides_wait_payload_outside_the_wait(

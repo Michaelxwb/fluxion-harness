@@ -39,10 +39,15 @@ def tenant_domain(domain: str, tenant_id: str) -> str:
 def resolve_policy_target(policy: SharedEgressPolicy, request: AttemptMetadata) -> EgressTarget | None:
     matches = []
     for rule in policy.rules:
-        if rule.http_match is None:
+        address = rule.http_match
+        if address is None:
             continue
         route = EgressHTTPRoute(
-            **rule.http_match.model_dump(), target_instance_id=rule.target_instance_id, route_id=rule.route_id
+            origin=address.origin,
+            method=address.method,
+            path_template=address.path_template,
+            target_instance_id=rule.target_instance_id,
+            route_id=rule.route_id,
         )
         if route.matches(request):
             matches.append(route)
@@ -53,4 +58,4 @@ def resolve_policy_target(policy: SharedEgressPolicy, request: AttemptMetadata) 
     if len(selected) != 1:
         raise MeteringUnavailable("ambiguous current platform route")
     route = selected[0]
-    return EgressTarget(route.target_instance_id, route.route_id, policy)
+    return EgressTarget(route.target_instance_id, route.route_id, policy, business_http=True)

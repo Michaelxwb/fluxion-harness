@@ -75,6 +75,53 @@ const TIMELINE_CELLS = [
   { locale: 'zh-CN', theme: 'light', width: 390 }
 ] as const;
 
+test('业务 TraceId 在出网事件上直接显示并可单独复制', async ({ page }) => {
+  const traceId = 'df7c6cc4-731d-473c-9ccd-68f10ef43355';
+  const request: RunTimelineEvent = {
+    ...event(-1, 'EGRESS_REQUEST', 3000),
+    egress: {
+      target: 'https://platform.test', operation: 'GET /api/v1/ping', method: 'GET',
+      result_status: 'FAILED', error_code: 'HTTP_ERROR', policy_decision: 'ALLOW',
+      audit_id: 'egress-audit', business_trace_id: traceId, status_code: 500, latency_ms: 12
+    }
+  };
+  const { timeline } = await prepare(page, { width: 390, detail: createRun([request]) });
+  const row = timeline.locator('[data-event-type="EGRESS_REQUEST"]');
+  await expect(row.getByText('业务 TraceId')).toBeVisible();
+  await expect(row.getByText(traceId)).toBeVisible();
+  await expect(row.getByText('HTTP 500')).toBeVisible();
+  await expect(row.getByText('GET /api/v1/ping · https://platform.test')).toBeVisible();
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await row.getByRole('button', { name: '复制', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(traceId);
+  await expect(row.getByTestId('run-event-toggle--1')).toHaveAttribute('aria-expanded', 'false');
+});
+
+for (const { locale, theme, width } of TIMELINE_CELLS) {
+  test(`blocked egress stays readable in ${locale}/${theme}/${width}`, async ({ page }) => {
+    const target = 'https://' + 'long-platform-name-'.repeat(6) + 'example.test:18081';
+    const blocked: RunTimelineEvent = {
+      ...event(5032, 'EGRESS_BLOCKED', 3200),
+      egress: {
+        target, operation: 'GET /api/v1/ping', method: 'GET', result_status: 'BLOCKED',
+        error_code: 'LIMIT_WINDOW', policy_decision: 'DENY', audit_id: 'egress-audit'
+      }
+    };
+    const { timeline } = await prepare(page, { locale, theme, width, detail: createRun([blocked]) });
+    await timeline.getByTestId('run-event-toggle-5032').click();
+    const detail = timeline.getByTestId('run-egress-details-5032');
+    await expect(detail.getByText(locale === 'zh-CN' ? '已拦截' : 'Blocked', { exact: true })).toBeVisible();
+    await expect(detail.getByText('GET', { exact: true })).toBeVisible();
+    await expect(detail.getByText('/api/v1/ping', { exact: true })).toBeVisible();
+    await expect(detail.getByText(target, { exact: true })).toBeVisible();
+    await expect(detail.getByText(locale === 'zh-CN'
+      ? '已达到时间窗口内的请求上限' : 'Request limit reached for this time window')).toBeVisible();
+    await expect(detail.getByText('LIMIT_WINDOW', { exact: true })).toBeVisible();
+    expect(await detail.locator('dd').evaluateAll((values) =>
+      values.every((value) => value.scrollWidth <= value.clientWidth))).toBe(true);
+  });
+}
+
 for (const { locale, theme, width } of TIMELINE_CELLS) {
       test(`expanded event details remain compact and readable in ${locale}/${theme}/${width}`, async ({ page }, testInfo) => {
         const { timeline } = await prepare(page, { locale, theme, width });

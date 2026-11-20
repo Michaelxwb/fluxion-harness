@@ -14,6 +14,7 @@ from contextvars import ContextVar
 from types import TracebackType
 from typing import Literal, Protocol, Self, cast
 from urllib.parse import urlsplit
+from uuid import uuid4
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -79,6 +80,17 @@ def _metadata(request: PreparedRequest) -> AttemptMetadata:
 def _replace_method(target: object, name: str, replacement: object) -> None:
     """The one explicit dynamic boundary for process-local transport interception."""
     setattr(target, name, replacement)
+
+
+def _traced_request(
+    request: PreparedRequest, business_trace_id: str, *, overwrite_csrf: bool,
+) -> PreparedRequest:
+    # Keep these per-send headers off the original, which requests may copy for redirects.
+    outgoing = request.copy()
+    outgoing.headers["TraceId"] = business_trace_id
+    if overwrite_csrf:
+        outgoing.headers["X-Csrftoken"] = str(uuid4())
+    return outgoing
 
 
 class _ResponseLease:
@@ -240,8 +252,11 @@ class RequestsEgressHook:
         attempt = PhysicalAttempt(lease)
         try:
             bounded_args, bounded_kwargs = deadline_arguments(args, kwargs, lease.remaining_seconds)
+            outgoing = _traced_request(
+                request, lease.business_trace_id, overwrite_csrf=lease.overwrite_csrf,
+            )
             response = run_attempt(
-                attempt, lambda: self._adapter_send(adapter, request, *bounded_args, **bounded_kwargs),
+                attempt, lambda: self._adapter_send(adapter, outgoing, *bounded_args, **bounded_kwargs),
             )
         except BaseException as exc:
             failure = lease.failure

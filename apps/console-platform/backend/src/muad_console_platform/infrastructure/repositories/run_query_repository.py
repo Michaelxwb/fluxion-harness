@@ -121,24 +121,28 @@ WITH canonical AS (
       FROM runtime.canonical_event
      WHERE tenant_id = :tenant_id AND run_id = :run_id
        AND is_deleted = false AND event_type <> ALL(:streaming_event_types)
-), blocked_egress AS (
+), request_egress AS (
     SELECT (-row_number() OVER (ORDER BY g.create_time, g.id))::bigint AS seq,
-           'EGRESS_BLOCKED' AS event_type,
+           CASE WHEN g.result_status = 'BLOCKED' THEN 'EGRESS_BLOCKED'
+                ELSE 'EGRESS_REQUEST' END AS event_type,
            NULL::text AS stream_type,
            g.create_time,
            false AS has_artifact,
            jsonb_build_object(
              'target', g.target, 'operation', g.operation, 'method', g.method,
              'result_status', g.result_status, 'error_code', g.error_code,
-             'policy_decision', g.policy_decision, 'audit_id', g.id::text
+             'policy_decision', g.policy_decision, 'audit_id', g.id::text,
+             'business_trace_id', g.business_trace_id, 'status_code', g.status_code,
+             'latency_ms', g.latency_ms
            ) AS egress
       FROM runtime.egress_audit g
      WHERE g.tenant_id = :tenant_id AND g.run_id = :run_id
-       AND g.is_deleted = false AND g.result_status = 'BLOCKED'
+       AND g.is_deleted = false
+       AND (g.result_status = 'BLOCKED' OR g.business_trace_id IS NOT NULL)
 ), all_events AS (
     SELECT * FROM canonical
     UNION ALL
-    SELECT * FROM blocked_egress
+    SELECT * FROM request_egress
 )
 SELECT seq, event_type, stream_type, create_time, has_artifact, egress
   FROM all_events

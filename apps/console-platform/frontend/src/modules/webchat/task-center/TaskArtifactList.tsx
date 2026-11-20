@@ -139,3 +139,116 @@ export function TaskArtifactList(props: TaskArtifactListProps) {
     </ul>
   );
 }
+
+type ArtifactFileKind = 'spreadsheet' | 'csv' | 'json' | 'text' | 'other';
+
+const ARTIFACT_FILE_KIND_KEYS: Record<ArtifactFileKind, string> = {
+  spreadsheet: 'chat.taskCenter.artifact.fileType.spreadsheet',
+  csv: 'chat.taskCenter.artifact.fileType.csv',
+  json: 'chat.taskCenter.artifact.fileType.json',
+  text: 'chat.taskCenter.artifact.fileType.text',
+  other: 'chat.taskCenter.artifact.fileType.other'
+};
+
+function artifactFileKind(artifact: TaskArtifact): ArtifactFileKind {
+  const media = artifact.media_type.toLowerCase();
+  if (media.includes('spreadsheetml')) return 'spreadsheet';
+  if (media.includes('csv')) return 'csv';
+  if (media.includes('json')) return 'json';
+  if (media.startsWith('text/')) return 'text';
+  return 'other';
+}
+
+function compactDeliveryLabel(t: (key: string) => string, artifact: TaskArtifact): string | null {
+  const deliveries = artifact.deliveries;
+  if (deliveries === undefined || deliveries.length === 0) return null;
+  if (deliveries.some((item) => item.status === 'FAILED')) {
+    return t('chat.taskCenter.artifact.deliveryFailed');
+  }
+  if (deliveries.some((item) => item.status === 'DEGRADED')) {
+    return t('chat.taskCenter.artifact.partiallyDelivered');
+  }
+  if (deliveries.every((item) => item.status === 'DELIVERED')) {
+    return t('chat.taskCenter.artifact.delivered');
+  }
+  return t('chat.taskCenter.artifact.pending');
+}
+
+/** 后台任务详情的紧凑文件网格：文件名/类型/大小/发送结果；版本与校验值只留在技术事实里。 */
+export function CompactTaskArtifactGrid(props: TaskArtifactListProps) {
+  const { t } = useTranslation();
+  if (props.artifacts.length === 0) {
+    return (
+      <p className="chat-task-artifacts-empty" data-testid="chat-task-artifacts-empty">
+        {t('chat.taskCenter.artifact.empty')}
+      </p>
+    );
+  }
+  return (
+    <ul className="chat-task-artifact-grid" data-testid="chat-task-artifacts">
+      {props.artifacts.map((artifact) => {
+        const entry = props.state.entries[artifact.artifact_id] ?? IDLE_ARTIFACT_DOWNLOAD;
+        const delivery = compactDeliveryLabel(t, artifact);
+        return (
+          <li
+            key={`${artifact.artifact_id}:${artifact.version}:${artifact.checksum}`}
+            className="chat-task-artifact-card"
+            data-testid="chat-task-artifact"
+            data-artifact-id={artifact.artifact_id}
+            data-artifact-version={artifact.version}
+            data-artifact-checksum={artifact.checksum}
+            data-download-phase={entry.phase}
+          >
+            <span className="chat-task-artifact-card-kind">
+              {t(ARTIFACT_FILE_KIND_KEYS[artifactFileKind(artifact)])}
+            </span>
+            <div className="chat-task-artifact-card-main">
+              <strong title={artifact.name}>{artifact.name}</strong>
+              <span className="chat-task-artifact-card-meta">
+                {t(ARTIFACT_FILE_KIND_KEYS[artifactFileKind(artifact)])} ·{' '}
+                {formatBytes(artifact.size)}
+                {delivery === null ? null : (
+                  <span
+                    className="chat-task-artifact-card-delivery"
+                    data-testid="chat-task-artifact-delivery"
+                  >
+                    {delivery}
+                  </span>
+                )}
+              </span>
+            </div>
+            <Button
+              size="small"
+              theme="borderless"
+              data-testid="chat-task-artifact-download"
+              aria-label={t('chat.taskCenter.artifact.download', { name: artifact.name })}
+              loading={entry.phase === 'DOWNLOADING'}
+              onClick={() => props.onDownload(artifact)}
+            >
+              {entry.phase === 'DOWNLOADING'
+                ? t('chat.taskCenter.artifact.downloading')
+                : t('chat.taskCenter.artifact.downloadShort')}
+            </Button>
+            {entry.phase === 'SAVED' ? (
+              <span className="chat-task-artifact-saved" data-testid="chat-task-artifact-saved">
+                {t('chat.taskCenter.artifact.saved')}
+              </span>
+            ) : null}
+            {entry.phase === 'FAILED' ? (
+              <span
+                className="chat-task-artifact-error"
+                data-testid="chat-task-artifact-error"
+                role="alert"
+              >
+                {t(artifactErrorKey(entry.errorCode))}
+                {artifactErrorNeedsCode(entry.errorCode)
+                  ? t('chat.taskCenter.error.codeSuffix', { code: entry.errorCode })
+                  : null}
+              </span>
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}

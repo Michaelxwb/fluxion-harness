@@ -170,7 +170,7 @@ class AuditQueryService:
         rows = await self._repository.page(
             tenant_id, filters, page, page_size, view=resolved
         )
-        return [self._project_list_item(row) for row in rows], total
+        return [self._project_list_item(row, view=resolved) for row in rows], total
 
     def _validate(self, filters: AuditQueryFilters) -> None:
         validate_filters(
@@ -179,11 +179,29 @@ class AuditQueryService:
             allowed_audit_types=LIST_AUDIT_TYPES,
         )
 
+    async def filter_options(
+        self, tenant_id: str, filters: AuditQueryFilters, *, view: str | None,
+    ) -> dict[str, list[str]]:
+        resolved = resolve_view(filters.audit_type, view)
+        resources, results = await self._repository.filter_options(tenant_id, filters, view=resolved)
+        return {
+            "resource_types": resources,
+            "result_statuses": [status for status in results if status in self._allowed_result_statuses],
+        }
+
     @staticmethod
-    def _project_list_item(row: dict[str, Any]) -> dict[str, Any]:
+    def _project_list_item(row: dict[str, Any], *, view: str) -> dict[str, Any]:
         """列表行 = 统一投影 + 操作行摘要；步骤统计归运行详情。"""
         item = AuditQueryService._project(row)
         item["summary"] = row.get("summary")
+        if view == "detail" and row["business_trace_id"] is not None:
+            item["business_trace_id"] = str(row["business_trace_id"])
+        count = row["egress_count"] or 0
+        if count > 1 or (count == 1 and item["audit_type"] == "RUN"):
+            item["egress_count"] = count
+            item["egress_blocked_count"] = row["egress_blocked_count"]
+            if item["audit_type"] == "EGRESS" and row["egress_status"] is not None:
+                item["result_status"] = row["egress_status"]
         return item
 
     async def get_audit_detail(

@@ -19,8 +19,10 @@ execute_skill(skill_key="business-skill-python-template", argv=["--company-id", 
 
 - `platforms.<PLATFORM>.cookies` → `Cookie` 请求头；
 - `platforms.<PLATFORM>.requestProfile.baseUrl` → 业务地址；
+- `requestProfile.hostHeader` → `Host` 请求头（平台按 vhost 路由，缺了会 404 / 403）；
 - `requestProfile.csrf` 声明的 cookie/header 映射 → CSRF 请求头；
-- `requestProfile.staticHeaders` → 附加静态头（如 `Timezone`）。
+- `requestProfile.staticHeaders` → 附加静态头（如 `Timezone`）；
+- `requestProfile.referer` → 有则加 `Referer`。
 
 不要在脚本里硬编码 baseUrl、Cookie、Token 或 CSRF 值。
 
