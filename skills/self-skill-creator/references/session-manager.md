@@ -2,6 +2,11 @@
 
 Skill 访问受保护业务平台时，自己调用 `session-manager get-state --skill-name <skill>` 获取登录态文件，然后直接读该文件发 `requests` 请求。平台不代发业务请求，登录态只由 Skill 自行读取。
 
+## 列 session 与取登录态
+
+- 用户问“有哪些平台 / 平台 session 状态”时，用 `session-manager list-platforms`；它会逐平台**实际检查登录态**，返回 `available`、有效期或失败原因，不再只表示“有凭据配置”。
+- 执行 Skill 时不要先跑 `list-platforms`；直接 `get-state --skill-name <skill>`，避免为无关平台触发登录、续期和预算消耗。
+
 ## 脚本写法
 
 ```python
@@ -23,7 +28,11 @@ def resolve_state_file():
         timeout=30,
     )
     if completed.returncode != 0:
-        raise RuntimeError("session-manager get-state failed")
+        detail = (completed.stderr or "").strip()
+        raise RuntimeError(
+            "session-manager get-state failed: "
+            + (detail[:1000] if detail else f"exit {completed.returncode}")
+        )
     return json.loads(completed.stdout)["sessionStateFile"]
 
 
@@ -51,9 +60,9 @@ response = requests.get(base_url + "/api/v1/items", headers={"Cookie": cookie}, 
 
 ## browser 能力
 
-声明 `capabilities: ["browser"]` 的 Skill 仍走 `session_get_state` **模型工具**（不是脚本自助），因为只有插件工具能调用 `browser.request`。不要让模型直接调 `session_get_state`；SKILL.md 顶部直接列出脚本命令（如 `python3 scripts/run.py`），引导模型跑脚本而非调工具。
+声明 `capabilities: ["browser"]` 的 Skill 仍通过脚本入口执行；登录态仍由脚本内的 `session-manager` 获取。当前没有独立的 `session_get_state` 模型工具，不要引导模型调用不存在的工具；SKILL.md 顶部直接列出脚本命令（如 `python3 scripts/run.py`）。
 
 ## 不需要在 SKILL.md 里做的事
 
-- 不要让模型直接调 `session_get_state` 工具——该工具需要 `skillName` 参数，模型容易传成平台名。
+- 不要让模型直接调用不存在的 `session_get_state` 工具；登录态从脚本内的 `session-manager` 获取。
 - 不要指导用户手工保存 cookie 或 token；登录态由 `session-manager` 管理（本地开发文档除外）。

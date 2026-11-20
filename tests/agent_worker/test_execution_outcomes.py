@@ -29,6 +29,34 @@ def _execution(status: str, *, stderr: str = "", stdout: str = "", result=None, 
     }
 
 
+def test_task_error_message_keeps_platform_summary() -> None:
+    from muad_agent_worker.worker.executor import TaskExecutionError
+    from muad_agent_worker.worker.service import _describe_error
+
+    error = TaskExecutionError(
+        "SKILL_EXECUTION_FAILED",
+        "skill failed",
+        platform_sessions={
+            "platforms": [
+                {"key": "mssp", "available": True},
+                {
+                    "key": "mssw",
+                    "available": False,
+                    "error": {
+                        "code": "PLATFORM_AUTH_REJECTED",
+                        "detail": {"http_status": 401, "message": "denied"},
+                    },
+                },
+            ]
+        },
+    )
+
+    code, message, retryable = _describe_error(error)
+
+    assert code == "SKILL_EXECUTION_FAILED"
+    assert "platform_sessions: mssp=ok; mssw=PLATFORM_AUTH_REJECTED(http=401) denied" in message
+
+
 def test_failed_skill_uses_the_failure_envelope() -> None:
     envelope = json.dumps(
         {

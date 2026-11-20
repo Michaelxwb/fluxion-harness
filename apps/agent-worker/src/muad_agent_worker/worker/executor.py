@@ -86,10 +86,18 @@ ENV_TASK_EXTERNAL_REF = "MUAD_TASK_EXTERNAL_REF"
 
 
 class TaskExecutionError(Exception):
-    def __init__(self, code: str, message: str, *, retryable: bool | None = None) -> None:
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        *,
+        retryable: bool | None = None,
+        platform_sessions: dict[str, object] | None = None,
+    ) -> None:
         super().__init__(message)
         self.code = code
         self.retryable = code not in NON_RETRYABLE_CODES if retryable is None else retryable
+        self.platform_sessions = platform_sessions
 
 
 def task_env(task: TaskExecution) -> dict[str, str]:

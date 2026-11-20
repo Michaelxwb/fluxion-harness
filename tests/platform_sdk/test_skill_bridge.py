@@ -19,8 +19,9 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
-from muad_platform_sdk import PlatformConfig, PlatformSession, SecretValue
+from muad_platform_sdk import PlatformConfig, PlatformSession, SecretValue, SessionMode
 from muad_platform_sdk.adapter.mss_config import PlatformAuthError
+from muad_platform_sdk.request_budget import LocalRateLimitError
 from muad_platform_sdk.session.manager import SessionRequest
 from muad_platform_sdk.skill_access import SkillPlatformAccess, SkillPlatformContext
 from muad_platform_sdk.skill_bridge import SessionBrokerBudget, skill_platform_environment
@@ -39,6 +40,40 @@ class _Manager:
             expires_at=datetime.now(UTC) + timedelta(hours=2),
         )
 
+    async def renew(self, request: SessionRequest) -> PlatformSession:
+        return await self.acquire(request)
+
+
+class _FailingManager:
+    async def acquire(self, request: SessionRequest) -> PlatformSession:
+        raise PlatformAuthError(
+            "PLATFORM_AUTH_REJECTED",
+            detail={"http_status": 401, "message": "denied"},
+        )
+
+
+class _BudgetManager:
+    async def acquire(self, request: SessionRequest) -> PlatformSession:
+        raise LocalRateLimitError("EXECUTION", "run", "rule-budget", "TOTAL", 1, 1)
+
+
+class _NoAuthAdapter:
+    key = "no-auth"
+    name = "no-auth"
+    version = "1"
+    session_mode = SessionMode.NONE
+    platform_config_schema: dict[str, object] = {}
+    credential_schema: dict[str, object] = {}
+
+    async def authenticate(self, platform, credential):  # noqa: ANN001
+        return None
+
+    async def validate(self, platform, session):  # noqa: ANN001
+        return True
+
+    async def prepare_request(self, platform, session, request, credential):  # noqa: ANN001
+        raise NotImplementedError
+
 
 def _context(keys: tuple[str, ...] = ("mssp",)) -> SkillPlatformContext:
     return SkillPlatformContext(
@@ -53,19 +88,31 @@ def _context(keys: tuple[str, ...] = ("mssp",)) -> SkillPlatformContext:
     )
 
 
-def _patch_resolver(monkeypatch: pytest.MonkeyPatch, *, denied: frozenset[str] = frozenset()) -> None:
+def _patch_resolver(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    denied: frozenset[str] = frozenset(),
+    missing: frozenset[str] = frozenset(),
+    failing: frozenset[str] = frozenset(),
+    rejecting: frozenset[str] = frozenset(),
+    budget: frozenset[str] = frozenset(),
+    adapter_key: str = "mss-session",
+    credential_mode: str = "USER_ONLY",
+) -> None:
     async def resolve(
         self: SkillPlatformAccess, key: str, method: str, path: str
-    ) -> tuple[PlatformConfig, SessionRequest, _Manager]:
+    ) -> tuple[PlatformConfig, SessionRequest, _Manager | _FailingManager | _RejectingManager]:
         if key in denied:
             raise PlatformAuthError("PLATFORM_ACCESS_DENIED")
+        if key in missing:
+            raise PlatformAuthError("CREDENTIAL_MISSING")
         platform = PlatformConfig(
             key=key,
             name=key,
             resolver_type="BASE_URL",
             resolver_config={"base_url": "https://mssp.example.internal"},
-            adapter_key="mss-session",
-            credential_mode="USER_ONLY",
+            adapter_key=adapter_key,
+            credential_mode=credential_mode,
         )
         request = SessionRequest(
             platform,
@@ -74,9 +121,29 @@ def _patch_resolver(monkeypatch: pytest.MonkeyPatch, *, denied: frozenset[str] =
             "credential-" + key,
             SecretValue(value="{}", version="1"),
         )
-        return platform, request, _Manager()
+        if key in rejecting:
+            manager: _Manager | _FailingManager | _RejectingManager | _BudgetManager = (
+                _RejectingManager()
+            )
+        elif key in budget:
+            manager = _BudgetManager()
+        elif key in failing:
+            manager = _FailingManager()
+        else:
+            manager = _Manager()
+        return platform, request, manager
 
     monkeypatch.setattr(SkillPlatformAccess, "resolve", resolve)
+
+
+def _patch_list(monkeypatch: pytest.MonkeyPatch, keys: tuple[str, ...]) -> None:
+    async def list_platforms(self: SkillPlatformAccess) -> list[dict[str, object]]:
+        return [
+            {"key": key, "name": key, "authentication": "session", "available": True}
+            for key in keys
+        ]
+
+    monkeypatch.setattr(SkillPlatformAccess, "list_platforms", list_platforms)
 
 
 async def _run_cli(env: dict[str, str], skill_name: str = "probe-skill") -> subprocess.CompletedProcess[str]:
@@ -86,6 +153,40 @@ async def _run_cli(env: dict[str, str], skill_name: str = "probe-skill") -> subp
         "get-state",
         "--skill-name",
         skill_name,
+        cwd=str(ROOT),
+        env={**os.environ, **env},
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=30)
+    return subprocess.CompletedProcess(
+        args=[str(SESSION_CLI)], returncode=process.returncode, stdout=stdout, stderr=stderr
+    )
+
+
+async def _run_cli_refresh(env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+    process = await asyncio.create_subprocess_exec(
+        sys.executable,
+        str(SESSION_CLI),
+        "refresh",
+        "--platform",
+        "mssp",
+        cwd=str(ROOT),
+        env={**os.environ, **env},
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=30)
+    return subprocess.CompletedProcess(
+        args=[str(SESSION_CLI)], returncode=process.returncode, stdout=stdout, stderr=stderr
+    )
+
+
+async def _run_cli_list(env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+    process = await asyncio.create_subprocess_exec(
+        sys.executable,
+        str(SESSION_CLI),
+        "list-platforms",
         cwd=str(ROOT),
         env={**os.environ, **env},
         stdout=asyncio.subprocess.PIPE,
@@ -142,13 +243,50 @@ async def test_failed_session_carries_the_platform_reason_to_the_skill(
         completed = await _run_cli(dict(session.env))
 
     assert completed.returncode == 1
-    error = json.loads(completed.stderr.decode("utf-8"))["error"]
+    payload = json.loads(completed.stderr.decode("utf-8"))
+    error = payload["error"]
     assert error["code"] == "PLATFORM_AUTH_REJECTED"
     assert error["detail"] == {
         "http_status": 200,
         "business_code": 9348,
         "message": "签名校验失败",
     }
+    sessions = payload["platform_sessions"]["platforms"]
+    assert [item["key"] for item in sessions] == ["mssp"]
+    assert sessions[0]["available"] is False
+    assert sessions[0]["error"]["code"] == "PLATFORM_AUTH_REJECTED"
+
+
+async def test_prelogin_reports_missing_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_resolver(monkeypatch, missing=frozenset({"mssw"}))
+    with pytest.raises(PlatformAuthError) as captured:
+        async with skill_platform_environment(_context(("mssp", "mssw")), "probe-skill"):
+            pass
+
+    report = captured.value.platform_sessions
+    assert isinstance(report, dict)
+    assert report["platforms"][0]["available"] is True
+    assert report["platforms"][1]["available"] is False
+    assert report["platforms"][1]["error"]["code"] == "CREDENTIAL_MISSING"
+
+
+async def test_get_state_partial_reports_without_writing_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_resolver(monkeypatch, rejecting=frozenset({"mssw"}))
+    async with skill_platform_environment(_context(("mssp", "mssw")), "probe-skill") as session:
+        completed = await _run_cli(dict(session.env))
+
+    assert completed.returncode == 1
+    assert completed.stdout.strip() == b""
+    payload = json.loads(completed.stderr)
+    assert payload["error"]["code"] == "PLATFORM_AUTH_REJECTED"
+    sessions = payload["platform_sessions"]["platforms"]
+    assert [item["key"] for item in sessions] == ["mssp", "mssw"]
+    assert sessions[0]["available"] is True
+    assert sessions[1]["available"] is False
 
 
 async def test_successful_session_has_no_error_detail(
@@ -200,6 +338,117 @@ async def test_get_state_stdout_keeps_legacy_platforms_and_writes_plain_state_fi
     assert state_path is not None and not state_path.exists()
 
 
+async def test_platform_environment_exposes_the_last_report(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_resolver(monkeypatch)
+    async with skill_platform_environment(_context(), "probe-skill") as session:
+        assert session.report is not None
+        assert session.report.payload()["platforms"][0]["available"] is True
+
+
+async def test_list_platforms_reports_actual_availability(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_list(monkeypatch, ("mssp", "mssw"))
+    _patch_resolver(monkeypatch, failing=frozenset({"mssw"}))
+    async with skill_platform_environment(_context(()), "probe-skill") as session:
+        completed = await _run_cli_list(dict(session.env))
+
+    assert completed.returncode == 0, completed.stderr
+    payload = json.loads(completed.stdout)
+    assert payload["version"] == 2
+    assert [item["key"] for item in payload["platforms"]] == ["mssp", "mssw"]
+    assert payload["platforms"][0]["available"] is True
+    assert payload["platforms"][0]["authentication"] == "session"
+    assert payload["platforms"][0]["expiresAt"]
+    assert payload["platforms"][1]["available"] is False
+    assert payload["platforms"][1]["error"] == {
+        "code": "PLATFORM_AUTH_REJECTED",
+        "detail": {"http_status": 401, "message": "denied"},
+    }
+
+
+async def test_list_platforms_reports_missing_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_list(monkeypatch, ("mssp", "mssw"))
+    _patch_resolver(monkeypatch, missing=frozenset({"mssw"}))
+    async with skill_platform_environment(_context(()), "probe-skill") as session:
+        completed = await _run_cli_list(dict(session.env))
+
+    assert completed.returncode == 0, completed.stderr
+    payload = json.loads(completed.stdout)
+    assert payload["platforms"][0]["available"] is True
+    assert payload["platforms"][1]["available"] is False
+    assert payload["platforms"][1]["error"]["code"] == "CREDENTIAL_MISSING"
+
+
+async def test_list_platforms_all_fail_still_returns_a_report(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_list(monkeypatch, ("mssp", "mssw"))
+    _patch_resolver(monkeypatch, failing=frozenset({"mssp", "mssw"}))
+    async with skill_platform_environment(_context(()), "probe-skill") as session:
+        completed = await _run_cli_list(dict(session.env))
+
+    assert completed.returncode == 0, completed.stderr
+    payload = json.loads(completed.stdout)
+    assert [item["available"] for item in payload["platforms"]] == [False, False]
+    assert [item["error"]["code"] for item in payload["platforms"]] == [
+        "PLATFORM_AUTH_REJECTED",
+        "PLATFORM_AUTH_REJECTED",
+    ]
+
+
+async def test_list_platforms_empty_catalog_is_an_empty_report(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_list(monkeypatch, ())
+    _patch_resolver(monkeypatch)
+    async with skill_platform_environment(_context(()), "probe-skill") as session:
+        completed = await _run_cli_list(dict(session.env))
+
+    assert completed.returncode == 0, completed.stderr
+    assert json.loads(completed.stdout) == {"version": 2, "platforms": []}
+
+
+async def test_list_platforms_marks_no_session_platform_as_not_checked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_list(monkeypatch, ("no-auth",))
+    _patch_resolver(monkeypatch, adapter_key="no-auth", credential_mode="NONE")
+    original_init = SkillPlatformAccess.__init__
+
+    def init_with_no_auth(self: SkillPlatformAccess, context: SkillPlatformContext) -> None:
+        original_init(self, context)
+        self.registry.register(_NoAuthAdapter())
+
+    monkeypatch.setattr(SkillPlatformAccess, "__init__", init_with_no_auth)
+    async with skill_platform_environment(_context(()), "probe-skill") as session:
+        completed = await _run_cli_list(dict(session.env))
+
+    assert completed.returncode == 0, completed.stderr
+    payload = json.loads(completed.stdout)
+    assert payload["platforms"][0]["available"] is None
+    assert payload["platforms"][0]["reason"] == "session_not_applicable"
+
+
+async def test_list_platforms_budget_interruption_marks_remaining_not_checked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_list(monkeypatch, ("mssp", "mssw"))
+    _patch_resolver(monkeypatch, budget=frozenset({"mssw"}))
+    async with skill_platform_environment(_context(()), "probe-skill") as session:
+        completed = await _run_cli_list(dict(session.env))
+
+    assert completed.returncode == 0, completed.stderr
+    payload = json.loads(completed.stdout)
+    assert payload["platforms"][0]["available"] is True
+    assert payload["platforms"][1]["available"] is None
+    assert payload["platforms"][1]["reason"] == "budget_exhausted"
+
+
 async def test_sandbox_root_maps_socket_state_and_readonly_mounts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -220,17 +469,20 @@ async def test_sandbox_root_maps_socket_state_and_readonly_mounts(
         assert state_dir.is_dir()
 
 
-async def test_only_platforms_allowed_by_trusted_context_are_exposed(
+async def test_prelogin_reports_allowed_and_denied_platforms(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _patch_resolver(monkeypatch, denied=frozenset({"mssw"}))
-    async with skill_platform_environment(_context(("mssp", "mssw")), "probe-skill") as session:
-        completed = await _run_cli(dict(session.env))
-        assert completed.returncode == 0, completed.stderr
-        payload = json.loads(completed.stdout)
-        assert [item["platform"] for item in payload["platforms"]] == ["mssp"]
-        state = json.loads(Path(payload["sessionStateFile"]).read_text(encoding="utf-8"))
-        assert set(state["platforms"]) == {"mssp"}
+    with pytest.raises(PlatformAuthError) as captured:
+        async with skill_platform_environment(_context(("mssp", "mssw")), "probe-skill"):
+            pass
+
+    report = captured.value.platform_sessions
+    assert isinstance(report, dict)
+    assert [item["key"] for item in report["platforms"]] == ["mssp", "mssw"]
+    assert report["platforms"][0]["available"] is True
+    assert report["platforms"][1]["available"] is False
+    assert report["platforms"][1]["error"]["code"] == "PLATFORM_ACCESS_DENIED"
 
 
 async def test_unauthorized_platform_fails_with_platform_session_required(
@@ -319,6 +571,19 @@ async def test_platform_key_cli_does_not_bind_to_skill_name(monkeypatch: pytest.
         completed = await _run_cli(env)
     assert completed.returncode == 0, completed.stderr
     assert json.loads(completed.stdout)["platforms"]
+
+
+async def test_refresh_uses_renew_and_keeps_success_shape(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_resolver(monkeypatch)
+    async with skill_platform_environment(_context(), "probe-skill") as session:
+        completed = await _run_cli_refresh(dict(session.env))
+
+    assert completed.returncode == 0, completed.stderr
+    payload = json.loads(completed.stdout)
+    assert payload["resolution"] == "refreshed"
+    assert payload["refresh"] == {"requested": True, "performed": True}
 
 
 async def test_no_platform_context_yields_no_injection() -> None:

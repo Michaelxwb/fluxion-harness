@@ -26,7 +26,12 @@ from redis.exceptions import RedisClusterException, RedisError
 from .adapter.mss_config import PlatformAuthError, settings
 from .request_budget import LocalRateLimitError
 from .shared_redis import SharedLimitExceeded
-from .skill_access import PlatformScope, SkillPlatformAccess, SkillPlatformContext
+from .skill_access import (
+    PlatformScope,
+    PlatformSessionReport,
+    SkillPlatformAccess,
+    SkillPlatformContext,
+)
 
 BROKER_BUDGET_EXCEEDED = "PLATFORM_SESSION_BUDGET_EXCEEDED"
 BROKER_INTERNAL_ERROR = "broker_internal_error"
@@ -65,6 +70,8 @@ class SessionMount:
 class PlatformSessionEnvironment:
     env: dict[str, str] = field(default_factory=dict)
     mounts: tuple[SessionMount, ...] = ()
+    #: 执行级最后报告；executor/沙箱在退出前读取，不持久化。
+    report: PlatformSessionReport | None = field(default=None, repr=False)
 
 
 @dataclass(slots=True)
@@ -185,32 +192,57 @@ async def _write_state(
     ledger: _BudgetLedger,
 ) -> dict[str, Any]:
     if platform_key is None and not legacy_mode:
+        catalog = await access.list_platforms()
+        keys = tuple(
+            str(item["key"]) for item in catalog if isinstance(item, dict) and item.get("key")
+        )
+        metadata = {
+            str(item["key"]): item
+            for item in catalog
+            if isinstance(item, dict) and item.get("key")
+        }
+        await access.collect_batch(keys, metadata=metadata)
         return {
             "version": 2,
-            "platforms": await access.list_platforms(),
+            "platforms": access.report.payload(keys)["platforms"],
         }
-    keys = await access.allowed_keys()
     if platform_key is not None:
-        if platform_key not in keys:
+        allowed = await access.allowed_keys()
+        if platform_key not in allowed:
             raise PlatformAuthError("PLATFORM_ACCESS_DENIED")
-        keys = (platform_key,)
-    if not keys:
+        requested = (platform_key,)
+    elif access.context.scope is PlatformScope.SELECTED:
+        requested = tuple(dict.fromkeys(access.context.platform_keys))
+    else:
+        catalog = await access.list_platforms()
+        requested = tuple(
+            str(item["key"]) for item in catalog if isinstance(item, dict) and item.get("key")
+        )
+    if not requested:
         raise PlatformAuthError("PLATFORM_SESSION_REQUIRED")
+    report = await access.collect_batch(requested, refresh=refresh)
+    if report.hard_error is not None:
+        raise access.batch_error(requested)
+    first = report.first_failure()
+    if first is not None:
+        raise PlatformAuthError(
+            first.code or "PLATFORM_SESSION_REQUIRED",
+            retryable=first.retryable,
+            detail=first.detail,
+            platform_sessions=report.payload(requested),
+        )
     platforms: dict[str, dict[str, Any]] = {}
-    for key in keys:
-        platform, request, manager = await access.resolve_platform(key)
-        state = await manager.renew(request) if refresh else await manager.acquire(request)
-        if legacy_mode and not refresh:
-            # Legacy CLI callers historically performed an execution probe before
-            # materializing state. Keep that observable error boundary during migration.
-            state = await manager.acquire(request)
-        if state is None:
-            raise PlatformAuthError("PLATFORM_SESSION_REQUIRED")
-        state_payload = _legacy_platform(platform, state)
+    for attempt in report.successes():
+        if attempt.session is None:
+            continue
+        platform, _, _ = await access.resolve_platform(attempt.key)
+        state_payload = _legacy_platform(platform, attempt.session)
         if state_payload["expiresAt"] is None:
             # stdout 的旧契约要求 expiresAt 必须存在；没有有效期的登录态不能交付。
             raise PlatformAuthError("PLATFORM_SESSION_INVALID")
-        platforms[key] = state_payload
+        platforms[attempt.key] = state_payload
+    if not platforms:
+        raise PlatformAuthError("PLATFORM_SESSION_REQUIRED")
     if not ledger.take_state_file():
         raise _BudgetExceeded()
     filename = f"{state_prefix}/state-{uuid.uuid4().hex}.json"
@@ -249,6 +281,9 @@ def _broker_error(exc: Exception) -> dict[str, Any]:
         detail = getattr(exc, "detail", None)
         if isinstance(detail, dict) and detail:
             result["detail"] = detail
+        platform_sessions = getattr(exc, "platform_sessions", None)
+        if isinstance(platform_sessions, dict) and platform_sessions:
+            result["platform_sessions"] = platform_sessions
         return result
     return {"error": BROKER_INTERNAL_ERROR}
 
@@ -277,10 +312,10 @@ async def skill_platform_environment(
     active: set[asyncio.Task[None]] = set()
     root = Path(tempfile.mkdtemp(prefix="fx-session-", dir="/tmp"))
     try:
-        if context.scope is PlatformScope.SELECTED:
-            # Explicit platform selection is an execution constraint: reject an
+        if context.require_all_platforms:
+            # Explicit workspace selection is an execution constraint: reject an
             # unauthorized selection before running an unrelated shell command.
-            # AUTO remains fully lazy and resolves only when the CLI is called.
+            # Skill declarations are not a gate; they collect a per-platform report.
             await access.allowed_keys()
         run_dir, state_dir, command_dir, state_prefix, mounts = _prepare_layout(root, sandbox_root)
 
@@ -348,6 +383,7 @@ async def skill_platform_environment(
                     "PATH": command_dir + os.pathsep + os.environ.get("PATH", os.defpath),
                 },
                 mounts=mounts,
+                report=access.report,
             )
         finally:
             server.close()

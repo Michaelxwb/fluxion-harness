@@ -100,6 +100,7 @@ ASYNC `execute_skill` 将 `argv` 冻结到 execution snapshot，随操作持久�
 - `sessionStateFile` 内部仍是 `platforms.<key>.cookies` / `requestProfile` dict。
 - state 文件是执行专属只读文件，执行结束删除；脚本复制到 workspace/output 的 Cookie 副本不会随之删除。
 - 禁止把 Cookie/Token 原文写入日志、报告、审计或证据。
+- 当前 `list-platforms` 已增强为实际登录态检查（`available` 不再只表示“有凭据配置”），用于列 session；`get-state` 的 stdout/退出码与旧契约保持。Skill 执行时直接用 `get-state`，不要先 list。
 
 ---
 

@@ -1,7 +1,7 @@
 ---
 {
   "description": "密钥归属与脱敏",
-  "next_rule": 3
+  "next_rule": 4
 }
 ---
 
@@ -20,6 +20,8 @@
   - **配置错误在启动期暴露**：因子能加载但解析失败（如公钥格式错误、`identity_keys` 为空）应在启动期显式报错，而不是等到首个请求才 500。
   - ✅ 因子经 `Secret` 注入、加载进 `repr=False` 的设置对象；对外接口只回 `configured` 与键名。
   - ❌ 把公钥或 salt 写进表、写进快照、写进响应；缺因子时整个服务起不来。
+
+- [RULE-003] 平台失败原因在离开适配器前，除 `ak`/`sk`/`headers` 外还须擦除本次 CSRF token 与登录响应中可取得的 Cookie 值；进入 Skill stderr、工具错误 `platform_sessions`、有界摘要或日志前完成替换，日志只记 code 与状态。
 
 ## Conventions
 
@@ -88,3 +90,5 @@ api_key = model.api_key or os.environ.get("MODEL_API_KEY")   # 密钥清空时�
 - {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-002#DELTA-001","op":"add","rule":"RULE-001","payload_sha256":"90929baf37c38af503d5d933c6cdc284719895384ad3d0a87b6fc8f431d83e34","at":"2026-11-18T14:06:44.263Z"}
 
 - {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-002#DELTA-002","op":"add","rule":"RULE-002","payload_sha256":"0dc4d1cfe9328f378c5de37fc135a6a7ea765d4aa5857b764356ba619911b353","at":"2026-11-18T14:06:44.263Z"}
+
+- {"source":"2026-11-19/platform-session-reporting/platform-session-reporting.md#TASK-006#DELTA-002","op":"add","rule":"RULE-003","payload_sha256":"5e35118e452ff87b44dbd428e0bab256d040be1ddc5517c350c2ae018f45e45e","at":"2026-11-20T06:07:25.510Z"}

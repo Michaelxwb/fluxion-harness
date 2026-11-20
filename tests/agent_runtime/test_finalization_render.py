@@ -28,6 +28,29 @@ def _facts(*, reason_status="NO_PROGRESS", error_code="RUN_NO_PROGRESS", records
     )
 
 
+def test_platform_summary_in_evidence_preview_is_rendered() -> None:
+    summary = "platform_sessions: mssp=ok; mssw=PLATFORM_AUTH_REJECTED(http=401) denied"
+    facts = _facts(
+        records=[
+            ToolCallRecord(
+                tool_name="execute",
+                business_status="FAILED",
+                failure_layer="CONTENT",
+                error_code="PLATFORM_AUTH_REJECTED",
+                exit_code=1,
+                evidence_preview=summary,
+                output_truncated=False,
+            )
+        ]
+    )
+
+    text = render_finalization(facts)
+
+    assert "platform_sessions:" in text
+    assert "mssp=ok" in text
+    assert "mssw=PLATFORM_AUTH_REJECTED" in text
+
+
 def test_budget_rendering_states_three_groups_without_contradiction() -> None:
     facts = _facts(
         reason_status="BUDGET_EXCEEDED",

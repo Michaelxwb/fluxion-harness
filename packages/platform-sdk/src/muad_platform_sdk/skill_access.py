@@ -5,25 +5,138 @@ from __future__ import annotations
 import hashlib
 import json
 import ssl
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import StrEnum
 from typing import Any, cast
 
 import httpx
 from muad_common.redis_client import create_redis_client
+from redis.exceptions import RedisClusterException, RedisError
 
 from .adapter import MSSAdapter, PlatformAdapterRegistry
 from .adapter.mss_config import PlatformAuthError
 from .platform_transport import PlatformBudgetScope
+from .request_budget import LocalRateLimitError
+from .shared_redis import SharedLimitExceeded
 from .session.manager import SessionRequest
 from .session.redis_manager import RedisPlatformSessionManager
-from .types import PlatformConfig, SecretValue
+from .types import PlatformConfig, PlatformSession, SecretValue, SessionMode
 
 #: Console 拒绝（无权限/无凭据）只收敛该平台，不把整个执行判为失败；其余错误原样上抛。
 _AUTHORIZATION_DENIALS = frozenset(
     {"PLATFORM_ACCESS_DENIED", "PLATFORM_ACCESS_UNAVAILABLE", "CREDENTIAL_MISSING"}
 )
+#: 这些错误说明执行级基础设施不可用，不能降级成某个平台的结果条目。
+_HARD_RESOLUTION_CODES = frozenset(
+    {"PLATFORM_ACCESS_UNAVAILABLE", "PLATFORM_RESOLVE_FAILED", "PLATFORM_RESOLVE_INVALID"}
+)
+
+
+def _interrupt_reason(exc: BaseException) -> str:
+    if isinstance(exc, LocalRateLimitError):
+        return "budget_exhausted"
+    if isinstance(exc, SharedLimitExceeded):
+        return "rate_limited"
+    if isinstance(exc, (RedisError, RedisClusterException)):
+        return "store_unavailable"
+    return "check_interrupted"
+
+
+@dataclass(frozen=True, slots=True)
+class PlatformAttempt:
+    """一个平台在本批次中的最近一次结果；只投影安全字段。"""
+
+    key: str
+    name: str
+    authentication: str
+    available: bool | None
+    expires_at: datetime | None = None
+    code: str | None = None
+    detail: dict[str, object] | None = None
+    retryable: bool = False
+    reason: str | None = None
+    session: PlatformSession | None = field(default=None, repr=False, compare=False)
+
+    def payload(self) -> dict[str, object]:
+        item: dict[str, object] = {
+            "key": self.key,
+            "name": self.name,
+            "authentication": self.authentication,
+        }
+        if self.available is None:
+            item["available"] = None
+            if self.reason:
+                item["reason"] = self.reason
+            return item
+        if self.available:
+            item["available"] = True
+            item["expiresAt"] = self.expires_at.isoformat() if self.expires_at else None
+            return item
+        item["available"] = False
+        error: dict[str, object] = {"code": self.code or "PLATFORM_SESSION_REQUIRED"}
+        if self.detail:
+            error["detail"] = self.detail
+        if self.retryable:
+            error["retryable"] = True
+        item["error"] = error
+        return item
+
+
+@dataclass(slots=True)
+class PlatformSessionReport:
+    """执行级最后报告：按请求顺序保存每个平台最近一次结果。
+
+    不持久化、不跨执行共享；每次采集覆盖同一平台，顺序按首次出现。
+    """
+
+    _order: list[str] = field(default_factory=list)
+    _attempts: dict[str, PlatformAttempt] = field(default_factory=dict)
+    #: 基础设施/预算中断的分类器；由调用方决定是 hard failure 还是“报告已知项”。
+    hard_error: Exception | None = field(default=None, repr=False, compare=False)
+
+    def record(self, attempt: PlatformAttempt) -> None:
+        if attempt.key not in self._attempts:
+            self._order.append(attempt.key)
+        self._attempts[attempt.key] = attempt
+
+    def payload(self, keys: Sequence[str] | None = None) -> dict[str, object]:
+        order = list(keys) if keys is not None else list(self._order)
+        return {
+            "platforms": [
+                self._attempts[key].payload() for key in order if key in self._attempts
+            ]
+        }
+
+    @property
+    def has_failures(self) -> bool:
+        return any(attempt.available is False for attempt in self._attempts.values())
+
+    @property
+    def has_success(self) -> bool:
+        return any(attempt.available is True for attempt in self._attempts.values())
+
+    def attempts(self) -> tuple[PlatformAttempt, ...]:
+        return tuple(self._attempts[key] for key in self._order if key in self._attempts)
+
+    def failures(self) -> tuple[PlatformAttempt, ...]:
+        return tuple(
+            attempt
+            for key in self._order
+            if (attempt := self._attempts.get(key)) is not None and attempt.available is False
+        )
+
+    def first_failure(self) -> PlatformAttempt | None:
+        failures = self.failures()
+        return failures[0] if failures else None
+
+    def successes(self) -> tuple[PlatformAttempt, ...]:
+        return tuple(
+            attempt
+            for key in self._order
+            if (attempt := self._attempts.get(key)) is not None and attempt.available is True
+        )
 
 
 class PlatformScope(StrEnum):
@@ -80,6 +193,8 @@ class SkillPlatformAccess:
         self._resolved_bindings: dict[
             str, tuple[PlatformConfig, SessionRequest, RedisPlatformSessionManager]
         ] = {}
+        #: 执行级最后报告：只保存在 broker 生命周期内，供 list/start/get-state 共用。
+        self.report = PlatformSessionReport()
 
     async def close(self) -> None:
         if self.redis:
@@ -134,6 +249,146 @@ class SkillPlatformAccess:
 
     async def _discover_keys(self) -> tuple[str, ...]:
         return tuple(item["key"] for item in await self.list_platforms() if item.get("available"))
+
+    def _mark_not_checked(
+        self,
+        keys: Sequence[str],
+        metadata: Mapping[str, Mapping[str, Any]],
+        exc: BaseException,
+    ) -> None:
+        reason = _interrupt_reason(exc)
+        for key in keys:
+            item = metadata.get(key, {})
+            self.report.record(
+                PlatformAttempt(
+                    key=key,
+                    name=str(item.get("name") or key),
+                    authentication=str(item.get("authentication") or "session"),
+                    available=None,
+                    reason=reason,
+                )
+            )
+        self.report.hard_error = exc
+
+    def batch_error(self, keys: Sequence[str]) -> PlatformAuthError:
+        exc = self.report.hard_error
+        detail: dict[str, object] | None = None
+        if isinstance(exc, LocalRateLimitError):
+            code, retryable = exc.code, exc.retryable
+        elif isinstance(exc, SharedLimitExceeded):
+            code = "LOCAL_BUDGET_EXHAUSTED" if exc.kind == "TOTAL" else "LOCAL_RATE_LIMITED"
+            retryable = False
+            detail = {
+                "limit_kind": exc.kind,
+                "scope": str(exc.scope),
+                "rule_id": exc.rule_id,
+            }
+        elif isinstance(exc, (RedisError, RedisClusterException)):
+            code, retryable = "PLATFORM_SESSION_STORE_UNAVAILABLE", True
+        elif isinstance(exc, PlatformAuthError):
+            code, retryable, detail = exc.code, exc.retryable, exc.detail
+        else:
+            code, retryable = "PLATFORM_RESOLVE_FAILED", True
+        return PlatformAuthError(
+            code,
+            retryable=retryable,
+            detail=detail,
+            platform_sessions=self.report.payload(keys),
+        )
+
+    async def collect_batch(
+        self,
+        keys: Sequence[str],
+        *,
+        metadata: Mapping[str, Mapping[str, Any]] | None = None,
+        refresh: bool = False,
+    ) -> PlatformSessionReport:
+        """按请求顺序逐平台解析/获取，记录最后报告；不抛出平台级失败。
+
+        基础设施/预算/限流中断时保留已知结果，并把当前及剩余平台标成未检查；
+        调用方用 ``hard_error``/``batch_error()`` 决定是硬失败还是返回报告。
+        缺凭据、授权拒绝、认证失败和各平台自身错误只进入报告。
+        """
+        meta = metadata or {}
+        for index, key in enumerate(keys):
+            item = meta.get(key, {})
+            name = str(item.get("name") or key)
+            authentication = str(item.get("authentication") or "session")
+            try:
+                platform, request, manager = await self.resolve_platform(key)
+            except PlatformAuthError as exc:
+                if exc.code in _HARD_RESOLUTION_CODES:
+                    self._mark_not_checked(keys[index:], meta, exc)
+                    return self.report
+                self.report.record(
+                    PlatformAttempt(
+                        key=key,
+                        name=name,
+                        authentication=authentication,
+                        available=False,
+                        code=exc.code,
+                        detail=exc.detail,
+                        retryable=exc.retryable,
+                    )
+                )
+                continue
+            name = str(item.get("name") or platform.name or key)
+            authentication = str(
+                item.get("authentication")
+                or ("none" if platform.credential_mode == "NONE" else "session")
+            )
+            adapter = self.registry.get(platform.adapter_key)
+            if adapter.session_mode is not SessionMode.SESSION:
+                self.report.record(
+                    PlatformAttempt(
+                        key=key,
+                        name=name,
+                        authentication=authentication,
+                        available=None,
+                        reason="session_not_applicable",
+                    )
+                )
+                continue
+            try:
+                state = await manager.renew(request) if refresh else await manager.acquire(request)
+            except PlatformAuthError as exc:
+                self.report.record(
+                    PlatformAttempt(
+                        key=key,
+                        name=name,
+                        authentication=authentication,
+                        available=False,
+                        code=exc.code,
+                        detail=exc.detail,
+                        retryable=exc.retryable,
+                    )
+                )
+                continue
+            except (LocalRateLimitError, SharedLimitExceeded, RedisError, RedisClusterException) as exc:
+                self._mark_not_checked(keys[index:], meta, exc)
+                return self.report
+            if state is None:
+                self.report.record(
+                    PlatformAttempt(
+                        key=key,
+                        name=name,
+                        authentication=authentication,
+                        available=None,
+                        reason="session_not_available",
+                    )
+                )
+                continue
+            self.report.record(
+                PlatformAttempt(
+                    key=key,
+                    name=name,
+                    authentication=authentication,
+                    available=True,
+                    expires_at=state.expires_at,
+                    session=state,
+                )
+            )
+        return self.report
 
     async def list_platforms(self) -> list[dict[str, Any]]:
         ctx = self.context
@@ -220,11 +475,21 @@ class SkillPlatformAccess:
         )
         return platform, request, manager
 
-    async def start(self) -> None:
-        # Explicit Skill platform declarations retain their historical lease touch;
-        # AUTO execution remains fully lazy and does not contact Console/Redis here.
+    async def start(self) -> PlatformSessionReport:
+        # Explicit declarations collect the requested set and report per-platform
+        # failures before the script starts; AUTO remains fully lazy.
         if self.context.scope is not PlatformScope.SELECTED:
-            return None
-        for key in await self.allowed_keys():
-            _, request, manager = await self.resolve_platform(key)
-            await manager.acquire(request)
+            return self.report
+        requested = tuple(dict.fromkeys(self.context.platform_keys))
+        await self.collect_batch(requested)
+        if self.report.hard_error is not None:
+            raise self.batch_error(requested)
+        first = self.report.first_failure()
+        if first is not None:
+            raise PlatformAuthError(
+                first.code or "PLATFORM_SESSION_REQUIRED",
+                retryable=first.retryable,
+                detail=first.detail,
+                platform_sessions=self.report.payload(requested),
+            )
+        return self.report

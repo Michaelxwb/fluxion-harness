@@ -30,6 +30,7 @@ from muad_agent_runtime.application.executor import (
 )
 from muad_agent_runtime.application.skill_tools import (
     EXECUTE_SKILL_TOOL,
+    EXECUTE_TOOL,
     LOAD_SKILL_TOOL,
     MAX_RESOURCE_BYTES,
     READ_SKILL_RESOURCE_TOOL,
@@ -787,6 +788,17 @@ def test_skill_tools_are_not_registered_without_effective_skills(tmp_path: Path)
     assert registry.list() == ()
 
 
+def test_execute_description_guides_list_and_skill_paths(tmp_path: Path) -> None:
+    definition = _registry_with_keys(tmp_path, "policy-check").get(EXECUTE_TOOL)
+    description = definition.description
+
+    assert "list-platforms" in description
+    assert "get-state" in description
+    assert "do not run list first" in description
+    assert "fail-closed" in description
+    assert "per-platform" in description
+
+
 class _RejectingExecutor:
     """平台取登录态失败：执行器带 detail 抛出（与真实适配器同形状）。"""
 
@@ -799,6 +811,16 @@ class _RejectingExecutor:
             code="PLATFORM_AUTH_REJECTED",
             detail={"http_status": 200, "business_code": 9348, "message": "签名校验失败"},
             retryable=self._retryable,
+            platform_sessions={
+                "platforms": [
+                    {"key": "mssp", "available": True, "expiresAt": "2026-11-20T10:00:00+00:00"},
+                    {
+                        "key": "mssw",
+                        "available": False,
+                        "error": {"code": "PLATFORM_AUTH_REJECTED"},
+                    },
+                ]
+            },
         )
 
 
@@ -826,6 +848,8 @@ async def test_execute_skill_surfaces_the_platform_reason(
         "business_code": 9348,
         "message": "签名校验失败",
     }
+    assert payload["platform_sessions"]["platforms"][0]["available"] is True
+    assert payload["platform_sessions"]["platforms"][1]["available"] is False
 
 
 async def test_retryable_skill_failure_carries_the_flag(skill_env: SkillEnv, tmp_path: Path) -> None:

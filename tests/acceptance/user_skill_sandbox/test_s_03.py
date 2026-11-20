@@ -77,10 +77,10 @@ async def test_s03_session_state_file_and_legacy_stdout(tmp_path: Path, chain: S
     assert not Path(payload["path"]).exists(), "state file must be deleted after execution"
 
 
-async def test_s03_unauthorized_platform_returns_platform_session_required(
+async def test_s03_unauthorized_platform_returns_platform_access_denied(
     tmp_path: Path,
 ) -> None:
-    """[S-03] 未授权平台：Console 拒绝，执行返回 PLATFORM_SESSION_REQUIRED。"""
+    """[S-03] 未授权平台：Console 拒绝，执行返回 PLATFORM_ACCESS_DENIED。"""
     async with open_session_chain() as chain:
         root = _package(tmp_path, chain, platform="mssw")
         context = replace(chain.context, platform_keys=("mssw",))
@@ -88,7 +88,7 @@ async def test_s03_unauthorized_platform_returns_platform_session_required(
             await ScriptSkillExecutor().execute(
                 SkillExecutionRequest(ready_dir=root, input={}, timeout_sec=30.0, platform_context=context)
             )
-    assert captured.value.code == "PLATFORM_SESSION_REQUIRED"
+    assert captured.value.code == "PLATFORM_ACCESS_DENIED"
 
 
 def _dev_unsafe_runner_factory():
@@ -177,8 +177,8 @@ async def test_s03_draft_shell_gets_session_state_and_deletes_it() -> None:
         assert not Path(probe["path"]).exists(), "state file must be deleted after execution"
 
 
-async def test_s03_draft_shell_unauthorized_platform_returns_required() -> None:
-    """[S-03] 草稿声明未授权平台时返回 PLATFORM_SESSION_REQUIRED。"""
+async def test_s03_draft_shell_unauthorized_platform_returns_access_denied() -> None:
+    """[S-03] 草稿声明未授权平台时返回 PLATFORM_ACCESS_DENIED。"""
     async with open_session_chain() as chain:
         skill_name = "draft-session-denied"
         store = MemoryDraftStore(
@@ -198,4 +198,4 @@ async def test_s03_draft_shell_unauthorized_platform_returns_required() -> None:
         toolset = _draft_toolset(chain, store=store, actor_user_id=chain.actor_user_id)
         payload = await _call_draft_shell(toolset, command="python scripts/probe.py")
 
-    assert payload["error"]["code"] == "PLATFORM_SESSION_REQUIRED", payload
+    assert payload["error"]["code"] == "PLATFORM_ACCESS_DENIED", payload

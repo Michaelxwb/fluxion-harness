@@ -1,5 +1,8 @@
 ---
-{"description": "项目平台与凭据", "next_rule": 1}
+{
+  "description": "项目平台与凭据",
+  "next_rule": 2
+}
 ---
 
 # harness-project-platform
@@ -7,6 +10,8 @@
 ## Rules
 
 - [RULE-platform-001] ProjectPlatform 只保存实例与寻址配置，认证/Session 由 PlatformAdapter 承担（SPI 无独立 `refresh`，刷新属于 `authenticate` 内部）；凭据明文存于凭据表并由主键引用，`credential_mode` 仅表达选择策略（USER_ONLY/SHARED_ONLY/USER_THEN_SHARED/NONE）；PlatformSession 为可重建 Redis 缓存，键为 `platform_session:{tenant_id:platform_id}:{actor_scope}:{credential_version}:{adapter_key}:{adapter_version}`（`{tenant_id:platform_id}` 是字面 hash tag，session/index/generation/lock 同 slot，保证 4-key Lua 在 Redis Cluster 可执行），索引 `platform_sessions:{tenant_id:platform_id}` 以 Set 清理；更换 adapter_key 必须使旧凭据与会话失效。
+
+- [RULE-001] 执行期 `session-manager list-platforms` 按本次查询范围逐平台检查实际登录态：返回实际 `available`、有效期或失败原因；CLI `available` 不再只表示有凭据配置；Console 内部目录仍只提供候选范围；`get-state`/`refresh` 的交付与失败出口保持。
 
 ## Conventions
 
@@ -47,3 +52,7 @@
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。
+
+## Applied Deltas
+
+- {"source":"2026-11-19/platform-session-reporting/platform-session-reporting.md#TASK-006#DELTA-001","op":"add","rule":"RULE-001","payload_sha256":"a0e5256fc543d536227c21a5bddddb3a648568b148733256602aff33c13f8a3a","at":"2026-11-20T06:07:25.510Z"}

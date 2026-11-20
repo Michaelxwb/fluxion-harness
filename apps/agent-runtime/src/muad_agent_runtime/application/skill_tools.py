@@ -171,11 +171,13 @@ class SkillToolError(RuntimeError):
         message: str,
         detail: dict[str, object] | None = None,
         retryable: bool = False,
+        platform_sessions: dict[str, object] | None = None,
     ) -> None:
         self.code = code
         self.message = message
         self.detail = detail
         self.retryable = retryable
+        self.platform_sessions = platform_sessions
         super().__init__(message)
 
 
@@ -456,7 +458,7 @@ class SkillToolSet:
                 "and are delivered to the conversation. "
                 "Set target=draft with draft_id and command to test the draft copy. "
                 "Set target=workspace with command; the execution always provides session-manager and "
-                "optional platforms only narrow its allowed scope. "
+                "optional platforms only narrow its allowed scope (fail-closed). "
                 "Workspace files are shared across the user's runs for this Agent. Test draft code with "
                 "target=draft, never by writing under skill-drafts/ in the workspace. "
                 "Draft commands run against a copy, with revision-checked writes; SKILL_DATA_DIR persists "
@@ -465,8 +467,11 @@ class SkillToolSet:
                 "target=skill accepts only skill_key, input, argv, timeout_sec and script; "
                 "command, cwd and reset_data belong to target=workspace or target=draft. "
                 "For instructions-only or MCP-only skills, load the skill and use its MCP tools directly. "
-                "Use session-manager list-platforms first, then get-state --platform <key> or "
-                "refresh --platform <key>. "
+                "Use session-manager list-platforms when the user asks to list platform sessions; "
+                "it checks actual login state and reports per-platform availability. For a Skill, "
+                "call session-manager get-state directly; do not run list first. For one platform "
+                "use get-state --platform <key>; use refresh --platform <key> only for an explicit "
+                "refresh. Read the per-platform result before answering. "
                 "Do not output or persist credentials."
             ),
             input_schema=_input_schema({
@@ -536,7 +541,13 @@ class SkillToolSet:
                 call_id=call_id,
             )
         except SkillToolError as exc:
-            return _error_result(exc.code, exc.message, exc.detail, retryable=exc.retryable)
+            return _error_result(
+                exc.code,
+                exc.message,
+                exc.detail,
+                retryable=exc.retryable,
+                platform_sessions=exc.platform_sessions,
+            )
 
     async def run_skill_script(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         try:
@@ -558,7 +569,13 @@ class SkillToolSet:
                 call_id=call_id,
             )
         except SkillToolError as exc:
-            return _error_result(exc.code, exc.message, exc.detail, retryable=exc.retryable)
+            return _error_result(
+                exc.code,
+                exc.message,
+                exc.detail,
+                retryable=exc.retryable,
+                platform_sessions=exc.platform_sessions,
+            )
 
     async def search_skills(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         """按关键词检索**本次 Run 的全部生效技能**，返回目录条目。
@@ -616,17 +633,7 @@ class SkillToolSet:
             return _error_result(exc.code, exc.message)
         except ValueError as exc:
             return _error_result(ErrorCode.COMMON_VALIDATION_ERROR.value, str(exc))
-        return json.dumps(
-            {
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-                "exit_code": result.exit_code,
-                "duration_ms": result.duration_ms,
-                "changed_files": list(result.changed_files),
-                "output_truncated": result.output_truncated,
-            },
-            ensure_ascii=False,
-        )
+        return _workspace_payload(result)
 
     async def _workspace_shell_with_platforms(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         """Run a command in the same workspace with explicitly selected platform sessions."""
@@ -661,7 +668,11 @@ class SkillToolSet:
         except (WorkspaceError, SandboxError, SkillToolError, SkillExecutionError) as exc:
             return _error_result(exc.code, exc.message)
         except PlatformAuthError as exc:
-            return _error_result(exc.code, "platform session unavailable")
+            return _error_result(
+                exc.code,
+                "platform session unavailable",
+                platform_sessions=exc.platform_sessions,
+            )
         except (RedisError, RedisClusterException):
             return _error_result("PLATFORM_SESSION_STORE_UNAVAILABLE", "platform session store unavailable")
         except MeteringUnavailable:
@@ -671,10 +682,7 @@ class SkillToolSet:
             return _error_result(code, str(exc))
         except ValueError as exc:
             return _error_result(ErrorCode.COMMON_VALIDATION_ERROR.value, str(exc))
-        return json.dumps({"stdout": result.stdout, "stderr": result.stderr, "exit_code": result.exit_code,
-                           "duration_ms": result.duration_ms, "changed_files": list(result.changed_files),
-                           "output_truncated": result.output_truncated},
-                          ensure_ascii=False)
+        return _workspace_payload(result)
 
     async def _workspace_platform_scope(
         self, platform: SkillPlatformContext, call_id: str,
@@ -712,23 +720,25 @@ class SkillToolSet:
                 payload["stderr"] = exc.result.stderr
                 payload["exit_code"] = exc.result.exit_code
                 payload["output_truncated"] = exc.result.output_truncated
+            if exc.platform_sessions:
+                payload["platform_sessions"] = exc.platform_sessions
             return json.dumps(payload, ensure_ascii=False)
         except SkillToolError as exc:
             return _error_result(exc.code, exc.message)
         except ValueError as exc:
             return _error_result(ErrorCode.COMMON_VALIDATION_ERROR.value, str(exc))
-        return json.dumps(
-            {
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-                "exit_code": result.exit_code,
-                "duration_ms": result.duration_ms,
-                "changed_files": list(result.changed_files),
-                "revision": result.revision,
-                "output_truncated": result.output_truncated,
-            },
-            ensure_ascii=False,
-        )
+        payload: dict[str, Any] = {
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "exit_code": result.exit_code,
+            "duration_ms": result.duration_ms,
+            "changed_files": list(result.changed_files),
+            "revision": result.revision,
+            "output_truncated": result.output_truncated,
+        }
+        if result.platform_sessions:
+            payload["platform_sessions"] = result.platform_sessions
+        return json.dumps(payload, ensure_ascii=False)
 
     def _catalog(self) -> tuple[PromptSkill, ...]:
         """全部生效技能 → 目录条目，顺序与提示词目录一致（`sort_order, key`）。"""
@@ -979,7 +989,11 @@ class SkillToolSet:
             if exc.code == "LOCAL_BUDGET_EXHAUSTED":
                 raise SkillToolError(exc.code, exc.message) from exc
             raise SkillToolError(
-                SKILL_EXECUTION_FAILED, exc.message, detail=exc.detail, retryable=exc.retryable
+                SKILL_EXECUTION_FAILED,
+                exc.message,
+                detail=exc.detail,
+                retryable=exc.retryable,
+                platform_sessions=exc.platform_sessions,
             ) from exc
         except SharedLimitExceeded as exc:
             code = "LOCAL_BUDGET_EXHAUSTED" if exc.kind == "TOTAL" else "LOCAL_RATE_LIMITED"
@@ -1280,20 +1294,35 @@ def _manifest_payload(package: SkillPackage) -> dict[str, Any]:
 
 
 def _execution_payload(result: SkillExecutionResult, outputs: Sequence[Mapping[str, Any]] = ()) -> str:
-    return json.dumps(
-        {
-            "status": result.status.value,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-            "result": result.result,
-            "duration_ms": result.duration_ms,
-            "exit_code": result.exit_code,
-            "outputs": list(outputs),
-            "output_notice": result.output_notice,
-            "output_truncated": result.output_truncated,
-        },
-        ensure_ascii=False,
-    )
+    payload: dict[str, Any] = {
+        "status": result.status.value,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+        "result": result.result,
+        "duration_ms": result.duration_ms,
+        "exit_code": result.exit_code,
+        "outputs": list(outputs),
+        "output_notice": result.output_notice,
+        "output_truncated": result.output_truncated,
+    }
+    if result.platform_sessions:
+        payload["platform_sessions"] = result.platform_sessions
+    return json.dumps(payload, ensure_ascii=False)
+
+
+def _workspace_payload(result: Any) -> str:
+    payload: dict[str, Any] = {
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+        "exit_code": result.exit_code,
+        "duration_ms": result.duration_ms,
+        "changed_files": list(result.changed_files),
+        "output_truncated": result.output_truncated,
+    }
+    platform_sessions = getattr(result, "platform_sessions", None)
+    if platform_sessions:
+        payload["platform_sessions"] = platform_sessions
+    return json.dumps(payload, ensure_ascii=False)
 
 
 def _error_result(
@@ -1302,6 +1331,7 @@ def _error_result(
     detail: dict[str, object] | None = None,
     *,
     retryable: bool = False,
+    platform_sessions: dict[str, object] | None = None,
 ) -> str:
     error: dict[str, object] = {"code": code, "message": message}
     if detail:
@@ -1310,7 +1340,10 @@ def _error_result(
     if retryable:
         # 只有可重试失败（网络/超时/5xx/429）才标注；缺省不写＝确定性失败，第一次即终止 Run。
         error["retryable"] = True
-    return json.dumps({"error": error}, ensure_ascii=False)
+    payload: dict[str, object] = {"error": error}
+    if platform_sessions:
+        payload["platform_sessions"] = platform_sessions
+    return json.dumps(payload, ensure_ascii=False)
 
 
 def skill_platform_keys(frontmatter: Mapping[str, Any]) -> tuple[str, ...]:

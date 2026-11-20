@@ -50,7 +50,7 @@ from .contracts import (
     SkillOutputLimitError,
     collect_outputs_async,
 )
-from .executor import parse_result
+from .executor import attach_platform_report, parse_result
 from .selection import SCRIPTS_DIR, SKILL_FILE, sandbox_script_path, script_command, select_script
 
 logger = logging.getLogger("muad_agent_core.skill.sandbox")
@@ -257,7 +257,11 @@ class SandboxedSkillExecutor:
             )
         except PlatformAuthError as exc:
             raise SkillExecutionError(
-                exc.code, code=exc.code, detail=exc.detail, retryable=exc.retryable
+                exc.code,
+                code=exc.code,
+                detail=exc.detail,
+                retryable=exc.retryable,
+                platform_sessions=exc.platform_sessions,
             ) from None
         except (RedisError, RedisClusterException):
             raise SkillExecutionError(
@@ -294,7 +298,7 @@ class SandboxedSkillExecutor:
                 sandbox_root=None if dev_unsafe else SESSION_SANDBOX_ROOT,
             ) as session,
         ):
-            return await self._run_in_sandbox(
+            result = await self._run_in_sandbox(
                 request,
                 source,
                 package_root,
@@ -307,6 +311,7 @@ class SandboxedSkillExecutor:
                 session=session,
                 egress=egress,
             )
+            return attach_platform_report(result, session.report)
 
     async def _run_in_sandbox(  # noqa: PLR0913 - 执行参数在装配处已冻结
         self,

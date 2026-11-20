@@ -24,6 +24,8 @@ DEFAULT_EVIDENCE_PREVIEW_BYTES = 1024
 #: 属于"环境/平台"的失败前缀：这类失败再试也不会成功，Run 第一次即停。
 ENVIRONMENT_CODE_PREFIXES = ("PLATFORM_", "CREDENTIAL_", "CONTROL_", "SANDBOX_", "MODEL_")
 ARTICLE_MARKER = "…（中间省略）…"
+#: 逐平台报告的一行摘要上限；详情只保留短原因，完整结构仍在工具错误载荷里。
+PLATFORM_SUMMARY_LIMIT = 300
 
 
 class BusinessStatus(StrEnum):
@@ -138,6 +140,45 @@ def _retryable_for(code: str, retryable: bool | None) -> bool:
     return not code.startswith(ENVIRONMENT_CODE_PREFIXES)
 
 
+def platform_sessions_summary(payload: object) -> str:
+    """把工具错误载荷里的逐平台报告压成一行有界摘要。
+
+    报告已经由平台层脱敏；这里只读取安全投影字段，供现有 `evidence_preview` 展示。
+    不是逐平台报告时返回空串。
+    """
+    if not isinstance(payload, Mapping):
+        return ""
+    platforms = payload.get("platforms")
+    if not isinstance(platforms, list):
+        return ""
+    parts: list[str] = []
+    for item in platforms:
+        if not isinstance(item, Mapping):
+            continue
+        key = str(item.get("key") or "")
+        available = item.get("available")
+        if available is True:
+            parts.append(f"{key}=ok")
+            continue
+        if available is False:
+            error = item.get("error")
+            err = error if isinstance(error, Mapping) else {}
+            detail = err.get("detail")
+            det = detail if isinstance(detail, Mapping) else {}
+            status = det.get("http_status")
+            message = det.get("message")
+            suffix = f"(http={status})" if status is not None else ""
+            if isinstance(message, str) and message:
+                suffix += f" {message[:80]}"
+            parts.append(f"{key}={err.get('code') or 'ERROR'}{suffix}")
+            continue
+        reason = item.get("reason")
+        parts.append(f"{key}=not_checked" + (f"({reason})" if reason else ""))
+    if not parts:
+        return ""
+    return ("platform_sessions: " + "; ".join(parts))[:PLATFORM_SUMMARY_LIMIT]
+
+
 def tool_failure_outcome(
     content: str,
     *,
@@ -163,15 +204,18 @@ def tool_failure_outcome(
             ENVIRONMENT_CODE_PREFIXES
         )
         retryable = explicit_retryable or not deterministic
+        message_text = message if isinstance(message, str) else ""
+        summary = platform_sessions_summary(payload.get("platform_sessions"))
+        preview = "; ".join(part for part in (message_text, summary) if part)
         return ExecutionOutcome(
             transport_status=transport_status,
             business_status=BusinessStatus.FAILED,
             failure_layer=FailureLayer.TOOL,
             error_code=code,
-            error_message=message if isinstance(message, str) else "",
+            error_message=message_text,
             retryable=retryable,
             evidence=evidence_for(
-                message if isinstance(message, str) else "",
+                preview,
                 content,
                 output_truncated=output_truncated or error.get("output_truncated") is True,
             ),

@@ -6,7 +6,7 @@ import json
 import ssl
 import time
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -140,8 +140,16 @@ def check(response: httpx.Response) -> None:
         )
 
 
-def _scrub(exc: PlatformAuthError, secret: MSSCredential) -> PlatformAuthError:
-    """把本次凭据的具体值从平台原文里擦掉（平台可能回显 ak/sk/自定义头）。"""
+def _response_cookie_values(response: httpx.Response) -> tuple[str, ...]:
+    return tuple(cookie.value for cookie in response.cookies.jar if cookie.value)
+
+
+def _scrub(
+    exc: PlatformAuthError,
+    secret: MSSCredential,
+    extra_values: Sequence[str] = (),
+) -> PlatformAuthError:
+    """把本次凭据的具体值从平台原文里擦掉（平台可能回显 ak/sk/header/CSRF/cookie）。"""
     detail = exc.detail
     if not isinstance(detail, dict):
         return exc
@@ -154,18 +162,24 @@ def _scrub(exc: PlatformAuthError, secret: MSSCredential) -> PlatformAuthError:
     if secret.sk is not None:
         values.append(secret.sk.get_secret_value())
     values.extend(str(value) for value in secret.headers.values())
+    values.extend(str(value) for value in extra_values if value)
     for value in values:
         if len(value) >= 4:
             message = message.replace(value, "***")
     return PlatformAuthError(exc.code, retryable=exc.retryable, detail={**detail, "message": message})
 
 
-def _checked(response: httpx.Response, secret: MSSCredential) -> None:
+def _checked(
+    response: httpx.Response,
+    secret: MSSCredential,
+    *,
+    extra_values: Sequence[str] = (),
+) -> None:
     """登录链路专用：失败原因先擦除本次凭据值再向上抛。"""
     try:
         check(response)
     except PlatformAuthError as exc:
-        raise _scrub(exc, secret) from None
+        raise _scrub(exc, secret, extra_values) from None
 
 
 def restore_cookies(session: PlatformSession) -> httpx.Cookies:
@@ -237,11 +251,12 @@ class MSSAdapter:
         if config.host_header:
             headers["host"] = config.host_header
         async with self._client(config) as client:
+            csrf = ""
             if config.csrf_enabled:
                 response = await self._send(
                     platform, client, "GET", platform_url(platform, config.csrf_endpoint), headers
                 )
-                _checked(response, secret)
+                _checked(response, secret, extra_values=_response_cookie_values(response))
                 csrf = next((c.value for c in client.cookies.jar if c.name == "csrf_token"), "")
                 if not csrf:
                     raise PlatformAuthError("PLATFORM_CSRF_MISSING")
@@ -260,7 +275,11 @@ class MSSAdapter:
                     url, signing.ak.get_secret_value(), signing.sk.get_secret_value(), int(time.time()), body
                 )
             response = await self._send(platform, client, "POST", url, headers, body)
-            _checked(response, secret)
+            _checked(
+                response,
+                secret,
+                extra_values=(*_response_cookie_values(response), csrf),
+            )
             if not any(c.name == config.login_cookie_name and c.value for c in response.cookies.jar):
                 raise PlatformAuthError("PLATFORM_LOGIN_NO_COOKIE")
             return self._session(client, platform, config)

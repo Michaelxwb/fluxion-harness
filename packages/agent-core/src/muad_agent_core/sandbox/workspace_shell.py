@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from muad_platform_sdk.egress_ipc import InvocationEgressBroker
-    from muad_platform_sdk.skill_access import SkillPlatformContext
+    from muad_platform_sdk.skill_access import PlatformSessionReport, SkillPlatformContext
     from muad_platform_sdk.skill_bridge import SessionMount
 
 from .runner import SandboxRunner
@@ -61,6 +61,8 @@ class WorkspaceShellResult:
     execution_id: str
     #: stdout/stderr 采集是否被上限截断；结果证据必须可见地标注不完整。
     output_truncated: bool = False
+    #: 有平台失败时附带的逐平台报告；正常成功为空。
+    platform_sessions: dict[str, object] | None = None
 
 
 class WorkspaceShellRunner:
@@ -120,7 +122,7 @@ class WorkspaceShellRunner:
                 cwd=cwd,
                 name="workspace_shell",
             )
-            result = await self._run_command(spec, request)
+            result, report = await self._run_command(spec, request)
             changed = _scan_changed_files(lease.output_dir, self._changed_file_limit)
             return WorkspaceShellResult(
                 stdout=result.stdout,
@@ -131,6 +133,9 @@ class WorkspaceShellRunner:
                 output_dir=lease.output_mount,
                 execution_id=request.execution_id,
                 output_truncated=result.output_truncated,
+                platform_sessions=(
+                    report.payload() if report is not None and report.has_failures else None
+                ),
             )
         finally:
             try:
@@ -150,9 +155,11 @@ class WorkspaceShellRunner:
                     type(exc).__name__,
                 )
 
-    async def _run_command(self, spec: SandboxSpec, request: WorkspaceShellRequest) -> SandboxResult:
+    async def _run_command(
+        self, spec: SandboxSpec, request: WorkspaceShellRequest
+    ) -> tuple[SandboxResult, PlatformSessionReport | None]:
         if request.platform_context is None:
-            return await self._runner_factory().run(spec)
+            return await self._runner_factory().run(spec), None
         from muad_platform_sdk.skill_bridge import skill_platform_environment
         from muad_platform_sdk.skill_egress import skill_egress_environment
 
@@ -178,7 +185,7 @@ class WorkspaceShellRunner:
                     egress_broker=request.egress_broker,
                 )
                 result = await _run_controlled(runner, controlled, execution, egress)
-                return _redact_session_output(result, session.env, session.mounts)
+                return _redact_session_output(result, session.env, session.mounts), session.report
 
 
     def _validate_cwd(self, cwd: str) -> None:

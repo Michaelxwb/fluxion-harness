@@ -24,7 +24,7 @@ Skill 在 SKILL.md frontmatter 声明平台实例 key，例如 `platforms: [mssp
 
 平台 key 列表持久化在 `control.skill_artifact.frontmatter_json.platforms`，按版本保存，不是另一个独立的授权关系。Console 的 Skill 列表和基本信息展示当前版本的“关联平台”，版本详情展示该版本的声明。API 通过 `platforms` 字段返回这一数据库记录；无需新增数据库列或迁移。展示为空时表示该版本没有保存声明，不能据此确认平台无需配置。历史版本若被旧导入器丢弃声明，需重新导入；不按名称猜测或自动回填。
 
-Skill 使用统一命令 `session-manager list-platforms` 发现平台，再调用 `session-manager get-state --platform <key>` 获取 `sessionStateFile`；需要明确刷新时调用 `refresh --platform <key>`。平台 key 由 Console 授权目录提供，不能用于切换其他用户。命令返回的文件仅限本次执行，结束后关闭。
+`session-manager list-platforms` 现在会按本次范围逐平台**实际检查登录态**：返回实际 `available`、有效期或失败原因，不再只表示“有凭据配置”；检查成功会复用/续期会话并消耗出网预算。用户要“列 session”时用它；Skill 执行时不要先 list，直接调用 `session-manager get-state --platform <key>` 获取 `sessionStateFile`；需要明确刷新时调用 `refresh --platform <key>`。平台 key 由 Console 授权目录提供，不能用于切换其他用户。命令返回的文件仅限本次执行，结束后关闭。
 
 Runtime/Worker 从可信 Run/Task 构造租户、用户和允许的平台列表；命令使用当前上下文重取用户/共享凭据并经 Redis acquire。登录态文件包含 Cookie，Skill 自行发请求，须自行避免把 Cookie 写入日志、结果或持久文件。业务 HTTP 不再由平台代理，代理侧的请求限制、出网审计与自动重试不适用于 Skill 直接请求；Skill 自行处理鉴权失效和重试。
 

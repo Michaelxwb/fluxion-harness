@@ -46,10 +46,10 @@ def resolve_state_file() -> str:
     except (OSError, subprocess.SubprocessError) as error:
         raise RuntimeError(f"session-manager could not run: {error}") from error
     if completed.returncode != 0:
-        detail = (completed.stderr or "").strip().splitlines()
+        detail = (completed.stderr or "").strip()
         raise RuntimeError(
             "session-manager get-state failed: "
-            + (detail[0][:200] if detail else f"exit {completed.returncode}")
+            + (detail[:1000] if detail else f"exit {completed.returncode}")
         )
     try:
         return str(json.loads(completed.stdout)["sessionStateFile"])

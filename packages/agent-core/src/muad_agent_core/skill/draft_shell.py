@@ -33,6 +33,7 @@ from typing import Any, Protocol
 
 from muad_platform_sdk.adapter.mss_config import PlatformAuthError
 from muad_platform_sdk.skill_access import SkillPlatformContext
+from muad_platform_sdk.skill_access import PlatformSessionReport
 from muad_platform_sdk.skill_bridge import SessionMount, skill_platform_environment
 from muad_skill_sdk.skill_package import SkillPackage, SkillPackageError, locate_package_root
 from redis.exceptions import RedisClusterException, RedisError
@@ -94,6 +95,7 @@ class DraftShellError(RuntimeError):
         result: SandboxResult | None = None,
         retryable: bool = False,
         data: Mapping[str, Any] | None = None,
+        platform_sessions: dict[str, object] | None = None,
     ) -> None:
         self.code = code
         self.message = message
@@ -101,6 +103,7 @@ class DraftShellError(RuntimeError):
         self.retryable = retryable
         #: Console 错误体里的可执行诊断（path/draft_id/repair 等），原样交给模型。
         self.data = dict(data) if data else {}
+        self.platform_sessions = platform_sessions
         super().__init__(message)
 
 
@@ -158,6 +161,8 @@ class DraftShellResult:
     revision: int
     #: stdout/stderr 采集是否被上限截断；结果证据必须可见地标注不完整。
     output_truncated: bool = False
+    #: 有平台失败时附带的逐平台报告；正常成功为空。
+    platform_sessions: dict[str, object] | None = None
 
 
 class DraftShellStore(Protocol):
@@ -244,7 +249,7 @@ class DraftShellRunner:
             )
             package_root = _draft_package_root(draft_root)
             baseline = _snapshot_tree(draft_root)
-            result = await self._execute(
+            result, report = await self._execute(
                 request,
                 workspace=workspace,
                 draft_root=draft_root,
@@ -258,7 +263,9 @@ class DraftShellRunner:
                 max_total_bytes=self._max_total_bytes,
                 max_files=self._max_files,
             )
-            return await self._apply_result(request, archive.revision, result, changes, deletions)
+            return await self._apply_result(
+                request, archive.revision, result, changes, deletions, report=report
+            )
         finally:
             try:
                 shutil.rmtree(workspace)
@@ -272,6 +279,8 @@ class DraftShellRunner:
         result: SandboxResult,
         changes: Sequence[DraftShellChange],
         deletions: Sequence[str],
+        *,
+        report: PlatformSessionReport | None = None,
     ) -> DraftShellResult:
         changed_paths: tuple[str, ...] = ()
         if changes or deletions:
@@ -288,6 +297,9 @@ class DraftShellRunner:
             changed_files=changed_paths,
             revision=revision,
             output_truncated=result.output_truncated,
+            platform_sessions=(
+                report.payload() if report is not None and report.has_failures else None
+            ),
         )
 
     async def _execute(
@@ -298,11 +310,13 @@ class DraftShellRunner:
         draft_root: Path,
         package_root: Path,
         data_dir: Path,
-    ) -> SandboxResult:
+    ) -> tuple[SandboxResult, PlatformSessionReport | None]:
         try:
             return await self._execute_command(request, workspace, draft_root, package_root, data_dir)
         except PlatformAuthError as exc:
-            raise DraftShellError(exc.code, str(exc)) from exc
+            raise DraftShellError(
+                exc.code, str(exc), platform_sessions=exc.platform_sessions
+            ) from exc
         except (RedisError, RedisClusterException):
             raise DraftShellError(
                 "PLATFORM_SESSION_STORE_UNAVAILABLE",
@@ -326,7 +340,7 @@ class DraftShellRunner:
         draft_root: Path,
         package_root: Path,
         data_dir: Path,
-    ) -> SandboxResult:
+    ) -> tuple[SandboxResult, PlatformSessionReport | None]:
         package_rel = _relative_package(package_root, draft_root)
         cwd_rel = _resolve_cwd(request.cwd, package_rel, draft_root)
         (workspace / "data").mkdir()
@@ -345,7 +359,7 @@ class DraftShellRunner:
             _skill_name(package_root),
             sandbox_root=None if dev_unsafe else SESSION_SANDBOX_ROOT,
         ) as session:
-            return await runner.run(
+            result = await runner.run(
                 _sandbox_spec(
                     request,
                     workspace=workspace,
@@ -359,6 +373,7 @@ class DraftShellRunner:
                     output_limit_bytes=self._output_limit_bytes,
                 )
             )
+            return result, session.report
 
 
 def extract_draft_archive(

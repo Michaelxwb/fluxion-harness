@@ -21,6 +21,8 @@ from muad_agent_core.sandbox import (
 )
 from muad_agent_core.sandbox.workspace_shell import _redact_session_output
 from muad_agent_core.tools import ToolEffect
+from muad_platform_sdk.adapter.mss_config import PlatformAuthError
+from muad_platform_sdk.skill_access import SkillPlatformContext
 from muad_agent_runtime.application.skill_tools import (
     EXECUTE_TOOL,
     SkillToolSet,
@@ -72,6 +74,26 @@ def test_platform_shell_redacts_literal_cookies_from_output(tmp_path) -> None:
     )
     assert result.stdout == "***"
     assert result.stderr == "err ***"
+
+
+class _RejectingPlatformRunner:
+    """模拟 `execute platforms` 在 shell 启动前预登录失败。"""
+
+    async def run(self, request):
+        raise PlatformAuthError(
+            "PLATFORM_AUTH_REJECTED",
+            detail={"http_status": 401, "message": "denied"},
+            platform_sessions={
+                "platforms": [
+                    {"key": "mssp", "available": True, "expiresAt": "2026-11-20T10:00:00+00:00"},
+                    {
+                        "key": "mssw",
+                        "available": False,
+                        "error": {"code": "PLATFORM_AUTH_REJECTED"},
+                    },
+                ]
+            },
+        )
 
 
 def _context() -> WorkspaceShellContext:
@@ -163,6 +185,37 @@ async def test_workspace_shell_tool_runs_real_process_and_reports_output_files(t
 
 
 @pytest.mark.integration
+async def test_platform_prelogin_failure_keeps_the_platform_report(tmp_path) -> None:
+    tool_set, _ = _tool_set(tmp_path, _MemoryMetadata())
+    tool_set._workspace_shell = _RejectingPlatformRunner()
+    tool_set._platform_context = SkillPlatformContext(
+        tenant_id="tenant-shell",
+        actor_user_id=str(uuid.uuid4()),
+        execution_id=str(uuid.uuid4()),
+        execution_type="RUN",
+        platform_keys=("mssp", "mssw"),
+        console_url="http://127.0.0.1:1",
+        redis_url=None,
+        service_token="token",
+    )
+
+    payload = json.loads(
+        await tool_set.execute(
+            {
+                "target": "workspace",
+                "platforms": ["mssp", "mssw"],
+                "command": "session-manager list-platforms",
+            },
+            call_id="prelogin",
+        )
+    )
+
+    assert payload["error"]["code"] == "PLATFORM_AUTH_REJECTED"
+    assert payload["error"]["message"] == "platform session unavailable"
+    assert payload["platform_sessions"]["platforms"][0]["available"] is True
+    assert payload["platform_sessions"]["platforms"][1]["available"] is False
+
+
 async def test_platform_shell_reuses_workspace_and_cleans_session(tmp_path) -> None:
     from tests.acceptance.user_skill_sandbox.session_support import open_session_chain
 

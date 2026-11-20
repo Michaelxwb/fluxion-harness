@@ -113,9 +113,40 @@ def default_instance_id() -> str:
     return f"{socket.gethostname()}:{os.getpid()}"
 
 
+def _platform_summary(report: dict[str, object]) -> str:
+    platforms = report.get("platforms")
+    parts: list[str] = []
+    for item in platforms if isinstance(platforms, list) else []:
+        if not isinstance(item, dict):
+            continue
+        key = str(item.get("key") or "")
+        available = item.get("available")
+        if available is True:
+            parts.append(f"{key}=ok")
+            continue
+        if available is False:
+            error = item.get("error")
+            err = error if isinstance(error, dict) else {}
+            detail = err.get("detail")
+            det = detail if isinstance(detail, dict) else {}
+            status = det.get("http_status")
+            message = det.get("message")
+            suffix = f"(http={status})" if status is not None else ""
+            if isinstance(message, str) and message:
+                suffix += f" {message[:80]}"
+            parts.append(f"{key}={err.get('code') or 'ERROR'}{suffix}")
+            continue
+        reason = item.get("reason")
+        parts.append(f"{key}=not_checked" + (f"({reason})" if reason else ""))
+    return ("platform_sessions: " + "; ".join(parts))[:300]
+
+
 def _describe_error(exc: Exception) -> tuple[str, str, bool]:
     if isinstance(exc, TaskExecutionError):
-        return exc.code, str(exc), exc.retryable
+        message = str(exc)
+        if exc.platform_sessions:
+            message = f"{message}; {_platform_summary(exc.platform_sessions)}"
+        return exc.code, message, exc.retryable
     return type(exc).__name__, str(exc), True
 
 

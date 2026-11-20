@@ -137,6 +137,19 @@ async def test_platform_reason_never_echoes_the_submitted_credentials(platform_s
     assert message.count("***") == 2
 
 
+async def test_platform_reason_never_echoes_the_csrf_token(platform_server):
+    """平台把本次 CSRF token 回显在错误里：进入 detail 前必须替换成 ***。"""
+    server, platform, credential = platform_server
+    data = json.loads(credential.value)
+    data["sk"] = secrets.token_hex(24)
+    server.reject_message = f"csrf={server.csrf_token} repeated={server.csrf_token}"
+    with pytest.raises(PlatformAuthError) as caught:
+        await MSSAdapter().authenticate(platform, SecretValue(value=json.dumps(data), version="2"))
+    message = caught.value.detail["message"]
+    assert server.csrf_token not in message
+    assert message.count("***") == 2
+
+
 async def test_platform_reason_is_bounded(platform_server):
     """原文只用于定位：超长一律截断到上限。"""
     server, platform, credential = platform_server
