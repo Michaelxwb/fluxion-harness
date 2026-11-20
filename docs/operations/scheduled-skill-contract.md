@@ -102,7 +102,7 @@ invocation_contract:
 
 #### 对话直接调用
 
-- 对话中 `execute(target=skill)` / `execute_skill` / `run_skill_script` 在启动子进程或提交异步操作前校验**默认入口**的 `invocation_contract`；辅助脚本不套用主入口契约。
+- 对话中 `execute(target=skill)`（模型唯一入口；`execute_skill` / `run_skill_script` 只是保留的兼容别名）在启动子进程或提交异步操作前校验**默认入口**的 `invocation_contract`；`run_skill_script` 不出现在 `model_tools` 中，`execute(target=skill, script=...)` 仅在 `enable_run_skill_script` 调试开关打开时可用，辅助脚本不套用主入口契约。
 - 有契约：通道/参数错误返回 `SKILL_INVOCATION_INVALID`（`retryable=true`，仅可修复参数错误），不启动进程；模型修复后重试。
 - 无契约：保持现有行为，不阻断对话；定时任务新 Draft 仍拒绝。
 - `load_skill.manifest` 返回 `entrypoint` + `invocation_contract`，模型可先读契约再调用。

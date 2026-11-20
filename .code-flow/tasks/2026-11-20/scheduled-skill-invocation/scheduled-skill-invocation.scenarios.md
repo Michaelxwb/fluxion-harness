@@ -6,6 +6,8 @@ description: Skill 调度与对话调用可调用性人工验收场景（Dispatc
 # Skill 调度与对话调用可调用性 验收场景
 
 > 本文件是设计、计划与人工验收共同引用的场景清单。场景不生成集中验收清单、不登记执行结果，也不阻断 `task finish` 或 `task archive`。`cf-task:plan` 只把场景 ID 写入 Task 的 `Scenarios` 字段。
+>
+> 对话入口的验收一律使用业务语言（例如「给客户 22921947 每天 9 点出一份日报，站内看就行」），不得把 `argv`、`input`、`schema` 等实现词写进用户话术；agent 必须从 `load_skill.manifest` 的 `invocation_contract` 和 SKILL.md 自行映射参数，缺必填值时只问一个业务问题。
 
 ```yaml
 schema: 1
@@ -203,12 +205,12 @@ scenarios:
     level: contract
     boundary: AgentTurn tools_allow / 工具名校验
     preconditions:
-      - Skill 可用，运行时注册 execute/execute_skill/run_skill_script
+      - Skill 可用，运行时注册 execute（execute_skill 为兼容别名）
     steps:
       - 提交 AGENT_TURN，tools_allow=["SKILL:<uuid>:*"]
     expected:
       - 422 SCHEDULE_TOOL_WILDCARD_UNSUPPORTED
-      - data.entry 指向该工具条目
+      - data.admission_code=WILDCARD_NOT_SUPPORTED
       - data.allowed_values 包含具体工具条目（如 SKILL:<uuid>:execute）
       - 不落 Draft
     exec: manual
@@ -273,17 +275,21 @@ scenarios:
     exec: manual
     owner: TASK-008
   - id: E-11
-    title: 辅助脚本不被主入口契约拦截
+    title: 辅助脚本入口仅调试开关可用，且不套用主入口契约
     level: integration
-    boundary: run_skill_script 默认入口判定
+    boundary: execute(target=skill, script=...) 默认入口判定
     preconditions:
       - Skill 主入口声明 invocation=argv，required 包含 company-id
       - Skill 包内有 no-arg 的 scripts/check_status.py
+      - 生产默认关闭 enable_run_skill_script
     steps:
-      - 在对话中调用 run_skill_script(script=check_status.py)
+      - 在对话中调用 execute(target=skill, script=scripts/check_status.py)
+      - 打开 enable_run_skill_script 后重复一次（由集成测试覆盖）
     expected:
-      - 不套用主入口契约，正常执行
-      - 主入口 execute_skill 缺少 company-id 仍被拒绝
+      - 开关关闭时返回 FORBIDDEN（skill script debug execution is unavailable），不启动脚本
+      - 开关打开时辅助脚本不套用主入口契约，正常执行
+      - 主入口 execute(target=skill) 缺少 company-id 仍被拒绝
+      - run_skill_script 只是兼容别名，不出现在 model_tools 中
     exec: manual
     owner: TASK-008
   - id: B-01
