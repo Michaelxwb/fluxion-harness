@@ -477,7 +477,6 @@ async def enqueue_execution_delivery(
 
     执行终态由投递边界读取，不写回 Execution；`PUSH` 只对创建时给了 route 的立即任务生效。
     稳定键归 `delivery.records`——与终态入队同一份口径，同键重放不新增。
-    试跑执行与普通立即任务共用这一条边界，不另建投递状态机。
     """
     delivery_id = (
         await session.execute(
