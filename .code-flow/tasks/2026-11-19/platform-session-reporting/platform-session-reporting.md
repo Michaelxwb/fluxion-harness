@@ -192,7 +192,7 @@
   - executor-report PASS exit=0
 ## TASK-004: 失败收尾与 Worker 消费最后报告
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-003
 - **Source**: platform-session-reporting.design.md#3.2, #3.4, #3.5
 - **Scenarios**: platform-session-reporting:S-03, platform-session-reporting:S-04, platform-session-reporting:E-03, platform-session-reporting:B-05
@@ -232,11 +232,11 @@
 
 ### Checklist
 
-- [ ] finalization 从 `stderr` 前部摘要逐平台告知；2 平台在 1 KiB/300 字预算内可读。
-- [ ] B-05 预登录失败：命令未执行、报告仍在本次回复；不声称 CLI 已执行。
-- [ ] Worker 任务失败消息/投递保留诊断；成功结果不变。
-- [ ] 无新审计字段/迁移；Runner 终止规则不变。
-- [ ] 相关 finalization/Worker/workspace 测试通过。
+- [x] finalization 从 `stderr` 前部摘要逐平台告知；2 平台在 1 KiB/300 字预算内可读。
+- [x] B-05 预登录失败：命令未执行、报告仍在本次回复；不声称 CLI 已执行。
+- [x] Worker 任务失败消息保留诊断；成功结果不变。
+- [x] 无新审计字段/迁移；Runner 终止规则不变。
+- [x] 相关 finalization/Worker/workspace 测试通过。
 
 ### Spec Delta
 
@@ -247,11 +247,14 @@
 ### Log
 
 - [2026-11-20] created
+- [2026-11-20T04:27:34.519Z] started tests=346ea897415d
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-20T04:32:12.906Z PASS commands=2/2 executed=2 deduped=0 elapsed=23806ms tests=346ea897415d head=5c071efe7084 dirty=1
+  - finalization-report PASS exit=0
+  - worker-diagnostic PASS exit=0
 ## TASK-005: 敏感值擦除与无会话平台报告
 
 - **Status**: draft

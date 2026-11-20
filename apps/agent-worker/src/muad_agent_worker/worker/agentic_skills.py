@@ -145,7 +145,14 @@ class AgenticSkillTools:
                 sessions=self._sessions,
             )
         except SkillExecutionError as exc:
-            raise TaskExecutionError("SKILL_EXECUTION_FAILED", exc.message) from exc
+            message = exc.message
+            if exc.platform_sessions:
+                message = f"{message}; {_platform_summary(exc.platform_sessions)}"
+            raise TaskExecutionError(
+                "SKILL_EXECUTION_FAILED",
+                message,
+                platform_sessions=exc.platform_sessions,
+            ) from exc
         except SharedLimitExceeded as exc:
             code = "LOCAL_BUDGET_EXHAUSTED" if exc.kind == "TOTAL" else "LOCAL_RATE_LIMITED"
             raise TaskExecutionError(code, str(exc), retryable=False) from exc
@@ -371,6 +378,34 @@ class AgenticSkillTools:
             redis_cluster_seeds=self._settings.redis_cluster_seeds,
             service_token=self._settings.internal_service_token,
         )
+
+
+def _platform_summary(report: dict[str, object]) -> str:
+    platforms = report.get("platforms")
+    parts: list[str] = []
+    for item in platforms if isinstance(platforms, list) else []:
+        if not isinstance(item, dict):
+            continue
+        key = str(item.get("key") or "")
+        available = item.get("available")
+        if available is True:
+            parts.append(f"{key}=ok")
+            continue
+        if available is False:
+            error = item.get("error")
+            err = error if isinstance(error, dict) else {}
+            detail = err.get("detail")
+            det = detail if isinstance(detail, dict) else {}
+            status = det.get("http_status")
+            message = det.get("message")
+            suffix = f"(http={status})" if status is not None else ""
+            if isinstance(message, str) and message:
+                suffix += f" {message[:80]}"
+            parts.append(f"{key}={err.get('code') or 'ERROR'}{suffix}")
+            continue
+        reason = item.get("reason")
+        parts.append(f"{key}=not_checked" + (f"({reason})" if reason else ""))
+    return ("platform_sessions: " + "; ".join(parts))[:300]
 
 
 def _mapping(value: Any) -> Mapping[str, Any]:
