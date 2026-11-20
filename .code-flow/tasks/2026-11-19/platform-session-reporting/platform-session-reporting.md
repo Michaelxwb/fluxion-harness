@@ -63,11 +63,14 @@
 
 - [2026-11-20] created
 - [2026-11-20T03:53:36.356Z] started tests=45164bc8e5d5
+- [2026-11-20T04:46:29.042Z] reopen: B-04 budget interruption report
 
 ### Verification
 
 - 尚未执行
 - 2026-11-20T04:00:54.972Z PASS commands=1/1 executed=1 deduped=0 elapsed=3717ms tests=45164bc8e5d5 head=1334ae717995 dirty=1
+  - platform-sdk-list PASS exit=0
+- 2026-11-20T04:46:33.424Z PASS commands=1/1 executed=1 deduped=0 elapsed=4209ms tests=45164bc8e5d5 head=264f63b7079d dirty=0
   - platform-sdk-list PASS exit=0
 ## TASK-002: start/get-state 按请求集采集并附失败报告
 
@@ -124,11 +127,14 @@
 
 - [2026-11-20] created
 - [2026-11-20T04:03:31.521Z] started tests=1b12294888da
+- [2026-11-20T04:46:40.860Z] reopen: B-04 budget interruption report
 
 ### Verification
 
 - 尚未执行
 - 2026-11-20T04:12:41.905Z PASS commands=1/1 executed=1 deduped=0 elapsed=24758ms tests=1b12294888da head=f169a6982d14 dirty=1
+  - platform-sdk-state PASS exit=0
+- 2026-11-20T04:47:05.053Z PASS commands=1/1 executed=1 deduped=0 elapsed=24025ms tests=1b12294888da head=264f63b7079d dirty=0
   - platform-sdk-state PASS exit=0
 ## TASK-003: 执行器暴露最后报告并附加有界摘要
 
