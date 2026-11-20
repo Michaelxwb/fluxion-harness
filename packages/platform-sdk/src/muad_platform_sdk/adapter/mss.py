@@ -257,7 +257,7 @@ class MSSAdapter:
                     platform, client, "GET", platform_url(platform, config.csrf_endpoint), headers
                 )
                 _checked(response, secret, extra_values=_response_cookie_values(response))
-                csrf = next((c.value or "" for c in client.cookies.jar if c.name == "csrf_token"), "")
+                csrf = next(((c.value or "") for c in client.cookies.jar if c.name == "csrf_token"), "")
                 if not csrf:
                     raise PlatformAuthError("PLATFORM_CSRF_MISSING")
                 headers["x-csrftoken"] = csrf

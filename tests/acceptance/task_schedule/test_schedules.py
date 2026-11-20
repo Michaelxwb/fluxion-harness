@@ -192,9 +192,11 @@ def test_b142_current_artifact_change_only_affects_new_fire(
             await session.execute(
                 text(
                     "INSERT INTO control.skill_artifact (id, skill_id, version, checksum, storage_key, "
-                    "execution_mode, instructions, package_size, validation_status, created_by, is_deleted) "
+                    "execution_mode, instructions, package_size, validation_status, frontmatter_json, "
+                    "created_by, is_deleted) "
                     "SELECT :id, :skill_id, :version, :checksum, :storage_key, execution_mode, instructions, "
-                    "package_size, validation_status, created_by, false FROM control.skill_artifact "
+                    "package_size, validation_status, frontmatter_json, created_by, false "
+                    "FROM control.skill_artifact "
                     "WHERE skill_id = :skill_id ORDER BY version LIMIT 1"
                 ),
                 {
