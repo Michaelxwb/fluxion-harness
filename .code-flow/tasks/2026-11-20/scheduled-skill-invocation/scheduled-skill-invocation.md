@@ -139,7 +139,7 @@
 - **Source**: scheduled-skill-invocation.backend.design.md §3.3.2、§3.5.3、§3.5.4
 - **Scenarios**: E-01, E-02, E-04, E-05, E-06, B-01, B-06, B-07
 - **Spec-Refs**: api/harness-api, worker/harness-worker, test/harness-test
-- **Paths**: packages/contracts/src/muad_contracts/skill_invocation.py, packages/agent-core/src/muad_agent_core/skill/invocation.py, packages/api-kit/src/muad_api/error_codes.py, config/api-messages.yaml, apps/agent-runtime/src/muad_agent_runtime/application/schedule_authoring.py, apps/console-platform/backend/src/muad_console_platform/application/resolve_service.py, apps/agent-worker/src/muad_agent_worker/application/schedule_drafts.py, tests/agent_core/test_skill_invocation.py, tests/agent_runtime/test_schedule_authoring_compiler.py, tests/agent_worker/test_scheduled_skill_plan.py, tests/agent_worker/test_schedule_tool_policy.py, tests/contracts/test_scheduled_v2_contracts.py, tests/console_internal/test_scheduled_v2_admission_materials.py
+- **Paths**: packages/contracts/src/muad_contracts/skill_invocation.py, packages/agent-core/src/muad_agent_core/skill/invocation.py, packages/api-kit/src/muad_api/error_codes.py, config/api-messages.yaml, apps/agent-runtime/src/muad_agent_runtime/application/schedule_authoring.py, apps/console-platform/backend/src/muad_console_platform/application/resolve_service.py, apps/agent-worker/src/muad_agent_worker/application/schedule_drafts.py, tests/agent_core/test_agent_skill_invocation.py, tests/agent_runtime/test_schedule_authoring_compiler.py, tests/agent_worker/test_scheduled_skill_plan.py, tests/agent_worker/test_schedule_tool_policy.py, tests/contracts/test_scheduled_v2_contracts.py, tests/console_internal/test_scheduled_v2_admission_materials.py
 - **E2E**:
 - **Skip-Tests**: false
 - **Skip-Reason**:
@@ -157,7 +157,7 @@
       "-m",
       "pytest",
       "-q",
-      "tests/agent_core/test_skill_invocation.py",
+      "tests/agent_core/test_agent_skill_invocation.py",
       "tests/agent_runtime/test_schedule_authoring_compiler.py",
       "tests/agent_worker/test_scheduled_skill_plan.py",
       "tests/agent_worker/test_schedule_tool_policy.py",

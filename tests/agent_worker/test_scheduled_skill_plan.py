@@ -57,6 +57,21 @@ ECHO_MAIN = (
     "payload = json.loads(sys.stdin.read() or '{}')\n"
     "print(json.dumps({'argv': sys.argv[1:], 'input': payload}))\n"
 )
+ARGV_CONTRACT = {
+    "version": 1,
+    "invocation": "argv",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "company-id": {"type": "string"},
+            "date": {"type": "string", "format": "date"},
+            "now": {"type": "string", "format": "date-time"},
+            "extra": {"type": "string"},
+        },
+        "required": [],
+        "additionalProperties": False,
+    },
+}
 FAIL_MAIN = (
     "import json, sys\n"
     "print('report generated successfully')\n"
@@ -84,9 +99,17 @@ def _build_skill(cache: SkillArtifactCache, body: str) -> str:
     return "sha256:" + hashlib.sha256((cache.store.root / STORAGE_KEY).read_bytes()).hexdigest()
 
 
-def _materials(checksum: str, mode: SkillExecutionMode = SkillExecutionMode.ASYNC):
+def _materials(
+    checksum: str,
+    mode: SkillExecutionMode = SkillExecutionMode.ASYNC,
+    *,
+    invocation: str = "stdin",
+):
     materials = make_materials(mode=ScheduleMode.SKILL, skill_id=SKILL)
     [skill] = materials.skills
+    frontmatter = skill.frontmatter
+    if invocation == "argv":
+        frontmatter = {**frontmatter, "invocation_contract": ARGV_CONTRACT}
     return materials.model_copy(
         update={
             "skills": [
@@ -95,6 +118,7 @@ def _materials(checksum: str, mode: SkillExecutionMode = SkillExecutionMode.ASYN
                         "checksum": checksum,
                         "storage_key": STORAGE_KEY,
                         "execution_mode": mode,
+                        "frontmatter": frontmatter,
                     }
                 )
             ]
@@ -119,6 +143,13 @@ def _payload(
 def _echo_payload() -> dict[str, Any]:
     return _payload(
         input_template={"company_id": "22921947", "report_day": "{{previous_day}}"},
+        argv=[],
+    )
+
+
+def _argv_payload() -> dict[str, Any]:
+    return _payload(
+        input_template={},
         argv=["--company-id", "22921947", "--date", "{{previous_day}}"],
     )
 
@@ -131,9 +162,10 @@ async def _fire(
     timezone: str = SHANGHAI,
     slot: datetime = SLOT,
     mode: SkillExecutionMode = SkillExecutionMode.ASYNC,
+    invocation: str = "stdin",
 ):
     seeded = await seed(tenant, next_fire_at=slot, timezone=timezone, payload=payload)
-    loop = loop_for(tenant, MaterialsClient(_materials(checksum, mode)))
+    loop = loop_for(tenant, MaterialsClient(_materials(checksum, mode, invocation=invocation)))
     execution_id = await loop.run_once(now=slot + timedelta(seconds=1))
     assert execution_id is not None
     [execution] = [
@@ -177,20 +209,25 @@ async def test_fire_renders_skill_plan_in_schedule_timezone(
     previous_day: str,
     fire_time: str,
 ) -> None:
-    """`{{fire_date}}`/`{{previous_day}}`/`{{fire_time}}` 按 Schedule 时区渲染并冻结。"""
+    """`{{fire_date}}`/`{{previous_day}}`/`{{fire_time}}` 按 Schedule 时区渲染进 argv 并冻结。"""
     payload = _payload(
-        input_template={"report_day": "{{previous_day}}", "fire_date": "{{fire_date}}"},
-        argv=["--date", "{{previous_day}}", "--now", "{{fire_time}}"],
+        input_template={},
+        argv=["--date", "{{previous_day}}", "--now", "{{fire_time}}", "--extra", "{{fire_date}}"],
     )
     with tempfile.TemporaryDirectory() as tmpdir:
         cache = _cache(Path(tmpdir))
         checksum = _build_skill(cache, ECHO_MAIN)
         _seeded, execution = await _fire(
-            tenant, payload, checksum=checksum, timezone=timezone, slot=slot
+            tenant,
+            payload,
+            checksum=checksum,
+            timezone=timezone,
+            slot=slot,
+            invocation="argv",
         )
 
-    expected_input = {"report_day": previous_day, "fire_date": fire_date}
-    expected_argv = ["--date", previous_day, "--now", fire_time]
+    expected_input: dict[str, Any] = {}
+    expected_argv = ["--date", previous_day, "--now", fire_time, "--extra", fire_date]
     assert execution.input_json["input"] == expected_input
     assert execution.input_json["argv"] == expected_argv
 
@@ -250,19 +287,45 @@ async def test_old_revision_without_argv_freezes_empty_argv(
 
 
 @pytest.mark.parametrize("mode", [SkillExecutionMode.SYNC, SkillExecutionMode.ASYNC])
-async def test_execution_separates_business_stdin_from_frozen_argv(
+async def test_legacy_execution_forwards_frozen_stdin_and_argv(
     tenant: TenantContext, mode: SkillExecutionMode
 ) -> None:
-    """真实 Fire 形状：stdin 只有业务 input，argv 原样追加，不混入控制字段。"""
+    """契约前冻结的执行两种通道都原样转发：stdin 只有业务 input，argv 追加到脚本。
+
+    新调度由 invocation contract 保证单通道；这里覆盖旧 Execution 的向后执行口径。
+    """
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
         cache = _cache(tmp)
         checksum = _build_skill(cache, ECHO_MAIN)
-        _seeded, execution = await _fire(
-            tenant, _echo_payload(), checksum=checksum, mode=mode
+        artifact_id = uuid.uuid4()
+        task = await persist_task(
+            tenant,
+            trigger_type="SCHEDULED",
+            skill_artifact_id=artifact_id,
+            execution_snapshot_json={
+                "schema_version": 4,
+                "skills": [
+                    {
+                        "artifact_id": str(artifact_id),
+                        "checksum": checksum,
+                        "storage_key": STORAGE_KEY,
+                        "source": "ADMIN",
+                        "execution_mode": mode.value,
+                    }
+                ],
+                "argv": ["--company-id", "22921947", "--date", "2026-03-07"],
+            },
+            input_json={
+                "mode": "SKILL",
+                "skill_id": str(SKILL),
+                "input": {"company_id": "22921947", "report_day": "2026-03-07"},
+                "argv": ["--company-id", "22921947", "--date", "2026-03-07"],
+                "context": {},
+            },
         )
 
-        result = await SkillTaskExecutor(cache).execute(execution)
+        result = await SkillTaskExecutor(cache).execute(task)
 
     assert result["status"] == "SUCCEEDED", result
     assert result["result"] == {
@@ -279,14 +342,16 @@ async def test_retry_reuses_frozen_argv_input_and_window(
         tmp = Path(tmpdir)
         cache = _cache(tmp)
         checksum = _build_skill(cache, ECHO_MAIN)
-        seeded, execution = await _fire(tenant, _echo_payload(), checksum=checksum)
+        seeded, execution = await _fire(
+            tenant, _argv_payload(), checksum=checksum, invocation="argv"
+        )
 
         async with tenant.session_factory() as session, session.begin():
             revision = await session.get(TaskScheduleRevision, seeded.revision_id)
             assert revision is not None
             revision.payload_json = {
-                **_echo_payload(),
-                "input": {"company_id": "99999999", "report_day": "2099-01-01"},
+                **_argv_payload(),
+                "input": {},
                 "argv": ["--company-id", "99999999", "--date", "2099-01-01"],
             }
             revision.timezone = "UTC"
@@ -298,7 +363,7 @@ async def test_retry_reuses_frozen_argv_input_and_window(
 
     expected = {
         "argv": ["--company-id", "22921947", "--date", "2026-03-07"],
-        "input": {"company_id": "22921947", "report_day": "2026-03-07"},
+        "input": {},
     }
     assert first["result"] == expected
     assert second["result"] == expected, "重试不得按 Revision 或当前时间重新渲染"

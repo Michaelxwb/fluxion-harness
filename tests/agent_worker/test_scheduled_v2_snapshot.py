@@ -90,9 +90,13 @@ def _skill(skill_id: uuid.UUID) -> ResolvedSkill:
                 "schema": {
                     "type": "object",
                     "properties": {
-                        "report_day": {"type": "string", "format": "date"}
+                        "report_day": {"type": "string", "format": "date"},
+                        "company_id": {"type": "string"},
+                        "date": {"type": "string", "format": "date"},
+                        "fire_date": {"type": "string", "format": "date"},
+                        "nested": {"type": "array", "items": {"type": "string"}},
                     },
-                    "required": ["report_day"],
+                    "required": [],
                     "additionalProperties": False,
                 },
             },

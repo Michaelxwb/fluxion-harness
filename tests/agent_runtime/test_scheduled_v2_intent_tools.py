@@ -115,6 +115,18 @@ def _skill() -> ResolvedSkill:
         checksum="sha256:" + "c" * 64,
         storage_key="skills/weekly-report.tar.gz",
         execution_mode=SkillExecutionMode.SYNC,
+        frontmatter={
+            "invocation_contract": {
+                "version": 1,
+                "invocation": "stdin",
+                "schema": {
+                    "type": "object",
+                    "properties": {"body": {"type": "string"}},
+                    "required": ["body"],
+                    "additionalProperties": False,
+                },
+            }
+        },
         source="ADMIN",
     )
 
@@ -141,6 +153,7 @@ def agentic_materials(*tools: ScheduleToolMaterials) -> ScheduleAdmissionMateria
         mode=ScheduleMode.AGENTIC,
         agent=_agent(),
         model=_model(),
+        skills=[_skill()],
         tools=list(tools),
         grants=ScheduleGrantMaterials(agent_access=True),
         settings_revision=1,
