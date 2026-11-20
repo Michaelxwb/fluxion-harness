@@ -36,7 +36,6 @@ from muad_agent_worker.infrastructure.models.task import (
     TaskExecution,
     TaskMessageOutbox,
     TaskSchedule,
-    TaskScheduleDraft,
     TaskScheduleRevision,
 )
 from muad_agent_worker.worker.agentic_executor import AgenticTaskExecutor
@@ -222,55 +221,6 @@ async def test_scheduled_prompt_uses_frozen_time_window_and_recorded_state(
     )
     assert inferred_turn is not None
     assert "Window: 2026-03-07T00:00:00+08:00 ~ 2026-03-08T00:00:00+08:00" in inferred_turn.prompt
-
-
-async def test_trial_agent_turn_uses_the_same_unattended_prompt(
-    tenant: TenantContext,
-) -> None:
-    draft_id = uuid.uuid4()
-    async with tenant.session_factory() as session, session.begin():
-        session.add(
-            TaskScheduleDraft(
-                id=draft_id,
-                tenant_id=tenant.tenant_id,
-                owner_user_id=ACTOR_ID,
-                agent_id=AGENT_ID,
-                kind="CREATE",
-                draft_hash="sha256:" + "d" * 64,
-                payload_json={
-                    "name": "日报试跑",
-                    "payload": {
-                        "kind": "AGENT_TURN",
-                        "prompt": "汇总 {{previous_day}} 的定时任务执行",
-                    },
-                    "session_target": "isolated",
-                    "recurrence": {"kind": "CRON", "cron": "0 9 * * *", "timezone": SHANGHAI},
-                },
-                preview_json={},
-                status="PENDING",
-                expires_at=NOW + timedelta(hours=1),
-                idempotency_key=f"trial-{uuid.uuid4()}",
-            )
-        )
-    task = await insert_task(
-        tenant,
-        agentic_snapshot(),
-        trigger_type="IMMEDIATE",
-        scheduled_at=NOW,
-        input_json={
-            **_input(),
-            "trial_draft_id": str(draft_id),
-        },
-    )
-
-    turn = await load_scheduled_turn(
-        tenant.session_factory, load_frozen_execution(task), None
-    )
-
-    assert turn is not None
-    assert turn.prompt.startswith(f"[schedule:{draft_id} 日报试跑]")
-    assert "Current time: 2026-03-08T10:30:00+08:00 (Asia/Shanghai)" in turn.prompt
-    assert "Window: 2026-03-07T00:00:00+08:00 ~ 2026-03-08T00:00:00+08:00" in turn.prompt
 
 
 async def test_scheduled_platform_tools_use_the_schedule_timezone(tenant: TenantContext) -> None:

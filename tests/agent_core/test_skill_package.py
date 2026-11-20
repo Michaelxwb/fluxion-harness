@@ -43,6 +43,54 @@ def test_loads_manifest_from_frontmatter(tmp_path: Path) -> None:
     assert package.manifest.platform_label == "example-platform"
 
 
+def test_loads_invocation_contract_from_frontmatter(tmp_path: Path) -> None:
+    root = _write(
+        tmp_path / "policy-check",
+        "\n".join(
+            [
+                "name: policy-check",
+                "description: checks policy",
+                "invocation_contract:",
+                "  version: 1",
+                "  invocation: argv",
+                "  schema:",
+                "    type: object",
+                "    properties:",
+                "      company-id: {type: string}",
+                "    required: [company-id]",
+                "    additionalProperties: false",
+            ]
+        ),
+    )
+
+    contract = SkillPackage.load(root).manifest.invocation_contract
+
+    assert contract is not None
+    assert contract.invocation == "argv"
+    assert contract.contract_schema["required"] == ["company-id"]
+
+
+def test_invalid_invocation_contract_is_rejected(tmp_path: Path) -> None:
+    root = _write(
+        tmp_path / "policy-check",
+        "\n".join(
+            [
+                "name: policy-check",
+                "description: checks policy",
+                "invocation_contract:",
+                "  invocation: later",
+                "  schema:",
+                "    type: object",
+                "    properties: {}",
+                "    additionalProperties: false",
+            ]
+        ),
+    )
+
+    with pytest.raises(SkillPackageError):
+        SkillPackage.load(root)
+
+
 def test_manifest_version_is_read_from_legacy_json(tmp_path: Path) -> None:
     root = _write(tmp_path / "skill", "name: demo\ndescription: demo skill")
     (root / "muad.skill.json").write_text('{"version": "2.3.4"}', encoding="utf-8")

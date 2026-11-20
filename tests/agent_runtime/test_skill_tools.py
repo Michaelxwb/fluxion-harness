@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 from muad_agent_core.agent import AgentPolicy, AgentRunner
 from muad_agent_core.hooks import HookPipeline
 from muad_agent_core.model import (
@@ -70,6 +71,19 @@ MAIN_SCRIPT = (
     "print(json.dumps({'echo': payload, 'script': 'main'}))\n"
 )
 OTHER_SCRIPT = "import json\nprint(json.dumps({'script': 'other'}))\n"
+ARGV_CONTRACT = {
+    "version": 1,
+    "invocation": "argv",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "company-id": {"type": "string", "pattern": "^[0-9]+$"},
+            "no-wecom-push": {"type": "boolean"},
+        },
+        "required": ["company-id"],
+        "additionalProperties": False,
+    },
+}
 
 
 def _skill_md_with_body(body: str) -> str:
@@ -78,6 +92,20 @@ def _skill_md_with_body(body: str) -> str:
         "---\nname: demo-skill\ndescription: demo skill for runtime tests\n"
         "execution: sync\nplatform_label: Demo\n---\n\n" + body + "\n"
     )
+
+
+def _skill_md_with_contract(contract: Mapping[str, Any]) -> str:
+    frontmatter = yaml.safe_dump(
+        {
+            "name": "demo-skill",
+            "description": "demo skill for runtime tests",
+            "execution": "sync",
+            "platform_label": "Demo",
+            "invocation_contract": dict(contract),
+        },
+        sort_keys=False,
+    )
+    return f"---\n{frontmatter}---\n\n# Demo Skill\n\nRun scripts/main.py when the user asks.\n"
 
 
 @dataclass(frozen=True)
@@ -96,8 +124,14 @@ def _zip_bytes(files: Mapping[str, str]) -> bytes:
 
 
 def _env_for(
-    tmp_path: Path, files: Mapping[str, str], *, execution_mode: str = "SYNC"
+    tmp_path: Path,
+    files: Mapping[str, str],
+    *,
+    execution_mode: str = "SYNC",
+    contract: dict[str, Any] | None = None,
 ) -> SkillEnv:
+    if contract is not None:
+        files = {**files, "SKILL.md": _skill_md_with_contract(contract)}
     data = _zip_bytes(files)
     artifact_root = tmp_path / "artifacts"
     artifact_path = artifact_root / STORAGE_KEY
@@ -113,6 +147,9 @@ def _env_for(
         checksum="sha256:" + hashlib.sha256(data).hexdigest(),
         storage_key=STORAGE_KEY,
         execution_mode=execution_mode,
+        frontmatter=(
+            {"invocation_contract": contract} if contract is not None else {}
+        ),
         source="ADMIN",
     )
     cache = SkillArtifactCache(NfsArtifactStore(artifact_root), tmp_path / "cache")
@@ -174,6 +211,7 @@ async def test_load_skill_returns_manifest_and_instructions(skill_env: SkillEnv)
         "description": "demo skill for runtime tests",
         "execution": "SYNC",
         "platform_label": "Demo",
+        "entrypoint": "scripts/main.py",
     }
     assert payload["instructions"].startswith("# Demo Skill")
     assert "Run scripts/main.py" in payload["instructions"]
@@ -488,6 +526,84 @@ async def test_run_skill_script_allows_async_auxiliary_script(tmp_path: Path) ->
 
     assert payload["status"] == "SUCCEEDED"
     assert payload["result"] == {"ok": True}
+
+
+async def test_execute_skill_guard_rejects_input_only_for_argv_contract(
+    tmp_path: Path,
+) -> None:
+    env = _env_for(
+        tmp_path,
+        {"SKILL.md": SKILL_MD, "scripts/main.py": MAIN_SCRIPT},
+        contract=ARGV_CONTRACT,
+    )
+
+    payload = await _call(
+        env.registry,
+        EXECUTE_SKILL_TOOL,
+        {"skill_key": SKILL_KEY, "input": {"company_id": "1"}},
+    )
+
+    assert _error_code(payload) == "SKILL_INVOCATION_INVALID"
+    error = payload["error"]
+    assert error["retryable"] is True
+    assert error["detail"]["reason"] == "CHANNEL_MISMATCH"
+    assert error["detail"]["field"] == "payload.input"
+
+
+async def test_execute_skill_guard_accepts_declared_argv(tmp_path: Path) -> None:
+    env = _env_for(
+        tmp_path,
+        {"SKILL.md": SKILL_MD, "scripts/main.py": MAIN_SCRIPT},
+        contract=ARGV_CONTRACT,
+    )
+
+    payload = await _call(
+        env.registry,
+        EXECUTE_SKILL_TOOL,
+        {"skill_key": SKILL_KEY, "argv": ["--company-id", "1"]},
+    )
+
+    assert payload["status"] == "SUCCEEDED"
+
+
+async def test_run_skill_script_auxiliary_skips_main_contract(tmp_path: Path) -> None:
+    env = _env_for(
+        tmp_path,
+        {
+            "SKILL.md": SKILL_MD,
+            "scripts/main.py": MAIN_SCRIPT,
+            "scripts/check_status.py": "import json\nprint(json.dumps({'ok': True}))\n",
+        },
+        contract=ARGV_CONTRACT,
+    )
+
+    auxiliary = await _call(
+        env.registry,
+        RUN_SKILL_SCRIPT_TOOL,
+        {"skill_key": SKILL_KEY, "script": "scripts/check_status.py"},
+    )
+    assert auxiliary["status"] == "SUCCEEDED"
+    assert auxiliary["result"] == {"ok": True}
+
+    entrypoint = await _call(
+        env.registry,
+        RUN_SKILL_SCRIPT_TOOL,
+        {"skill_key": SKILL_KEY, "script": "scripts/main.py"},
+    )
+    assert _error_code(entrypoint) == "SKILL_INVOCATION_INVALID"
+
+
+async def test_load_skill_manifest_exposes_entrypoint_and_contract(tmp_path: Path) -> None:
+    env = _env_for(
+        tmp_path,
+        {"SKILL.md": SKILL_MD, "scripts/main.py": MAIN_SCRIPT},
+        contract=ARGV_CONTRACT,
+    )
+
+    payload = await _call(env.registry, LOAD_SKILL_TOOL, {"skill_key": SKILL_KEY})
+
+    assert payload["manifest"]["entrypoint"] == "scripts/main.py"
+    assert payload["manifest"]["invocation_contract"] == ARGV_CONTRACT
 
 
 def test_skill_tool_schemas_expose_bounded_argv(skill_env: SkillEnv) -> None:

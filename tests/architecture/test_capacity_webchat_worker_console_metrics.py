@@ -108,6 +108,8 @@ ALLOWED_LABEL_NAMES = frozenset(
         # 压缩层（fired/failed/skipped 与 summary/*）与独立后台循环名都是封闭枚举。
         "layer",
         "loop",
+        "mode",
+        "code",
     }
 )
 SENSITIVE_LABEL_MARKERS = (

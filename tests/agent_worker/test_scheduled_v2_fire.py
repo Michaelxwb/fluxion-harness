@@ -531,6 +531,55 @@ def _permanent(code: str = "SKILL_DISABLED") -> ScheduleMaterialsError:
     )
 
 
+async def test_fire_missing_contract_moves_cron_to_needs_attention(
+    tenant: TenantContext,
+) -> None:
+    seeded = await seed(tenant, next_fire_at=SLOT)
+    materials = materials_for()
+    materials.skills[0] = materials.skills[0].model_copy(
+        update={"frontmatter": {"retry_safety": "IDEMPOTENT"}}
+    )
+    loop = loop_for(tenant, MaterialsClient(materials))
+
+    assert await loop.run_once(now=SLOT + timedelta(seconds=1)) is None
+
+    [fire] = await fires(tenant, seeded.schedule_id)
+    assert fire.status == "FAILED_ADMISSION"
+    assert fire.admission_error_code == "SKILL_CONTRACT_MISSING"
+    assert fire.execution_id is None
+    assert await executions(tenant, seeded.schedule_id) == []
+    refreshed = await fetch_schedule(tenant, seeded.schedule_id)
+    assert refreshed.status == "NEEDS_ATTENTION"
+    assert refreshed.attention_reason == "SKILL_CONTRACT_MISSING"
+
+
+async def test_fire_incompatible_args_moves_cron_to_needs_attention(
+    tenant: TenantContext,
+) -> None:
+    seeded = await seed(tenant, next_fire_at=SLOT)
+    materials = materials_for()
+    skill = materials.skills[0]
+    contract = dict(skill.frontmatter["invocation_contract"])
+    schema = dict(contract["schema"])
+    schema["properties"] = {**schema["properties"], "missing": {"type": "string"}}
+    schema["required"] = [*schema["required"], "missing"]
+    contract["schema"] = schema
+    materials.skills[0] = skill.model_copy(
+        update={"frontmatter": {**skill.frontmatter, "invocation_contract": contract}}
+    )
+    loop = loop_for(tenant, MaterialsClient(materials))
+
+    assert await loop.run_once(now=SLOT + timedelta(seconds=1)) is None
+
+    [fire] = await fires(tenant, seeded.schedule_id)
+    assert fire.status == "FAILED_ADMISSION"
+    assert fire.admission_error_code == "SKILL_ARGS_INVALID"
+    assert fire.execution_id is None
+    assert await executions(tenant, seeded.schedule_id) == []
+    refreshed = await fetch_schedule(tenant, seeded.schedule_id)
+    assert refreshed.status == "NEEDS_ATTENTION"
+
+
 async def test_permanent_admission_failure_moves_cron_to_needs_attention(
     tenant: TenantContext,
 ) -> None:

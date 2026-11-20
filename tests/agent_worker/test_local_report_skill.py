@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from muad_skill_sdk.skill_package import SkillPackage
 
 from tests.tools.mssp_support import (
     PATH_ATTACHMENT_UPLOAD,
@@ -308,3 +309,8 @@ def test_skill_package_shape() -> None:
     assert "--company-id" in RUN.read_text(encoding="utf-8")
     assert "--no-wecom-push" in RUN.read_text(encoding="utf-8")
     assert "payload.get(\"input\")" in CRON.read_text(encoding="utf-8")
+    contract = SkillPackage.load(SKILL_ROOT).manifest.invocation_contract
+    assert contract is not None
+    assert contract.invocation == "argv"
+    assert contract.contract_schema["required"] == ["company-id"]
+    assert contract.contract_schema["properties"]["no-wecom-push"]["type"] == "boolean"

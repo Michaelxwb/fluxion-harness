@@ -65,10 +65,9 @@ def test_tasks_without_cli_arguments_keep_empty_argv() -> None:
     assert frozen_argv(TaskExecution(execution_snapshot_json={})) == ()
 
 
-@pytest.mark.parametrize("trigger_type", ["SCHEDULED", "IMMEDIATE"])
-def test_fire_envelope_only_sends_business_input_to_stdin(trigger_type: str) -> None:
-    """试跑与定时 Fire 共用同一份信封形状，判别不能只看 trigger_type。"""
-    task = TaskExecution(trigger_type=trigger_type, input_json=dict(_FIRE_ENVELOPE))
+def test_fire_envelope_only_sends_business_input_to_stdin() -> None:
+    """定时 Fire 的信封只把业务 input 交给 stdin。"""
+    task = TaskExecution(trigger_type="SCHEDULED", input_json=dict(_FIRE_ENVELOPE))
 
     assert frozen_skill_input(task) == {"company_id": "22921947", "report_day": "2026-03-07"}
 

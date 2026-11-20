@@ -22,7 +22,7 @@ def test_scheduled_skill_contract_covers_payload_and_shared_contract() -> None:
         "`PlatformSettings.agent`",
         "`MessagePayload {text, attachments[]}`",
         "`delivery=PUSH`",
-        "试跑是真实执行",
+        "确认前只做调度预检",
     ):
         assert keyword in text
 

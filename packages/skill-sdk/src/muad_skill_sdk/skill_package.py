@@ -8,8 +8,9 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from muad_contracts import SkillExecutionMode
+from muad_contracts import SkillExecutionMode, SkillInvocationContract
 from muad_logging import get_logger
+from pydantic import ValidationError
 
 logger = get_logger(__name__)
 
@@ -82,6 +83,8 @@ class SkillManifest:
     platforms: tuple[str, ...] = ()
     #: ``muad.skill.json`` 的 version；缺省时由导入侧给默认值。
     version: str | None = None
+    #: 默认入口的调用契约；缺失表示该 Skill 不具备可校验的调用契约。
+    invocation_contract: SkillInvocationContract | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -246,6 +249,19 @@ def _build_manifest(frontmatter: Mapping[str, Any]) -> SkillManifest:
         not isinstance(version, str) or not version.strip() or len(version.strip()) > 64
     ):
         raise SkillPackageError("'version' must be a non-empty string of at most 64 characters")
+    raw_contract = frontmatter.get("invocation_contract")
+    invocation_contract: SkillInvocationContract | None = None
+    if raw_contract is not None:
+        try:
+            invocation_contract = SkillInvocationContract.model_validate(raw_contract)
+        except ValidationError as exc:
+            first = exc.errors()[0]
+            location = ".".join(str(part) for part in first.get("loc", ()))
+            message = str(first.get("msg", "invalid contract"))
+            detail = f"{location}: {message}" if location else message
+            raise SkillPackageError(
+                f"frontmatter 'invocation_contract' is invalid: {detail}"
+            ) from exc
     return SkillManifest(
         name=_catalog_field(name, "name", MAX_NAME_BYTES),
         description=_catalog_field(description, "description", MAX_DESCRIPTION_BYTES),
@@ -257,6 +273,7 @@ def _build_manifest(frontmatter: Mapping[str, Any]) -> SkillManifest:
             if platform_label is None
             else _catalog_field(platform_label, "platform_label", MAX_PLATFORM_LABEL_BYTES)
         ),
+        invocation_contract=invocation_contract,
     )
 
 

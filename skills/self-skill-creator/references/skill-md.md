@@ -4,12 +4,14 @@ SKILL.md 是 Skill 的入口，frontmatter 决定何时触发，body 决定怎�
 
 ## frontmatter（YAML）
 
-只写 `name` 和 `description` 两个字段，**不要加其它字段**：
+至少写 `name` 和 `description`；后台执行加 `execution: ASYNC`；可执行 Skill 还要写 `invocation_contract`（见 [`invocation-contract.md`](invocation-contract.md)）：
 
 ```yaml
 ---
 name: <skill名>
 description: "MANDATORY before calling <工具/场景>. Trigger on: <触发场景>。"
+# execution: ASYNC  # 长耗时才加
+# invocation_contract:  # 可执行 Skill 才加；格式见 invocation-contract.md
 ---
 ```
 

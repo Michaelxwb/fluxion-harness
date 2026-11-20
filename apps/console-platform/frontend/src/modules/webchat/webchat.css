@@ -1448,7 +1448,7 @@ html.chat-route-active body {
   color: var(--semi-color-text-2);
 }
 
-.chat-draft-trial {
+.chat-draft-dispatch {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1459,11 +1459,11 @@ html.chat-route-active body {
   font-size: 13px;
 }
 
-.chat-draft-trial p {
+.chat-draft-dispatch p {
   margin: 0;
 }
 
-.chat-draft-trial-artifacts {
+.chat-draft-dispatch ul {
   display: flex;
   flex-direction: column;
   gap: 2px;

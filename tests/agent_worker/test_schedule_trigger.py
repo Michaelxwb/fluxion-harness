@@ -56,6 +56,19 @@ CONSOLE_URL = "http://console"
 LOCAL_ZONE = ZoneInfo("Asia/Shanghai")
 BARRIER_TIMEOUT_SEC = 10
 
+SKILL_FRONTMATTER = {
+    "invocation_contract": {
+        "version": 1,
+        "invocation": "stdin",
+        "schema": {
+            "type": "object",
+            "properties": {"report_day": {"type": "string", "format": "date"}},
+            "required": ["report_day"],
+            "additionalProperties": False,
+        },
+    }
+}
+
 CLEANUP_TASK = (
     "UPDATE task.task_schedule SET current_revision_id = NULL WHERE tenant_id = :tenant_id",
     "UPDATE task.schedule_fire SET execution_id = NULL WHERE tenant_id = :tenant_id",
@@ -174,6 +187,7 @@ async def stack(
             instructions="",
             package_size=1024,
             validation_status="READY",
+            frontmatter_json=SKILL_FRONTMATTER,
             created_by=actor.id,
         )
         session.add(artifact)
@@ -523,6 +537,7 @@ async def test_b115_new_fire_freezes_current_definition_and_keeps_old_execution(
             instructions="",
             package_size=2048,
             validation_status="READY",
+            frontmatter_json=SKILL_FRONTMATTER,
             created_by=stack.actor_user_id,
         )
         session.add(new_artifact)

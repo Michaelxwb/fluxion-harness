@@ -27,7 +27,7 @@ from muad_agent_core.skill import (
 )
 from muad_artifact_store import SkillArtifactCacheError
 from muad_common import SharedSettings, process_settings
-from muad_contracts import PayloadKind, ScheduleMode, TriggerType, WaitKind
+from muad_contracts import TriggerType, WaitKind
 from muad_contracts.skill_invocation import validate_skill_argv
 from muad_contracts.snapshot import task_execution_timeout
 from muad_logging import get_logger
@@ -155,18 +155,11 @@ def frozen_skill_input(task: TaskExecution) -> dict[str, Any]:
     """本次执行只把**业务 input** 交给 stdin（design §10.6）。
 
     Fire 写下的 SKILL_PLAN 信封（`kind/mode/skill_id/context/window`）是控制字段，业务
-    payload 在 `input`；立即任务的 `input_json` 本身就是业务 payload。试跑与 Fire 共用同一
-    份信封形状（`trigger_type=IMMEDIATE`），因此除触发类型外还要按 `kind` 识别。旧 Scheduled
-    任务的 `input` 缺省按空对象处理，不回退成整个信封。
+    payload 在 `input`；立即任务的 `input_json` 本身就是业务 payload，原样交给 stdin。
+    旧 Scheduled 任务的 `input` 缺省按空对象处理，不回退成整个信封。
     """
     payload = task.input_json if isinstance(task.input_json, Mapping) else {}
-    kind = payload.get("kind")
-    envelope = (
-        task.trigger_type == str(TriggerType.SCHEDULED)
-        or kind == str(PayloadKind.SKILL_PLAN)
-        or (payload.get("mode") == str(ScheduleMode.SKILL) and "input" in payload)
-    )
-    if not envelope:
+    if task.trigger_type != str(TriggerType.SCHEDULED):
         return dict(payload)
     business = payload.get("input")
     if business is None:

@@ -32,11 +32,7 @@ from muad_logging import get_logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from ...infrastructure.models.task import (
-    TaskSchedule,
-    TaskScheduleDraft,
-    TaskScheduleRevision,
-)
+from ...infrastructure.models.task import TaskSchedule, TaskScheduleRevision
 from .errors import AgenticError
 from .memory import frozen_memory_message
 from .session_context import (
@@ -77,10 +73,8 @@ async def load_scheduled_turn(
 ) -> ScheduledTurn | None:
     """Load/rendered turn for a scheduled AGENT_TURN; immediate executions have none."""
     task = frozen.task
-    scheduled = task.trigger_type == str(TriggerType.SCHEDULED)
     payload = task.input_json if isinstance(task.input_json, Mapping) else {}
-    trial_draft_id = payload.get("trial_draft_id")
-    if not scheduled and not isinstance(trial_draft_id, str):
+    if task.trigger_type != str(TriggerType.SCHEDULED):
         return None
     if task.scheduled_at is None:
         raise AgenticError(
@@ -88,82 +82,45 @@ async def load_scheduled_turn(
             "execution has no frozen occurrence time",
             retryable=False,
         )
-    if scheduled:
-        if task.schedule_revision_id is None:
-            raise AgenticError(
-                "SCHEDULE_REVISION_MISSING",
-                "scheduled execution has no frozen schedule revision",
-                retryable=False,
-            )
-        async with sessions() as session:
-            schedule = await session.scalar(
-                select(TaskSchedule).where(
-                    TaskSchedule.id == task.schedule_id,
-                    TaskSchedule.tenant_id == task.tenant_id,
-                    TaskSchedule.is_deleted.is_(False),
-                )
-            )
-            revision = await session.scalar(
-                select(TaskScheduleRevision).where(
-                    TaskScheduleRevision.id == task.schedule_revision_id,
-                    TaskScheduleRevision.tenant_id == task.tenant_id,
-                    TaskScheduleRevision.is_deleted.is_(False),
-                )
-            )
-        if schedule is None:
-            raise AgenticError(
-                "SCHEDULE_MISSING",
-                "scheduled execution references a missing schedule",
-                retryable=False,
-            )
-        if revision is None:
-            raise AgenticError(
-                "SCHEDULE_REVISION_MISSING",
-                "scheduled execution references a missing revision",
-                retryable=False,
-            )
-        timezone = revision.timezone
-        job_id = schedule.id
-        job_name = schedule.name
-        last_result = schedule.last_result_json
-        scratch = schedule.scratch_json
-        scratch_revision = int(schedule.scratch_revision or 0)
-    else:
-        # 试跑与定时执行共用同一份 prompt 契约；没有 Schedule/Revision，只读 Draft 的配置。
-        async with sessions() as session:
-            draft = await session.scalar(
-                select(TaskScheduleDraft).where(
-                    TaskScheduleDraft.id == UUID(str(trial_draft_id)),
-                    TaskScheduleDraft.tenant_id == task.tenant_id,
-                    TaskScheduleDraft.is_deleted.is_(False),
-                )
-            )
-        if draft is None:
-            raise AgenticError(
-                "SCHEDULE_DRAFT_NOT_FOUND",
-                "trial execution references a missing draft",
-                retryable=False,
-            )
-        body: Mapping[str, Any] = (
-            draft.payload_json if isinstance(draft.payload_json, Mapping) else {}
+    if task.schedule_revision_id is None:
+        raise AgenticError(
+            "SCHEDULE_REVISION_MISSING",
+            "scheduled execution has no frozen schedule revision",
+            retryable=False,
         )
-        candidate_recurrence = body.get("recurrence")
-        recurrence: Mapping[str, Any] = (
-            candidate_recurrence if isinstance(candidate_recurrence, Mapping) else {}
-        )
-        raw_timezone = recurrence.get("timezone")
-        if not isinstance(raw_timezone, str) or not raw_timezone:
-            raise AgenticError(
-                "SCHEDULE_TIMEZONE_INVALID",
-                "trial draft has no timezone",
-                retryable=False,
+    async with sessions() as session:
+        schedule = await session.scalar(
+            select(TaskSchedule).where(
+                TaskSchedule.id == task.schedule_id,
+                TaskSchedule.tenant_id == task.tenant_id,
+                TaskSchedule.is_deleted.is_(False),
             )
-        timezone = raw_timezone
-        job_id = draft.id
-        job_name = str(body.get("name") or "试运行")
-        last_result = None
-        scratch = None
-        scratch_revision = 0
+        )
+        revision = await session.scalar(
+            select(TaskScheduleRevision).where(
+                TaskScheduleRevision.id == task.schedule_revision_id,
+                TaskScheduleRevision.tenant_id == task.tenant_id,
+                TaskScheduleRevision.is_deleted.is_(False),
+            )
+        )
+    if schedule is None:
+        raise AgenticError(
+            "SCHEDULE_MISSING",
+            "scheduled execution references a missing schedule",
+            retryable=False,
+        )
+    if revision is None:
+        raise AgenticError(
+            "SCHEDULE_REVISION_MISSING",
+            "scheduled execution references a missing revision",
+            retryable=False,
+        )
+    timezone = revision.timezone
+    job_id = schedule.id
+    job_name = schedule.name
+    last_result = schedule.last_result_json
+    scratch = schedule.scratch_json
+    scratch_revision = int(schedule.scratch_revision or 0)
     try:
         zone = resolve_zone(timezone)
     except ValueError as exc:

@@ -49,6 +49,8 @@ WORKSPACE_QUOTA_REJECTED_METRIC: Final = "workspace_quota_rejected_total"
 # 被目录上限丢掉的技能条数记在 **amount**（同 memory 注入/摘要 token 的口径：条数进 label 会
 # 裂出无界时间序列）。它不是"某条技能失败"，而是"这一轮有多少技能没能进提示词"。
 SKILL_CATALOG_TRUNCATED_METRIC: Final = "skill_catalog_truncated_total"
+#: 对话直接调用的默认入口契约守卫结局（status=PASSED/FAILED/SKIPPED，code=原因码）。
+SKILL_INVOCATION_GUARD_METRIC: Final = "skill_invocation_guard_total"
 EGRESS_CALLS_METRIC: Final = "egress_calls_total"
 ARTIFACT_BYTES_METRIC: Final = "artifact_bytes_total"
 RUN_RECLAIM_METRIC: Final = "run_reclaim_total"
@@ -372,6 +374,12 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
         COUNTER,
         (),
         "Skills dropped from the prompt catalog by the catalog budget",
+    ),
+    (
+        SKILL_INVOCATION_GUARD_METRIC,
+        COUNTER,
+        ("status", "code"),
+        "Direct skill invocation contract guard outcomes",
     ),
     (EGRESS_CALLS_METRIC, COUNTER, ("platform", "status"), "Egress calls by platform and status"),
     (ARTIFACT_BYTES_METRIC, COUNTER, ("type",), "Artifact bytes written by artifact type"),

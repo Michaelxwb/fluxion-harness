@@ -411,6 +411,10 @@ def _frontmatter(manifest: SkillManifest) -> dict[str, Any]:
         "execution": manifest.execution.value,
         "platform_label": manifest.platform_label,
     }
+    if manifest.invocation_contract is not None:
+        result["invocation_contract"] = manifest.invocation_contract.model_dump(
+            mode="json", by_alias=True
+        )
     if manifest.platforms:
         result["platforms"] = list(manifest.platforms)
     return result

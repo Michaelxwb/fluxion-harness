@@ -467,31 +467,17 @@ export interface ScheduleDiffEntry {
   after: unknown;
 }
 
-/** 试跑的真实产物引用（与任务中心同一份 `TaskArtifactRef` 公开字段）。 */
-export interface ScheduleTrialArtifact {
-  artifact_id: string;
-  name: string;
-  media_type: string;
-  size: number;
-  checksum: string;
-  version: string;
-}
-
-/**
- * 一次真实试跑的事实（Draft 卡片展示）。
- *
- * 它不是配置：不属于 `ScheduleJob`，也不进入确认后冻结的 Revision；只是卡片上的执行事实。
- */
-export interface ScheduleTrialFact {
-  execution_id: string;
-  status: ScheduleExecutionStatus;
-  error_code: string | null;
-  repair: string | null;
-  repair_hint: string | null;
-  result_summary: string | null;
-  artifacts: ScheduleTrialArtifact[];
-  started_at: string | null;
-  finished_at: string | null;
+/** 确认前的调度可调用性事实（Draft 卡片展示；不是执行结果）。 */
+export interface ScheduleDispatchCheck {
+  status: 'PASSED';
+  checked_at: string;
+  occurrence_at: string;
+  invocation: 'argv' | 'stdin' | null;
+  contract_version: number | null;
+  dependencies: string[];
+  rendered: Record<string, unknown>;
+  snapshot_hash: string | null;
+  snapshot_bytes: number;
 }
 
 /** 确认卡片事实：做什么、何时（含 IANA 时区）、结果去哪看、依赖（AGENTIC 即工具 allowlist）、预算。 */
@@ -511,8 +497,8 @@ export interface SchedulePreview {
   budget: Record<string, unknown>;
   /** 只有 UPDATE Draft 才有：CREATE 没有「之前」，空列表就是没有旧配置可比。 */
   diff: ScheduleDiffEntry[];
-  /** 真的跑过一次才有：真实执行 id/状态/结果/产物，不是渲染预览。 */
-  trial?: ScheduleTrialFact | null;
+  /** 调度预检事实；预检失败不会出卡片，因此成功卡片只会看到 PASSED。 */
+  dispatch_check?: ScheduleDispatchCheck | null;
 }
 
 /**

@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -27,6 +28,7 @@ from muad_agent_core.memory.selection import (
     QueryScopeState,
     select_memory,
 )
+from muad_agent_core.skill import SkillInvocationError, validate_skill_invocation
 from muad_api import AppError
 from muad_contracts import (
     SCHEDULE_SNAPSHOT_SCHEMA_VERSION,
@@ -38,6 +40,7 @@ from muad_contracts import (
     ScheduleMode,
     ScheduleSnapshotInvalid,
     ScheduleSnapshotTooLarge,
+    SkillInvocationContract,
     SkillPlanPayload,
     SnapshotAgent,
     SnapshotBudget,
@@ -86,6 +89,8 @@ PERMANENT_ADMISSION_CODES = frozenset(
         "SCHEMA_INCOMPATIBLE",
         "ASYNC_OPERATION_UNAVAILABLE",
         "SNAPSHOT_TOO_LARGE",
+        "SKILL_CONTRACT_MISSING",
+        "SKILL_ARGS_INVALID",
     }
 )
 
@@ -105,6 +110,8 @@ REPAIR_ACTIONS: dict[str, str] = {
     "CREDENTIAL_MISSING": "RESTORE_MODEL_CREDENTIAL",
     "TOOL_MISSING": "RESTORE_TOOL_GRANT",
     "TOOL_REVOKED": "RESTORE_TOOL_GRANT",
+    "SKILL_CONTRACT_MISSING": "REIMPORT_SKILL",
+    "SKILL_ARGS_INVALID": "FIX_SCHEDULE_ARGV",
     "SCHEMA_INCOMPATIBLE": "UPDATE_SCHEDULE_DEPENDENCY",
     "ASYNC_OPERATION_UNAVAILABLE": "REIMPORT_SKILL",
     "SNAPSHOT_TOO_LARGE": "REDUCE_SCHEDULE_DEPENDENCIES",
@@ -165,6 +172,9 @@ class AdmissionRequest:
     plan_input: dict[str, Any] = field(default_factory=dict)
     argv: tuple[str, ...] = ()
     window: dict[str, Any] | None = None
+    #: 只在 occurrence 准入（Fire/Draft preflight）校验渲染后的契约参数；
+    #: 生命周期准入没有 occurrence，不拿模板值做值校验。
+    validate_skill_args: bool = False
 
 
 def classify_failure(code: str, data: dict[str, Any] | None = None) -> AdmissionError:
@@ -240,6 +250,7 @@ def admission_request_from_revision(
         "schedule_revision_id": revision.id,
         "deadline_at": deadline_at,
         "delivery_intent": revision.delivery_intent,
+        "validate_skill_args": scheduled_at is not None,
     }
     if isinstance(payload, ReminderPayload):
         return AdmissionRequest(**base)
@@ -421,10 +432,60 @@ def _snapshot_budget(
     )
 
 
+def _skill_contract_error(
+    materials: ScheduleAdmissionMaterials, request: AdmissionRequest
+) -> AdmissionError | None:
+    """Occurrence admission validates the current default-entrypoint contract."""
+    if (
+        not request.validate_skill_args
+        or request.mode is not ScheduleMode.SKILL
+        or request.skill_id is None
+    ):
+        return None
+    skill = next(
+        (item for item in materials.skills if item.skill_id == request.skill_id), None
+    )
+    if skill is None:
+        return AdmissionError("SKILL_MISSING", True, REPAIR_ACTIONS["SKILL_MISSING"])
+    frontmatter = skill.frontmatter if isinstance(skill.frontmatter, Mapping) else {}
+    raw = frontmatter.get("invocation_contract")
+    if raw is None:
+        return AdmissionError(
+            "SKILL_CONTRACT_MISSING",
+            True,
+            REPAIR_ACTIONS["SKILL_CONTRACT_MISSING"],
+        )
+    try:
+        contract = SkillInvocationContract.model_validate(raw)
+    except ValidationError:
+        return AdmissionError(
+            "SKILL_CONTRACT_MISSING",
+            True,
+            REPAIR_ACTIONS["SKILL_CONTRACT_MISSING"],
+        )
+    try:
+        validate_skill_invocation(
+            contract,
+            input_data=request.plan_input,
+            argv=request.argv,
+            phase="rendered",
+        )
+    except SkillInvocationError:
+        return AdmissionError(
+            "SKILL_ARGS_INVALID",
+            True,
+            REPAIR_ACTIONS["SKILL_ARGS_INVALID"],
+        )
+    return None
+
+
 def build_snapshot(
     materials: ScheduleAdmissionMaterials, request: AdmissionRequest, settings: PlatformSettings
 ) -> AdmissionOutcome:
     """组装 Snapshot v4：模式形状、无密钥、字节上限一次校验（纯函数）。"""
+    contract_error = _skill_contract_error(materials, request)
+    if contract_error is not None:
+        return AdmissionOutcome(error=contract_error)
     model = materials.model
     policy = dict(materials.policy)
     memory = build_memory_snapshot(materials, settings) if request.mode is ScheduleMode.AGENTIC else None

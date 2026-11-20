@@ -34,6 +34,12 @@ from agent_worker.test_scheduled_v2_lifecycle import AGENT, OWNER, seed_schedule
 
 pytestmark = pytest.mark.integration
 
+
+@pytest.fixture(autouse=True)
+def _schedule_boundaries(schedule_boundaries: None) -> None:
+    """Confirm 重跑预检：这些用例只种 REMINDER，默认依赖源即可。"""
+
+
 TZ = "Asia/Shanghai"
 PUSH_ROUTE = {
     "channel": "WECOM",

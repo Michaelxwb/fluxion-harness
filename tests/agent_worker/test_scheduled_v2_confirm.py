@@ -34,6 +34,7 @@ from muad_agent_worker.infrastructure.models.task import (
 )
 from muad_agent_worker.infrastructure.models.task_submission import TaskSubmission
 from muad_agent_worker.main import app
+from muad_agent_worker.scheduler.client import ScheduleMaterialsError
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import (
@@ -286,7 +287,12 @@ async def test_confirm_create_writes_confirmation_schedule_revision_and_receipt_
     assert revision.payload_kind == "REMINDER"
     assert revision.payload_json == {"kind": "REMINDER", "text": "开会"}
     assert revision.delivery_intent == "NONE"
-    assert revision.preflight_json == draft.preview_json
+    assert revision.preflight_json["dispatch_check"]["status"] == "PASSED"
+    assert {
+        key: value
+        for key, value in revision.preflight_json.items()
+        if key != "dispatch_check"
+    } == draft.preview_json
 
     confirmed = await load_draft(tenant, draft.id)
     assert confirmed.status == "CONFIRMED"
@@ -312,6 +318,43 @@ async def test_confirm_create_writes_confirmation_schedule_revision_and_receipt_
     # 确认不预建任何 Fire/Execution：首个 occurrence 由 Scheduler 原子写入（TASK-014）。
     assert await count_rows(tenant, ScheduleFire) == 0
     assert await count_rows(tenant, TaskExecution) == 0
+
+
+async def test_confirm_rejects_dependency_drift_without_schedule(
+    client: AsyncClient,
+    tenant: TenantContext,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    owner, agent = uuid.uuid4(), uuid.uuid4()
+    draft = await seed_draft(tenant, owner=owner, agent=agent)
+    calls = 0
+
+    class _FailingMaterials:
+        async def resolve_schedule_materials(
+            self, tenant_id: str, payload: ScheduleAdmissionRequest
+        ) -> ScheduleAdmissionMaterials:
+            nonlocal calls
+            calls += 1
+            raise ScheduleMaterialsError(
+                "dependency drift",
+                code="SCHEDULE_DEPENDENCY_MISSING",
+                data={
+                    "admission_code": "SKILL_MISSING",
+                    "repair": "UPDATE_SCHEDULE_DEPENDENCY",
+                },
+            )
+
+    monkeypatch.setattr(
+        app.state, "schedule_materials_client", _FailingMaterials(), raising=False
+    )
+
+    response = await confirm(client, tenant, draft, actor=owner)
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "SCHEDULE_DEPENDENCY_MISSING"
+    assert calls == 1
+    assert await count_rows(tenant, TaskSchedule) == 0
+    assert (await load_draft(tenant, draft.id)).status == "PENDING"
 
 
 async def test_once_draft_confirms_to_its_run_at(
@@ -597,6 +640,35 @@ class _EmptySettings:
         return PlatformSettingsSnapshot(revision=1, settings={})
 
 
+@pytest.fixture(autouse=True)
+def _confirm_preflight_materials(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Confirm now re-runs preflight; seeded drafts need the read-only materials boundary."""
+
+    class _Materials:
+        async def resolve_schedule_materials(
+            self, tenant_id: str, payload: ScheduleAdmissionRequest
+        ) -> ScheduleAdmissionMaterials:
+            return ScheduleAdmissionMaterials(
+                mode=payload.mode,
+                agent=ResolvedAgent(
+                    id=payload.agent_id,
+                    key="agent",
+                    revision=1,
+                    instructions="be brief",
+                ),
+                model=ScheduleModelMaterials(
+                    id=uuid.uuid4(),
+                    revision=1,
+                    model_id="gpt-4o-mini",
+                    protocol="OPENAI",
+                ),
+                settings_revision=1,
+            )
+
+    monkeypatch.setattr(app.state, "schedule_materials_client", _Materials(), raising=False)
+    monkeypatch.setattr(app.state, "platform_settings_client", _EmptySettings(), raising=False)
+
+
 async def test_confirmation_consumes_the_draft_produced_by_api_01(
     client: AsyncClient,
     tenant: TenantContext,
@@ -626,6 +698,6 @@ async def test_confirmation_consumes_the_draft_produced_by_api_01(
     response = await confirm(client, tenant, draft, actor=owner)
 
     assert response.status_code == 200, response.text
-    assert materials.calls == 1  # P0 用 Draft 里的快照，确认事务不再做网络解析
+    assert materials.calls == 2  # Draft create preflight + Confirm re-preflight
     assert await count_rows(tenant, TaskSchedule) == 1
     assert (await load_draft(tenant, draft.id)).status == "CONFIRMED"

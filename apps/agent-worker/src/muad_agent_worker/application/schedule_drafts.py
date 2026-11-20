@@ -28,6 +28,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from muad_agent_core.skill import SkillInvocationError, validate_skill_invocation
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import (
@@ -42,32 +43,45 @@ from muad_contracts import (
     ScheduleDraftRequest,
     SchedulePayload,
     ScheduleToolMaterials,
+    SkillInvocationContract,
     SkillPlanPayload,
     ToolAllowlistEntry,
     canonical_json,
     derive_schedule_mode,
     parse_schedule_payload,
+    snapshot_hash,
 )
 from muad_contracts.enums import OUTBOUND_CHANNELS
 from muad_contracts.platform_settings import PlatformSettings
+from muad_logging import get_logger
 from muad_logging.redaction import redact_text
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.task import TaskSchedule, TaskScheduleDraft, TaskScheduleRevision
+from ..metrics import SCHEDULE_PREFLIGHT_METRIC, record_outcome
 from ..scheduler.client import ScheduleMaterialsError, ScheduleMaterialsProtocol
 from ..scheduler.recurrence import RecurrenceRule, build_rule, initial_fire_at, next_slot
 from ..scheduler.templates import (
     ALLOWED_VARIABLES,
     VARIABLE_PATTERN,
+    render_argv,
+    render_input_template,
     validate_input_template,
 )
-from .schedule_admission import REPAIR_ACTIONS, allowlist_key, classify_failure
+from .schedule_admission import (
+    REPAIR_ACTIONS,
+    AdmissionRequest,
+    allowlist_key,
+    build_snapshot,
+    classify_failure,
+)
 from .schedule_quota import ScheduleQuota, ensure_min_interval, ensure_schedule_capacity
 
 DRAFT_HASH_PREFIX = "sha256:"
 DRAFT_STATUS_PENDING = str(DraftStatus.PENDING)
+logger = get_logger(__name__)
 
 #: 授权类失败（其余永久失败一律按「依赖缺失」上报，精确原因走 `data.admission_code`）。
 _GRANT_ADMISSION_CODES = frozenset({"GRANT_REVOKED", "TOOL_REVOKED"})
@@ -116,6 +130,7 @@ class PreflightResult:
     dependencies: tuple[str, ...] = ()
     budget: dict[str, Any] = field(default_factory=dict)
     budget_source: str = BUDGET_SOURCE_NONE
+    dispatch_check: dict[str, Any] | None = None
 
 
 def draft_payload(body: ScheduleDraftRequest, *, delivery: DeliveryIntent | None = None) -> dict[str, Any]:
@@ -342,6 +357,7 @@ def materials_error(exc: ScheduleMaterialsError) -> AppError:
         str(ErrorCode.SCHEDULE_DEPENDENCY_MISSING),
         str(ErrorCode.SCHEDULE_GRANT_DENIED),
         str(ErrorCode.SCHEDULE_DELIVERY_UNSUPPORTED),
+        str(ErrorCode.SCHEDULE_TOOL_WILDCARD_UNSUPPORTED),
     ):
         code = exc.code
     elif admission_code in _GRANT_ADMISSION_CODES:
@@ -351,20 +367,183 @@ def materials_error(exc: ScheduleMaterialsError) -> AppError:
     else:
         # 一次网络探测不构成长期可用保证：瞬时不可用是「现在无法受理」，不是依赖缺陷。
         code = str(ErrorCode.SCHEDULE_ADMISSION_FAILED)
-    return AppError(code, data={"admission_code": admission_code, "repair": error.repair})
+    data = {"admission_code": admission_code, "repair": error.repair}
+    for key in ("allowed_values", "entry"):
+        if key in exc.data:
+            data[key] = exc.data[key]
+    return AppError(code, data=data)
+
+
+def _skill_of(
+    payload: SkillPlanPayload, materials: ScheduleAdmissionMaterials
+) -> Any:
+    skill = next(
+        (item for item in materials.skills if item.skill_id == payload.skill_id),
+        None,
+    )
+    if skill is None:
+        raise AppError(
+            ErrorCode.SCHEDULE_DEPENDENCY_MISSING,
+            data={
+                "admission_code": "SKILL_MISSING",
+                "repair": REPAIR_ACTIONS["SKILL_MISSING"],
+            },
+        )
+    return skill
+
+
+def _invocation_contract(skill: Any) -> SkillInvocationContract:
+    frontmatter = skill.frontmatter if isinstance(skill.frontmatter, Mapping) else {}
+    raw = frontmatter.get("invocation_contract")
+    if raw is None:
+        raise AppError(
+            ErrorCode.SCHEDULE_INVOCATION_CONTRACT_MISSING,
+            data={
+                "field": "payload.skill_id",
+                "reason": "CONTRACT_MISSING",
+                "repair": "REIMPORT_SKILL",
+            },
+        )
+    try:
+        return SkillInvocationContract.model_validate(raw)
+    except ValidationError as exc:
+        raise AppError(
+            ErrorCode.SCHEDULE_INVOCATION_CONTRACT_MISSING,
+            data={
+                "field": "payload.skill_id",
+                "reason": "CONTRACT_INVALID",
+                "repair": "REIMPORT_SKILL",
+            },
+        ) from exc
+
+
+def _invocation_app_error(exc: SkillInvocationError) -> AppError:
+    code = (
+        ErrorCode.SCHEDULE_ARGV_INVALID
+        if exc.invocation == "argv"
+        else ErrorCode.SCHEDULE_INPUT_INVALID
+    )
+    return AppError(code, data=exc.as_detail())
+
+
+def check_skill_contract(
+    payload: SkillPlanPayload,
+    skill: Any,
+    *,
+    moment: datetime,
+    timezone: str,
+) -> tuple[SkillInvocationContract, dict[str, Any], list[str]]:
+    """校验默认入口的调用契约，并返回按首次触发渲染后的 input/argv。"""
+    contract = _invocation_contract(skill)
+    try:
+        validate_skill_invocation(
+            contract,
+            input_data=payload.input,
+            argv=payload.argv,
+            phase="shape",
+        )
+    except SkillInvocationError as exc:
+        raise _invocation_app_error(exc) from exc
+    rendered_input = render_input_template(payload.input, moment, timezone)
+    rendered_argv = render_argv(list(payload.argv), moment, timezone)
+    try:
+        validate_skill_invocation(
+            contract,
+            input_data=rendered_input,
+            argv=rendered_argv,
+            phase="rendered",
+        )
+    except SkillInvocationError as exc:
+        raise _invocation_app_error(exc) from exc
+    return contract, rendered_input, rendered_argv
+
+
+def _dispatch_request(
+    body: ScheduleDraftRequest,
+    identity: DraftIdentity,
+    payload: SchedulePayload,
+    *,
+    deadline_at: datetime,
+    rendered_input: Mapping[str, Any],
+    rendered_argv: list[str],
+) -> AdmissionRequest:
+    base: dict[str, Any] = {
+        "tenant_id": identity.tenant_id,
+        "agent_id": identity.agent_id,
+        "actor_user_id": identity.owner_user_id,
+        "mode": derive_schedule_mode(payload),
+        "schedule_revision_id": None,
+        "deadline_at": deadline_at,
+        "delivery_intent": str(body.delivery.intent),
+        "delivery_channel": (
+            body.delivery.route.channel if body.delivery.route is not None else None
+        ),
+        "validate_skill_args": True,
+    }
+    if isinstance(payload, ReminderPayload):
+        return AdmissionRequest(**base)
+    if isinstance(payload, SkillPlanPayload):
+        return AdmissionRequest(
+            **base,
+            skill_id=payload.skill_id,
+            plan_input=dict(rendered_input),
+            argv=tuple(rendered_argv),
+            window=payload.window.model_dump(mode="json"),
+        )
+    assert isinstance(payload, AgentTurnPayload)
+    return AdmissionRequest(
+        **base,
+        tool_allowlist=tuple(payload.allowlist_entries()),
+        budget={},
+        context={"prompt_hash": snapshot_hash({"prompt": payload.prompt})},
+    )
 
 
 class ScheduleDraftPreflight:
     """静态 Preflight：一次只读依赖解析 + 纯函数校验（不执行业务、不产生副作用）。"""
 
     def __init__(
-        self, client: ScheduleMaterialsProtocol | None, *, quota: ScheduleQuota, now: datetime
+        self,
+        client: ScheduleMaterialsProtocol | None,
+        *,
+        quota: ScheduleQuota,
+        settings: PlatformSettings,
+        now: datetime,
     ) -> None:
         self._client = client
         self._quota = quota
+        self._settings = settings
         self._now = now
 
     async def run(
+        self, body: ScheduleDraftRequest, *, identity: DraftIdentity
+    ) -> PreflightResult:
+        mode = str(derive_schedule_mode(body.payload))
+        try:
+            result = await self._run(body, identity=identity)
+        except AppError as exc:
+            record_outcome(
+                SCHEDULE_PREFLIGHT_METRIC,
+                "FAILED",
+                {"mode": mode, "code": str(exc.code)},
+            )
+            logger.warning(
+                "schedule_preflight_failed",
+                extra={"mode": mode, "code": str(exc.code)},
+            )
+            raise
+        record_outcome(
+            SCHEDULE_PREFLIGHT_METRIC,
+            "PASSED",
+            {"mode": mode, "code": "OK"},
+        )
+        logger.info(
+            "schedule_preflight_passed",
+            extra={"mode": mode, "dependencies": list(result.dependencies)},
+        )
+        return result
+
+    async def _run(
         self, body: ScheduleDraftRequest, *, identity: DraftIdentity
     ) -> PreflightResult:
         rule = recurrence_rule(body)
@@ -374,13 +553,67 @@ class ScheduleDraftPreflight:
         ensure_delivery_target(body)
         materials = await self._materials(body, identity)
         dependencies = check_plan_materials(body.payload, materials)
-        source = budget_source(body.payload)
+        payload = body.payload
+        rendered_input: dict[str, Any] = {}
+        rendered_argv: list[str] = []
+        contract: SkillInvocationContract | None = None
+        if isinstance(payload, SkillPlanPayload):
+            skill = _skill_of(payload, materials)
+            contract, rendered_input, rendered_argv = check_skill_contract(
+                payload,
+                skill,
+                moment=first_fire_at,
+                timezone=body.recurrence.timezone,
+            )
+        deadline_at = self._now + timedelta(
+            hours=self._settings.task.default_deadline_hours
+        )
+        outcome = build_snapshot(
+            materials,
+            _dispatch_request(
+                body,
+                identity,
+                payload,
+                deadline_at=deadline_at,
+                rendered_input=rendered_input,
+                rendered_argv=rendered_argv,
+            ),
+            self._settings,
+        )
+        if not outcome.accepted:
+            assert outcome.error is not None
+            raise AppError(
+                ErrorCode.SCHEDULE_ADMISSION_FAILED,
+                data={
+                    "admission_code": outcome.error.code,
+                    "repair": outcome.error.repair,
+                },
+            )
+        check: dict[str, Any] = {
+            "status": "PASSED",
+            "checked_at": self._now.isoformat(),
+            "occurrence_at": first_fire_at.isoformat(),
+            "invocation": contract.invocation if contract is not None else None,
+            "contract_version": contract.version if contract is not None else None,
+            "dependencies": list(dependencies),
+            "snapshot_hash": outcome.snapshot_hash,
+            "snapshot_bytes": outcome.snapshot_bytes,
+        }
+        if isinstance(payload, SkillPlanPayload):
+            check["rendered"] = {
+                "input": rendered_input,
+                "argv": rendered_argv,
+                "window": payload.window.model_dump(mode="json"),
+            }
+        elif isinstance(payload, AgentTurnPayload):
+            check["rendered"] = {"tools_allow": list(payload.tools_allow)}
         return PreflightResult(
             first_fire_at=first_fire_at,
             delivery=delivery,
             dependencies=dependencies,
             budget=_budget(body),
-            budget_source=source,
+            budget_source=budget_source(payload),
+            dispatch_check=check,
         )
 
     async def _materials(
@@ -541,6 +774,8 @@ def build_preview(
         "dependencies": list(result.dependencies),
         "budget": dict(result.budget),
     }
+    if result.dispatch_check is not None:
+        preview["dispatch_check"] = result.dispatch_check
     if diff is not None:
         preview["diff"] = diff
     return preview
@@ -632,7 +867,10 @@ class ScheduleDraftService:
                 quota=quota,
             )
         result = await ScheduleDraftPreflight(
-            self._materials, quota=quota, now=self._now
+            self._materials,
+            quota=quota,
+            settings=self._settings,
+            now=self._now,
         ).run(body, identity=identity)
         payload = draft_payload(body, delivery=result.delivery)
         if body.kind is DraftKind.UPDATE and not payload.get("name") and target is not None:

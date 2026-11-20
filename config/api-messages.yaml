@@ -19,6 +19,21 @@ codes:
     messages:
       zh-CN: "依赖的 Skill 或工具不可用"
       en-US: "A required skill or tool is unavailable"
+  SCHEDULE_INVOCATION_CONTRACT_MISSING:
+    http_status: 422
+    messages:
+      zh-CN: "该 Skill 缺少可调度的调用契约"
+      en-US: "This Skill has no schedulable invocation contract"
+  SCHEDULE_ARGV_INVALID:
+    http_status: 422
+    messages:
+      zh-CN: "Skill 命令行参数不合法"
+      en-US: "Skill command-line arguments are invalid"
+  SCHEDULE_INPUT_INVALID:
+    http_status: 422
+    messages:
+      zh-CN: "Skill 输入参数不合法"
+      en-US: "Skill input is invalid"
   SCHEDULE_GRANT_DENIED:
     http_status: 403
     messages:
@@ -79,6 +94,11 @@ codes:
     messages:
       zh-CN: "该入口不支持主动投递"
       en-US: "This surface does not support push delivery"
+  SCHEDULE_TOOL_WILDCARD_UNSUPPORTED:
+    http_status: 422
+    messages:
+      zh-CN: "该 Skill 不支持工具通配，请指定具体工具"
+      en-US: "This Skill does not support tool wildcards; name the tool explicitly"
   SNAPSHOT_TOO_LARGE:
     http_status: 422
     messages:

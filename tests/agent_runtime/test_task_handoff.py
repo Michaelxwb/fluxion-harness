@@ -111,7 +111,22 @@ def _async_skill() -> ResolvedSkill:
         checksum="sha256:" + "c" * 64,
         storage_key="skills/policy_check.zip",
         execution_mode=SkillExecutionMode.ASYNC,
-        frontmatter={},
+        frontmatter={
+            "invocation_contract": {
+                "version": 1,
+                "invocation": "stdin",
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "day": {"type": "string", "format": "date"},
+                        "customers": {"type": "array", "items": {"type": "string"}},
+                        "actor_user_id": {"type": "string"},
+                    },
+                    "required": [],
+                    "additionalProperties": False,
+                },
+            }
+        },
         source="ADMIN",
     )
 

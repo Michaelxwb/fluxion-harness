@@ -168,6 +168,7 @@ from .scheduling import (
     ReminderPayload,
     ScheduleActionRequest,
     ScheduleDetail,
+    ScheduleDispatchCheck,
     ScheduleDraftConfirmRequest,
     ScheduleDraftConfirmResponse,
     ScheduleDraftRequest,
@@ -178,7 +179,6 @@ from .scheduling import (
     SchedulePlan,
     SchedulePolicy,
     SchedulePreview,
-    ScheduleTrialFact,
     ScheduleWindow,
     SessionTarget,
     SkillPlanPayload,
@@ -219,6 +219,7 @@ from .scheduling import (
     derive_schedule_mode,
     parse_schedule_payload,
 )
+from .skill_invocation import SkillInvocationContract
 from .snapshot import (
     REQUIRED_SNAPSHOT_KEYS,
     TASK_PROMPT_TEMPLATE_VERSION,
@@ -391,6 +392,7 @@ __all__ = [
     "ScheduleStatus",
     "ScheduleToolMaterials",
     "SkillExecutionMode",
+    "SkillInvocationContract",
     "SkillReviewStatus",
     "SkillSource",
     "TaskListQuery",
@@ -457,6 +459,7 @@ __all__ = [
     "SNAPSHOT_HASH_PATTERN",
     "ScheduleActionRequest",
     "ScheduleDetail",
+    "ScheduleDispatchCheck",
     "ScheduleDraftConfirmRequest",
     "ScheduleDraftConfirmResponse",
     "ScheduleDraftRequest",
@@ -469,7 +472,7 @@ __all__ = [
     "SchedulePlan",
     "SchedulePolicy",
     "SchedulePreview",
-    "ScheduleTrialFact",
+    "ScheduleDispatchCheck",
     "ScheduleWindow",
     "SessionTarget",
     "SkipReason",
