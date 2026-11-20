@@ -94,7 +94,7 @@ class PlatformSessionReport:
     _order: list[str] = field(default_factory=list)
     _attempts: dict[str, PlatformAttempt] = field(default_factory=dict)
     #: 基础设施/预算中断的分类器；由调用方决定是 hard failure 还是“报告已知项”。
-    hard_error: Exception | None = field(default=None, repr=False, compare=False)
+    hard_error: BaseException | None = field(default=None, repr=False, compare=False)
 
     def record(self, attempt: PlatformAttempt) -> None:
         if attempt.key not in self._attempts:
