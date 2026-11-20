@@ -348,14 +348,14 @@
 - `self-skill-creator` 说明 `list-platforms` 现在会实际登录/续期/消耗预算；Skill 直接 `get-state`；删除 `session_get_state` 陈旧段落；
 - `business-skill-python` 模板的失败诊断转交保留 `platform_sessions`，不再只取 200 字；
 - `MSSP-INTEGRATION`、`legacy-skill-migration` 与 2026-11-17 设计同步 `list-platforms`/`available` 新语义；
-- 声明 Spec Delta：新增 `platform/harness-project-platform#RULE-platform-002` 与 `secret/harness-secret#RULE-003`。目标 platform spec 的 `next_rule` 当前为 1，与 `RULE-platform-001` 不一致；archive 应用时按“当前最大数字 + 1”分配 `RULE-platform-002`，并同步 `next_rule = 3`；secret 的 `next_rule` 3 → 4。
+- 声明 Spec Delta：为 `platform/harness-project-platform` 与 `secret/harness-secret` 各新增一条规则；archive 按各 spec 的 `next_rule` 分配实际 `RULE-*` ID，并同步递增。`rule` 字段只放规则正文，不写 `[RULE-…]` 前缀（前缀由 archive 生成）。
 
 ### Checklist
 
 - [x] `execute`/`--help`/作者指南同文；无“先 list”的旧指导。
 - [x] `session_get_state` 陈旧段落删除或修正；模板保留完整诊断。
 - [x] 2026-11-17 设计与 `MSSP-INTEGRATION`/`legacy-skill-migration` 同步 `list-platforms` 新语义。
-- [x] Spec Delta 已声明；`next_rule` 不一致已记录。
+- [x] Spec Delta 已声明；archive 按 `next_rule` 分配实际 Rule ID。
 
 ### Spec Delta
 
@@ -365,14 +365,14 @@
     "id": "DELTA-001",
     "op": "add",
     "target": "platform/harness-project-platform",
-    "rule": "[RULE-platform-002] 执行期 `session-manager list-platforms` 按本次查询范围逐平台检查实际登录态：返回实际 `available`、有效期或失败原因；CLI `available` 不再只表示有凭据配置；Console 内部目录仍只提供候选范围；`get-state`/`refresh` 的交付与失败出口保持。",
+    "rule": "执行期 `session-manager list-platforms` 按本次查询范围逐平台检查实际登录态：返回实际 `available`、有效期或失败原因；CLI `available` 不再只表示有凭据配置；Console 内部目录仍只提供候选范围；`get-state`/`refresh` 的交付与失败出口保持。",
     "evidence": "platform-session-reporting design v1.4 §3.3/§3.4/§3.5；S-01/S-02/E-02/B-05"
   },
   {
     "id": "DELTA-002",
     "op": "add",
     "target": "secret/harness-secret",
-    "rule": "[RULE-003] 平台失败原因在离开适配器前，除 `ak`/`sk`/`headers` 外还须擦除本次 CSRF token 与登录响应中可取得的 Cookie 值；进入 Skill stderr、工具错误 `platform_sessions`、有界摘要或日志前完成替换，日志只记 code 与状态。",
+    "rule": "平台失败原因在离开适配器前，除 `ak`/`sk`/`headers` 外还须擦除本次 CSRF token 与登录响应中可取得的 Cookie 值；进入 Skill stderr、工具错误 `platform_sessions`、有界摘要或日志前完成替换，日志只记 code 与状态。",
     "evidence": "platform-session-reporting design v1.4 §3.5；S-02/S-04"
   }
 ]
