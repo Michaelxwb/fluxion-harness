@@ -231,13 +231,13 @@ def test_external_platform_routes_reach_the_gateway() -> None:
         for rule in (doc.get("spec", {}).get("rules") or [])
         for entry in ((rule.get("http") or {}).get("paths") or [])
     ]
-    assert ("/api/v1/msswwweb", "muad-im-gateway") in paths
-    assert ("/api/v1/msswwweb/runs", "muad-im-gateway") in paths
-    # 反向：不能有任何 /api 规则把 msswwweb 抢到 Console
+    assert ("/api/v1/msswweb", "muad-im-gateway") in paths
+    assert ("/api/v1/msswweb/runs", "muad-im-gateway") in paths
+    # 反向：不能有任何 /api 规则把 msswweb 抢到 Console
     assert not [
         (path, name)
         for path, name in paths
-        if path.startswith("/api/v1/msswwweb") and name != "muad-im-gateway"
+        if path.startswith("/api/v1/msswweb") and name != "muad-im-gateway"
     ]
 
 
@@ -253,9 +253,9 @@ def test_nginx_routes_external_platform_prefix_to_the_gateway() -> None:
         block = conf[conf.index(header) :]
         block = block[: block.index("}")]
         assert "gateway_upstream" in block, f"{header} 必须转发到 gateway_upstream"
-    # 历史前缀也必须落在正则覆盖范围（MSSWWEB→msswwweb 8 字符，MSSPWEB→msspweb）。
+    # 历史前缀也必须落在正则覆盖范围（MSSWWEB→msswweb 8 字符，MSSPWEB→msspweb）。
     mssw_pat = re.compile(r"^/api/v1/[a-z0-9]+web(?:/|$)")
-    assert mssw_pat.match("/api/v1/msswwweb"), "正则必须覆盖 msswwweb"
-    assert mssw_pat.match("/api/v1/msswwweb/runs")
+    assert mssw_pat.match("/api/v1/msswweb"), "正则必须覆盖 msswweb"
+    assert mssw_pat.match("/api/v1/msswweb/runs")
     assert mssw_pat.match("/api/v1/msspweb"), "正则必须覆盖 msspweb"
     assert not mssw_pat.match("/api/v1/webchat"), "正则不得误吞 webchat"

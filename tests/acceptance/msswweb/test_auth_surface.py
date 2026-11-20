@@ -4,7 +4,7 @@
 （RS256 验签 + AES 因子比对 + 真 PG 身份查表）→ 反回主体。断言只看 HTTP 状态与错误码，
 不关心异常类型——这是外部平台与前端真正能观察到的东西。
 
-覆盖原则：**同一入口**（`/api/v1/msswwweb/entries`）承受全部拒绝路径，证明拒绝发生在
+覆盖原则：**同一入口**（`/api/v1/msswweb/entries`）承受全部拒绝路径，证明拒绝发生在
 认证层而不是业务层。
 """
 
@@ -26,7 +26,7 @@ from tests.e2e.mssw_token_factory import (
     issue_with_bad_signature,
 )
 
-ENTRIES_PATH = "/api/v1/msswwweb/entries"
+ENTRIES_PATH = "/api/v1/msswweb/entries"
 
 
 def _code(response: httpx.Response) -> str:

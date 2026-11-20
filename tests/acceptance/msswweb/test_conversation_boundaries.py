@@ -13,8 +13,8 @@ import httpx
 from tests.acceptance.msswweb.conftest import FreshUser, MsswStack
 from tests.e2e.mssw_token_factory import issue
 
-ENTRIES = "/api/v1/msswwweb/entries"
-CLIENT_CONFIG = "/api/v1/msswwweb/client-config"
+ENTRIES = "/api/v1/msswweb/entries"
+CLIENT_CONFIG = "/api/v1/msswweb/client-config"
 
 
 def _headers(mssw_stack: MsswStack) -> dict[str, str]:

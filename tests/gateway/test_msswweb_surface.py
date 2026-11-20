@@ -3,7 +3,7 @@
 验证同一套 webchat router 按 surface 多挂载后：
 
 - `/api/v1/webchat` 解析为 WEBCHAT / USER_TOKEN；
-- `/api/v1/msswwweb` 解析为 MSSWWEB / EXTERNAL_ASSERTION；
+- `/api/v1/msswweb` 解析为 MSSWWEB / EXTERNAL_ASSERTION；
 - 两条前缀下都存在同一批聊天路由（含通知）；
 - 注册表同时登记 WEBCHAT 与 MSSWWEB，且二者都 `delivers_locally`。
 """
@@ -37,7 +37,7 @@ def _make_request(path: str, surfaces: dict[str, ChatSurface]) -> Request:
 
 SURFACES = {
     "/api/v1/webchat": ChatSurface(channel="WEBCHAT", auth_kind="USER_TOKEN"),
-    "/api/v1/msswwweb": ChatSurface(channel="MSSWWEB", auth_kind="EXTERNAL_ASSERTION"),
+    "/api/v1/msswweb": ChatSurface(channel="MSSWWEB", auth_kind="EXTERNAL_ASSERTION"),
 }
 
 
@@ -47,9 +47,9 @@ def test_surface_resolves_webchat() -> None:
     assert surface.auth_kind == "USER_TOKEN"
 
 
-def test_surface_resolves_msswwweb() -> None:
+def test_surface_resolves_msswweb() -> None:
     surface = get_webchat_surface(
-        _make_request("/api/v1/msswwweb/conversations/abc/messages", SURFACES)
+        _make_request("/api/v1/msswweb/conversations/abc/messages", SURFACES)
     )
     assert surface.channel == "MSSWWEB"
     assert surface.auth_kind == "EXTERNAL_ASSERTION"
@@ -99,14 +99,14 @@ def test_webchat_adapter_is_name_parameterized() -> None:
     assert WebchatChannelAdapter(name="MSSWWEB").delivers_locally is True
 
 
-def _route_paths(*, msswwweb_enabled: bool) -> set[str]:
+def _route_paths(*, msswweb_enabled: bool) -> set[str]:
     """在独立 FastAPI 上按配置挂 surface 后的有效路由路径（含惰性展开）。"""
     from muad_common import SharedSettings
     from muad_im_gateway.main import mount_webchat_surfaces
 
     settings = SharedSettings(
         external_assertion_platforms_json=(
-            '{"mssw": {"platform_key": "mssw"}}' if msswwweb_enabled else ""
+            '{"mssw": {"platform_key": "mssw"}}' if msswweb_enabled else ""
         )
     )
     probe = FastAPI()
@@ -129,8 +129,8 @@ def _route_paths(*, msswwweb_enabled: bool) -> set[str]:
 
 
 def test_both_surfaces_mount_chat_routes() -> None:
-    paths = _route_paths(msswwweb_enabled=True)
-    for prefix in ("/api/v1/webchat", "/api/v1/msswwweb"):
+    paths = _route_paths(msswweb_enabled=True)
+    for prefix in ("/api/v1/webchat", "/api/v1/msswweb"):
         assert f"{prefix}/entries" in paths
         assert f"{prefix}/entries/{{entry_id}}/messages" in paths
         assert f"{prefix}/entries/{{entry_id}}/conversations" in paths
@@ -138,22 +138,22 @@ def test_both_surfaces_mount_chat_routes() -> None:
         assert f"{prefix}/runs/{{run_id}}/resume" in paths
 
 
-def test_external_prefix_keeps_msswwweb_quirk_and_derives_others() -> None:
-    """`MSSWWEB` 前缀是历史固定值 `/api/v1/msswwweb`（≠通道名小写 `msswweb`）；
+def test_external_prefix_keeps_msswweb_quirk_and_derives_others() -> None:
+    """`MSSWWEB` 前缀是历史固定值 `/api/v1/msswweb`（≠通道名小写 `msswweb`）；
 
     其它外部通道按 `/api/v1/<channel 小写>` 生成，保证新增平台路由自然出现。
     """
     from muad_im_gateway.main import _external_prefix_for
 
-    assert _external_prefix_for("MSSWWEB") == "/api/v1/msswwweb"
+    assert _external_prefix_for("MSSWWEB") == "/api/v1/msswweb"
     assert _external_prefix_for("ACMEWEB") == "/api/v1/acmeweb"
 
 
 def test_notifications_only_on_webchat_surface() -> None:
-    paths = _route_paths(msswwweb_enabled=True)
+    paths = _route_paths(msswweb_enabled=True)
     assert "/api/v1/webchat/notifications" in paths
-    assert "/api/v1/msswwweb/notifications" not in paths
-    assert "/api/v1/msswwweb/notifications/stream" not in paths
+    assert "/api/v1/msswweb/notifications" not in paths
+    assert "/api/v1/msswweb/notifications/stream" not in paths
 
 
 def test_run_request_carries_surface_channel() -> None:
@@ -187,10 +187,10 @@ def test_run_request_carries_surface_channel() -> None:
     assert webchat_request.channel.type == "WEBCHAT"
 
 
-def test_msswwweb_surface_absent_when_disabled() -> None:
-    paths = _route_paths(msswwweb_enabled=False)
+def test_msswweb_surface_absent_when_disabled() -> None:
+    paths = _route_paths(msswweb_enabled=False)
     assert "/api/v1/webchat/entries" in paths
-    assert not any(p.startswith("/api/v1/msswwweb") for p in paths)
+    assert not any(p.startswith("/api/v1/msswweb") for p in paths)
 
 
 # --- S-04：MSSWWEB 上停止生成沿用同一取消语义，核属按 user 而非通道/入口/Agent ---------------
@@ -233,7 +233,7 @@ class _NoEntries:
         raise AssertionError("取消路径不得解析入口")
 
 
-async def test_msswwweb_cancel_targets_own_run_by_user_not_channel() -> None:
+async def test_msswweb_cancel_targets_own_run_by_user_not_channel() -> None:
     """MSSWWEB surface 下停止生成：本人 Run 转 CANCELLING，runtime.cancel_run 被调用且不带通道。"""
     platform_user_id = uuid.uuid4()
     run_id = uuid.uuid4()
@@ -251,7 +251,7 @@ async def test_msswwweb_cancel_targets_own_run_by_user_not_channel() -> None:
     assert result.status == "CANCELLING" and result.cancel_requested is True
 
 
-async def test_msswwweb_cancel_foreign_run_is_hidden_as_not_found() -> None:
+async def test_msswweb_cancel_foreign_run_is_hidden_as_not_found() -> None:
     """他人 Run 视同不存在（404），runtime.cancel_run 零触达——归属先于取消。"""
     platform_user_id = uuid.uuid4()
     run_id = uuid.uuid4()
@@ -294,7 +294,7 @@ def _entry_source(agent_id: uuid.UUID):
     from muad_contracts import BotSnapshotItem
 
     webchat_entry = uuid.uuid4()
-    msswwweb_entry = uuid.uuid4()
+    msswweb_entry = uuid.uuid4()
 
     class _Source:
         @property
@@ -307,14 +307,14 @@ def _entry_source(agent_id: uuid.UUID):
                     agent_id=agent_id,
                 ),
                 BotSnapshotItem(
-                    bot_account_id=msswwweb_entry,
+                    bot_account_id=msswweb_entry,
                     bot_id="mssw-1",
                     channel="MSSWWEB",
                     agent_id=agent_id,
                 ),
             )
 
-    return _Source(), webchat_entry, msswwweb_entry
+    return _Source(), webchat_entry, msswweb_entry
 
 
 def _identity_with_agent(platform_user_id: uuid.UUID, agent_id: uuid.UUID) -> ChatIdentity:
@@ -333,13 +333,13 @@ def test_upload_entry_resolution_follows_this_send_surface() -> None:
     from muad_im_gateway.application.webchat_service import resolve_authorized_entry
 
     agent_id = uuid.uuid4()
-    entries, webchat_entry, msswwweb_entry = _entry_source(agent_id)
+    entries, webchat_entry, msswweb_entry = _entry_source(agent_id)
     identity = _identity_with_agent(uuid.uuid4(), agent_id)
 
     resolved = resolve_authorized_entry(
-        entries, identity, msswwweb_entry, channel="MSSWWEB"
+        entries, identity, msswweb_entry, channel="MSSWWEB"
     )
-    assert resolved.entry_id == msswwweb_entry
+    assert resolved.entry_id == msswweb_entry
     assert resolved.agent_id == agent_id
 
     with pytest.raises(AppError):
@@ -351,11 +351,11 @@ def test_artifact_download_resolution_has_no_channel_assertion() -> None:
     from muad_im_gateway.application.webchat_service import resolve_authorized_entry
 
     agent_id = uuid.uuid4()
-    entries, _webchat_entry, msswwweb_entry = _entry_source(agent_id)
+    entries, _webchat_entry, msswweb_entry = _entry_source(agent_id)
     identity = _identity_with_agent(uuid.uuid4(), agent_id)
 
-    resolved = resolve_authorized_entry(entries, identity, msswwweb_entry, channel=None)
-    assert resolved.entry_id == msswwweb_entry
+    resolved = resolve_authorized_entry(entries, identity, msswweb_entry, channel=None)
+    assert resolved.entry_id == msswweb_entry
 
 
 async def test_artifact_service_downloads_artifact_from_other_surface_entry(tmp_path) -> None:
@@ -367,7 +367,7 @@ async def test_artifact_service_downloads_artifact_from_other_surface_entry(tmp_
     platform_user_id = uuid.uuid4()
     conversation_id = uuid.uuid4()
     artifact_id = uuid.uuid4()
-    entries, _webchat_entry, msswwweb_entry = _entry_source(agent_id)
+    entries, _webchat_entry, msswweb_entry = _entry_source(agent_id)
     identity = _identity_with_agent(platform_user_id, agent_id)
 
     store_root = tmp_path / "artifacts"
@@ -381,7 +381,7 @@ async def test_artifact_service_downloads_artifact_from_other_surface_entry(tmp_
         async def resolve_webchat_artifact(self, artifact_id, **kwargs):
             return {
                 "scope": {
-                    "entry_id": str(msswwweb_entry),
+                    "entry_id": str(msswweb_entry),
                     "agent_id": str(agent_id),
                     "conversation_id": str(conversation_id),
                 },

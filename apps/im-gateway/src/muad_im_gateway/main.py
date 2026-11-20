@@ -67,7 +67,9 @@ from .metrics import install_gateway_metrics
 WEBCHAT_API_PREFIX = "/api/v1/webchat"
 #: 默认外部断言通道（`MSSWWEB`）的标准前缀，等价 `_external_prefix_for("MSSWWEB")`；
 #: 多平台时各平台前缀由 `_external_prefix_for(channel)` 按通道名生成，此常量作默认基准。
-MSSWWEB_API_PREFIX = "/api/v1/msswwweb"
+#: 使用通道名小写（`msswweb`，7 个 w）——不再保留历史的 `/msswwweb`（8 个 w）特例，
+#: 使「通道名 → 路由前缀」在所有平台上一致、可推导。
+MSSWWEB_API_PREFIX = "/api/v1/msswweb"
 
 logger = logging.getLogger(__name__)
 
@@ -546,15 +548,12 @@ def _build_webchat_surfaces(settings: SharedSettings) -> dict[str, ChatSurface]:
 
 
 def _external_prefix_for(channel: str) -> str:
-    """外部断言面的路由前缀。
+    """外部断言面的路由前缀，统一为 `/api/v1/<channel 小写>`。
 
-    `MSSWWEB` 保持既有的 `MSSWWEB_API_PREFIX`（`/api/v1/msswwweb`）——注意它**不是**
-    通道名简单小写（`"MSSWWEB".lower()` 是 `msswweb`），而是历史固定路径，必须原样保留，
-    否则存量 BFF 全部 404。其它通道按 `/api/v1/<channel 小写>` 生成，保证「加一个平台
-    = 多一条配置」时路由自然出现，不必手写。
+    历史上 `MSSWWEB` 曾特判成 `/api/v1/msswwweb`（8 个 w，与通道名小写不一致），导致
+    路径难以推导、易误写为 7 个 w 而 404。现统一按通道名小写生成：`MSSWWEB` → `msswweb`，
+    `MSSPWEB` → `msspweb`。「加一个平台 = 多一条配置」时路由自然出现，不必手写。
     """
-    if channel == "MSSWWEB":
-        return MSSWWEB_API_PREFIX
     return f"/api/v1/{channel.lower()}"
 
 

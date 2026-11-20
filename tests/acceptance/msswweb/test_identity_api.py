@@ -1,4 +1,4 @@
-"""`GET /api/v1/msswwweb/identity` 端到端（API-01，S-01 的权限查询形态）。
+"""`GET /api/v1/msswweb/identity` 端到端（API-01，S-01 的权限查询形态）。
 
 这条接口的存在理由很具体：MSSW 接入后要回答「MSSW 上的这个用户有没有权限用你们的机器人」。
 所以它必须能区分三种「不行」，并把它们当作**正常结果**返回（恒 200），而不是让调用方
@@ -28,8 +28,8 @@ from tests.e2e.mssw_token_factory import (
     issue_with_bad_signature,
 )
 
-IDENTITY_PATH = "/api/v1/msswwweb/identity"
-ENTRIES_PATH_PREFIX = "/api/v1/msswwweb/entries"
+IDENTITY_PATH = "/api/v1/msswweb/identity"
+ENTRIES_PATH_PREFIX = "/api/v1/msswweb/entries"
 
 
 def _data(response: httpx.Response) -> dict:

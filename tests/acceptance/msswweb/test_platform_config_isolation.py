@@ -85,7 +85,7 @@ async def test_e14_rotated_config_rejects_tokens_signed_by_old_key(
     )
 
     response = httpx.get(
-        f"{mssw_stack.gateway_url}/api/v1/msswwweb/identity",
+        f"{mssw_stack.gateway_url}/api/v1/msswweb/identity",
         headers={"soc-token": stale_token},
         timeout=30.0,
     )
