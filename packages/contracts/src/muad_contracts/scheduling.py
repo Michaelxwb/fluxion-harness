@@ -478,6 +478,20 @@ class ScheduleTrialFact(ContractModel):
     finished_at: AwareDatetime | None = None
 
 
+class ScheduleDispatchCheck(ContractModel):
+    """确认前的调度可调用性事实（卡片展示；不是执行结果）。"""
+
+    status: Literal["PASSED"] = "PASSED"
+    checked_at: AwareDatetime
+    occurrence_at: AwareDatetime
+    invocation: Literal["argv", "stdin"] | None = None
+    contract_version: int | None = Field(default=None, ge=1)
+    dependencies: list[str] = Field(default_factory=list)
+    rendered: dict[str, Any] = Field(default_factory=dict)
+    snapshot_hash: str | None = Field(default=None, pattern=SNAPSHOT_HASH_PATTERN)
+    snapshot_bytes: int = Field(default=0, ge=0)
+
+
 class SchedulePreview(ContractModel):
     """确认卡片上的事实：做什么、何时、在哪看、依赖、预算（UPDATE 另带前后差异）。"""
 
@@ -502,6 +516,8 @@ class SchedulePreview(ContractModel):
     budget: dict[str, Any] = Field(default_factory=dict)
     #: 只有 UPDATE Draft 才有：CREATE 没有「之前」，空列表就是「没有旧配置可比」。
     diff: list[ScheduleDiffEntry] = Field(default_factory=list)
+    #: 调度预检事实；预检失败不会落 Draft，因此成功卡片只会看到 PASSED。
+    dispatch_check: ScheduleDispatchCheck | None = None
     #: 试跑事实（只有真的跑过一次才有）：真实执行 id/状态/结果/产物，不是渲染预览。
     trial: ScheduleTrialFact | None = None
 
@@ -1247,6 +1263,7 @@ __all__ = [
     "ReminderPayload",
     "ScheduleActionRequest",
     "ScheduleDetail",
+    "ScheduleDispatchCheck",
     "ScheduleDraftConfirmRequest",
     "ScheduleDraftConfirmResponse",
     "ScheduleDraftRequest",
