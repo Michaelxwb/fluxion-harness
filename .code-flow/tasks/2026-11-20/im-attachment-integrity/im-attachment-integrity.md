@@ -332,12 +332,12 @@ Connector 通过 Console 内部 `platform-settings` 快照读取，按租户缓�
   - attachment-provenance PASS exit=0
 ## TASK-006: WebChat/MSSWWEB 任务产物发布与下载
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-004, TASK-005
 - **Source**: im-attachment-integrity.backend.design.md#3.2.4.1
 - **Scenarios**: im-attachment-integrity:S-02, im-attachment-integrity:S-04, im-attachment-integrity:S-06, im-attachment-integrity:E-02
 - **Spec-Refs**: im/harness-im#RULE-006, im/harness-im#RULE-007, auth/harness-auth#RULE-auth-001, test/harness-test#RULE-test-001
-- **Paths**: apps/agent-runtime/src/muad_agent_runtime/application/attachments/publication.py, apps/agent-runtime/src/muad_agent_runtime/application/webchat_artifacts.py, apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py, apps/agent-runtime/src/muad_agent_runtime/application/attachments/task_artifacts.py, tests/agent_runtime/test_attachment_tools.py, tests/agent_runtime/test_capacity_webchat_artifact_resolve.py, tests/gateway/test_msswwweb_surface.py
+- **Paths**: apps/agent-runtime/src/muad_agent_runtime/application/attachments/publication.py, apps/agent-runtime/src/muad_agent_runtime/application/webchat_artifacts.py, apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py, apps/agent-runtime/src/muad_agent_runtime/application/attachments/task_artifacts.py, tests/agent_runtime/test_attachment_tools.py, tests/agent_runtime/test_capacity_webchat_artifact_resolve.py, tests/agent_runtime/test_webchat_task_artifact_delivery.py, tests/gateway/test_msswwweb_surface.py
 - **E2E**:
 - **Skip-Tests**: false
 - **Skip-Reason**:
@@ -348,7 +348,7 @@ Connector 通过 Console 内部 `platform-settings` 快照读取，按租户缓�
 [
   {
     "id": "web-artifact-delivery",
-    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_runtime/test_attachment_tools.py", "tests/agent_runtime/test_capacity_webchat_artifact_resolve.py", "tests/gateway/test_msswwweb_surface.py"],
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_runtime/test_attachment_tools.py", "tests/agent_runtime/test_capacity_webchat_artifact_resolve.py", "tests/agent_runtime/test_webchat_task_artifact_delivery.py", "tests/gateway/test_msswwweb_surface.py"],
     "timeout": 600,
     "parallel": false
   }
@@ -367,11 +367,11 @@ Connector 通过 Console 内部 `platform-settings` 快照读取，按租户缓�
 
 ### Checklist
 
-- [ ] WebChat 与 MSSWWEB 都能交付任务 report/xlsx。
-- [ ] 下载返回任务当时不可变版本，不是 404/最新版顶替。
-- [ ] `TOOL_RESULT` 只有显式 `allow_internal` 才能发布；默认拒绝。
-- [ ] 跨用户/跨 Agent/软删/无发布事实均拒绝且不泄露。
-- [ ] IM 交付路径保持既有 Gateway 解析，不新增直读存储。
+- [x] WebChat 与 MSSWWEB 都能交付任务 report/xlsx。
+- [x] 下载返回任务当时不可变版本，不是 404/最新版顶替。
+- [x] `TOOL_RESULT` 只有显式 `allow_internal` 才能发布；默认拒绝。
+- [x] 跨用户/跨 Agent/软删/无发布事实均拒绝且不泄露。
+- [x] IM 交付路径保持既有 Gateway 解析，不新增直读存储。
 
 ### Spec Delta
 
@@ -382,7 +382,12 @@ Connector 通过 Console 内部 `platform-settings` 快照读取，按租户缓�
 ### Log
 
 - [2026-11-20] created
+- [2026-11-20T11:52:07.707Z] started tests=c5d62b757e5b
 
 ### Verification
 
 - 尚未执行
+- 2026-11-20T11:52:44.554Z FAIL commands=0/1 executed=1 deduped=0 elapsed=31988ms tests=c5d62b757e5b head=a15dd564f4a6 dirty=1
+  - web-artifact-delivery FAIL exit=1
+- 2026-11-20T11:53:36.466Z PASS commands=1/1 executed=1 deduped=0 elapsed=32076ms tests=c5d62b757e5b head=a15dd564f4a6 dirty=1
+  - web-artifact-delivery PASS exit=0

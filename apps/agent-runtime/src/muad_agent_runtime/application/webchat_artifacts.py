@@ -34,6 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..infrastructure.models.runtime import Artifact, CanonicalEvent, Conversation, RunRecord
 from .attachments.publication import PUBLISH_EVENT_TYPE
 from .attachments.reference import attachment_ref
+from .attachments.task_artifacts import load_task_owner
 from .attachments.transcripts import TRANSCRIPT_ARTIFACT_TYPE
 
 
@@ -86,7 +87,9 @@ async def _owned_artifact(
             Artifact.is_deleted.is_(False),
         )
     )
-    if row is None or row.conversation_id is None:
+    if row is None:
+        raise AppError(ErrorCode.COMMON_NOT_FOUND)
+    if row.conversation_id is None and row.task_id is None:
         raise AppError(ErrorCode.COMMON_NOT_FOUND)
     if row.artifact_type == TRANSCRIPT_ARTIFACT_TYPE:
         raise AppError(ErrorCode.COMMON_NOT_FOUND)
@@ -165,6 +168,11 @@ async def _source_owner(
             )
         )
         return (source_run.user_id, source_run.agent_id) if source_run is not None else (None, None)
+    if row.task_id is not None:
+        owner = await load_task_owner(
+            session, tenant_id=tenant_id, execution_id=row.task_id
+        )
+        return (owner.actor_user_id, owner.agent_id) if owner is not None else (None, None)
     return None, None
 
 

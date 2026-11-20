@@ -303,17 +303,17 @@ async def _lock_artifact_identity(
     )
 
 
-async def _load_owner(
+async def load_task_owner(
     session: AsyncSession, *, tenant_id: str, execution_id: uuid.UUID
-) -> TaskArtifactOwner:
-    """只读 Worker 拥有的 Execution 当前事实；跨租户/不存在/软删都视同不存在。"""
+) -> TaskArtifactOwner | None:
+    """只读 Worker 拥有的 Execution 当前事实；跨租户/不存在/软删返回 None。"""
     row = (
         await session.execute(
             _TASK_OWNER_SQL, {"tenant_id": tenant_id, "execution_id": execution_id}
         )
     ).mappings().first()
     if row is None:
-        raise AppError(ErrorCode.TASK_ARTIFACT_NOT_FOUND)
+        return None
     return TaskArtifactOwner(
         execution_id=execution_id,
         tenant_id=row["tenant_id"],
@@ -321,6 +321,17 @@ async def _load_owner(
         agent_id=row["agent_id"],
         attempt=int(row["attempt"]),
     )
+
+
+async def _load_owner(
+    session: AsyncSession, *, tenant_id: str, execution_id: uuid.UUID
+) -> TaskArtifactOwner:
+    owner = await load_task_owner(
+        session, tenant_id=tenant_id, execution_id=execution_id
+    )
+    if owner is None:
+        raise AppError(ErrorCode.TASK_ARTIFACT_NOT_FOUND)
+    return owner
 
 
 async def _load_current(
@@ -442,6 +453,7 @@ __all__ = [
     "TASK_OUTPUT_ARTIFACT_TYPE",
     "CurrentVersion",
     "TaskArtifactOwner",
+    "load_task_owner",
     "plan_task_artifact_version",
     "resolve_task_artifact_version",
     "task_artifact_storage_key",

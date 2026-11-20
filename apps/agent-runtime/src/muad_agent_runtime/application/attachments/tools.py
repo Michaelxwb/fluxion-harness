@@ -810,12 +810,12 @@ class AttachmentToolSet:
         # 的持久流；不在任一能力组的通道显式拒绝，不把"未知"猜成"站内"。
         channel = self._delivery_route.channel
         if channel in LOCAL_STREAM_CHANNELS:
-            return await self._publish_to_conversation(row)
+            return await self._publish_to_conversation(row, allow_internal=allow_internal)
         if channel in OUTBOUND_CHANNELS:
             return await self._deliver_via_gateway(row)
         raise AttachmentToolError(ATTACHMENT_WRITE_UNAVAILABLE, "当前通道不支持交付产物")
 
-    async def _publish_to_conversation(self, row: Artifact) -> str:
+    async def _publish_to_conversation(self, row: Artifact, *, allow_internal: bool = False) -> str:
         """站内入口的交付：目标会话里的持久发布事实（站内入口的"收到"就是这条事实）。"""
         if self._run_id is None or self._conversation_id is None:
             raise AttachmentToolError(ATTACHMENT_WRITE_UNAVAILABLE, "当前运行没有可交付的会话")
@@ -826,6 +826,7 @@ class AttachmentToolSet:
                 conversation_id=self._conversation_id,
                 run_id=self._run_id,
                 artifact_id=row.id,
+                allow_internal=allow_internal,
             )
         except PublicationError as exc:
             raise AttachmentToolError(exc.code, exc.message) from exc

@@ -29,6 +29,8 @@ from ..public_events import project_attachment
 from ..run_events import EventWriter
 from .inbound import INBOUND_DOCUMENT, INBOUND_IMAGE, INBOUND_OTHER
 from .output_service import AGENT_OUTPUT_ARTIFACT_TYPE
+from .task_artifacts import load_task_owner
+from .tool_results import TOOL_RESULT_ARTIFACT_TYPE
 from .transcripts import TRANSCRIPT_ARTIFACT_TYPE
 
 logger = logging.getLogger(__name__)
@@ -75,6 +77,7 @@ async def publish_artifact_to_conversation(
     conversation_id: uuid.UUID,
     run_id: uuid.UUID,
     artifact_id: uuid.UUID,
+    allow_internal: bool = False,
 ) -> int:
     """把一条已存在的产物发布到目标会话；返回发布事件的持久 `seq`。
 
@@ -82,7 +85,12 @@ async def publish_artifact_to_conversation(
     """
     async with session_factory()() as session, session.begin():
         run = await _load_run(session, tenant_id=tenant_id, run_id=run_id, conversation_id=conversation_id)
-        row = await _load_publishable(session, tenant_id=tenant_id, artifact_id=artifact_id)
+        row = await _load_publishable(
+            session,
+            tenant_id=tenant_id,
+            artifact_id=artifact_id,
+            allow_internal=allow_internal,
+        )
         await _assert_same_owner(session, tenant_id=tenant_id, run=run, row=row)
         payload = _payload_of(row)
         seq = await EventWriter(session).append(
@@ -125,7 +133,11 @@ async def _load_run(
 
 
 async def _load_publishable(
-    session: AsyncSession, *, tenant_id: str, artifact_id: uuid.UUID
+    session: AsyncSession,
+    *,
+    tenant_id: str,
+    artifact_id: uuid.UUID,
+    allow_internal: bool = False,
 ) -> Artifact:
     row = await session.scalar(
         sa.select(Artifact).where(
@@ -136,11 +148,13 @@ async def _load_publishable(
     )
     if row is None:
         raise PublicationError(PUBLICATION_NOT_FOUND, "附件不存在或不可访问")
-    if row.artifact_type == TRANSCRIPT_ARTIFACT_TYPE or row.artifact_type not in PUBLISHABLE_ARTIFACT_TYPES:
+    publishable = row.artifact_type in PUBLISHABLE_ARTIFACT_TYPES or (
+        allow_internal and row.artifact_type == TOOL_RESULT_ARTIFACT_TYPE
+    )
+    if row.artifact_type == TRANSCRIPT_ARTIFACT_TYPE or not publishable:
         raise PublicationError(PUBLICATION_TYPE_UNSUPPORTED, "这类产物不能交付给用户")
-    if row.conversation_id is None:
-        # 站内取件面按会话裁决（后台产出的无会话产物取不到字节）：先显式拒绝，
-        # 不发布一张点了会 404 的卡。
+    if row.conversation_id is None and row.task_id is None:
+        # 站内取件面按会话裁决；无会话且无任务归属的产物没有可下载来源。
         raise PublicationError(PUBLICATION_UNAVAILABLE, "这类产物没有会话归属，网页取件面无法下载")
     return row
 
@@ -183,6 +197,11 @@ async def _source_owner(
         if run is None:
             return None, None
         return run.user_id, run.agent_id
+    if row.task_id is not None:
+        owner = await load_task_owner(
+            session, tenant_id=tenant_id, execution_id=row.task_id
+        )
+        return (owner.actor_user_id, owner.agent_id) if owner is not None else (None, None)
     return None, None
 
 
