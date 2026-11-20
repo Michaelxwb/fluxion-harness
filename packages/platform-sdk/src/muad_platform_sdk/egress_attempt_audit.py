@@ -25,6 +25,7 @@ class EgressAttempt:
     status_code: int | None
     latency_ms: int
     error_code: str | None
+    business_trace_id: uuid.UUID | None = None
 
 
 AttemptObserver = Callable[[EgressAttempt], Awaitable[None]]
@@ -36,6 +37,7 @@ class AttemptAudit:
         self.sent = False
         self.status_code: int | None = None
         self.error_code: str | None = None
+        self.business_trace_id: uuid.UUID | None = None
         self._observe, self._origin, self._method = observe, origin, method
         self._route_id = f"{method} {path}"
         self._started = time.monotonic()
@@ -49,6 +51,7 @@ class AttemptAudit:
         event = EgressAttempt(
             self.attempt_id, self._origin, self._route_id, self._method, self.sent, status,
             self.status_code, max(0, int((time.monotonic() - self._started) * 1000)), code,
+            self.business_trace_id if self.sent else None,
         )
         try:
             await self._observe(event)

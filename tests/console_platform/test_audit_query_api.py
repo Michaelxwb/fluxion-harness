@@ -478,7 +478,7 @@ async def test_s01_audit_list_projects_four_tables_with_unified_fields(
 async def test_operation_view_collapses_run_events_into_one_row(
     client: AsyncClient, tenant: TenantContext, audit_seed: AuditSeed
 ) -> None:
-    """[S-01][S-05] 默认视图：Run 的模型/工具事件折叠成一条操作行；配置变更与出网各占一行。"""
+    """默认视图将出网摘要附于 Run，出网筛选保留独立记录。"""
     response = await client.get(
         "/api/v1/audits",
         params={"trace_id": audit_seed.trace_id},
@@ -486,12 +486,10 @@ async def test_operation_view_collapses_run_events_into_one_row(
     )
     assert response.status_code == 200, response.text
     data = response.json()["data"]
-    assert data["total"] == 3
+    assert data["total"] == 2
 
     rows = _by_type(data["items"])
-    assert set(rows) == {"RUN", "CONFIG", "EGRESS"}
-    # 默认按开始时间倒序：RUN(start_time=now) > EGRESS(-1min) > CONFIG(-3min)
-    assert [item["audit_type"] for item in data["items"]] == ["RUN", "EGRESS", "CONFIG"]
+    assert [item["audit_type"] for item in data["items"]] == ["RUN", "CONFIG"]
 
     run = rows["RUN"]
     for field in UNIFIED_FIELDS:
@@ -514,6 +512,7 @@ async def test_operation_view_collapses_run_events_into_one_row(
     assert DATE_TIME_PATTERN.match(str(run["occurred_at"])), run["occurred_at"]
     assert run["started_at"] == run["occurred_at"]
     assert run["summary"] == "audit seed"
+    assert (run["egress_count"], run["egress_blocked_count"]) == (1, 1)
     # 步骤统计归运行详情：列表不再返回 steps / failure
     assert "steps" not in run
     assert "failure" not in run
@@ -522,9 +521,9 @@ async def test_operation_view_collapses_run_events_into_one_row(
     _assert_config_row(config, audit_seed)
     assert config["summary"] is None
 
-    # 出网是合规记录，保持独立成行（不被折叠进 Run）
-    _assert_egress_row(rows["EGRESS"], audit_seed)
-    assert rows["EGRESS"]["summary"] is None
+    egress_only = await _page(client, tenant, audit_type="EGRESS", trace_id=audit_seed.trace_id)
+    assert egress_only["total"] == 1
+    _assert_egress_row(egress_only["items"][0], audit_seed)
 
 
 async def test_legacy_type_link_without_view_keeps_detail(
@@ -592,7 +591,7 @@ async def test_e03_invalid_filters_are_rejected_without_full_dump(
     assert malformed_range.status_code == 422, malformed_range.text
     assert malformed_range.json()["code"] == "COMMON_VALIDATION_ERROR"
 
-    # 反证：同样的种子数据在合法查询下确实有 4 条明细、3 条操作，说明上面的拒绝不是"本来就查不到"
+    # 反证：合法查询下有 4 条明细、2 条操作。
     valid = await client.get(
         "/api/v1/audits",
         params={"view": "detail", "page": 1, "page_size": 100},
@@ -605,7 +604,7 @@ async def test_e03_invalid_filters_are_rejected_without_full_dump(
         "/api/v1/audits", params={"page": 1, "page_size": 100}, headers=_headers(tenant)
     )
     assert operation.status_code == 200, operation.text
-    assert operation.json()["data"]["total"] == 3
+    assert operation.json()["data"]["total"] == 2
 
 
 async def test_ru02_page_bounds_are_enforced(
@@ -729,6 +728,60 @@ async def _page(
     return dict(response.json()["data"])
 
 
+async def test_egress_groups_before_pagination_and_preserves_url_details(
+    client: AsyncClient, tenant: TenantContext, audit_seed: AuditSeed
+) -> None:
+    business_trace_id = uuid.uuid4()
+    async with get_session_factory()() as session:
+        await session.execute(
+            text("""
+                INSERT INTO runtime.egress_audit
+                    (tenant_id, run_id, user_id, target_type, target, operation,
+                     method, policy_decision, status_code, result_status, create_time, business_trace_id)
+                VALUES (:tenant, :run, :user, 'HTTP', 'https://example.test', :operation,
+                        'GET', :decision, :status, :result, clock_timestamp(),
+                        CAST(:business_trace_id AS uuid))
+            """),
+            [
+                {"tenant": tenant.tenant_id, "run": audit_seed.run_id, "user": audit_seed.user_id,
+                 "operation": operation, "decision": decision, "status": status, "result": result,
+                 "business_trace_id": business_trace_id if decision == "ALLOW" else None}
+                for operation, decision, status, result in [
+                    ("GET /ping", "DENY", None, "BLOCKED"),
+                    ("GET /targets", "ALLOW", 200, "OK"),
+                ]
+            ],
+        )
+        await session.commit()
+    scope = {"audit_type": "EGRESS", "run_id": str(audit_seed.run_id)}
+    grouped = await _page(client, tenant, view="operation", page_size=1, **scope)
+    assert grouped["total"] == 1
+    (summary,) = grouped["items"]
+    assert summary["egress_count"] == 3
+    assert summary["result_status"] == "BLOCKED"
+    assert "business_trace_id" not in summary
+    assert (await _page(client, tenant, view="operation", page_size=1, page=2, **scope))["items"] == []
+
+    detail = await _page(client, tenant, view="detail", **scope)
+    assert detail["total"] == 3
+    assert {row["action"] for row in detail["items"]} == {"mcp.tool", "GET /ping", "GET /targets"}
+    traces = {
+        row["action"]: row["business_trace_id"] for row in detail["items"] if "business_trace_id" in row
+    }
+    assert traces == {"GET /targets": str(business_trace_id)}
+    merged = await _page(client, tenant, run_id=str(audit_seed.run_id), page_size=1)
+    assert merged["total"] == 1
+    (run,) = merged["items"]
+    assert run["audit_type"] == "RUN"
+    assert run["result_status"] == "SUCCESS"
+    assert (run["egress_count"], run["egress_blocked_count"]) == (3, 2)
+    by_operation = await _page(client, tenant, run_id=str(audit_seed.run_id), keyword="/targets")
+    assert by_operation["total"] == 1 and by_operation["items"][0]["audit_type"] == "EGRESS"
+    filtered = await _page(client, tenant, view="operation", keyword="/targets", **scope)
+    assert filtered["total"] == 1
+    assert filtered["items"][0]["action"] == "GET /targets"
+
+
 async def test_pagination_semantics_follow_the_view(
     client: AsyncClient, tenant: TenantContext, audit_seed: AuditSeed
 ) -> None:
@@ -746,13 +799,13 @@ async def test_pagination_semantics_follow_the_view(
     )
 
     operation = await _page(
-        client, tenant, trace_id=audit_seed.trace_id, page=1, page_size=2
+        client, tenant, trace_id=audit_seed.trace_id, page=1, page_size=1
     )
     operation_two = await _page(
-        client, tenant, trace_id=audit_seed.trace_id, page=2, page_size=2
+        client, tenant, trace_id=audit_seed.trace_id, page=2, page_size=1
     )
-    assert operation["total"] == operation_two["total"] == 3
-    assert len(operation["items"]) == 2
+    assert operation["total"] == operation_two["total"] == 2
+    assert len(operation["items"]) == 1
     assert len(operation_two["items"]) == 1
     assert operation_two["items"][0]["audit_type"] == "CONFIG"
 

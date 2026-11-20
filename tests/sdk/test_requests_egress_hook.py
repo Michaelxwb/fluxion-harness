@@ -3,10 +3,12 @@ import asyncio
 import importlib
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from uuid import UUID
 
 import pytest
 import requests
-from muad_contracts.shared_egress import TrustedInvocation
+from muad_contracts.shared_egress import SharedEgressPolicy, TrustedInvocation
+from muad_platform_sdk.configured_egress import _resolver
 from muad_platform_sdk.egress_ipc import EgressTarget, InvocationEgressBroker, IPCAdmissionClient
 
 from tests.sdk.test_egress_ipc import ipc_meter as ipc_meter
@@ -87,7 +89,60 @@ async def test_redirects_are_counted_individually_and_auth_headers_preserved(ipc
         assert headers["X-CSRFToken"] == "fixed-test-csrf"
         assert headers["Cookie"] == "test-session=value"
         assert headers["Host"] == "virtual.test"
+    assert len({UUID(headers["TraceId"]) for _, headers in seen}) == 2
     assert await redis.get(meter._bucket("assets", "total")) == "2"
+
+
+async def test_all_managed_sends_get_trace_and_only_business_origin_gets_csrf(ipc_meter, http_probe):
+    _, meter, _ = ipc_meter
+    origin, seen = http_probe
+    await meter.publish(SharedEgressPolicy.model_validate({"revision": 2, "rules": [{
+        "id": "assets", "target_instance_id": "platform", "route_id": "GET /assets",
+        "window_requests": 2, "window_seconds": 60,
+        "http_match": {"origin": origin, "method": "GET", "path_template": "/assets"},
+    }]}))
+    await meter.register_invocation("execution", "business-headers", max_requests=5)
+    audited = []
+
+    async def observe(event):
+        audited.append(event)
+
+    async with InvocationEgressBroker(
+        meter=meter, invocation=TrustedInvocation("execution", "business-headers", "segment"),
+        resolve=_resolver(meter), observe=observe, deadline_seconds=5, cleanup_seconds=0.5,
+    ) as host:
+        client = IPCAdmissionClient(host.socket_path, timeout_seconds=1)
+
+        def call():
+            headers = {"Traceid": "old-trace", "X-CSRFToken": "old-csrf",
+                       "Host": "virtual.test", "Cookie": "test-session=value"}
+            with hook(client), requests.Session() as session:
+                session.trust_env = False
+                for _ in range(2):
+                    assert session.get(origin + "/assets", headers=headers).status_code == 200
+                with pytest.raises(RuntimeError, match="IPC_LIMIT_WINDOW"):
+                    session.get(origin + "/assets", headers=headers)
+                assert session.get(origin + "/unlimited", headers=headers).status_code == 200
+                other = origin.replace("127.0.0.1", "localhost")
+                assert session.get(other + "/unrelated", headers=headers).status_code == 200
+
+        await asyncio.to_thread(call)
+    assert [path for path, _ in seen] == ["/assets", "/assets", "/unlimited", "/unrelated"]
+    generated = set()
+    for _, headers in seen[:3]:
+        trace, csrf = UUID(headers["TraceId"]), UUID(headers["X-Csrftoken"])
+        assert trace.version == csrf.version == 4
+        generated.update((trace, csrf))
+        assert headers["Host"] == "virtual.test"
+        assert headers["Cookie"] == "test-session=value"
+    assert len(generated) == 6
+    assert [item.business_trace_id for item in audited] == [
+        UUID(seen[0][1]["TraceId"]), UUID(seen[1][1]["TraceId"]), None,
+        UUID(seen[2][1]["TraceId"]), UUID(seen[3][1]["TraceId"]),
+    ]
+    other_trace = UUID(seen[-1][1]["TraceId"])
+    assert other_trace.version == 4 and other_trace not in generated
+    assert seen[-1][1]["X-CSRFToken"] == "old-csrf"
 
 
 async def test_unauthorized_redirect_is_rejected_before_second_send(ipc_meter, http_probe):

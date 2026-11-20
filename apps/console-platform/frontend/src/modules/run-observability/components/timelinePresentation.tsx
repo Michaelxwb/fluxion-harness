@@ -32,6 +32,7 @@ export function eventCategory(type: string): keyof typeof EVENT_CATEGORIES {
     case 'CONTEXT_SUMMARY':
     case 'CONTEXT_COMPACTED': return 'context';
     case 'ARTIFACT_CREATED': return 'artifact';
+    case 'EGRESS_REQUEST':
     case 'EGRESS_BLOCKED': return 'egress';
     case 'RUN_CREATED':
     case 'INTERRUPT_REQUIRED':

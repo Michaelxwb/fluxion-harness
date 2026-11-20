@@ -1208,6 +1208,7 @@ class EgressAudit(StandardColumnsMixin, Base):
     target: Mapped[str] = mapped_column(sa.Text(), nullable=False)
     operation: Mapped[str] = mapped_column(sa.Text(), nullable=False)
     method: Mapped[str | None] = mapped_column(sa.String(16))
+    business_trace_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
     policy_decision: Mapped[str] = mapped_column(sa.String(32), nullable=False)
     credential_ref_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
     status_code: Mapped[int | None] = mapped_column(sa.Integer())

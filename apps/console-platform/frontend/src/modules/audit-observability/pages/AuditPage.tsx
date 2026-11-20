@@ -55,6 +55,7 @@ export interface AuditTableProps {
   onOpenRun(runId: string): void;
   onOpenTask(taskId: string): void;
   onOpenTrace(traceId: string): void;
+  onOpenEgress(item: AuditListItem): void;
 }
 
 /** TASK-013 `components/AuditDetailSideSheet.tsx` 的入参（设计 §3.4）。 */
@@ -227,6 +228,7 @@ export function AuditPage() {
   const { query, handleFilterChange, handleReset, handlePageChange } = useAuditQueryState();
   /** Trace 详情选择态：与筛选无关，列表保持原样。 */
   const [traceId, setTraceId] = useState<string | null>(null);
+  const [egressQuery, setEgressQuery] = useState<AuditListQuery | null>(null);
   const { detail, handleOpenDetail, handleCloseDetail } = useAuditDetailSelection();
   const { items, loading, page, pageSize, total, failed, reload } = useAuditList(query);
   /** 关联对象直达：Run 就地叠加运行详情（无独立页面），Task 落任务列表深链（既有口径）。 */
@@ -265,7 +267,15 @@ export function AuditPage() {
     onOpenDetail: handleOpenDetail,
     onOpenRun: related.openRun,
     onOpenTask: handleOpenTask,
-    onOpenTrace: handleOpenTrace
+    onOpenTrace: handleOpenTrace,
+    onOpenEgress: (item) => setEgressQuery({
+      ...query,
+      view: 'detail',
+      auditType: 'EGRESS',
+      runId: item.taskId ? undefined : item.runId,
+      taskId: item.taskId,
+      page: 1
+    })
   };
 
   /**
@@ -301,6 +311,13 @@ export function AuditPage() {
         <RemoteTable<AuditListItem> {...auditTable} />
         <AuditDetailPanel detail={detail} handleCloseDetail={handleCloseDetail} />
         <AuditTraceSideSheet traceId={traceId} onClose={() => setTraceId(null)} />
+        {egressQuery && (
+          <AuditTraceSideSheet
+            traceId={null}
+            egressQuery={egressQuery}
+            onClose={() => setEgressQuery(null)}
+          />
+        )}
         {/* 关联对象「Run …」的直达详情（与审计详情内的嵌套层同源，控制器互斥承载一层）。 */}
         <RelatedDetailController
           state={related.state}

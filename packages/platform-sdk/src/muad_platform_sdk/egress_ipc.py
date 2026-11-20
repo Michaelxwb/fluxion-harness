@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import TracebackType
 from typing import Self
+from uuid import uuid4
 
 from muad_contracts.shared_egress import SharedEgressPolicy, TrustedInvocation
 from pydantic import ValidationError
@@ -45,6 +46,7 @@ class EgressTarget:
     target_instance_id: str
     route_id: str
     policy: SharedEgressPolicy | None = None
+    business_http: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -211,8 +213,11 @@ class InvocationEgressBroker:
                 self._pending[permit.attempt_id] = permit
             await self._meter.consume(permit)
             self._ever_admitted = True
+        audit.business_trace_id = uuid4()
         await self._reply(writer, {
             "ok": True, "controlled": True, "attempt_id": audit.attempt_id,
+            "business_trace_id": str(audit.business_trace_id),
+            "overwrite_csrf": target.business_http,
             "remaining_seconds": self._expires_at - asyncio.get_running_loop().time(),
         })
         audit.sent = True

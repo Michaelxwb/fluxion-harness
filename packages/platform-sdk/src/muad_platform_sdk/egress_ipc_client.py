@@ -54,8 +54,13 @@ def _exchange(connection: socket.socket, payload: dict[str, object]) -> WireResp
 class IPCLease:
     """One receiver owns IPC reads; failure wakes and closes its physical attempt."""
 
-    def __init__(self, connection: socket.socket, *, deadline: float, timeout: float) -> None:
+    def __init__(
+        self, connection: socket.socket, *, deadline: float, timeout: float, business_trace_id: str,
+        overwrite_csrf: bool,
+    ) -> None:
         self._connection, self._deadline, self._timeout = connection, deadline, timeout
+        self.business_trace_id = business_trace_id
+        self.overwrite_csrf = overwrite_csrf
         self._lock = threading.Lock()
         self._stop, self._ack = threading.Event(), threading.Event()
         self._closed, self._completing = False, False
@@ -182,9 +187,16 @@ class IPCAdmissionClient:
             if response.controlled is False:
                 connection.close()
                 return None
-            if response.controlled is not True or response.remaining_seconds is None:
+            if (
+                response.controlled is not True
+                or response.remaining_seconds is None
+                or response.business_trace_id is None
+            ):
                 raise IPCAdmissionError("IPC_UNAVAILABLE")
         except BaseException:
             connection.close()
             raise
-        return IPCLease(connection, deadline=started + response.remaining_seconds, timeout=self._timeout)
+        return IPCLease(
+            connection, deadline=started + response.remaining_seconds, timeout=self._timeout,
+            business_trace_id=str(response.business_trace_id), overwrite_csrf=response.overwrite_csrf,
+        )

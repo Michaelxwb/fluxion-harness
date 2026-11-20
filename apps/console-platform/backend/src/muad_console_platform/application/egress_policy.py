@@ -53,6 +53,7 @@ async def platform_rules(
         except ValueError as exc:
             raise PlatformSettingsError("egress.rules_json 所选平台尚未配置有效 Base URL") from exc
         identity = hashlib.sha256(json.dumps([platform.key, rule.route_id]).encode()).hexdigest()
+        # Keep the published policy representation stable for its existing Redis revision.
         host_header = str(platform.adapter_config_json.get("host_header") or "").strip() or None
         result.append(
             SharedRule(
@@ -76,9 +77,7 @@ def _require_unambiguous(rules: list[SharedRule]) -> None:
     for index, first in enumerate(rules):
         for second in rules[index + 1 :]:
             a, b = first.http_match, second.http_match
-            if a is None or b is None or (
-                a.origin, a.method, a.authority
-            ) != (b.origin, b.method, b.authority):
+            if a is None or b is None or (a.origin, a.method) != (b.origin, b.method):
                 continue
             left, right = a.path_template.split("/"), b.path_template.split("/")
             if len(left) == len(right) and all(

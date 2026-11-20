@@ -38,8 +38,8 @@ PROJECTED_COLUMNS = (
     "task_id",
 )
 
-#: 列表专属列：`summary` 只给操作行展示，进不了详情/导出的列集合。
-LIST_COLUMNS = (*PROJECTED_COLUMNS, "summary")
+#: 操作摘要和逐请求业务追踪号仅用于列表视图。
+LIST_COLUMNS = (*PROJECTED_COLUMNS, "summary", "business_trace_id")
 
 # 每列位置与 PROJECTED_COLUMNS 严格一一对应：只有第一条 SELECT 起名，其余按位置对齐。
 # TOOL/EGRESS/MODEL 三表不冗余 trace_id：先按 task_id 取 task_event，否则回落 run_record。
@@ -72,7 +72,8 @@ SELECT
     NULL::bigint AS latency_ms,
     NULL::uuid AS run_id,
     NULL::uuid AS task_id,
-    NULL::text AS summary
+    NULL::text AS summary,
+    NULL::uuid AS business_trace_id
   FROM control.config_audit_log c
   LEFT JOIN control.console_account acct ON acct.id = c.actor_user_id
  WHERE c.tenant_id = :tenant_id
@@ -103,7 +104,8 @@ SELECT
     t.latency_ms,
     t.run_id,
     t.task_id,
-    NULL::text
+    NULL::text,
+    NULL::uuid
   FROM runtime.tool_call_audit t
   LEFT JOIN runtime.run_record r ON r.id = t.run_id
   LEFT JOIN task.task_execution tx ON tx.id = t.task_id
@@ -146,7 +148,8 @@ SELECT
     g.latency_ms,
     g.run_id,
     g.task_id,
-    NULL::text
+    NULL::text,
+    g.business_trace_id
   FROM runtime.egress_audit g
   LEFT JOIN runtime.run_record r ON r.id = g.run_id
   LEFT JOIN task.task_execution tx ON tx.id = g.task_id
@@ -189,7 +192,8 @@ SELECT
     m.latency_ms,
     m.run_id,
     m.task_id,
-    NULL::text
+    NULL::text,
+    NULL::uuid
   FROM runtime.model_invocation_audit m
   LEFT JOIN runtime.run_record r ON r.id = m.run_id
   LEFT JOIN task.task_execution tx ON tx.id = m.task_id
@@ -208,7 +212,7 @@ SELECT
    AND m.is_deleted = false
 """
 
-# 操作行：一次 Run = 一次业务操作。列位置与 `_EVENT_PROJECTION_SQL` 一致，末列 `summary`
+# 操作行：一次 Run = 一次业务操作。列位置与 `_EVENT_PROJECTION_SQL` 一致，`summary`
 # 取本轮输入摘要（只给列表展示，详情/导出不选这一列）。
 _RUN_PROJECTION_SQL = """
 SELECT
@@ -239,7 +243,8 @@ SELECT
     END AS latency_ms,
     r.id AS run_id,
     NULL::uuid AS task_id,
-    left(r.input_text, 120) AS summary
+    left(r.input_text, 120) AS summary,
+    NULL::uuid AS business_trace_id
   FROM runtime.run_record r
   LEFT JOIN control.platform_user pu ON pu.id = r.user_id
   LEFT JOIN control.agent_definition ad ON ad.id = r.agent_id
@@ -332,6 +337,8 @@ class AuditQueryFilters:
     start_time: datetime | None = None
     end_time: datetime | None = None
     keyword: str | None = None
+    run_id: uuid.UUID | None = None
+    task_id: uuid.UUID | None = None
 
 
 def _text(value: uuid.UUID | None) -> str | None:
@@ -361,11 +368,15 @@ def _where(filters: AuditQueryFilters, *, view: str = "detail") -> tuple[str, di
         "action": filters.action,
         "result_status": filters.result_status,
         "trace_id": filters.trace_id,
+        "run_id": filters.run_id,
+        "task_id": filters.task_id,
     }
     for column, value in exact.items():
         if value is not None:
             clauses.append(f"{column} = :{column}")
             params[column] = value
+    if filters.audit_type == "EGRESS" and filters.run_id is not None and filters.task_id is None:
+        clauses.append("task_id IS NULL")
     if filters.start_time is not None:
         clauses.append("occurred_at >= :start_time")
         params["start_time"] = filters.start_time
@@ -386,6 +397,67 @@ def _where(filters: AuditQueryFilters, *, view: str = "detail") -> tuple[str, di
     return " WHERE " + " AND ".join(clauses), params
 
 
+def _list_source(view: str, where: str, *, join_run_egress: bool) -> str:
+    filtered = f"SELECT * FROM ({_PROJECTION_SQL}) u{where}"
+    if view != "operation":
+        return (
+            "SELECT filtered.*, NULL::bigint AS egress_count, NULL::text AS egress_status, "
+            "NULL::bigint AS egress_blocked_count "
+            f"FROM ({filtered}) filtered"
+        )
+    grouped = _group_egress(filtered)
+    return _attach_run_egress(grouped) if join_run_egress else grouped
+
+
+def _group_egress(filtered: str) -> str:
+    # Separate Task and Run namespaces. Unassociated records remain individual rows.
+    return f"""
+        SELECT * FROM (
+            SELECT filtered.*, row_number() OVER (egress_order) AS row_rank,
+                   CASE WHEN grouped THEN count(*) OVER (egress_group) END AS egress_count,
+                   CASE WHEN grouped THEN count(*) FILTER (WHERE result_status IN ('BLOCKED', 'DENIED'))
+                       OVER (egress_group) END AS egress_blocked_count,
+                   CASE WHEN grouped THEN
+                       CASE
+                           WHEN bool_or(result_status IN ('BLOCKED', 'DENIED')) OVER (egress_group)
+                               THEN 'BLOCKED'
+                           WHEN bool_or(result_status = 'FAILED') OVER (egress_group) THEN 'FAILED'
+                       END
+                   END AS egress_status
+              FROM (
+                  SELECT matched.*,
+                         (audit_type = 'EGRESS' AND coalesce(task_id, run_id) IS NOT NULL) AS grouped
+                    FROM ({filtered}) matched
+              ) filtered
+            WINDOW egress_group AS (
+                PARTITION BY audit_type, grouped, CASE WHEN grouped THEN task_id END,
+                             CASE WHEN grouped AND task_id IS NULL THEN run_id END,
+                             CASE WHEN NOT grouped THEN audit_id END
+            ), egress_order AS (egress_group ORDER BY occurred_at DESC, audit_id DESC)
+        ) ranked WHERE row_rank = 1
+    """
+
+
+def _attach_run_egress(grouped: str) -> str:
+    columns = ", ".join(f"entry.{column}" for column in LIST_COLUMNS)
+    return f"""
+        WITH listed AS ({grouped}), run_egress AS (
+            SELECT run_id, egress_count, egress_blocked_count
+              FROM listed
+             WHERE audit_type = 'EGRESS' AND task_id IS NULL AND run_id IS NOT NULL
+        )
+        SELECT {columns}, entry.egress_status,
+               coalesce(egress.egress_count, entry.egress_count) AS egress_count,
+               coalesce(egress.egress_blocked_count, entry.egress_blocked_count) AS egress_blocked_count
+          FROM listed entry
+          LEFT JOIN run_egress egress ON entry.audit_type = 'RUN' AND egress.run_id = entry.run_id
+         WHERE entry.audit_type <> 'EGRESS' OR entry.task_id IS NOT NULL OR entry.run_id IS NULL
+            OR NOT EXISTS (
+                SELECT 1 FROM listed run WHERE run.audit_type = 'RUN' AND run.run_id = entry.run_id
+            )
+    """
+
+
 class AuditQueryRepository:
     """只读聚合读取；count 与分页各一次往返，行数不产生额外查询。"""
 
@@ -396,8 +468,9 @@ class AuditQueryRepository:
         self, tenant_id: str, filters: AuditQueryFilters, *, view: str = "detail"
     ) -> int:
         where, params = _where(filters, view=view)
+        source = _list_source(view, where, join_run_egress=filters.audit_type is None)
         total = await self._session.scalar(
-            text(f"SELECT count(*) FROM ({_PROJECTION_SQL}) u{where}"),
+            text(f"SELECT count(*) FROM ({source}) listed"),
             {"tenant_id": tenant_id, **params},
         )
         return int(total or 0)
@@ -412,10 +485,11 @@ class AuditQueryRepository:
         view: str = "detail",
     ) -> list[dict[str, Any]]:
         where, params = _where(filters, view=view)
-        columns = ", ".join(LIST_COLUMNS)
+        source = _list_source(view, where, join_run_egress=filters.audit_type is None)
+        columns = ", ".join((*LIST_COLUMNS, "egress_count", "egress_status", "egress_blocked_count"))
         rows = await self._session.execute(
             text(
-                f"SELECT {columns} FROM ({_PROJECTION_SQL}) u{where} "
+                f"SELECT {columns} FROM ({source}) listed "
                 "ORDER BY occurred_at DESC, audit_id DESC "
                 "OFFSET :offset LIMIT :limit"
             ),

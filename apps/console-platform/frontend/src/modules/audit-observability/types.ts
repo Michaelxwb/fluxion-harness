@@ -33,6 +33,8 @@ export interface AuditListQuery {
   action?: string;
   resultStatus?: string;
   traceId?: string;
+  runId?: string;
+  taskId?: string;
   startTime?: string;
   endTime?: string;
   page: number; // >= 1
@@ -59,6 +61,9 @@ export interface AuditListItem {
   taskId?: string;
   /** RUN 行的用户提问摘要（只用于列表展示，不进导出）。 */
   summary?: string | null;
+  egressCount?: number;
+  egressBlockedCount?: number;
+  businessTraceId?: string;
 }
 
 /** 详情可读关联：仅在后端确认关联真实可读时出现（不可读见 `relatedMissing`）。 */

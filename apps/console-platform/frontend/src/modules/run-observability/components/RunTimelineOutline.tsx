@@ -1,27 +1,75 @@
 import { IconChevronDown, IconChevronUp, IconFile } from '@douyinfe/semi-icons';
-import { Button, Collapsible, Timeline } from '@douyinfe/semi-ui';
+import { Button, Collapsible, Tag, Timeline } from '@douyinfe/semi-ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DateTimeText } from '../../../components/common/DateTimeText';
+import { CopyButton } from '../../../components/common/CopyButton';
 import { EmptyState } from '../../../components/common/EmptyState';
 import type { RunTimelineEvent } from '../services/runs';
 import { EVENT_CATEGORIES, eventCategory, eventTone, formatDuration, timeDifference } from './timelinePresentation';
 import { RunEventDetails } from './RunEventDetails';
 
-function EgressBlockedDetails({ event }: { event: RunTimelineEvent }) {
+function EgressDetails({ event }: { event: RunTimelineEvent }) {
   const { t } = useTranslation();
-  if (!event.egress) return null;
-  const fields = [
-    [t('run.egress.target'), event.egress.target],
-    [t('run.egress.operation'), event.egress.operation],
-    [t('run.egress.method'), event.egress.method ?? '-'],
-    [t('run.egress.result'), event.egress.result_status],
-    [t('run.egress.error'), event.egress.error_code ?? '-']
-  ];
-  return <div className="run-event-details" data-testid={`run-egress-details-${event.seq}`}>
-    {fields.map(([label, value]) => <div className="run-egress-field" key={label}><span>{label}</span><strong>{value}</strong></div>)}
-  </div>;
+  const egress = event.egress;
+  if (!egress) return null;
+  const { method, operation, error_code: errorCode } = egress;
+  const methodPrefix = method ? `${method} ` : '';
+  const path = methodPrefix && operation.startsWith(methodPrefix)
+    ? operation.slice(methodPrefix.length) : operation;
+  const reason = errorCode === 'LIMIT_WINDOW' ? t('run.egress.windowLimit') : null;
+  return (
+    <dl className="run-event-details run-egress-details" data-testid={`run-egress-details-${event.seq}`}>
+      <div>
+        <dt>{t('run.egress.result')}</dt>
+        <dd>
+          <span title={egress.result_status}>
+            <Tag size="small" color={egress.result_status === 'COMPLETED' ? 'green' : 'red'} type="light">
+              {egress.result_status === 'COMPLETED' ? t('audit.resultStatus.SUCCESS') :
+                t(`audit.resultStatus.${egress.result_status}`, { defaultValue: egress.result_status })}
+            </Tag>
+          </span>
+        </dd>
+      </div>
+      <div>
+        <dt>{t('run.egress.target')}</dt>
+        <dd><code>{egress.target}</code></dd>
+      </div>
+      <div>
+        <dt>{t('run.egress.operation')}</dt>
+        <dd>
+          {method && <Tag size="small" type="light">{method}</Tag>}
+          <code>{path}</code>
+        </dd>
+      </div>
+      {errorCode && <div>
+        <dt>{t(reason ? 'run.egress.reason' : 'run.egress.error')}</dt>
+        <dd>{reason && <span>{reason}</span>}<code className="run-egress-code">{errorCode}</code></dd>
+      </div>}
+    </dl>
+  );
+}
+
+function EgressRequestPreview({ egress }: { egress: NonNullable<RunTimelineEvent['egress']> }) {
+  const { t } = useTranslation();
+  if (!egress.business_trace_id) return null;
+  return (
+    <div className="run-egress-preview">
+      <div className="run-egress-preview-request">
+        <code>{egress.operation} · {egress.target}</code>
+        {egress.status_code != null && <Tag size="small" color={egress.status_code >= 400 ? 'red' : 'green'}>
+          HTTP {egress.status_code}
+        </Tag>}
+        {egress.latency_ms != null && <span>{formatDuration(egress.latency_ms, t)}</span>}
+      </div>
+      <div className="run-egress-preview-trace">
+        <span>{t('run.egress.businessTraceId')}</span>
+        <code>{egress.business_trace_id}</code>
+        <CopyButton value={egress.business_trace_id} />
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -58,7 +106,8 @@ export const RUN_EVENT_TYPES = [
   'BACKGROUND_RESULT_LATE',
   'RUN_WAITING_TOOL',
   'RUN_RESUMED',
-  'EGRESS_BLOCKED'
+  'EGRESS_BLOCKED',
+  'EGRESS_REQUEST'
 ] as const;
 
 const KNOWN_EVENT_TYPES: ReadonlySet<string> = new Set(RUN_EVENT_TYPES);
@@ -115,7 +164,7 @@ function TimelineEvent(props: { runId: string; generation: number; onOpenTask?: 
   const category = EVENT_CATEGORIES[eventCategory(event.event_type)];
   const label = KNOWN_EVENT_TYPES.has(event.event_type) ? t(`run.event.${event.event_type}`) : t('run.event.unknown', { type: event.event_type });
   return (
-    <Timeline.Item dot={category.icon} className={`${props.className ?? ''} run-timeline-event run-timeline-tone-${eventTone(event.event_type)}`} data-event-type={event.event_type}>
+    <Timeline.Item dot={category.icon} className={`${props.className ?? ''} run-timeline-event run-timeline-tone-${event.egress?.result_status === 'FAILED' ? 'error' : eventTone(event.event_type)}`} data-event-type={event.event_type}>
       <Button className="run-timeline-toggle" theme="borderless" aria-expanded={expanded} aria-controls={`run-event-${event.seq}`} onClick={() => setExpanded((open) => !open)} data-testid={`run-event-toggle-${event.seq}`}>
       <span className="run-timeline-event-heading">
         <span className="run-timeline-step mono" title={t('run.timeline.originalSequence', { seq: event.seq })}>{String(index + 1).padStart(2, '0')}</span>
@@ -126,8 +175,9 @@ function TimelineEvent(props: { runId: string; generation: number; onOpenTask?: 
       </span>
       </Button>
       <EventTiming {...props} />
+      {event.egress && <EgressRequestPreview egress={event.egress} />}
       <Collapsible id={`run-event-${event.seq}`} isOpen={expanded} motion={false} keepDOM lazyRender>
-        {event.egress ? <EgressBlockedDetails event={event} /> : <RunEventDetails key={props.generation} runId={props.runId} seq={event.seq} expanded={expanded} onOpenTask={props.onOpenTask} />}
+        {event.egress ? <EgressDetails event={event} /> : <RunEventDetails key={props.generation} runId={props.runId} seq={event.seq} expanded={expanded} onOpenTask={props.onOpenTask} />}
       </Collapsible>
     </Timeline.Item>
   );

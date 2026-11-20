@@ -35,6 +35,8 @@ async def list_audits(
     action: str | None = Query(default=None, max_length=64),
     result_status: str | None = Query(default=None, max_length=64),
     trace_id: str | None = Query(default=None, max_length=64),
+    run_id: uuid.UUID | None = None,
+    task_id: uuid.UUID | None = None,
     start_time: datetime | None = Query(default=None),  # noqa: B008
     end_time: datetime | None = Query(default=None),  # noqa: B008
     keyword: str | None = Query(default=None, max_length=128),
@@ -50,6 +52,8 @@ async def list_audits(
         action=action,
         result_status=result_status,
         trace_id=trace_id,
+        run_id=run_id,
+        task_id=task_id,
         start_time=start_time,
         end_time=end_time,
         keyword=keyword,

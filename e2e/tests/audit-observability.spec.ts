@@ -133,9 +133,10 @@ test('S-06 默认按操作成行，类型筛选进入步骤明细，重置还原
   await openAudits(page);
   await expect(page.getByRole('columnheader').first()).toHaveText('Trace ID / 审计 ID');
 
-  // 默认操作视图：同一 Run 的模型/工具事件折叠，配置变更与出网各占一行
+  // 默认操作视图：Run 内的出网摘要并入运行行，配置变更独立显示。
   await expect(page.getByTestId(`audit-link-${state.rows.config}`)).toBeVisible();
-  await expect(page.getByTestId(`audit-link-${state.rows.egress}`)).toBeVisible();
+  await expect(page.getByTestId(`audit-link-${state.rows.egress}`)).toHaveCount(0);
+  await expect(page.getByTestId(`audit-egress-${state.runId}`)).toBeVisible();
   await expect(page.getByTestId(`audit-link-${state.rows.tool}`)).toHaveCount(0);
   await expect(page.getByTestId(`audit-link-${state.rows.model}`)).toHaveCount(0);
   await expect(page.getByTestId(`audit-link-${state.runId}`)).toHaveCount(1);
@@ -161,7 +162,7 @@ test('S-06 默认按操作成行，类型筛选进入步骤明细，重置还原
   await page.getByTestId('audit-reset').click();
   await expect(page.getByTestId('audit-view-notice')).toHaveCount(0);
   await expect(page.getByTestId(`audit-link-${state.rows.config}`)).toBeVisible();
-  await expect(page.getByTestId(`audit-link-${state.rows.egress}`)).toBeVisible();
+  await expect(page.getByTestId(`audit-egress-${state.runId}`)).toBeVisible();
   await expect(page.getByTestId(`audit-link-${state.extraRow.auditId}`)).toBeVisible();
   await expect(page.locator('.app-pagination')).toBeVisible();
 });

@@ -201,6 +201,59 @@ async function mockApi(page: Page, state: MockState): Promise<void> {
   });
 }
 
+test('出网摘要一行显示，点击后查看同一运行的逐条请求', async ({ page }) => {
+  await mockApi(page, mockState());
+  const traceId = 'ec838b50-00a7-4d67-b070-d6c4a5e12a1b';
+  const ping = { ...ROW, audit_type: 'EGRESS', action: 'GET /ping', result_status: 'BLOCKED' };
+  const rtt = { ...ping, audit_id: 'audit-rtt', action: 'GET /rtt', result_status: 'SUCCESS',
+    business_trace_id: traceId };
+  await page.route('**/api/v1/audits?*', async (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    const items = params.get('view') === 'detail'
+      && params.get('audit_type') === 'EGRESS' && params.get('run_id') === ROW.run_id
+      ? [ping, rtt] : [{ ...ping, egress_count: 2 }];
+    await route.fulfill({ json: envelope({ items, total: items.length, page: 1, page_size: 20 }) });
+  });
+  await page.goto('/audits');
+  const summary = page.getByText('出网调用 · 2 次', { exact: true });
+  await expect(summary).toHaveCount(1);
+  await expect(page.getByText('已拦截', { exact: true })).toBeVisible();
+  await expect(page.getByText(/GET \/ping/)).toHaveCount(0);
+  await summary.click();
+  await expect(page.getByText('出网调用明细', { exact: true })).toBeVisible();
+  const blocked = page.getByTestId('audit-trace-row-audit-tool-1');
+  const successful = page.getByTestId('audit-trace-row-audit-rtt');
+  await expect(blocked).toContainText('GET /ping');
+  await expect(blocked.getByText('业务 TraceId')).toHaveCount(0);
+  await expect(successful).toContainText('GET /rtt');
+  await expect(successful.getByText(traceId)).toBeVisible();
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await successful.getByRole('button', { name: '复制', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(traceId);
+});
+
+test('默认列表在运行行展示出网摘要，运行失败与拦截次数分别显示', async ({ page }) => {
+  await mockApi(page, mockState());
+  const blocked = { ...ROW, audit_type: 'EGRESS', action: 'GET /ping', result_status: 'BLOCKED' };
+  await page.route('**/api/v1/audits?*', async (route) => {
+    const query = new URL(route.request().url()).searchParams;
+    const items = query.get('view') === 'detail' && query.get('run_id') === RUN_ROW.run_id
+      ? [blocked]
+      : [{ ...RUN_ROW, egress_count: 18, egress_blocked_count: 1 }];
+    await route.fulfill({ json: envelope({ items, total: items.length, page: 1, page_size: 20 }) });
+  });
+  await page.goto('/audits');
+  const row = page.locator('tr').filter({ has: page.getByTestId('audit-link-run-1') });
+  await expect(row).toContainText(RUN_ROW.summary);
+  await expect(row.getByText('失败', { exact: true })).toBeVisible();
+  const egress = row.getByRole('button', { name: /出网 18 次.*已拦截 1 次/ });
+  await expect(egress).toBeVisible();
+  await egress.focus();
+  await egress.press('Enter');
+  await expect(page.getByText('出网调用明细', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('audit-trace-row-audit-tool-1')).toContainText('GET /ping');
+});
+
 test('E-06 查询失败保留筛选与 ErrorState，重试后按原筛选恢复列表', async ({ page }) => {
   const state = mockState();
   state.listFailure = true;
