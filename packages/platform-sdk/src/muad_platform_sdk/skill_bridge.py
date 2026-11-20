@@ -211,7 +211,7 @@ async def _write_state(
         allowed = await access.allowed_keys()
         if platform_key not in allowed:
             raise PlatformAuthError("PLATFORM_ACCESS_DENIED")
-        requested: tuple[str, ...] = (platform_key,)
+        requested = (platform_key,)
     elif access.context.scope is PlatformScope.SELECTED:
         requested = tuple(dict.fromkeys(access.context.platform_keys))
     else:

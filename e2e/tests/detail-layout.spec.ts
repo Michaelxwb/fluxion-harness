@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import type { AgentSkillItem, AuditItem } from '../../apps/console-platform/frontend/src/modules/agent-management/services/agents';
 import { expectTableSurfaces } from '../support/table-surface';
 import { expectActionColors } from '../support/action-colors';
+import type { ModelItem } from '../../apps/console-platform/frontend/src/modules/model-management/services/models';
 import type { SkillArtifactDetail, SkillDetail } from '../../apps/console-platform/frontend/src/modules/skill-management/services/skills';
 
 // Frontend browser/layout tests using local API fixtures, without backend services.
@@ -21,11 +22,14 @@ const artifact = {
   reviewed_by: 'layout', reviewed_at: time, submitted_by_user_id: null,
   submitted_agent_id: null, submitted_channel: null, source: 'ADMIN'
 } satisfies SkillArtifactDetail;
+const model: ModelItem = {
+  id: base.id, key: base.key, name: base.name, protocol: 'OPENAI', model_id: 'gpt-4o-mini',
+  provider_key: 'layout-provider', params: { max_tokens: 1024 }, revision: base.revision,
+  enabled: base.enabled, last_test_status: 'AVAILABLE', last_test_at: time,
+  create_time: time, update_time: time
+};
 const cases = [
-  { path: 'models', api: 'models', link: 'model-link-layout', data: {
-    ...base, protocol: 'OPENAI', model_id: 'gpt-4o-mini', base_url: 'https://example.com/' + 'path/'.repeat(25),
-    api_key_configured: true, params: {}, last_test_status: 'AVAILABLE', last_test_at: time
-  } },
+  { path: 'models', api: 'models', link: 'model-link-layout', data: model },
   { path: 'users', api: 'users', link: 'user-link-layout', data: {
     ...base, tenant_id: 'tenant', status: 'ACTIVE', metadata: {}, agent_grant_count: 0,
     credential_count: 0, identity_count: 0, memory_count: 0, experience_count: 0
@@ -139,7 +143,12 @@ async function prepare(page: Page, index: number, mode: string, options: {
     if (path === '/api/v1/external-platforms' || path.endsWith('/external-identities')) data = [];
     return route.fulfill({ json: { code: '0', msg: '', data } });
   });
-  await page.goto(`/${entry.path}`);
+  const listLoaded = page.waitForResponse((response) =>
+    new URL(response.url()).pathname === `/api/v1/${entry.api}` &&
+    response.request().method() === 'GET'
+  );
+  const [, listResponse] = await Promise.all([page.goto(`/${entry.path}`), listLoaded]);
+  expect(listResponse.ok()).toBe(true);
   await page.getByTestId(entry.link).click();
 }
 
