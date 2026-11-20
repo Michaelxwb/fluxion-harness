@@ -239,6 +239,34 @@ def test_future_issue_time_is_rejected(keypair, config) -> None:
     assert exc.value.reason == "assertion_expired"
 
 
+def test_seconds_granularity_login_time_is_not_misread_as_ms(keypair, config) -> None:
+    """真实上游形态：`login_time` 是**秒级**字符串，`time` 是**毫秒级**整数。
+
+    同一 token 内两个字段单位不同；若按单一 `issue_time_unit='ms'` 统一除 1000，秒值会算到
+    1970 年，`age` 变成上万年而被误判 `assertion_expired`。`_seconds_from_epoch` 按量级自适应后
+    应正确放行。
+    """
+    private, _ = keypair
+    now_sec = int(time.time())
+    token = _sign(private, _claims(login_time=str(now_sec), time=now_sec * 1000))
+    verified = verify_assertion(token, config, max_session_age_sec=86400)
+    assert verified.claims["login_time"] == str(now_sec)
+
+
+def test_issue_time_unit_adapts_to_magnitude_both_keys(keypair, config) -> None:
+    """两个候选 key 各自按量级换算：秒级与毫秒级都应被识别为「刚签发」，不误判过期。"""
+    from muad_console_platform.application.external_assertion.verifier import _issued_at_seconds
+
+    now = time.time()
+    # 秒级 login_time 命中：应约等于 now。
+    sec_claims = {"login_time": str(int(now)), "time": int(now * 1000)}
+    assert abs(_issued_at_seconds(sec_claims, config) - now) < 2
+
+    # 只有毫秒级 time 时，也应约等于 now。
+    ms_claims = {"time": int(now * 1000)}
+    assert abs(_issued_at_seconds(ms_claims, config) - now) < 2
+
+
 def test_iat_alone_is_not_accepted_as_issue_time(keypair, config) -> None:
     """上游从不发 `iat`：只带 `iat` 的样本必须被判为「缺签发时间」，防止字段名回退。"""
     private, _ = keypair
