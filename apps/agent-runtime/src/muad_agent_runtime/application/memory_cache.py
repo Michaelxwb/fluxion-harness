@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from dataclasses import dataclass
 from uuid import UUID
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_logging import get_logger
 from sqlalchemy.exc import SQLAlchemyError
 
 from ..metrics import MEMORY_INJECT_METRIC, record_counter
@@ -20,7 +20,7 @@ from .memory_queries import (
     MemorySnapshot,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)

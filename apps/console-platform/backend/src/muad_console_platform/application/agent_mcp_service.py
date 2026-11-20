@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -10,6 +9,7 @@ from typing import Any
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import ResolvedMcpServer
+from muad_logging import get_logger
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,7 +24,7 @@ from .dto import McpAuthConfig
 
 AUDIT_RESOURCE_TYPE = "AGENT"
 
-_logger = logging.getLogger(__name__)
+_logger = get_logger(__name__)
 
 
 def binding_snapshot(binding: AgentMcpBinding) -> dict[str, Any]:

@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-import logging
 import uuid
 from collections.abc import Callable
 from typing import Protocol, cast
 
 from muad_common.redis_client import create_redis_client
+from muad_logging import get_logger
 from redis.exceptions import RedisClusterException, RedisError
 
 CANCEL_HINT_KEY_PREFIX = "muad:run:cancel:"
 CANCEL_HINT_TTL_SEC = 1800
 CANCEL_HINT_VALUE = "1"
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class AsyncRedisLike(Protocol):

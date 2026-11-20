@@ -23,13 +23,14 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import time
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, TypedDict, cast
+
+from muad_logging import get_logger
 
 from ..context.compactor import ContextCompactor
 from ..hooks.pipeline import HookEvent, HookPipeline
@@ -85,7 +86,7 @@ from .termination import (
     now_iso,
 )
 
-logger = logging.getLogger("muad_agent_core.agent.runner")
+logger = get_logger("muad_agent_core.agent.runner")
 
 NODE_PREPARE_CONTEXT = "prepare_context"
 NODE_MODEL = "model"

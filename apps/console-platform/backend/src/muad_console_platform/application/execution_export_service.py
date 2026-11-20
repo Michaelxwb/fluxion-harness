@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import logging
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_logging import get_logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.repositories.execution_export_repository import (
@@ -21,7 +21,7 @@ from .execution_export_render import RenderedExport, render_report
 from .execution_export_settings import ExecutionExportSettings
 from .execution_export_view import build_report
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 SUPPORTED_FORMATS = frozenset({"ZIP", "JSON"})
 BundleFactory = Callable[[], Awaitable[ExecutionExportBundle | None]]
 

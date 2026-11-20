@@ -10,19 +10,19 @@
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 
 import httpx
 from muad_contracts import TaskToolOperationCancelRequest, TaskToolOperationOwner
+from muad_logging import get_logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .schedule_lifecycle import RemoteCancel
 from .task_events import EntityType, TaskEventSeed, TaskEventType, append_events
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 CANCEL_PATH = "/internal/tool-operations/cancel"
 

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import time
 import uuid
 from collections import deque
@@ -19,8 +18,9 @@ from muad_contracts.egress_budget import (
     TargetMatch,
     TargetRule,
 )
+from muad_logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)

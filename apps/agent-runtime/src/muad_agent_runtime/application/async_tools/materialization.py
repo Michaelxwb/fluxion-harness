@@ -1,6 +1,5 @@
 """Bounded immutable inbox batches become append-only model context facts."""
 
-import logging
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from uuid import NAMESPACE_URL, UUID, uuid5
@@ -8,6 +7,7 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 from muad_common import process_settings
 from muad_contracts import OperationStatus, canonical_json
 from muad_contracts.platform_settings import ToolResultSettings
+from muad_logging import get_logger
 from pydantic import JsonValue
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,7 +32,7 @@ from ..context_settings import compaction_settings_of
 from ..run_events import EventWriter
 from .continuation_service import ExecutionIdentity, ExecutionLeaseLost, ensure_execution, lock_execution
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def result_text(payload: Mapping[str, JsonValue]) -> str:

@@ -30,7 +30,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -49,6 +48,7 @@ from muad_contracts.channel_delivery import (
     DELIVERY_LEASE_MIN_SEC,
     DeliveryAckOutcome,
 )
+from muad_logging import get_logger
 from pydantic import JsonValue
 
 from ..infrastructure.db import SessionFactoryProvider
@@ -69,7 +69,7 @@ from .channel_delivery import DeliveryConfirmation, DeliveryLease
 from .channel_notifications import DELIVERY_PENDING, KIND_RUN_COMPLETED
 from .delivery_routes import delivery_route_of
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 交付正文的来源键（终态事件 `final_text`；待确认事件 `prompt`）：只读**已持久**的载荷。
 _TEXT_KEYS = ("final_text", "prompt", "text")

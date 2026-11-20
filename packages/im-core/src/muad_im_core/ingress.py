@@ -14,16 +14,16 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import time
 from dataclasses import dataclass
 from enum import StrEnum
 
 from muad_contracts.im import InboundEvent, inbound_dedupe_key, inbound_stream_key
+from muad_logging import get_logger
 from redis.asyncio import Redis
 from redis.asyncio.cluster import RedisCluster
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 STATE_RECEIVED = "RECEIVED"
 STATE_PUBLISHED = "PUBLISHED"

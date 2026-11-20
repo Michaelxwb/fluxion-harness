@@ -51,6 +51,9 @@ async def http_probe():
 
 
 def broker(meter, policy, origin, *, invocation_id="script"):
+    async def platform_base_urls():
+        return (origin,)
+
     def resolve(attempt):
         if attempt.origin != origin or attempt.method != "GET":
             return None
@@ -60,12 +63,50 @@ def broker(meter, policy, origin, *, invocation_id="script"):
 
     return InvocationEgressBroker(meter=meter,
                                    invocation=TrustedInvocation("execution", invocation_id, "segment"),
-                                   resolve=resolve, deadline_seconds=5, cleanup_seconds=0.5)
+                                   resolve=resolve, deadline_seconds=5, cleanup_seconds=0.5,
+                                   load_platform_base_urls=platform_base_urls)
 
 
 def hook(client):
     module = importlib.import_module("muad_platform_sdk.requests_egress_hook")
     return module.RequestsEgressHook(client)
+
+
+async def test_tracing_without_meter_sends_and_audits_each_request(http_probe):
+    origin, seen = http_probe
+    audited = []
+
+    async def observe(event):
+        audited.append(event)
+
+    async def platform_base_urls():
+        return (origin + "/platform",)
+
+    async with InvocationEgressBroker.for_tracing(
+        observe=observe, deadline_seconds=5, cleanup_seconds=0.5,
+        load_platform_base_urls=platform_base_urls,
+    ) as host:
+        client = IPCAdmissionClient(host.socket_path, timeout_seconds=1)
+
+        def call():
+            with hook(client), requests.Session() as session:
+                session.trust_env = False
+                for _ in range(3):
+                    response = session.get(origin + "/platform/ping", headers={
+                        "Traceid": "caller-trace", "X-CSRFToken": "caller-csrf",
+                    })
+                    assert response.status_code == 200
+                assert session.get(origin + "/platform-other/ping").status_code == 200
+
+        await asyncio.to_thread(call)
+
+    traces = [UUID(headers["TraceId"]) for _, headers in seen[:3]]
+    csrfs = [UUID(headers["X-Csrftoken"]) for _, headers in seen[:3]]
+    assert len(set(traces)) == 3 and all(trace.version == 4 for trace in traces)
+    assert len(set(traces + csrfs)) == 6 and all(token.version == 4 for token in csrfs)
+    assert not {"traceid", "x-csrftoken"}.intersection(name.lower() for name in seen[3][1])
+    assert [event.business_trace_id for event in audited] == [*traces, None]
+    assert [event.status_code for event in audited] == [200] * 4
 
 
 async def test_redirects_are_counted_individually_and_auth_headers_preserved(ipc_meter, http_probe):
@@ -86,14 +127,15 @@ async def test_redirects_are_counted_individually_and_auth_headers_preserved(ipc
         await asyncio.to_thread(call)
     assert [path for path, _ in seen] == ["/redirect?search=kept", "/final"]
     for _, headers in seen:
-        assert headers["X-CSRFToken"] == "fixed-test-csrf"
+        assert UUID(headers["X-Csrftoken"]).version == 4
         assert headers["Cookie"] == "test-session=value"
         assert headers["Host"] == "virtual.test"
     assert len({UUID(headers["TraceId"]) for _, headers in seen}) == 2
+    assert len({UUID(headers["X-Csrftoken"]) for _, headers in seen}) == 2
     assert await redis.get(meter._bucket("assets", "total")) == "2"
 
 
-async def test_all_managed_sends_get_trace_and_only_business_origin_gets_csrf(ipc_meter, http_probe):
+async def test_only_platform_sends_get_trace_and_csrf_with_limits_enabled(ipc_meter, http_probe):
     _, meter, _ = ipc_meter
     origin, seen = http_probe
     await meter.publish(SharedEgressPolicy.model_validate({"revision": 2, "rules": [{
@@ -107,9 +149,13 @@ async def test_all_managed_sends_get_trace_and_only_business_origin_gets_csrf(ip
     async def observe(event):
         audited.append(event)
 
+    async def platform_base_urls():
+        return (origin,)
+
     async with InvocationEgressBroker(
         meter=meter, invocation=TrustedInvocation("execution", "business-headers", "segment"),
         resolve=_resolver(meter), observe=observe, deadline_seconds=5, cleanup_seconds=0.5,
+        load_platform_base_urls=platform_base_urls,
     ) as host:
         client = IPCAdmissionClient(host.socket_path, timeout_seconds=1)
 
@@ -138,10 +184,9 @@ async def test_all_managed_sends_get_trace_and_only_business_origin_gets_csrf(ip
     assert len(generated) == 6
     assert [item.business_trace_id for item in audited] == [
         UUID(seen[0][1]["TraceId"]), UUID(seen[1][1]["TraceId"]), None,
-        UUID(seen[2][1]["TraceId"]), UUID(seen[3][1]["TraceId"]),
+        UUID(seen[2][1]["TraceId"]), None,
     ]
-    other_trace = UUID(seen[-1][1]["TraceId"])
-    assert other_trace.version == 4 and other_trace not in generated
+    assert seen[-1][1]["Traceid"] == "old-trace"
     assert seen[-1][1]["X-CSRFToken"] == "old-csrf"
 
 

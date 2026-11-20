@@ -11,13 +11,14 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Final
 
-logger = logging.getLogger(__name__)
+from muad_logging import get_logger
+
+logger = get_logger(__name__)
 
 SESSION_KEY_PREFIX: Final = "muad:webchat:session:"
 

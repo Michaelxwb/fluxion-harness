@@ -6,17 +6,17 @@
 
 from __future__ import annotations
 
-import logging
 from uuid import UUID
 
 import sqlalchemy as sa
 from muad_agent_core.memory.tokens import tokenize
+from muad_logging import get_logger
 
 from ..infrastructure.db import SessionFactory
 from ..infrastructure.models.runtime import CanonicalEvent, RunRecord
 from .run_events import EventWriter
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 LEARNING_SIGNAL_EVENT = "LEARNING_SIGNAL"
 NEGATION = "NEGATION"

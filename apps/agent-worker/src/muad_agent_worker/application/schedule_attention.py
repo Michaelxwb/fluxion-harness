@@ -6,17 +6,17 @@
 
 from __future__ import annotations
 
-import logging
 import uuid
 from datetime import datetime
 
+from muad_logging import get_logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.task import TaskExecution, TaskSchedule
 from .task_events import EntityType, TaskEventType, append_event
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 ACTIVE_SCHEDULE = "ACTIVE"
 NEEDS_ATTENTION = "NEEDS_ATTENTION"

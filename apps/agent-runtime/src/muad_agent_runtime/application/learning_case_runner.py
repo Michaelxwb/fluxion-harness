@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import json
-import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from uuid import UUID
@@ -23,12 +22,13 @@ from muad_agent_core.model import (
     OpenAICompatibleProvider,
     text_of,
 )
+from muad_logging import get_logger
 
 from ..infrastructure.db import SessionFactory
 from ..infrastructure.models.runtime import CanonicalEvent, EvalCase, RunRecord, RuntimeSnapshot, UserMemory
 from .learning_replay import CaseOutcome
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: (tenant_id, model) -> api_key；生产装配用 API-09 受信解析，测试注入固定值。
 CredentialsResolver = Callable[[str, "object"], Awaitable[str]]

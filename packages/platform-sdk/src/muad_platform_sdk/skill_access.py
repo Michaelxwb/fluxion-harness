@@ -254,7 +254,7 @@ class SkillPlatformAccess:
         self,
         keys: Sequence[str],
         metadata: Mapping[str, Mapping[str, Any]],
-        exc: BaseException,
+        exc: Exception,
     ) -> None:
         reason = _interrupt_reason(exc)
         for key in keys:

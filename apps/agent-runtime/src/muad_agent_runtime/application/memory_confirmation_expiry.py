@@ -1,8 +1,8 @@
 """Parent-first expiration of a proposal; no synthetic user confirmation."""
 
-import logging
 from uuid import UUID
 
+from muad_logging import get_logger
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +16,7 @@ from .memory_observability import after_commit, observe
 from .memory_service import MemoryService
 from .run_events import EventWriter
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 async def expire_confirmations(factory: SessionFactory, *, batch_size: int = 100) -> int:

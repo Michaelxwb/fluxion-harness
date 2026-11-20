@@ -1,10 +1,10 @@
 """Bounded process tasks consume PostgreSQL leases and close before clients."""
 
 import asyncio
-import logging
 from functools import partial
 from uuid import UUID
 
+from muad_logging import get_logger
 from pydantic import JsonValue
 
 from ..metrics import RUNTIME_MAINTENANCE_METRIC, record_outcome
@@ -13,7 +13,7 @@ from .memory_consolidation_effects import ConsolidationWorker
 from .memory_expiry import expire_memories
 from .memory_observability import observe
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class MemorySupervisor:

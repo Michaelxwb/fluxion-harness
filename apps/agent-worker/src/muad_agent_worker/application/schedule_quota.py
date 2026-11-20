@@ -22,7 +22,6 @@
 
 from __future__ import annotations
 
-import logging
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -34,13 +33,14 @@ from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts.enums import FireStatus, ScheduleMode, ScheduleStatus, SkipReason, TaskStatus, TaskType
 from muad_contracts.platform_settings import PlatformSettings
+from muad_logging import get_logger
 from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.task import ScheduleFire, TaskExecution, TaskSchedule, TaskScheduleRevision
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: advisory 锁身份前缀：同集群内与其它业务锁隔离（键 = tenant + owner + 本语义）。
 QUOTA_LOCK_NAMESPACE = "muad:schedule-quota"

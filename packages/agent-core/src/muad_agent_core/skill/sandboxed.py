@@ -9,15 +9,16 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import os
 import re
 import tempfile
 import time
 import uuid
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 
+from muad_logging import get_logger
 from muad_platform_sdk.adapter.mss_config import PlatformAuthError
 from muad_platform_sdk.skill_bridge import PlatformSessionEnvironment, skill_platform_environment
 from muad_platform_sdk.skill_egress import ScriptEgressEnvironment, skill_egress_environment
@@ -53,7 +54,7 @@ from .contracts import (
 from .executor import attach_platform_report, parse_result
 from .selection import SCRIPTS_DIR, SKILL_FILE, sandbox_script_path, script_command, select_script
 
-logger = logging.getLogger("muad_agent_core.skill.sandbox")
+logger = get_logger("muad_agent_core.skill.sandbox")
 
 VALID_SOURCES = frozenset({"SYSTEM", "ADMIN", "USER"})
 _SAFE_COMPONENT_RE = re.compile(r"^[A-Za-z0-9._-]+$")
@@ -282,7 +283,9 @@ class SandboxedSkillExecutor:
     ) -> SkillExecutionResult:
         """按受信 platform_context 注入 session-manager；无平台时行为不变。"""
         if request.egress_broker is not None and script.suffix.lower() != ".py":
-            raise SkillExecutionError("EGRESS_CLIENT_UNSUPPORTED")
+            if request.egress_broker.enforces_limits:
+                raise SkillExecutionError("EGRESS_CLIENT_UNSUPPORTED")
+            request = replace(request, egress_broker=None)
         dev_unsafe = getattr(runner, "name", "") == "dev-unsafe"
         skill_name = ""
         if request.platform_context is not None:

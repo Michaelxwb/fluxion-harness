@@ -10,16 +10,16 @@
 
 from __future__ import annotations
 
-import logging
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from muad_api.error_codes import ErrorCode
+from muad_logging import get_logger
 
 from .sse import SseEvent
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 DELTA_FLUSH_INTERVAL_SEC = 0.5
 CANCELLED_STATUS = "CANCELLED"

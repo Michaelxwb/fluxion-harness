@@ -10,16 +10,16 @@ Kernel 的 `is_cancelled` 是**同步**回调（每个模型/工具回合都会�
 from __future__ import annotations
 
 import asyncio
-import logging
 from datetime import UTC, datetime
 from uuid import UUID
 
+from muad_logging import get_logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ...infrastructure.models.task import TaskExecution
 
-logger = logging.getLogger("muad_agent_worker.application.agentic.cancellation")
+logger = get_logger("muad_agent_worker.application.agentic.cancellation")
 
 DEFAULT_POLL_INTERVAL_SEC = 2.0
 

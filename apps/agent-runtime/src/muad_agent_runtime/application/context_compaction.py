@@ -9,7 +9,6 @@ micro/snip/条数兜底是纯函数（agent-core），摘要要调模型、要�
 
 from __future__ import annotations
 
-import logging
 import uuid
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
@@ -29,6 +28,7 @@ from muad_agent_core.model import (
     ModelRole,
 )
 from muad_contracts.platform_settings import CompactionSettings
+from muad_logging import get_logger
 from sqlalchemy import func, select
 
 from ..infrastructure.db import SessionFactoryProvider, get_session_factory
@@ -45,7 +45,7 @@ from .attachments.transcripts import TranscriptWriter
 from .context_events import record_compaction, record_summary
 from .run_events import EventWriter
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 摘要模型调用：给定历史，返回五字段（失败/形状不符返回 None）。由装配方注入。
 SummaryRunner = Callable[[Sequence[ModelMessage]], Awaitable[SummaryFields | None]]

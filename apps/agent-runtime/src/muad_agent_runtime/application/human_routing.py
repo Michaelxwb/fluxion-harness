@@ -15,7 +15,6 @@
 
 from __future__ import annotations
 
-import logging
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -30,9 +29,10 @@ from muad_contracts import (
     HumanRouteOutcome,
     PendingPage,
 )
+from muad_logging import get_logger
 from pydantic import ValidationError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 无结构化 schema 的提问接受自由文本：回答载荷就是用户这条消息本身。
 FREE_TEXT_RESPONSE_KEY = "text"

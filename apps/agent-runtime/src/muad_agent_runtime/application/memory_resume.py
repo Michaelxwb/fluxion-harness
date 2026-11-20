@@ -1,6 +1,5 @@
 """Real inbound selection, canonical options and original task lineage in one transaction."""
 
-import logging
 from collections.abc import Mapping
 from typing import Any, Literal
 from uuid import UUID, uuid4
@@ -10,6 +9,7 @@ from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts.memory import MemoryResumeOption, MemoryResumeOptions, MemoryResumeRef
 from muad_contracts.platform_settings import MemoryPolicySettings
+from muad_logging import get_logger
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,7 +22,7 @@ from .memory_resume_queries import owned_conversation, pending_options, resume_d
 from .run_events import EventWriter
 
 __all__ = ["MemoryResumeService", "resume_decision"]
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 Outcome = Literal["SELECTED", "CANCELLED", "EXPIRED"]
 
 

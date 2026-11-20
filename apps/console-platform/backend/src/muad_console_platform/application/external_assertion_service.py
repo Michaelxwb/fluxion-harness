@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -15,6 +14,7 @@ from muad_common.auth_cache import AuthCacheStore
 from muad_common.session_store import hash_session_token
 from muad_common.settings import process_settings
 from muad_contracts.webchat import ChatPrincipal
+from muad_logging import get_logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.repositories.external_identity_repository import (
@@ -38,7 +38,7 @@ from .external_assertion.verifier import (
     verify_assertion,
 )
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = get_logger(__name__)
 
 #: 断言被拒原因 → 对网关的错误码。细分是为了让网关能区分处置（重试 / 引导绑定 / 提示无权限）。
 _REJECTION_TO_CODE = {

@@ -5,13 +5,13 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-import logging
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from muad_logging import get_logger
 from pydantic import JsonValue
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,7 +20,7 @@ from ...infrastructure.models.runtime import Artifact
 from ...metrics import ARTIFACT_BYTES_METRIC, record_counter
 from .immutable_store import discard_written, write_immutable
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 通用工具结果的外置阈值、预览头尾字节数**只有 schema 一处来源**：
 #: `muad_contracts.platform_settings.ToolResultSettings`（本 Run 冻结后注入）。此模块不再

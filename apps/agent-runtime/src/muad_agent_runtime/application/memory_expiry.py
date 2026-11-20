@@ -1,9 +1,8 @@
 """Immediate read TTL is authoritative; cleanup uses the same atomic writer."""
 
-import logging
-
 from muad_api import AppError
 from muad_contracts.memory import MemoryRetirementReason, memory_hash
+from muad_logging import get_logger
 from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
@@ -15,7 +14,7 @@ from .memory_commands import MemoryCommand, MemoryMutation, MemoryWriteContext
 from .memory_observability import observe
 from .memory_service import MemoryService
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 async def expire_memories(factory: SessionFactory, *, scope_limit: int = 16) -> int:

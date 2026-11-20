@@ -17,7 +17,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -38,6 +37,7 @@ from muad_contracts import (
 )
 from muad_contracts.platform_settings import PlatformSettings, TaskSettings
 from muad_contracts.webchat_events import WebchatTaskResultRegistration
+from muad_logging import get_logger
 from sqlalchemy import CursorResult, false, or_, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -89,7 +89,7 @@ from .records import (
     interaction_id_from_key,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 TERMINAL_STATUSES = (str(TaskStatus.COMPLETED), str(TaskStatus.FAILED), str(TaskStatus.CANCELLED))
 OPEN = str(HumanInteractionStatus.OPEN)

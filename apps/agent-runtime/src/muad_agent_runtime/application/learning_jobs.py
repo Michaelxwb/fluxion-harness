@@ -3,20 +3,20 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import sqlalchemy as sa
 from muad_contracts.platform_settings import LearningSettings
+from muad_logging import get_logger
 
 from ..infrastructure.db import SessionFactory
 from ..infrastructure.models.runtime import LearningJob
 from ..metrics import LEARNING_PIPELINE_FAILURES_METRIC, record_counter
 from .learning_replay import INCOMPLETE, LearningReplay, ReplayLimits
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class LearningJobRunner:

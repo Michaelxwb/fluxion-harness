@@ -14,7 +14,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import time
 import uuid
 from collections.abc import Awaitable, Callable, Mapping
@@ -22,9 +21,10 @@ from typing import Any, Protocol, cast
 
 import redis.asyncio
 from muad_common.redis_client import create_redis_client
+from muad_logging import get_logger
 from redis.exceptions import RedisClusterException
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 入站去重的"已受理"标记：只表示"这条消息处理过了"，不含任何交付结论。
 DEDUPE_VALUE = "1"

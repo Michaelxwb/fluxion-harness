@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -13,6 +12,7 @@ from muad_api.error_codes import ErrorCode
 from muad_contracts.canonical import canonical_json
 from muad_contracts.memory import MemoryCandidate, memory_hash
 from muad_contracts.memory_admin import MemoryCommandResponse
+from muad_logging import get_logger
 from pydantic import JsonValue
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -42,7 +42,7 @@ from .memory_observability import after_commit, observe
 if TYPE_CHECKING:
     from .memory_writer import MemoryWriteOutcome, MemoryWriter
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _observe_conflict(exc: AppError) -> None:

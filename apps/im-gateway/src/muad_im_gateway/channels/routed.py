@@ -15,17 +15,17 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import uuid
 from collections.abc import AsyncIterator
 from typing import Any, Protocol
 
 from muad_contracts import ChannelEnvelope, DeliveryMessage, DeliveryRouteInput
 from muad_contracts.im import DeliveryKind, message_stream_id
+from muad_logging import get_logger
 
 from .base import ChannelAdapterUnavailable
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 状态帧的有界等待（与旧 WS 会话同口径：状态可丢，正文/收尾必须确认）。
 STATUS_WAIT_SEC = 5.0

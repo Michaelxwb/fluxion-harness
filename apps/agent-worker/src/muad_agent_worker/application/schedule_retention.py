@@ -39,7 +39,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
@@ -48,6 +47,7 @@ from typing import Any, cast
 
 import sqlalchemy as sa
 from muad_contracts import TaskStatus
+from muad_logging import get_logger
 from sqlalchemy import Row
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -71,7 +71,7 @@ from .ports import PlatformSettingsClient
 from .task_events import EntityType
 from .task_message_outbox import OUTBOX_PENDING
 
-logger = logging.getLogger("muad_agent_worker.application.schedule_retention")
+logger = get_logger("muad_agent_worker.application.schedule_retention")
 
 #: 单批候选上界：清理是破坏性维护动作，有界前进才可中断、可对账。
 RETENTION_BATCH_SIZE = 200

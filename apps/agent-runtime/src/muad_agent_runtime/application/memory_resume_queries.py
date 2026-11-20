@@ -1,12 +1,12 @@
 """Append-only canonical options and their one final outcome, scoped to the owned conversation."""
 
-import logging
 from dataclasses import dataclass
 from uuid import UUID
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts.memory import MemoryResumeRef
+from muad_logging import get_logger
 from sqlalchemy import exists, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +16,7 @@ from ..infrastructure.db import SessionFactory
 from ..infrastructure.models.runtime import CanonicalEvent, Conversation, RunRecord
 from ..metrics import MEMORY_RESUME_METRIC, record_counter
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)

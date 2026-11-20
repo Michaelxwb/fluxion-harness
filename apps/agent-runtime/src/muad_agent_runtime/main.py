@@ -1,6 +1,5 @@
 import asyncio
 import gc
-import logging
 import os
 import socket
 import time
@@ -21,7 +20,7 @@ from muad_api import (
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_common import SharedSettings, process_settings, workspace_policy_from_settings
 from muad_common.db_counters import db_stage, db_stage_scope, publish_db_counters
-from muad_logging import configure_logging
+from muad_logging import configure_logging, get_logger
 from sqlalchemy import text
 from sqlalchemy.pool import AsyncAdaptedQueuePool
 
@@ -103,7 +102,7 @@ DELIVERY_LOOP_NAME = "runtime.delivery"
 RETENTION_LOOP_NAME = "runtime.retention"
 CAPACITY_METRICS_LOOP_NAME = "runtime.capacity_metrics"
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 configure_logging(SERVICE_NAME)
 

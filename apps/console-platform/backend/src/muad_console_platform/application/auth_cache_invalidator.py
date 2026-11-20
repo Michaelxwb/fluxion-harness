@@ -35,7 +35,6 @@ Redis 失步都抛错，让调用方的事务与业务变更一起回滚——�
 from __future__ import annotations
 
 import hashlib
-import logging
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -43,13 +42,14 @@ from datetime import UTC, datetime
 
 import sqlalchemy as sa
 from muad_common.auth_cache import AuthCacheStore
+from muad_logging import get_logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.control import AuthCacheSyncState, PlatformUser
 from ..metrics import AUTH_CACHE_INVALIDATION_METRIC, record_reason
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 屏障阶段常量。
 #:

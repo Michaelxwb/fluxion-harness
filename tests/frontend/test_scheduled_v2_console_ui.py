@@ -32,7 +32,7 @@ ROW_ACTIONS = MODULE / "ScheduleRowActions.tsx"
 CANCEL_MODAL = MODULE / "CancelScheduleModal.tsx"
 SCHEDULE_SERVICE = MODULE / "services/schedules.ts"
 TASK_PAGE = MODULE / "TaskPage.tsx"
-TASK_DETAIL = MODULE / "TaskDetailSideSheet.tsx"
+TASK_DETAIL = MODULE / "TaskBasicDetails.tsx"
 ACTIONS_HOOK = MODULE / "useScheduleActions.ts"
 
 ESBUILD = FRONTEND / "node_modules/.bin/esbuild"
@@ -102,21 +102,6 @@ const out = {
   waitKind: catalog.waitKindLabel(t, 'EXTERNAL_POLL'),
   budget: catalog.budgetSummary({ max_steps: 12, max_tool_calls: 20, max_tokens: 0 }),
   budgetNull: catalog.budgetSummary(null),
-  snapshot: catalog.snapshotSummary(t, {
-    schema_version: 4,
-    hash: 'SECRET-HASH',
-    mode: 'AGENTIC',
-    allowlist: ['MCP:crm:customer.report'],
-    memory_mode: 'READ_ONLY',
-    budget: { max_steps: 12 }
-  }),
-  humanOpen: catalog.humanSummary(t, {
-    interaction_id: 'i-1',
-    question: 'pick one',
-    deadline_at: '__CSV__',
-    open: true
-  }),
-  humanNull: catalog.humanSummary(t, null),
   dstSummary: catalog.dstEventSummary(dst),
   rows: rows.map((row) => ({
     kind: row.kind,
@@ -250,20 +235,7 @@ def test_fire_and_dst_events_stay_distinct_facts(catalog_facts: dict) -> None:
     assert rows[2]["executionId"] is None, "跳过的 occurrence 没有执行"
 
 
-def test_snapshot_and_human_summaries_render_backend_whitelist(catalog_facts: dict) -> None:
-    snapshot = catalog_facts["snapshot"]
-    for token in (
-        "task.detail.snapshotSchema=4",
-        "task.detail.snapshotMode=AGENTIC",
-        "task.detail.memoryMode=READ_ONLY",
-        "MCP:crm:customer.report",
-        'task.detail.budget={"max_steps":12}',
-    ):
-        assert token in snapshot, token
-    assert "SECRET-HASH" not in snapshot, "快照摘要不渲染 hash 之外未列出的字段"
-    assert catalog_facts["humanOpen"].startswith("task.detail.humanQuestion: pick one")
-    assert "task.detail.humanOpen" in catalog_facts["humanOpen"]
-    assert catalog_facts["humanNull"] == "-"
+def test_budget_summary_shows_limits(catalog_facts: dict) -> None:
     assert catalog_facts["budget"] == "steps=12 · tools=20 · tokens=0"
     assert catalog_facts["budgetNull"] == "-"
 
@@ -404,8 +376,8 @@ def test_task_pages_show_v2_status_wait_snapshot_and_human() -> None:
         "detail.human",
         "task.detail.snapshot",
         "detail.snapshot",
-        "snapshotSummary",
-        "humanSummary",
+        "<details",
+        "TaskNotices",
         "taskTypeLabel",
     ):
         assert token in detail, token

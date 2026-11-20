@@ -15,7 +15,6 @@ import csv
 import hashlib
 import io
 import json
-import logging
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -24,6 +23,7 @@ from typing import Any
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_logging import get_logger
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -42,7 +42,7 @@ from ..infrastructure.skill_artifact_store import artifact_path, write_artifact
 from .audit_query_service import RESULT_STATUSES, format_console_time, validate_filters
 from .dto import AuditExportCreateRequest
 
-_logger = logging.getLogger(__name__)
+_logger = get_logger(__name__)
 
 # 共享幂等表的 endpoint 定位值（设计 §3.3 / RULE-09）
 IDEMPOTENCY_ENDPOINT = "/api/v1/audits/exports"

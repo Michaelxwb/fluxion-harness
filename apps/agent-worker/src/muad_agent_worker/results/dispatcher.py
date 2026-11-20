@@ -1,7 +1,6 @@
 """PostgreSQL leased result delivery; attempts are committed before network IO."""
 
 import asyncio
-import logging
 import random
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
@@ -9,6 +8,7 @@ from uuid import UUID, uuid4
 import httpx
 from muad_common import SharedSettings
 from muad_contracts import ControlOutboxStatus
+from muad_logging import get_logger
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import or_, select, tuple_, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from ..infrastructure.models.runtime_operations import RuntimeResultOutbox
 from ..metrics import record_loop_tick, record_outcome
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 RESULT_DISPATCH_METRIC = "runtime_result_dispatch_total"
 
 

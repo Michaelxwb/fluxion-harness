@@ -27,7 +27,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import time
 import uuid
 from collections import deque
@@ -42,6 +41,7 @@ from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_common.db_counters import db_stage_scope
 from muad_common.redis_client import create_pubsub_client_sync
+from muad_logging import get_logger
 from redis.exceptions import RedisClusterException, RedisError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -52,7 +52,7 @@ from ..metrics import (
     record_tail_outcome,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 跨进程轻量唤醒通道（Redis Pub/Sub 只通知，不承载事实；见 ADR-02）。
 WAKEUP_CHANNEL = "muad:runtime:events"

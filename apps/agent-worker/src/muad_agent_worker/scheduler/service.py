@@ -18,7 +18,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -32,6 +31,7 @@ from muad_contracts import (
     TerminalStatus,
 )
 from muad_contracts.platform_settings import PlatformSettings
+from muad_logging import get_logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -68,7 +68,7 @@ from .client import ScheduleMaterialsProtocol
 from .fire import FireOutcome, write_fire
 from .recurrence import OccurrencePlan, PlanAction, build_rule, plan_occurrence
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 TASK_DEADLINE_EXCEEDED = "TASK_DEADLINE_EXCEEDED"
 NON_TERMINAL_TASK_STATUSES = (

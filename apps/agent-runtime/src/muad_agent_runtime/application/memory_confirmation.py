@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from typing import Literal, NoReturn
 from uuid import UUID, uuid4
 
@@ -13,6 +12,7 @@ from muad_api.error_codes import ErrorCode
 from muad_contracts.memory import RememberMemoryInput
 from muad_contracts.platform_settings import MemoryPolicySettings
 from muad_contracts.tasks import ContractModel
+from muad_logging import get_logger
 from sqlalchemy.exc import SQLAlchemyError
 
 from ..infrastructure.db import SessionFactory
@@ -36,7 +36,7 @@ from .memory_proposals import (
 from .memory_suspension import MEMORY_CONFIRMATION_REASON, MemorySuspendRequest
 from .memory_write import validate_memory_input_v2
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class MemoryProposalReceipt(ContractModel):

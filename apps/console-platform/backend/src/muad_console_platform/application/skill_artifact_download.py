@@ -7,13 +7,13 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_logging import get_logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.control import Skill, SkillArtifact
@@ -22,7 +22,7 @@ from ..infrastructure.skill_artifact_store import artifact_path
 from .audit_service import AuditActor, AuditService
 from .skill_audit import SkillAuditAction, SkillAuditEvent
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)

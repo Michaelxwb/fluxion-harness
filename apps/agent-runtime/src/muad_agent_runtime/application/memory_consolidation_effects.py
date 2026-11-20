@@ -1,11 +1,11 @@
 """Execute external IO outside all row locks, then atomically apply fenced effects."""
 
-import logging
 from uuid import UUID
 
 import httpx
 from muad_agent_core.model import ModelRateLimitedError, ModelUnavailableError
 from muad_api import AppError
+from muad_logging import get_logger
 from pydantic import JsonValue
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -19,7 +19,7 @@ from .memory_job_effects import ConsolidationFenced, apply_batch, fail_locked, t
 from .memory_jobs import JobClaim, MemoryJobs, lock_claim
 from .memory_observability import observe
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ConsolidationWorker:

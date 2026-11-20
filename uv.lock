@@ -1412,6 +1412,7 @@ name = "muad-common"
 version = "0.1.0"
 source = { editable = "packages/common" }
 dependencies = [
+    { name = "muad-logging" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "redis" },
@@ -1419,6 +1420,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "muad-logging", editable = "packages/logging-kit" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pydantic-settings", specifier = ">=2.5" },
     { name = "redis", specifier = ">=5,<7" },
@@ -1522,6 +1524,7 @@ source = { editable = "packages/im-core" }
 dependencies = [
     { name = "muad-api" },
     { name = "muad-contracts" },
+    { name = "muad-logging" },
     { name = "redis" },
 ]
 
@@ -1529,6 +1532,7 @@ dependencies = [
 requires-dist = [
     { name = "muad-api", editable = "packages/api-kit" },
     { name = "muad-contracts", editable = "packages/contracts" },
+    { name = "muad-logging", editable = "packages/logging-kit" },
     { name = "redis", specifier = ">=5,<7" },
 ]
 
@@ -1577,6 +1581,7 @@ dependencies = [
     { name = "muad-api" },
     { name = "muad-common" },
     { name = "muad-contracts" },
+    { name = "muad-logging" },
     { name = "pydantic" },
     { name = "redis" },
     { name = "requests" },
@@ -1590,6 +1595,7 @@ requires-dist = [
     { name = "muad-api", editable = "packages/api-kit" },
     { name = "muad-common", editable = "packages/common" },
     { name = "muad-contracts", editable = "packages/contracts" },
+    { name = "muad-logging", editable = "packages/logging-kit" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "redis", specifier = ">=6.4.0" },
     { name = "requests", specifier = ">=2.32,<3" },
@@ -1603,6 +1609,7 @@ version = "0.1.0"
 source = { editable = "packages/skill-sdk" }
 dependencies = [
     { name = "muad-contracts" },
+    { name = "muad-logging" },
     { name = "muad-platform-sdk" },
     { name = "pydantic" },
     { name = "pyyaml" },
@@ -1611,6 +1618,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "muad-contracts", editable = "packages/contracts" },
+    { name = "muad-logging", editable = "packages/logging-kit" },
     { name = "muad-platform-sdk", editable = "packages/platform-sdk" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pyyaml", specifier = ">=6,<7" },

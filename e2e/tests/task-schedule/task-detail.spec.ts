@@ -117,7 +117,7 @@ test.describe('Task 详情', () => {
     await expect(page.getByTestId('task-detail-deadline')).toContainText('2026-09-01');
   });
 
-  test('B-132 详情 Header/Tab/DetailGrid、子任务切换与小屏单列', async ({ page, request }) => {
+  test('B-132 详情分组、子任务切换与小屏单列', async ({ page, request }) => {
     const parentId = await seedTask(request, {
       status: 'WAITING',
       task_type: 'BATCH',
@@ -136,8 +136,11 @@ test.describe('Task 详情', () => {
     await openDetail(page, parentId);
 
     await expect(page.getByTestId('detail-subtitle')).toContainText('等待中');
-    await expect(page.getByTestId('task-detail-snapshot')).toContainText('schema=1');
-    await expect(page.getByTestId('task-detail-snapshot')).not.toContainText('api_key');
+    const snapshot = page.getByTestId('task-detail-snapshot');
+    await expect(snapshot).not.toHaveAttribute('open', '');
+    await snapshot.locator('summary').click();
+    await expect(snapshot.locator('dt').filter({ hasText: '快照版本' }).locator('..').locator('dd')).toHaveText('1');
+    await expect(snapshot).not.toContainText('api_key');
     await expect(page.locator('.semi-tabs-tab', { hasText: '时间线' })).toBeVisible();
     await expect(page.locator('.semi-tabs-tab', { hasText: '子任务' })).toBeVisible();
 
@@ -149,7 +152,7 @@ test.describe('Task 详情', () => {
     await expect(page.getByTestId('task-detail-deadline')).toBeVisible();
     await page.setViewportSize({ width: 800, height: 900 });
     const columns = await page
-      .locator('.detail-grid')
+      .locator('.task-detail-fields').first()
       .evaluate((element) => getComputedStyle(element).gridTemplateColumns);
     expect(columns.trim().split(/\s+/).length).toBe(1);
   });

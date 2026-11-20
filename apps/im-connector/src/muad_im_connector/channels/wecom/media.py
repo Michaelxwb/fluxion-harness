@@ -20,12 +20,12 @@ PKCS#7），避免与官方算法分叉。
 from __future__ import annotations
 
 import hashlib
-import logging
 import re
 from urllib.parse import unquote
 
 import httpx
 from muad_contracts import SUPPORTED_UPLOAD_FORMATS
+from muad_logging import get_logger
 
 from .sdk_port import (
     WeComMediaContent,
@@ -37,7 +37,7 @@ from .sdk_port import (
     WeComMediaUploadTooLargeError,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 单文件下载超时。超时是**传输安全**属性（不是产品策略），故写死在这里而不由调用方注入。
 MEDIA_TIMEOUT_SEC = 30.0

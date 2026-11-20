@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import logging
 import time
 import uuid
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -44,6 +43,7 @@ from muad_im_gateway.channels.base import (
     AttachmentSource,
     FetchedAttachment,
 )
+from muad_logging import get_logger
 
 from .channels.wecom.sdk_port import (
     WeComInboundMessage,
@@ -53,7 +53,7 @@ from .metrics import record_inbound, record_lease, record_snapshot, set_owned_bo
 from .outbound import ConnectorChannelPort, OutboundRunner
 from .reply_store import ReplyStore
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ConnectorAdapterPort(ConnectorChannelPort, Protocol):

@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import logging
 from collections.abc import Callable
 from typing import Protocol, cast
 
 from muad_common.redis_client import create_pubsub_client_sync
+from muad_logging import get_logger
 from redis.asyncio import Redis
 from redis.exceptions import RedisClusterException, RedisError
 
@@ -15,7 +15,7 @@ from ..metrics import record_outcome
 TASK_WAKEUP_KEY = "muad:task:wakeup"
 LISTEN_RETRY_SEC = 5.0
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class AsyncRedisLike(Protocol):

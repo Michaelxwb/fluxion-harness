@@ -59,6 +59,26 @@ def settings_payload(platform="assets", **patch):
     return {"revision": 0, "settings": {"egress": {"enabled": True, "rules_json": json.dumps([rule])}}}
 
 
+async def test_trace_base_urls_follow_enabled_tenant_platforms_without_rules(
+    client: AsyncClient, tenant: TenantContext, egress_platform: ProjectPlatform, internal_service_token,
+):
+    headers = {"X-Tenant-Id": tenant.tenant_id, "X-Internal-Service": TOKEN}
+    endpoint = "/internal/v1/platform-trace-base-urls"
+    response = await client.get(endpoint, headers=headers)
+    assert response.status_code == 200, response.text
+    assert response.json()["data"] == {"base_urls": ["https://assets.test/gateway/v1"]}
+    other = await client.get(endpoint, headers={**headers, "X-Tenant-Id": "other-tenant"})
+    assert other.status_code == 200, other.text
+    assert other.json()["data"] == {"base_urls": []}
+
+    async with get_session_factory()() as session:
+        platform = await session.get(ProjectPlatform, egress_platform.id)
+        platform.enabled = False
+        await session.commit()
+    response = await client.get(endpoint, headers=headers)
+    assert response.json()["data"] == {"base_urls": []}
+
+
 async def test_admin_selects_platform_and_only_relative_path_is_resolved(
     client: AsyncClient,
     tenant: TenantContext,

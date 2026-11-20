@@ -166,7 +166,7 @@ def test_audit_run_relation_opens_in_place_rather_than_jumping_to_tasks() -> Non
 
 
 def test_task_detail_links_back_to_its_source_run() -> None:
-    detail = _read(TASK_DETAIL)
+    detail = _read(TASK_DETAIL.with_name("TaskBasicDetails.tsx"))
     assert "detail.source_run_id" in detail
     assert 'testId="task-detail-run"' in detail
     assert "onOpenRun" in detail
