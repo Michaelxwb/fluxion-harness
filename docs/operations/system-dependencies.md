@@ -42,12 +42,21 @@ build/docker-build/skill-deps/
 └── install.sh                    # runtime/worker 镜像构建期唯一安装入口
 ```
 
-当前初始基线：
+当前基线：
 
 | 生态 | 包 | 版本 | 用途 |
 |---|---|---|---|
-| Python | `tabulate` | 0.9.0 | 报告/表格文本输出 |
+| Python | `baseline.json` 中的 `python` 清单 | 以 `baseline.json` 为准 | 报告/表格、Office 文档、HTML/XML 解析、浏览器自动化、LLM/HTTP、配置与重试 |
 | Node | `uuid` | 14.0.3 | JS Skill 生成稳定标识 |
+
+Python 清单包含 `requests`、`openpyxl`、`PyYAML`、`beautifulsoup4`、`xlrd`、`lxml`、
+`python-docx`、`Pillow`、`playwright`、`clickhouse-driver`、`pydantic`、`python-dotenv`、
+`openai`、`httpx`、`tenacity`、`python-pptx`、`tabulate`；具体精确版本只在
+`python-requirements.txt` / `baseline.json` 维护。
+
+`playwright` 的 pip 包不包含浏览器二进制和系统依赖。需要本地浏览器的 Skill 必须先在
+runtime/worker 镜像中预装对应浏览器并保证运行用户可读，不能在 Pod 内执行
+`playwright install`；只连接远程浏览器/CDP 的用法不受此限制。
 
 `baseline.json` 是人工可读的批准清单；`python-requirements.txt` 与 `node/package.json`
 是构建输入。`scripts/skill_system_deps.py validate` 会拒绝三者不一致、非精确版本、
