@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import time
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
+from muad_logging import get_logger
+
 from .shared_redis import MeteringUnavailable, SharedLimitExceeded
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)

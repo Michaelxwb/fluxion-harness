@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import uuid
 from datetime import datetime
 from typing import Annotated, Any
@@ -10,6 +9,7 @@ from muad_api import ApiResponse, AppError, ok, paginate
 from muad_api.error_codes import ErrorCode
 from muad_api.security import require_internal_service
 from muad_contracts import CreateTaskRequest, TaskStatus, TaskType, TriggerType
+from muad_logging import get_logger
 from pydantic import JsonValue
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,7 +40,7 @@ router = APIRouter(
     dependencies=[Depends(require_internal_service)],
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 TenantId = Annotated[str, Depends(get_tenant_id)]
 Session = Annotated[AsyncSession, Depends(get_session)]

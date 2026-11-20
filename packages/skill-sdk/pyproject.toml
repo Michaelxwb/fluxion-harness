@@ -3,6 +3,7 @@ name = "muad-skill-sdk"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
+    "muad-logging",
   "pydantic>=2.9",
   "muad-platform-sdk",
   "muad-contracts",
@@ -20,5 +21,6 @@ where = ["src"]
 "*" = ["py.typed"]
 
 [tool.uv.sources]
+muad-logging = { workspace = true }
 muad-platform-sdk = { workspace = true }
 muad-contracts = { workspace = true }

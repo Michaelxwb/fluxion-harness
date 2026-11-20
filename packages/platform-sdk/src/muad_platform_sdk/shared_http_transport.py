@@ -8,7 +8,6 @@ replace the execution supervisor's process fencing/termination.
 from __future__ import annotations
 
 import asyncio
-import logging
 import math
 import sys
 from collections.abc import AsyncIterator
@@ -17,11 +16,12 @@ from dataclasses import dataclass
 
 import httpx
 from muad_contracts.shared_egress import SharedEgressPolicy, TrustedInvocation
+from muad_logging import get_logger
 
 from .egress_attempt_audit import AttemptAudit, AttemptObserver
 from .shared_redis import MeteringUnavailable, SharedPermit, SharedRedisMeter
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)

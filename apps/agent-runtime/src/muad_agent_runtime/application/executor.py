@@ -4,7 +4,6 @@ import asyncio
 import contextlib
 import hashlib
 import json
-import logging
 import math
 import time
 import uuid
@@ -84,6 +83,7 @@ from muad_contracts.platform_settings import (
     TaskSettings,
     ToolResultSettings,
 )
+from muad_logging import get_logger
 from muad_logging.redaction import redact_text
 from muad_platform_sdk.host_egress_execution import HostEgressExecution
 from muad_platform_sdk.skill_access import SkillPlatformContext
@@ -157,7 +157,7 @@ from .task_tools import BackgroundTaskToolSet
 from .time_tools import TimeToolSet, resolve_zone
 from .workspace_shell import build_workspace_shell_runner, build_workspace_store
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 CancelCheck = Callable[[], Awaitable[bool]]
 MESSAGE_DELTA_EVENT = "message.delta"

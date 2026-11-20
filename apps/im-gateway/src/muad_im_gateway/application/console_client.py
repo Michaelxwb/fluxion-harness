@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from typing import Any, Protocol, TypeVar
 from uuid import UUID
 
@@ -25,12 +24,13 @@ from muad_contracts.webchat import (
     ExternalIdentityView,
     ExternalPrincipalResult,
 )
+from muad_logging import get_logger
 from pydantic import BaseModel, SecretStr
 
 from .envelope import decode_json, error_code_from_payload, require_data_model
 from .runtime_client import CALLER_SERVICE
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 ContractT = TypeVar("ContractT", bound=BaseModel)
 

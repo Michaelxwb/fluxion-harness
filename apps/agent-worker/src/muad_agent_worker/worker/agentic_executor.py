@@ -12,7 +12,6 @@
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Callable, Mapping
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -31,6 +30,7 @@ from muad_agent_core.model import ModelMessage, ModelRole
 from muad_agent_core.skill import SkillExecutionStatus
 from muad_api.error_codes import ErrorCode
 from muad_contracts import WaitKind
+from muad_logging import get_logger
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..application.agentic.checkpoints import AgenticLeaseLost, ExecutionIdentity, checkpoint_state
@@ -61,7 +61,7 @@ from .execution_outcomes import (
 )
 from .executor import TaskExecutionError
 
-logger = logging.getLogger("muad_agent_worker.worker.agentic_executor")
+logger = get_logger("muad_agent_worker.worker.agentic_executor")
 
 AGENTIC_EXECUTION_FAILED = "AGENTIC_EXECUTION_FAILED"
 #: `last_resume_reason` 的 Human 取值（claim 写入；与 answer 事务同一口径）。

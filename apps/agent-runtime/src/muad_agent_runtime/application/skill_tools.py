@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
@@ -60,6 +59,7 @@ from muad_contracts.skill_invocation import (
     MAX_SKILL_ARGV_ITEMS,
     validate_skill_argv,
 )
+from muad_logging import get_logger
 from muad_platform_sdk.adapter.mss_config import PlatformAuthError
 from muad_platform_sdk.egress_attempt_audit import AttemptObserver
 from muad_platform_sdk.egress_ipc import InvocationEgressBroker, PlatformBaseURLLoader
@@ -121,7 +121,7 @@ _ARGV_SCHEMA: Mapping[str, Any] = {
 }
 _NUMBER_SCHEMA: Mapping[str, Any] = {"type": "number", "exclusiveMinimum": 0}
 _CATALOG_RESOURCE_KEY = "skills:catalog"
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)

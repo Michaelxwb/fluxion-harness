@@ -3,18 +3,18 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 
 import httpx
 from muad_common import SharedSettings
 from muad_contracts.shared_egress import SharedEgressPolicy
+from muad_logging import get_logger
 from pydantic import TypeAdapter, ValidationError
 
 from .egress_http_routes import EgressHTTPRoute
 from .egress_ipc import AttemptMetadata, EgressTarget
 from .shared_redis import MeteringUnavailable
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 _BASE_URLS = TypeAdapter(tuple[str, ...])
 
 

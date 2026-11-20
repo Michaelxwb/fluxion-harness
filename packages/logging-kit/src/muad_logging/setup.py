@@ -49,6 +49,14 @@ def configure_logging(
         console_handler.addFilter(redaction)
         root.addHandler(console_handler)
 
+    # Uvicorn installs its own handlers before importing the application.
+    # Route server records through the same formatter and redaction as app logs.
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.access", "uvicorn.asgi"):
+        server_logger = logging.getLogger(name)
+        for handler in server_logger.handlers[:]:
+            server_logger.removeHandler(handler)
+        server_logger.propagate = True
+
     for noisy_logger in ("uvicorn.access", "httpcore", "httpx"):
         logging.getLogger(noisy_logger).setLevel(max(log_level, logging.WARNING))
 
@@ -56,4 +64,5 @@ def configure_logging(
 
 
 def get_logger(name: str) -> logging.Logger:
+    """Get a named logger routed by the service's logging configuration."""
     return logging.getLogger(name)

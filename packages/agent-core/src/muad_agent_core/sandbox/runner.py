@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import ctypes
-import logging
 import os
 import resource
 import signal
@@ -15,6 +14,8 @@ import time
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
+
+from muad_logging import get_logger
 
 from .spec import (
     TERMINATE_GRACE_SEC,
@@ -30,7 +31,7 @@ from .spec import (
     sanitize_env,
 )
 
-logger = logging.getLogger("muad_agent_core.sandbox")
+logger = get_logger("muad_agent_core.sandbox")
 
 _OUTPUT_CHUNK_BYTES = 64 * 1024
 _PR_SET_PDEATHSIG = 1

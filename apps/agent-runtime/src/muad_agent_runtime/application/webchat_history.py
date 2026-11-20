@@ -20,7 +20,6 @@
 
 from __future__ import annotations
 
-import logging
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -45,6 +44,7 @@ from muad_contracts.webchat import (
     WebchatMessagePage,
     WebchatScheduleDraftReady,
 )
+from muad_logging import get_logger
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -77,7 +77,7 @@ from .schedule_draft_events import (
     SCHEDULE_DRAFT_READY_STREAM_TYPE,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 活跃 Run 状态（与 `uq_run_record_active_conversation` partial unique 谓词同源）。
 ACTIVE_RUN_STATUSES: tuple[RunStatus, ...] = (

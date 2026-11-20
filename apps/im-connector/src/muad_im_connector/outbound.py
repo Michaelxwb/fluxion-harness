@@ -18,7 +18,6 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
-import logging
 import time
 from collections.abc import Awaitable
 from dataclasses import dataclass
@@ -40,6 +39,7 @@ from muad_contracts.im import (
     outbound_dead_stream_key,
     outbound_stream_key_for,
 )
+from muad_logging import get_logger
 from redis.asyncio import Redis
 from redis.asyncio.cluster import RedisCluster
 
@@ -49,7 +49,7 @@ from .metrics import (
 )
 from .reply_store import ReplyStore
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 RESULT_TTL_SEC = 600
 COMMAND_MARKER_PREFIX = "muad:connector:cmd"

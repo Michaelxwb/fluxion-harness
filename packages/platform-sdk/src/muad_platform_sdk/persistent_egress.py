@@ -1,9 +1,10 @@
 """PG-first initialization and existing-only Redis recovery for trusted hosts."""
 from __future__ import annotations
 
-import logging
 import uuid
 from dataclasses import replace
+
+from muad_logging import get_logger
 
 from .egress_identity_registry import (
     ExecutionRegistration,
@@ -13,7 +14,7 @@ from .egress_identity_registry import (
 )
 from .shared_redis import SharedRedisMeter
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class PersistentEgressScopes:

@@ -23,7 +23,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import time
 import uuid
 from collections.abc import Sequence
@@ -44,6 +43,7 @@ from muad_contracts.model_pool import (
     RemoteCompletionProof,
     SettlementOutcome,
 )
+from muad_logging import get_logger
 from pydantic import BaseModel, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -61,7 +61,7 @@ from ..metrics import (
 )
 from .dto import ModelProbeTarget
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 PROBE_TIMEOUT_SEC = 5.0
 PROBE_CONCURRENCY = 4

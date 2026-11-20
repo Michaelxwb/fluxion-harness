@@ -10,19 +10,19 @@
 """
 
 import asyncio
-import logging
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from uuid import UUID
 
 from muad_contracts import RunStatus
+from muad_logging import get_logger
 from sqlalchemy import select
 
 from ...infrastructure.db import SessionFactory
 from ...infrastructure.db_clock import database_now
 from ...infrastructure.models.runtime import RunRecord
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 Claim = Callable[
     [frozenset[UUID]], Awaitable[tuple[UUID, Callable[[], Awaitable[object]]] | None]

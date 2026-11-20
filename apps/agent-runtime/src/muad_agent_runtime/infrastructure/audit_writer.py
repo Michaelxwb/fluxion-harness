@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import logging
 import uuid
 from datetime import datetime
 from typing import Any
 
 import sqlalchemy as sa
+from muad_logging import get_logger
 from muad_logging.redaction import redact_text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
@@ -21,7 +21,7 @@ from ..infrastructure.models.runtime import (
 )
 from ..metrics import TOOL_AUDIT_METRIC, record_outcome
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 SENSITIVE_KEY_MARKERS = (
     "password",

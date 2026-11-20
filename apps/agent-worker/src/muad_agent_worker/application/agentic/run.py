@@ -11,7 +11,6 @@ WorkerLoop 落等待状态。
 from __future__ import annotations
 
 import json
-import logging
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
@@ -36,6 +35,7 @@ from muad_agent_core.skill import SkillArtifactResolver, SkillExecutor
 from muad_agent_core.tools import ToolExecutionPipeline
 from muad_common import SharedSettings
 from muad_contracts import OperationWatermark
+from muad_logging import get_logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -73,7 +73,7 @@ from .tools import (
 )
 from .turn_result import NO_CHANGE, ResultRecorder, user_visible_text
 
-logger = logging.getLogger("muad_agent_worker.application.agentic.run")
+logger = get_logger("muad_agent_worker.application.agentic.run")
 
 #: 确定性失败码：直接落终态，不消耗重试预算。
 TASK_BUDGET_EXCEEDED = "TASK_BUDGET_EXCEEDED"

@@ -9,7 +9,6 @@ from __future__ import annotations
 import asyncio
 import inspect
 import json
-import logging
 import math
 import os
 import sys
@@ -22,6 +21,7 @@ from typing import Self
 from uuid import uuid4
 
 from muad_contracts.shared_egress import SharedEgressPolicy, TrustedInvocation
+from muad_logging import get_logger
 from pydantic import ValidationError
 
 from .egress_attempt_audit import AttemptAudit, AttemptObserver
@@ -38,7 +38,7 @@ from .egress_ipc_protocol import (
 from .egress_ipc_protocol import AttemptMetadata as AttemptMetadata
 from .shared_redis import LimitScope, MeteringUnavailable, SharedLimitExceeded, SharedPermit, SharedRedisMeter
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 PlatformBaseURLLoader = Callable[[], Awaitable[tuple[str, ...]]]
 
 

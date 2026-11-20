@@ -12,7 +12,6 @@ or archived session fails explicitly; the runtime never picks a substitute.
 
 from __future__ import annotations
 
-import logging
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -29,6 +28,7 @@ from muad_agent_core.prompt import (
     resolve_zone,
 )
 from muad_contracts import ScheduleWindow, SessionTarget, TriggerType
+from muad_logging import get_logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -46,7 +46,7 @@ from .session_context import (
 )
 from .snapshot import FrozenAgenticExecution
 
-logger = logging.getLogger("muad_agent_worker.application.agentic.scheduled_turn")
+logger = get_logger("muad_agent_worker.application.agentic.scheduled_turn")
 
 DEFAULT_SESSION_TARGET = "isolated"
 SESSION_CONTEXT_UNAVAILABLE = "SESSION_CONTEXT_UNAVAILABLE"

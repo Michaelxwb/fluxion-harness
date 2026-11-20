@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import contextvars
-import logging
 import time
 from collections.abc import AsyncIterator, Sequence
 from contextlib import aclosing, suppress
@@ -38,6 +37,7 @@ from muad_contracts import (
     RunRequest,
     RunStatus,
 )
+from muad_logging import get_logger
 
 from ..channels.base import (
     ATTACHMENT_FETCH_FAILED,
@@ -90,7 +90,7 @@ from .stream_renderer import (
     StreamRenderer,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 DEDUPE_PREFIX = "muad:im:dedupe"
 DEDUPE_TTL_SEC = 600

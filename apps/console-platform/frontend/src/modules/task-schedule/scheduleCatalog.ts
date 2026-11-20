@@ -16,8 +16,6 @@ import type {
   ScheduleStatus
 } from './services/schedules';
 import type {
-  TaskHumanSummary,
-  TaskSnapshotSummary,
   TaskStatus,
   TaskType,
   WaitKind
@@ -220,27 +218,6 @@ export function budgetSummary(budget: AgenticBudget | null): string {
 }
 
 /** 快照摘要：只渲染后端白名单字段，不假设原始快照存在。 */
-export function snapshotSummary(t: Translate, snapshot: TaskSnapshotSummary): string {
-  return [
-    `${t('task.detail.snapshotSchema')}=${snapshot.schema_version ?? '-'}`,
-    `${t('task.detail.snapshotMode')}=${snapshot.mode ?? '-'}`,
-    `${t('task.detail.memoryMode')}=${snapshot.memory_mode ?? '-'}`,
-    `${t('task.detail.allowlist')}=${snapshot.allowlist.join(', ') || '-'}`,
-    `${t('task.detail.budget')}=${snapshot.budget ? JSON.stringify(snapshot.budget) : '-'}`
-  ].join(' · ');
-}
-
-export function humanSummary(t: Translate, human: TaskHumanSummary | null): string {
-  if (human === null) {
-    return '-';
-  }
-  return [
-    `${t('task.detail.humanQuestion')}: ${human.question ?? '-'}`,
-    `${t('task.detail.humanDeadline')}: ${human.deadline_at ?? '-'}`,
-    t(human.open ? 'task.detail.humanOpen' : 'task.detail.humanClosed')
-  ].join(' · ');
-}
-
 /** 一行历史：真实 Fire 与 DST 事件是两类事实，合并排序但**不互相冒充**。 */
 export type FireHistoryRow =
   | { kind: 'FIRE'; key: string; at: string; fire: FireItem }

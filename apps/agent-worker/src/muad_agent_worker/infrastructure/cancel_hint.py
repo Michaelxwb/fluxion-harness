@@ -6,12 +6,12 @@ Redis 不可用时降级为 Null 实现，取消照常由心跳读 PG 生效。
 
 from __future__ import annotations
 
-import logging
 import uuid
 from collections.abc import Callable
 from typing import Protocol, cast
 
 from muad_common.redis_client import create_redis_client
+from muad_logging import get_logger
 from redis.exceptions import RedisClusterException, RedisError
 
 from ..metrics import record_outcome
@@ -20,7 +20,7 @@ TASK_CANCEL_KEY_PREFIX = "muad:task:cancel:"
 TASK_CANCEL_TTL_SEC = 1800
 TASK_CANCEL_VALUE = "1"
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class AsyncRedisLike(Protocol):

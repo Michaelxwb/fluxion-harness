@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import os
 import re
 import tempfile
@@ -19,6 +18,7 @@ from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 
+from muad_logging import get_logger
 from muad_platform_sdk.adapter.mss_config import PlatformAuthError
 from muad_platform_sdk.skill_bridge import PlatformSessionEnvironment, skill_platform_environment
 from muad_platform_sdk.skill_egress import ScriptEgressEnvironment, skill_egress_environment
@@ -54,7 +54,7 @@ from .contracts import (
 from .executor import attach_platform_report, parse_result
 from .selection import SCRIPTS_DIR, SKILL_FILE, sandbox_script_path, script_command, select_script
 
-logger = logging.getLogger("muad_agent_core.skill.sandbox")
+logger = get_logger("muad_agent_core.skill.sandbox")
 
 VALID_SOURCES = frozenset({"SYSTEM", "ADMIN", "USER"})
 _SAFE_COMPONENT_RE = re.compile(r"^[A-Za-z0-9._-]+$")

@@ -9,12 +9,12 @@
 
 from __future__ import annotations
 
-import logging
 from dataclasses import asdict
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, Request
 from muad_api import ApiResponse, inc_counter, ok
+from muad_logging import get_logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.platform_settings_service import PlatformSettingsService
@@ -23,7 +23,7 @@ from ..infrastructure.db import get_session
 from ..metrics import PLATFORM_SETTINGS_FETCH_METRIC
 from .deps import HeaderTenantId, service_token
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 TenantId = HeaderTenantId
 Session = Annotated[AsyncSession, Depends(get_session)]

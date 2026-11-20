@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import mimetypes
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -31,6 +30,7 @@ from muad_common import SharedSettings, process_settings
 from muad_contracts import PayloadKind, ScheduleMode, TriggerType, WaitKind
 from muad_contracts.skill_invocation import validate_skill_argv
 from muad_contracts.snapshot import task_execution_timeout
+from muad_logging import get_logger
 from muad_platform_sdk.platform_transport import PlatformBudgetScope
 from muad_platform_sdk.shared_redis import MeteringUnavailable, SharedLimitExceeded
 from muad_platform_sdk.skill_access import SkillPlatformContext
@@ -57,7 +57,7 @@ from ..metrics import (
 )
 from .egress_execution import execute_task_skill_with_egress
 
-logger = logging.getLogger("muad_agent_worker.worker.executor")
+logger = get_logger("muad_agent_worker.worker.executor")
 
 #: 剩余时间已经不够一秒时不再把它夹成 0：给子进程一个能正常启动/收尾的下限。
 MIN_EXECUTION_TIMEOUT_SEC = 1.0

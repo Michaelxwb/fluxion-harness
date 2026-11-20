@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -17,8 +16,9 @@ from uuid import UUID
 
 import httpx
 from muad_contracts import SnapshotMcpServer, SnapshotTool
+from muad_logging import get_logger
 
-logger = logging.getLogger("muad_agent_worker.application.agentic.mcp")
+logger = get_logger("muad_agent_worker.application.agentic.mcp")
 
 JSON_RPC_VERSION = "2.0"
 MCP_PROTOCOL_VERSION = "2025-03-26"

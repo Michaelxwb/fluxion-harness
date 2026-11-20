@@ -1,10 +1,10 @@
-import logging
 import uuid
 from dataclasses import dataclass
 from typing import Any
 
 from muad_api import sanitize_audit_payload, write_config_audit
 from muad_api.context import trace_correlation_fields
+from muad_logging import get_logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.control import ConfigAuditLog
@@ -21,7 +21,7 @@ from .skill_audit import (
 # 敏感键剔除与 JSON 序列化统一由 api-kit 提供（RULE-15 / LIB-09），此处不再保留第二套实现
 sanitize_payload = sanitize_audit_payload
 
-_logger = logging.getLogger(__name__)
+_logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)

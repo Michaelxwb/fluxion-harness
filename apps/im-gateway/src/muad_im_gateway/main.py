@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
@@ -29,7 +28,7 @@ from muad_common.redis_client import (
 )
 from muad_common.session_store import RedisSessionStore
 from muad_im_core import BotSnapshotCache, InboundPublisher
-from muad_logging import configure_logging
+from muad_logging import configure_logging, get_logger
 from redis.crc import key_slot
 from redis.exceptions import ConnectionError as RedisConnectionError
 from redis.exceptions import RedisError as RedisErrorType
@@ -70,7 +69,7 @@ from .metrics import install_gateway_metrics
 WEBCHAT_API_PREFIX = "/api/v1/webchat"
 MSSWWEB_API_PREFIX = "/api/v1/msswwweb"
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 SERVICE_NAME = "muad-im-gateway"
 

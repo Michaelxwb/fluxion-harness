@@ -27,7 +27,6 @@ WAITING_HUMAN`）时整行保留：等待中的执行还要恢复、重投，结
 from __future__ import annotations
 
 import asyncio
-import logging
 import uuid
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
@@ -37,12 +36,13 @@ from typing import Any, cast
 import sqlalchemy as sa
 from muad_artifact_store import NfsArtifactStore
 from muad_contracts import TaskStatus
+from muad_logging import get_logger
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..infrastructure.db_clock import database_now
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 单批候选上界：破坏性维护动作，有界前进才可中断、可对账。
 TASK_ARTIFACT_RETENTION_BATCH_SIZE = 200

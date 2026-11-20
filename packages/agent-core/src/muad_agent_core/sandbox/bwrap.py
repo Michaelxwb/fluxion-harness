@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import logging
 import re
 import shutil
 import subprocess
 from dataclasses import dataclass
+
+from muad_logging import get_logger
 
 from .runner import _execute, _require_directory
 from .spec import (
@@ -18,7 +19,7 @@ from .spec import (
     sanitize_env,
 )
 
-logger = logging.getLogger("muad_agent_core.sandbox")
+logger = get_logger("muad_agent_core.sandbox")
 
 MIN_BWRAP_VERSION: tuple[int, int, int] = (0, 13, 1)
 _VERSION_RE = re.compile(r"(\d+)\.(\d+)\.(\d+)")

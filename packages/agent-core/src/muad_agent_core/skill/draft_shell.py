@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import hashlib
 import io
-import logging
 import os
 import shutil
 import tempfile
@@ -31,9 +30,9 @@ from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 from typing import Any, Protocol
 
+from muad_logging import get_logger
 from muad_platform_sdk.adapter.mss_config import PlatformAuthError
-from muad_platform_sdk.skill_access import SkillPlatformContext
-from muad_platform_sdk.skill_access import PlatformSessionReport
+from muad_platform_sdk.skill_access import PlatformSessionReport, SkillPlatformContext
 from muad_platform_sdk.skill_bridge import SessionMount, skill_platform_environment
 from muad_skill_sdk.skill_package import SkillPackage, SkillPackageError, locate_package_root
 from redis.exceptions import RedisClusterException, RedisError
@@ -54,7 +53,7 @@ from ..sandbox import (
 )
 from .sandboxed import SESSION_SANDBOX_ROOT
 
-logger = logging.getLogger("muad_agent_core.skill.draft_shell")
+logger = get_logger("muad_agent_core.skill.draft_shell")
 
 DRAFT_SHELL_ALLOWED_EXTENSIONS = frozenset(
     {

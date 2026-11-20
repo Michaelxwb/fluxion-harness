@@ -9,13 +9,13 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
 import uuid
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
 from muad_agent_core.model import ModelMessage, text_of
+from muad_logging import get_logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...infrastructure.db import SessionFactoryProvider, get_session_factory
@@ -26,7 +26,7 @@ TRANSCRIPT_ARTIFACT_TYPE = "TRANSCRIPT"
 #: 非 Skill 产物必须用自己的前缀——`skills/` 会被 `cleanup_orphan_files` 当孤儿回收（RULE-skill-001）。
 TRANSCRIPT_PREFIX = "transcripts"
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def transcript_storage_key(tenant_id: str, run_id: uuid.UUID, artifact_id: uuid.UUID) -> str:

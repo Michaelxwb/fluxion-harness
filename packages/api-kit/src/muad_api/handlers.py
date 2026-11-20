@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import sys
 import traceback
 from typing import Any
@@ -8,13 +7,14 @@ from typing import Any
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from muad_logging import get_logger
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .catalog import MessageCatalog
 from .errors import AppError
 from .response import ApiResponse, build_response
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _json_response(body: ApiResponse[Any], status_code: int) -> JSONResponse:

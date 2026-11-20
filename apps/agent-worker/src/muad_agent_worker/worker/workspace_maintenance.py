@@ -13,7 +13,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import shutil
 import uuid
 from collections.abc import Callable
@@ -26,13 +25,14 @@ from typing import Any, cast
 import sqlalchemy as sa
 from muad_agent_core.sandbox.workspace import WorkspaceLayout
 from muad_common.workspaces import DRAFT_ACTIVITY_MARKER
+from muad_logging import get_logger
 from sqlalchemy import CursorResult, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..infrastructure.models.workspace import Workspace, WorkspaceLease
 from ..metrics import record_loop_tick, record_workspace_cleanup
 
-logger = logging.getLogger("muad_agent_worker.worker.workspace_maintenance")
+logger = get_logger("muad_agent_worker.worker.workspace_maintenance")
 
 WORKSPACE_ACTIVE = "ACTIVE"
 WORKSPACE_DELETING = "DELETING"

@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -18,6 +17,7 @@ from typing import Any
 from muad_common import SharedSettings
 from muad_contracts import MessageDeliveryEnqueueRequest
 from muad_contracts.platform_settings import PlatformSettings
+from muad_logging import get_logger
 from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -32,7 +32,7 @@ from .message_outbox_client import (
     MessageOutboxTransportError,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 OUTBOX_APPLIED = "APPLIED"
 OUTBOX_FAILED = "FAILED"

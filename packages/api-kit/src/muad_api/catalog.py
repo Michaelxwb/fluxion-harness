@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import yaml
+from muad_logging import get_logger
 
-_logger = logging.getLogger(__name__)
+_logger = get_logger(__name__)
 
 _REQUIRED_LOCALES = ("zh-CN", "en-US")
 _FALLBACK_CODE = "COMMON_INTERNAL_ERROR"

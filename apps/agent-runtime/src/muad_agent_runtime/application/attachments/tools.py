@@ -13,7 +13,6 @@ from __future__ import annotations
 import base64
 import hashlib
 import io
-import logging
 import uuid
 from collections import OrderedDict
 from collections.abc import Awaitable, Mapping
@@ -32,6 +31,7 @@ from muad_contracts import (
     is_archive_media_type,
 )
 from muad_contracts.enums import LOCAL_STREAM_CHANNELS, OUTBOUND_CHANNELS
+from muad_logging import get_logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...infrastructure.db import SessionFactoryProvider
@@ -141,7 +141,7 @@ SEARCH_CONTEXT_CHARS = 80
 #: 不再重复解析；有界，避免一次 Run 把多份大文档的全文留在内存里。
 MAX_TEXT_CACHE_ENTRIES = 4
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 枚举范围：本次 Run 内 / 整个会话（缺省会话——历史引用被裁掉的附件靠它找回）
 SCOPE_RUN = "run"

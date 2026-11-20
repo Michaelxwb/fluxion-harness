@@ -1,7 +1,9 @@
+import ast
 import logging
 from datetime import datetime
+from pathlib import Path
 
-from muad_logging import clear_log_context, configure_logging, set_log_context
+from muad_logging import clear_log_context, configure_logging, get_logger, set_log_context
 
 
 def test_log_is_saved_by_service_and_day(tmp_path):
@@ -9,7 +11,7 @@ def test_log_is_saved_by_service_and_day(tmp_path):
     clear_log_context()
     configure_logging(service, log_dir=tmp_path, console=False)
     set_log_context(trace_id='trace-1', request_id='req-1')
-    logging.getLogger('test').info('hello')
+    get_logger('test').info('hello')
     logging.shutdown()
 
     day = datetime.now().astimezone().strftime('%Y-%m-%d')
@@ -47,3 +49,55 @@ def test_unserializable_extra_degrades_to_a_type_placeholder(tmp_path):
     text = (tmp_path / service / f'{day}.log').read_text(encoding='utf-8').strip()
     assert 'connection open' in text
     assert 'connection=<unserializable:Opaque>' in text
+
+
+def test_uvicorn_records_use_the_same_redacted_output(tmp_path, monkeypatch):
+    import io
+
+    old_output = io.StringIO()
+    root = logging.getLogger()
+    monkeypatch.setattr(root, "handlers", [])
+    monkeypatch.setattr(root, "level", root.level)
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.access", "uvicorn.asgi", "httpx", "httpcore"):
+        logger = logging.getLogger(name)
+        monkeypatch.setattr(logger, "handlers", [])
+        monkeypatch.setattr(logger, "propagate", logger.propagate)
+        monkeypatch.setattr(logger, "level", logger.level)
+    server = logging.getLogger("uvicorn")
+    server.addHandler(logging.StreamHandler(old_output))
+    server.propagate = False
+
+    service = "test-uvicorn-routing"
+    configure_logging(service, log_dir=tmp_path, console=False)
+    logging.getLogger("uvicorn.error").warning("server warning", extra={"password": "must-not-appear"})
+    logging.getLogger("uvicorn.access").info("ordinary access")
+    day = datetime.now().astimezone().strftime("%Y-%m-%d")
+    output = (tmp_path / service / f"{day}.log").read_text(encoding="utf-8")
+    assert old_output.getvalue() == ""
+    assert output.count("[WARNING] test-uvicorn-routing uvicorn.error server warning") == 1
+    assert "password=***" in output and "must-not-appear" not in output
+    assert "ordinary access" not in output
+
+
+def test_business_modules_get_loggers_from_logging_kit():
+    root = Path(__file__).resolve().parents[1]
+    sources = sorted(path for root_dir in ("apps", "packages")
+                     for path in (root / root_dir).glob("**/src/**/*.py"))
+    violations = []
+    for path in sources:
+        if path.is_relative_to(root / "packages/logging-kit"):
+            continue
+        nodes = list(ast.walk(ast.parse(path.read_text(encoding="utf-8"))))
+        logging_names = {
+            alias.asname or alias.name
+            for node in nodes if isinstance(node, ast.Import)
+            for alias in node.names if alias.name == "logging"
+        }
+        for node in nodes:
+            if (isinstance(node, ast.ImportFrom) and node.module == "logging"
+                and any(alias.name == "getLogger" for alias in node.names)):
+                violations.append(f"{path.relative_to(root)}:{node.lineno}")
+            if (isinstance(node, ast.Attribute) and node.attr == "getLogger"
+                and isinstance(node.value, ast.Name) and node.value.id in logging_names):
+                violations.append(f"{path.relative_to(root)}:{node.lineno}")
+    assert not violations, "Use muad_logging.get_logger:\n" + "\n".join(violations)

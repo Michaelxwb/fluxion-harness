@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import sys
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import asynccontextmanager
@@ -13,6 +12,7 @@ from muad_common.redis_client import create_redis_client
 from muad_contracts.egress_budget import EffectiveEgressBudget
 from muad_contracts.egress_identity import freeze_egress_identity_budgets
 from muad_contracts.shared_egress import FrozenIdentityBudgets, SharedEgressPolicy
+from muad_logging import get_logger
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from .console_egress import (
@@ -28,7 +28,7 @@ from .host_egress_execution import HostEgressExecution, HostEgressSettings
 from .shared_http_transport import RequestLifetime
 from .shared_redis import MeteringUnavailable, SharedRedisMeter
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def host_settings(

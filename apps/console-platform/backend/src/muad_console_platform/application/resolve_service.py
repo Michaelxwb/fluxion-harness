@@ -1,4 +1,3 @@
-import logging
 from dataclasses import asdict
 from datetime import UTC, datetime
 from typing import Any, Literal, cast
@@ -32,6 +31,7 @@ from muad_contracts import (
 from muad_contracts.memory import MEMORY_MAX_RECORDS
 from muad_contracts.model_pool import SelectedModelCredential
 from muad_contracts.platform_settings import PlatformSettings, compaction_payload
+from muad_logging import get_logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.control import (
@@ -48,7 +48,7 @@ from .agent_mcp_service import AgentMcpService
 from .platform_settings_service import PlatformSettingsService
 from .runtime_credentials import selected_credential
 
-_logger = logging.getLogger(__name__)
+_logger = get_logger(__name__)
 
 
 class ResolveService:

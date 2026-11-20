@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -59,6 +58,7 @@ from muad_contracts import (
 from muad_contracts.enums import OUTBOUND_CHANNELS
 from muad_contracts.memory import MemoryCardinality, MemoryPriority, ScopeState
 from muad_contracts.platform_settings import PlatformSettings
+from muad_logging import get_logger
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -67,7 +67,7 @@ from ..metrics import TASK_SNAPSHOT_BYTES_METRIC, record_gauge
 from ..scheduler.client import ScheduleMaterialsError, ScheduleMaterialsProtocol
 from ..scheduler.templates import render_argv, render_input_template, validate_input_template
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 永久错误：同一依赖不修复就永远不会再成功。
 PERMANENT_ADMISSION_CODES = frozenset(

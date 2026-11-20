@@ -1,7 +1,6 @@
 """Leased, bounded control delivery. No business lock spans an HTTP request."""
 
 import asyncio
-import logging
 import random
 from datetime import UTC, datetime, timedelta
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
@@ -16,6 +15,7 @@ from muad_contracts import (
     OperationStatus,
     TaskStatus,
 )
+from muad_logging import get_logger
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter
 from sqlalchemy import or_, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -27,7 +27,7 @@ from ..run_events import EventWriter
 from ..tool_result_receipts import OP_TERMINAL, RUN_TERMINAL, lock_run_source
 from .operations import add_cancel_command
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 METRIC = "tool_control_dispatch_total"
 JSON_OBJECT = TypeAdapter(dict[str, JsonValue])
 

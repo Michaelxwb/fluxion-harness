@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
@@ -16,6 +15,7 @@ from uuid import UUID
 
 import sqlalchemy as sa
 from muad_contracts.platform_settings import LearningSettings, parse_platform_settings
+from muad_logging import get_logger
 
 from ..infrastructure.db import SessionFactory
 from ..infrastructure.models.runtime import CanonicalEvent, RunRecord, UserMemory
@@ -26,7 +26,7 @@ from .learning_activation import LearningActivation
 from .learning_replay import PASSED, LearningReplay, ReplayLimits
 from .ports import PlatformSettingsClient
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)

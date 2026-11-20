@@ -19,7 +19,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -44,6 +43,7 @@ from muad_contracts import (
     TaskLeaseRenewal,
 )
 from muad_contracts.model_pool import ModelTokenUsage, RemoteCompletionProof
+from muad_logging import get_logger
 from muad_platform_sdk.types import SecretValue
 
 from ...infrastructure.console_credentials import (
@@ -58,7 +58,7 @@ from ...infrastructure.task_capacity_client import (
     TaskCapacityError,
 )
 
-logger = logging.getLogger("muad_agent_worker.application.agentic.model")
+logger = get_logger("muad_agent_worker.application.agentic.model")
 
 PROVIDER_NAME = "task-model-pool"
 #: 预占 token 的保守估算：按请求体字节数折半（中文约 1 token/3 字节、ASCII 约 1/4），

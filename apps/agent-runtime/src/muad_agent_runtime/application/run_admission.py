@@ -15,7 +15,6 @@ Console capacity 设置是唯一来源；`runtime.run_admission_policy` 是 Runt
 
 from __future__ import annotations
 
-import logging
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -30,6 +29,7 @@ from muad_contracts.platform_settings import (
     PlatformSettingsError,
     parse_platform_settings,
 )
+from muad_logging import get_logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.db import SessionFactoryProvider
@@ -47,7 +47,7 @@ CAPACITY_SECTION = "capacity"
 #: 新 Run 的初始排队态：受理后等 Runtime 执行槽（`runtime.run_record.queue_stage` 表级 CHECK 同源）。
 QUEUE_STAGE_WAITING_RUNTIME = "WAITING_RUNTIME"
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -183,7 +183,7 @@ class AdmissionPolicyService:
         self._session_factory_provider = session_factory_provider
         self._settings_client = settings_client
         self._stale_refresh_attempts = max(stale_refresh_attempts, 0)
-        self._logger = logging.getLogger(__name__)
+        self._logger = get_logger(__name__)
 
     async def fetch_capacity(self, *, tenant_id: str, trace_id: str = "") -> CapacitySnapshot:
         """事务外取一次配置（真实 Console 内部 HTTP）；源失败/坏文档都不回落默认值。"""

@@ -24,7 +24,6 @@
 
 from __future__ import annotations
 
-import logging
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -64,6 +63,7 @@ from muad_contracts.webchat_events import (
     WebchatNotificationReadReceipt,
 )
 from muad_im_core import SyncPrincipal
+from muad_logging import get_logger
 from pydantic import BaseModel, ValidationError
 
 from .chat_principal import ChatIdentity
@@ -74,7 +74,7 @@ from .webchat_core import (
     build_webchat_message_gateway,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 入口列表的页大小：条目数本身就是"当前授权入口"的完整集合（`WebchatPage` 要求 items≤page_size）。
 MAX_ENTRIES = 100

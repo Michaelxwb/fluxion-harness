@@ -11,7 +11,6 @@
 
 from __future__ import annotations
 
-import logging
 import uuid
 from dataclasses import asdict
 from typing import Annotated, Any
@@ -19,6 +18,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Header, Query, Request
 from muad_api import ApiResponse, AppError, ErrorCode, inc_counter, ok, paginate
 from muad_contracts.platform_settings import PlatformSettings, PlatformSettingsError, parse_platform_settings
+from muad_logging import get_logger
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -49,7 +49,7 @@ from ..infrastructure.skill_validator import ENTRY_LIMIT, UNPACKED_BYTES_LIMIT, 
 from ..metrics import PLATFORM_SETTINGS_SAVE_METRIC
 from .deps import AccountTenantId, AdminAccount, CurrentAccount, SettingsDep, get_source_ip
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 TenantId = AccountTenantId
 Session = Annotated[AsyncSession, Depends(get_session)]

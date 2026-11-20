@@ -12,12 +12,13 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
+
+from muad_logging import get_logger
 
 if TYPE_CHECKING:
     from muad_platform_sdk.egress_ipc import InvocationEgressBroker
@@ -28,7 +29,7 @@ from .runner import SandboxRunner
 from .spec import SANDBOX_OUTPUT_LIMIT_BYTES, SandboxMount, SandboxPolicy, SandboxResult, SandboxSpec
 from .workspace import WORKSPACE_MOUNT, WorkspaceLease, WorkspaceStore
 
-logger = logging.getLogger("muad_agent_core.sandbox.workspace")
+logger = get_logger("muad_agent_core.sandbox.workspace")
 
 DEFAULT_WORKSPACE_LEASE_SEC = 300.0
 DEFAULT_CHANGED_FILE_LIMIT = 1000

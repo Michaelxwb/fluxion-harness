@@ -7,7 +7,6 @@ owned by requests; each resulting adapter send acquires its own permit.
 """
 from __future__ import annotations
 
-import logging
 import threading
 from collections.abc import Generator
 from contextvars import ContextVar
@@ -17,6 +16,7 @@ from urllib.parse import urlsplit
 from uuid import uuid4
 
 import requests
+from muad_logging import get_logger
 from requests.adapters import HTTPAdapter
 from requests.models import PreparedRequest, Response
 from requests.sessions import Session
@@ -27,7 +27,7 @@ from .egress_ipc_protocol import AttemptMetadata
 from .requests_deadline import deadline_arguments
 from .requests_transport_watch import PhysicalAttempt, TransportWatch, run_attempt
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class _AdapterSend(Protocol):

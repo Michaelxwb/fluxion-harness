@@ -15,7 +15,6 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
-import logging
 import time
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -26,11 +25,12 @@ from uuid import UUID
 import httpx
 from muad_contracts import BotSnapshotItem, ChannelEnvelope, DeliveryMessage, DeliveryRouteInput
 from muad_contracts.im import InboundEvent
+from muad_logging import get_logger
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from .base import ChannelAdapterUnavailable
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 TIMESTAMP_HEADER = "X-Webhook-Timestamp"
 SIGNATURE_HEADER = "X-Webhook-Signature"

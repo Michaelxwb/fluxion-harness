@@ -23,7 +23,6 @@ worker 是独立进程；只渲染本进程注册表会让 `/metrics` 每次抓�
 from __future__ import annotations
 
 import json
-import logging
 import os
 import threading
 import time
@@ -33,6 +32,7 @@ from typing import Any
 
 from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
+from muad_logging import get_logger
 
 PROMETHEUS_CONTENT_TYPE = "text/plain; version=0.0.4; charset=utf-8"
 DEFAULT_KIND = "gauge"
@@ -48,7 +48,7 @@ PROCESS_UP_METRIC = "muad_process_up"
 Labels = Mapping[str, str]
 SampleKey = tuple[str, tuple[tuple[str, str], ...]]
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _label_key(labels: Labels | None) -> tuple[tuple[str, str], ...]:

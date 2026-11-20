@@ -20,7 +20,7 @@ SRC = ROOT / "apps/console-platform/frontend/src"
 
 TASK_PAGE = SRC / "modules/task-schedule/TaskPage.tsx"
 SCHEDULE_PAGE = SRC / "modules/task-schedule/SchedulePage.tsx"
-TASK_DETAIL = SRC / "modules/task-schedule/TaskDetailSideSheet.tsx"
+TASK_DETAIL = SRC / "modules/task-schedule/TaskBasicDetails.tsx"
 SCHEDULE_DETAIL = SRC / "modules/task-schedule/ScheduleDetailSideSheet.tsx"
 ENTITY_NAME = SRC / "modules/task-schedule/EntityNameText.tsx"
 COPYABLE_TEXT = SRC / "components/common/CopyableText.tsx"
@@ -75,7 +75,7 @@ def test_task_detail_links_back_to_schedule_only_for_scheduled_triggers() -> Non
 def test_task_detail_source_run_link_uses_short_id() -> None:
     """来源 Run 链接与列表「关联对象」/审计详情同口径只展示短 id；完整值在运行详情标题复制面。"""
     detail = _read(TASK_DETAIL)
-    assert "shortId(detail.source_run_id)" in detail, "来源 Run 须取短 id"
+    assert "shortId(id)" in detail, "来源 Run 须取短 id"
     assert "slice(0, 8)" in detail, "短 id 口径 = 前 8 位"
 
 

@@ -9,18 +9,18 @@ from __future__ import annotations
 import base64
 import binascii
 import json
-import logging
 import time
 from dataclasses import dataclass
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
+from muad_logging import get_logger
 
 from .aes_ecb import matches_expected
 from .config import ExternalPlatformConfig
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = get_logger(__name__)
 
 _ALLOWED_ALGS = frozenset({"RS256"})
 

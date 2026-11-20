@@ -17,7 +17,6 @@ COMMIT）把 PG 打到 90/100 连接、idle-in-tx 88、324 commits/s。这里把
 from __future__ import annotations
 
 import asyncio
-import logging
 import os
 import time
 import uuid
@@ -32,6 +31,7 @@ from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_common.db_counters import db_stage_scope
 from muad_contracts import canonical_json
+from muad_logging import get_logger
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..infrastructure.db_clock import database_now
@@ -73,7 +73,7 @@ from .async_tools.continuation_service import (
     ensure_execution,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 一批最多合并的事件数：过大让首事件等待变长，过小摊薄不了事务。
 DEFAULT_MAX_BATCH = 32

@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import base64
-import logging
 import uuid
 from collections.abc import Mapping, Sequence
 from typing import Any
@@ -22,11 +21,12 @@ from muad_agent_core.skill.draft_shell import (
     DraftShellError,
     DraftShellRequest,
 )
+from muad_logging import get_logger
 
 INTERNAL_SERVICE_HEADER = "X-Internal-Service"
 REVISION_HEADER = "X-Draft-Revision"
 DEFAULT_TIMEOUT_SEC = 30.0
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ConsoleDraftShellClient:
