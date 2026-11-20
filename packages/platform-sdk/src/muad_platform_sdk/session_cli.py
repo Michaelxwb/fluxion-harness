@@ -74,7 +74,11 @@ def main() -> int:
         if isinstance(detail, dict) and detail:
             # 平台侧失败原因（HTTP 状态 / 业务码 / 原文）随 stderr 交给 Skill，再由 Skill 决定怎么呈现。
             error["detail"] = detail
-        print(json.dumps({"error": error}, ensure_ascii=False), file=sys.stderr)
+        payload: dict[str, object] = {"error": error}
+        platform_sessions = response.get("platform_sessions")
+        if isinstance(platform_sessions, dict) and platform_sessions:
+            payload["platform_sessions"] = platform_sessions
+        print(json.dumps(payload, ensure_ascii=False), file=sys.stderr)
         return 1
     print(json.dumps(response))
     return 0

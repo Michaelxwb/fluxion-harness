@@ -71,12 +71,12 @@
   - platform-sdk-list PASS exit=0
 ## TASK-002: start/get-state 按请求集采集并附失败报告
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001
 - **Source**: platform-session-reporting.design.md#3.2, #3.3, #3.4, #3.5
 - **Scenarios**: platform-session-reporting:S-02, platform-session-reporting:E-02, platform-session-reporting:E-03, platform-session-reporting:B-05
 - **Spec-Refs**: platform/harness-project-platform#RULE-platform-001, secret/harness-secret#RULE-002, test/harness-test
-- **Paths**: packages/platform-sdk/src/muad_platform_sdk/skill_access.py, packages/platform-sdk/src/muad_platform_sdk/skill_bridge.py, packages/platform-sdk/src/muad_platform_sdk/session_cli.py, tests/platform_sdk/test_skill_bridge.py, tests/acceptance/user_skill_sandbox/test_session_manager.py, tests/acceptance/user_skill_sandbox/test_s_03.py, tests/sdk/test_platform_sliding_session.py
+- **Paths**: packages/platform-sdk/src/muad_platform_sdk/adapter/mss_config.py, packages/platform-sdk/src/muad_platform_sdk/skill_access.py, packages/platform-sdk/src/muad_platform_sdk/skill_bridge.py, packages/platform-sdk/src/muad_platform_sdk/session_cli.py, tests/platform_sdk/test_skill_bridge.py, tests/acceptance/user_skill_sandbox/test_session_manager.py, tests/acceptance/user_skill_sandbox/test_s_03.py, tests/sdk/test_platform_sliding_session.py
 - **E2E**:
 - **Skip-Tests**: false
 - **Skip-Reason**:
@@ -107,12 +107,12 @@
 
 ### Checklist
 
-- [ ] `start()` 对请求集采集；单平台失败不阻止其他平台；异常带最后报告。
-- [ ] `PlatformSessionEnvironment.report` 暴露最后报告；无持久化/跨执行共享。
-- [ ] `_write_state()` 失败不写状态文件；成功输出形状、权限、清理不变。
-- [ ] `get-state` 失败 stderr 的 `platform_sessions` 包含所有请求平台；原错误字段保持。
-- [ ] `allowed_keys()` 只做授权；缺凭据平台不被静默过滤。
-- [ ] 既有 `get-state`/`refresh` 成功路径与 `test_platform_sliding_session` 回归通过。
+- [x] `start()` 对请求集采集；单平台失败不阻止其他平台；异常带最后报告。
+- [x] `PlatformSessionEnvironment.report` 暴露最后报告；无持久化/跨执行共享。
+- [x] `_write_state()` 失败不写状态文件；成功输出形状、权限、清理不变。
+- [x] `get-state` 失败 stderr 的 `platform_sessions` 包含所有请求平台；原错误字段保持。
+- [x] `allowed_keys()` 只做授权；缺凭据平台不被静默过滤。
+- [x] 既有 `get-state`/`refresh` 成功路径与 `test_platform_sliding_session` 回归通过。
 
 ### Spec Delta
 
@@ -123,11 +123,13 @@
 ### Log
 
 - [2026-11-20] created
+- [2026-11-20T04:03:31.521Z] started tests=1b12294888da
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-20T04:12:41.905Z PASS commands=1/1 executed=1 deduped=0 elapsed=24758ms tests=1b12294888da head=f169a6982d14 dirty=1
+  - platform-sdk-state PASS exit=0
 ## TASK-003: 执行器暴露最后报告并附加有界摘要
 
 - **Status**: draft

@@ -102,6 +102,17 @@ class PlatformSessionReport:
     def has_success(self) -> bool:
         return any(attempt.available is True for attempt in self._attempts.values())
 
+    def failures(self) -> tuple[PlatformAttempt, ...]:
+        return tuple(
+            attempt
+            for key in self._order
+            if (attempt := self._attempts.get(key)) is not None and attempt.available is False
+        )
+
+    def first_failure(self) -> PlatformAttempt | None:
+        failures = self.failures()
+        return failures[0] if failures else None
+
     def successes(self) -> tuple[PlatformAttempt, ...]:
         return tuple(
             attempt
@@ -226,6 +237,7 @@ class SkillPlatformAccess:
         keys: Sequence[str],
         *,
         metadata: Mapping[str, Mapping[str, Any]] | None = None,
+        refresh: bool = False,
     ) -> PlatformSessionReport:
         """按请求顺序逐平台解析/获取，记录最后报告；不抛出平台级失败。
 
@@ -272,7 +284,7 @@ class SkillPlatformAccess:
                 )
                 continue
             try:
-                state = await manager.acquire(request)
+                state = await manager.renew(request) if refresh else await manager.acquire(request)
             except PlatformAuthError as exc:
                 self.report.record(
                     PlatformAttempt(
@@ -394,11 +406,19 @@ class SkillPlatformAccess:
         )
         return platform, request, manager
 
-    async def start(self) -> None:
-        # Explicit Skill platform declarations retain their historical lease touch;
-        # AUTO execution remains fully lazy and does not contact Console/Redis here.
+    async def start(self) -> PlatformSessionReport:
+        # Explicit declarations collect the requested set and report per-platform
+        # failures before the script starts; AUTO remains fully lazy.
         if self.context.scope is not PlatformScope.SELECTED:
-            return None
-        for key in await self.allowed_keys():
-            _, request, manager = await self.resolve_platform(key)
-            await manager.acquire(request)
+            return self.report
+        requested = tuple(dict.fromkeys(self.context.platform_keys))
+        await self.collect_batch(requested)
+        first = self.report.first_failure()
+        if first is not None:
+            raise PlatformAuthError(
+                first.code or "PLATFORM_SESSION_REQUIRED",
+                retryable=first.retryable,
+                detail=first.detail,
+                platform_sessions=self.report.payload(requested),
+            )
+        return self.report

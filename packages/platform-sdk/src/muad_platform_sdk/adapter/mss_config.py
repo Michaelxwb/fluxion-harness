@@ -16,11 +16,18 @@ class PlatformAuthError(RuntimeError):
     """
 
     def __init__(
-        self, code: str, *, retryable: bool = False, detail: dict[str, object] | None = None
+        self,
+        code: str,
+        *,
+        retryable: bool = False,
+        detail: dict[str, object] | None = None,
+        platform_sessions: dict[str, object] | None = None,
     ) -> None:
         self.code = code
         self.retryable = retryable
         self.detail = detail
+        #: 预登录/批量获取失败时的逐平台报告；只含安全投影，不进入日志。
+        self.platform_sessions = platform_sessions
         super().__init__(code)
 
 

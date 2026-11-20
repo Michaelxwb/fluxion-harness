@@ -107,8 +107,8 @@ async def test_session_manager_state_is_bound_to_execution_and_deleted(
     assert cached.get("credential") is None and "credential_json" not in stored.decode()
 
 
-async def test_unauthorized_platform_yields_platform_session_required(tmp_path: Path) -> None:
-    """受信上下文之外的平台 key：Console 拒绝 → PLATFORM_SESSION_REQUIRED。"""
+async def test_unauthorized_platform_yields_platform_access_denied(tmp_path: Path) -> None:
+    """受信上下文之外的平台 key：Console 拒绝 → PLATFORM_ACCESS_DENIED。"""
     async with open_session_chain() as chain:
         root = write_skill_package(
             tmp_path / "skill",
@@ -126,7 +126,7 @@ async def test_unauthorized_platform_yields_platform_session_required(tmp_path: 
                     platform_context=context,
                 )
             )
-    assert captured.value.code == "PLATFORM_SESSION_REQUIRED"
+    assert captured.value.code == "PLATFORM_ACCESS_DENIED"
 
 
 async def test_workspace_shell_never_receives_session_manager(tmp_path: Path) -> None:
