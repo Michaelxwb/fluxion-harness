@@ -29,13 +29,13 @@ sequenceDiagram
     autonumber
     participant U as MSSW 用户<br/>（浏览器）
     participant BFF as MSSW BFF<br/>（后端服务）
-    participant GW as im-gateway<br/>/api/v1/msswwweb
+    participant GW as im-gateway<br/>/api/v1/msswweb
     participant CON as console-platform<br/>（身份权威 + 验签）
     participant RT as agent-runtime
 
     rect rgb(238, 245, 255)
     Note over BFF,CON: 阶段 1｜身份与可见性（决定 Tab 是否可见）
-    BFF->>GW: GET /api/v1/msswwweb/identity<br/>Cookie: soc-token=[JWT]
+    BFF->>GW: GET /api/v1/msswweb/identity<br/>Cookie: soc-token=[JWT]
     GW->>CON: POST /internal/channel/external-principal<br/>{channel: MSSWWEB, soc_token}
     Note over CON: 验 RS256 + AES(aud/iss) + claim<br/>按 identity_keys 取 claim → canonical JSON → sha256<br/>查 external_identity
     CON->>CON: 查 entry_access_grant + bot_account + Agent 授权
@@ -46,19 +46,19 @@ sequenceDiagram
 
     rect rgb(245, 255, 245)
     Note over BFF,GW: 阶段 2｜入口列表与建会话
-    BFF->>GW: GET /api/v1/msswwweb/entries<br/>Cookie: soc-token=[JWT]
+    BFF->>GW: GET /api/v1/msswweb/entries<br/>Cookie: soc-token=[JWT]
     GW-->>BFF: 200 {items:[{entry_id, name, agent_id, allowed}]}
-    BFF->>GW: POST /api/v1/msswwweb/entries/{entry_id}/conversations<br/>Idempotency-Key: [BFF 生成]
+    BFF->>GW: POST /api/v1/msswweb/entries/{entry_id}/conversations<br/>Idempotency-Key: [BFF 生成]
     GW-->>BFF: 201 {conversation_id}
     end
 
     rect rgb(255, 250, 235)
     Note over BFF,RT: 阶段 3｜发消息 202 + 订阅 SSE
-    BFF->>GW: POST /api/v1/msswwweb/entries/{entry_id}/messages<br/>Cookie: soc-token=[JWT]<br/>Idempotency-Key: [BFF 生成]<br/>{conversation_id|null, message_id, text, upload_ids[]}
+    BFF->>GW: POST /api/v1/msswweb/entries/{entry_id}/messages<br/>Cookie: soc-token=[JWT]<br/>Idempotency-Key: [BFF 生成]<br/>{conversation_id|null, message_id, text, upload_ids[]}
     GW->>RT: admit（复用现有 202 受理）
     RT-->>GW: {run_id, conversation_id}
     GW-->>BFF: 202 {run_id, conversation_id}
-    BFF->>GW: GET /api/v1/msswwweb/runs/{run_id}/events?after_seq=0<br/>Cookie: soc-token=[JWT]
+    BFF->>GW: GET /api/v1/msswweb/runs/{run_id}/events?after_seq=0<br/>Cookie: soc-token=[JWT]
     GW->>CON: 复核 user + agent + expires_at
     GW->>RT: 订阅 canonical 事件流
     loop 每个事件
@@ -72,28 +72,28 @@ sequenceDiagram
         Note over GW: 与 Last-Event-ID 取大值，不重置为 0
     end
     opt 用户点停止
-        BFF->>GW: POST /api/v1/msswwweb/runs/{run_id}/cancel
+        BFF->>GW: POST /api/v1/msswweb/runs/{run_id}/cancel
         GW-->>BFF: 200
     end
     end
 
     rect rgb(252, 240, 250)
     Note over BFF,RT: 阶段 4｜会话列表、详情与历史
-    BFF->>GW: GET /api/v1/msswwweb/entries/{entry_id}/conversations<br/>Cookie: soc-token=[JWT]
+    BFF->>GW: GET /api/v1/msswweb/entries/{entry_id}/conversations<br/>Cookie: soc-token=[JWT]
     GW-->>BFF: 200 {items:[{conversation_id, entry_id, has_unread, ...}]}
-    BFF->>GW: GET /api/v1/msswwweb/conversations/{id}<br/>?through_seq=[通知水位]
+    BFF->>GW: GET /api/v1/msswweb/conversations/{id}<br/>?through_seq=[通知水位]
     GW-->>BFF: 200 {messages[], confirmation, through_seq}
-    BFF->>GW: GET /api/v1/msswwweb/conversations/{id}/messages<br/>?page=1&page_size=20&through_seq=[冻结水位]
+    BFF->>GW: GET /api/v1/msswweb/conversations/{id}/messages<br/>?page=1&page_size=20&through_seq=[冻结水位]
     GW-->>BFF: 200 {items[], through_seq}
-    BFF->>GW: POST /api/v1/msswwweb/conversations/{id}/read<br/>{through_seq: [通知水位]}
+    BFF->>GW: POST /api/v1/msswweb/conversations/{id}/read<br/>{through_seq: [通知水位]}
     GW-->>BFF: 200
     end
 
     rect rgb(245, 245, 245)
     Note over BFF,GW: 阶段 5｜附件
-    BFF->>GW: POST /api/v1/msswwweb/entries/{entry_id}/attachments<br/>multipart/form-data: file
+    BFF->>GW: POST /api/v1/msswweb/entries/{entry_id}/attachments<br/>multipart/form-data: file
     GW-->>BFF: 200 {upload_id}
-    BFF->>GW: GET /api/v1/msswwweb/artifacts/{artifact_id}/content
+    BFF->>GW: GET /api/v1/msswweb/artifacts/{artifact_id}/content
     GW-->>BFF: 200 字节流（禁止 302，网关流式代理）
     end
 ```
