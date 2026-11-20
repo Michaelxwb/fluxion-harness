@@ -199,7 +199,7 @@ Connector 通过 Console 内部 `platform-settings` 快照读取，按租户缓�
 
 ## TASK-004: 任务产物 owner 读取与列表一致
 
-- **Status**: draft
+- **Status**: done
 - **Depends**:
 - **Source**: im-attachment-integrity.backend.design.md#3.2.4
 - **Scenarios**: im-attachment-integrity:S-02, im-attachment-integrity:E-02
@@ -234,11 +234,11 @@ Connector 通过 Console 内部 `platform-settings` 快照读取，按租户缓�
 
 ### Checklist
 
-- [ ] 任务产物 `run_id/conversation_id` 为空但 owner 完整时可列出/读取。
-- [ ] 列表与读取使用同一 owner 口径，不再“列得出、读不到”。
-- [ ] 跨用户/跨租户/空 owner/软删/live task 不存在均拒绝且不泄露。
-- [ ] 普通 Run/入站产物归属行为不变。
-- [ ] 测试使用真实 PostgreSQL + 真实 owner 行。
+- [x] 任务产物 `run_id/conversation_id` 为空但 owner 完整时可列出/读取。
+- [x] 列表与读取使用同一 owner 口径，不再“列得出、读不到”。
+- [x] 跨用户/跨租户/空 owner/软删/live task 不存在均拒绝且不泄露。
+- [x] 普通 Run/入站产物归属行为不变。
+- [x] 测试使用真实 PostgreSQL + 真实 owner 行。
 
 ### Spec Delta
 
@@ -249,11 +249,13 @@ Connector 通过 Console 内部 `platform-settings` 快照读取，按租户缓�
 ### Log
 
 - [2026-11-20] created
+- [2026-11-20T11:28:20.347Z] started tests=9514260a8adb
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-20T11:32:16.785Z PASS commands=1/1 executed=1 deduped=0 elapsed=23223ms tests=9514260a8adb head=9f9c093d4b83 dirty=1
+  - task-artifact-owner PASS exit=0
 ## TASK-005: 附件来源标注与内部产物显式访问
 
 - **Status**: draft

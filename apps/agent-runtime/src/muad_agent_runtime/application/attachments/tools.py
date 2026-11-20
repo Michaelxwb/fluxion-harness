@@ -55,6 +55,7 @@ from .output_service import (
 )
 from .publication import PublicationError, publish_artifact_to_conversation
 from .reference import artifact_kind, attachment_ref
+from .task_artifacts import task_owner_predicate
 
 READ_ATTACHMENT_TOOL = "read_attachment"
 VIEW_IMAGE_TOOL = "view_image"
@@ -567,6 +568,14 @@ class AttachmentToolSet:
             stmt = stmt.where(
                 Artifact.agent_id == self._agent_id,
                 Artifact.user_id == self._user_id,
+                sa.or_(
+                    Artifact.task_id.is_(None),
+                    task_owner_predicate(
+                        tenant_id=self._tenant_id,
+                        user_id=self._user_id,
+                        agent_id=self._agent_id,
+                    ),
+                ),
             )
         else:
             stmt = stmt.where(Artifact.conversation_id == self._conversation_id)
@@ -944,7 +953,12 @@ class AttachmentToolSet:
             )
             .exists()
         )
-        return sa.or_(by_conversation, by_run)
+        by_task = task_owner_predicate(
+            tenant_id=self._tenant_id,
+            user_id=user_id,
+            agent_id=self._agent_id,
+        )
+        return sa.or_(by_conversation, by_run, by_task)
 
     def _scoped_query(self, artifact_id: object) -> sa.Select[tuple[Artifact]]:
         """按 id 取附件行的**唯一**口径：租户 + 未软删 + **归属本人**；标识非法即按"不存在"。
