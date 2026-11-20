@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import re
 import uuid
 from collections.abc import Iterator, Mapping
@@ -59,6 +60,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.task import TaskSchedule, TaskScheduleDraft, TaskScheduleRevision
+from ..metrics import SCHEDULE_PREFLIGHT_METRIC, record_outcome
 from ..scheduler.client import ScheduleMaterialsError, ScheduleMaterialsProtocol
 from ..scheduler.recurrence import RecurrenceRule, build_rule, initial_fire_at, next_slot
 from ..scheduler.templates import (
@@ -79,6 +81,7 @@ from .schedule_quota import ScheduleQuota, ensure_min_interval, ensure_schedule_
 
 DRAFT_HASH_PREFIX = "sha256:"
 DRAFT_STATUS_PENDING = str(DraftStatus.PENDING)
+logger = logging.getLogger(__name__)
 
 #: 授权类失败（其余永久失败一律按「依赖缺失」上报，精确原因走 `data.admission_code`）。
 _GRANT_ADMISSION_CODES = frozenset({"GRANT_REVOKED", "TOOL_REVOKED"})
@@ -513,6 +516,34 @@ class ScheduleDraftPreflight:
         self._now = now
 
     async def run(
+        self, body: ScheduleDraftRequest, *, identity: DraftIdentity
+    ) -> PreflightResult:
+        mode = str(derive_schedule_mode(body.payload))
+        try:
+            result = await self._run(body, identity=identity)
+        except AppError as exc:
+            record_outcome(
+                SCHEDULE_PREFLIGHT_METRIC,
+                "FAILED",
+                {"mode": mode, "code": str(exc.code)},
+            )
+            logger.warning(
+                "schedule_preflight_failed",
+                extra={"mode": mode, "code": str(exc.code)},
+            )
+            raise
+        record_outcome(
+            SCHEDULE_PREFLIGHT_METRIC,
+            "PASSED",
+            {"mode": mode, "code": "OK"},
+        )
+        logger.info(
+            "schedule_preflight_passed",
+            extra={"mode": mode, "dependencies": list(result.dependencies)},
+        )
+        return result
+
+    async def _run(
         self, body: ScheduleDraftRequest, *, identity: DraftIdentity
     ) -> PreflightResult:
         rule = recurrence_rule(body)

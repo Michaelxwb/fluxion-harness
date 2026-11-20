@@ -458,26 +458,6 @@ class TaskArtifactRef(ContractModel):
     deliveries: list[TaskArtifactDeliveryRef] = Field(default_factory=list)
 
 
-class ScheduleTrialFact(ContractModel):
-    """一次真实试跑的执行事实（卡片/Console 展示）。
-
-    它不是配置：不进入 `ScheduleJob`，也不进入不可变 Revision；Draft 的 `payload`/`hash`
-    不受试跑影响。
-    """
-
-    execution_id: UUID
-    status: TaskStatus
-    #: 失败时的稳定错误码与修复动作；成功时为空。
-    error_code: str | None = Field(default=None, max_length=64)
-    repair: str | None = Field(default=None, max_length=128)
-    repair_hint: str | None = Field(default=None, max_length=500)
-    #: 结果摘要（真实执行结果的文本视图）与真实产物引用。
-    result_summary: str | None = Field(default=None, max_length=4000)
-    artifacts: list[TaskArtifactRef] = Field(default_factory=list)
-    started_at: AwareDatetime | None = None
-    finished_at: AwareDatetime | None = None
-
-
 class ScheduleDispatchCheck(ContractModel):
     """确认前的调度可调用性事实（卡片展示；不是执行结果）。"""
 
@@ -518,8 +498,6 @@ class SchedulePreview(ContractModel):
     diff: list[ScheduleDiffEntry] = Field(default_factory=list)
     #: 调度预检事实；预检失败不会落 Draft，因此成功卡片只会看到 PASSED。
     dispatch_check: ScheduleDispatchCheck | None = None
-    #: 试跑事实（只有真的跑过一次才有）：真实执行 id/状态/结果/产物，不是渲染预览。
-    trial: ScheduleTrialFact | None = None
 
 
 class ScheduleDraftResponse(ContractModel):
@@ -1275,7 +1253,7 @@ __all__ = [
     "SchedulePlan",
     "SchedulePolicy",
     "SchedulePreview",
-    "ScheduleTrialFact",
+    "ScheduleDispatchCheck",
     "ScheduleWindow",
     "SessionTarget",
     "SkillPlanPayload",

@@ -551,12 +551,12 @@
   - authoring-self-creator PASS exit=0
 ## TASK-007: 观测、删除 Trial、端到端兼容
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-004, TASK-005, TASK-006
 - **Source**: scheduled-skill-invocation.backend.design.md §3.7、§4
 - **Scenarios**: S-06, E-03, B-02, B-04
 - **Spec-Refs**: test/harness-test, api/harness-api, logging/harness-log
-- **Paths**: apps/agent-worker/src/muad_agent_worker/metrics.py, apps/agent-worker/src/muad_agent_worker/api/schedule_drafts.py, apps/agent-worker/src/muad_agent_worker/application/schedule_trial_run.py, packages/contracts/src/muad_contracts/scheduling.py, apps/console-platform/frontend/src/locales/zh-CN.json, apps/console-platform/frontend/src/locales/en-US.json, tests/agent_worker/test_scheduled_v2_observability.py, tests/agent_worker/test_schedule_authoring_e2e.py, tests/agent_worker/test_scheduled_v2_drafts.py, tests/contracts/test_scheduled_v2_contracts.py
+- **Paths**: apps/agent-worker/src/muad_agent_worker/metrics.py, apps/agent-worker/src/muad_agent_worker/application/schedule_drafts.py, apps/agent-worker/src/muad_agent_worker/api/schedule_drafts.py, apps/agent-worker/src/muad_agent_worker/application/schedule_trial_run.py, packages/contracts/src/muad_contracts/scheduling.py, packages/contracts/src/muad_contracts/__init__.py, apps/console-platform/frontend/src/locales/zh-CN.json, apps/console-platform/frontend/src/locales/en-US.json, apps/console-platform/frontend/src/modules/webchat/types.ts, apps/console-platform/frontend/src/modules/webchat/components/DraftCard.tsx, tests/agent_worker/test_scheduled_v2_observability.py, tests/agent_worker/test_schedule_authoring_e2e.py, tests/agent_worker/test_scheduled_v2_drafts.py, tests/agent_worker/test_scheduled_skill_plan_e2e.py, tests/contracts/test_scheduled_v2_contracts.py, tests/frontend/test_schedule_preview_contract.py
 - **E2E**:
 - **Skip-Tests**: false
 - **Skip-Reason**:
@@ -577,7 +577,9 @@
       "tests/agent_worker/test_scheduled_v2_observability.py",
       "tests/agent_worker/test_schedule_authoring_e2e.py",
       "tests/agent_worker/test_scheduled_v2_drafts.py",
-      "tests/contracts/test_scheduled_v2_contracts.py"
+      "tests/agent_worker/test_scheduled_skill_plan_e2e.py",
+      "tests/contracts/test_scheduled_v2_contracts.py",
+      "tests/frontend/test_schedule_preview_contract.py"
     ],
     "timeout": 900,
     "parallel": false
@@ -596,13 +598,13 @@
 
 ### Checklist
 
-- [ ] 成功/失败/blocked 路径指标递增，标签有界。
-- [ ] 审计不泄露 argv/input/业务正文；可追溯 contract version/artifact checksum。
-- [ ] `/test-run`、trial service/fact/preview 字段无残留引用。
-- [ ] 前端卡片只展示调度预检；无“真实试跑”文案。
-- [ ] E2E 覆盖成功、契约缺失、参数不兼容、版本漂移。
-- [ ] 存量 Schedule 行为符合 B-02。
-- [ ] 文档/操作说明明确“预检不执行、不投递”。
+- [x] 成功/失败/blocked 路径指标递增，标签有界。
+- [x] 审计不泄露 argv/input/业务正文；可追溯 contract version/artifact checksum。
+- [x] `/test-run`、trial service/fact/preview 字段无残留引用。
+- [x] 前端卡片只展示调度预检；无“真实试跑”文案。
+- [x] E2E 覆盖成功、契约缺失、参数不兼容、版本漂移。
+- [x] 存量 Schedule 行为符合 B-02。
+- [x] 文档/操作说明明确“预检不执行、不投递”。
 
 ### Spec Delta
 
@@ -621,13 +623,15 @@
 ### Log
 
 - [2026-11-20] created
+- [2026-11-20T08:12:54.665Z] started tests=3a2652a3250b
 
 ### Verification
 
 - 尚未执行
 
 <a id="task-008"></a>
-
+- 2026-11-20T08:28:54.656Z PASS commands=1/1 executed=1 deduped=0 elapsed=47016ms tests=bf63d582a46d head=af4743ceda94 dirty=1 tests-changed
+  - observability-cleanup PASS exit=0
 ## TASK-008: 对话直接调用校验
 
 - **Status**: draft
