@@ -314,7 +314,7 @@
   - secret-scrub PASS exit=0
 ## TASK-006: 模型说明、作者指南与 Spec Delta
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005
 - **Source**: platform-session-reporting.design.md#2.4, #3.4, #3.5
 - **Scenarios**: platform-session-reporting:S-03, platform-session-reporting:S-02, platform-session-reporting:B-03
@@ -342,10 +342,10 @@
 
 ### Checklist
 
-- [ ] `execute`/`--help`/作者指南同文；无“先 list”的旧指导。
-- [ ] `session_get_state` 陈旧段落删除或修正；模板保留完整诊断。
-- [ ] 2026-11-17 设计与 `MSSP-INTEGRATION`/`legacy-skill-migration` 同步 `list-platforms` 新语义。
-- [ ] Spec Delta 已声明；`next_rule` 不一致已记录。
+- [x] `execute`/`--help`/作者指南同文；无“先 list”的旧指导。
+- [x] `session_get_state` 陈旧段落删除或修正；模板保留完整诊断。
+- [x] 2026-11-17 设计与 `MSSP-INTEGRATION`/`legacy-skill-migration` 同步 `list-platforms` 新语义。
+- [x] Spec Delta 已声明；`next_rule` 不一致已记录。
 
 ### Spec Delta
 
@@ -371,7 +371,9 @@
 ### Log
 
 - [2026-11-20] created
+- [2026-11-20T04:36:11.271Z] started tests=4f53cda18c2b
 
 ### Verification
 
 - 尚未执行
+- 2026-11-20T04:38:37.162Z SKIPPED commands=0/0 executed=0 deduped=0 tests=4f53cda18c2b head=d0ed9de40fdb dirty=1 reason=docs/spec only; runtime behavior is covered by TASK-001..005; Spec Delta is applied at archive

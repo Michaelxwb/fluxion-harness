@@ -89,6 +89,7 @@ session-manager --help
 ```
 
 - list-platforms：仅列目录，不触发平台登录，也不把登录失败伪装成“目录为空”。
+  > 2026-11-20 修订：`list-platforms` 已增强为按本次范围实际检查登录态，`available` 不再只表示“有凭据配置”；实现与验收见 `.code-flow/tasks/2026-11-19/platform-session-reporting/`。`get-state` / `refresh` 的契约保持不变。
 - get-state：获取一个指定平台可用 Session；若缓存有效则复用，否则受控验证、刷新或登录。
 - refresh：明确请求刷新，不得忽略参数后仍返回复用成功。使用平台适配器声明的刷新能力；不支持时明确返回不支持，不能猜测 flag 或声称已经强制刷新。
 - 单次 get-state/refresh 必须指定稳定 platform key。仅有一个可用平台也不暗中猜选；模型通过目录确定 key。
