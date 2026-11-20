@@ -257,7 +257,7 @@
   - worker-diagnostic PASS exit=0
 ## TASK-005: 敏感值擦除与无会话平台报告
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001, TASK-002
 - **Source**: platform-session-reporting.design.md#3.3, #3.5
 - **Scenarios**: platform-session-reporting:S-02, platform-session-reporting:S-04, platform-session-reporting:E-02, platform-session-reporting:B-04
@@ -291,10 +291,10 @@
 
 ### Checklist
 
-- [ ] CSRF/登录 Cookie canary 不出现在报告、摘要、日志、工具错误。
-- [ ] 无会话/REQUEST_SIGNING 平台 `available: null` + `reason`，不误报认证失败。
-- [ ] 现有 `ak`/`sk`/`headers` 擦除与 `test_mss_sessions` 回归保持。
-- [ ] `list-platforms` 缺凭据/认证拒绝/基础设施故障不互相冒充。
+- [x] CSRF/登录 Cookie canary 不出现在报告、摘要、日志、工具错误。
+- [x] 无会话/REQUEST_SIGNING 平台 `available: null` + `reason`，不误报认证失败。
+- [x] 现有 `ak`/`sk`/`headers` 擦除与 `test_mss_sessions` 回归保持。
+- [x] `list-platforms` 缺凭据/认证拒绝/基础设施故障不互相冒充。
 
 ### Spec Delta
 
@@ -305,11 +305,13 @@
 ### Log
 
 - [2026-11-20] created
+- [2026-11-20T04:35:25.309Z] started tests=671ea7ecc9a2
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-20T04:35:49.514Z PASS commands=1/1 executed=1 deduped=0 elapsed=19825ms tests=671ea7ecc9a2 head=8df9979ca7f9 dirty=1
+  - secret-scrub PASS exit=0
 ## TASK-006: 模型说明、作者指南与 Spec Delta
 
 - **Status**: draft

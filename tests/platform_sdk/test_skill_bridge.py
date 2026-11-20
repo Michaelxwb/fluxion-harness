@@ -19,7 +19,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
-from muad_platform_sdk import PlatformConfig, PlatformSession, SecretValue
+from muad_platform_sdk import PlatformConfig, PlatformSession, SecretValue, SessionMode
 from muad_platform_sdk.adapter.mss_config import PlatformAuthError
 from muad_platform_sdk.session.manager import SessionRequest
 from muad_platform_sdk.skill_access import SkillPlatformAccess, SkillPlatformContext
@@ -51,6 +51,24 @@ class _FailingManager:
         )
 
 
+class _NoAuthAdapter:
+    key = "no-auth"
+    name = "no-auth"
+    version = "1"
+    session_mode = SessionMode.NONE
+    platform_config_schema: dict[str, object] = {}
+    credential_schema: dict[str, object] = {}
+
+    async def authenticate(self, platform, credential):  # noqa: ANN001
+        return None
+
+    async def validate(self, platform, session):  # noqa: ANN001
+        return True
+
+    async def prepare_request(self, platform, session, request, credential):  # noqa: ANN001
+        raise NotImplementedError
+
+
 def _context(keys: tuple[str, ...] = ("mssp",)) -> SkillPlatformContext:
     return SkillPlatformContext(
         tenant_id="tenant-session",
@@ -71,6 +89,8 @@ def _patch_resolver(
     missing: frozenset[str] = frozenset(),
     failing: frozenset[str] = frozenset(),
     rejecting: frozenset[str] = frozenset(),
+    adapter_key: str = "mss-session",
+    credential_mode: str = "USER_ONLY",
 ) -> None:
     async def resolve(
         self: SkillPlatformAccess, key: str, method: str, path: str
@@ -84,8 +104,8 @@ def _patch_resolver(
             name=key,
             resolver_type="BASE_URL",
             resolver_config={"base_url": "https://mssp.example.internal"},
-            adapter_key="mss-session",
-            credential_mode="USER_ONLY",
+            adapter_key=adapter_key,
+            credential_mode=credential_mode,
         )
         request = SessionRequest(
             platform,
@@ -380,6 +400,27 @@ async def test_list_platforms_empty_catalog_is_an_empty_report(
 
     assert completed.returncode == 0, completed.stderr
     assert json.loads(completed.stdout) == {"version": 2, "platforms": []}
+
+
+async def test_list_platforms_marks_no_session_platform_as_not_checked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_list(monkeypatch, ("no-auth",))
+    _patch_resolver(monkeypatch, adapter_key="no-auth", credential_mode="NONE")
+    original_init = SkillPlatformAccess.__init__
+
+    def init_with_no_auth(self: SkillPlatformAccess, context: SkillPlatformContext) -> None:
+        original_init(self, context)
+        self.registry.register(_NoAuthAdapter())
+
+    monkeypatch.setattr(SkillPlatformAccess, "__init__", init_with_no_auth)
+    async with skill_platform_environment(_context(()), "probe-skill") as session:
+        completed = await _run_cli_list(dict(session.env))
+
+    assert completed.returncode == 0, completed.stderr
+    payload = json.loads(completed.stdout)
+    assert payload["platforms"][0]["available"] is None
+    assert payload["platforms"][0]["reason"] == "session_not_applicable"
 
 
 async def test_sandbox_root_maps_socket_state_and_readonly_mounts(

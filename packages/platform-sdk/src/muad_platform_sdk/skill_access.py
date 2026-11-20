@@ -102,6 +102,9 @@ class PlatformSessionReport:
     def has_success(self) -> bool:
         return any(attempt.available is True for attempt in self._attempts.values())
 
+    def attempts(self) -> tuple[PlatformAttempt, ...]:
+        return tuple(self._attempts[key] for key in self._order if key in self._attempts)
+
     def failures(self) -> tuple[PlatformAttempt, ...]:
         return tuple(
             attempt
