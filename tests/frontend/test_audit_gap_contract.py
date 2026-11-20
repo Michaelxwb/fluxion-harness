@@ -52,7 +52,6 @@ LEARNING_ADMIN = (
 
 # 设计文档 v1.5 登记的三个历史写法：后端写入器从未产出（实际为小写 `project_platform`、
 # `PLATFORM_USER`、`AGENT_ACCESS_GRANT`），但既有契约与词条已把它们计入模块登记域。
-LEGACY_ALIASES = frozenset({"PROJECT_PLATFORM", "USER", "GRANT"})
 
 # 运行侧投影字面量：TOOL/MODEL 两分支的 `resource_type` 是投影里的字面量，不是来源表列
 RUNTIME_LITERALS = ("TOOL", "MODEL")
@@ -202,8 +201,8 @@ def test_b214_agent_filter_is_wired_to_agent_id_end_to_end() -> None:
     )
 
 
-def test_b214_resource_type_options_cover_backend_domain() -> None:
-    """[B-214] 筛选项覆盖后端投影列的实际取值域，且不引入值域外的取值。"""
+def test_b214_resource_type_labels_cover_known_values_but_options_use_query_results() -> None:
+    """翻译登记只负责已知词条，筛选候选由当前查询有数据的值决定。"""
     registered = _string_array(_read(FILTER_BAR), "RESOURCE_TYPES")
     options = set(registered)
     assert options, "缺少资源类型枚举 RESOURCE_TYPES"
@@ -214,12 +213,10 @@ def test_b214_resource_type_options_cover_backend_domain() -> None:
     missing = sorted(actual - options)
     assert not missing, f"筛选项未覆盖后端实际取值：{missing}"
 
-    # RUN 是列表操作行自身的资源类型（repository 投影 `'RUN' AS resource_type`），
-    # 不属于四类来源表的资源域；筛选仍需要它，详情也有 `audit.resourceType.RUN` 词条。
-    extra = sorted(options - actual - LEGACY_ALIASES - {"RUN"})
-    assert not extra, f"筛选项出现值域外的取值（词条无处可依）：{extra}"
-
-    assert "optionList={RESOURCE_TYPES.map(" in _compact(_read(FILTER_BAR)), "筛选下拉取值须取 RESOURCE_TYPES"
+    bar = _compact(_read(FILTER_BAR))
+    assert "optionList={resources.map(" in bar
+    assert "props.options?.resourceTypes" in bar
+    assert "optionList={RESOURCE_TYPES.map(" not in bar, "历史翻译登记不能当作筛选候选"
 
 
 def test_b214_detail_resource_type_row_is_localized_with_raw_fallback() -> None:
@@ -244,7 +241,7 @@ def test_b214_refresh_failure_keeps_rows_with_notice_but_first_load_uses_error_s
     catch = _catch_block(hook)
     assert "setFailed(true)" in catch, "失败只置 failed"
     assert "setItems" not in catch and "setTotal" not in catch, "失败不得清空已加载行"
-    assert "listAudits(query)" in _compact(hook), "失败分支来自 service 取数"
+    assert "listAudits(query,includeFilterOptions)" in _compact(hook), "失败分支来自 service 取数"
 
     page = _compact(_read(PAGE))
     assert "refreshFailed" in page and "firstLoadFailed" in page, "须显式区分两种失败"

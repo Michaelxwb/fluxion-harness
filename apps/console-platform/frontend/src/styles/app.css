@@ -752,6 +752,45 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.audit-trace-action-cell { min-width: 0; }
+.audit-trace-business-id {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--semi-color-text-2);
+  overflow-wrap: anywhere;
+}
+.audit-run-action {
+  display: grid;
+  justify-items: start;
+  min-width: 0;
+  gap: 4px;
+}
+.audit-run-action > .table-text { max-width: 100%; }
+.audit-run-egress.semi-button {
+  height: 22px;
+  min-height: 22px;
+  padding: 0 6px;
+  border-radius: 4px;
+}
+.audit-run-egress-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+}
+.audit-run-egress-content > .semi-icon { color: var(--semi-color-text-2); }
+.audit-run-egress-blocked {
+  margin-inline-start: 1px;
+  padding-inline-start: 6px;
+  border-inline-start: 1px solid var(--semi-color-border);
+  color: var(--semi-color-danger);
+}
 
 /* 关联对象：链接 + 来源 chip 一行；链接可收缩、chip 不收缩，起点与其它行一致 */
 .audit-target {
@@ -1951,6 +1990,21 @@ body {
   width: 100%;
 }
 
+.egress-rule-path-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-inline-start: 3px solid var(--semi-color-danger);
+  border-radius: var(--app-radius-sm);
+  background: var(--semi-color-danger-light-default);
+  color: var(--semi-color-danger);
+  font-size: 12px;
+  line-height: 18px;
+}
+.egress-rule-path-error .semi-icon { flex-shrink: 0; margin-top: 1px; }
+.egress-rule-path-error strong { display: block; font-weight: 600; }
+
 .egress-rule-enabled {
   justify-self: start;
   align-self: end;
@@ -2244,6 +2298,48 @@ body {
 .run-event-details { margin-top: 12px; padding: 12px 16px; border-radius: 6px; background: var(--semi-color-bg-1); }
 .run-event-details .detail-grid { margin-bottom: 8px; }
 .run-event-details .detail-grid-value { overflow-wrap: anywhere; min-width: 0; }
+.run-egress-details {
+  margin-bottom: 0;
+  border: 1px solid var(--semi-color-border);
+  background: var(--semi-color-fill-0);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.run-egress-details > div {
+  display: grid;
+  grid-template-columns: minmax(52px, 20%) minmax(0, 1fr);
+  gap: 12px;
+  padding: 6px 0;
+}
+.run-egress-details > div + div { border-top: 1px solid var(--semi-color-border); }
+.run-egress-details dt { color: var(--semi-color-text-2); }
+.run-egress-details dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 0;
+  min-width: 0;
+  color: var(--semi-color-text-0);
+  overflow-wrap: anywhere;
+}
+.run-egress-details code { min-width: 0; font-size: 12px; }
+.run-egress-code { color: var(--semi-color-text-2); }
+.run-egress-preview {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--semi-color-text-2);
+  overflow-wrap: anywhere;
+}
+.run-egress-preview-request, .run-egress-preview-trace {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+.run-egress-preview-request code { color: var(--semi-color-text-0); }
 .run-event-section-heading { display: flex; align-items: center; gap: 8px; margin: 12px 0 6px; font-weight: 600; font-size: 13px; }
 .app-detail-sheet .run-event-text { margin: 0; font: inherit; font-size: 13px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto; }
 .run-event-loading { display: flex; align-items: center; gap: 8px; padding: 12px 0; color: var(--semi-color-text-2); }

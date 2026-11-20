@@ -23,7 +23,6 @@ const E08_MISMATCH_KEY = 'audit-e2e-e08-mismatch';
 
 // 断言用的 zh-CN 文案：与 apps/console-platform/frontend/src/locales/zh-CN.json 同源
 const TOOL_TYPE_TEXT = '工具调用';
-const FAILED_RESULT_TEXT = '失败';
 const EXPORT_BUSY_TEXT = '导出中';
 const NO_RELATED_TEXT = '无关联记录';
 
@@ -133,9 +132,10 @@ test('S-06 默认按操作成行，类型筛选进入步骤明细，重置还原
   await openAudits(page);
   await expect(page.getByRole('columnheader').first()).toHaveText('Trace ID / 审计 ID');
 
-  // 默认操作视图：同一 Run 的模型/工具事件折叠，配置变更与出网各占一行
+  // 默认操作视图：Run 内的出网摘要并入运行行，配置变更独立显示。
   await expect(page.getByTestId(`audit-link-${state.rows.config}`)).toBeVisible();
-  await expect(page.getByTestId(`audit-link-${state.rows.egress}`)).toBeVisible();
+  await expect(page.getByTestId(`audit-link-${state.rows.egress}`)).toHaveCount(0);
+  await expect(page.getByTestId(`audit-egress-${state.runId}`)).toBeVisible();
   await expect(page.getByTestId(`audit-link-${state.rows.tool}`)).toHaveCount(0);
   await expect(page.getByTestId(`audit-link-${state.rows.model}`)).toHaveCount(0);
   await expect(page.getByTestId(`audit-link-${state.runId}`)).toHaveCount(1);
@@ -153,16 +153,18 @@ test('S-06 默认按操作成行，类型筛选进入步骤明细，重置还原
   await expect(page.getByTestId(`audit-link-${state.rows.config}`)).toHaveCount(0);
   await expect(page.getByTestId(`audit-link-${state.rows.egress}`)).toHaveCount(0);
 
-  // 执行结果收窄：种子 TOOL 行归一结果为 SUCCESS ⇒ 筛选失败即空态
-  await pickOption(page, 'audit-filter-resultStatus', FAILED_RESULT_TEXT);
-  await expect(page.locator('.app-empty-title')).toBeVisible();
+  // 工具记录只有一种资源类型和一种实际结果，不提供无法命中的组合。
+  await expect(page.getByTestId('audit-filter-resourceType')).toHaveCount(0);
+  await page.getByTestId('audit-filter-resultStatus').click();
+  await expect(page.locator('.semi-select-option:visible')).toHaveText(['成功']);
+  await page.keyboard.press('Escape');
 
   // 重置：清空全部筛选，回到操作视图并回到第 1 页
   await page.getByTestId('audit-reset').click();
   await expect(page.getByTestId('audit-view-notice')).toHaveCount(0);
   await expect(page.getByTestId(`audit-link-${state.rows.config}`)).toBeVisible();
-  await expect(page.getByTestId(`audit-link-${state.rows.egress}`)).toBeVisible();
-  await expect(page.getByTestId(`audit-link-${state.extraRow.auditId}`)).toBeVisible();
+  await expect(page.getByTestId(`audit-egress-${state.runId}`)).toBeVisible();
+  await expect(page.getByRole('button', { name: state.extraRow.traceId, exact: true })).toBeVisible();
   await expect(page.locator('.app-pagination')).toBeVisible();
 });
 

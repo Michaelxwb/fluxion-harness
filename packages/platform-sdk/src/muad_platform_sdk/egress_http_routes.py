@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from urllib.parse import urlsplit
-
 from muad_contracts.egress_budget import TargetMatch
 from muad_contracts.shared_egress import SharedPolicyModel
 from pydantic import Field, field_validator
@@ -15,7 +13,6 @@ class EgressHTTPRoute(SharedPolicyModel):
     origin: str = Field(min_length=1, max_length=2048)
     method: str = Field(pattern=r"^[A-Z]{1,16}$")
     path_template: str = Field(min_length=1, max_length=2048)
-    authority: str | None = None
     target_instance_id: str = Field(min_length=1, pattern=r"^\S+$")
     route_id: str = Field(min_length=1)
 
@@ -37,26 +34,8 @@ class EgressHTTPRoute(SharedPolicyModel):
     def matches(self, request: AttemptMetadata) -> bool:
         if request.origin != self.origin or request.method != self.method:
             return False
-        if self.authority is not None and request.authority != self.authority:
-            return False
-        if self.authority is None and not _authority_matches(request):
-            return False
         template, actual = self.path_template.split("/"), request.path.split("/")
         return len(template) == len(actual) and all(
             left == right or (left.startswith("{") and bool(right))
             for left, right in zip(template, actual, strict=True)
         )
-
-
-def _authority_matches(request: AttemptMetadata, authorities: tuple[object, ...] = ()) -> bool:
-    if request.authority is None:
-        return True
-    target, authority = urlsplit(request.origin), urlsplit("//" + request.authority)
-    default = 443 if target.scheme == "https" else 80
-    if (target.hostname, target.port or default) == (authority.hostname, authority.port or default):
-        return True
-    return any(
-        getattr(item, "origin", None) == request.origin
-        and getattr(item, "authority", None) == request.authority
-        for item in authorities
-    )

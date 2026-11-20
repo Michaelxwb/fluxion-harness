@@ -24,6 +24,10 @@ interface RawPage<T> {
   page: number;
   page_size: number;
   total: number;
+  filter_options?: {
+    resource_types: string[];
+    result_statuses: string[];
+  };
 }
 
 /** 后端审计行出参（`audit_query_repository.PROJECTED_COLUMNS`）。 */
@@ -46,6 +50,9 @@ interface RawAuditItem {
   task_id: string | null;
   /** RUN 行专属：用户提问摘要（其他类型为 null/缺省）。 */
   summary?: string | null;
+  egress_count?: number;
+  egress_blocked_count?: number;
+  business_trace_id?: string;
 }
 
 /** 详情 = 投影行 + 来源表独有字段 + 关联可读性（E-01）。 */
@@ -67,6 +74,8 @@ interface RawListQuery {
   action?: string;
   result_status?: string;
   trace_id?: string;
+  run_id?: string;
+  task_id?: string;
   start_time?: string;
   end_time?: string;
   page: number;
@@ -166,7 +175,10 @@ function toAuditItem(raw: RawAuditItem): AuditListItem {
     latencyMs: optional(raw.latency_ms),
     runId: optional(raw.run_id),
     taskId: optional(raw.task_id),
-    summary: optional(raw.summary)
+    summary: optional(raw.summary),
+    egressCount: optional(raw.egress_count),
+    egressBlockedCount: optional(raw.egress_blocked_count),
+    businessTraceId: optional(raw.business_trace_id)
   };
 }
 
@@ -202,6 +214,8 @@ function toListParams(query: AuditListQuery): RawListQuery {
     action: query.action,
     result_status: query.resultStatus,
     trace_id: query.traceId,
+    run_id: query.runId,
+    task_id: query.taskId,
     start_time: query.startTime,
     end_time: query.endTime,
     page: query.page,
@@ -227,15 +241,21 @@ function toExportBody(req: AuditExportCreateRequest): RawExportCreateBody {
   };
 }
 
-export async function listAudits(params: AuditListQuery): Promise<AuditPage> {
+export async function listAudits(params: AuditListQuery, includeFilterOptions = false): Promise<AuditPage> {
   const page = await unwrap(
-    await api.get<ApiResponse<RawPage<RawAuditItem>>>('/audits', { params: toListParams(params) })
+    await api.get<ApiResponse<RawPage<RawAuditItem>>>('/audits', {
+      params: { ...toListParams(params), include_filter_options: includeFilterOptions || undefined }
+    })
   );
   return {
     items: page.items.map(toAuditItem),
     page: page.page,
     pageSize: page.page_size,
-    total: page.total
+    total: page.total,
+    filterOptions: page.filter_options && {
+      resourceTypes: page.filter_options.resource_types,
+      resultStatuses: page.filter_options.result_statuses
+    }
   };
 }
 

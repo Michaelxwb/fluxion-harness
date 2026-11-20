@@ -7,6 +7,7 @@
  * footer 联动，全部在这里产出，由 `AuditPage` 原样展开给 `RemoteTable`（不整表替换、不在页面重复套壳）。
  */
 
+import { IconChevronRight, IconGlobe } from '@douyinfe/semi-icons';
 import { Button } from '@douyinfe/semi-ui';
 import type { TFunction } from 'i18next';
 
@@ -41,6 +42,7 @@ export interface AuditTableOptions {
   onPageChange(page: number, pageSize: number): void;
   /** 主展示字段/Trace ID 打开审计详情的 seam（TASK-013 的详情 SideSheet 消费）。 */
   onOpenDetail(item: AuditListItem): void;
+  onOpenEgress(item: AuditListItem): void;
   /** 关联对象「Run …」直达运行详情侧栏（与审计详情内的关联行为一致，不再重复打开审计详情）。 */
   onOpenRun(runId: string): void;
   /** Trace ID 下钻：查看该 Trace 下的全部审计记录（与运行详情是两个不同的落点）。 */
@@ -63,12 +65,13 @@ function buildAuditColumns(
   onOpenDetail: (item: AuditListItem) => void,
   onOpenRun: (runId: string) => void,
   onOpenTask: (taskId: string) => void,
-  onOpenTrace: (traceId: string) => void
+  onOpenTrace: (traceId: string) => void,
+  onOpenEgress: (item: AuditListItem) => void
 ): AuditTableColumns {
   return [
-    buildTraceColumn(t, onOpenDetail, onOpenRun, onOpenTrace),
+    buildTraceColumn(t, (item) => item.egressCount ? onOpenEgress(item) : onOpenDetail(item), onOpenRun, onOpenTrace),
     ...buildIdentityColumns(t),
-    ...buildTargetColumns(t, onOpenDetail, onOpenRun, onOpenTask),
+    ...buildTargetColumns(t, onOpenDetail, onOpenRun, onOpenTask, onOpenEgress),
     ...buildResultColumns(t)
   ];
 }
@@ -171,7 +174,8 @@ function buildTargetColumns(
   t: TFunction,
   onOpenDetail: (item: AuditListItem) => void,
   onOpenRun: (runId: string) => void,
-  onOpenTask: (taskId: string) => void
+  onOpenTask: (taskId: string) => void,
+  onOpenEgress: (item: AuditListItem) => void
 ): AuditTableColumns {
   return [
     {
@@ -237,15 +241,38 @@ function buildTargetColumns(
       dataIndex: 'action',
       width: 'auto',
       ellipsis: true,
-      render: (_: unknown, record: AuditListItem) => (
-        <TableText>
-          {record.auditType === 'RUN' && record.summary
-            ? record.summary
-            : auditActionLabel(t, record)}
-        </TableText>
-      )
+      render: (_: unknown, record: AuditListItem) => renderAuditAction(t, record, onOpenEgress)
     }
   ];
+}
+
+function renderAuditAction(t: TFunction, record: AuditListItem, onOpenEgress: (item: AuditListItem) => void) {
+  const action = record.auditType === 'RUN' && record.summary ? record.summary : auditActionLabel(t, record);
+  if (!record.egressCount) return <TableText>{action}</TableText>;
+  const testId = `audit-egress-${record.auditId}`;
+  if (record.auditType !== 'RUN') {
+    return (
+      <EntityLink testId={testId} onClick={() => onOpenEgress(record)}>
+        {t('audit.egress.calls', { count: record.egressCount })}
+      </EntityLink>
+    );
+  }
+  return (
+    <div className="audit-run-action">
+      <TableText>{action}</TableText>
+      <Button size="small" type="tertiary" theme="light" className="audit-run-egress"
+        data-testid={testId} onClick={() => onOpenEgress(record)}>
+        <span className="audit-run-egress-content">
+          <IconGlobe size="small" aria-hidden="true" />
+          <span>{t('audit.egress.runCalls', { count: record.egressCount })}</span>
+          {!!record.egressBlockedCount && (
+            <span className="audit-run-egress-blocked">{t('audit.egress.blockedCount', { count: record.egressBlockedCount })}</span>
+          )}
+          <IconChevronRight size="small" aria-hidden="true" />
+        </span>
+      </Button>
+    </div>
+  );
 }
 
 /** 执行结果列复用 `StatusTag`。 */
@@ -281,7 +308,8 @@ export function buildAuditTableProps(
       options.onOpenDetail,
       options.onOpenRun,
       options.onOpenTask,
-      options.onOpenTrace
+      options.onOpenTrace,
+      options.onOpenEgress
     ),
     dataSource: options.items,
     page: options.page,

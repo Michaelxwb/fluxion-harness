@@ -15,10 +15,11 @@ import { useTranslation } from 'react-i18next';
 
 import { DateRangeFilter } from '../../../components/common/DateRangeFilter';
 import { ListActionButton } from '../../../components/common/ListActionButton';
-import type { AuditListQuery } from '../types';
+import type { AuditFilterOptions, AuditListQuery } from '../types';
 
 export interface AuditFilterBarProps {
   value: AuditListQuery;
+  options?: AuditFilterOptions;
   onChange(patch: Partial<AuditListQuery>): void;
   /** 清空全部筛选并回到第 1 页（设计 §3.3.1「重置」）。 */
   onReset(): void;
@@ -29,15 +30,7 @@ export interface AuditFilterBarProps {
 const AUDIT_TYPES = ['RUN', 'CONFIG', 'TOOL', 'EGRESS', 'MODEL'] as const;
 
 /**
- * 资源类型取值域：取后端投影列的资源类型**实际取值**，大小写原样保留。
- *
- * 配置侧来自 `muad_console_platform` 各 AppService 写入器（`AUDIT_*` 常量与内联字面量，后者含
- * `project_platform`/`user_credential_ref`/`shared_credential_ref` 三个小写形态）；运行侧为投影 SQL
- * 的字面量（`TOOL`/`MODEL`）与 egress 落库的目标类型（`MCP`）。
- *
- * 末三条是设计文档 v1.5 登记、但后端写入器从未产出的历史写法（实际产出的是
- * `project_platform`/`PLATFORM_USER`/`AGENT_ACCESS_GRANT`）；它们只作登记域存在，供详情行按词条
- * 呈现历史数据，不新增后端取值。值域开放，未登记的取值由详情行原样展示。
+ * 资源类型翻译登记，含历史别名。可选项由后端当前范围的实际数据决定。
  */
 export const RESOURCE_TYPES = [
   'RUN',
@@ -47,6 +40,8 @@ export const RESOURCE_TYPES = [
   'BIND_CODE',
   'CHANNEL_IDENTITY',
   'CHAT_ACCESS_TOKEN',
+  'CONSOLE_ACCOUNT',
+  'HTTP',
   'MCP',
   'LEARNING_FAMILY',
   'MCP_SERVER',
@@ -73,6 +68,12 @@ export const RESOURCE_TYPES = [
 
 /** 执行结果域取后端 `audit_query_service.RESULT_STATUSES`（Console 归一口径）：含策略拒绝。 */
 const RESULT_STATUSES = ['SUCCESS', 'FAILED', 'DENIED', 'BLOCKED', 'RUNNING', 'CANCELLED'] as const;
+const RESOURCE_TYPE_LABELS: ReadonlySet<string> = new Set(RESOURCE_TYPES);
+const RESULT_STATUS_LABELS: ReadonlySet<string> = new Set(RESULT_STATUSES);
+
+function withSelection(options: readonly string[] = [], selected?: string): string[] {
+  return selected && !options.includes(selected) ? [...options, selected] : [...options];
+}
 
 function toIsoStart(value: Date | null | undefined): string | undefined {
   return value ? value.toISOString() : undefined;
@@ -91,6 +92,8 @@ function toIsoEndOfDay(value: Date | null | undefined): string | undefined {
 export function AuditFilterBar(props: AuditFilterBarProps) {
   const { t } = useTranslation();
   const { value } = props;
+  const resources = withSelection(props.options?.resourceTypes, value.resourceType);
+  const statuses = withSelection(props.options?.resultStatuses, value.resultStatus);
 
   /** 关键字草稿：输入期间不查询，回车才经 `emit` 提交。 */
   const [keywordDraft, setKeywordDraft] = useState(value.keyword ?? '');
@@ -138,30 +141,30 @@ export function AuditFilterBar(props: AuditFilterBarProps) {
           emit({ auditType: (raw as AuditListQuery['auditType']) ?? undefined })
         }
       />
-      <Select
+      {(resources.length > 1 || value.resourceType) && <Select
         data-testid="audit-filter-resourceType"
         style={{ width: 180 }}
         showClear
         placeholder={t('audit.filter.resourceType')}
         value={value.resourceType ?? undefined}
-        optionList={RESOURCE_TYPES.map((type) => ({
+        optionList={resources.map((type) => ({
           value: type,
-          label: t(`audit.resourceType.${type}`)
+          label: RESOURCE_TYPE_LABELS.has(type) ? t(`audit.resourceType.${type}`) : type
         }))}
         onChange={(raw) => emit({ resourceType: (raw as string) ?? undefined })}
-      />
-      <Select
+      />}
+      {(statuses.length > 0 || value.resultStatus) && <Select
         data-testid="audit-filter-resultStatus"
         style={{ width: 130 }}
         showClear
         placeholder={t('audit.filter.resultStatus')}
         value={value.resultStatus ?? undefined}
-        optionList={RESULT_STATUSES.map((status) => ({
+        optionList={statuses.map((status) => ({
           value: status,
-          label: t(`audit.resultStatus.${status}`)
+          label: RESULT_STATUS_LABELS.has(status) ? t(`audit.resultStatus.${status}`) : status
         }))}
         onChange={(raw) => emit({ resultStatus: (raw as string) ?? undefined })}
-      />
+      />}
       <DateRangeFilter
         testId="audit-filter-time"
         label={t('audit.filter.time')}

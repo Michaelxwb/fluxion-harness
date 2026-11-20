@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { listAudits } from '../services/auditService';
-import type { AuditListItem, AuditListQuery } from '../types';
+import type { AuditFilterOptions, AuditListItem, AuditListQuery } from '../types';
 
 export interface AuditListState {
   items: AuditListItem[];
@@ -25,24 +25,28 @@ export interface AuditListState {
   total: number;
   loading: boolean;
   failed: boolean;
+  filterOptions?: AuditFilterOptions;
   /** 按当前 `query` 重取：刷新与失败重试共用同一出口。 */
   reload(): void;
 }
 
-export function useAuditList(query: AuditListQuery): AuditListState {
+export function useAuditList(query: AuditListQuery, includeFilterOptions = false): AuditListState {
   const [items, setItems] = useState<AuditListItem[]>([]);
   const [page, setPage] = useState(query.page);
   const [pageSize, setPageSize] = useState(query.pageSize);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [resolvedFilters, setResolvedFilters] = useState<{
+    query: AuditListQuery; options?: AuditFilterOptions;
+  }>();
   const requestSeq = useRef(0);
 
   const reload = useCallback(async () => {
     const current = ++requestSeq.current;
     setLoading(true);
     try {
-      const result = await listAudits(query);
+      const result = await listAudits(query, includeFilterOptions);
       if (current !== requestSeq.current) {
         return;
       }
@@ -50,6 +54,7 @@ export function useAuditList(query: AuditListQuery): AuditListState {
       setPage(result.page);
       setPageSize(result.pageSize);
       setTotal(result.total);
+      setResolvedFilters({ query, options: result.filterOptions });
       setFailed(false);
     } catch {
       // [E-06] 失败不改筛选：条件与已加载数据保留。只置 `failed`（不改 items/total）：有行即刷新
@@ -62,11 +67,12 @@ export function useAuditList(query: AuditListQuery): AuditListState {
         setLoading(false);
       }
     }
-  }, [query]);
+  }, [query, includeFilterOptions]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
 
-  return { items, page, pageSize, total, loading, failed, reload };
+  const filterOptions = resolvedFilters?.query === query ? resolvedFilters.options : undefined;
+  return { items, page, pageSize, total, loading, failed, filterOptions, reload };
 }

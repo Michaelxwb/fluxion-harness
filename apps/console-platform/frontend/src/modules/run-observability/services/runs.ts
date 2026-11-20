@@ -54,6 +54,9 @@ export interface RunTimelineEvent {
     error_code: string | null;
     policy_decision: string;
     audit_id: string;
+    business_trace_id?: string | null;
+    status_code?: number | null;
+    latency_ms?: number | null;
   };
 }
 
