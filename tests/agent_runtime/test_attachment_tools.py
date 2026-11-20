@@ -670,6 +670,36 @@ async def test_s02_lists_inbound_and_self_produced_attachments(
     assert "来件.pdf" in read_back
 
 
+async def test_tool_result_is_labeled_internal_and_filterable(tenant, artifact_root) -> None:
+    """`TOOL_RESULT` 是工具结果，不是入站；显式读取仍可用。"""
+    run_id, conversation_id = await _seed_run(tenant)
+    tool_result = await _seed_artifact(
+        tenant, artifact_root, data=b"internal", kind="OTHER",
+        media_type="text/plain", filename="tool-result.txt",
+        into=(run_id, conversation_id), artifact_type="TOOL_RESULT",
+    )
+    tool_set = _writer_tool_set(tenant, artifact_root, run_id, conversation_id)
+
+    listed = await _call(tool_set, LIST_ATTACHMENTS_TOOL, {})
+    assert "工具结果" in listed
+    assert "入站" not in listed
+    assert str(tool_result) in listed
+
+    internal = await _call(
+        tool_set, LIST_ATTACHMENTS_TOOL, {"direction": "internal"}
+    )
+    assert str(tool_result) in internal
+    inbound_only = await _call(
+        tool_set, LIST_ATTACHMENTS_TOOL, {"direction": "inbound"}
+    )
+    assert str(tool_result) not in inbound_only
+
+    read_back = await _call(
+        tool_set, READ_ATTACHMENT_TOOL, {"artifact_id": str(tool_result)}
+    )
+    assert "internal" in read_back
+
+
 # ---------------------------------------------------------------------------
 # TASK-005：写与交付语义分离、追加写与不可变性（B-03）
 # ---------------------------------------------------------------------------
@@ -1068,27 +1098,33 @@ async def test_deliver_artifact_allows_historical_agent_output(
     assert client.requests
 
 
-async def test_deliver_artifact_refuses_tool_result_artifacts(tenant, artifact_root) -> None:
-    """**工具结果外置产物**（`TOOL_RESULT`）不能交付 —— 那是中间产物，发给用户等于泄漏上下文。
-
-    放开转发时必须把它挡在外面：它的 `conversation_id` 与当前会话相同，光靠会话判定拦不住。
-    """
+async def test_deliver_artifact_requires_explicit_internal_flag(tenant, artifact_root) -> None:
+    """`TOOL_RESULT` 默认不交付；用户明确要求时由模型置 `allow_internal=true`。"""
     run_id, conversation_id = await _seed_run(tenant)
     tool_result = await _seed_artifact(
         tenant, artifact_root, data=b"internal", kind="OTHER",
         media_type="text/plain", filename="tool-result.txt",
         into=(run_id, conversation_id), artifact_type="TOOL_RESULT",
     )
-    client = _FakeDeliveryClient()
+    client = _FakeDeliveryClient(
+        DeliveryResponse(accepted=True, delivered=True, deduplicated=False, outcome="DELIVERED")
+    )
     tool_set = _delivery_tool_set(
         tenant, artifact_root, run_id=run_id, conversation_id=conversation_id, client=client
     )
 
     with pytest.raises(AttachmentToolError) as exc:
         await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"artifact_id": str(tool_result)})
-
-    assert "不能交付给用户" in exc.value.message
+    assert "allow_internal=true" in exc.value.message
     assert not client.requests
+
+    delivered = await _call(
+        tool_set,
+        DELIVER_ARTIFACT_TOOL,
+        {"artifact_id": str(tool_result), "allow_internal": True},
+    )
+    assert "已交付产物" in delivered
+    assert client.requests
 
 
 def test_historical_agent_output_is_deliverable_but_tool_results_are_not() -> None:
@@ -1119,6 +1155,9 @@ def test_historical_agent_output_is_deliverable_but_tool_results_are_not() -> No
     assert tools._delivery_refusal(
         row("TOOL_RESULT", conversation_id=tools._conversation_id)
     ) is not None
+    assert tools._delivery_refusal(
+        row("TOOL_RESULT", conversation_id=tools._conversation_id), allow_internal=True
+    ) is None
     assert tools._delivery_refusal(
         row("INBOUND_DOCUMENT", conversation_id=uuid.uuid4())
     ) is not None

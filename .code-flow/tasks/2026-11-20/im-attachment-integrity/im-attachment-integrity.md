@@ -262,7 +262,7 @@ Connector 通过 Console 内部 `platform-settings` 快照读取，按租户缓�
   - task-artifact-owner PASS exit=0
 ## TASK-005: 附件来源标注与内部产物显式访问
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-004
 - **Source**: im-attachment-integrity.backend.design.md#3.2.5
 - **Scenarios**: im-attachment-integrity:S-03
@@ -298,11 +298,11 @@ Connector 通过 Console 内部 `platform-settings` 快照读取，按租户缓�
 
 ### Checklist
 
-- [ ] `TOOL_RESULT` 不再标“入站”，显式访问仍可用。
-- [ ] `direction=inbound` 只返回用户入站附件。
-- [ ] `allow_internal` 默认拒绝、显式允许；不带 owner 的调用仍拒绝。
-- [ ] 工具描述/模型口径更新，覆盖“当前消息权威”测试。
-- [ ] 无敏感值进入列表/日志。
+- [x] `TOOL_RESULT` 不再标“入站”，显式访问仍可用。
+- [x] `direction=inbound` 只返回用户入站附件。
+- [x] `allow_internal` 默认拒绝、显式允许；不带 owner 的调用仍拒绝。
+- [x] 工具描述/模型口径更新，覆盖“当前消息权威”测试。
+- [x] 无敏感值进入列表/日志。
 
 ### Spec Delta
 
@@ -321,11 +321,15 @@ Connector 通过 Console 内部 `platform-settings` 快照读取，按租户缓�
 ### Log
 
 - [2026-11-20] created
+- [2026-11-20T11:47:47.871Z] started tests=a74a9ce72422
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-20T11:48:15.609Z FAIL commands=0/1 executed=1 deduped=0 elapsed=22826ms tests=a74a9ce72422 head=4b9a6b4c0e05 dirty=1
+  - attachment-provenance FAIL exit=1
+- 2026-11-20T11:48:57.304Z PASS commands=1/1 executed=1 deduped=0 elapsed=21947ms tests=a74a9ce72422 head=4b9a6b4c0e05 dirty=1
+  - attachment-provenance PASS exit=0
 ## TASK-006: WebChat/MSSWWEB 任务产物发布与下载
 
 - **Status**: draft

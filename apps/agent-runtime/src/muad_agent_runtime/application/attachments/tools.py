@@ -56,6 +56,7 @@ from .output_service import (
 from .publication import PublicationError, publish_artifact_to_conversation
 from .reference import artifact_kind, attachment_ref
 from .task_artifacts import task_owner_predicate
+from .tool_results import TOOL_RESULT_ARTIFACT_TYPE
 
 READ_ATTACHMENT_TOOL = "read_attachment"
 VIEW_IMAGE_TOOL = "view_image"
@@ -83,8 +84,10 @@ SEARCH_ATTACHMENT_DESCRIPTION = (
     "document instead of paging through it."
 )
 LIST_ATTACHMENTS_DESCRIPTION = (
-    "List the files you can currently address — both the ones the user sent and the ones you "
-    "produced earlier. Use it when an id from an earlier turn is no longer in front of you."
+    "List the files you can currently address: files the user sent, files you produced earlier, "
+    "and internal tool results. Tool results are internal artifacts, not user attachments; use "
+    "direction=inbound when you need the user's attachments. The current user message's "
+    "attachment list is authoritative: if it has no attachment, do not substitute a historical one."
 )
 #: 交付的三种工具结果（设计 §3.6 原文）。**模型据此决定怎么跟用户说**，所以必须说清
 #: "发出去了 / 换了形态 / 没发出去且可重试"——含糊的措辞会让模型编一个"已发送"。
@@ -100,7 +103,8 @@ DELIVER_ARTIFACT_DESCRIPTION = (
     "Send a file to the user you are talking to. This covers both files you produced in this run "
     'and files the user sent into this conversation (you can hand one back, e.g. "send me that '
     'image again"). Writing a file does NOT send it — call this when the user should actually '
-    "receive it."
+    "receive it. Internal tool results are refused unless the user explicitly asks for one; "
+    "in that case set allow_internal=true."
 )
 APPEND_ARTIFACT_DESCRIPTION = (
     "Append more text to a file you produced earlier in this run. Use it to build a long document "
@@ -154,9 +158,15 @@ SCOPE_DEFAULT = SCOPE_CONVERSATION
 #: 方向：用户发来的 / Agent 自产（缺省不限）
 DIRECTION_INBOUND = "inbound"
 DIRECTION_OUTBOUND = "outbound"
-DIRECTIONS = frozenset({DIRECTION_INBOUND, DIRECTION_OUTBOUND})
+DIRECTION_INTERNAL = "internal"
+DIRECTIONS = frozenset({DIRECTION_INBOUND, DIRECTION_OUTBOUND, DIRECTION_INTERNAL})
 #: 呈现给模型的中文标签。**只在这里定义一次**，测试按同一份常量取值。
-DIRECTION_LABELS = {DIRECTION_INBOUND: "入站", DIRECTION_OUTBOUND: "自产"}
+DIRECTION_LABELS = {
+    DIRECTION_INBOUND: "入站",
+    DIRECTION_OUTBOUND: "自产",
+    DIRECTION_INTERNAL: "内部产物",
+}
+TOOL_RESULT_LABEL = "工具结果"
 DEFAULT_LIST_LIMIT = 20
 MAX_LIST_LIMIT = 50
 
@@ -441,6 +451,11 @@ class AttachmentToolSet:
                     "properties": {
                         "artifact_id": string_schema,
                         "path": string_schema,
+                        "allow_internal": {
+                            "type": "boolean",
+                            "default": False,
+                            "description": "Set true only when the user explicitly asks to send an internal tool result.",
+                        },
                     },
                     "additionalProperties": False,
                 },
@@ -583,6 +598,12 @@ class AttachmentToolSet:
             stmt = stmt.where(Artifact.artifact_type.in_(INBOUND_ARTIFACT_TYPES))
         elif direction == DIRECTION_OUTBOUND:
             stmt = stmt.where(Artifact.artifact_type == AGENT_OUTPUT_ARTIFACT_TYPE)
+        elif direction == DIRECTION_INTERNAL:
+            stmt = stmt.where(
+                Artifact.artifact_type.notin_(
+                    (*INBOUND_ARTIFACT_TYPES, AGENT_OUTPUT_ARTIFACT_TYPE)
+                )
+            )
         # 版本即行：枚举只展示每个逻辑文件的最新版本，不把历史版本当独立附件。
         latest = (
             sa.select(
@@ -781,7 +802,8 @@ class AttachmentToolSet:
             if path is not None
             else await self._load(artifact_id)
         )
-        refusal = self._delivery_refusal(row)
+        allow_internal = arguments.get("allow_internal") is True
+        refusal = self._delivery_refusal(row, allow_internal=allow_internal)
         if refusal is not None:
             raise AttachmentToolError(ATTACHMENT_TYPE_UNSUPPORTED, refusal)
         # 交付方式按**入口能力**显式选择：外部推送通道走网关投递，站内入口发布到目标会话
@@ -895,35 +917,24 @@ class AttachmentToolSet:
             ),
         )
 
-    def _delivery_refusal(self, row: Artifact) -> str | None:
+    def _delivery_refusal(self, row: Artifact, *, allow_internal: bool = False) -> str | None:
         """这一行能不能交付给用户？不能则返回**给模型看的原因**，能则 `None`。
 
-        **准入**：
-
-        1. **本用户的 AGENT_OUTPUT**（含历史 Run 的产出）——归属由 `_load` 按会话/Run 的
-           user 校验；用户要求「把之前的结果再发给我」时必须能重发，否则
-           `list_attachments(scope="agent")` 列出来的东西永远发不出去；
-        2. **本会话里的入站附件**（`INBOUND_*` + `conversation_id` 相同）—— 2026-10-03 新增。
-
-        第 2 条不是"顺手放宽"，而是补一个**结构性空洞**：在此之前 `write_artifact` 只吃文本
-        （agent 造不出位图），而作者校验又把转发挡住 ⇒ **agent 一张图都发不出去**，
-        连"把你刚发我的图再发回来"这种最自然的请求都做不到（真机实测：用户就是这么试的）。
-        转发**不产生新内容**，只是把已经存在的字节递回去，所以它不需要任何新的生成能力。
-
-        **刻意不放开的地方**（若放成"任意 artifact"，它就退化成"拿到 id 就能把别人的文件发出去"）：
-
-        - **租户**：`_load` 已按租户过滤，跨租户在这一步之前就已变成"不存在"；
-        - **会话**：入站附件必须是**本会话**的 —— 否则模型从别处拿到一个 id 就能把它发到当前会话；
-        - **类型**：只认 `AGENT_OUTPUT` 与三类入站；`TOOL_RESULT`（工具结果外置产物）之类一律不行，
-          那是**中间产物**，把它发给用户等于泄漏上下文。
+        准入：
+        1. 本用户的 `OUTPUT`（含历史 Run/任务产出，归属已由 `_load` 校验）；
+        2. 本会话里的入站附件；
+        3. `TOOL_RESULT` 仅在用户明确要求（`allow_internal=True`）时允许，归属仍由 `_load` 校验。
         """
         if row.artifact_type == AGENT_OUTPUT_ARTIFACT_TYPE:
-            # 归属已由 `_load` 校验（会话或 Run 的 user）；历史 Run 的产出同样可重发。
             return None
         if row.artifact_type in INBOUND_ARTIFACT_TYPES:
             if self._conversation_id is not None and row.conversation_id == self._conversation_id:
                 return None
             return f"{_filename(row)}：只能交付本会话里收到的附件"
+        if row.artifact_type == TOOL_RESULT_ARTIFACT_TYPE:
+            if allow_internal:
+                return None
+            return f"{_filename(row)}：工具结果是内部产物；用户明确要求时可带 allow_internal=true 交付"
         return f"{_filename(row)}：这类产物不能交付给用户"
 
     def _owned_by_actor(self, user_id: uuid.UUID) -> Any:
@@ -1033,9 +1044,16 @@ def _list_line(row: Artifact) -> str:
     方向用类型判定（出站只有 `AGENT_OUTPUT` 一种），不按"有没有 run_id"——后台任务的自产产物
     `run_id` 为空，那样判会把它误报成入站。
     """
-    direction = DIRECTION_OUTBOUND if row.artifact_type == AGENT_OUTPUT_ARTIFACT_TYPE else DIRECTION_INBOUND
-    created = row.create_time.isoformat() if row.create_time is not None else "-"
+    if row.artifact_type in INBOUND_ARTIFACT_TYPES:
+        label = DIRECTION_LABELS[DIRECTION_INBOUND]
+    elif row.artifact_type == AGENT_OUTPUT_ARTIFACT_TYPE:
+        label = DIRECTION_LABELS[DIRECTION_OUTBOUND]
+    elif row.artifact_type == TOOL_RESULT_ARTIFACT_TYPE:
+        label = TOOL_RESULT_LABEL
+    else:
+        label = DIRECTION_LABELS[DIRECTION_INTERNAL]
+    created = row.create_time.isoformat() if row.create_time is not None else ""
     return (
         f"- {row.id} · {_filename(row)} · {row.media_type} · {row.size} B"
-        f" · {DIRECTION_LABELS[direction]} · {created}"
+        f" · {label} · {created or '-'}"
     )
