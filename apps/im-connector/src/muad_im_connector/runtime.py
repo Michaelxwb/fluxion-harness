@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import logging
 import time
 import uuid
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -53,6 +52,7 @@ from muad_im_gateway.channels.base import (
     AttachmentSource,
     FetchedAttachment,
 )
+from muad_logging import get_logger
 
 from .channels.wecom.sdk_port import (
     WeComInboundMessage,
@@ -63,7 +63,7 @@ from .outbound import ConnectorChannelPort, OutboundRunner
 from .platform_settings import ConnectorPlatformSettings, default_batch_settings
 from .reply_store import ReplyStore
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 命令不参与批次聚合；与 Gateway 的命令前缀保持一致。前缀不完整时退化为普通文本，不影响业务。
 COMMAND_PREFIXES = ("/bind", "/new", "/stop", "/skills", "/memory", "/confirm")

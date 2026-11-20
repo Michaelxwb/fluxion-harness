@@ -7,7 +7,6 @@ Worker 执行 Skill 前需要 acquire 租约并更新 ``last_access_time``；配
 
 from __future__ import annotations
 
-import logging
 import uuid
 from collections.abc import Callable
 from typing import Any
@@ -20,12 +19,13 @@ from muad_agent_core.sandbox.workspace import (
     WorkspaceUnavailable,
     WorkspaceUsage,
 )
+from muad_logging import get_logger
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from .models.workspace import Workspace, WorkspaceLease
 
-logger = logging.getLogger("muad_agent_worker.workspace")
+logger = get_logger("muad_agent_worker.workspace")
 
 SessionFactoryProvider = Callable[[], async_sessionmaker[AsyncSession]]
 

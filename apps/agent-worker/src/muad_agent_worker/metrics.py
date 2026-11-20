@@ -11,7 +11,6 @@ label 只含任务类型/状态、技能键、投递状态与维护节拍结局�
 
 from __future__ import annotations
 
-import logging
 import time
 from collections import Counter
 from collections.abc import Mapping
@@ -19,8 +18,9 @@ from typing import Final, Literal
 
 from fastapi import FastAPI
 from muad_api import declare_metric, inc_counter, install_metrics, set_gauge
+from muad_logging import get_logger
 
-logger = logging.getLogger("muad_agent_worker.metrics")
+logger = get_logger("muad_agent_worker.metrics")
 
 _counters: Counter[str] = Counter()
 

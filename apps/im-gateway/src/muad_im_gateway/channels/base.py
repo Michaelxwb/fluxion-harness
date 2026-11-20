@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
@@ -14,8 +13,9 @@ from muad_contracts import (
     DeliveryMessage,
     DeliveryRouteInput,
 )
+from muad_logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ChannelAdapterUnavailable(Exception):

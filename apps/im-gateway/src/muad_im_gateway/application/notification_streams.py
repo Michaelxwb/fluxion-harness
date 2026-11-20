@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -18,10 +17,11 @@ from typing import Final
 
 import redis.asyncio
 from muad_common.notification_keys import notification_watermark_key
+from muad_logging import get_logger
 from redis.asyncio.cluster import RedisCluster
 from redis.exceptions import RedisError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 NOTIFICATION_CHANNEL: Final = "muad:webchat.notifications"
 #: 单一订阅者缓冲：正常通知量远小于此；到界即结束流，由持久游标恢复。

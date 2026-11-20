@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import time
 import uuid
 from collections.abc import AsyncIterator
@@ -37,6 +36,7 @@ from muad_contracts.webchat import (
 )
 from muad_contracts.webchat_events import WebchatNotification
 from muad_im_core import BotSnapshotCache
+from muad_logging import get_logger
 from pydantic import ValidationError
 
 from ..application.notification_streams import NotificationStreamHub
@@ -70,7 +70,7 @@ from .deps import (
     ChatStreamGuardDep,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 聊天资源是私有数据（design §3.4）：显式 no-store，不依赖任何默认缓存头。
 NO_STORE_CACHE_CONTROL = "no-store"

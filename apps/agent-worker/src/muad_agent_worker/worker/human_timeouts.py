@@ -19,11 +19,11 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import uuid
 from datetime import datetime
 
 from muad_contracts import HumanInteractionStatus, TaskStatus, TerminalStatus
+from muad_logging import get_logger
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -34,7 +34,7 @@ from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.task import TaskExecution, TaskHumanInteraction
 from ..metrics import TASK_HUMAN_TIMEOUT_METRIC, increment, record_loop_tick
 
-logger = logging.getLogger("muad_agent_worker.worker.human_timeouts")
+logger = get_logger("muad_agent_worker.worker.human_timeouts")
 
 #: 失败分类（`FailureClass.HUMAN_TIMEOUT`）：与"取消"并列记录原因，不是状态值。
 HUMAN_TIMEOUT = "HUMAN_TIMEOUT"

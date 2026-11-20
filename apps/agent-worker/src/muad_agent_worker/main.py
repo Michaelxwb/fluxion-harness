@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 
@@ -18,7 +17,7 @@ from muad_artifact_store import NfsArtifactStore
 from muad_common import SharedSettings, workspace_policy_from_settings
 from muad_common.db_counters import publish_db_counters
 from muad_contracts import ScheduleStatus, TaskStatus
-from muad_logging import configure_logging
+from muad_logging import configure_logging, get_logger
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -76,7 +75,7 @@ from .worker.workspace_maintenance import WorkspaceMaintenanceLoop
 SERVICE_NAME = "muad-agent-worker"
 
 configure_logging(SERVICE_NAME)
-logger = logging.getLogger("muad_agent_worker.main")
+logger = get_logger("muad_agent_worker.main")
 
 
 @asynccontextmanager

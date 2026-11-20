@@ -21,7 +21,6 @@
 
 from __future__ import annotations
 
-import logging
 import uuid
 from dataclasses import dataclass
 from typing import Literal, Protocol
@@ -42,12 +41,13 @@ from muad_contracts.channel_delivery import (
     DeliveryLeaseGrant,
     DeliveryReservationRequest,
 )
+from muad_logging import get_logger
 from pydantic import JsonValue
 
 from ..channels.base import ActiveTextDelivery, ChannelAdapter, ChannelAdapterUnavailable
 from .console_client import ConsoleClientPort
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 终态交付结局词表（同时是 `im_final_delivery_total` 的状态标签）。
 TerminalDeliveryStatus = Literal["delivered", "deduplicated", "failed"]

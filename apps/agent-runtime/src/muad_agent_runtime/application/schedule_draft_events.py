@@ -15,16 +15,16 @@
 
 from __future__ import annotations
 
-import logging
 import uuid
 
 from muad_contracts.webchat import WebchatScheduleDraftReady
+from muad_logging import get_logger
 
 from ..infrastructure.db import SessionFactoryProvider
 from .event_tail_hub import get_event_tail_hub
 from .run_events import EventWriter
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: canonical 身份：`event_type` 是业务审计名，`stream_type` 是公开流词表里的判别值。
 SCHEDULE_DRAFT_READY_EVENT = "SCHEDULE_DRAFT_READY"

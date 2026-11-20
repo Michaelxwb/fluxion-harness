@@ -26,7 +26,6 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 import os
 import re
 import uuid
@@ -41,13 +40,14 @@ from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_artifact_store import NfsArtifactStore
 from muad_contracts.platform_settings import parse_platform_settings
+from muad_logging import get_logger
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.runtime import ChannelUpload
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 暂存上传的 kind 词表（与 `ck_channel_upload_kind` 同形）。
 CHANNEL_UPLOAD_KINDS = frozenset({"IMAGE", "DOCUMENT", "OTHER"})

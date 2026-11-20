@@ -13,13 +13,13 @@
 
 from __future__ import annotations
 
-import logging
 import uuid
 from typing import Any, Protocol, cast
 
 import sqlalchemy as sa
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_logging import get_logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.db_clock import database_now
@@ -31,7 +31,7 @@ from ..infrastructure.models.runtime import (
 )
 from .run_service import ACTIVE_RUN_STATUSES
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class RunCancelPort(Protocol):

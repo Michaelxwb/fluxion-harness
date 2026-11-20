@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import time
 from collections.abc import AsyncIterator, Callable
 from contextlib import suppress
@@ -48,11 +47,12 @@ from muad_contracts.webchat import (
     ExternalIdentityView,
     ExternalPrincipalResult,
 )
+from muad_logging import get_logger
 from pydantic import SecretStr
 
 from .console_client import ConsoleClientPort
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: CHAT 会话 Cookie：Console 签发（`api/chat_security.CHAT_SESSION_COOKIE`）、网关读取，同一枚
 #: （同源浏览器只带一份）。名称是两端的线上契约，改动必须同时改 Console 侧。

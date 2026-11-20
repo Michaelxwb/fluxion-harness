@@ -23,7 +23,6 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -34,6 +33,7 @@ from muad_api.error_codes import ErrorCode
 from muad_common.session_store import RedisSessionStore, SessionStoreUnavailable
 from muad_contracts.platform_settings import PlatformSettingsError
 from muad_contracts.webchat import WebchatTokenIssued, WebchatTokenMetadata
+from muad_logging import get_logger
 from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -53,7 +53,7 @@ TOKEN_ENTROPY_BYTES = 32
 #: API-03 元信息的四态（与 `WebchatTokenMetadata.status` 的字面量集合一致）。
 TokenStatus = Literal["NOT_CONFIGURED", "ACTIVE", "EXPIRED", "REVOKED"]
 
-_logger = logging.getLogger(__name__)
+_logger = get_logger(__name__)
 
 
 def generate_chat_token() -> str:

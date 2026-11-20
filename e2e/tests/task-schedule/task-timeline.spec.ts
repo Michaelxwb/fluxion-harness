@@ -49,6 +49,7 @@ test.describe('Task Timeline', () => {
     const types = await page
       .locator('[data-testid="task-timeline"] li')
       .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-event-type')));
+    await expect(page.getByTestId('timeline-event-2')).toContainText('执行器已接手');
     expect(types).toEqual([
       'CREATED',
       'CLAIMED',

@@ -1,6 +1,5 @@
 import asyncio
 import hashlib
-import logging
 import time
 from contextlib import suppress
 from dataclasses import dataclass
@@ -21,6 +20,7 @@ from muad_contracts import (
 )
 from muad_contracts.enums import OUTBOUND_CHANNELS
 from muad_contracts.im import DeliveryCommand, DeliveryKind
+from muad_logging import get_logger
 
 from ..application.channel_delivery import ConsoleDeliveryPermission
 from ..application.stream_renderer import BROKEN_STREAM_TEXT, STOPPED_TEXT
@@ -53,7 +53,7 @@ from .deps import (
     RegistryDep,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/internal/deliveries", tags=["delivery"])
 

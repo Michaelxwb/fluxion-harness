@@ -8,7 +8,7 @@ from urllib.parse import urlsplit
 from pydantic import UUID4, BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_validator
 
 MAX_FRAME_BYTES = 4096
-PROTOCOL_VERSION = 5
+PROTOCOL_VERSION = 6
 
 
 class AttemptMetadata(BaseModel):
@@ -71,7 +71,6 @@ class WireResponse(BaseModel):
     attempt_id: str | None = None
     controlled: StrictBool | None = None
     business_trace_id: UUID4 | None = None
-    overwrite_csrf: StrictBool = False
     remaining_seconds: float | None = Field(default=None, gt=0, allow_inf_nan=False)
     scope: Literal["public", "execution", "invocation"] | None = None
 

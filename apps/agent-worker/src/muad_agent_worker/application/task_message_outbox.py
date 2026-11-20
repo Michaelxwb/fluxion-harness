@@ -13,7 +13,6 @@ Worker 消费者在 `delivery/message_outbox.py`；本模块只写，不发送�
 
 from __future__ import annotations
 
-import logging
 import uuid
 from collections.abc import Mapping
 from datetime import datetime
@@ -29,6 +28,7 @@ from muad_contracts import (
     delivery_target_key,
 )
 from muad_contracts.enums import OUTBOUND_CHANNELS
+from muad_logging import get_logger
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -40,7 +40,7 @@ from ..infrastructure.models.task import (
     TaskScheduleRevision,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 MESSAGE_KIND_TASK_RESULT = "TASK_RESULT"
 OUTBOX_PENDING = "PENDING"

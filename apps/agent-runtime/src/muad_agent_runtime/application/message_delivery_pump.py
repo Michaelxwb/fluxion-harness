@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -31,6 +30,7 @@ from muad_contracts import (
     DeliveryResponse,
     DeliveryRouteInput,
 )
+from muad_logging import get_logger
 from pydantic import JsonValue
 
 from ..infrastructure.db import SessionFactoryProvider
@@ -63,7 +63,7 @@ from .message_delivery import (
     message_delivery_due_statement,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 投递泵的单次结局（词表与 message_delivery 状态机一致，不含 NOT_SENT——它落回 PENDING）。
 MessageDeliveryOutcome = Literal["DELIVERED", "DEGRADED", "UNKNOWN", "FAILED"]

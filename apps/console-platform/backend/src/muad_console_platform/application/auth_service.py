@@ -1,6 +1,5 @@
 import hashlib
 import json
-import logging
 import secrets
 import uuid
 from dataclasses import dataclass
@@ -11,6 +10,7 @@ from argon2.exceptions import Argon2Error, InvalidHashError
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts.platform_settings import AuthSettings
+from muad_logging import get_logger
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,7 +24,7 @@ from .platform_settings_service import PlatformSettingsService
 ROLES = (ROLE_ADMIN, ROLE_BUILDER)
 
 _PASSWORD_HASHER = PasswordHasher()
-_logger = logging.getLogger(__name__)
+_logger = get_logger(__name__)
 _DUMMY_HASH = _PASSWORD_HASHER.hash("muad-console-timing-equalizer")
 
 

@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import uuid
 from typing import Final, cast
 
@@ -22,10 +21,11 @@ from muad_common.redis_client import (
     create_pubsub_client_sync,
     create_redis_client,
 )
+from muad_logging import get_logger
 from redis.asyncio.cluster import RedisCluster
 from redis.exceptions import RedisError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 全局通知频道：gateway 每个 Pod 订阅一次，按 tenant/user 路由到本 Pod 的 SSE 流。
 NOTIFICATION_CHANNEL: Final = "muad:webchat.notifications"

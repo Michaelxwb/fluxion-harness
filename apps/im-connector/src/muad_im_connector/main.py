@@ -6,7 +6,6 @@ Redis Stream。探针/指标端口是运维面，不是业务面（design §4.1�
 
 from __future__ import annotations
 
-import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -24,7 +23,7 @@ from muad_common.redis_client import (
 from muad_im_core import BotSnapshotCache, InboundPublisher, RedisBatchJournal
 from muad_im_gateway.application.inbound_attachments import InboundAttachmentStore
 from muad_im_gateway.channels.base import ArtifactLinkIssuer
-from muad_logging import configure_logging
+from muad_logging import configure_logging, get_logger
 from redis.exceptions import RedisError as RedisErrorType
 
 from .channels.probe import HttpProbeChannelAdapter
@@ -37,7 +36,7 @@ from .reply_store import ReplyStore
 from .runtime import ConnectorAdapterPort, ConnectorRuntime
 from .settings import connector_settings
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 SERVICE_NAME = "muad-im-connector"
 

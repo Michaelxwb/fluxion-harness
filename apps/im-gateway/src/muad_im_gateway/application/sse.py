@@ -13,12 +13,13 @@
 from __future__ import annotations
 
 import json
-import logging
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from muad_logging import get_logger
+
+logger = get_logger(__name__)
 
 KNOWN_EVENT_TYPES = frozenset(
     {

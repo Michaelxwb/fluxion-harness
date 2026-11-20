@@ -16,10 +16,10 @@
 
 from __future__ import annotations
 
-import logging
 import uuid
 
 import sqlalchemy as sa
+from muad_logging import get_logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...infrastructure.db import SessionFactoryProvider
@@ -33,7 +33,7 @@ from .task_artifacts import load_task_owner
 from .tool_results import TOOL_RESULT_ARTIFACT_TYPE
 from .transcripts import TRANSCRIPT_ARTIFACT_TYPE
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 发布事件的 canonical 身份（公开流事件词表与 `run_service.STREAM_BUSINESS_TYPES` 同源）。
 PUBLISH_EVENT_TYPE = "ARTIFACT_CREATED"

@@ -75,6 +75,26 @@ async def test_controlled_javascript_is_rejected_before_starting(tmp_path):
     assert not runner.started
 
 
+async def test_trace_only_binding_preserves_javascript_execution(tmp_path, monkeypatch):
+    root, script = package(tmp_path, suffix="js")
+    runner = CaptureRunner()
+    monkeypatch.setattr("muad_agent_core.skill.selection.shutil.which",
+                        lambda *_args, **_kwargs: "/usr/bin/node")
+
+    async def observe(event):
+        pytest.fail("JavaScript execution must not open a Python request trace")
+
+    result = await SandboxedSkillExecutor(runner=runner).execute(SkillExecutionRequest(
+        ready_dir=root, script=script, input={}, source="USER", timeout_sec=5,
+        egress_broker=InvocationEgressBroker.for_tracing(
+            observe=observe, deadline_seconds=5, cleanup_seconds=1,
+        ),
+    ))
+    assert result.exit_code == 0
+    assert runner.started
+    assert "MUAD_EGRESS_SOCKET" not in runner.spec.env
+
+
 async def test_set_stop_flag_wins_even_if_waiter_is_scheduled_later():
     class DelayedWaiter(asyncio.Event):
         async def wait(self):

@@ -19,7 +19,6 @@
 
 from __future__ import annotations
 
-import logging
 import os
 import re
 from dataclasses import dataclass
@@ -34,12 +33,13 @@ from muad_api.error_codes import ErrorCode
 from muad_artifact_store import NfsArtifactStore
 from muad_contracts import AttachmentRef
 from muad_contracts.webchat import WebchatConversationScope
+from muad_logging import get_logger
 from pydantic import BaseModel, ValidationError
 
 from .chat_principal import ChatIdentity
 from .webchat_service import WebchatEntrySource, resolve_authorized_entry
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 可**内联预览**的媒体类型白名单（栅格图片）：显式枚举，未知/可执行内容一律按附件下载。
 SAFE_PREVIEW_MEDIA_TYPES = frozenset({"image/png", "image/jpeg", "image/gif", "image/webp"})

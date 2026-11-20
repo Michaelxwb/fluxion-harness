@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import os
 import socket
 import uuid
@@ -30,6 +29,7 @@ from muad_contracts import (
     WaitKind,
     task_retry_safety,
 )
+from muad_logging import get_logger
 from pydantic import JsonValue
 from sqlalchemy import CursorResult, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -95,7 +95,7 @@ from .execution_outcomes import (
 from .executor import SkillTaskExecutor, TaskExecutionError, TaskExecutorProtocol
 from .reminder import ReminderExecutor
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 RETRY_BACKOFF_BASE_SEC = 5
 #: 回收时重试预算已耗尽（`attempt >= max_attempts`）：终态失败，不再置回 QUEUED。

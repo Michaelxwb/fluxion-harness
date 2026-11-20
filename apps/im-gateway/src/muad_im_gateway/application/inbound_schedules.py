@@ -18,7 +18,6 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any, Protocol
 from uuid import UUID
 
@@ -29,9 +28,10 @@ from muad_contracts import (
     ChannelHumanRouteResponse,
     ConfirmationSurface,
 )
+from muad_logging import get_logger
 from pydantic import ValidationError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ScheduleOwnerPort(Protocol):

@@ -19,6 +19,27 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..infrastructure.models.control import ProjectPlatform
 
 
+async def platform_trace_base_urls(session: AsyncSession, tenant_id: str) -> tuple[str, ...]:
+    configs = await session.scalars(
+        select(ProjectPlatform.resolver_config_json).where(
+            ProjectPlatform.tenant_id == tenant_id,
+            ProjectPlatform.is_deleted.is_(False),
+            ProjectPlatform.enabled.is_(True),
+        )
+    )
+    urls: set[str] = set()
+    for config in configs:
+        base_url = config.get("base_url")
+        if not isinstance(base_url, str) or not base_url:
+            continue
+        try:
+            origin, path = platform_http_target(base_url, "/")
+        except ValueError:
+            continue  # An invalid Base URL cannot establish platform identity.
+        urls.add(origin + path.rstrip("/"))
+    return tuple(sorted(urls))
+
+
 async def platform_rules(
     session: AsyncSession,
     tenant_id: str,

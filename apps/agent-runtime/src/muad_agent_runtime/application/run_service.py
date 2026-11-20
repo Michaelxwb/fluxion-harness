@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-import logging
 import time
 import uuid
 import weakref
@@ -66,6 +65,7 @@ from muad_contracts.platform_settings import (
     parse_platform_settings,
     validate_task_execution_timeout,
 )
+from muad_logging import get_logger
 from pydantic import ValidationError
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -245,7 +245,7 @@ from .run_submission import (
 from .task_family import read_run_task_family
 from .tool_result_receipts import OP_TERMINAL
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 ACTIVE_RUN_STATUSES = (RunStatus.CREATED, RunStatus.RUNNING, RunStatus.WAITING_INPUT, RunStatus.WAITING_TOOL)
 TERMINAL_RUN_STATUSES = (RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED)

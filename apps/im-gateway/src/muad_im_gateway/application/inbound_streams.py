@@ -14,7 +14,6 @@ Connector（以及 Generic Webhook 路由）把规范化事件 XADD 到 `muad:im
 from __future__ import annotations
 
 import asyncio
-import logging
 import os
 import socket
 import time
@@ -25,6 +24,7 @@ import redis.asyncio
 from muad_api import metrics
 from muad_contracts import ChannelEnvelope, UnsupportedMedia
 from muad_contracts.im import InboundEvent, inbound_stream_key_for_shard
+from muad_logging import get_logger
 from redis.asyncio import Redis
 from redis.asyncio.cluster import RedisCluster
 from redis.exceptions import RedisClusterException
@@ -32,7 +32,7 @@ from redis.exceptions import RedisClusterException
 from ..channels.base import ChannelAdapter, ChannelRegistry, UnknownChannelAdapterError
 from .inbound import InboundPipeline
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 INBOUND_GROUP = "im-ingress"
 INBOUND_DEAD_STREAM = "muad:im:inbound:dead"

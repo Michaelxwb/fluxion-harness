@@ -15,15 +15,15 @@
 
 from __future__ import annotations
 
-import logging
 import uuid
 from typing import Protocol
 
 import httpx
 from muad_api.security import INTERNAL_SERVICE_HEADER
 from muad_contracts import AttachmentRef
+from muad_logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 RESOLVE_PATH = "/internal/artifacts"
 RESOLVE_TIMEOUT_SEC = 5.0

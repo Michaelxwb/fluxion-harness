@@ -16,6 +16,14 @@ import os
 import pytest
 
 
+def pytest_sessionstart(session: pytest.Session) -> None:
+    """Prepare the Python interpreter used by Skill subprocesses as in service images."""
+    if not hasattr(session.config, "workerinput"):
+        from muad_egress_site import install_site_hook
+
+        install_site_hook()
+
+
 def pytest_runtest_logreport(report: pytest.TestReport) -> None:
     if not report.failed:
         return

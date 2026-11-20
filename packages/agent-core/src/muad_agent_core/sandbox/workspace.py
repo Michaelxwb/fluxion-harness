@@ -16,7 +16,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import os
 import stat
 import uuid
@@ -26,13 +25,15 @@ from datetime import datetime
 from pathlib import Path
 from typing import Protocol
 
+from muad_logging import get_logger
+
 MIB = 1024 * 1024
 DAY_SECONDS = 24 * 60 * 60
 WORKSPACE_MOUNT = "/workspace"
 WORKSPACE_DATA_MOUNT = f"{WORKSPACE_MOUNT}/data"
 WORKSPACE_STATE_ACTIVE = "ACTIVE"
 
-logger = logging.getLogger("muad_agent_core.sandbox.workspace")
+logger = get_logger("muad_agent_core.sandbox.workspace")
 
 
 class WorkspaceSettings(Protocol):

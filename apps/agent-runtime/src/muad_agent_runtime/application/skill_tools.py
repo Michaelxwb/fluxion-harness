@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
@@ -63,8 +62,10 @@ from muad_contracts.skill_invocation import (
     MAX_SKILL_ARGV_ITEMS,
     validate_skill_argv,
 )
+from muad_logging import get_logger
 from muad_platform_sdk.adapter.mss_config import PlatformAuthError
-from muad_platform_sdk.egress_ipc import InvocationEgressBroker
+from muad_platform_sdk.egress_attempt_audit import AttemptObserver
+from muad_platform_sdk.egress_ipc import InvocationEgressBroker, PlatformBaseURLLoader
 from muad_platform_sdk.host_egress_execution import HostEgressExecution
 from muad_platform_sdk.shared_redis import MeteringUnavailable, SharedLimitExceeded
 from muad_platform_sdk.skill_access import SkillPlatformContext
@@ -124,7 +125,7 @@ _ARGV_SCHEMA: Mapping[str, Any] = {
 }
 _NUMBER_SCHEMA: Mapping[str, Any] = {"type": "number", "exclusiveMinimum": 0}
 _CATALOG_RESOURCE_KEY = "skills:catalog"
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -237,6 +238,8 @@ def build_skill_registry(
     draft_tools: SkillDraftTools | None = None,
     enable_run_skill_script: bool = False,
     egress: HostEgressExecution | None = None,
+    trace_observer: AttemptObserver | None = None,
+    load_platform_base_urls: PlatformBaseURLLoader | None = None,
 ) -> ToolRegistry:
     tool_set = SkillToolSet(
         cache=cache,
@@ -258,6 +261,8 @@ def build_skill_registry(
         draft_tools=draft_tools,
         enable_run_skill_script=enable_run_skill_script,
         egress=egress,
+        trace_observer=trace_observer,
+        load_platform_base_urls=load_platform_base_urls,
     )
     return tool_set.registry()
 
@@ -285,9 +290,13 @@ class SkillToolSet:
         draft_tools: SkillDraftTools | None = None,
         enable_run_skill_script: bool = False,
         egress: HostEgressExecution | None = None,
+        trace_observer: AttemptObserver | None = None,
+        load_platform_base_urls: PlatformBaseURLLoader | None = None,
         async_retry_safety: ToolRetrySafety = DEFAULT_TOOL_RETRY_SAFETY,
     ) -> None:
         self._egress = egress
+        self._trace_observer = trace_observer
+        self._load_platform_base_urls = load_platform_base_urls
         if platform_context is not None and platform_context.budget_scope is not None:
             raise ValueError("Runtime local budget scopes are unsupported; configure shared egress")
         self._cache = cache
@@ -666,7 +675,8 @@ class SkillToolSet:
                 )
             selected = tuple(dict.fromkeys(key.strip() for key in keys))
             platform = replace(platform, platform_keys=selected, require_all_platforms=True)
-            platform, broker = await self._workspace_platform_scope(platform, call_id)
+            timeout_sec = _optional_timeout(arguments, limit=self._timeout_sec)
+            platform, broker = await self._workspace_platform_scope(platform, call_id, timeout_sec)
             cwd = arguments.get("cwd", WORKSPACE_MOUNT)
             if not isinstance(cwd, str) or not cwd.strip():
                 raise SkillToolError(
@@ -676,7 +686,7 @@ class SkillToolSet:
                 tenant_id=context.tenant_id, user_id=context.user_id, agent_id=context.agent_id,
                 execution_id=_workspace_execution_id(context.run_id, call_id), run_id=context.run_id,
                 command=_require_string(arguments, "command"), cwd=cwd.strip(),
-                timeout_sec=_optional_timeout(arguments, limit=self._timeout_sec),
+                timeout_sec=timeout_sec,
                 platform_context=platform, egress_broker=broker,
             ))
         except (WorkspaceError, SandboxError, SkillToolError, SkillExecutionError) as exc:
@@ -699,18 +709,29 @@ class SkillToolSet:
         return _workspace_payload(result)
 
     async def _workspace_platform_scope(
-        self, platform: SkillPlatformContext, call_id: str,
+        self, platform: SkillPlatformContext, call_id: str, timeout_sec: float,
     ) -> tuple[SkillPlatformContext, InvocationEgressBroker | None]:
         host = self._egress
         if host is None:
-            return platform, None
+            return platform, self._trace_broker(timeout_sec)
         invocation = await host.host_invocation(
             operation_key=egress_operation_key("TOOL_CALL", call_id), skill_key="workspace_shell",
         )
-        broker = host.broker(invocation, deadline_seconds=self._timeout_sec)
+        broker = host.broker(
+            invocation, deadline_seconds=timeout_sec, load_platform_base_urls=self._load_platform_base_urls,
+        )
         return replace(platform, transport_factory=lambda verify: host.transport(
             invocation, verify=verify, on_limit=broker.note_limit,
         )), broker
+
+    def _trace_broker(self, timeout_sec: float) -> InvocationEgressBroker | None:
+        if self._trace_observer is None:
+            return None
+        return InvocationEgressBroker.for_tracing(
+            observe=self._trace_observer, deadline_seconds=timeout_sec,
+            cleanup_seconds=process_settings().egress_cleanup_sec,
+            load_platform_base_urls=self._load_platform_base_urls,
+        )
 
     async def skill_draft_shell(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         """在当前用户当前草稿的副本中执行一条命令；身份取自 Run 上下文。"""
@@ -984,13 +1005,14 @@ class SkillToolSet:
         timeout_sec: float | None = None,
     ) -> SkillExecutionResult:
         try:
-            broker, platform_context = await self._execution_egress(skill, invocation_id)
+            deadline = self._timeout_sec if timeout_sec is None else timeout_sec
+            broker, platform_context = await self._execution_egress(skill, invocation_id, deadline)
             return await self._executor.execute(
                 SkillExecutionRequest(
                     ready_dir=ready_dir,
                     input=input_data,
                     argv=argv,
-                    timeout_sec=timeout_sec if timeout_sec is not None else self._timeout_sec,
+                    timeout_sec=deadline,
                     source=str(skill.source),
                     workspace_dir=workspace_dir,
                     execution_id=execution_id,
@@ -1016,15 +1038,17 @@ class SkillToolSet:
             raise SkillToolError("EGRESS_METERING_UNAVAILABLE", "shared metering unavailable") from None
 
     async def _execution_egress(
-        self, skill: ResolvedSkill, operation_key: str
+        self, skill: ResolvedSkill, operation_key: str, timeout_sec: float,
     ) -> tuple[InvocationEgressBroker | None, SkillPlatformContext | None]:
         context, host = self._platform_context, self._egress
         if context is not None:
             context = replace(context, platform_keys=skill_platform_keys(skill.frontmatter))
         if host is None:
-            return None, context
+            return self._trace_broker(timeout_sec), context
         invocation = await host.host_invocation(operation_key=operation_key, skill_key=skill.key)
-        broker = host.broker(invocation, deadline_seconds=self._timeout_sec)
+        broker = host.broker(
+            invocation, deadline_seconds=timeout_sec, load_platform_base_urls=self._load_platform_base_urls,
+        )
         if context is not None:
             context = replace(
                 context,

@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
 import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any
@@ -39,6 +38,7 @@ from muad_contracts import (
 )
 from muad_contracts.enums import OUTBOUND_CHANNELS, ScheduleStatus
 from muad_contracts.webchat import WebchatScheduleDraftReady
+from muad_logging import get_logger
 from pydantic import ValidationError
 
 from ..infrastructure.db import SessionFactoryProvider
@@ -62,7 +62,7 @@ from .task_client import (
     submission_idempotency_key,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 DRAFT_SCHEDULE_TOOL = "draft_schedule"
 DRAFT_SCHEDULE_UPDATE_TOOL = "draft_schedule_update"

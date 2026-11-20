@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-import logging
 import uuid
 from typing import Any
 
@@ -19,8 +18,9 @@ from muad_contracts.memory_admin import (
     MemoryAdminItem,
     MemoryCommandRequest,
 )
+from muad_logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 USERS_PATH = "/internal/admin/users"
 MEMORY_PATH = "memory"

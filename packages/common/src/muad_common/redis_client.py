@@ -14,11 +14,11 @@
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Sequence
 from typing import Literal, cast
 from urllib.parse import SplitResult, unquote, urlsplit
 
+from muad_logging import get_logger
 from redis.asyncio import Redis
 from redis.asyncio.cluster import ClusterNode, RedisCluster
 from redis.asyncio.retry import Retry
@@ -26,7 +26,7 @@ from redis.backoff import ExponentialWithJitterBackoff
 from redis.exceptions import ConnectionError as RedisConnectionError
 from redis.exceptions import RedisClusterException, RedisError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 type RedisMode = Literal["standalone", "cluster"]
 type RedisClient = Redis | RedisCluster

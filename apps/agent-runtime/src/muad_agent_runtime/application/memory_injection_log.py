@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-import logging
 from uuid import UUID
 
 from muad_api import AppError
+from muad_logging import get_logger
 from sqlalchemy.exc import SQLAlchemyError
 
 from ..infrastructure.db import SessionFactory
 from .memory_context import InjectionAttribution
 from .run_events import EventWriter
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 MEMORY_INJECTED_EVENT = "MEMORY_INJECTED"
 

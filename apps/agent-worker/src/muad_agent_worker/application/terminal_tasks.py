@@ -5,7 +5,6 @@ parent`。立即任务没有 operation 之外的调度行，就从 operation 开
 锁 Execution 再回头取 operation 锁。
 """
 
-import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -24,6 +23,7 @@ from muad_contracts import (
     ToolResultRequest,
     canonical_json,
 )
+from muad_logging import get_logger
 from muad_logging.redaction import redact_text, redact_value
 from pydantic import JsonValue, TypeAdapter
 from sqlalchemy import false, select, update
@@ -50,7 +50,7 @@ from ..metrics import (
 from .task_events import EntityType, TaskEventType, append_event
 from .task_message_outbox import enqueue_task_message_outbox
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 NON_TERMINAL = (
     TaskStatus.QUEUED.value,

@@ -1,4 +1,3 @@
-import logging
 from collections.abc import Callable
 from typing import Annotated, Any, cast
 
@@ -10,6 +9,7 @@ from muad_api.error_codes import ErrorCode
 from muad_artifact_store import NfsArtifactStore
 from muad_common import SharedSettings
 from muad_common.redis_client import create_redis_client
+from muad_logging import get_logger
 from muad_platform_sdk import PlatformAdapterRegistry, RedisPlatformSessionInvalidator
 
 from ..application.artifact_fetch_service import ArtifactFetchService, ArtifactResolvePort
@@ -40,7 +40,7 @@ from ..infrastructure.settings import process_settings
 from ..infrastructure.worker_client import WorkerAdminClient
 from ..metrics import CONFIG_FAILURE_METRIC, record_reason
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ConsoleSessionVerifier:

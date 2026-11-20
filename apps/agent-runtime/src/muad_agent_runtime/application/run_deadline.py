@@ -4,11 +4,11 @@
 （`database_now`，行锁之后取值）；进程墙钟只用于计时与展示。`now` 是显式的测试注入点。
 """
 
-import logging
 import uuid
 from datetime import datetime
 
 from muad_contracts import RunStatus
+from muad_logging import get_logger
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,7 +28,7 @@ from .tool_result_receipts import lock_run_source
 
 ACTIVE_STATUSES = (RunStatus.CREATED, RunStatus.RUNNING, RunStatus.WAITING_INPUT, RunStatus.WAITING_TOOL)
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 async def expire_runs(factory: SessionFactory, *, now: datetime | None = None, limit: int = 128) -> int:

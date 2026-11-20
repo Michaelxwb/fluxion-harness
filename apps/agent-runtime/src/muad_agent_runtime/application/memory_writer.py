@@ -9,7 +9,6 @@ target-bound candidates, clear-only forget_epoch, idempotent receipts.
 from __future__ import annotations
 
 import hashlib
-import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Literal, cast, get_args
@@ -19,6 +18,7 @@ from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts.canonical import canonical_json
 from muad_contracts.memory import MemoryAuthor, MemoryCandidate, MemoryRetirementReason
+from muad_logging import get_logger
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,7 +41,7 @@ from .memory_write import MemoryWriteState, decide_automatic_update, plan_memory
 
 MemoryWriteAction = Literal["UPSERT", "CREATE", "DELETE", "CLEAR"]
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)

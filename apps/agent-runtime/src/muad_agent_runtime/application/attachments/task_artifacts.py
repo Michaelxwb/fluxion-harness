@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import logging
 import uuid
 from dataclasses import dataclass
 from typing import Any
@@ -35,6 +34,7 @@ from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_artifact_store import NfsArtifactStore
 from muad_contracts import AttachmentRef, TaskArtifactWriteRequest, TaskArtifactWriteResponse
+from muad_logging import get_logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...infrastructure.models.runtime import Artifact
@@ -42,7 +42,7 @@ from ...metrics import TASK_ARTIFACT_DOWNLOAD_METRIC, record_outcome
 from .output_service import MAX_OUTPUT_BYTES
 from .reference import attachment_ref
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 用户可下载的任务产物类型：与 Run 产物统一为 OUTPUT。
 TASK_OUTPUT_ARTIFACT_TYPE = "OUTPUT"

@@ -25,7 +25,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import uuid
 from collections.abc import AsyncIterator, Mapping
 from contextlib import AbstractAsyncContextManager, AsyncExitStack, suppress
@@ -55,6 +54,7 @@ from muad_contracts.webchat_events import (
     WebchatToolEvent,
     WebchatToolProgress,
 )
+from muad_logging import get_logger
 from pydantic import ValidationError
 
 from ..metrics import (
@@ -74,7 +74,7 @@ from .chat_principal import ChatIdentity
 from .sse import SseEvent
 from .webchat_service import owned_run_state, required_uuid
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: canonical `stream_type` → 公开事件类型（TASK-006 契约的判别联合）；未知/内部默认不公开。
 PUBLIC_STREAM_EVENT_TYPES: dict[str, str] = {

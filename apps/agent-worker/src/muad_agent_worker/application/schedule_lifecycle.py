@@ -24,7 +24,6 @@
 
 from __future__ import annotations
 
-import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -44,6 +43,7 @@ from muad_contracts import (
     TaskStatus,
     TerminalStatus,
 )
+from muad_logging import get_logger
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -66,7 +66,7 @@ from .schedule_admission import (
 from .task_events import EntityType, TaskEventSeed, TaskEventType, append_events
 from .terminal_tasks import TerminalChange, lock_task_tree, write_terminal
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 ACTIVE = ScheduleStatus.ACTIVE.value
 PAUSED = ScheduleStatus.PAUSED.value

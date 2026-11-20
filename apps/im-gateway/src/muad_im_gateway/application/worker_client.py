@@ -13,7 +13,6 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 from uuid import UUID
 
@@ -23,10 +22,11 @@ from muad_api.context import current_request_id
 from muad_api.error_codes import ErrorCode
 from muad_api.security import INTERNAL_SERVICE_HEADER
 from muad_contracts import ConfirmationSurface, ScheduleStatus
+from muad_logging import get_logger
 
 from .envelope import decode_json, error_code_from_payload, require_data_dict
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 TASKS_PATH = "/internal/tasks"
 SCHEDULES_PATH = "/internal/schedules"

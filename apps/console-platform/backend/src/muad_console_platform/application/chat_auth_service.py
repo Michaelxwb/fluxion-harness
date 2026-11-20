@@ -24,7 +24,6 @@
 
 from __future__ import annotations
 
-import logging
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -34,6 +33,7 @@ from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts.platform_settings import PlatformSettingsError
 from muad_contracts.webchat import ChatAuthMethod, WebchatSessionInfo
+from muad_logging import get_logger
 from pydantic import SecretStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -52,7 +52,7 @@ PLATFORM_USER_STATUS_ACTIVE = "ACTIVE"
 #: 首期唯一认证方式（设计 §3.4：认证端口产出统一 principal）。
 AUTH_METHOD_USER_TOKEN: ChatAuthMethod = "USER_TOKEN"
 
-_logger = logging.getLogger(__name__)
+_logger = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)

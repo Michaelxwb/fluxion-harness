@@ -9,7 +9,6 @@ release（软删租约）。时间全部取 PG ``now()``：租约归属跨 Pod�
 
 from __future__ import annotations
 
-import logging
 import uuid
 from collections.abc import Callable
 from datetime import datetime
@@ -22,12 +21,13 @@ from muad_agent_core.sandbox.workspace import (
     WorkspaceUnavailable,
     WorkspaceUsage,
 )
+from muad_logging import get_logger
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from .models.workspace import Workspace, WorkspaceLease
 
-logger = logging.getLogger("muad_agent_runtime.workspace")
+logger = get_logger("muad_agent_runtime.workspace")
 
 SessionFactoryProvider = Callable[[], async_sessionmaker[AsyncSession]]
 

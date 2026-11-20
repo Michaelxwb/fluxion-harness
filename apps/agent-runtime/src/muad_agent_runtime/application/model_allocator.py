@@ -27,7 +27,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-import logging
 import random
 import time
 import uuid
@@ -41,6 +40,7 @@ from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_common.db_counters import db_stage_scope
 from muad_contracts.model_pool import ModelCallOwner, ModelCapacityReservationRequest
+from muad_logging import get_logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.db import SessionFactoryProvider
@@ -59,7 +59,7 @@ from ..infrastructure.model_dispatch_store import (
 from ..metrics import MODEL_CALL_SECONDS, record_latency
 from .model_capacity_service import ModelCapacityService, PoolLockGate
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 被延迟的工作负载原因：物理额度都满了（或绑定额度不足）
 DEFER_REASON_CAPACITY = "NO_CAPACITY"

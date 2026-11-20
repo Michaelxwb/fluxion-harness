@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import time
 from collections.abc import Callable
 from uuid import uuid4
 
 from muad_im_gateway.channels.base import ChannelAdapterUnavailable
+from muad_logging import get_logger
 
 from .sdk_port import WeComSdkPort
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 状态刷新是**可丢的**：通道慢或挂住时不能把正文顶在后面（设计 §3.4「不能让计时阻塞真实
 #: 结果」）。超时即放弃本次刷新并记日志，下一个 tick 会带着最新阶段重来（合并计时更新）。

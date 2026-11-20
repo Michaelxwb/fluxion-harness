@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 import httpx
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_logging import get_logger
 from pydantic import BaseModel, ValidationError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def error_code_from_payload(payload: Any) -> str:

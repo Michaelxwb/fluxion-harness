@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import logging
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, cast
@@ -29,6 +28,7 @@ from muad_contracts.memory import (
 )
 from muad_contracts.memory_taxonomy import PREDICATES_BY_KEY
 from muad_contracts.tasks import ContractModel
+from muad_logging import get_logger
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -44,7 +44,7 @@ from .memory_context import MemoryContextLoader
 from .memory_queries import MemoryCandidateRow, MemoryQueries
 from .memory_service import MemoryService
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 REMEMBER_TOOL, RECALL_TOOL, FORGET_TOOL = "remember", "recall", "forget"
 REMEMBER_DESCRIPTION = (
     "Propose a durable fact or preference for the current user to confirm. This does not save it: "

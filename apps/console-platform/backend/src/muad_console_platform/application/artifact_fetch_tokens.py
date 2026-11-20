@@ -20,7 +20,6 @@ uvicorn `--workers N` 下 A worker 签的链接到 B worker 也要能兑换。�
 from __future__ import annotations
 
 import json
-import logging
 import os
 import secrets
 import uuid
@@ -29,8 +28,9 @@ from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
 import redis.asyncio as redis_async
+from muad_logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 取件链接的存活时长。短是刻意的：它是一条**裸 URL**，会进浏览器历史、代理日志、
 #: 转发消息——暴露面随时长线性增长，而用户点开它只需要几秒。

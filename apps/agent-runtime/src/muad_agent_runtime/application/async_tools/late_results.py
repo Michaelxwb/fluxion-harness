@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import asyncio
-import logging
+
+from muad_logging import get_logger
 
 from ...infrastructure.db import SessionFactory
 from ...metrics import RUNTIME_MAINTENANCE_METRIC, record_outcome
 from .materialization import materialize_late_results
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class LateBackgroundResultPump:

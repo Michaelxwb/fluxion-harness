@@ -24,7 +24,6 @@
 
 from __future__ import annotations
 
-import logging
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -35,6 +34,7 @@ import sqlalchemy as sa
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import OUTBOUND_CHANNELS, AttachmentRef, ChannelContext
+from muad_logging import get_logger
 from pydantic import ValidationError
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -59,7 +59,7 @@ from .message_delivery import (
     run_waiting_message_key,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: `channel_notification.kind` 取值（与 0026 的 CHECK 同词表）。
 NotificationKind = Literal["RUN_COMPLETED", "RUN_WAITING_INPUT", "TASK_RESULT"]

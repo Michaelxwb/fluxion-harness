@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
@@ -20,6 +19,7 @@ from muad_contracts.memory import (
     MemorySourceEvidence,
 )
 from muad_contracts.platform_settings import MemoryPolicySettings
+from muad_logging import get_logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.db import SessionFactory, get_session_factory
@@ -34,7 +34,7 @@ from .memory_commands import MemoryCommand, MemoryMutation, MemoryWriteContext
 from .memory_service import MemoryService
 from .task_family import SKILL_TOOLS, SUCCESS_STATUS
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 EXPERIENCE_TTL = timedelta(days=365)
 PROCEDURE = MemoryCategory.PROCEDURE

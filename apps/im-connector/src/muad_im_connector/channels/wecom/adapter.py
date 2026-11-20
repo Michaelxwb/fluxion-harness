@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
-import logging
 import ssl
 import time
 from collections.abc import AsyncIterator, Callable, Mapping, Sequence
@@ -42,6 +41,7 @@ from muad_im_gateway.channels.base import (
     ChannelBotNotFound,
     FetchedAttachment,
 )
+from muad_logging import get_logger
 
 from .media import (
     UPLOAD_CHUNK_CMD,
@@ -70,7 +70,7 @@ from .sdk_port import (
     WeComSdkPort,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 DEFAULT_BACKOFF_BASE_SEC = 1.0
 DEFAULT_BACKOFF_MAX_SEC = 30.0

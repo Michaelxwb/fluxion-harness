@@ -12,7 +12,6 @@
 from __future__ import annotations
 
 import json
-import logging
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any
@@ -52,6 +51,7 @@ from muad_contracts import (
     build_task_snapshot,
     snapshot_hash,
 )
+from muad_logging import get_logger
 from muad_platform_sdk.shared_redis import MeteringUnavailable, SharedLimitExceeded
 from muad_platform_sdk.skill_access import SkillPlatformContext
 from sqlalchemy import false, select
@@ -69,7 +69,7 @@ from ..infrastructure.task_operation_client import (
 from .egress_execution import execute_task_skill_with_egress
 from .executor import TaskExecutionError, task_env
 
-logger = logging.getLogger("muad_agent_worker.worker.agentic_skills")
+logger = get_logger("muad_agent_worker.worker.agentic_skills")
 
 VALID_SKILL_SOURCES = frozenset({"SYSTEM", "ADMIN", "USER"})
 ASYNC_RECEIPT_KEY = "async_operation"

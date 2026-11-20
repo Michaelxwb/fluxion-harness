@@ -22,11 +22,11 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections.abc import Mapping
 from datetime import datetime
 
 from muad_contracts import TaskStatus, TaskToolOperationView, WaitKind
+from muad_logging import get_logger
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -50,7 +50,7 @@ from ..infrastructure.models.task import TaskExecution
 from ..infrastructure.task_operation_client import TaskOperationError
 from ..metrics import record_loop_tick
 
-logger = logging.getLogger("muad_agent_worker.worker.async_sweep")
+logger = get_logger("muad_agent_worker.worker.async_sweep")
 
 
 class AsyncResultSweeper:

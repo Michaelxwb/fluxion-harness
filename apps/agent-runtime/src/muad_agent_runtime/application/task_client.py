@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-import logging
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -30,6 +29,7 @@ from muad_contracts import (
 )
 from muad_contracts import build_task_snapshot as build_execution_snapshot
 from muad_contracts.platform_settings import TaskSettings
+from muad_logging import get_logger
 
 TASKS_PATH = "/internal/tasks"
 SCHEDULES_PATH = "/internal/schedules"
@@ -46,7 +46,7 @@ AGENT_HEADER = "X-Agent-Id"
 #: 入口 surface：Draft 的投递意图由它决定（Worker 用共享通道词表判能力，Runtime 不点名渠道）。
 ENTRY_CHANNEL_HEADER = "X-Entry-Channel"
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)

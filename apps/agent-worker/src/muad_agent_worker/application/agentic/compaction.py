@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -43,11 +42,12 @@ from muad_contracts.platform_settings import (
     SummarySettings,
     ToolResultSettings,
 )
+from muad_logging import get_logger
 
 from ...infrastructure.task_artifact_client import TaskArtifactClient, TaskArtifactError
 from ...metrics import CONTEXT_COMPACTION_METRIC, record_outcome
 
-logger = logging.getLogger("muad_agent_worker.application.agentic.compaction")
+logger = get_logger("muad_agent_worker.application.agentic.compaction")
 
 SUMMARY_ARTIFACT_FILENAME = "context-summary-{index}.txt"
 SUMMARY_ARTIFACT_MEDIA_TYPE = "text/plain"

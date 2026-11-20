@@ -8,7 +8,6 @@
   只按 `command_id` 与远端事实关联。
 """
 
-import logging
 import uuid
 from typing import Any
 
@@ -19,6 +18,7 @@ from muad_contracts.memory_admin import (
     MemoryCommandRequest,
 )
 from muad_contracts.memory_taxonomy import PREDICATES_BY_KEY
+from muad_logging import get_logger
 from pydantic import JsonValue
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -71,7 +71,7 @@ _AUDIT_ACTIONS = {
     "CLEAR": "DELETE",
 }
 
-_logger = logging.getLogger(__name__)
+_logger = get_logger(__name__)
 
 _MEMORY_TIME_FIELDS = ("expires_at", "last_confirmed_at", "create_time", "update_time")
 

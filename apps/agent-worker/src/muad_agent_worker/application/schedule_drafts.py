@@ -20,7 +20,6 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 import re
 import uuid
 from collections.abc import Iterator, Mapping
@@ -54,6 +53,7 @@ from muad_contracts import (
 )
 from muad_contracts.enums import OUTBOUND_CHANNELS
 from muad_contracts.platform_settings import PlatformSettings
+from muad_logging import get_logger
 from muad_logging.redaction import redact_text
 from pydantic import ValidationError
 from sqlalchemy import select
@@ -81,7 +81,7 @@ from .schedule_quota import ScheduleQuota, ensure_min_interval, ensure_schedule_
 
 DRAFT_HASH_PREFIX = "sha256:"
 DRAFT_STATUS_PENDING = str(DraftStatus.PENDING)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 授权类失败（其余永久失败一律按「依赖缺失」上报，精确原因走 `data.admission_code`）。
 _GRANT_ADMISSION_CODES = frozenset({"GRANT_REVOKED", "TOOL_REVOKED"})
