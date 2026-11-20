@@ -382,7 +382,7 @@
   - confirm-preflight PASS exit=0
 ## TASK-005: Fire 重校验与显式失败
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-002
 - **Source**: scheduled-skill-invocation.backend.design.md §3.5.4
 - **Scenarios**: S-03, E-08, B-02
@@ -425,12 +425,12 @@
 
 ### Checklist
 
-- [ ] Fire 用当前 artifact contract 校验渲染后的参数。
-- [ ] 三个失败码都是永久失败，带 repair；不建 Execution。
-- [ ] CRON/ONCE 的状态迁移符合现有 `record_admission_failure`。
-- [ ] 存量 `*` 不会进入 Snapshot。
-- [ ] 成功 Fire 的 Snapshot 与执行输入不变。
-- [ ] 测试覆盖契约缺失、参数不兼容、版本漂移、`*`。
+- [x] Fire 用当前 artifact contract 校验渲染后的参数。
+- [x] 三个失败码都是永久失败，带 repair；不建 Execution。
+- [x] CRON/ONCE 的状态迁移符合现有 `record_admission_failure`。
+- [x] 存量 `*` 不会进入 Snapshot。
+- [x] 成功 Fire 的 Snapshot 与执行输入不变。
+- [x] 测试覆盖契约缺失、参数不兼容、版本漂移、`*`。
 
 ### Spec Delta
 
@@ -449,13 +449,15 @@
 ### Log
 
 - [2026-11-20] created
+- [2026-11-20T08:04:46.999Z] started tests=03a764d86e24
 
 ### Verification
 
 - 尚未执行
 
 <a id="task-006"></a>
-
+- 2026-11-20T08:05:48.198Z PASS commands=1/1 executed=1 deduped=0 elapsed=23005ms tests=03a764d86e24 head=789cde2a0a3b dirty=1
+  - fire-revalidate PASS exit=0
 ## TASK-006: Authoring、self-creator 与存量 Skill 契约
 
 - **Status**: draft

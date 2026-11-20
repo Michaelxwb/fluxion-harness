@@ -82,7 +82,21 @@ def _skill(skill_id: uuid.UUID) -> ResolvedSkill:
         checksum=SKILL_CHECKSUM,
         storage_key="skills/report.tar.gz",
         execution_mode=SkillExecutionMode.ASYNC,
-        frontmatter={"retry_safety": "IDEMPOTENT"},
+        frontmatter={
+            "retry_safety": "IDEMPOTENT",
+            "invocation_contract": {
+                "version": 1,
+                "invocation": "stdin",
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "report_day": {"type": "string", "format": "date"}
+                    },
+                    "required": ["report_day"],
+                    "additionalProperties": False,
+                },
+            },
+        },
         source=SkillSource.ADMIN,
     )
 

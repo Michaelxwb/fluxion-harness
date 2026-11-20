@@ -475,6 +475,7 @@ def _dispatch_request(
         "delivery_channel": (
             body.delivery.route.channel if body.delivery.route is not None else None
         ),
+        "validate_skill_args": True,
     }
     if isinstance(payload, ReminderPayload):
         return AdmissionRequest(**base)
