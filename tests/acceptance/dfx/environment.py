@@ -65,6 +65,18 @@ INTERNAL_TOKEN = "dfx-reliability-internal-token"
 MODEL_API_KEY = "dfx-reliability-model-key"
 SKILL_KEY = "dfx_reliability_probe"
 SKILL_VERSION = "1.0.0"
+SKILL_FRONTMATTER = {
+    "invocation_contract": {
+        "version": 1,
+        "invocation": "stdin",
+        "schema": {
+            "type": "object",
+            "properties": {"case": {"type": "string"}},
+            "required": [],
+            "additionalProperties": False,
+        },
+    }
+}
 # 本套件经 `im.outbound` 投递的 WECOM 路由：TASK-009 起有状态通道的连接与发送在独立
 # Connector 进程里，命令只有对应 bot 存在启用快照时才会被持有 lease 的 Connector 消费。
 # 这些是 delivery/recovery 用例实际使用的 bot_id（路由里的 bot_id 必须与快照同形）。
@@ -376,6 +388,7 @@ def seed_control(database_url: str, artifact_root: Path) -> dict[str, Any]:
                 instructions="",
                 package_size=(artifact_root / storage_key).stat().st_size,
                 validation_status="READY",
+                frontmatter_json=SKILL_FRONTMATTER,
                 created_by=user.id,
             )
             session.add(artifact)
