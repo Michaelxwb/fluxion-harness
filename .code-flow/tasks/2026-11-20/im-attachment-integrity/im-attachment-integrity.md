@@ -1,0 +1,374 @@
+---
+{"version":1,"requirement":"im-attachment-integrity"}
+---
+
+# Tasks: im-attachment-integrity
+
+<!--
+一个需求一份任务文档。每个 TASK 使用一个 `## TASK-NNN: 标题` 段。
+Source 引用 `im-attachment-integrity.backend.design.md` / PRD 章节；场景引用 `im-attachment-integrity.scenarios.md`。
+-->
+
+## TASK-001: 新增批次配置与 Connector 设置读取
+
+- **Status**: draft
+- **Depends**:
+- **Source**: im-attachment-integrity.backend.design.md#3.3, #3.4
+- **Scenarios**: im-attachment-integrity:B-05
+- **Spec-Refs**: test/harness-test#RULE-test-001
+- **Paths**: packages/contracts/src/muad_contracts/platform_settings.py, apps/console-platform/backend/src/muad_console_platform/application/platform_settings_catalog.py, apps/im-connector/src/muad_im_connector/settings.py, apps/im-connector/src/muad_im_connector/platform_settings.py, apps/im-connector/src/muad_im_connector/main.py, tests/contracts/test_platform_settings.py, tests/test_platform_settings_schema.py, tests/console_platform/test_platform_settings_api.py, tests/im_connector/test_platform_settings_client.py
+- **E2E**:
+- **Skip-Tests**: false
+- **Skip-Reason**:
+
+### Tests
+
+```json
+[
+  {
+    "id": "batch-settings",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/contracts/test_platform_settings.py", "tests/test_platform_settings_schema.py", "tests/console_platform/test_platform_settings_api.py", "tests/im_connector/test_platform_settings_client.py"],
+    "timeout": 600,
+    "parallel": false
+  }
+]
+```
+
+### Description
+
+在系统设置页 `im` 配置中新增三个字段，并让 Connector 读取/缓存：
+
+- `im.inbound_batch_quiet_ms`：默认 300，范围 100–2000；
+- `im.inbound_batch_max_wait_ms`：默认 5000，范围 500–30000；
+- `im.inbound_batch_max_attachments`：默认 5，范围 1–20。
+
+Connector 通过 Console 内部 `platform-settings` 快照读取，按租户缓存；成功快照优先，失败用最近一次成功快照，从未成功用代码默认值并记 WARNING。页面保存后最多延迟一个缓存周期对新批次生效。
+
+### Checklist
+
+- [ ] `ImSettings` 增加三个字段、范围与默认值；旧配置反序列化兼容。
+- [ ] `platform_settings_catalog` 增加三项，系统设置页按既有 catalog 渲染。
+- [ ] Connector 设置客户端按租户缓存，失败降级顺序正确且不阻断入站。
+- [ ] 页面修改上限后，新批次使用新值；旧批次不追溯。
+- [ ] 测试覆盖默认值、范围、缓存命中/失败/空快照。
+
+### Spec Delta
+
+```json
+[]
+```
+
+### Log
+
+- [2026-11-20] created
+
+### Verification
+
+- 尚未执行
+
+## TASK-002: Connector 批次、在途成员与 journal
+
+- **Status**: draft
+- **Depends**: TASK-001
+- **Source**: im-attachment-integrity.backend.design.md#3.2.1, #3.2.2, #3.5
+- **Scenarios**: im-attachment-integrity:S-01, im-attachment-integrity:S-05, im-attachment-integrity:B-01, im-attachment-integrity:B-02, im-attachment-integrity:B-03, im-attachment-integrity:B-04, im-attachment-integrity:E-03, im-attachment-integrity:E-04
+- **Spec-Refs**: im/harness-im#RULE-im-002, test/harness-test#RULE-test-001, test/harness-test#RULE-002
+- **Paths**: packages/contracts/src/muad_contracts/im.py, packages/im-core/src/muad_im_core/inbound_batch.py, packages/im-core/src/muad_im_core/ingress.py, apps/im-connector/src/muad_im_connector/runtime.py, apps/im-connector/src/muad_im_connector/main.py, tests/im_core/test_inbound_batch.py, tests/im_core/test_inbound_publisher.py
+- **E2E**:
+- **Skip-Tests**: false
+- **Skip-Reason**:
+
+### Tests
+
+```json
+[
+  {
+    "id": "inbound-batch",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/im_core/test_inbound_batch.py", "tests/im_core/test_inbound_publisher.py"],
+    "timeout": 600,
+    "parallel": false
+  }
+]
+```
+
+### Description
+
+实现 Connector 入站批次与最小 Redis journal：
+
+- 原始帧到达、取件前登记 `PENDING` 成员；文字立即 `READY`，媒体成功/失败后更新；
+- 按 route 维护批次、静默窗口、最大等待、附件上限；
+- 第二段文字先 flush 前一批；命令/不支持媒体不参与聚合；
+- 达到附件上限后停止接收，超限追加 `ATTACHMENT_COUNT_EXCEEDED` 并整批失败；
+- 最大等待仍有 `PENDING` 媒体：追加 `ATTACHMENT_FETCH_TIMEOUT`，整批失败，不允许文字单独执行；
+- `InboundEvent.require_complete_attachments` 标记多成员批次；
+- `InboundPublisher` 支持全部成员 `dedupe_ids`，`InboundBatchJournal` 保存主消息/成员/合并事件/状态，重投不另起主消息；
+- 指标/日志：合并、超时、数量、失败、journal 恢复。
+
+### Checklist
+
+- [ ] 下载前登记成员；同 route 其他用户流量不影响本批计时。
+- [ ] 文字+单附件、文字+多附件、仅附件、文件先到均只形成一个合并事件。
+- [ ] 等待期重复文字/文件被忽略；发布后任一成员重投不产生第二个 Run。
+- [ ] XADD 后标记未完成时，Journal 能按原主消息 id 重发/确认。
+- [ ] 超时、超限、附件失败整批失败；不产生部分成功 Run。
+- [ ] 命令/不支持媒体按既有语义独立处理，不静默丢。
+- [ ] 测试覆盖 fake clock/真实 Redis journal、重投、崩溃恢复、数量/超时边界。
+
+### Spec Delta
+
+```json
+[
+  {
+    "id": "DELTA-001",
+    "op": "add",
+    "target": "im/harness-im",
+    "rule": "同一逻辑发送的文字与 1..N 个媒体帧必须在 Connector 按 route 有界聚合：下载前登记在途成员，全部附件成功物化后发布一个 InboundEvent；批次成员共享去重；窗口与上限由系统设置 im.inbound_batch_* 定义；批次失败整批不执行，不产生部分成功结果。",
+    "evidence": "im-attachment-integrity design v1.1 §3.2.1/§3.2.2；S-01/B-01/B-02/E-04"
+  }
+]
+```
+
+### Log
+
+- [2026-11-20] created
+
+### Verification
+
+- 尚未执行
+
+## TASK-003: Gateway 批次失败语义与友好提示
+
+- **Status**: draft
+- **Depends**: TASK-002
+- **Source**: im-attachment-integrity.backend.design.md#3.2.3
+- **Scenarios**: im-attachment-integrity:E-01, im-attachment-integrity:E-04, im-attachment-integrity:B-01
+- **Spec-Refs**: im/harness-im#RULE-im-002, test/harness-test#RULE-test-001
+- **Paths**: packages/contracts/src/muad_contracts/channel.py, apps/im-gateway/src/muad_im_gateway/application/inbound_streams.py, apps/im-gateway/src/muad_im_gateway/application/inbound.py, config/api-messages.yaml, tests/gateway/test_inbound_batch_failure.py, tests/gateway/test_inbound_attachment_flow.py
+- **E2E**:
+- **Skip-Tests**: false
+- **Skip-Reason**:
+
+### Tests
+
+```json
+[
+  {
+    "id": "gateway-batch-failure",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/gateway/test_inbound_batch_failure.py", "tests/gateway/test_inbound_attachment_flow.py"],
+    "timeout": 600,
+    "parallel": false
+  }
+]
+```
+
+### Description
+
+把 Connector 的批次失败转成 Gateway 的明确失败面：
+
+- `ChannelEnvelope` 增加 `require_complete_attachments`，`_envelope` 从 `InboundEvent` 映射；
+- `_handle_message` 在 `_collect_attachments` 后，若批次要求完整且 `audit_outcome=FAILED`：不创建 Run，回执/审计已由附件链路完成；
+- `ATTACHMENT_COUNT_EXCEEDED` 文案改为“最多 N 个，请分批重新发送；本次未处理”，N 来自租户配置；
+- 新增 `ATTACHMENT_BATCH_INCOMPLETE` 文案：“本次附件未全部收到，未处理；请连同说明重新发送整批附件”，原因复用现有附件原因码；
+- 单帧消息保持原行为。
+
+### Checklist
+
+- [ ] `require_complete_attachments` 契约默认 false，旧生产者/旧测试兼容。
+- [ ] 批次失败不建 Run、不产生假成功回复；用户看到明确整批重发提示。
+- [ ] 超限文案带当前租户上限并引导分批。
+- [ ] 单帧附件/纯文本行为不变。
+- [ ] 测试覆盖 FAILED/RECEIVED、超限、超时、单帧回归。
+
+### Spec Delta
+
+```json
+[]
+```
+
+### Log
+
+- [2026-11-20] created
+
+### Verification
+
+- 尚未执行
+
+## TASK-004: 任务产物 owner 读取与列表一致
+
+- **Status**: draft
+- **Depends**:
+- **Source**: im-attachment-integrity.backend.design.md#3.2.4
+- **Scenarios**: im-attachment-integrity:S-02, im-attachment-integrity:E-02
+- **Spec-Refs**: im/harness-im#RULE-006, auth/harness-auth#RULE-auth-001, test/harness-test#RULE-test-001
+- **Paths**: apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py, apps/agent-runtime/src/muad_agent_runtime/application/attachments/task_artifacts.py, tests/agent_runtime/test_attachment_tools.py, tests/agent_runtime/test_attachment_task_owner.py
+- **E2E**:
+- **Skip-Tests**: false
+- **Skip-Reason**:
+
+### Tests
+
+```json
+[
+  {
+    "id": "task-artifact-owner",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_runtime/test_attachment_tools.py", "tests/agent_runtime/test_attachment_task_owner.py"],
+    "timeout": 600,
+    "parallel": false
+  }
+]
+```
+
+### Description
+
+修复任务产物“列得出、读不到”：
+
+- `_owned_by_actor` 增加 `task_id IS NOT NULL + OUTPUT + user_id + agent_id` 精确分支；
+- `_load` / `_load_for_update` 复用 `task_artifacts` owner helper 复核 live `task_execution`；
+- `list_attachments(scope="agent")` 对 task 行追加同一 live task 条件；
+- 不放行 `agent_id=NULL`、`user_id=NULL`、软删或 task 不匹配；
+- 历史空 owner 行不回填，明确不可访问。
+
+### Checklist
+
+- [ ] 任务产物 `run_id/conversation_id` 为空但 owner 完整时可列出/读取。
+- [ ] 列表与读取使用同一 owner 口径，不再“列得出、读不到”。
+- [ ] 跨用户/跨租户/空 owner/软删/live task 不存在均拒绝且不泄露。
+- [ ] 普通 Run/入站产物归属行为不变。
+- [ ] 测试使用真实 PostgreSQL + 真实 owner 行。
+
+### Spec Delta
+
+```json
+[]
+```
+
+### Log
+
+- [2026-11-20] created
+
+### Verification
+
+- 尚未执行
+
+## TASK-005: 附件来源标注与内部产物显式访问
+
+- **Status**: draft
+- **Depends**: TASK-004
+- **Source**: im-attachment-integrity.backend.design.md#3.2.5
+- **Scenarios**: im-attachment-integrity:S-03
+- **Spec-Refs**: im/harness-im#RULE-006, auth/harness-auth#RULE-auth-001, secret/harness-secret#RULE-secret-001
+- **Paths**: apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py, tests/agent_runtime/test_attachment_tools.py
+- **E2E**:
+- **Skip-Tests**: false
+- **Skip-Reason**:
+
+### Tests
+
+```json
+[
+  {
+    "id": "attachment-provenance",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_runtime/test_attachment_tools.py"],
+    "timeout": 600,
+    "parallel": false
+  }
+]
+```
+
+### Description
+
+修正附件枚举语义：
+
+- `direction` 增加 `internal`；
+- `_list_line`：`INBOUND_*`→入站、`OUTPUT`→自产、`TOOL_RESULT`→工具结果、其他→内部产物；
+- `direction=inbound` 仍只查 `INBOUND_*`；默认保留全量；
+- `read_attachment` 对 owner 的 `TOOL_RESULT` 保持可读；
+- `deliver_artifact` 增加 `allow_internal`（默认 false）；用户明确要求时允许交付 `TOOL_RESULT`，审计保留参数；
+- 工具说明/模型口径：工具结果不是用户附件；当前消息没有附件时不得用历史附件代替，必须让用户重发。
+
+### Checklist
+
+- [ ] `TOOL_RESULT` 不再标“入站”，显式访问仍可用。
+- [ ] `direction=inbound` 只返回用户入站附件。
+- [ ] `allow_internal` 默认拒绝、显式允许；不带 owner 的调用仍拒绝。
+- [ ] 工具描述/模型口径更新，覆盖“当前消息权威”测试。
+- [ ] 无敏感值进入列表/日志。
+
+### Spec Delta
+
+```json
+[
+  {
+    "id": "DELTA-001",
+    "op": "add",
+    "target": "im/harness-im",
+    "rule": "附件枚举必须按 artifact_type 标注来源：INBOUND_* 为入站、OUTPUT 为自产、TOOL_RESULT 为工具结果、其他为内部产物；TOOL_RESULT 不得标成入站。显式访问保留，内部产物默认不交付，用户明确要求时按 owner 校验交付。",
+    "evidence": "im-attachment-integrity design v1.1 §3.2.5；S-03"
+  }
+]
+```
+
+### Log
+
+- [2026-11-20] created
+
+### Verification
+
+- 尚未执行
+
+## TASK-006: WebChat/MSSWWEB 任务产物发布与下载
+
+- **Status**: draft
+- **Depends**: TASK-004, TASK-005
+- **Source**: im-attachment-integrity.backend.design.md#3.2.4.1
+- **Scenarios**: im-attachment-integrity:S-02, im-attachment-integrity:S-04, im-attachment-integrity:S-06, im-attachment-integrity:E-02
+- **Spec-Refs**: im/harness-im#RULE-006, im/harness-im#RULE-007, auth/harness-auth#RULE-auth-001, test/harness-test#RULE-test-001
+- **Paths**: apps/agent-runtime/src/muad_agent_runtime/application/attachments/publication.py, apps/agent-runtime/src/muad_agent_runtime/application/webchat_artifacts.py, apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py, apps/agent-runtime/src/muad_agent_runtime/application/attachments/task_artifacts.py, tests/agent_runtime/test_attachment_tools.py, tests/agent_runtime/test_capacity_webchat_artifact_resolve.py, tests/gateway/test_msswwweb_surface.py
+- **E2E**:
+- **Skip-Tests**: false
+- **Skip-Reason**:
+
+### Tests
+
+```json
+[
+  {
+    "id": "web-artifact-delivery",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_runtime/test_attachment_tools.py", "tests/agent_runtime/test_capacity_webchat_artifact_resolve.py", "tests/gateway/test_msswwweb_surface.py"],
+    "timeout": 600,
+    "parallel": false
+  }
+]
+```
+
+### Description
+
+让 WebChat 与 MSSWWEB 能真正交付/下载任务产物：
+
+- `publish_artifact_to_conversation(..., allow_internal=False)` 允许无会话 `OUTPUT + task_id`；`TOOL_RESULT` 仅显式允许；
+- `_source_owner` 增加 task owner（复用 `task_artifacts` owner helper）；`_assert_same_owner` 要求目标 Run 与 task owner 一致；
+- `webchat_artifacts` 允许无会话任务产物，跨会话仍要求目标会话发布事实 + checksum；下载原版本，不回退最新版；
+- `deliver_artifact` 走 `_publish_to_conversation` 时透传 `allow_internal`；IM 仍走 Gateway 内部 artifact 解析，不直读存储；
+- 两个 Web surface 共用同一套逻辑，不按通道分叉。
+
+### Checklist
+
+- [ ] WebChat 与 MSSWWEB 都能交付任务 report/xlsx。
+- [ ] 下载返回任务当时不可变版本，不是 404/最新版顶替。
+- [ ] `TOOL_RESULT` 只有显式 `allow_internal` 才能发布；默认拒绝。
+- [ ] 跨用户/跨 Agent/软删/无发布事实均拒绝且不泄露。
+- [ ] IM 交付路径保持既有 Gateway 解析，不新增直读存储。
+
+### Spec Delta
+
+```json
+[]
+```
+
+### Log
+
+- [2026-11-20] created
+
+### Verification
+
+- 尚未执行
