@@ -41,6 +41,7 @@ description: 指导用户写一个符合本平台格式的自建 Skill。用户�
 1. **`muad.skill.json` 清单文件**：声明 name/author/platforms/version 等元数据。`author` 必填，写作者姓名/工号/用户名，便于追溯。详见 [`references/skill-manifest.md`](references/skill-manifest.md)。
 2. **对接平台 → 先取登录态，再用 requests 发请求**：脚本先用 `session-manager get-state --skill-name <skill>` 获取登录态，再从返回的 `sessionStateFile` 读取 `platforms.<平台名>.cookies` 和 `requestProfile`（`baseUrl` / `hostHeader` / `staticHeaders`），用 `requests` 发请求。平台名按字面量写，必须与 `muad.skill.json` 的 `platforms` 一致。详见 [`references/http-headers.md`](references/http-headers.md) 与 [`references/session-manager.md`](references/session-manager.md)。
 3. **状态和结果分开保存**：跨轮次状态写到平台提供的 `SKILL_DATA_DIR`；报告、单次运行结果写到 `SKILL_OUTPUT_DIR`。不要覆盖这两个环境变量，也不要把持久状态写到 Skill 根目录或 `/tmp`。详见 [`references/skill-output-dir.md`](references/skill-output-dir.md)。
+4. **调用契约**：可执行 Skill 在 `SKILL.md` frontmatter 声明 `invocation_contract`，写明默认入口用 `argv` 还是 `stdin`，以及参数 schema。定时任务新 Draft 必须有契约；对话直接调用有契约时也会校验。详见 [`references/invocation-contract.md`](references/invocation-contract.md)。
 
 ## 创作流程
 
@@ -53,6 +54,7 @@ description: 指导用户写一个符合本平台格式的自建 Skill。用户�
 3. **是否要对接业务平台**：要的话问平台名（Console 里配置的自由字符串）；可能对接多个平台，每个平台在状态文件里各取各的 section。
 4. **是否有输出文件**：要写报告/临时文件的话，确认文件名与格式。
 5. **是否长耗时**：脚本预计 >10s 或分多个阶段时，在 `SKILL.md` frontmatter 声明 `execution: ASYNC`（后台任务）；同步执行用默认值。
+6. **默认入口怎么收参数**：看生成的脚本入口——用 `argparse`/`sys.argv` 就是 `argv`，读 `sys.stdin`/`json.load(sys.stdin)` 就是 `stdin`。两者都有或不确定时问作者，不要猜。
 
 实现语言固定 Python，不需要询问。
 
@@ -100,14 +102,29 @@ skill_draft {"action": "write", "draft_id": "<draft_id>", "path": "muad.skill.js
 
 ### Step 4：写 `SKILL.md`
 
-frontmatter 只写 `name`、`description`，需要后台执行时再加 `execution: ASYNC`：
+frontmatter 至少写 `name`、`description`；后台执行加 `execution: ASYNC`；可执行 Skill 还要写 `invocation_contract`：
 
 ```yaml
 ---
 name: <skill名>
 description: "MANDATORY before calling <工具/场景>. Trigger on: <触发场景>。"
+# 可执行 Skill 才需要；纯指令/MCP-only Skill 省略。
+invocation_contract:
+  version: 1
+  invocation: argv        # argv | stdin
+  schema:
+    type: object
+    properties:
+      company-id: { type: string, pattern: "^[0-9]+$" }
+    required: [company-id]
+    additionalProperties: false
 ---
 ```
+
+- 契约只描述**默认入口**；辅助脚本（如 `check_status.py`）不套用主入口契约。
+- `argv` 只支持长选项；`type: boolean` 是存在型开关（true 传裸 flag，false 省略）。
+- 零参数由 `required` 决定，`argv=[]` / `input={}` 可以合法。
+- 完整格式和常见错误见 [`references/invocation-contract.md`](references/invocation-contract.md)。
 
 body 用祈使句写指令，遵循“渐进式披露”——核心流程放 SKILL.md，大段规范放 `references/`。详见 [`references/skill-md.md`](references/skill-md.md)。
 
@@ -130,7 +147,11 @@ body 用祈使句写指令，遵循“渐进式披露”——核心流程放 SK
 - [ ] 脚本用 `requests` 发业务请求；没有手工拼装凭据/内部 URL
 - [ ] 持久状态写 `SKILL_DATA_DIR`，运行结果写 `SKILL_OUTPUT_DIR`，不写 Skill 根目录或覆盖平台目录变量
 - [ ] 失败路径写 stderr 且 exit 非 0；成功 stdout 只有一个机器可读结果
-- [ ] SKILL.md frontmatter 只有 `name`/`description`（或加 `execution`），`description` 不含密钥/内部 URL/业务数据
+- [ ] `SKILL.md` frontmatter 至少 `name`/`description`；可执行 Skill 有 `invocation_contract`，且只描述默认入口
+- [ ] 契约 `invocation` 与实际入口一致：`argparse` → `argv`，读 stdin → `stdin`
+- [ ] 契约 `required` 与脚本必填参数一致；未知参数会被拒绝；`additionalProperties: false`
+- [ ] 布尔参数按存在型开关写：true 传裸 flag，false 省略，不用 `--flag=true`
+- [ ] `description` 不含密钥/内部 URL/业务数据
 
 然后按顺序做两件事：
 
@@ -155,6 +176,8 @@ body 用祈使句写指令，遵循“渐进式披露”——核心流程放 SK
 - **不要**写 README.md / INSTALLATION_GUIDE.md / CHANGELOG.md 等辅助文档，草稿只放 AI 干活必需的文件。
 - **不要**在 `muad.skill.json` 里写密钥、Token、内部 URL。
 - **不要**生成非 Python 脚本或手工拼装平台请求头。
+- **不要**用 `--help` 反推契约；契约要按真实入口写。
+- **不要**给辅助脚本写主入口契约，也不要把两条通道（argv + stdin）都写进同一契约。
 
 ## 参考
 
@@ -162,6 +185,7 @@ body 用祈使句写指令，遵循“渐进式披露”——核心流程放 SK
 - [`references/session-manager.md`](references/session-manager.md) 平台登录态由 `session-manager get-state` 获取
 - [`references/skill-manifest.md`](references/skill-manifest.md) `muad.skill.json` 字段
 - [`references/skill-md.md`](references/skill-md.md) SKILL.md 写法
+- [`references/invocation-contract.md`](references/invocation-contract.md) 调用契约格式、argv/stdin 示例与自检
 - [`references/skill-output-dir.md`](references/skill-output-dir.md) 输出目录契约
 - [`references/naming-pitfalls.md`](references/naming-pitfalls.md) 命名陷阱
 - 上传流程见 `self-skill-upload` skill

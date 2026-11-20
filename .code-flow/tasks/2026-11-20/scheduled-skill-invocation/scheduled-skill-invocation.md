@@ -460,7 +460,7 @@
   - fire-revalidate PASS exit=0
 ## TASK-006: Authoring、self-creator 与存量 Skill 契约
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-002, TASK-003
 - **Source**: scheduled-skill-invocation.backend.design.md §3.5.3、§3.6
 - **Scenarios**: S-04, E-06, B-04
@@ -515,13 +515,13 @@
 
 ### Checklist
 
-- [ ] 确定性 Skill 意图稳定生成 SKILL_PLAN；不因模型措辞变成 AGENT_TURN。
-- [ ] `invocation` 决定 argv/input 通道；缺值只问业务问题。
-- [ ] `SKILL:<uuid>:*` 在 authoring 拒绝；裸 `*` 不回归。
-- [ ] self-creator 文档说明所有可执行 Skill 写 contract，纯指令/MCP-only 不必；包含格式、通道判断、自检清单。
-- [ ] self-creator 文档明确契约只绑默认入口，辅助脚本不写主入口契约；boolean 存在型开关、零参数由 schema 决定。
-- [ ] 正向/反向 fixture 覆盖导入 + preflight。
-- [ ] MSSP 本地 Skill 的 contract 与实际 `run.py` 参数一致。
+- [x] 确定性 Skill 意图稳定生成 SKILL_PLAN；不因模型措辞变成 AGENT_TURN。
+- [x] `invocation` 决定 argv/input 通道；缺值只问业务问题。
+- [x] `SKILL:<uuid>:*` 在 authoring 拒绝；裸 `*` 不回归。
+- [x] self-creator 文档说明所有可执行 Skill 写 contract，纯指令/MCP-only 不必；包含格式、通道判断、自检清单。
+- [x] self-creator 文档明确契约只绑默认入口，辅助脚本不写主入口契约；boolean 存在型开关、零参数由 schema 决定。
+- [x] 正向/反向 fixture 覆盖导入 + preflight。
+- [x] MSSP 本地 Skill 的 contract 与实际 `run.py` 参数一致。
 
 ### Spec Delta
 
@@ -540,13 +540,15 @@
 ### Log
 
 - [2026-11-20] created
+- [2026-11-20T08:11:17.326Z] started tests=87795f7cc14c
 
 ### Verification
 
 - 尚未执行
 
 <a id="task-007"></a>
-
+- 2026-11-20T08:11:55.453Z PASS commands=1/1 executed=1 deduped=0 elapsed=13787ms tests=87795f7cc14c head=f97801657f69 dirty=1
+  - authoring-self-creator PASS exit=0
 ## TASK-007: 观测、删除 Trial、端到端兼容
 
 - **Status**: draft

@@ -92,7 +92,23 @@ def _skill(
         checksum=checksum,
         storage_key=storage_key,
         execution_mode=SkillExecutionMode.SYNC,
-        frontmatter={"entrypoint": entrypoint},
+        frontmatter={
+            "entrypoint": entrypoint,
+            "invocation_contract": {
+                "version": 1,
+                "invocation": "argv",
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "company-id": {"type": "string", "pattern": "^[0-9]+$"},
+                        "date": {"type": "string", "format": "date"},
+                        "no-wecom-push": {"type": "boolean"},
+                    },
+                    "required": ["company-id"],
+                    "additionalProperties": False,
+                },
+            },
+        },
         source=SkillSource.ADMIN,
     )
 
@@ -330,7 +346,6 @@ async def test_intents_compile_to_three_plans_and_create_drafts_without_mode(
             "每天 9 点给客户 1001 出昨天的值守日报",
             {
                 "skill_key": SKILL_KEY,
-                "input": {"company_id": "1001", "date": "{{previous_day}}"},
                 "argv": [
                     "--company-id",
                     "1001",
@@ -444,11 +459,6 @@ async def test_failed_trial_reports_repair_and_creates_no_job(
                 "recurrence": {"kind": "CRON", "cron": "0 9 * * *"},
                 "payload": {
                     "skill_key": SKILL_KEY,
-                    "input": {
-                        "company_id": "1001",
-                        "date": "{{previous_day}}",
-                        "no_wecom_push": True,
-                    },
                     "argv": [
                         "--company-id",
                         "1001",
@@ -494,11 +504,6 @@ async def _seed_recorded_call(
     arguments = {
         "target": "skill",
         "skill_key": SKILL_KEY,
-        "input": {
-            "company_id": "1001",
-            "date": RECORDED_DATE,
-            "no_wecom_push": True,
-        },
         "argv": [
             "--company-id",
             "1001",
@@ -651,7 +656,7 @@ async def test_promotion_reuses_the_recorded_call_and_a_successful_trial_creates
             },
             timezone=TZ,
         )
-        assert proposal.facts.bindings == {"previous_day": 2}
+        assert proposal.facts.bindings == {"previous_day": 1}
         authoring = compile_schedule_plan(
             proposal.arguments,
             context=_context(_skill(checksum=checksum, storage_key=storage_key)),
@@ -664,11 +669,7 @@ async def test_promotion_reuses_the_recorded_call_and_a_successful_trial_creates
         row = await _draft_row(tenant, draft["draft_id"])
         payload = row.payload_json["payload"]
         assert payload["skill_id"] == str(SKILL_ID)
-        assert payload["input"] == {
-            "company_id": "1001",
-            "date": "{{previous_day}}",
-            "no_wecom_push": True,
-        }
+        assert payload["input"] == {}
         assert payload["argv"] == [
             "--company-id",
             "1001",
@@ -708,11 +709,7 @@ async def test_promotion_reuses_the_recorded_call_and_a_successful_trial_creates
         )
     assert revision is not None
     assert revision.payload_json["skill_id"] == str(SKILL_ID)
-    assert revision.payload_json["input"] == {
-        "company_id": "1001",
-        "date": "{{previous_day}}",
-        "no_wecom_push": True,
-    }
+    assert revision.payload_json["input"] == {}
     assert revision.payload_json["argv"] == [
         "--company-id",
         "1001",
