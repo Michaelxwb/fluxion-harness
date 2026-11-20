@@ -163,7 +163,7 @@ test('S-06 默认按操作成行，类型筛选进入步骤明细，重置还原
   await expect(page.getByTestId('audit-view-notice')).toHaveCount(0);
   await expect(page.getByTestId(`audit-link-${state.rows.config}`)).toBeVisible();
   await expect(page.getByTestId(`audit-egress-${state.runId}`)).toBeVisible();
-  await expect(page.getByTestId(`audit-link-${state.extraRow.auditId}`)).toBeVisible();
+  await expect(page.getByRole('button', { name: state.extraRow.traceId, exact: true })).toBeVisible();
   await expect(page.locator('.app-pagination')).toBeVisible();
 });
 
