@@ -132,12 +132,12 @@
   - platform-sdk-state PASS exit=0
 ## TASK-003: 执行器暴露最后报告并附加有界摘要
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001, TASK-002
 - **Source**: platform-session-reporting.design.md#3.2, #3.3, #3.4, #3.5
 - **Scenarios**: platform-session-reporting:S-02, platform-session-reporting:S-03, platform-session-reporting:S-04, platform-session-reporting:E-03
 - **Spec-Refs**: platform/harness-project-platform#RULE-platform-001, secret/harness-secret#RULE-002, test/harness-test
-- **Paths**: packages/agent-core/src/muad_agent_core/skill/contracts.py, packages/agent-core/src/muad_agent_core/skill/executor.py, packages/agent-core/src/muad_agent_core/skill/sandboxed.py, packages/agent-core/src/muad_agent_core/skill/draft_shell.py, packages/agent-core/src/muad_agent_core/sandbox/workspace_shell.py, apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py, tests/agent_core/test_skill_executor.py, tests/agent_core/test_sandboxed_skill_executor.py, tests/agent_runtime/test_skill_tools.py, tests/agent_runtime/test_workspace_shell_tool.py
+- **Paths**: packages/agent-core/src/muad_agent_core/skill/contracts.py, packages/agent-core/src/muad_agent_core/skill/executor.py, packages/agent-core/src/muad_agent_core/skill/sandboxed.py, packages/agent-core/src/muad_agent_core/skill/draft_shell.py, packages/agent-core/src/muad_agent_core/sandbox/workspace_shell.py, apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py, tests/agent_core/test_skill_executor.py, tests/agent_core/test_sandboxed_skill_executor.py, tests/agent_runtime/test_skill_tools.py, tests/agent_runtime/test_workspace_shell_tool.py, tests/acceptance/user_skill_sandbox/test_s_03.py
 - **E2E**:
 - **Skip-Tests**: false
 - **Skip-Reason**:
@@ -148,7 +148,7 @@
 [
   {
     "id": "executor-report",
-    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_core/test_skill_executor.py", "tests/agent_core/test_sandboxed_skill_executor.py", "tests/agent_runtime/test_skill_tools.py", "tests/agent_runtime/test_workspace_shell_tool.py"],
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_core/test_skill_executor.py", "tests/agent_core/test_sandboxed_skill_executor.py", "tests/agent_runtime/test_skill_tools.py", "tests/agent_runtime/test_workspace_shell_tool.py", "tests/acceptance/user_skill_sandbox/test_s_03.py"],
     "timeout": 600,
     "parallel": false
   }
@@ -167,12 +167,12 @@
 
 ### Checklist
 
-- [ ] executor/沙箱在失败时读取 TASK-002 的 `PlatformSessionEnvironment.report`。
-- [ ] `SkillExecutionResult`/错误/draft 失败结果带 `platform_sessions`；成功结果无新增字段。
-- [ ] 摘要单行、有界、无敏感值；2 平台在现有 evidence/预览预算内可读。
-- [ ] `execute` 描述包含“list 用于列 session / Skill 直接用 get-state / 不要先 list”。
-- [ ] `_workspace_shell_with_platforms` 预登录失败带报告；draft/workspace 协议不变。
-- [ ] 相关单测/集成测试通过；无新审计字段或迁移。
+- [x] executor/沙箱在失败时读取 TASK-002 的 `PlatformSessionEnvironment.report`。
+- [x] `SkillExecutionResult`/错误/draft 失败结果带 `platform_sessions`；成功结果无新增字段。
+- [x] 摘要单行、有界、无敏感值；2 平台在现有 evidence/预览预算内可读。
+- [x] `execute` 描述包含“list 用于列 session / Skill 直接用 get-state / 不要先 list”。
+- [x] `_workspace_shell_with_platforms` 预登录失败带报告；draft/workspace 协议不变；B-05 由 TASK-004 验收。
+- [x] 相关单测/集成测试通过；无新审计字段或迁移。
 
 ### Spec Delta
 
@@ -183,11 +183,13 @@
 ### Log
 
 - [2026-11-20] created
+- [2026-11-20T04:25:53.038Z] started tests=225f031c240d
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-20T04:26:18.043Z PASS commands=1/1 executed=1 deduped=0 elapsed=19652ms tests=225f031c240d head=7c05dbbbe16b dirty=1
+  - executor-report PASS exit=0
 ## TASK-004: 失败收尾与 Worker 消费最后报告
 
 - **Status**: draft

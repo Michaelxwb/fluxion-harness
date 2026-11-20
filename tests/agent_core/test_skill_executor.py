@@ -1,6 +1,7 @@
 import asyncio
 import json
 from dataclasses import replace
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -8,8 +9,11 @@ from muad_agent_core.skill import (
     ScriptSkillExecutor,
     SkillExecutionError,
     SkillExecutionRequest,
+    SkillExecutionResult,
     SkillExecutionStatus,
 )
+from muad_agent_core.skill.executor import attach_platform_report, platform_session_summary
+from muad_platform_sdk.skill_access import PlatformAttempt, PlatformSessionReport
 
 MAX_OUTPUT_BYTES = 64 * 1024
 
@@ -49,6 +53,41 @@ async def _wait_for_path(path: Path, *, timeout_sec: float = 3.0) -> bool:
             return True
         await asyncio.sleep(0.05)
     return False
+
+
+def test_platform_report_summary_and_attachment() -> None:
+    report = PlatformSessionReport()
+    report.record(
+        PlatformAttempt(
+            key="mssp",
+            name="mssp",
+            authentication="session",
+            available=True,
+            expires_at=datetime(2026, 11, 20, 10, 0, tzinfo=UTC),
+        )
+    )
+    report.record(
+        PlatformAttempt(
+            key="mssw",
+            name="mssw",
+            authentication="session",
+            available=False,
+            code="PLATFORM_AUTH_REJECTED",
+            detail={"http_status": 401, "message": "denied"},
+        )
+    )
+    result = SkillExecutionResult(
+        status=SkillExecutionStatus.FAILED, stderr="script boom", exit_code=1
+    )
+
+    attached = attach_platform_report(result, report)
+
+    assert attached.platform_sessions == report.payload()
+    assert attached.stderr.startswith(
+        "platform_sessions: mssp=ok; mssw=PLATFORM_AUTH_REJECTED(http=401) denied"
+    )
+    assert attached.stderr.endswith("script boom")
+    assert len(platform_session_summary(report)) <= 300
 
 
 async def test_success_parses_json_result_and_receives_input(tmp_path: Path) -> None:

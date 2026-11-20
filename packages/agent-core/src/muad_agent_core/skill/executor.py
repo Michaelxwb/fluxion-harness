@@ -7,10 +7,12 @@ import os
 import signal
 import time
 from collections.abc import Mapping
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 from muad_platform_sdk.adapter.mss_config import PlatformAuthError
+from muad_platform_sdk.skill_access import PlatformSessionReport
 from muad_platform_sdk.skill_bridge import skill_platform_environment
 from muad_skill_sdk import SkillPackage, SkillPackageError, locate_package_root
 from redis.exceptions import RedisError
@@ -28,6 +30,40 @@ from .selection import script_command, select_entry_script, select_script
 
 TERMINATE_GRACE_SEC = 2.0
 ENV_ALLOWLIST = ("PATH", "HOME", "LANG")
+#: 有界失败摘要：2 个平台远小于现有 evidence/render 预算；详情只保留短原因。
+PLATFORM_SUMMARY_LIMIT = 300
+
+
+def platform_session_summary(report: PlatformSessionReport) -> str:
+    """把最后报告压成一行安全摘要，供失败收尾/证据读取。"""
+    parts: list[str] = []
+    for attempt in report.attempts():
+        if attempt.available is True:
+            parts.append(f"{attempt.key}=ok")
+            continue
+        if attempt.available is False:
+            detail = attempt.detail or {}
+            status = detail.get("http_status")
+            message = detail.get("message")
+            suffix = f"(http={status})" if status is not None else ""
+            if isinstance(message, str) and message:
+                suffix += f" {message[:80]}"
+            parts.append(f"{attempt.key}={attempt.code or 'ERROR'}{suffix}")
+            continue
+        reason = f"({attempt.reason})" if attempt.reason else ""
+        parts.append(f"{attempt.key}=not_checked{reason}")
+    return ("platform_sessions: " + "; ".join(parts))[:PLATFORM_SUMMARY_LIMIT]
+
+
+def attach_platform_report(
+    result: SkillExecutionResult, report: PlatformSessionReport | None
+) -> SkillExecutionResult:
+    """失败执行附逐平台报告和一行摘要；正常成功保持原结果。"""
+    if report is None or not report.has_failures:
+        return result
+    summary = platform_session_summary(report)
+    stderr = f"{summary}\n{result.stderr}" if result.stderr else summary
+    return replace(result, stderr=stderr, platform_sessions=report.payload())
 
 
 class ScriptSkillExecutor:
@@ -51,11 +87,17 @@ class ScriptSkillExecutor:
                     # test/task runners may execute a script-only fixture.
                     name = ""
             async with skill_platform_environment(request.platform_context, name) as session:
-                return await self._execute(replace(request, env={**request.env, **session.env}))
+                result = await self._execute(replace(request, env={**request.env, **session.env}))
+                return attach_platform_report(result, session.report)
         except SkillPackageError as exc:
             raise SkillExecutionError(exc.message) from exc
         except PlatformAuthError as exc:
-            raise SkillExecutionError(exc.code, detail=exc.detail, retryable=exc.retryable) from None
+            raise SkillExecutionError(
+                exc.code,
+                detail=exc.detail,
+                retryable=exc.retryable,
+                platform_sessions=exc.platform_sessions,
+            ) from None
         except RedisError:
             raise SkillExecutionError("PLATFORM_SESSION_STORE_UNAVAILABLE") from None
 

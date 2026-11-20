@@ -47,12 +47,15 @@ class SkillExecutionError(RuntimeError):
         code: str | None = None,
         detail: dict[str, object] | None = None,
         retryable: bool = False,
+        platform_sessions: dict[str, object] | None = None,
     ) -> None:
         self.message = message
         self.code = code or message
         self.detail = detail
         #: 只有**可重试**失败（网络/超时/5xx/429）才为 True；确定性失败第一次即终止 Run。
         self.retryable = retryable
+        #: 预登录/批量获取的逐平台最后报告；只含安全投影，不落盘。
+        self.platform_sessions = platform_sessions
         super().__init__(message)
 
 
@@ -147,6 +150,8 @@ class SkillExecutionResult:
     output_truncated: bool = False
     #: 本次执行实际使用的 workspace（临时目录也会返回，调用方负责后续生命周期）。
     workspace_dir: Path | None = None
+    #: 有平台失败时附带的逐平台报告；正常成功为空。
+    platform_sessions: dict[str, object] | None = None
 
 
 @dataclass(frozen=True, slots=True)
