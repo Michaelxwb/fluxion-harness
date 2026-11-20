@@ -634,12 +634,12 @@
   - observability-cleanup PASS exit=0
 ## TASK-008: 对话直接调用校验
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-002
 - **Source**: scheduled-skill-invocation.backend.design.md §3.5.5、FEAT-11、RULE-13
 - **Scenarios**: S-07, E-10, E-11, B-05
 - **Spec-Refs**: artifact/harness-skill, test/harness-test
-- **Paths**: apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py, packages/contracts/src/muad_contracts/skill_invocation.py, tests/agent_runtime/test_skill_tools.py, tests/agent_runtime/test_skill_argv.py, tests/agent_core/test_runner.py
+- **Paths**: apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py, apps/agent-runtime/src/muad_agent_runtime/metrics.py, packages/contracts/src/muad_contracts/skill_invocation.py, tests/agent_runtime/test_skill_tools.py, tests/agent_runtime/test_skill_argv.py, tests/agent_core/test_runner.py
 - **E2E**:
 - **Skip-Tests**: false
 - **Skip-Reason**:
@@ -684,16 +684,16 @@
 
 ### Checklist
 
-- [ ] 有 contract 的 argv Skill：合法 argv 正常执行。
-- [ ] `invocation=argv` 但只给 input：返回 `SKILL_INVOCATION_INVALID` + `retryable=true`，不启动子进程。
-- [ ] 缺必填/格式错误：返回 field/reason/repair/allowed_values；模型改参后第二次成功。
-- [ ] 只有 `SKILL_INVOCATION_INVALID` retryable；其他错误保持不可重试。
-- [ ] 辅助脚本 `check_status.py` 不被主入口契约拦截；主入口缺参仍被拒绝。
-- [ ] `load_skill.manifest` 返回 `entrypoint` + `invocation_contract`。
-- [ ] 无 contract 的 Skill：保持现有行为，不阻断对话。
-- [ ] 参数含 `{{fire_date}}` / `{{previous_day}}` / `{{fire_time}}`：拒绝并提示给具体值。
-- [ ] ASYNC 非法参数不创建 operation；合法参数仍按现有逻辑提交 operation/Execution。
-- [ ] 测试覆盖同步/异步、成功/失败、无契约、aux script、retryable 链路。
+- [x] 有 contract 的 argv Skill：合法 argv 正常执行。
+- [x] `invocation=argv` 但只给 input：返回 `SKILL_INVOCATION_INVALID` + `retryable=true`，不启动子进程。
+- [x] 缺必填/格式错误：返回 field/reason/repair/allowed_values；模型改参后第二次成功。
+- [x] 只有 `SKILL_INVOCATION_INVALID` retryable；其他错误保持不可重试。
+- [x] 辅助脚本 `check_status.py` 不被主入口契约拦截；主入口缺参仍被拒绝。
+- [x] `load_skill.manifest` 返回 `entrypoint` + `invocation_contract`。
+- [x] 无 contract 的 Skill：保持现有行为，不阻断对话。
+- [x] 参数含 `{{fire_date}}` / `{{previous_day}}` / `{{fire_time}}`：拒绝并提示给具体值。
+- [x] ASYNC 非法参数不创建 operation；合法参数仍按现有逻辑提交 operation/Execution。
+- [x] 测试覆盖同步/异步、成功/失败、无契约、aux script、retryable 链路。
 
 ### Spec Delta
 
@@ -712,7 +712,10 @@
 ### Log
 
 - [2026-11-20] created
+- [2026-11-20T08:35:12.364Z] started tests=165864e69cb9
 
 ### Verification
 
 - 尚未执行
+- 2026-11-20T08:36:22.073Z PASS commands=1/1 executed=1 deduped=0 elapsed=5639ms tests=165864e69cb9 head=5cef35ead847 dirty=1
+  - chat-invocation-guard PASS exit=0

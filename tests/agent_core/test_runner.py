@@ -709,6 +709,32 @@ def _error_returning_tool(registry: ToolRegistry) -> None:
     )
 
 
+def _fixable_error_tool(registry: ToolRegistry) -> None:
+    """返回带 detail 的可修复错误；没有显式 retryable 时会被当成确定性失败。"""
+
+    async def handler(arguments: Mapping[str, Any], *, call_id: str) -> str:
+        return json.dumps(
+            {
+                "error": {
+                    "code": "SKILL_INVOCATION_INVALID",
+                    "message": "payload.argv: MISSING_REQUIRED",
+                    "detail": {"field": "payload.argv", "reason": "MISSING_REQUIRED"},
+                    "retryable": True,
+                }
+            }
+        )
+
+    registry.register(
+        ToolDefinition(
+            name="fixable",
+            description="returns a fixable error body",
+            input_schema={"type": "object"},
+            effect=ToolEffect.READ,
+            handler=handler,
+        )
+    )
+
+
 async def test_deterministic_failure_stops_the_run_immediately() -> None:
     """平台/环境类确定性失败第一次即停止，不再发起模型收尾回合。"""
     provider = ScriptedModelProvider(
@@ -741,6 +767,20 @@ async def test_returned_error_body_counts_as_a_failure_too() -> None:
     assert len(provider.requests) == 1
     assert result.last_failure is not None
     assert result.last_failure["code"] == "PLATFORM_AUTH_REJECTED"
+
+
+async def test_fixable_error_body_gets_another_model_turn() -> None:
+    """带 detail 的错误体默认是确定性失败；显式 retryable=true 才允许模型修复。"""
+    provider = ScriptedModelProvider(
+        [_tool_call("c1", "fixable"), _text("fixed")]
+    )
+    registry = ToolRegistry()
+    _fixable_error_tool(registry)
+
+    result = await AgentRunner(provider=provider, registry=registry).run(_request())
+
+    assert result.status is AgentRunStatus.COMPLETED
+    assert len(provider.requests) == 2
 
 
 async def test_retryable_failures_follow_the_configured_threshold() -> None:

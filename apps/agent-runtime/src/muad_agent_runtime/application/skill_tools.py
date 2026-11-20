@@ -32,7 +32,9 @@ from muad_agent_core.skill import (
     SkillExecutionResult,
     SkillExecutionStatus,
     SkillExecutor,
+    SkillInvocationError,
     build_sandboxed_skill_executor,
+    validate_skill_invocation,
 )
 from muad_agent_core.skill.selection import select_entry_script
 from muad_agent_core.tools import (
@@ -52,6 +54,7 @@ from muad_contracts import (
     DeliveryRouteInput,
     ResolvedSkill,
     SkillExecutionMode,
+    SkillInvocationContract,
     ToolRetrySafety,
 )
 from muad_contracts.egress_identity import egress_operation_key
@@ -79,6 +82,7 @@ from ..metrics import (
     SANDBOX_TIMEOUT_METRIC,
     SKILL_EXECUTION_DURATION_SECONDS,
     SKILL_EXECUTION_METRIC,
+    SKILL_INVOCATION_GUARD_METRIC,
     SKILL_LOAD_METRIC,
     record_latency,
     record_outcome,
@@ -523,6 +527,7 @@ class SkillToolSet:
             skill = self._require_skill(arguments)
             input_data = _require_input(arguments)
             argv = _require_argv(arguments)
+            _guard_invocation(skill, input_data=input_data, argv=argv)
             if skill.execution_mode is SkillExecutionMode.ASYNC:
                 if "timeout_sec" in arguments:
                     raise SkillToolError(
@@ -557,6 +562,15 @@ class SkillToolSet:
             argv = _require_argv(arguments)
             package = await self._package(skill)
             script = _select_script(package, name)
+            try:
+                default_entrypoint = select_entry_script(package.root)
+            except SkillExecutionError:
+                default_entrypoint = None
+            if (
+                default_entrypoint is not None
+                and script.resolve() == default_entrypoint.resolve()
+            ):
+                _guard_invocation(skill, input_data=input_data, argv=argv)
             if skill.execution_mode is SkillExecutionMode.ASYNC:
                 _reject_async_entrypoint_bypass(package, script)
             return await self._execute(
@@ -712,17 +726,17 @@ class SkillToolSet:
         try:
             result = await runner.run(_draft_shell_request(arguments, context, call_id, self._timeout_sec))
         except DraftShellError as exc:
-            payload: dict[str, Any] = {"error": {"code": exc.code, "message": exc.message}}
+            error_payload: dict[str, Any] = {"error": {"code": exc.code, "message": exc.message}}
             if exc.retryable:
-                payload["error"]["retryable"] = True
+                error_payload["error"]["retryable"] = True
             if exc.result is not None:
-                payload["stdout"] = exc.result.stdout
-                payload["stderr"] = exc.result.stderr
-                payload["exit_code"] = exc.result.exit_code
-                payload["output_truncated"] = exc.result.output_truncated
+                error_payload["stdout"] = exc.result.stdout
+                error_payload["stderr"] = exc.result.stderr
+                error_payload["exit_code"] = exc.result.exit_code
+                error_payload["output_truncated"] = exc.result.output_truncated
             if exc.platform_sessions:
-                payload["platform_sessions"] = exc.platform_sessions
-            return json.dumps(payload, ensure_ascii=False)
+                error_payload["platform_sessions"] = exc.platform_sessions
+            return json.dumps(error_payload, ensure_ascii=False)
         except SkillToolError as exc:
             return _error_result(exc.code, exc.message)
         except ValueError as exc:
@@ -1283,14 +1297,71 @@ def _select_script(package: SkillPackage, name: str) -> Path:
     return target
 
 
+def _guard_invocation(
+    skill: ResolvedSkill,
+    *,
+    input_data: Mapping[str, Any],
+    argv: Sequence[str],
+) -> None:
+    """Validate the default-entrypoint contract before starting a skill process."""
+    frontmatter = skill.frontmatter if isinstance(skill.frontmatter, Mapping) else {}
+    raw = frontmatter.get("invocation_contract")
+    if raw is None:
+        record_outcome(
+            SKILL_INVOCATION_GUARD_METRIC, "SKIPPED", {"code": "CONTRACT_MISSING"}
+        )
+        return
+    try:
+        contract = SkillInvocationContract.model_validate(raw)
+    except ValidationError as exc:
+        record_outcome(
+            SKILL_INVOCATION_GUARD_METRIC, "FAILED", {"code": "CONTRACT_INVALID"}
+        )
+        raise SkillToolError(
+            "SKILL_INVOCATION_INVALID",
+            "Skill invocation contract is invalid",
+            {"reason": "CONTRACT_INVALID", "repair": "REIMPORT_SKILL"},
+            retryable=False,
+        ) from exc
+    try:
+        validate_skill_invocation(
+            contract,
+            input_data=input_data,
+            argv=argv,
+            phase="rendered",
+        )
+    except SkillInvocationError as exc:
+        record_outcome(
+            SKILL_INVOCATION_GUARD_METRIC, "FAILED", {"code": exc.reason}
+        )
+        raise SkillToolError(
+            "SKILL_INVOCATION_INVALID",
+            f"{exc.field}: {exc.reason}",
+            exc.as_detail(),
+            retryable=True,
+        ) from exc
+    record_outcome(SKILL_INVOCATION_GUARD_METRIC, "PASSED", {"code": "OK"})
+
+
 def _manifest_payload(package: SkillPackage) -> dict[str, Any]:
     manifest = package.manifest
-    return {
+    payload: dict[str, Any] = {
         "name": manifest.name,
         "description": manifest.description,
         "execution": manifest.execution.value,
         "platform_label": manifest.platform_label,
     }
+    try:
+        entrypoint = select_entry_script(package.root)
+    except SkillExecutionError:
+        entrypoint = None
+    if entrypoint is not None:
+        payload["entrypoint"] = entrypoint.relative_to(package.root.resolve()).as_posix()
+    if manifest.invocation_contract is not None:
+        payload["invocation_contract"] = manifest.invocation_contract.model_dump(
+            mode="json", by_alias=True
+        )
+    return payload
 
 
 def _execution_payload(result: SkillExecutionResult, outputs: Sequence[Mapping[str, Any]] = ()) -> str:
