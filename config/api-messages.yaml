@@ -806,8 +806,14 @@ codes:
   ATTACHMENT_COUNT_EXCEEDED:
     http_status: 400
     messages:
-      zh-CN: 单条消息最多接收 {limit} 个附件，多余的未接收
-      en-US: At most {limit} attachments per message are accepted; the extras were skipped.
+      zh-CN: 一次最多接收 {limit} 个附件，请分批重新发送；本次未处理
+      en-US: At most {limit} attachments are accepted per batch. Please resend in smaller batches; nothing was processed.
+
+  ATTACHMENT_BATCH_INCOMPLETE:
+    http_status: 400
+    messages:
+      zh-CN: 本次附件未全部收到，未处理；请连同说明重新发送整批附件（{reason}）
+      en-US: Some attachments were not received, so nothing was processed. Please resend the whole batch with the instruction ({reason}).
 
   ATTACHMENT_TYPE_NOT_ALLOWED:
     http_status: 400

@@ -144,7 +144,7 @@ Connector 通过 Console 内部 `platform-settings` 快照读取，按租户缓�
   - inbound-batch PASS exit=0
 ## TASK-003: Gateway 批次失败语义与友好提示
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-002
 - **Source**: im-attachment-integrity.backend.design.md#3.2.3
 - **Scenarios**: im-attachment-integrity:E-01, im-attachment-integrity:E-04, im-attachment-integrity:B-01
@@ -179,11 +179,11 @@ Connector 通过 Console 内部 `platform-settings` 快照读取，按租户缓�
 
 ### Checklist
 
-- [ ] `require_complete_attachments` 契约默认 false，旧生产者/旧测试兼容。
-- [ ] 批次失败不建 Run、不产生假成功回复；用户看到明确整批重发提示。
-- [ ] 超限文案带当前租户上限并引导分批。
-- [ ] 单帧附件/纯文本行为不变。
-- [ ] 测试覆盖 FAILED/RECEIVED、超限、超时、单帧回归。
+- [x] `require_complete_attachments` 契约默认 false，旧生产者/旧测试兼容。
+- [x] 批次失败不建 Run、不产生假成功回复；用户看到明确整批重发提示。
+- [x] 超限文案带当前租户上限并引导分批。
+- [x] 单帧附件/纯文本行为不变。
+- [x] 测试覆盖 FAILED/RECEIVED、超限、超时、单帧回归。
 
 ### Spec Delta
 
@@ -194,11 +194,13 @@ Connector 通过 Console 内部 `platform-settings` 快照读取，按租户缓�
 ### Log
 
 - [2026-11-20] created
+- [2026-11-20T11:44:21.667Z] started tests=a9658911f0ed
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-20T11:44:35.848Z PASS commands=1/1 executed=1 deduped=0 elapsed=10220ms tests=a9658911f0ed head=7374346adca5 dirty=1
+  - gateway-batch-failure PASS exit=0
 ## TASK-004: 任务产物 owner 读取与列表一致
 
 - **Status**: done

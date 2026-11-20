@@ -54,6 +54,7 @@ from ..channels.base import (
 )
 from ..infrastructure.dedupe import DEDUPE_VALUE, DedupeStore, DedupeStoreError
 from .attachment_gate import (
+    ATTACHMENT_BATCH_INCOMPLETE,
     ATTACHMENT_COUNT_EXCEEDED,
     ATTACHMENT_RECEIPT_ALL,
     ATTACHMENT_RECEIPT_PARTIAL,
@@ -1109,6 +1110,10 @@ class InboundPipeline:
         # 附件链路放在**授权之后**：未绑定/无权限那两条早退路径不会取件，"能收才去拉"，
         # 把 AD-1-B 下（字节先于 Run 落盘）的无主产物压到最小（设计 §3.2.1）。
         collected = await self._collect_attachments(adapter, route, envelope)
+        if envelope.require_complete_attachments and collected.audit_outcome == "FAILED":
+            # 批次要求完整附件：失败回执/审计已在 `_collect_attachments` 闭环，
+            # 不创建只含部分附件或纯文字的误导性 Run。
+            return True
         if not collected.refs and not envelope.text.strip():
             # 没有可跑的内容（附件全部被拒/取件失败，且文本为空）：反馈与审计已由
             # `_collect_attachments` 闭环，这里只是**不**把空消息当用户输入发给模型。
@@ -1290,7 +1295,16 @@ class InboundPipeline:
         # RULE-04：同一条入站消息**至多一条**附件相关反馈。全收下也要回一条收据（否则用户
         # 不知道东西到底到没到），部分接收把原因**并进同一条**——绝不拆成"回执 + 拒绝说明"两条。
         if refs or codes:
-            await self._send_text(adapter, route, self._receipt_text(len(refs), codes))
+            await self._send_text(
+                adapter,
+                route,
+                self._receipt_text(
+                    len(refs),
+                    codes,
+                    require_complete=envelope.require_complete_attachments,
+                    limit=self._reply.inbound_batch_max_attachments,
+                ),
+            )
         if failures:
             outcome: InboundAuditOutcome = "FAILED"
         elif refs:
@@ -1324,7 +1338,16 @@ class InboundPipeline:
         codes = [failure.code for failure in envelope.attachment_failures]
         total_bytes = sum(ref.size for ref in refs)
         if refs or codes:
-            await self._send_text(adapter, route, self._receipt_text(len(refs), codes))
+            await self._send_text(
+                adapter,
+                route,
+                self._receipt_text(
+                    len(refs),
+                    codes,
+                    require_complete=envelope.require_complete_attachments,
+                    limit=self._reply.inbound_batch_max_attachments,
+                ),
+            )
         if codes:
             outcome: InboundAuditOutcome = "FAILED"
         elif refs:
@@ -1357,25 +1380,39 @@ class InboundPipeline:
         )
         return _CollectedAttachments(audit_outcome="REJECTED", reason_code=code)
 
-    def _feedback_text(self, code: str) -> str:
-        """用户可见文案一律经消息目录取（RULE-i18n-001）；**数值只有一个来源**：门控常量。"""
+    def _feedback_text(self, code: str, *, limit: int | None = None) -> str:
+        """用户可见文案一律经消息目录取（RULE-i18n-001）；**数值只有一个来源**：门控常量或批次配置。"""
         args: dict[str, object] = {}
         if code == ATTACHMENT_TOO_LARGE:
             args["limit"] = MAX_ATTACHMENT_BYTES
         elif code == ATTACHMENT_COUNT_EXCEEDED:
-            args["limit"] = MAX_ATTACHMENTS_PER_MESSAGE
+            args["limit"] = limit or MAX_ATTACHMENTS_PER_MESSAGE
         return self._catalog.message(code, self._locale, args or None)
 
-    def _receipt_text(self, accepted: int, codes: Sequence[str]) -> str:
+    def _receipt_text(
+        self,
+        accepted: int,
+        codes: Sequence[str],
+        *,
+        require_complete: bool = False,
+        limit: int | None = None,
+    ) -> str:
         """一条回执，**至多一条**（RULE-04）。三种形态共用这一个出口：
 
         - **全部接收** → 只报数目（原先这里是静默的，用户不知道东西到没到）；
         - **部分接收** → 「收到几个 + 几个没收 + 原因」并成一条，原因复用拒绝码自己的文案；
         - **全部拒绝** → 只给拒绝说明，**不叠加**回执（叠加就成了第二条消息）。
 
-        文案一律经消息目录（RULE-i18n-001），数值仍只有一处来源——原因是**取**来的，不是另写的。
+        批次要求完整附件时，任何失败都统一提示“本次未处理，请重新发送整批”，
+        不承诺只补失败项。文案经消息目录（RULE-i18n-001）。
         """
         rejected = len(codes)
+        if rejected and require_complete:
+            return self._catalog.message(
+                ATTACHMENT_BATCH_INCOMPLETE,
+                self._locale,
+                {"reason": self._feedback_text(_primary_code(codes), limit=limit)},
+            )
         if rejected and accepted:
             return self._catalog.message(
                 ATTACHMENT_RECEIPT_PARTIAL,
@@ -1383,11 +1420,11 @@ class InboundPipeline:
                 {
                     "accepted": accepted,
                     "rejected": rejected,
-                    "reason": self._feedback_text(_primary_code(codes)),
+                    "reason": self._feedback_text(_primary_code(codes), limit=limit),
                 },
             )
         if rejected:
-            return self._feedback_text(_primary_code(codes))
+            return self._feedback_text(_primary_code(codes), limit=limit)
         return self._catalog.message(ATTACHMENT_RECEIPT_ALL, self._locale, {"count": accepted})
 
     async def _audit(

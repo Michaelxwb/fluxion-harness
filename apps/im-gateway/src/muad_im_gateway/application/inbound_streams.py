@@ -343,6 +343,7 @@ def _envelope(event: InboundEvent, adapter: ChannelAdapter) -> ChannelEnvelope:
         unsupported_media=(
             cast(UnsupportedMedia, event.unsupported_media) if event.unsupported_media else None
         ),
+        require_complete_attachments=event.require_complete_attachments,
     )
 
 
