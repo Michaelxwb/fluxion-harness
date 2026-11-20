@@ -1,3 +1,4 @@
+import json
 from collections.abc import Iterable
 from enum import StrEnum
 
@@ -13,6 +14,40 @@ BUILTIN_CHANNEL_NAMES: tuple[str, ...] = ("WECOM", "WEBCHAT", "MSSWWEB")
 WEB_SURFACE_CHANNELS: tuple[str, ...] = ("WEBCHAT", "MSSWWEB")
 #: 兼容别名：类型上是开放 string（WECOM=企微机器人；WEBCHAT=通用网页稳定入口）。
 ChannelName = str
+
+#: 外部断言平台未显式配置 `channel` 时的缺省通道名（与 Console 平台配置解析、Gateway
+#: 注册表解析同源）。存量单平台部署不写 `channel` 也落到这个值。
+DEFAULT_EXTERNAL_CHANNEL: ChannelName = "MSSWWEB"
+
+
+def external_platform_channels(platforms_json: str | None) -> tuple[ChannelName, ...]:
+    """从 `EXTERNAL_ASSERTION_PLATFORMS_JSON` 解析当前启用的外部平台通道名（去重保序）。
+
+    这是**跨进程共享的单一解析口径**：Console（验签/身份）、Gateway（路由挂载）、Runtime
+    （会话读取面的 `channel_types` 白名单校验）都需要知道「当前配置了哪些外部平台通道」。
+    放在 leaves 模块里，Runtime 不必反向 import Gateway。
+
+    - 空值/空对象 → 空元组（一个平台都没配，合法状态）；
+    - 非对象或 JSON 损坏 → 空元组（等价"未配置"，由调用方各自的 503/回退路径处理，不静默放行）；
+    - 单个平台项非对象 → 跳过该平台；
+    - `channel` 缺失/空白 → 落 `DEFAULT_EXTERNAL_CHANNEL`（与解析 header 的路径同源）。
+    """
+    if not platforms_json or not platforms_json.strip():
+        return ()
+    try:
+        payload = json.loads(platforms_json)
+    except ValueError:
+        return ()
+    if not isinstance(payload, dict):
+        return ()
+    seen: dict[ChannelName, None] = {}
+    for item in payload.values():
+        if not isinstance(item, dict):
+            continue
+        channel = str(item.get("channel") or DEFAULT_EXTERNAL_CHANNEL).strip()
+        if channel:
+            seen.setdefault(channel, None)
+    return tuple(seen)
 
 
 def web_surface_channels(
@@ -33,6 +68,47 @@ def web_surface_channels(
         if channel:
             seen.setdefault(channel, None)
     return tuple(seen)
+
+
+def is_web_surface_channel(
+    channel: ChannelName | None,
+    external_channels: "Iterable[ChannelName]" = (),
+) -> bool:
+    """`channel` 是否属于 Web 对话面（内建基线 ∪ 已启用的外部平台通道）。
+
+    所有「是不是网页面」的判断都必须走这里，**不要再直接与 `WEB_SURFACE_CHANNELS`
+    比成员或写死 `== "WEBCHAT"`**：新增外部平台只改平台配置（Secret 的 `channel`），
+    续聊/归档/产物写入/确认回执/投递等各条路径自动跟进，无需改代码。
+    """
+    if not channel:
+        return False
+    return channel in web_surface_channels(external_channels)
+
+
+def is_local_stream_channel(
+    channel: ChannelName | None,
+    external_channels: "Iterable[ChannelName]" = (),
+) -> bool:
+    """`channel` 是否走本进程持久会话流（站内入口）。
+
+    与 `is_web_surface_channel` 同义：Web 面（含外部平台）的产物不经过 IM 出站管道，
+    直接落目标会话的 canonical 流。保留独立函数名是为了让调用点表达意图（写入面 vs
+    读取面），实现共用同一份合成逻辑。
+    """
+    return is_web_surface_channel(channel, external_channels)
+
+
+def web_surface_channels_from_settings(
+    settings: object,
+) -> tuple[ChannelName, ...]:
+    """从进程设置对象读取 Web 面对外通道集合（内建基线 ∪ 外部平台通道）。
+
+    Runtime / Worker 拿到的是同一个 `SharedSettings`（字段 `external_assertion_platforms_json`），
+    用本函数一次算出集合再传给各判定函数，避免每个调用点各自 `json.loads`。对不具备该属性的
+    对象退化为仅内建基线（等价"未配置外部平台"），不抛错——配置缺失是合法状态。
+    """
+    platforms_json = getattr(settings, "external_assertion_platforms_json", "") or ""
+    return web_surface_channels(external_platform_channels(platforms_json))
 
 
 class RunStatus(StrEnum):

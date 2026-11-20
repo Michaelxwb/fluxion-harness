@@ -1,11 +1,21 @@
 """B-205: browser-safe Webchat contracts, without database or network substitutes."""
 
+import json
 from datetime import UTC, datetime, timedelta
 from importlib import import_module
 from uuid import uuid4
 
 import pytest
-from muad_contracts import SUPPORTED_UPLOAD_FORMATS, WEB_SURFACE_CHANNELS, web_surface_channels
+from muad_contracts import (
+    DEFAULT_EXTERNAL_CHANNEL,
+    SUPPORTED_UPLOAD_FORMATS,
+    WEB_SURFACE_CHANNELS,
+    external_platform_channels,
+    is_local_stream_channel,
+    is_web_surface_channel,
+    web_surface_channels,
+    web_surface_channels_from_settings,
+)
 from muad_contracts.platform_settings import WebchatSettings
 from pydantic import BaseModel, ValidationError
 
@@ -341,3 +351,55 @@ def test_web_surface_channels_appends_external_platform_channels() -> None:
     # 去重：重复传入或与内建重名都不产生重复项。
     assert web_surface_channels(["MSSPWEB", "MSSPWEB"]) == ("WEBCHAT", "MSSWWEB", "MSSPWEB")
     assert web_surface_channels(["WEBCHAT"]) == WEB_SURFACE_CHANNELS
+
+
+def test_external_platform_channels_parses_channel_names() -> None:
+    """跨进程共享的解析口径：从平台 JSON 取通道名，缺省落 MSSWWEB，坏输入返回空表。"""
+    assert external_platform_channels("") == ()
+    assert external_platform_channels(None) == ()
+    assert external_platform_channels("not json") == ()
+    assert external_platform_channels("[]") == ()
+
+    payload = json.dumps({"mssw": {"channel": "MSSWWEB"}, "mssp": {"channel": "MSSPWEB"}})
+    assert external_platform_channels(payload) == ("MSSWWEB", "MSSPWEB")
+
+    # channel 缺失/空白 → 落缺省通道名（与解析 header 的路径同源）。
+    assert external_platform_channels(json.dumps({"mssw": {}})) == (DEFAULT_EXTERNAL_CHANNEL,)
+    # 单个平台项非对象跳过；重复通道去重保序。
+    assert external_platform_channels(
+        json.dumps({"a": {"channel": "MSSPWEB"}, "b": 1, "c": {"channel": "MSSPWEB"}})
+    ) == ("MSSPWEB",)
+
+
+class _FakeSettings:
+    def __init__(self, platforms_json: str = "") -> None:
+        self.external_assertion_platforms_json = platforms_json
+
+
+def test_web_surface_judgement_tracks_configured_platforms() -> None:
+    """新增外部平台只改平台配置，各处「是不是网页面/站内入口」判断自动跟进，不改代码。
+
+    回归点：续聊/归档/产物写入/确认回执/投递等路径曾各自 `in WEB_SURFACE_CHANNELS` 或写死
+    `== "WEBCHAT"`，外部平台不在名单里就被当成 IM 渠道，导致 404 / 产物无处可写 / 回执重复。
+    """
+    empty = _FakeSettings()
+    configured = _FakeSettings(
+        json.dumps({"mssw": {"channel": "MSSWWEB"}, "mssp": {"channel": "MSSPWEB"}})
+    )
+
+    # 未配置外部平台：集合就是内建基线，未知通道判否。
+    assert web_surface_channels_from_settings(empty) == WEB_SURFACE_CHANNELS
+    assert is_web_surface_channel("WEBCHAT", web_surface_channels_from_settings(empty))
+    assert not is_web_surface_channel("MSSPWEB", web_surface_channels_from_settings(empty))
+
+    # 配置外部平台后：内部平台通道并入集合；内建通道照常为真；IM 通道恒假。
+    allowed = web_surface_channels_from_settings(configured)
+    assert "MSSPWEB" in allowed and "MSSWWEB" in allowed
+    for channel in ("WEBCHAT", "MSSWWEB", "MSSPWEB"):
+        assert is_web_surface_channel(channel, allowed)
+        assert is_local_stream_channel(channel, allowed)
+    for channel in ("WECOM", "BOGUS", None, ""):
+        assert not is_web_surface_channel(channel, allowed)
+
+    # 无该属性的设置对象退化为仅内建基线（配置缺失是合法状态，不抛错）。
+    assert web_surface_channels_from_settings(object()) == WEB_SURFACE_CHANNELS

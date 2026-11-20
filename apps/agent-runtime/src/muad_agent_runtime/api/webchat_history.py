@@ -27,7 +27,8 @@ from fastapi import APIRouter, Depends, Query, Request
 from muad_api import ApiResponse, AppError, ok
 from muad_api.error_codes import ErrorCode
 from muad_api.security import require_internal_service
-from muad_contracts import BUILTIN_CHANNEL_NAMES, MAX_PAGE_SIZE
+from muad_common import process_settings
+from muad_contracts import BUILTIN_CHANNEL_NAMES, MAX_PAGE_SIZE, external_platform_channels
 from muad_contracts.platform_settings import WebchatSettings, parse_platform_settings
 from muad_contracts.webchat import (
     WebchatMarkReadRequest,
@@ -100,12 +101,24 @@ def _conversation_policy(webchat: WebchatSettings) -> ConversationPolicy:
     )
 
 
+def _allowed_channel_names() -> frozenset[str]:
+    """当前部署接受的来源通道名 = 内建通道 ∪ 已配置的外部断言平台通道。
+
+    外部平台通道（如 `MSSPWEB`）不在 `BUILTIN_CHANNEL_NAMES` 里，但 Gateway 会把它们放进
+    `channel_types`（Web 面会话跨入口共享）。白名单必须按同一份平台配置动态扩展，否则新建的
+    外部平台会话能写入却读不出（读取被 422 拒掉）。解析口径与 Gateway / Console 同源
+    （`muad_contracts.external_platform_channels`）。
+    """
+    platforms_json = getattr(process_settings(), "external_assertion_platforms_json", "")
+    return frozenset((*BUILTIN_CHANNEL_NAMES, *external_platform_channels(platforms_json)))
+
+
 def _channel_types(value: str | None) -> tuple[str, ...] | None:
-    """逗号分隔的来源通道 allowlist：去重保序、只接受内建通道名；空值表示不过滤。"""
+    """逗号分隔的来源通道 allowlist：去重保序、只接受内建或已配置的外部平台通道；空值不过滤。"""
     if value is None:
         return None
     parts = tuple(dict.fromkeys(part.strip().upper() for part in value.split(",") if part.strip()))
-    if not parts or any(part not in BUILTIN_CHANNEL_NAMES for part in parts):
+    if not parts or any(part not in _allowed_channel_names() for part in parts):
         raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
     return parts
 

@@ -17,7 +17,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from decimal import Decimal
 
 from muad_common import SharedSettings
-from muad_contracts import BotSnapshotItem
+from muad_contracts import DEFAULT_EXTERNAL_CHANNEL, BotSnapshotItem
 
 from .base import (
     ChannelAdapter,
@@ -43,7 +43,6 @@ SnapshotChangeCallback = Callable[[tuple[BotSnapshotItem, ...]], Awaitable[None]
 #: 外部断言平台的装配摘要：`platform_key` → (channel, assertion_header)。
 #: Gateway 只需通道名与断言头名，验签/身份键解析仍由认证侧（Console）负责。
 DEFAULT_ASSERTION_HEADER = "soc-token"
-DEFAULT_EXTERNAL_CHANNEL = "MSSWWEB"
 
 
 def parse_external_platform_surfaces(
