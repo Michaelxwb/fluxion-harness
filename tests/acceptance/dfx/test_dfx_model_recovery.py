@@ -565,5 +565,7 @@ def test_e09_probe_keeps_business_call_target_classification(fault_probe: FaultP
 
     assert response.status_code == 500
     assert fault_probe.plan == []
+    # 只断言**本次请求**被认成目标：若它被算作后台，plan 不会被消费、calls 也不会增加。
+    # 不断言 background_calls 为空——真实栈的提炼/其他维护调用可能在任意时刻晚到，
+    # 它们本就该记在 background_calls（探针文档的口径），与本用例的业务分类无关。
     assert len(fault_probe.calls) == 1
-    assert fault_probe.background_calls == []

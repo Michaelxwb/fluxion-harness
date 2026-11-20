@@ -55,7 +55,12 @@ def schema_problem(error: jsonschema.ValidationError) -> str:
     if error.validator == "type":
         return f"invalid tool arguments: {where} must be {error.validator_value}"
     if error.validator == "enum":
-        choices = ", ".join(str(item) for item in error.validator_value or ())
+        enum_values = error.validator_value
+        choices = (
+            ", ".join(str(item) for item in enum_values)
+            if isinstance(enum_values, (list, tuple))
+            else str(enum_values)
+        )
         return f"invalid tool arguments: {where} must be one of {choices}"
     if error.validator in {"minimum", "exclusiveMinimum", "maximum", "exclusiveMaximum"}:
         op = {
