@@ -279,16 +279,17 @@ flowchart LR
   ```python
   by_task = sa.and_(
       Artifact.task_id.is_not(None),
-      Artifact.artifact_type == AGENT_OUTPUT_ARTIFACT_TYPE,
       Artifact.user_id == user_id,
       Artifact.agent_id == self._agent_id,  # 必须非空且精确匹配
   )
   return sa.or_(by_conversation, by_run, by_task)
   ```
-- `_load` / `_load_for_update` 对命中 `task_id` 的行再复用 `task_artifacts` 的 `_load_owner` 读 `task.task_execution`，复核 `tenant_id + actor_user_id + agent_id + is_deleted=false`；不一致即 `ATTACHMENT_NOT_FOUND`。这样不在列表 SQL 里加跨 schema 子查询，也不新增模型。
+  产物类型准入（`OUTPUT`/入站/`TOOL_RESULT`）在 `_delivery_refusal` 与发布层单独判定，归属谓词不按类型放宽或收紧。
+- `_load` / `_load_for_update` 对命中 `task_id` 的行再复用 `task_artifacts` 的 `load_task_owner` 读 `task.task_execution`，复核 `tenant_id + actor_user_id + agent_id + is_deleted=false`；不一致即 `ATTACHMENT_NOT_FOUND`。这样不在列表 SQL 里加跨 schema 子查询，也不新增模型。
 - **不放行 `agent_id=NULL`**；`user_id`/`agent_id` 任一为空或 task_execution 不匹配，一律按不可访问处理。
 - 保留租户、软删校验；跨租户/跨用户仍返回 `ATTACHMENT_NOT_FOUND`。
 - `list_attachments(scope="agent")` 对 `task_id` 行追加与读取相同的 live `task_execution` 条件（同租户、`actor_user_id`、`agent_id`、未删），避免“列得出但读不到”；非 task 行保持原过滤。
+- `list_attachments(scope="task", task_id=<execution>)` 只列**指定执行**的产物，同样复用 live owner 谓词；缺 `task_id`、非法 UUID、把 `task_id` 用在其他 scope 都显式拒绝。它服务于“把某次定时/后台执行的结果发给我”这类明确请求，避免模型把“当前消息没有附件”误判成任务产物不可访问。工具说明同时保留“当前消息附件仍是该消息的唯一输入依据”，任务产物不是当前消息附件的替代品。
 - 统一谓词放在 `task_artifacts` 的 owner helper 中，读/列复用，不复制第二套判断。
 - 数据现状：当前任务写入方 `_new_row` 会写 `user_id/agent_id`；库内存在历史 `task_id` 但 owner 为空、且找不到 live `task_execution` 的行（本地抽查），本次不回填、不放行，按“归属不完整”拒绝。
 
