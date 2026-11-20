@@ -81,6 +81,8 @@ class InboundEvent(ContractModel):
     reply_ref: str | None = None
     received_at: datetime
     trace_id: str = ""
+    #: 批次合并事件：附件必须全部成功才允许创建 Run；默认 false 保持单帧/旧生产者语义。
+    require_complete_attachments: bool = False
 
 
 class DeliveryCommand(ContractModel):
@@ -241,6 +243,15 @@ def outbound_cursor_key(tenant_id: str, bot_id: str) -> str:
 
 def inbound_dedupe_key(tenant_id: str, bot_id: str, message_id: str) -> str:
     return f"muad:connector:inbound:{tenant_id}:{bot_id}:{message_id}"
+
+
+def inbound_batch_key(tenant_id: str, bot_id: str, batch_id: str) -> str:
+    """Connector 批次 journal：同 bot 的批次与成员映射落在同一 hash tag。"""
+    return f"muad:connector:inbound-batch:{{{tenant_id}:{bot_id}}}:{batch_id}"
+
+
+def inbound_batch_member_key(tenant_id: str, bot_id: str, message_id: str) -> str:
+    return f"muad:connector:inbound-batch-member:{{{tenant_id}:{bot_id}}}:{message_id}"
 
 
 def lease_key(tenant_id: str, bot_id: str) -> str:

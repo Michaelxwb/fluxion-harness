@@ -26,7 +26,16 @@ from typing import Protocol
 
 from muad_contracts import AttachmentFailure, AttachmentRef, BotSnapshotItem, ChannelEnvelope
 from muad_contracts.im import InboundEvent
-from muad_im_core import BotSnapshotCache, InboundPublisher, PublishOutcome
+from muad_im_core import (
+    BatchFrame,
+    BatchJournal,
+    BatchSettings,
+    BotSnapshotCache,
+    InboundBatchCoordinator,
+    InboundPublisher,
+    PublishOutcome,
+)
+from muad_im_core.inbound_batch import FRAME_MEDIA, FRAME_TEXT
 from muad_im_gateway.application.attachment_gate import (
     ATTACHMENT_COUNT_EXCEEDED,
     MAX_ATTACHMENT_BYTES,
@@ -51,10 +60,20 @@ from .channels.wecom.sdk_port import (
 from .lease import BotLease, RedisLeaseManager
 from .metrics import record_inbound, record_lease, record_snapshot, set_owned_bots
 from .outbound import ConnectorChannelPort, OutboundRunner
-from .platform_settings import ConnectorPlatformSettings
+from .platform_settings import ConnectorPlatformSettings, default_batch_settings
 from .reply_store import ReplyStore
 
 logger = logging.getLogger(__name__)
+
+#: 命令不参与批次聚合；与 Gateway 的命令前缀保持一致。前缀不完整时退化为普通文本，不影响业务。
+COMMAND_PREFIXES = ("/bind", "/new", "/stop", "/skills", "/memory", "/confirm")
+
+
+def _is_command(text: str) -> bool:
+    stripped = text.strip()
+    return any(
+        stripped == prefix or stripped.startswith(f"{prefix} ") for prefix in COMMAND_PREFIXES
+    )
 
 
 class ConnectorAdapterPort(ConnectorChannelPort, Protocol):
@@ -102,6 +121,7 @@ class ConnectorRuntime:
         snapshot: BotSnapshotCache,
         renew_sec: float,
         platform_settings: ConnectorPlatformSettings | None = None,
+        batch_journal: BatchJournal | None = None,
         attachment_store: InboundAttachmentStore | None = None,
         max_attachment_bytes: int = MAX_ATTACHMENT_BYTES,
         inbound_queue_size: int = 10_000,
@@ -118,6 +138,11 @@ class ConnectorRuntime:
         self._snapshot = snapshot
         self._renew_sec = renew_sec
         self._platform_settings = platform_settings
+        self._batch_coordinator = (
+            InboundBatchCoordinator(journal=batch_journal, publish=self._publish_event)
+            if batch_journal is not None
+            else None
+        )
         #: 入站附件落盘（设计 §3.2.1 ⑤）：**字节只在内持有连接的角色里取**，落共享存储后
         #: 上行只给 `AttachmentRef`（上层不接触 URL/aes_key）。
         self._attachment_store = attachment_store
@@ -158,6 +183,9 @@ class ConnectorRuntime:
         ]
 
     async def stop(self) -> None:
+        if self._batch_coordinator is not None:
+            with contextlib.suppress(asyncio.TimeoutError):
+                await asyncio.wait_for(self._batch_coordinator.flush_all(), timeout=5.0)
         self._stopped.set()
         for task in self._tasks:
             task.cancel()
@@ -336,10 +364,55 @@ class ConnectorRuntime:
             reply_ref=message.reply_id or None,
             epoch=epoch,
         )
+        coordinator = self._batch_coordinator
+        if coordinator is None:
+            await self._publish_event(await self._event_for(message))
+            return
+        frame = self._batch_frame(message)
+        text = message.text.strip()
+        if _is_command(text) or message.unsupported_media is not None:
+            # 命令/不支持媒体不参与聚合；先把当前批次按已收内容处理，再单独发布。
+            await coordinator.flush_route(frame, "command")
+            await self._publish_event(await self._event_for(message))
+            return
+        settings = await self._batch_settings()
+        if not await coordinator.register(frame, settings):
+            record_inbound("duplicate")
+            return
+        await coordinator.complete(await self._event_for(message))
+
+    async def _batch_frame(self, message: WeComInboundMessage) -> BatchFrame:
+        return BatchFrame(
+            channel=self._adapter.name,
+            tenant_id=self._tenant_id,
+            bot_id=message.bot_id,
+            external_user_id=message.external_user_id,
+            external_conversation_id=message.external_conversation_id,
+            message_id=message.message_id,
+            kind=FRAME_MEDIA if message.media else FRAME_TEXT,
+            text=message.text,
+            reply_ref=message.reply_id or None,
+        )
+
+    async def _batch_settings(self) -> BatchSettings:
+        if self._platform_settings is None:
+            return BatchSettings(
+                quiet_ms=default_batch_settings().quiet_ms,
+                max_wait_ms=default_batch_settings().max_wait_ms,
+                max_attachments=default_batch_settings().max_attachments,
+            )
+        resolved = await self._platform_settings.batch(self._tenant_id)
+        return BatchSettings(
+            quiet_ms=resolved.quiet_ms,
+            max_wait_ms=resolved.max_wait_ms,
+            max_attachments=resolved.max_attachments,
+        )
+
+    async def _event_for(self, message: WeComInboundMessage) -> InboundEvent:
         attachments, failures = await self._materialize_attachments(message)
-        event = InboundEvent(
+        return InboundEvent(
             event_id=uuid.uuid4(),
-            channel="WECOM",
+            channel=self._adapter.name,
             tenant_id=self._tenant_id,
             bot_id=message.bot_id,
             external_message_id=message.message_id,
@@ -353,14 +426,18 @@ class ConnectorRuntime:
             reply_ref=message.reply_id or None,
             received_at=datetime.now(UTC),
         )
+
+    async def _publish_event(
+        self, event: InboundEvent, member_ids: Sequence[str] | None = None
+    ) -> None:
         while not self._stopped.is_set():
             try:
-                outcome = await self._publisher.publish(event)
+                outcome = await self._publisher.publish(event, dedupe_ids=member_ids)
             except Exception as exc:  # noqa: BLE001 - Redis 抖动不能吞消息
                 record_inbound("failed")
                 logger.error(
                     "connector_inbound_publish_failed message_id=%s error=%s",
-                    message.message_id,
+                    event.external_message_id,
                     type(exc).__name__,
                 )
                 await self._sleep(1.0)

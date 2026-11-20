@@ -21,7 +21,7 @@ from muad_common.redis_client import (
     create_redis_client,
     verify_redis_topology,
 )
-from muad_im_core import BotSnapshotCache, InboundPublisher
+from muad_im_core import BotSnapshotCache, InboundPublisher, RedisBatchJournal
 from muad_im_gateway.application.inbound_attachments import InboundAttachmentStore
 from muad_im_gateway.channels.base import ArtifactLinkIssuer
 from muad_logging import configure_logging
@@ -155,6 +155,7 @@ def _build_resources(settings: SharedSettings) -> ConnectorResources:
         snapshot=snapshot,
         renew_sec=connector.connector_lease_renew_sec,
         platform_settings=platform_settings,
+        batch_journal=RedisBatchJournal(redis),
         # 入站附件：字节只在本进程取（渠道凭据不出适配器），落共享存储后上行只给引用。
         attachment_store=InboundAttachmentStore(artifact_store),
     )

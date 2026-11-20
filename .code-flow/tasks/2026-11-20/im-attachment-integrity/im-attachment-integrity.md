@@ -72,7 +72,7 @@ Connector 通过 Console 内部 `platform-settings` 快照读取，按租户缓�
   - batch-settings PASS exit=0
 ## TASK-002: Connector 批次、在途成员与 journal
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001
 - **Source**: im-attachment-integrity.backend.design.md#3.2.1, #3.2.2, #3.5
 - **Scenarios**: im-attachment-integrity:S-01, im-attachment-integrity:S-05, im-attachment-integrity:B-01, im-attachment-integrity:B-02, im-attachment-integrity:B-03, im-attachment-integrity:B-04, im-attachment-integrity:E-03, im-attachment-integrity:E-04
@@ -110,13 +110,13 @@ Connector 通过 Console 内部 `platform-settings` 快照读取，按租户缓�
 
 ### Checklist
 
-- [ ] 下载前登记成员；同 route 其他用户流量不影响本批计时。
-- [ ] 文字+单附件、文字+多附件、仅附件、文件先到均只形成一个合并事件。
-- [ ] 等待期重复文字/文件被忽略；发布后任一成员重投不产生第二个 Run。
-- [ ] XADD 后标记未完成时，Journal 能按原主消息 id 重发/确认。
-- [ ] 超时、超限、附件失败整批失败；不产生部分成功 Run。
-- [ ] 命令/不支持媒体按既有语义独立处理，不静默丢。
-- [ ] 测试覆盖 fake clock/真实 Redis journal、重投、崩溃恢复、数量/超时边界。
+- [x] 下载前登记成员；同 route 其他用户流量不影响本批计时。
+- [x] 文字+单附件、文字+多附件、仅附件、文件先到均只形成一个合并事件。
+- [x] 等待期重复文字/文件被忽略；发布后任一成员重投不产生第二个 Run。
+- [x] XADD 后标记未完成时，Journal 能按原主消息 id 重发/确认。
+- [x] 超时、超限、附件失败整批失败；不产生部分成功 Run。
+- [x] 命令/不支持媒体按既有语义独立处理，不静默丢。
+- [x] 测试覆盖 fake clock/真实 Redis journal、重投、崩溃恢复、数量/超时边界。
 
 ### Spec Delta
 
@@ -135,11 +135,13 @@ Connector 通过 Console 内部 `platform-settings` 快照读取，按租户缓�
 ### Log
 
 - [2026-11-20] created
+- [2026-11-20T11:38:54.654Z] started tests=c45adf898420
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-20T11:39:02.743Z PASS commands=1/1 executed=1 deduped=0 elapsed=3742ms tests=c45adf898420 head=d43e92e4b1a9 dirty=1
+  - inbound-batch PASS exit=0
 ## TASK-003: Gateway 批次失败语义与友好提示
 
 - **Status**: draft
