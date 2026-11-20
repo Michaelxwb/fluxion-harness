@@ -9,11 +9,11 @@
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import String, bindparam, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # 投影字段集：与设计 §3.3「审计聚合投影」的统一字段一一对应。
@@ -419,8 +419,9 @@ def _group_egress(filtered: str) -> str:
                        OVER (egress_group) END AS egress_blocked_count,
                    CASE WHEN grouped THEN
                        CASE
-                           WHEN bool_or(result_status IN ('BLOCKED', 'DENIED')) OVER (egress_group)
+                           WHEN bool_or(result_status = 'BLOCKED') OVER (egress_group)
                                THEN 'BLOCKED'
+                           WHEN bool_or(result_status = 'DENIED') OVER (egress_group) THEN 'DENIED'
                            WHEN bool_or(result_status = 'FAILED') OVER (egress_group) THEN 'FAILED'
                        END
                    END AS egress_status
@@ -463,6 +464,29 @@ class AuditQueryRepository:
 
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
+
+    async def filter_options(
+        self, tenant_id: str, filters: AuditQueryFilters, *, view: str
+    ) -> tuple[list[str], list[str]]:
+        scope = replace(filters, resource_type=None, result_status=None)
+        where, params = _where(scope, view=view)
+        row = (await self._session.execute(
+            text(f"""
+                SELECT array_agg(DISTINCT resource_type ORDER BY resource_type) FILTER
+                           (WHERE resource_type IS NOT NULL
+                              AND (:active_result IS NULL OR result_status = :active_result)) AS resources,
+                       array_agg(DISTINCT result_status ORDER BY result_status) FILTER
+                           (WHERE result_status IS NOT NULL
+                              AND (:active_resource IS NULL OR resource_type = :active_resource)) AS results
+                  FROM ({_PROJECTION_SQL}) u{where}
+            """).bindparams(
+                bindparam("active_result", type_=String()),
+                bindparam("active_resource", type_=String()),
+            ),
+            {"tenant_id": tenant_id, **params, "active_result": filters.result_status,
+             "active_resource": filters.resource_type},
+        )).one()
+        return row.resources or [], row.results or []
 
     async def count(
         self, tenant_id: str, filters: AuditQueryFilters, *, view: str = "detail"

@@ -1223,6 +1223,8 @@
   "audit.resourceType.BIND_CODE": "绑定码",
   "audit.resourceType.CHANNEL_IDENTITY": "渠道身份",
   "audit.resourceType.CHAT_ACCESS_TOKEN": "聊天访问令牌",
+  "audit.resourceType.CONSOLE_ACCOUNT": "控制台账号",
+  "audit.resourceType.HTTP": "HTTP 接口",
   "audit.resourceType.MCP": "MCP",
   "audit.resourceType.MCP_SERVER": "MCP 服务",
   "audit.resourceType.MODEL": "模型",

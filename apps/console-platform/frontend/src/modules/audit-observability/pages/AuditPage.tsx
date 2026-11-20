@@ -39,6 +39,7 @@ import {
   AUDIT_PAGE_SIZE_DEFAULT,
   type AuditDetailType,
   type AuditExportCreateRequest,
+  type AuditFilterOptions,
   type AuditListItem,
   type AuditListQuery
 } from '../types';
@@ -111,6 +112,10 @@ function useAuditQueryState() {
   const handleFilterChange = useCallback((patch: Partial<AuditListQuery>) => {
     setQuery((prev) => {
       const merged = { ...prev, ...patch };
+      if (merged.auditType !== prev.auditType) {
+        merged.resourceType = undefined;
+        merged.resultStatus = undefined;
+      }
       return { ...merged, view: auditViewOf(merged.auditType) };
     });
   }, []);
@@ -149,6 +154,7 @@ function useAuditDetailSelection() {
 /** 工具栏入参（设计 §3.3.1）：筛选/分页状态 + 三个出口；导出筛选与列表筛选同源、不含分页。 */
 interface AuditPageToolbarProps {
   query: AuditListQuery;
+  filterOptions?: AuditFilterOptions;
   exportFilters: AuditExportCreateRequest['filters'];
   onChange(patch: Partial<AuditListQuery>): void;
   onReset(): void;
@@ -163,6 +169,7 @@ function AuditPageToolbar(props: AuditPageToolbarProps) {
       search={
         <AuditFilterBar
           value={props.query}
+          options={props.filterOptions}
           onChange={props.onChange}
           onReset={props.onReset}
           onRefresh={props.onRefresh}
@@ -230,7 +237,7 @@ export function AuditPage() {
   const [traceId, setTraceId] = useState<string | null>(null);
   const [egressQuery, setEgressQuery] = useState<AuditListQuery | null>(null);
   const { detail, handleOpenDetail, handleCloseDetail } = useAuditDetailSelection();
-  const { items, loading, page, pageSize, total, failed, reload } = useAuditList(query);
+  const { items, loading, page, pageSize, total, failed, filterOptions, reload } = useAuditList(query, true);
   /** 关联对象直达：Run 就地叠加运行详情（无独立页面），Task 落任务列表深链（既有口径）。 */
   const related = useRelatedDetail();
 
@@ -299,6 +306,7 @@ export function AuditPage() {
       <PageSection>
         <AuditPageToolbar
           query={query}
+          filterOptions={filterOptions}
           exportFilters={exportFilters}
           onChange={handleFilterChange}
           onReset={handleReset}

@@ -100,4 +100,10 @@ export interface AuditPage {
   page: number;
   pageSize: number;
   total: number;
+  filterOptions?: AuditFilterOptions;
+}
+
+export interface AuditFilterOptions {
+  resourceTypes: string[];
+  resultStatuses: string[];
 }

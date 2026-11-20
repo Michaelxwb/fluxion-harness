@@ -24,6 +24,10 @@ interface RawPage<T> {
   page: number;
   page_size: number;
   total: number;
+  filter_options?: {
+    resource_types: string[];
+    result_statuses: string[];
+  };
 }
 
 /** 后端审计行出参（`audit_query_repository.PROJECTED_COLUMNS`）。 */
@@ -237,15 +241,21 @@ function toExportBody(req: AuditExportCreateRequest): RawExportCreateBody {
   };
 }
 
-export async function listAudits(params: AuditListQuery): Promise<AuditPage> {
+export async function listAudits(params: AuditListQuery, includeFilterOptions = false): Promise<AuditPage> {
   const page = await unwrap(
-    await api.get<ApiResponse<RawPage<RawAuditItem>>>('/audits', { params: toListParams(params) })
+    await api.get<ApiResponse<RawPage<RawAuditItem>>>('/audits', {
+      params: { ...toListParams(params), include_filter_options: includeFilterOptions || undefined }
+    })
   );
   return {
     items: page.items.map(toAuditItem),
     page: page.page,
     pageSize: page.page_size,
-    total: page.total
+    total: page.total,
+    filterOptions: page.filter_options && {
+      resourceTypes: page.filter_options.resource_types,
+      resultStatuses: page.filter_options.result_statuses
+    }
   };
 }
 

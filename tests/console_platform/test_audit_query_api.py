@@ -728,6 +728,28 @@ async def _page(
     return dict(response.json()["data"])
 
 
+async def test_audit_filter_options_use_matching_data_across_all_pages(
+    client: AsyncClient, tenant: TenantContext, audit_seed: AuditSeed
+) -> None:
+    scope = {"include_filter_options": True, "trace_id": audit_seed.trace_id, "page_size": 1}
+    model = await _page(client, tenant, audit_type="MODEL", **scope)
+    assert model["filter_options"] == {"resource_types": ["MODEL"], "result_statuses": ["FAILED"]}
+    tool = await _page(client, tenant, audit_type="TOOL", **scope)
+    assert tool["filter_options"] == {"resource_types": ["TOOL"], "result_statuses": ["SUCCESS"]}
+
+    all_operations = await _page(client, tenant, **scope)
+    (first,) = all_operations["items"]
+    assert first["audit_type"] == "RUN"
+    assert "MODEL" not in all_operations["filter_options"]["resource_types"]
+    assert {"RUN", "MCP"} <= set(all_operations["filter_options"]["resource_types"])
+    denied = await _page(client, tenant, result_status="DENIED", **scope)
+    assert denied["filter_options"]["resource_types"] == ["MCP"]
+    mcp = await _page(client, tenant, resource_type="MCP", **scope)
+    assert mcp["filter_options"]["result_statuses"] == ["DENIED"]
+    outside_scope = await _page(client, tenant, audit_type="MODEL", keyword="absent-probe", **scope)
+    assert outside_scope["filter_options"] == {"resource_types": [], "result_statuses": []}
+
+
 async def test_egress_groups_before_pagination_and_preserves_url_details(
     client: AsyncClient, tenant: TenantContext, audit_seed: AuditSeed
 ) -> None:

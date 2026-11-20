@@ -42,6 +42,7 @@ async def list_audits(
     keyword: str | None = Query(default=None, max_length=128),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
+    include_filter_options: bool = False,
 ) -> ApiResponse[Any]:
     filters = AuditQueryFilters(
         audit_type=audit_type,
@@ -59,13 +60,14 @@ async def list_audits(
         keyword=keyword,
     )
     catalog = request.app.state.message_catalog
-    items, total = await AuditQueryService(session, catalog.codes()).list_audits(
+    service = AuditQueryService(session, catalog.codes())
+    items, total = await service.list_audits(
         tenant_id, filters, page=page, page_size=page_size, view=view
     )
-    return ok(
-        catalog,
-        paginate(items=items, page=page, page_size=page_size, total=total),
-    )
+    data = paginate(items=items, page=page, page_size=page_size, total=total)
+    if include_filter_options:
+        data["filter_options"] = await service.filter_options(tenant_id, filters, view=view)
+    return ok(catalog, data)
 
 
 @router.post("/exports")

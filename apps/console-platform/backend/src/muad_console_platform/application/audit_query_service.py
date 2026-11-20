@@ -179,6 +179,16 @@ class AuditQueryService:
             allowed_audit_types=LIST_AUDIT_TYPES,
         )
 
+    async def filter_options(
+        self, tenant_id: str, filters: AuditQueryFilters, *, view: str | None,
+    ) -> dict[str, list[str]]:
+        resolved = resolve_view(filters.audit_type, view)
+        resources, results = await self._repository.filter_options(tenant_id, filters, view=resolved)
+        return {
+            "resource_types": resources,
+            "result_statuses": [status for status in results if status in self._allowed_result_statuses],
+        }
+
     @staticmethod
     def _project_list_item(row: dict[str, Any], *, view: str) -> dict[str, Any]:
         """列表行 = 统一投影 + 操作行摘要；步骤统计归运行详情。"""

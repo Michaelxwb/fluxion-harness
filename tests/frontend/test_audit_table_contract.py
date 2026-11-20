@@ -211,23 +211,25 @@ def test_empty_and_error_slots_come_from_audit_table() -> None:
 
 
 def test_primary_display_field_has_detail_open_seam() -> None:
-    """[RULE-ui-001] 主展示字段 Trace ID 打开当前审计详情；关联 Run/Task 仍直达。"""
+    """Trace ID 打开相应的详情；出网摘要、单条审计和 Run/Task 各走对应入口。"""
     table = _read(TABLE)
     options = _block(table, "export interface AuditTableOptions {")
     assert "onOpenDetail(item:AuditListItem):void;" in options, "详情入口须作为显式入参 seam 导出"
     assert "onOpenRun(runId:string):void;" in options, "Run 直达 seam 须显式导出"
     assert "onOpenTask(taskId:string):void;" in options, "Task 直达 seam 须显式导出"
+    assert "onOpenEgress(item:AuditListItem):void;" in options, "出网摘要须有独立明细入口"
     assert "items:AuditListItem[];" in options
 
     assert "components/common/EntityLink" in table
     compact = _compact(table)
-    # 两个入口不再重复打开同一个弹窗：Run/Task 直达对应详情，CONFIG 行与 Trace ID 打开审计详情
+    # 单条记录对应单条详情；出网摘要打开请求列表。
     assert compact.count("onOpenDetail(record)") == 2
+    assert "item.egressCount?onOpenEgress(item):onOpenDetail(item)" in compact
     assert compact.count("onClick={()=>onOpenRun(runId)}") == 1, "Run 链接须直达运行详情"
     assert compact.count("onClick={()=>onOpenTask(taskId)}") == 1, "Task 链接须落任务深链"
     assert (
         "columns:buildAuditColumns(t,options.onOpenDetail,options.onOpenRun,"
-        "options.onOpenTask,options.onOpenTrace)" in _props(table)
+        "options.onOpenTask,options.onOpenTrace,options.onOpenEgress)" in _props(table)
     ), "详情 seam 须由入参原样注入列定义"
     assert "dataIndex:'traceId'" in compact, "主展示字段须为 Trace ID 列"
     assert "rowKey:'auditId'" in _props(table), "同一 Trace 下的不同审计记录须保留独立行"
@@ -262,6 +264,7 @@ def test_hook_owns_list_state_and_guards_out_of_order_responses() -> None:
         "total:number;",
         "loading:boolean;",
         "failed:boolean;",
+        "filterOptions?:AuditFilterOptions;",
         "reload():void;",
     ):
         assert member in state, f"AuditListState 缺少 {member}"
@@ -272,14 +275,15 @@ def test_hook_owns_list_state_and_guards_out_of_order_responses() -> None:
     assert body.count("if(current===requestSeq.current){") == 2, "失败/收尾分支不得被过期响应改写"
     assert "setFailed(true)" in _catch_block(hook), "失败只置 failed（保留筛选与已加载数据）"
     assert "voidreload();" in body, "首挂载与 query 变更即重取"
-    assert "return{items,page,pageSize,total,loading,failed,reload};" in body, "须暴露 retry 出口"
+    assert "return{items,page,pageSize,total,loading,failed,filterOptions,reload};" in body
+    assert "resolvedFilters?.query===query" in body, "旧查询的筛选候选不得随新筛选展示"
 
 
 def test_hook_reaches_backend_only_through_service_layer() -> None:
     """[RULE-front-001] 取数只经 TASK-010 的 service；表格与状态机都不裸用 HTTP 客户端。"""
     hook = _read(HOOK)
     assert "from '../services/auditService'" in hook
-    assert "listAudits(query)" in _compact(hook)
+    assert "listAudits(query,includeFilterOptions)" in _compact(hook)
 
     for source in (hook, _read(TABLE)):
         for banned in BANNED_HTTP:

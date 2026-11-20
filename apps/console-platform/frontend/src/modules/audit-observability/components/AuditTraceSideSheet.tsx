@@ -53,7 +53,7 @@ export function AuditTraceSideSheet({ traceId, egressQuery, onClose }: AuditTrac
   return (
     <DetailSideSheet
       visible
-      title={t(egressQuery ? 'audit.egress.details' : 'audit.trace.title')}
+      title={egressQuery ? t('audit.egress.details') : t('audit.trace.title')}
       subtitle={<span className="audit-object-id">{traceId ?? egressQuery?.taskId ?? egressQuery?.runId}</span>}
       activeTab="records"
       onCancel={onClose}
