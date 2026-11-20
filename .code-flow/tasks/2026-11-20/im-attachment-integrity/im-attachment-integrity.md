@@ -391,3 +391,61 @@ Connector 通过 Console 内部 `platform-settings` 快照读取，按租户缓�
   - web-artifact-delivery FAIL exit=1
 - 2026-11-20T11:53:36.466Z PASS commands=1/1 executed=1 deduped=0 elapsed=32076ms tests=c5d62b757e5b head=a15dd564f4a6 dirty=1
   - web-artifact-delivery PASS exit=0
+
+## TASK-007: 定时任务产物的按任务发现与交付闭环
+
+- **Status**: done
+- **Depends**: TASK-006
+- **Source**: im-attachment-integrity.backend.design.md#3.2.4
+- **Scenarios**: im-attachment-integrity:S-02, im-attachment-integrity:S-06
+- **Spec-Refs**: im/harness-im#RULE-006, test/harness-test#RULE-test-001
+- **Paths**: apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py, tests/agent_runtime/test_attachment_task_owner.py, tests/agent_runtime/test_webchat_task_artifact_delivery.py
+- **E2E**:
+- **Skip-Tests**: false
+- **Skip-Reason**:
+
+### Tests
+
+```json
+[
+  {
+    "id": "task-artifact-discovery",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_runtime/test_attachment_task_owner.py", "tests/agent_runtime/test_webchat_task_artifact_delivery.py", "tests/agent_runtime/test_attachment_tools.py"],
+    "timeout": 600,
+    "parallel": false
+  }
+]
+```
+
+### Description
+
+让“把某次定时任务/后台执行的产物发给我”在真实对话里可发现、可交付：
+
+- `list_attachments` 增加 `scope=task`，要求 `task_id`；只列该 `task_execution` 的产物，归属继续复用 `task_owner_predicate`（同租户 + user/agent 精确匹配 + live execution），不引入新的授权口径；
+- 工具说明明确：当前消息附件仍是该消息的唯一输入依据；但用户明确要求某次任务执行的文件时，应使用 `scope=task` 列出并逐个 `deliver_artifact`，不能直接回答“不可寻址”；
+- 真实 PostgreSQL 回归：只列目标任务、跨用户/跨 Agent/软删为空；WebChat 走真实工具列出任务产物 → 交付 → 下载。
+
+### Checklist
+
+- [x] `list_attachments(scope=task, task_id=...)` 只返回该 execution 的产物。
+- [x] 缺 `task_id`、非法 UUID、把 `task_id` 用在其他 scope 都显式拒绝。
+- [x] 跨用户、跨 Agent、软删 execution 均返回空，不泄露存在性。
+- [x] WebChat 能从任务产物列表走到 `deliver_artifact` 并成功下载。
+- [x] 工具说明不再让模型把“当前消息没附件”误判成“任务产物不可访问”。
+
+### Spec Delta
+
+```json
+[]
+```
+
+### Log
+
+- [2026-11-20] created
+- [2026-11-20T13:25:29.180Z] started tests=541667c637c9
+
+### Verification
+
+- 尚未执行
+- 2026-11-20T13:27:42.735Z PASS commands=1/1 executed=1 deduped=0 elapsed=26314ms tests=541667c637c9 head=5f64c02e0842 dirty=1
+  - task-artifact-discovery PASS exit=0

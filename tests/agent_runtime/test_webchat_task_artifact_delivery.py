@@ -8,14 +8,21 @@ from pathlib import Path
 
 import pytest
 import sqlalchemy as sa
+from muad_agent_core.tools import ToolRegistry
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_contracts import DeliveryRouteInput
 
 from muad_agent_runtime.application.attachments.publication import (
     PublicationError,
     publish_artifact_to_conversation,
 )
 from muad_agent_runtime.application.attachments.task_artifacts import load_task_owner
+from muad_agent_runtime.application.attachments.tools import (
+    DELIVER_ARTIFACT_TOOL,
+    LIST_ATTACHMENTS_TOOL,
+    AttachmentToolSet,
+)
 from muad_agent_runtime.application.webchat_artifacts import resolve_webchat_artifact
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import (
@@ -205,3 +212,61 @@ async def test_task_owner_helper_checks_live_execution(
     assert owner is not None
     assert owner.actor_user_id == tenant.platform_user_id
     assert owner.agent_id == tenant.agent_id
+
+
+async def _call(tool_set: AttachmentToolSet, name: str, arguments: dict[str, object]) -> str:
+    registry = ToolRegistry()
+    tool_set.register(registry)
+    definition = registry.get(name)
+    assert definition.handler is not None
+    return await definition.handler(arguments, call_id="call-1")
+
+
+async def test_task_artifacts_are_listed_delivered_and_downloaded_in_webchat(
+    tenant: TenantContext, tmp_path: Path
+) -> None:
+    """用户点名某次执行时：按 task 列出 → 交付到当前会话 → 下载同一不可变版本。"""
+    conversation_id, run_id = await _seed_conversation(tenant)
+    execution_id = await _seed_task_execution(tenant)
+    artifact_id, checksum = await _seed_task_artifact(tenant, tmp_path, execution_id)
+    tool_set = AttachmentToolSet(
+        session_factory=get_session_factory,
+        artifact_root=str(tmp_path),
+        tenant_id=tenant.tenant_id,
+        run_id=run_id,
+        conversation_id=conversation_id,
+        user_id=tenant.platform_user_id,
+        agent_id=tenant.agent_id,
+        has_delivery_route=True,
+        delivery_route=DeliveryRouteInput(
+            channel="WEBCHAT",
+            bot_id="webchat-test",
+            external_user_id=str(tenant.platform_user_id),
+        ),
+    )
+
+    listed = await _call(
+        tool_set,
+        LIST_ATTACHMENTS_TOOL,
+        {"scope": "task", "task_id": str(execution_id), "direction": "outbound"},
+    )
+    assert str(artifact_id) in listed
+    assert "report.txt" in listed
+
+    delivered = await _call(
+        tool_set, DELIVER_ARTIFACT_TOOL, {"artifact_id": str(artifact_id)}
+    )
+    assert "已交付" in delivered
+
+    async with get_session_factory()() as session:
+        download = await resolve_webchat_artifact(
+            session,
+            tenant_id=tenant.tenant_id,
+            user_id=tenant.platform_user_id,
+            artifact_id=artifact_id,
+            conversation_id=conversation_id,
+            checksum=checksum,
+        )
+    assert download.reference.artifact_id == artifact_id
+    assert download.reference.filename == "report.txt"
+    assert download.reference.checksum == checksum

@@ -87,7 +87,10 @@ LIST_ATTACHMENTS_DESCRIPTION = (
     "List the files you can currently address: files the user sent, files you produced earlier, "
     "and internal tool results. Tool results are internal artifacts, not user attachments; use "
     "direction=inbound when you need the user's attachments. The current user message's "
-    "attachment list is authoritative: if it has no attachment, do not substitute a historical one."
+    "attachment list is authoritative for that message: if it has no attachment, do not substitute "
+    "a historical one. When the user explicitly asks for files produced by a scheduled or "
+    "background task execution (for example \"send me the last run's result\"), pass scope=task "
+    "with that task_id, then call deliver_artifact for the files the user asked to receive."
 )
 #: 交付的三种工具结果（设计 §3.6 原文）。**模型据此决定怎么跟用户说**，所以必须说清
 #: "发出去了 / 换了形态 / 没发出去且可重试"——含糊的措辞会让模型编一个"已发送"。
@@ -153,7 +156,9 @@ SCOPE_RUN = "run"
 SCOPE_CONVERSATION = "conversation"
 #: 当前 user + agent 的跨会话历史（历史产出检索）。
 SCOPE_AGENT = "agent"
-SCOPES = frozenset({SCOPE_RUN, SCOPE_CONVERSATION, SCOPE_AGENT})
+#: 指定一次任务执行（含定时执行）的产物；必须同时给 `task_id`。
+SCOPE_TASK = "task"
+SCOPES = frozenset({SCOPE_RUN, SCOPE_CONVERSATION, SCOPE_AGENT, SCOPE_TASK})
 SCOPE_DEFAULT = SCOPE_CONVERSATION
 #: 方向：用户发来的 / Agent 自产（缺省不限）
 DIRECTION_INBOUND = "inbound"
@@ -293,6 +298,22 @@ def list_window(arguments: Mapping[str, Any]) -> tuple[int, int]:
     return offset, limit
 
 
+def _task_id_argument(value: object) -> uuid.UUID:
+    """`scope=task` 的 execution 标识：必填且必须是 UUID；非法入参显式拒绝。"""
+    if isinstance(value, uuid.UUID):
+        return value
+    if not isinstance(value, str) or not value.strip():
+        raise AttachmentToolError(
+            ATTACHMENT_SCOPE_INVALID, "task scope requires a task_id"
+        )
+    try:
+        return uuid.UUID(value)
+    except (ValueError, TypeError) as exc:
+        raise AttachmentToolError(
+            ATTACHMENT_SCOPE_INVALID, f"task_id must be a valid UUID：{value!r}"
+        ) from exc
+
+
 def resolve_workspace_file(workspace_dir: Path, value: object) -> OutputFile:
     """校验 workspace 相对路径并返回可登记的产物事实。
 
@@ -418,6 +439,10 @@ class AttachmentToolSet:
                     "type": "object",
                     "properties": {
                         "scope": {"type": "string", "enum": sorted(SCOPES)},
+                        "task_id": {
+                            "type": "string",
+                            "description": "Task execution id; only valid with scope=task.",
+                        },
                         "direction": {"type": "string", "enum": sorted(DIRECTIONS)},
                         "limit": {**integer_schema, "minimum": 1, "maximum": MAX_LIST_LIMIT},
                         "offset": {**integer_schema, "minimum": 0},
@@ -558,6 +583,11 @@ class AttachmentToolSet:
         scope = arguments.get("scope", SCOPE_DEFAULT)
         if not isinstance(scope, str) or scope not in SCOPES:
             raise AttachmentToolError(ATTACHMENT_SCOPE_INVALID, f"scope 只能是 {sorted(SCOPES)}：{scope!r}")
+        task_id = arguments.get("task_id")
+        if scope != SCOPE_TASK and task_id is not None:
+            raise AttachmentToolError(
+                ATTACHMENT_SCOPE_INVALID, "task_id is only valid with scope=task"
+            )
         direction = arguments.get("direction")
         if direction is not None and (not isinstance(direction, str) or direction not in DIRECTIONS):
             raise AttachmentToolError(
@@ -590,6 +620,19 @@ class AttachmentToolSet:
                         user_id=self._user_id,
                         agent_id=self._agent_id,
                     ),
+                ),
+            )
+        elif scope == SCOPE_TASK:
+            if self._agent_id is None or self._user_id is None:
+                raise AttachmentToolError(
+                    ATTACHMENT_SCOPE_INVALID, "task scope requires a trusted agent/user context"
+                )
+            stmt = stmt.where(
+                Artifact.task_id == _task_id_argument(task_id),
+                task_owner_predicate(
+                    tenant_id=self._tenant_id,
+                    user_id=self._user_id,
+                    agent_id=self._agent_id,
                 ),
             )
         else:

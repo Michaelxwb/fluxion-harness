@@ -11,6 +11,7 @@ import sqlalchemy as sa
 from muad_agent_core.tools import ToolRegistry
 from muad_agent_runtime.application.attachments.tools import (
     ATTACHMENT_NOT_FOUND,
+    ATTACHMENT_SCOPE_INVALID,
     LIST_ATTACHMENTS_TOOL,
     READ_ATTACHMENT_TOOL,
     AttachmentToolError,
@@ -138,6 +139,57 @@ async def test_task_artifact_is_listed_read_and_owner_scoped(
     assert "hello" in read_back
 
 
+async def test_task_scope_lists_only_the_requested_execution(
+    tenant: TenantContext, artifact_root: Path
+) -> None:
+    """用户点名某次定时/后台执行时，列出的只能是这次执行的产物。"""
+    wanted_execution = await _seed_execution(tenant)
+    wanted_id = await _seed_task_artifact(
+        tenant, artifact_root, wanted_execution, filename="wanted.xlsx"
+    )
+    other_execution = await _seed_execution(tenant)
+    other_id = await _seed_task_artifact(
+        tenant, artifact_root, other_execution, filename="other.txt"
+    )
+    tool_set = _tool_set(tenant, artifact_root)
+
+    listed = await _call(
+        tool_set,
+        LIST_ATTACHMENTS_TOOL,
+        {"scope": "task", "task_id": str(wanted_execution), "direction": "outbound"},
+    )
+
+    assert "scope=task" in listed
+    assert str(wanted_id) in listed
+    assert "wanted.xlsx" in listed
+    assert str(other_id) not in listed
+    assert "other.txt" not in listed
+
+
+async def test_task_scope_requires_a_valid_task_id(
+    tenant: TenantContext, artifact_root: Path
+) -> None:
+    tool_set = _tool_set(tenant, artifact_root)
+
+    with pytest.raises(AttachmentToolError) as missing:
+        await _call(tool_set, LIST_ATTACHMENTS_TOOL, {"scope": "task"})
+    assert missing.value.code == ATTACHMENT_SCOPE_INVALID
+
+    with pytest.raises(AttachmentToolError) as malformed:
+        await _call(
+            tool_set, LIST_ATTACHMENTS_TOOL, {"scope": "task", "task_id": "not-a-uuid"}
+        )
+    assert malformed.value.code == ATTACHMENT_SCOPE_INVALID
+
+    with pytest.raises(AttachmentToolError) as wrong_scope:
+        await _call(
+            tool_set,
+            LIST_ATTACHMENTS_TOOL,
+            {"scope": "agent", "task_id": str(uuid.uuid4())},
+        )
+    assert wrong_scope.value.code == ATTACHMENT_SCOPE_INVALID
+
+
 async def test_task_artifact_rejects_other_user_and_agent(
     tenant: TenantContext, artifact_root: Path
 ) -> None:
@@ -151,11 +203,21 @@ async def test_task_artifact_rejects_other_user_and_agent(
     assert str(artifact_id) not in await _call(
         other_user, LIST_ATTACHMENTS_TOOL, {"scope": "agent"}
     )
+    assert str(artifact_id) not in await _call(
+        other_user,
+        LIST_ATTACHMENTS_TOOL,
+        {"scope": "task", "task_id": str(execution_id)},
+    )
 
     other_agent = _tool_set(tenant, artifact_root, agent_id=uuid.uuid4())
     with pytest.raises(AttachmentToolError) as agent_exc:
         await _call(other_agent, READ_ATTACHMENT_TOOL, {"artifact_id": str(artifact_id)})
     assert agent_exc.value.code == ATTACHMENT_NOT_FOUND
+    assert str(artifact_id) not in await _call(
+        other_agent,
+        LIST_ATTACHMENTS_TOOL,
+        {"scope": "task", "task_id": str(execution_id)},
+    )
 
 
 async def test_deleted_task_or_missing_owner_is_rejected(
@@ -188,4 +250,9 @@ async def test_deleted_task_or_missing_owner_is_rejected(
     assert orphan_exc.value.code == ATTACHMENT_NOT_FOUND
     assert str(orphan_artifact) not in await _call(
         tool_set, LIST_ATTACHMENTS_TOOL, {"scope": "agent"}
+    )
+    assert str(orphan_artifact) not in await _call(
+        tool_set,
+        LIST_ATTACHMENTS_TOOL,
+        {"scope": "task", "task_id": str(execution_id)},
     )
