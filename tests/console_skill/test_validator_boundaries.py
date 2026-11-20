@@ -19,6 +19,71 @@ def test_import_preserves_platform_declaration() -> None:
         assert package.frontmatter["platforms"] == ["mssp"]
 
 
+def test_import_preserves_invocation_contract() -> None:
+    data = zip_bytes(
+        {
+            "SKILL.md": "\n".join(
+                [
+                    "---",
+                    "name: demo",
+                    "description: demo",
+                    "invocation_contract:",
+                    "  version: 1",
+                    "  invocation: argv",
+                    "  schema:",
+                    "    type: object",
+                    "    properties:",
+                    "      company-id: {type: string}",
+                    "    required: [company-id]",
+                    "    additionalProperties: false",
+                    "---",
+                    "",
+                ]
+            )
+        }
+    )
+
+    with skill_validator.validated_package(data) as package:
+        assert package.frontmatter["invocation_contract"] == {
+            "version": 1,
+            "invocation": "argv",
+            "schema": {
+                "type": "object",
+                "properties": {"company-id": {"type": "string"}},
+                "required": ["company-id"],
+                "additionalProperties": False,
+            },
+        }
+
+
+def test_import_rejects_invalid_invocation_contract() -> None:
+    data = zip_bytes(
+        {
+            "SKILL.md": "\n".join(
+                [
+                    "---",
+                    "name: demo",
+                    "description: demo",
+                    "invocation_contract:",
+                    "  invocation: argv",
+                    "  schema:",
+                    "    type: object",
+                    "    properties: {}",
+                    "    additionalProperties: true",
+                    "---",
+                    "",
+                ]
+            )
+        }
+    )
+
+    with pytest.raises(AppError) as error:
+        with skill_validator.validated_package(data):
+            pass
+    assert error.value.code == "SKILL_PACKAGE_INVALID"
+    assert error.value.data["reason"] == "MANIFEST_INVALID"
+
+
 def test_import_preserves_legacy_manifest_platforms() -> None:
     data = zip_bytes(
         {"SKILL.md": skill_md(), "muad.skill.json": '{"platforms": ["mssp"]}'}

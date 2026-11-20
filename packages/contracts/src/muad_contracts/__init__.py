@@ -219,6 +219,7 @@ from .scheduling import (
     derive_schedule_mode,
     parse_schedule_payload,
 )
+from .skill_invocation import SkillInvocationContract
 from .snapshot import (
     REQUIRED_SNAPSHOT_KEYS,
     TASK_PROMPT_TEMPLATE_VERSION,
@@ -391,6 +392,7 @@ __all__ = [
     "ScheduleStatus",
     "ScheduleToolMaterials",
     "SkillExecutionMode",
+    "SkillInvocationContract",
     "SkillReviewStatus",
     "SkillSource",
     "TaskListQuery",
