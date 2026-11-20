@@ -1890,14 +1890,14 @@ packages/agent-core/src/muad_agent_core/skill/contracts.py,30,SUCCEEDED,'SUCCEED
 packages/agent-core/src/muad_agent_core/skill/contracts.py,31,FAILED,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/skill/contracts.py,32,TIMED_OUT,'TIMED_OUT',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
 packages/agent-core/src/muad_agent_core/skill/contracts.py,33,CANCELLED,'CANCELLED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
-packages/agent-core/src/muad_agent_core/skill/draft_shell.py,59,DRAFT_SHELL_ALLOWED_EXTENSIONS,"frozenset({'.md', '.py', '.json', '.yaml', '.yml', '.txt', '.csv', '.html', '.css', '.js', '.mjs', '.cjs', '.png', '.jpg', '.svg'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/skill/draft_shell.py,79,DRAFT_SHELL_IGNORED_DIRS,"frozenset({'__pycache__', '.pytest_cache', '.mypy_cache', '.ruff_cache', '.venv', 'node_modules'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/skill/draft_shell.py,82,DRAFT_SHELL_IGNORED_SUFFIXES,"frozenset({'.pyc', '.pyo'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/skill/draft_shell.py,83,DRAFT_SHELL_MOUNT_ROOT,'/workspace/draft',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/skill/draft_shell.py,84,DRAFT_SHELL_TEMP_PREFIX,'muad-draft-shell-',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/skill/draft_shell.py,85,DRAFT_SHELL_PATH_LIMIT,1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/skill/draft_shell.py,86,DRAFT_SHELL_DEFAULT_TIMEOUT_SEC,60.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/skill/draft_shell.py,87,ZIP_SYMLINK_MODE,40960,python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/skill/draft_shell.py,58,DRAFT_SHELL_ALLOWED_EXTENSIONS,"frozenset({'.md', '.py', '.json', '.yaml', '.yml', '.txt', '.csv', '.html', '.css', '.js', '.mjs', '.cjs', '.png', '.jpg', '.svg'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/skill/draft_shell.py,78,DRAFT_SHELL_IGNORED_DIRS,"frozenset({'__pycache__', '.pytest_cache', '.mypy_cache', '.ruff_cache', '.venv', 'node_modules'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/skill/draft_shell.py,81,DRAFT_SHELL_IGNORED_SUFFIXES,"frozenset({'.pyc', '.pyo'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/skill/draft_shell.py,82,DRAFT_SHELL_MOUNT_ROOT,'/workspace/draft',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/skill/draft_shell.py,83,DRAFT_SHELL_TEMP_PREFIX,'muad-draft-shell-',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/skill/draft_shell.py,84,DRAFT_SHELL_PATH_LIMIT,1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/skill/draft_shell.py,85,DRAFT_SHELL_DEFAULT_TIMEOUT_SEC,60.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/skill/draft_shell.py,86,ZIP_SYMLINK_MODE,40960,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/skill/executor.py,31,TERMINATE_GRACE_SEC,2.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/skill/executor.py,32,ENV_ALLOWLIST,"('PATH', 'HOME', 'LANG')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/skill/executor.py,34,PLATFORM_SUMMARY_LIMIT,300,python-constant,code,协议标识、枚举、schema、文本或实现常量
