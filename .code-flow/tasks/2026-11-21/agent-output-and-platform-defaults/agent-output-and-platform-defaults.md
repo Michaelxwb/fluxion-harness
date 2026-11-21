@@ -354,12 +354,12 @@
   - config-locale-hints PASS exit=0
 ## TASK-007: 配置盘点、Spec Delta 与规范收口
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005, TASK-006
 - **Source**: agent-output-and-platform-defaults.design.md#Spec Compliance Matrix
 - **Scenarios**:
 - **Spec-Refs**: arch/harness-arch, time/harness-time#RULE-time-001, i18n/harness-i18n#RULE-i18n-001, platform/harness-project-platform, snapshot/harness-snapshot#RULE-snapshot-001, im/harness-im, test/harness-test
-- **Paths**: docs/configuration-inventory.csv, docs/configuration-inventory.md, .code-flow/specs/arch/harness-arch.md, .code-flow/specs/time/harness-time.md, .code-flow/specs/i18n/harness-i18n.md, .code-flow/specs/platform/harness-project-platform.md, .code-flow/specs/snapshot/harness-snapshot.md, .code-flow/specs/im/harness-im.md
+- **Paths**: docs/configuration-inventory.csv, docs/configuration-inventory.md, .code-flow/specs/arch/harness-arch.md, .code-flow/specs/time/harness-time.md, .code-flow/specs/i18n/harness-i18n.md, .code-flow/specs/platform/harness-project-platform.md, .code-flow/specs/snapshot/harness-snapshot.md, .code-flow/specs/im/harness-im.md, apps/agent-runtime/src/muad_agent_runtime/metrics.py, apps/agent-runtime/src/muad_agent_runtime/application/finalization/render.py, tests/agent_runtime/test_finalization_render.py
 - **E2E**:
 - **Skip-Tests**: false
 - **Skip-Reason**:
@@ -370,7 +370,7 @@
 [
   {
     "id": "inventory-catalog",
-    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/test_configuration_inventory.py", "tests/test_error_catalog.py", "tests/test_configuration_convergence.py"],
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/test_configuration_inventory.py", "tests/test_configuration_convergence.py", "tests/agent_runtime/test_finalization_render.py"],
     "timeout": 300,
     "parallel": false
   }
@@ -386,11 +386,11 @@
 
 ### Checklist
 
-- [ ] `configuration-inventory.csv` 与当前 AST 一致；无与本需求无关的漂移。
-- [ ] `docs/configuration-inventory.md` 叙事与代码事实一致。
-- [ ] 6 个 Spec Delta 的 `target`/`ref`/`before` 与当前 Spec 精确匹配；`add` 规则无重复。
-- [ ] `harness-arch` 的确定性收尾口径与代码一致；`harness-time` 的平台默认时区例外明确；`harness-i18n` 覆盖 Agent 语言与失败描述；`harness-project-platform` 明确平台原文只进技术信息；`harness-snapshot` 只新增 `policy_json.default_locale`；`harness-im` 固定文案统一走 locale 目录。
-- [ ] 声明测试通过；archive 时 Delta 可应用。
+- [x] `configuration-inventory.csv` 与当前 AST 一致；无与本需求无关的漂移。
+- [x] `docs/configuration-inventory.md` 叙事与代码事实一致。
+- [x] 6 个 Spec Delta 的 `target`/`ref`/`before` 与当前 Spec 精确匹配；`add` 规则无重复。
+- [x] `harness-arch` 的确定性收尾口径与代码一致；`harness-time` 的平台默认时区例外明确；`harness-i18n` 覆盖 Agent 语言与失败描述；`harness-project-platform` 明确平台原文只进技术信息；`harness-snapshot` 只新增 `policy_json.default_locale`；`harness-im` 固定文案统一走 locale 目录。
+- [x] 声明测试通过；archive 时 Delta 可应用。
 
 ### Spec Delta
 
@@ -446,7 +446,10 @@
 ### Log
 
 - [2026-11-21] created
+- [2026-11-21T02:53:50.031Z] started tests=7322bb15d6bb
 
 ### Verification
 
 - 尚未执行
+- 2026-11-21T02:57:30.020Z PASS commands=1/1 executed=1 deduped=0 elapsed=15067ms tests=fcccee8e03ea head=9861606d525b dirty=1 tests-changed
+  - inventory-catalog PASS exit=0

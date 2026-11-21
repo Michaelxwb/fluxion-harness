@@ -10,10 +10,13 @@ facts 中已脱敏、有界的摘要，不渲染原始 stdout/stderr，也不写
 from __future__ import annotations
 
 from muad_agent_core.agent.termination import TerminationReason
-from muad_agent_core.failures import failure_hint
+from muad_agent_core.failures import FailureHint, failure_hint
+from muad_logging import get_logger
 
+from ...metrics import FINALIZATION_FAILURE_HINT_MISSING_METRIC, record_counter
 from .facts import EvidenceStatus, FailureSummary, FinalizationFacts
 
+logger = get_logger(__name__)
 _PREVIEW_LIMIT = 300
 
 
@@ -120,7 +123,7 @@ def _reason_and_next(
             _pick(zh, "请缩小范围或延长期限后重试。", "Narrow the task or extend the deadline, then retry."),
         )
     if reason is TerminationReason.NO_PROGRESS:
-        hint = failure_hint(
+        hint = _hint(
             primary.error_code if primary is not None else facts.termination.error_code,
             locale=locale,
             tool=primary.tool if primary is not None else None,
@@ -139,7 +142,7 @@ def _reason_and_next(
             prefix = _pick(zh, "执行失败，已停止。", "The run failed and stopped.")
         return _sentence(prefix, hint.title, zh), hint.next_step
 
-    hint = failure_hint(facts.termination.error_code, locale=locale)
+    hint = _hint(facts.termination.error_code, locale=locale)
     if hint.known:
         return hint.title, hint.next_step
     return (
@@ -150,6 +153,15 @@ def _reason_and_next(
             "Fix the cause using the technical details; if it persists, contact an administrator.",
         ),
     )
+
+
+def _hint(code: str | None, *, locale: str | None, tool: str | None = None) -> FailureHint:
+    """Render a hint and make an unregistered code family visible to operators."""
+    hint = failure_hint(code, locale=locale, tool=tool)
+    if not hint.known:
+        record_counter(FINALIZATION_FAILURE_HINT_MISSING_METRIC)
+        logger.warning("finalization_failure_hint_missing code=%s", code or "")
+    return hint
 
 
 def _technical_lines(

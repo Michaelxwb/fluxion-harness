@@ -248,6 +248,25 @@ def test_unknown_code_keeps_the_original_code_in_technical_details() -> None:
     assert "SOME_NEW_TOOL_ERROR" in text.partition("技术信息")[2]
 
 
+def test_unknown_code_records_the_fallback_metric() -> None:
+    from muad_api import render_metrics
+
+    facts = _facts(
+        records=[
+            ToolCallRecord(
+                tool_name="execute",
+                business_status="FAILED",
+                failure_layer="TOOL",
+                error_code="SOME_NEW_TOOL_ERROR",
+            )
+        ]
+    )
+
+    render_finalization(facts)
+
+    assert "finalization_failure_hint_missing_total" in render_metrics()
+
+
 def test_cancel_text_does_not_invent_failure() -> None:
     text = render_cancelled(run_id="run-1")
 

@@ -74,6 +74,8 @@ CONTEXT_COMPACTION_METRIC: Final = "context_compaction_total"
 CONTEXT_COMPACTION_BYTES_SAVED_METRIC: Final = "context_compaction_bytes_saved_total"
 CONTEXT_SUMMARY_METRIC: Final = "context_summary_total"
 CONTEXT_SUMMARY_TOKENS_METRIC: Final = "context_summary_tokens_total"
+#: 失败文案遇到未登记的码族：通用描述仍会输出，但这条降级必须可见。
+FINALIZATION_FAILURE_HINT_MISSING_METRIC: Final = "finalization_failure_hint_missing_total"
 # 取平台设置快照的失败计数在**调用方**侧（Console 端点不可达时 Console 收不到请求）。
 PLATFORM_SETTINGS_FETCH_METRIC: Final = "platform_settings_fetch_total"
 
@@ -425,6 +427,12 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
         COUNTER,
         ("layer", "status"),
         "Context compaction layers by layer and status",
+    ),
+    (
+        FINALIZATION_FAILURE_HINT_MISSING_METRIC,
+        COUNTER,
+        (),
+        "Finalization rendered a generic hint for an unregistered failure code",
     ),
     (
         CONTEXT_COMPACTION_BYTES_SAVED_METRIC,
