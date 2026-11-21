@@ -121,11 +121,14 @@
 
 - [2026-11-21] created
 - [2026-11-21T02:25:23.194Z] started tests=a10215633893
+- [2026-11-21T03:08:06.388Z] reopen: E2E S-01: model ignored the weak default-language instruction
 
 ### Verification
 
 - 尚未执行
 - 2026-11-21T02:33:30.456Z PASS commands=1/1 executed=1 deduped=0 elapsed=11043ms tests=a10215633893 head=54dc83a20c3e dirty=1
+  - runtime-locale PASS exit=0
+- 2026-11-21T03:40:32.317Z PASS commands=1/1 executed=1 deduped=0 elapsed=11639ms tests=a10215633893 head=78f3ff34a0ab dirty=1
   - runtime-locale PASS exit=0
 ## TASK-003: Worker AGENTIC 默认回复语言
 

@@ -138,9 +138,11 @@ def _reply_language_section(reply_locale: str) -> str:
     return "\n".join(
         [
             "## Reply language",
-            f"- Default: {language}.",
-            "- Follow an explicit language request in the current user message.",
-            "- If user memory contains a `language` preference, follow it unless the "
-            "current message overrides it.",
+            f"- Reply in {language} by default, regardless of the language the user writes in.",
+            "- Only an explicit request in the current user message to use another language "
+            "overrides this default.",
+            "- If user memory contains a `language` preference, follow it unless the current "
+            "message explicitly overrides it.",
+            "- Do not infer a language preference from the language of the user's message.",
         ]
     )

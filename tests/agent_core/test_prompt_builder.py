@@ -51,9 +51,10 @@ def test_reply_language_section_sits_between_instructions_and_skills() -> None:
     )
 
     assert "## Reply language" in prompt
-    assert "- Default: English (en-US)." in prompt
-    assert "explicit language request" in prompt
+    assert "- Reply in English (en-US) by default" in prompt
+    assert "explicit request" in prompt
     assert "memory contains a `language` preference" in prompt
+    assert "Do not infer a language preference" in prompt
     assert (
         prompt.index("be helpful")
         < prompt.index("## Reply language")
@@ -66,7 +67,7 @@ def test_unknown_reply_locale_falls_back_to_chinese() -> None:
         instructions="be helpful", skills=(), reply_locale="fr-FR"
     )
 
-    assert "- Default: Chinese (zh-CN)." in prompt
+    assert "- Reply in Chinese (zh-CN) by default" in prompt
 
 
 def test_version_marker_is_optional() -> None:

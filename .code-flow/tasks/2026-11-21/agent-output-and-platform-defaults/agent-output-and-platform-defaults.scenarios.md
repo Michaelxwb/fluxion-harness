@@ -20,7 +20,7 @@
 - **期望**：
   - 第一次回复为英文；改为 `zh-CN` 后的新会话回复为中文。
   - 修改设置不影响已创建会话中正在进行的 Run。
-- **实际结果**：待执行
+- **实际结果**：**PASS** — `en-US`：新会话用中文问“你好，请用一句话介绍你自己。”，回复为英文；`zh-CN`：删除测试 `language` memory 后用英文问“What is the capital of France?”，回复为中文“法国的首都是巴黎（Paris）”。设置变更只影响后续新会话。
 
 ## S-02 用户显式要求覆盖默认语言
 
@@ -37,7 +37,7 @@
 - **期望**：
   - 第 2 步本轮回复为中文，但平台默认设置不变。
   - 第 4 步出现可确认的长期偏好候选；确认后，第 5 步新会话默认中文。
-- **实际结果**：待执行
+- **实际结果**：**PASS** — `en-US` 下发送“请用中文回答这个问题”，本轮回复中文；随后“以后都用中文回答我”出现可确认的 `language=zh-CN` memory 候选，确认后 DB 生成 `v1.slot.preference.language.44136fa355b3678a`（version 1，ACTIVE）；新建会话在 `en-US` 下用中文回复。验收后已删除该测试 memory。
 
 ## S-03 平台鉴权失败时给出直白描述与错误码
 
@@ -51,7 +51,7 @@
   - 正文先说明“平台登录失败/凭据或签名问题”，并给出下一步（如联系管理员检查平台凭据）。
   - 末尾「技术信息」包含终止码、`PLATFORM_AUTH_REJECTED`、工具名和 Run ID。
   - 正文不以 `platform_sessions: ...` 内部证据串为主句；不出现凭据、Cookie、headers。
-- **实际结果**：待执行
+- **实际结果**：**PASS** — 失败 Run `acd4f8b4-1dda-4537-a0e0-2bad5ffba0b5` 正文为 “Platform sign-in failed…” + “Ask an administrator…”；技术信息含 `RUN_NO_PROGRESS`、`PLATFORM_AUTH_REJECTED`、`execute`、Run ID；正文未以 `platform_sessions` 为主句，未出现凭据、Cookie、headers。
 
 ## S-04 新建定时任务使用平台默认时区
 
@@ -66,7 +66,7 @@
 - **期望**：
   - 卡片显示 `Asia/Shanghai`，触发时间为该时区的 09:00。
   - 确认后 Schedule 详情保留该时区。
-- **实际结果**：待执行
+- **实际结果**：**PASS** — 平台默认 `Asia/Shanghai` 时新建 Draft 卡片显示 `CRON 0 9 * * * (Asia/Shanghai)`、首次触发 `2026-11-22 09:00:00`；确认后 Schedule `5617fd51-2b7e-4803-80e7-053ff04eac75` 当前 revision 时区仍为 `Asia/Shanghai`，`next_fire_at=2026-11-22 01:00Z`（= 当地 09:00）。
 
 ## S-05 用户显式指定时区覆盖平台默认
 
@@ -79,7 +79,7 @@
 - **期望**：
   - 卡片显示 `America/New_York`，而不是平台默认 `Asia/Shanghai`。
   - 确认后 Schedule 详情保留 `America/New_York`。
-- **实际结果**：待执行
+- **实际结果**：**PASS** — 平台默认 `Asia/Shanghai` 时说“每天纽约时间 9 点提醒我检查日报”，Draft 显示 `CRON 0 9 * * * (America/New_York)`；确认后 Schedule `c652c09b-64cf-495f-80d0-5efdaa346f68` 时区为 `America/New_York`，`next_fire_at=2026-11-21 14:00Z`（= 当地 09:00）。
 
 ## S-06 定时 Agentic 任务默认语言
 
@@ -93,7 +93,7 @@
 - **期望**：
   - 回复为英文；不因任务由定时触发而回落中文。
   - 如果该用户 memory 有 `language=zh-CN` 偏好，则回复为中文。
-- **实际结果**：待执行
+- **实际结果**：**FAIL（memory 覆盖分支）** — 平台 `en-US`、用户 memory `language=zh-CN`（version 1，ACTIVE）时创建并触发 AGENTIC 任务 `ebf6a1ba-871e-4c37-8f9c-b75634684621`；执行快照已冻结 memory block（含“回复语言偏好：中文”），但 `result_json.text` 为英文 “Saturday morning is a good time…”。平台默认英文分支符合预期，memory 覆盖分支未生效，需修复后复测。
 
 ## E-01 平台设置源不可读时 Draft 明确失败
 
@@ -106,7 +106,7 @@
 - **期望**：
   - 明确提示“平台设置不可用/无法读取默认时区”，不产生 Draft，也不静默使用服务器本地时区或 UTC。
   - 不出现部分写入或伪成功。
-- **实际结果**：待执行
+- **实际结果**：**PASS** — 通过故障代理让 Runtime 的 `/internal/v1/platform-settings`（无 `X-Trace-Id` 的调用）返回 500，WebChat 说“每天 9 点提醒我检查日报”；`draft_schedule` 返回 `PLATFORM_SETTINGS_UNAVAILABLE`，Run `3a4c32e8-9c25-4ec3-b397-7231c4fafd6b` 收尾为 “Platform settings are temporarily unavailable.” + 下一步；DB 中该时间窗内 `task_schedule_draft=0`、`task_schedule=0`，无部分写入。
 
 ## E-02 未知错误码仍给出通用描述
 
@@ -119,7 +119,7 @@
 - **期望**：
   - 正文给出通用直白描述（例如“工具执行失败，本轮无法继续”）和下一步。
   - 技术信息保留原始错误码，便于开发排查。
-- **实际结果**：待执行
+- **实际结果**：**PASS** — 导入 Skill `e2e-unknown-error`，其 stderr 返回 `SOME_NEW_TOOL_ERROR`；WebChat 失败 Run `3093877c-be64-465c-a8c3-db10aa40d4b3` 正文为通用 “The run did not complete… Tool execute failed.” + 下一步；技术信息保留原始码（`Platform response: {"error":{"code":"SOME_NEW_TOOL_ERROR"…}}`）。注：该 CONTENT 层失败的 audit `error_code` 为空，原始码只在平台返回行可见；正文未泄露原始码。
 
 ## E-03 en-US 租户的收尾与 IM 固定文案为英文
 
@@ -133,7 +133,7 @@
 - **期望**：
   - IM 的“任务已受理/已停止/服务中断”等固定文案为英文。
   - WebChat 失败收尾的标题、原因、下一步为英文；技术信息中的错误码保持原样。
-- **实际结果**：待执行
+- **实际结果**：**PARTIAL / FAIL** — 通过默认租户 WECOM 测试入口（`e2e-no-connector-bot`，无 Connector 连接，避免真实外发）注入入站消息：IM 状态帧 “Preparing/Thinking/Executing” 为英文，取消后终态 “The run was stopped by the user.” 为英文；WebChat 失败收尾（S-03/E-02）为英文。但 `/stop` 命令回执仍为中文“正在停止当前任务…”（`inbound.py` 固定常量），且 ASYNC 受理使用 `tool.submitted` 事件，未触发 `activity_messages.fixed.task_accepted` 的英文固定文案（实际可见的是模型自写英文）。需修复固定文案覆盖后复测。
 
 ## B-01 平台时区变更后已建任务不跟随
 
@@ -147,7 +147,7 @@
 - **期望**：
   - 已建 Schedule 仍为 `Asia/Shanghai`，触发时间不变。
   - 新 Draft 使用 `America/New_York`。
-- **实际结果**：待执行
+- **实际结果**：**PASS（顺序镜像）** — 已建 Schedule `bb186441-5dd3-4b63-815c-4876227f1eb5` 在平台默认切到 `America/New_York` 时创建，时区为 `America/New_York`、`next_fire_at=2026-11-21 14:00Z`；之后平台默认改回 `Asia/Shanghai`，该 Schedule 的时区与下次触发均未变。随后新建 Draft 使用当时的 `Asia/Shanghai`，确认后 Schedule `5617fd51-…` 保留 `Asia/Shanghai`。验证了“配置变化只影响后续新执行”。
 
 ## B-02 memory 写入禁用时的语言覆盖
 
@@ -163,7 +163,7 @@
   - 第 1 步本轮中文回复。
   - 第 2 步不会产生长期语言偏好（或明确提示无法保存）。
   - 第 3 步仍按平台默认英文回复。
-- **实际结果**：待执行
+- **实际结果**：**PASS** — `en-US`、Agent `runtime_config.memory_write=false`：第 1 步中文请求本轮中文；第 2 步“以后都用中文回答我”明确说明无法写入长期偏好（DB 无新 `language` memory）；第 3 步新会话英文提问回复英文。
 
 ## B-03 显式非法时区被拒绝
 
@@ -175,7 +175,7 @@
   2. 观察 Draft 卡片或字段错误。
 - **期望**：
   - 明确提示时区非法，要求提供合法 IANA 时区；不产生 Draft，不静默改用平台默认。
-- **实际结果**：待执行
+- **实际结果**：**PASS** — 发送“每天 Mars/Olympus 时间 9 点提醒我检查日报”，Agent 明确回复“Mars/Olympus 时间不是可识别的 IANA 时区名…不能凭猜测设置定时”，并给出 `Asia/Shanghai` / `America/New_York` 候选；未生成 Draft，未静默使用平台默认。
 
 ## 场景编写约定
 
