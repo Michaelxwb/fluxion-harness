@@ -101,12 +101,12 @@ LOAD_SKILL_DESCRIPTION = "Load a skill's manifest and full SKILL.md instructions
 READ_SKILL_RESOURCE_TOOL_DESCRIPTION = (
     "Read a file shipped inside a skill package (references/assets) by skill key and path."
 )
-# 工具描述里写清**何时用**：系统提示里的目录只列了靠前的一部分，其余技能只能从这里找到。
+# 工具描述写清何时用；省略 query 列出全部（2026-11-21：空 query 曾把 Run 首轮判死）。
 SEARCH_SKILLS_DESCRIPTION = (
-    "Search the available skills by keyword (matches key, name and description). "
-    "The system prompt lists only the leading part of the skill catalog; use this to find any "
-    "skill that is not listed there. Returns catalog entries, so a match can be passed straight "
-    "to load_skill or execute target=skill."
+    "Search the available skills by keyword (matches key, name and description); "
+    "omit query to list the catalog (bounded). The system prompt lists only the leading part "
+    "of the catalog; use this to find any skill that is not listed there. Returns catalog "
+    "entries, so a match can be passed straight to load_skill or execute target=skill."
 )
 
 MAX_RESOURCE_BYTES = 256 * 1024
@@ -606,8 +606,19 @@ class SkillToolSet:
         存在的理由：目录有上限（`MAX_CATALOG_BYTES` / `MAX_CATALOG_ENTRIES`），装不下的技能模型
         看不见 key 就等于不存在。数据本来就在手上（`self._skills` 是全量），所以这里只是一次
         本地过滤——不查库、不新增端点。
+
+        省略/空 `query` 等于列出全部（空词表的 AND 命中所有技能），同样受 `bounded_catalog`
+        收口。用户问「我有哪些技能」时模型没有任何关键词可用，拒绝空查询只会把一次正常提问变成
+        一次失败；非字符串查询则按可纠正的校验错误**返回**（不抛异常，避免被当成确定性失败）。
         """
-        query = _require_string(arguments, "query")
+        query = arguments.get("query")
+        if query is None:
+            query = ""
+        if not isinstance(query, str):
+            return _error_result(
+                ErrorCode.COMMON_VALIDATION_ERROR.value,
+                "query must be a string",
+            )
         terms = [term for term in query.casefold().split() if term]
         matches = tuple(skill for skill in self._catalog() if _matches(skill, terms))
         kept, dropped = bounded_catalog(matches)
@@ -784,7 +795,7 @@ class SkillToolSet:
             ToolDefinition(
                 name=SEARCH_SKILLS_TOOL,
                 description=SEARCH_SKILLS_DESCRIPTION,
-                input_schema=_input_schema({"query": _STRING_SCHEMA}, ("query",)),
+                input_schema=_input_schema({"query": _STRING_SCHEMA}, ()),
                 effect=ToolEffect.READ,
                 handler=self.search_skills,
                 # 内容投递：返回的目录条目就是要给模型读的，不得被大结果外置换成预览

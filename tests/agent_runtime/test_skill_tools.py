@@ -21,7 +21,12 @@ from muad_agent_core.model import (
 from muad_agent_core.prompt import MAX_CATALOG_ENTRIES
 from muad_agent_core.sandbox import DevUnsafeRunner
 from muad_agent_core.skill import SandboxedSkillExecutor, SkillExecutionError
-from muad_agent_core.tools import ToolEffect, ToolRegistry
+from muad_agent_core.tools import (
+    FailureLayer,
+    ToolEffect,
+    ToolRegistry,
+    tool_failure_outcome,
+)
 from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
 from muad_agent_runtime.application.executor import (
     AgentRunnerExecutor,
@@ -884,14 +889,44 @@ async def test_search_skills_bounds_its_own_result(tmp_path: Path) -> None:
     assert payload["truncated"] is True
 
 
+async def test_search_skills_without_a_query_lists_the_catalog(tmp_path: Path) -> None:
+    """问「我有哪些技能」时模型没有关键词：省略/空 query 就是列全部，不是校验失败。"""
+    registry = _registry_with_keys(tmp_path, "weather-query", "policy-check")
+
+    omitted = await _call(registry, SEARCH_SKILLS_TOOL, {})
+    blank = await _call(registry, SEARCH_SKILLS_TOOL, {"query": "   "})
+
+    expected = [
+        "- weather-query: Name weather-query - description for weather-query",
+        "- policy-check: Name policy-check - description for policy-check",
+    ]
+    assert omitted["total_matches"] == 2
+    assert omitted["skills"] == expected
+    assert blank == omitted
+
+
+async def test_search_skills_validation_error_is_returned_as_correctable(tmp_path: Path) -> None:
+    """非字符串 query 必须**返回**错误体：抛出去的 SkillToolError 会被判成确定性失败、首轮即停。"""
+    definition = _registry_with_keys(tmp_path, "policy-check").get(SEARCH_SKILLS_TOOL)
+    assert definition.handler is not None
+
+    payload = json.loads(await definition.handler({"query": 1}, call_id="call-invalid-query"))
+
+    assert _error_code(payload) == "COMMON_VALIDATION_ERROR"
+    outcome = tool_failure_outcome(json.dumps(payload))
+    assert outcome is not None
+    assert outcome.failure_layer is FailureLayer.TOOL
+    assert outcome.retryable is True
+
+
 def test_search_skills_is_content_delivery_over_a_strict_schema(tmp_path: Path) -> None:
-    """内容投递（不得被大结果外置换成预览）＋ 严格入参（多一个字段整体拒绝）。"""
+    """内容投递（不得被大结果外置换成预览）＋ 严格入参（多一个字段整体拒绝；query 可省略）。"""
     definition = _registry_with_keys(tmp_path, "policy-check").get(SEARCH_SKILLS_TOOL)
 
     assert definition.effect is ToolEffect.READ
     assert definition.externalizable_result is False
     assert definition.input_schema["additionalProperties"] is False
-    assert definition.input_schema["required"] == ["query"]
+    assert definition.input_schema["required"] == []
 
 
 def test_skill_tools_are_not_registered_without_effective_skills(tmp_path: Path) -> None:

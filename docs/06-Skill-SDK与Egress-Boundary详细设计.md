@@ -64,7 +64,7 @@ platform_label: example-platform
 
 **这三个字段是插值字段，必须单行且有界**（`muad_skill_sdk.skill_package._catalog_field`，导入侧与运行时加载侧共用同一实现）：它们会被逐字插进系统提示里的目录行，多行 `description` 等于让上传者往**系统提示**里写一个段落——而系统提示落在压缩的受保护前缀里，任何层都不会动它。长度按 UTF-8 字节、边界严格大于：`description` ≤ 500（一条超长描述排在队首会把整个目录预算吃光），`name` / `platform_label` ≤ 128（与 `control.skill` 的列宽同源）。规则违反在**导入时**就拒（`SKILL_PACKAGE_INVALID`），不在运行期降级。
 
-**目录有预算，装不下的靠检索。** 目录项只有 key / name / description（+ `platform_label`），标题下带一句**路由提示**（只在相关时才 `load_skill`）——它是索引，不是必须照做的清单。系统提示里的 `## Available skills` 是上下文里唯一只增不减的部分，因此按 `MAX_CATALOG_ENTRIES`(100) / `MAX_CATALOG_BYTES`(8000) 双重预算取前缀，超限**整条丢弃**（丢的是 `sort_order` 排在后面的），并在目录尾部说明还有技能未列出；`search_skills(query)` 于是在**本次 Run 的全部生效技能**上做关键词检索（结果同样收在同一个预算内），被挡在目录外的技能因此仍可被发现、被 `load_skill` 加载。技能数无上限，故这条发现路径是必须的，而不是可选优化。
+**目录有预算，装不下的靠检索。** 目录项只有 key / name / description（+ `platform_label`），标题下带一句**路由提示**（只在相关时才 `load_skill`）——它是索引，不是必须照做的清单。系统提示里的 `## Available skills` 是上下文里唯一只增不减的部分，因此按 `MAX_CATALOG_ENTRIES`(100) / `MAX_CATALOG_BYTES`(8000) 双重预算取前缀，超限**整条丢弃**（丢的是 `sort_order` 排在后面的），并在目录尾部说明还有技能未列出；`search_skills(query)` 于是在**本次 Run 的全部生效技能**上做关键词检索，**省略 `query` 时列出同一预算内的全部技能**（用户问「我有哪些技能」时模型没有关键词可给），结果同样收在同一预算内，被挡在目录外的技能因此仍可被发现、被 `load_skill` 加载。技能数无上限，故这条发现路径是必须的，而不是可选优化。
 
 ### 2.3 为什么不再使用复杂 skill.yaml
 
