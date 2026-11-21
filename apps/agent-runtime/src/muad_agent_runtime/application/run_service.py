@@ -263,9 +263,9 @@ def snapshot_policy(
     """Run 侧 execution snapshot 的执行期策略——`policy_json` 的唯一构建口径。
 
     `agent` 分组四叶（`max_turns` / `max_tool_calls` / `deadline_ms` / `max_model_retries`，见
-    ADR-07）、完整 `memory` 分组、`artifact.max_archive_files`、`locale.default_timezone`、
-    `task.execution_timeout_sec` 与压缩配置一并冻结在这里：配置变更只影响后续新 Run，在飞的
-    Run 用的是它自己那一份冻结值
+    ADR-07）、完整 `memory` 分组、`artifact.max_archive_files`、`locale.default_locale` /
+    `locale.default_timezone`、`task.execution_timeout_sec` 与压缩配置一并冻结在这里：配置变更
+    只影响后续新 Run，在飞的 Run 用的是它自己那一份冻结值
     （`harness-snapshot#RULE-snapshot-001` 的"Run 侧等价载体"）。
 
     **模型池语义与非密钥执行策略**同样冻在这里（B-224）：
@@ -300,7 +300,10 @@ def snapshot_policy(
         "max_model_retries": agent.max_model_retries,
         "memory": asdict(memory),
         "artifact": {"max_archive_files": defaults.max_archive_files},
-        "locale": {"default_timezone": defaults.timezone},
+        "locale": {
+            "default_locale": defaults.locale or LocaleSettings().default_locale,
+            "default_timezone": defaults.timezone,
+        },
         "compaction": compaction_payload(settings),
         "task": {"execution_timeout_sec": defaults.task_execution_timeout_sec},
         "egress": {
@@ -407,6 +410,11 @@ def _frozen_str(source: Mapping[str, Any], key: str, default: str) -> str:
     return value if isinstance(value, str) and value else default
 
 
+def _optional_str(value: object) -> str | None:
+    """Old policy rows may not carry a leaf at all; keep that distinct from a default."""
+    return value if isinstance(value, str) and value else None
+
+
 def _frozen_memory_policy(policy: Mapping[str, Any]) -> MemoryPolicySettings:
     section = _section(policy, "memory")
     if set(section) != set(asdict(MemoryPolicySettings())):
@@ -444,6 +452,7 @@ def execution_defaults_of(policy: Mapping[str, Any] | None) -> ExecutionDefaults
             "max_archive_files",
             ArtifactSettings().max_archive_files,
         ),
+        locale=_optional_str(_section(policy, "locale").get("default_locale")),
         timezone=_frozen_str(
             _section(policy, "locale"),
             "default_timezone",
@@ -473,6 +482,7 @@ def execution_defaults_from_platform(document: Mapping[str, Any] | None) -> Exec
         task_execution_timeout_sec=parsed.task.execution_timeout_sec,
         learning=frozen_learning_from_settings(parsed.learning),
         max_archive_files=parsed.artifact.max_archive_files,
+        locale=parsed.locale.default_locale,
         timezone=parsed.locale.default_timezone,
         egress_enabled=parsed.egress.enabled,
     )
@@ -1927,6 +1937,18 @@ class RunService:
         if snapshot is None:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
         return snapshot
+
+    @staticmethod
+    async def _frozen_locale(session: AsyncSession, run: RunRecord) -> str | None:
+        """Read the Run's frozen default locale without re-reading platform settings."""
+        if run.snapshot_id is None:
+            return None
+        policy = await session.scalar(
+            sa.select(RuntimeSnapshot.policy_json).where(
+                RuntimeSnapshot.id == run.snapshot_id
+            )
+        )
+        return _optional_str(_section(policy or {}, "locale").get("default_locale"))
 
     async def _resolve_conversation(self, request: RunRequest, tenant_id: str) -> Conversation:
         """会话解析（design §3.4 API-06 / ADR-07）：
@@ -3386,6 +3408,7 @@ class RunService:
             ensure_execution(row, ExecutionIdentity.of(run), await database_now(session))
             marker = mark("lock", marker)
             cancelled = row.cancel_requested
+            locale = await self._frozen_locale(session, row) if cancelled else None
             if cancelled:
                 await cancel_operations(session, row)
             marker = mark("cancel", marker)
@@ -3421,7 +3444,9 @@ class RunService:
             writer = EventWriter(session, allow_deleted_conversation=cancelled)
             # 业务事实行（ContextBuilder 读取）与对外 SSE 行分开，保证重放与历史互不混淆；
             # 两条事件同一会话、同一事务，用一次 seq 区间分配（assistant 在前、终态在后）。
-            cancelled_text = render_cancelled() if cancelled else ""
+            cancelled_text = (
+                render_cancelled(locale=locale, run_id=str(row.id)) if cancelled else ""
+            )
             assistant_payload: dict[str, Any] = (
                 {"reason": "cancelled", "final_text": cancelled_text}
                 if cancelled
@@ -3618,7 +3643,8 @@ class RunService:
                 error_code=code,
                 snapshot=snapshot,
             )
-            final_text = render_finalization(facts)
+            locale = await self._frozen_locale(session, current)
+            final_text = render_finalization(facts, locale=locale, run_id=str(current.id))
             updated = await session.execute(
                 sa.update(RunRecord)
                 .where(RunRecord.id == run.id, RunRecord.status == RunStatus.RUNNING)

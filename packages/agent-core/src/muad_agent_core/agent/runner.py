@@ -212,6 +212,8 @@ class AgentRunRequest:
     messages: tuple[ModelMessage, ...] = ()
     skills: tuple[PromptSkill, ...] = ()
     policy: AgentPolicy = AgentPolicy()
+    #: 平台默认回复语言；None = 旧 Run/直构路径不追加语言段。
+    reply_locale: str | None = None
     temperature: float | None = None
     max_tokens: int | None = None
     params: Mapping[str, Any] = field(default_factory=dict)
@@ -458,7 +460,11 @@ class AgentRunner:
         callbacks: RunnerCallbacks,
         context_cursor: int | None,
     ) -> AgentRunState:
-        system = self._prompt_builder.build(instructions=request.instructions, skills=request.skills)
+        system = self._prompt_builder.build(
+            instructions=request.instructions,
+            skills=request.skills,
+            reply_locale=request.reply_locale,
+        )
         restored = FailureState.from_payload(progress.failure_state)
         return AgentRunState(
             model_id=request.model_id,

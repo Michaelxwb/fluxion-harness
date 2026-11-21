@@ -50,7 +50,13 @@ class DummyModelProvider:
 
 
 class DummyPromptBuilder:
-    def build(self, *, instructions: str, skills: Sequence[PromptSkill]) -> str:
+    def build(
+        self,
+        *,
+        instructions: str,
+        skills: Sequence[PromptSkill],
+        reply_locale: str | None = None,
+    ) -> str:
         catalog = "\n".join(f"- {skill.key}: {skill.name}" for skill in skills)
         return f"{instructions}\n{catalog}"
 

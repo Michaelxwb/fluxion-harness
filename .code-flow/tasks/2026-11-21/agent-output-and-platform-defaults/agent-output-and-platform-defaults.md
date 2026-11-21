@@ -72,7 +72,7 @@
   - failure-hints-render PASS exit=0
 ## TASK-002: Runtime 默认语言冻结、提示语言段与收尾 locale 接线
 
-- **Status**: in-progress
+- **Status**: done
 - **Depends**: TASK-001
 - **Source**: agent-output-and-platform-defaults.design.md#3.2, #3.3, #3.4, #3.5
 - **Scenarios**: agent-output-and-platform-defaults:S-01, agent-output-and-platform-defaults:S-02, agent-output-and-platform-defaults:E-03, agent-output-and-platform-defaults:B-02
@@ -97,7 +97,7 @@
 
 ### Description
 
-- `ExecutionDefaults` 增加 `locale: str | None`；`snapshot_policy` 写入 `locale.default_locale`，`execution_defaults_from_policy` 读取（旧行缺省返回 `None`），`execution_defaults_from_platform` 从平台设置取值。
+- `ExecutionDefaults` 增加 `locale: str | None`；`snapshot_policy` 写入 `locale.default_locale`，`execution_defaults_of` 读取（旧行缺省返回 `None`），`execution_defaults_from_platform` 从平台设置取值。
 - `AgentRunRequest` 增加 `reply_locale`；`RunExecutor._build_run_request` 从本 Run 冻结的 `ExecutionDefaults.locale` 传入。
 - `DefaultPromptBuilder.build` 增加可选 `reply_locale`，在 instructions 之后插入 `## Reply language`；`None` 不追加，未知值回落 `zh-CN` 并告警。
 - `_finalize_failed` / 取消路径用本 Run 的 locale 渲染收尾，并传 `run_id`；旧 Run 缺 locale 时回落 `zh-CN`。
@@ -105,11 +105,11 @@
 
 ### Checklist
 
-- [ ] 新 Run 的 `policy_json.locale` 含 `default_locale` 与 `default_timezone`；旧 policy 缺 locale 返回 `None`。
-- [ ] 系统提示只在 `reply_locale` 非空时追加语言段，并说明覆盖顺序。
-- [ ] 失败/取消收尾使用本 Run locale；en-US 输出英文标题与下一步。
-- [ ] 语言段不影响 Agent 任务指令与工具目录的装配顺序。
-- [ ] 声明测试通过。
+- [x] 新 Run 的 `policy_json.locale` 含 `default_locale` 与 `default_timezone`；旧 policy 缺 locale 返回 `None`。
+- [x] 系统提示只在 `reply_locale` 非空时追加语言段，并说明覆盖顺序。
+- [x] 失败/取消收尾使用本 Run locale；en-US 输出英文标题与下一步。
+- [x] 语言段不影响 Agent 任务指令与工具目录的装配顺序。
+- [x] 声明测试通过。
 
 ### Spec Delta
 
@@ -125,7 +125,8 @@
 ### Verification
 
 - 尚未执行
-
+- 2026-11-21T02:33:30.456Z PASS commands=1/1 executed=1 deduped=0 elapsed=11043ms tests=a10215633893 head=54dc83a20c3e dirty=1
+  - runtime-locale PASS exit=0
 ## TASK-003: Worker AGENTIC 默认回复语言
 
 - **Status**: draft

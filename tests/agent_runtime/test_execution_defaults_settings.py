@@ -47,6 +47,8 @@ from muad_agent_runtime.application.memory_tools import RECALL_TOOL, REMEMBER_TO
 from muad_agent_runtime.application.ports import PlatformSettingsSnapshot
 from muad_agent_runtime.application.run_service import (
     RunService,
+    execution_defaults_of,
+    snapshot_policy,
 )
 from muad_agent_runtime.application.time_tools import CURRENT_TIME_TOOL
 from muad_agent_runtime.infrastructure.db import get_session_factory
@@ -91,7 +93,7 @@ MEMORY_OVERRIDE = MemoryPolicySettings(
     consolidation_enabled=False,
 )
 ARTIFACT_OVERRIDE = ArtifactSettings(retention_days=5, max_archive_files=2, cleanup_batch_size=1)
-LOCALE_OVERRIDE = LocaleSettings(default_timezone="America/New_York")
+LOCALE_OVERRIDE = LocaleSettings(default_locale="en-US", default_timezone="America/New_York")
 TASK_OVERRIDE = TaskSettings(execution_timeout_sec=1800)
 RECALL_SCENARIO = MemoryPolicySettings(
     write_enabled=True,
@@ -214,7 +216,10 @@ async def test_e20_new_run_freezes_nine_execution_leaves(
     assert policy["max_model_retries"] == AGENT_OVERRIDE.max_model_retries
     assert policy["memory"] == asdict(MEMORY_OVERRIDE)
     assert policy["artifact"] == {"max_archive_files": ARTIFACT_OVERRIDE.max_archive_files}
-    assert policy["locale"] == {"default_timezone": LOCALE_OVERRIDE.default_timezone}
+    assert policy["locale"] == {
+        "default_locale": LOCALE_OVERRIDE.default_locale,
+        "default_timezone": LOCALE_OVERRIDE.default_timezone,
+    }
     assert policy["task"] == {"execution_timeout_sec": TASK_OVERRIDE.execution_timeout_sec}
     # `retention_days` / `cleanup_batch_size` 属 Console 清理，**不进 Run 快照**。
     assert "retention_days" not in policy["artifact"]
@@ -579,3 +584,14 @@ async def _purge_tenant(tenant: str, conversation_id: uuid.UUID) -> None:
             await session.execute(model.__table__.delete().where(model.tenant_id == tenant))
         await session.commit()
     assert conversation_id  # 会话随之删除；参数保留以表明清理范围
+
+
+def test_old_policy_without_default_locale_returns_none() -> None:
+    """旧 policy 只冻结了 timezone：不臆造语言，留给调用方省略语言段。"""
+    policy = snapshot_policy()
+    policy["locale"] = {"default_timezone": "America/New_York"}
+
+    defaults = execution_defaults_of(policy)
+
+    assert defaults.locale is None
+    assert defaults.timezone == "America/New_York"

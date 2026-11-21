@@ -258,8 +258,8 @@ class ExecutionDefaults:
     `policy_json` 读回，配置变更只影响后续新 Run（`harness-snapshot#RULE-snapshot-001`）。
 
     只装 Run 真正消费的叶：`artifact` 只带 `max_archive_files`（`retention_days`/
-    `cleanup_batch_size` 属 Console 清理，操作边界取，不进 Run 快照）；`locale` 只带
-    `default_timezone`（`default_locale` 的 Run 侧消费方不存在）。
+    `cleanup_batch_size` 属 Console 清理，操作边界取，不进 Run 快照）；`locale` 带
+    `default_locale`（Agent 默认回复语言）与 `default_timezone`（`current_time`/记忆展示）。
     """
 
     egress_budget: EffectiveEgressBudget = field(default_factory=EffectiveEgressBudget)
@@ -267,6 +267,8 @@ class ExecutionDefaults:
     memory_policy: MemoryPolicySettings = field(default_factory=MemoryPolicySettings)
     learning: FrozenLearning = field(default_factory=FrozenLearning)
     max_archive_files: int = field(default_factory=lambda: ArtifactSettings().max_archive_files)
+    #: None = 旧 policy_json 没有该叶；调用方不追加语言段，收尾回落默认语言。
+    locale: str | None = None
     timezone: str = field(default_factory=lambda: LocaleSettings().default_timezone)
     task_execution_timeout_sec: int = field(default_factory=lambda: TaskSettings().execution_timeout_sec)
     egress_enabled: bool = False
@@ -643,6 +645,7 @@ class AgentRunnerExecutor:
             skills=self._catalog_skills(),
             messages=messages,
             policy=agent_policy_for(self._request),
+            reply_locale=execution_defaults_for(self._request).locale,
             temperature=_float_param(params, "temperature"),
             max_tokens=_int_param(params, "max_tokens"),
             params=params,
