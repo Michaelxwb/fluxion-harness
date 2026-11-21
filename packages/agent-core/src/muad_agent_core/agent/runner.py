@@ -34,7 +34,8 @@ from muad_logging import get_logger
 
 from ..context.compactor import ContextCompactor
 from ..hooks.pipeline import HookEvent, HookPipeline
-from ..memory.components import ModelContextLoader
+from ..memory.components import MemoryComponent, ModelContextLoader
+from ..memory.language import resolve_reply_locale
 from ..model.budget import (
     DEFAULT_DEADLINE_MS,
     DEFAULT_MAX_IDENTICAL_FAILURES,
@@ -214,6 +215,8 @@ class AgentRunRequest:
     policy: AgentPolicy = AgentPolicy()
     #: 平台默认回复语言；None = 旧 Run/直构路径不追加语言段。
     reply_locale: str | None = None
+    #: 定时任务冻结的用户 `PREFERENCE/language`；Runner 与平台默认统一裁决。
+    memory_language: str | None = None
     temperature: float | None = None
     max_tokens: int | None = None
     params: Mapping[str, Any] = field(default_factory=dict)
@@ -391,6 +394,10 @@ class AgentRunner:
         self._runtime_events = runtime_events
         self._tool_suspension = tool_suspension
         self._context_loader = context_loader
+        #: 启动时预取的记忆块：同一份既决定提示词默认语言，也注入首个模型请求，
+        #: 避免为了语言偏好重复读取/重复归因。
+        self._startup_component: MemoryComponent | None = None
+        self._startup_component_pending = False
         self._event_batch_size = event_batch_size
         self._parallel_limit = validate_parallel_limit(parallel_limit)
         self._stop_emitted = False
@@ -419,7 +426,14 @@ class AgentRunner:
             on_assistant_turn,
             on_tool_completed,
         )
-        initial = self._initial_state(request, checkpoint or RunnerCheckpoint(), callbacks, context_cursor)
+        startup_component = await self._load_startup_component()
+        initial = self._initial_state(
+            request,
+            checkpoint or RunnerCheckpoint(),
+            callbacks,
+            context_cursor,
+            startup_component=startup_component,
+        )
         self._latest_state = initial
         try:
             final = await self._execute(initial)
@@ -453,17 +467,37 @@ class AgentRunner:
             payload["error"] = True
         await self._hooks.run(HookEvent.STOP, payload)
 
+    async def _load_startup_component(self) -> MemoryComponent | None:
+        """Load memory once before the prompt is built.
+
+        The prompt's default language must be resolved from the same frozen
+        memory block that will be injected into the first model request; doing
+        it later would let the prompt and the memory message disagree.
+        """
+        if self._context_loader is None:
+            return None
+        component = await self._context_loader.refresh()
+        self._startup_component = component
+        self._startup_component_pending = True
+        return component
+
     def _initial_state(
         self,
         request: AgentRunRequest,
         progress: RunnerCheckpoint,
         callbacks: RunnerCallbacks,
         context_cursor: int | None,
+        *,
+        startup_component: MemoryComponent | None = None,
     ) -> AgentRunState:
+        memory_locale = request.memory_language
+        if memory_locale is None and startup_component is not None:
+            memory_locale = startup_component.language
+        effective_locale = resolve_reply_locale(request.reply_locale, memory_locale)
         system = self._prompt_builder.build(
             instructions=request.instructions,
             skills=request.skills,
-            reply_locale=request.reply_locale,
+            reply_locale=effective_locale,
         )
         restored = FailureState.from_payload(progress.failure_state)
         return AgentRunState(
@@ -1135,7 +1169,11 @@ class AgentRunner:
     async def _prepare_model_request(self, state: AgentRunState, request: ModelRequest) -> ModelRequest:
         messages = request.messages
         if self._context_loader is not None:
-            component = await self._context_loader.refresh()
+            if self._startup_component_pending:
+                component = self._startup_component
+                self._startup_component_pending = False
+            else:
+                component = await self._context_loader.refresh()
             message = component.message if component is not None else None
             if message is not None:
                 messages = (*messages[:1], message, *messages[1:])

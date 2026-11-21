@@ -164,33 +164,15 @@ SKILLS_COMMAND = "/skills"
 SKILLS_MAX_PAGES = 20
 SKILLS_PAGE_INTERVAL_SEC = 0.05  # 页间节流：有界读取不形成紧循环
 
-BIND_SUCCESS_TEXT = "绑定成功"
-BIND_USAGE_TEXT = "用法：/bind <绑定码>"
-UNBOUND_TEXT = "请先使用 /bind <绑定码> 完成身份绑定"
-NO_PERMISSION_TEXT = "当前账号未获得该智能体使用权限"
-SKILLS_UNAVAILABLE_TEXT = "技能列表暂不可用"
-NO_SKILLS_TEXT = "暂无可用技能"
-NEW_CONVERSATION_TEXT = "已创建新会话"
-STOP_ACCEPTED_TEXT = "正在停止当前任务…"
-STOP_CANCELLED_TEXT = "当前任务已停止"
-CONFIRM_USAGE_TEXT = f"用法：{SCHEDULE_CONFIRM_COMMAND} <草稿编号>"
-CONFIRM_UNSUPPORTED_TEXT = "当前入口不支持确认定时任务"
-CONFIRM_DONE_TEXT = "已确认，定时任务已生效"
-CONFIRM_DONE_WITH_FIRE_TEXT = "已确认，定时任务首次触发：{next_fire_at}"
-HUMAN_ANSWER_ACCEPTED_TEXT = "已收到你的回答，任务将继续执行"
-HUMAN_CLARIFY_HEADER = "你有多条等待回复的定时任务，请指定要回答的任务（任务中心可按任务回答）："
-HUMAN_CLARIFY_ITEM = "- 任务「{name}」：{question}"
-HUMAN_CLARIFY_FOOTER = "这次回复没有绑定到任何任务，任务状态未改变。"
-#: 回答被拒的原因码 → 用户可见说明（稳定码来自 Owner，不翻译内部行为）。
-HUMAN_REJECT_TEXT = "这次回答没有生效：{detail}"
-HUMAN_REJECT_DETAILS = {
-    "HUMAN_INTERACTION_EXPIRED": "问题已超时，请等待任务超时收尾",
-    "HUMAN_RESPONSE_INVALID": "该问题需要结构化回答，请在任务中心回答",
-    "HUMAN_INPUT_SCHEMA_INVALID": "该问题需要结构化回答，请在任务中心回答",
-    "EXECUTION_NOT_RESUMABLE": "该任务已结束或已被取消，回答不会再续接",
-    "IDEMPOTENCY_MISMATCH": "这个问题已经用另一个答案回答过了",
+#: 回答被拒的稳定码 → `activity_messages.fixed` 键（内部行为不翻译）。
+HUMAN_REJECT_KEYS = {
+    "HUMAN_INTERACTION_EXPIRED": "human_interaction_expired",
+    "HUMAN_RESPONSE_INVALID": "human_response_invalid",
+    "HUMAN_INPUT_SCHEMA_INVALID": "human_input_schema_invalid",
+    "EXECUTION_NOT_RESUMABLE": "human_execution_not_resumable",
+    "IDEMPOTENCY_MISMATCH": "human_idempotency_mismatch",
 }
-HUMAN_REJECT_FALLBACK = "任务当前不接受回答，请在任务中心查看"
+HUMAN_REJECT_FALLBACK_KEY = "human_reject_fallback"
 
 
 COMMAND_PREFIXES = ("/bind", "/new", "/stop", "/skills", "/memory", SCHEDULE_CONFIRM_COMMAND)
@@ -393,7 +375,7 @@ def _carries_no_payload(adapter: ChannelAdapter, envelope: ChannelEnvelope) -> b
     return _attachment_count(adapter, envelope) == 0
 
 
-def format_skills(skills: Sequence[ChannelSkillItem]) -> str:
+def format_skills(skills: Sequence[ChannelSkillItem], *, activity: ActivityMessages) -> str:
     """设计 §3.4.2：只展示 name/platform_label/description，不含 SKILL.md 全文。
 
     排版（2026-10-01 改善）：先给条数，再**一条一段** —— 名称单独一行加粗，描述缩进在
@@ -402,8 +384,8 @@ def format_skills(skills: Sequence[ChannelSkillItem]) -> str:
     已实测渲染成加粗），故用 `**` 做标题。
     """
     if not skills:
-        return NO_SKILLS_TEXT
-    blocks = [f"**可用技能（{len(skills)}）**"]
+        return activity.fixed("no_skills")
+    blocks = [activity.fixed("skills_header", count=len(skills))]
     for skill in skills:
         name = skill.name.strip()
         label = (skill.platform_label or "").strip()
@@ -413,28 +395,30 @@ def format_skills(skills: Sequence[ChannelSkillItem]) -> str:
     return "\n\n".join(blocks)
 
 
-def _confirm_text(confirmed: dict[str, Any]) -> str:
+def _confirm_text(confirmed: dict[str, Any], *, activity: ActivityMessages) -> str:
     """确认回执：生效事实只来自 Owner 的响应（next_fire_at 缺失就不编一个）。"""
     next_fire_at = confirmed.get("next_fire_at")
     if isinstance(next_fire_at, str) and next_fire_at:
-        return CONFIRM_DONE_WITH_FIRE_TEXT.format(next_fire_at=next_fire_at)
-    return CONFIRM_DONE_TEXT
+        return activity.fixed("confirm_done_with_fire", next_fire_at=next_fire_at)
+    return activity.fixed("confirm_done")
 
 
-def _clarify_text(decision: ChannelHumanRouteResponse) -> str:
+def _clarify_text(
+    decision: ChannelHumanRouteResponse, *, activity: ActivityMessages
+) -> str:
     """多个 OPEN：列出任务名与问题，要求用户指定；绝不按新旧挑一个去回答。"""
-    lines = [HUMAN_CLARIFY_HEADER]
+    lines = [activity.fixed("human_clarify_header")]
     lines.extend(
-        HUMAN_CLARIFY_ITEM.format(name=item.schedule_name, question=item.question)
+        activity.fixed("human_clarify_item", name=item.schedule_name, question=item.question)
         for item in decision.candidates
     )
-    lines.append(HUMAN_CLARIFY_FOOTER)
+    lines.append(activity.fixed("human_clarify_footer"))
     return "\n".join(lines)
 
 
-def _reject_text(reason: str | None) -> str:
-    detail = HUMAN_REJECT_DETAILS.get(reason or "", HUMAN_REJECT_FALLBACK)
-    return HUMAN_REJECT_TEXT.format(detail=detail)
+def _reject_text(reason: str | None, *, activity: ActivityMessages) -> str:
+    detail = activity.fixed(HUMAN_REJECT_KEYS.get(reason or "", HUMAN_REJECT_FALLBACK_KEY))
+    return activity.fixed("human_reject", detail=detail)
 
 
 async def fetch_skill_catalog(
@@ -856,6 +840,10 @@ class InboundPipeline:
             self._activity_catalogs[locale] = catalog
         return catalog
 
+    def _fixed(self, key: str, **values: object) -> str:
+        """当前回复 locale 的固定文案；命令回执与状态帧共用同一目录。"""
+        return self._activity_messages(self._locale).fixed(key, **values)
+
     async def _reserve_seen(self, envelope: ChannelEnvelope) -> _SeenReservation | None:
         """占位；`None` = **已在处理/已受理**（重复投递，丢弃）。
 
@@ -922,7 +910,7 @@ class InboundPipeline:
     ) -> bool:
         code = text[len(BIND_COMMAND) :].strip()
         if not code:
-            await self._send_text(adapter, route, BIND_USAGE_TEXT)
+            await self._send_text(adapter, route, self._fixed("bind_usage"))
             return True
         request = ChannelBindRequest(
             channel=envelope.channel,
@@ -940,7 +928,7 @@ class InboundPipeline:
             await self._reply_error(adapter, route, exc)
             # 依赖调用没成功 ⇒ **未受理**：平台重投时重跑（Console 侧幂等键=message_id，不会重复绑定）
             return False
-        await self._send_text(adapter, route, BIND_SUCCESS_TEXT)
+        await self._send_text(adapter, route, self._fixed("bind_success"))
         return True
 
     async def _handle_new(
@@ -953,10 +941,10 @@ class InboundPipeline:
         if resolved is None:
             return False
         if resolved.platform_user_id is None or resolved.agent_id is None:
-            await self._send_text(adapter, route, UNBOUND_TEXT)
+            await self._send_text(adapter, route, self._fixed("unbound"))
             return True
         if not resolved.authorized:
-            await self._send_text(adapter, route, NO_PERMISSION_TEXT)
+            await self._send_text(adapter, route, self._fixed("no_permission"))
             return True
         try:
             await self._runtime.create_conversation(
@@ -970,7 +958,7 @@ class InboundPipeline:
         except AppError as exc:
             await self._reply_error(adapter, route, exc)
             return False
-        await self._send_text(adapter, route, NEW_CONVERSATION_TEXT)
+        await self._send_text(adapter, route, self._fixed("new_conversation"))
         return True
 
     async def _handle_stop(
@@ -983,10 +971,10 @@ class InboundPipeline:
         if resolved is None:
             return False
         if resolved.platform_user_id is None or resolved.agent_id is None:
-            await self._send_text(adapter, route, UNBOUND_TEXT)
+            await self._send_text(adapter, route, self._fixed("unbound"))
             return True
         if not resolved.authorized:
-            await self._send_text(adapter, route, NO_PERMISSION_TEXT)
+            await self._send_text(adapter, route, self._fixed("no_permission"))
             return True
         channel = channel_context_of(envelope, resolved)
         try:
@@ -1014,9 +1002,9 @@ class InboundPipeline:
         await self._send_text(
             adapter,
             route,
-            STOP_CANCELLED_TEXT
+            self._fixed("stop_cancelled")
             if str(result.get("status") or "") == str(RunStatus.CANCELLED)
-            else STOP_ACCEPTED_TEXT,
+            else self._fixed("stop_accepted"),
         )
         return True
 
@@ -1030,10 +1018,10 @@ class InboundPipeline:
         if resolved is None:
             return False
         if resolved.platform_user_id is None or resolved.agent_id is None:
-            await self._send_text(adapter, route, UNBOUND_TEXT)
+            await self._send_text(adapter, route, self._fixed("unbound"))
             return True
         if not resolved.authorized:
-            await self._send_text(adapter, route, NO_PERMISSION_TEXT)
+            await self._send_text(adapter, route, self._fixed("no_permission"))
             return True
         try:
             catalog = await fetch_skill_catalog(
@@ -1044,9 +1032,13 @@ class InboundPipeline:
             )
         except AppError as exc:
             logger.warning("channel_skills_failed code=%s", exc.code)
-            await self._send_text(adapter, route, SKILLS_UNAVAILABLE_TEXT)
+            await self._send_text(adapter, route, self._fixed("skills_unavailable"))
             return False
-        await self._send_text(adapter, route, format_skills(catalog))
+        await self._send_text(
+            adapter,
+            route,
+            format_skills(catalog, activity=self._activity_messages(self._locale)),
+        )
         return True
 
     async def _handle_confirm(
@@ -1062,22 +1054,22 @@ class InboundPipeline:
         消息被平台重投时 Owner 的幂等台账重放首次结果，不会确认两次。
         """
         if self._schedules is None:
-            await self._send_text(adapter, route, CONFIRM_UNSUPPORTED_TEXT)
+            await self._send_text(adapter, route, self._fixed("confirm_unsupported"))
             return True
         raw = text[len(SCHEDULE_CONFIRM_COMMAND) :].strip()
         try:
             draft_id = UUID(raw)
         except ValueError:
-            await self._send_text(adapter, route, CONFIRM_USAGE_TEXT)
+            await self._send_text(adapter, route, self._fixed("confirm_usage"))
             return True
         resolved = await self._resolve(adapter, route, envelope)
         if resolved is None:
             return False
         if resolved.platform_user_id is None or resolved.agent_id is None:
-            await self._send_text(adapter, route, UNBOUND_TEXT)
+            await self._send_text(adapter, route, self._fixed("unbound"))
             return True
         if not resolved.authorized:
-            await self._send_text(adapter, route, NO_PERMISSION_TEXT)
+            await self._send_text(adapter, route, self._fixed("no_permission"))
             return True
         try:
             confirmed = await self._schedules.confirm(
@@ -1091,7 +1083,11 @@ class InboundPipeline:
             # 业务拒绝与依赖失败都让平台按同一消息重试：确认是幂等的（同键重放首次结果）。
             await self._reply_error(adapter, route, exc)
             return False
-        await self._send_text(adapter, route, _confirm_text(confirmed))
+        await self._send_text(
+            adapter,
+            route,
+            _confirm_text(confirmed, activity=self._activity_messages(self._locale)),
+        )
         return True
 
     async def _handle_message(
@@ -1105,10 +1101,10 @@ class InboundPipeline:
         if resolved is None:
             return False
         if resolved.platform_user_id is None or resolved.agent_id is None:
-            await self._send_text(adapter, route, UNBOUND_TEXT)
+            await self._send_text(adapter, route, self._fixed("unbound"))
             return True
         if not resolved.authorized:
-            await self._send_text(adapter, route, NO_PERMISSION_TEXT)
+            await self._send_text(adapter, route, self._fixed("no_permission"))
             return True
         # Human 回答分流在附件链路之前：一条纯文本回复先问 Runtime「这是不是待回答的问题」，
         # 命中就**不建 Run**（design §3.2.6：零个 OPEN 才继续普通聊天）。
@@ -1186,11 +1182,19 @@ class InboundPipeline:
         if decision.outcome is HumanRouteOutcome.NONE:
             return None
         if decision.outcome is HumanRouteOutcome.ANSWERED:
-            await self._send_text(adapter, route, HUMAN_ANSWER_ACCEPTED_TEXT)
+            await self._send_text(adapter, route, self._fixed("human_answer_accepted"))
         elif decision.outcome is HumanRouteOutcome.CLARIFY:
-            await self._send_text(adapter, route, _clarify_text(decision))
+            await self._send_text(
+                adapter,
+                route,
+                _clarify_text(decision, activity=self._activity_messages(self._locale)),
+            )
         else:
-            await self._send_text(adapter, route, _reject_text(decision.reason))
+            await self._send_text(
+                adapter,
+                route,
+                _reject_text(decision.reason, activity=self._activity_messages(self._locale)),
+            )
         return True
 
     async def _collect_attachments(

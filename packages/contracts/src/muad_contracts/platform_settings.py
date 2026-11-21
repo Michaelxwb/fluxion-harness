@@ -21,6 +21,7 @@ from dataclasses import dataclass, field, fields
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from .i18n import DEFAULT_LOCALE, SUPPORTED_LOCALES
 from .memory import MEMORY_MAX_BYTES, MEMORY_MAX_RECORDS
 
 #: execution snapshot `policy_json` 里压缩配置所在的键（与 Task 快照的 `budget.compaction` 同结构）。
@@ -203,7 +204,7 @@ class AuthSettings:
 class LocaleSettings:
     """默认语言与 IANA 时区（`RULE-time-001`）。"""
 
-    default_locale: str = "zh-CN"
+    default_locale: str = DEFAULT_LOCALE
     default_timezone: str = "Asia/Shanghai"
 
 
@@ -769,9 +770,10 @@ def _validate_auth(auth: AuthSettings) -> None:
 
 
 def _validate_locale(locale: LocaleSettings) -> None:
-    if locale.default_locale not in ("zh-CN", "en-US"):
+    if locale.default_locale not in SUPPORTED_LOCALES:
         raise PlatformSettingsError(
-            f"locale.default_locale 只接受 zh-CN / en-US，收到 {locale.default_locale!r}"
+            f"locale.default_locale 只接受 {' / '.join(SUPPORTED_LOCALES)}，"
+            f"收到 {locale.default_locale!r}"
         )
     try:
         ZoneInfo(locale.default_timezone)

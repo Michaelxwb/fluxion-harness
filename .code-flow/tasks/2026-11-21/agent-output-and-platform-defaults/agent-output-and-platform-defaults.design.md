@@ -33,6 +33,7 @@ design_template: full
 | 版本 | 日期 | 作者 | 变更描述 |
 |------|------|------|---------|
 | v0.1 | 2026-11-21 | | 初始设计：语言/失败文案/默认时区/配置与 Spec 收口 |
+| v0.2 | 2026-11-21 | | E2E 复测后统一语言裁决源（memory > 平台默认）与 IM 固定文案/受理事件源 |
 
 ---
 
@@ -179,9 +180,9 @@ graph TB
 
 #### 技术分层
 
-- **agent-core**：共享 `failure_hint`、系统提示语言段、`AgentRunRequest.reply_locale`。
-- **agent-runtime**：冻结 `policy_json.locale`、收尾 facts/renderer、Draft 默认时区、终态 payload locale。
-- **agent-worker**：AGENTIC 执行开始时经 `settings_client` 读取当前 `default_locale`；后台任务投递文案复用 `failure_hint` 并按平台 locale 渲染。
+- **agent-core**：共享 `failure_hint`、`resolve_reply_locale`/`memory_language`、系统提示语言段、`AgentRunRequest.reply_locale`/`memory_language`；`AgentRunner` 在构建提示前裁决一次有效默认语言。
+- **agent-runtime**：冻结 `policy_json.locale`、收尾 facts/renderer、Draft 默认时区、终态 payload locale；`MemoryComponent.language` 由记忆选择直接投影。
+- **agent-worker**：AGENTIC 执行开始时经 `settings_client` 读取当前 `default_locale`，admission 把 memory `language` 冻结进 `SnapshotMemory.block.language`；后台任务投递文案复用 `failure_hint` 并按平台 locale 渲染。
 - **im-gateway**：按回复 locale 渲染固定文案；**仅终态正文为空时**读取一次平台 locale 做兜底。
 - **console-platform**：设置字段 `effect_key` 元数据与前端词条；不读设置做界面语言。
 
@@ -230,16 +231,21 @@ graph TB
 | `ExecutionDefaults.locale` | 平台 `locale.default_locale` | `str \| None`（`zh-CN`/`en-US`） | schema 校验，非法值拒绝 |
 | `snapshot_policy(...)` | `ExecutionDefaults` | `policy_json`，含 `locale.default_locale` | 新 Run 总是写具体值；直构缺失时写 schema 默认 |
 | `execution_defaults_of(policy)` | `policy_json` | `ExecutionDefaults`，缺 locale 返回 `None` | 形状错误按现有 `_frozen_str` 逻辑回落；`None` 表示旧行 |
-| `DefaultPromptBuilder.build(..., reply_locale=None)` | `instructions`、`skills`、`reply_locale` | system prompt | `reply_locale` 为空不追加语言段；未知值回落 `zh-CN` 并告警 |
+| `resolve_reply_locale(platform_locale, memory_language)` | 平台默认、用户 memory `language` | 有效默认（`zh-CN`/`en-US`/`None`） | 只接受受支持 locale；非法 memory 值忽略，回落平台默认 |
+| `memory_language(records)` | 记忆选择结果（`MemoryRecord`） | 首个有效 `PREFERENCE/language` | 非 language/非法值忽略 |
+| `DefaultPromptBuilder.build(..., reply_locale=None)` | `instructions`、`skills`、**有效默认** `reply_locale` | system prompt | `reply_locale` 为空不追加语言段；未知值回落 `zh-CN` 并告警 |
+| `AgentRunner` 启动记忆 | `context_loader.refresh()` | 提示词默认语言 + 首个模型请求复用同一块 | 读取失败 → 无 memory 语言，平台默认兜底；不阻断 Run |
 | `AgenticDependencies.settings_client` | Worker 平台设置客户端 | AGENTIC 执行开始时读取 `locale.default_locale` | 不可读 → warning，`reply_locale=None`（不追加语言段，不阻断任务） |
-| `AgentRunRequest.reply_locale`（Worker） | 当前平台 `default_locale` | 系统提示语言段 | 未知/不可读 → 不追加语言段 |
+| `AgentRunRequest.reply_locale` / `memory_language` | 平台 `default_locale` / 冻结 memory 语言 | `AgentRunner` 统一裁决后写系统提示语言段 | 两者都缺失 → 不追加语言段 |
+| `SnapshotMemory.block.language` | admission 选择到的 `PREFERENCE/language` | 冻结到定时任务执行快照 | 非法值不写入有效语言；Runner 回落平台默认 |
 | `failure_hint(code, locale, tool=None)` | 工具/平台码、locale、工具名 | `FailureHint(title, next_step, known)` | 未知码返回通用描述且 `known=False`；不抛异常 |
 | `render_finalization(facts, locale, run_id)` | facts、locale、Run ID | 双层文本 | 渲染失败按现有降级路径写最小文本 |
 | `render_cancelled(facts, locale, run_id)` | facts、locale、Run ID | 取消文本 | 同上 |
 | `ScheduleAuthoringContext.default_timezone` | 当前平台默认时区 | `compile_schedule_plan` 在 `timezone` 缺失时使用 | 非法默认值 → `INVALID_TIMEZONE` |
 | `BackgroundTaskToolSet(settings_client, fallback_timezone)` | 平台设置客户端 / 回落值 | Draft 创建时解析默认时区 | 设置不可读 → `PLATFORM_SETTINGS_UNAVAILABLE` 工具错误，不落草稿 |
 | `ExecutorRequest.settings_client` | Runtime 平台设置客户端 | 透传给 `BackgroundTaskToolSet` | 未注入（直构/单测）时用 `fallback_timezone`；生产已注入但读取失败 → `PLATFORM_SETTINGS_UNAVAILABLE` |
-| `ActivityMessages.fixed(key)` | `stopped`/`broken_stream`/`task_accepted` | 本地化固定文案 | 缺词条回落 `en-US`，再回落 key |
+| `ActivityMessages.fixed(key, **values)` | 活动状态 + 全部 IM 命令/人工回执键 | 本地化固定文案（支持 `{count}`/`{name}` 等模板） | 缺词条回落 `en-US`，再回落 key |
+| `admission_stream_type(late, completion_mode)` | 异步工具 admission 事实 | `DETACH` → `task.accepted`；`JOIN` → `tool.submitted`；迟到 → `tool.result.late` | 非法/缺失模式按 `JOIN` 保守处理，不提前 finalize |
 | Gateway 空正文 locale | `body.tenant_id` + `settings_client.fetch_snapshot` | 仅 `terminal` 且正文为空时取 `locale.default_locale` | 读取失败 → warning + `catalog.default_locale`（不阻断投递） |
 
 #### Draft 默认时区解析
@@ -254,16 +260,23 @@ graph TB
 
 #### 系统提示语言段
 
-`DefaultPromptBuilder` 在 `instructions` 之后、技能目录之前插入：
+有效默认语言由**一个裁决点**产生：`resolve_reply_locale(platform_locale, memory_language)`，
+优先级固定为 **当前消息显式要求 > memory `language` > 平台默认**。`memory_language` 来自
+结构化记忆选择（交互 Run）或冻结快照的 `memory.block.language`（定时任务），不解析
+`rendered_text`。`DefaultPromptBuilder` 只接收裁决后的默认语言，在 `instructions` 之后、
+技能目录之前插入：
 
 ```markdown
 ## Reply language
-- Default: English (en-US).
-- Follow an explicit language request in the current user message.
-- If user memory contains a `language` preference, follow it unless the current message overrides it.
+- Reply in English (en-US) by default, regardless of the language the user writes in.
+- Only an explicit request in the current user message to use another language overrides this default.
+- Do not infer a language preference from the language of the user's message.
 ```
 
-`zh-CN` 对应中文文案。该段是平台对语言的唯一约束；Agent instructions 不再承担默认语言。
+`zh-CN` 对应中文文案。提示词不再重复 memory 规则：memory 已进入有效默认值，避免与
+memory 块的“仅供参考”说明互相矛盾。`AgentRunRequest.reply_locale` 是平台默认，
+`AgentRunRequest.memory_language` 是定时任务冻结的用户偏好；Runtime 由 `AgentRunner`
+在构建提示前用启动记忆块裁决，Worker 直接传冻结值，两条路径共用同一个纯函数。
 
 #### 失败文案形态
 
@@ -336,7 +349,9 @@ activity_messages:
 ```
 
 - `StreamRenderer` 接收 `system_text(key)`；`inbound.py` 用当前回复 locale 的 `ActivityMessages.fixed` 注入。
+- **所有 IM 入站固定文案同源**：`/bind`、`/new`、`/stop`、`/skills`、`/confirm`、人工待处理回执与拒绝说明全部进同一 `fixed` 目录；`inbound.py` 不再保留用户可见中文字符串常量。
 - `api/delivery.py` 的 `CANCELLED`/`RUN_ABANDONED` 空正文也走同一 `fixed` 目录，不再 import 硬编码常量。
+- **受理事件语义在源头区分**：异步工具 admission 为 `DETACH` 时 canonical `stream_type="task.accepted"`，Gateway 据此发送固定受理回执并停止 SSE；`JOIN` 保持 `tool.submitted`，不提前收尾。Gateway 不再需要把 `tool.submitted` 猜成受理。
 - **终态正文 locale**：正常终态由 Runtime 渲染好 `final_text`（已按本 Run locale），投递契约不变；只有 `terminal` 且正文为空（旧事件/断流兜底）时，Gateway 用 `body.tenant_id` 读一次平台设置取 `locale.default_locale` 再渲染目录文案。读取失败回落 `catalog.default_locale` 并留 warning，不阻断投递。这样不新增 `DeliveryRequest` 字段，也不引入 Gateway 先发布的契约约束。
 
 #### 后台任务投递

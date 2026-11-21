@@ -30,14 +30,7 @@ from muad_contracts import (
     HumanRouteCandidate,
     HumanRouteOutcome,
 )
-from muad_im_gateway.application.inbound import (
-    CONFIRM_DONE_WITH_FIRE_TEXT,
-    CONFIRM_USAGE_TEXT,
-    HUMAN_ANSWER_ACCEPTED_TEXT,
-    NO_PERMISSION_TEXT,
-    UNBOUND_TEXT,
-    InboundPipeline,
-)
+from muad_im_gateway.application.inbound import InboundPipeline
 from muad_im_gateway.application.inbound_schedules import ChatScheduleService
 from muad_im_gateway.application.runtime_client import SseEvent
 from muad_im_gateway.channels.fake import FakeChannelAdapter
@@ -211,7 +204,7 @@ async def test_confirm_command_uses_the_server_side_hash_and_inbound_reference(
     # 一次用户动作 = 一个稳定引用 = 同一条入站消息（重投不重复生效）。
     assert confirm["ref"] == "msg-1"
     assert confirm["idempotency_key"] == "msg-1"
-    assert _sent_texts(adapter) == [CONFIRM_DONE_WITH_FIRE_TEXT.format(next_fire_at=NEXT_FIRE_AT)]
+    assert _sent_texts(adapter) == [f"已确认，定时任务首次触发：{NEXT_FIRE_AT}"]
 
 
 async def test_replayed_confirm_reuses_the_same_key_and_never_creates_a_run(
@@ -248,13 +241,13 @@ async def test_confirm_requires_a_bound_and_authorized_user(catalog: MessageCata
 
     await pipeline.handle(adapter, make_envelope(f"/confirm {DRAFT_ID}"))
 
-    assert _sent_texts(adapter) == [UNBOUND_TEXT]
+    assert _sent_texts(adapter) == ["请先使用 /bind <绑定码> 完成身份绑定"]
     assert owner.get_calls == []
 
     console.resolve_response = resolved_response(authorized=False)
     await pipeline.handle(adapter, make_envelope(f"/confirm {DRAFT_ID}", message_id="msg-2"))
 
-    assert _sent_texts(adapter) == [UNBOUND_TEXT, NO_PERMISSION_TEXT]
+    assert _sent_texts(adapter) == ["请先使用 /bind <绑定码> 完成身份绑定", "当前账号未获得该智能体使用权限"]
     assert owner.get_calls == []
     assert routes.calls == []
 
@@ -271,7 +264,7 @@ async def test_confirm_rejects_a_malformed_draft_id(catalog: MessageCatalog) -> 
     accepted = await pipeline.handle(adapter, make_envelope("/confirm not-a-uuid"))
 
     assert accepted is True
-    assert _sent_texts(adapter) == [CONFIRM_USAGE_TEXT]
+    assert _sent_texts(adapter) == ["用法：/confirm <草稿编号>"]
     assert owner.get_calls == []
 
 
@@ -292,7 +285,7 @@ async def test_confirm_failure_is_reported_and_not_treated_as_accepted(
     assert accepted is False
     assert runtime.run_requests == []
     assert len(_sent_texts(adapter)) == 1
-    assert _sent_texts(adapter)[0] != CONFIRM_USAGE_TEXT
+    assert _sent_texts(adapter)[0] != "用法：/confirm <草稿编号>"
 
 
 # ---------------------------------------------------------------- Human 回答
@@ -325,7 +318,7 @@ async def test_single_open_question_is_answered_without_creating_a_run(
 
     assert accepted is True
     assert runtime.run_requests == []
-    assert _sent_texts(adapter) == [HUMAN_ANSWER_ACCEPTED_TEXT]
+    assert _sent_texts(adapter) == ["已收到你的回答，任务将继续执行"]
     request = routes.calls[0]["request"]
     assert set(request.model_dump()) == ROUTE_FIELDS
     assert request.platform_user_id == console.resolve_response.platform_user_id

@@ -115,6 +115,7 @@ def agentic_snapshot(
     max_steps: int = 4,
     max_tokens: int = 100_000,
     memory_text: str | None = MEMORY_TEXT,
+    memory_language: str | None = None,
     compaction: dict[str, Any] | None = None,
     grants: SnapshotGrants | None = None,
 ) -> dict[str, Any]:
@@ -200,7 +201,11 @@ def agentic_snapshot(
             SnapshotMemory(
                 taxonomy_version=1,
                 revision=7,
-                block={"entries": [], "rendered_text": memory_text},
+                block={
+                    "entries": [],
+                    "rendered_text": memory_text,
+                    "language": memory_language,
+                },
                 degraded=False,
             )
             if memory_text is not None
@@ -495,8 +500,10 @@ class WorkerAdapterHarness:
         tenant: TenantContext,
         *,
         settings_client: Any = None,
+        memory_language: str | None = None,
     ) -> None:
         self._tenant = tenant
+        self._memory_language = memory_language
         self._capacity = RecordingCapacity()
         self._credentials = RecordingCredentials()
         self._operations = RecordingOperations()
@@ -575,7 +582,11 @@ class WorkerAdapterHarness:
     async def run(self, plan: RoundPlan) -> Observation:
         self._factory.script = list(plan.script)
         self._task = await insert_task(
-            self._tenant, agentic_snapshot(max_tool_calls=plan.max_tool_calls or 4)
+            self._tenant,
+            agentic_snapshot(
+                max_tool_calls=plan.max_tool_calls or 4,
+                memory_language=self._memory_language,
+            ),
         )
         if plan.cancel:
             await self._set_cancel(self._task.id)
@@ -940,6 +951,30 @@ async def test_agentic_reply_locale_is_read_at_execution_start(
     system = [message.content for message in request.messages if message.role is ModelRole.SYSTEM]
     assert any("## Reply language" in content for content in system)
     assert any("English (en-US)" in content for content in system)
+
+
+async def test_frozen_memory_language_overrides_platform_locale(
+    tenant: TenantContext,
+) -> None:
+    settings_client = _LocaleSettingsClient("en-US")
+    harness = WorkerAdapterHarness(
+        tenant, settings_client=settings_client, memory_language="zh-CN"
+    )
+    try:
+        observation = await harness.run(RoundPlan((text_reply("done"),)))
+    finally:
+        await harness._mcp_http.aclose()  # noqa: SLF001
+
+    assert observation.status is AgentRunStatus.COMPLETED
+    provider = harness._factory.provider  # noqa: SLF001
+    assert provider is not None
+    system = [
+        message.content
+        for message in provider.requests[0].messages
+        if message.role is ModelRole.SYSTEM
+    ]
+    assert any("Chinese (zh-CN)" in content for content in system)
+    assert not any("English (en-US)" in content for content in system)
 
 
 async def test_agentic_locale_read_failure_does_not_block_execution(

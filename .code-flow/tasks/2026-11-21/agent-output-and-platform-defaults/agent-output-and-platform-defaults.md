@@ -433,7 +433,7 @@
     "id": "DELTA-005",
     "op": "add",
     "target": "snapshot/harness-snapshot",
-    "rule": "Run 的 policy_json 冻结 locale.default_locale；旧行缺失时不追加语言段，失败文案回落默认语言。Draft 创建时读取当前 locale.default_timezone 属于 authoring 输入，不替代执行期冻结；Worker AGENTIC 的默认回复语言按执行边界读取，不新增 Task 快照字段。",
+    "rule": "Run 的 policy_json 冻结 locale.default_locale；旧行缺失时不追加语言段，失败文案回落默认语言。Draft 创建时读取当前 locale.default_timezone 属于 authoring 输入，不替代执行期冻结；Worker AGENTIC 在 admission 把用户 memory 的 language 偏好冻结进 SnapshotMemory.block.language，执行期与平台默认经同一 resolve_reply_locale 裁决，配置变化只影响后续新执行。",
     "evidence": "design §3.3/§3.4；scenarios S-01/S-04/S-06；tests test_execution_defaults_settings.py、test_scheduled_v2_agentic_adapter.py"
   },
   {
@@ -456,3 +456,114 @@
 - 尚未执行
 - 2026-11-21T02:57:30.020Z PASS commands=1/1 executed=1 deduped=0 elapsed=15067ms tests=fcccee8e03ea head=9861606d525b dirty=1 tests-changed
   - inventory-catalog PASS exit=0
+
+## TASK-008: 回复语言裁决单一来源
+
+- **Status**: done
+- **Depends**: TASK-002, TASK-003
+- **Source**: agent-output-and-platform-defaults.design.md#3.2, #3.4
+- **Scenarios**: agent-output-and-platform-defaults:S-01, agent-output-and-platform-defaults:S-02, agent-output-and-platform-defaults:S-06, agent-output-and-platform-defaults:B-02
+- **Spec-Refs**: i18n/harness-i18n#RULE-i18n-001, snapshot/harness-snapshot#RULE-snapshot-001
+- **Paths**: packages/contracts/src/muad_contracts/i18n.py, packages/contracts/src/muad_contracts/platform_settings.py, packages/agent-core/src/muad_agent_core/memory/language.py, packages/agent-core/src/muad_agent_core/memory/components.py, packages/agent-core/src/muad_agent_core/agent/runner.py, packages/agent-core/src/muad_agent_core/prompt/builder.py, apps/agent-runtime/src/muad_agent_runtime/application/memory_context.py, apps/agent-worker/src/muad_agent_worker/application/schedule_admission.py, apps/agent-worker/src/muad_agent_worker/application/agentic/snapshot.py, apps/agent-worker/src/muad_agent_worker/application/agentic/run.py, tests/agent_core/test_memory_language.py, tests/agent_core/test_prompt_builder.py, tests/agent_core/test_runner.py, tests/agent_worker/test_scheduled_v2_snapshot.py, tests/agent_worker/test_scheduled_v2_agentic_adapter.py
+- **E2E**:
+- **Skip-Tests**: false
+- **Skip-Reason**:
+
+### Tests
+
+```json
+[
+  {
+    "id": "reply-language-source",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_core/test_memory_language.py", "tests/agent_core/test_prompt_builder.py", "tests/agent_core/test_runner.py", "tests/agent_runtime/test_context_memory.py", "tests/agent_runtime/test_memory_redesign_context.py", "tests/agent_worker/test_scheduled_v2_snapshot.py", "tests/agent_worker/test_scheduled_v2_agentic_adapter.py"],
+    "timeout": 600,
+    "parallel": false
+  }
+]
+```
+
+### Description
+
+- `muad_contracts.i18n` 成为受支持 locale 的唯一来源；平台设置校验与提示词共用。
+- `memory_language(records)` 从结构化记忆选择提取 `PREFERENCE/language`；`resolve_reply_locale(platform, memory)` 定义 memory > 平台默认。
+- `AgentRunRequest` 增加 `memory_language`；`AgentRunner` 在构建提示前取一次启动记忆块，用同一块上下文注入首个请求，避免重复读取与归因。
+- Runtime 的 `MemoryComponent.language` 由记忆选择投影；Worker admission 把同一值冻结进 `SnapshotMemory.block.language`，执行期直接传入请求。
+- Prompt builder 只接收裁决后的有效默认语言，删除“memory 规则”重复段，避免与 memory 块的 reference 说明冲突。
+
+### Checklist
+
+- [x] locale 常量、平台设置校验、memory 提取、prompt 渲染只有一个来源。
+- [x] Runtime 与 Worker 共用 `resolve_reply_locale`，没有第二套优先级。
+- [x] 定时任务 memory `zh-CN` + 平台 `en-US` 时系统提示默认中文。
+- [x] 启动记忆块只读取一次并复用于首个模型请求。
+- [x] 声明测试通过。
+
+### Spec Delta
+
+```json
+[]
+```
+
+### Log
+
+- [2026-11-21] created after E2E S-06 memory-override failure
+
+### Verification
+
+- 尚未执行
+- 2026-11-21T06:41:04.955Z PASS commands=1/1 executed=1 deduped=0 elapsed=24216ms tests=0c508ca11ec8 head=3ec71d33abc3 dirty=1
+  - reply-language-source PASS exit=0
+## TASK-009: IM 固定文案单一目录与受理事件源
+
+- **Status**: done
+- **Depends**: TASK-004
+- **Source**: agent-output-and-platform-defaults.design.md#3.2, #3.4
+- **Scenarios**: agent-output-and-platform-defaults:E-03
+- **Spec-Refs**: i18n/harness-i18n#RULE-i18n-001, im/harness-im#RULE-im-001
+- **Paths**: config/api-messages.yaml, apps/im-gateway/src/muad_im_gateway/application/progress.py, apps/im-gateway/src/muad_im_gateway/application/inbound.py, apps/agent-runtime/src/muad_agent_runtime/application/async_tools/control_dispatcher.py, tests/agent_runtime/test_async_tool_stream_types.py, tests/gateway/test_inbound.py, tests/gateway/test_stream_renderer.py, tests/gateway/test_delivery_api.py, tests/gateway/test_delivery_locale_fallback.py
+- **E2E**:
+- **Skip-Tests**: false
+- **Skip-Reason**:
+
+### Tests
+
+```json
+[
+  {
+    "id": "im-fixed-text-source",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_runtime/test_async_tool_stream_types.py", "tests/gateway/test_inbound.py", "tests/gateway/test_stream_renderer.py", "tests/gateway/test_delivery_api.py", "tests/gateway/test_delivery_locale_fallback.py"],
+    "timeout": 300,
+    "parallel": false
+  }
+]
+```
+
+### Description
+
+- `activity_messages.fixed` 收口全部 IM 入站固定文案：状态、命令回执、人工待处理回执与拒绝说明。
+- `inbound.py` 删除用户可见中文字符串常量，统一经当前回复 locale 的 `ActivityMessages.fixed` 渲染。
+- 异步工具 admission 在 `DETACH` 时写 `stream_type="task.accepted"`，`JOIN` 保持 `tool.submitted`；Gateway 现有 `task.accepted` 处理器负责固定受理回执与收尾，不提前拦截 `JOIN`。
+- 不新增投递契约字段，不改 WebChat 公共流白名单。
+
+### Checklist
+
+- [x] `inbound.py` 无用户可见硬编码中文。
+- [x] `/bind`、`/new`、`/stop`、`/skills`、`/confirm`、人工回执在 zh-CN/en-US 下都有词条。
+- [x] `DETACH` 写 `task.accepted`，`JOIN` 写 `tool.submitted`，迟到写 `tool.result.late`。
+- [x] 声明测试通过。
+
+### Spec Delta
+
+```json
+[]
+```
+
+### Log
+
+- [2026-11-21] created after E2E E-03 fixed-text gaps
+
+### Verification
+
+- 尚未执行
+- 2026-11-21T06:41:51.636Z PASS commands=1/1 executed=1 deduped=0 elapsed=44475ms tests=b7550df1b8ef head=3ec71d33abc3 dirty=1
+  - im-fixed-text-source PASS exit=0

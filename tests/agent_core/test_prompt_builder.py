@@ -53,7 +53,7 @@ def test_reply_language_section_sits_between_instructions_and_skills() -> None:
     assert "## Reply language" in prompt
     assert "- Reply in English (en-US) by default" in prompt
     assert "explicit request" in prompt
-    assert "memory contains a `language` preference" in prompt
+    assert "memory" not in prompt
     assert "Do not infer a language preference" in prompt
     assert (
         prompt.index("be helpful")

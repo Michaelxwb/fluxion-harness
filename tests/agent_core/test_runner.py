@@ -17,6 +17,7 @@ from muad_agent_core.agent import (
 )
 from muad_agent_core.context.compactor import split_groups
 from muad_agent_core.hooks import HookEvent, HookPipeline
+from muad_agent_core.memory.components import MemoryComponent
 from muad_agent_core.model import (
     DEFAULT_DEADLINE_MS,
     ModelMessage,
@@ -36,6 +37,20 @@ from muad_agent_core.tools import (
     ToolPolicyDecision,
     ToolRegistry,
 )
+
+
+class _MemoryLoader:
+    def __init__(self, language: str | None) -> None:
+        self.language = language
+        self.refreshes = 0
+
+    async def refresh(self) -> MemoryComponent:
+        self.refreshes += 1
+        return MemoryComponent(
+            snapshot_revision=1,
+            text="memory block",
+            language=self.language,
+        )
 
 
 class ScriptedModelProvider:
@@ -939,3 +954,40 @@ async def test_turn_budget_exhaustion_records_pending_calls_without_failures() -
     assert [call.tool_name for call in result.termination.pending_tool_calls] == ["echo"]
     assert result.termination.failure_state.last_failure is None
     assert result.termination.failure_state.identical_failures == {}
+
+
+async def test_memory_language_overrides_platform_default_before_prompt_is_built() -> None:
+    provider = ScriptedModelProvider([_text("好的")])
+    loader = _MemoryLoader("zh-CN")
+
+    result = await AgentRunner(
+        provider=provider, registry=ToolRegistry(), context_loader=loader
+    ).run(
+        AgentRunRequest(
+            model_id="probe",
+            instructions="base instructions",
+            messages=(ModelMessage(role=ModelRole.USER, content="hello"),),
+            reply_locale="en-US",
+        )
+    )
+
+    assert result.status is AgentRunStatus.COMPLETED
+    assert "- Reply in Chinese (zh-CN) by default" in provider.requests[0].messages[0].content
+    # The startup block is reused for the first request; language resolution does not reread it.
+    assert loader.refreshes == 1
+
+
+async def test_frozen_memory_language_is_used_when_no_context_loader_exists() -> None:
+    provider = ScriptedModelProvider([_text("好的")])
+
+    await AgentRunner(provider=provider, registry=ToolRegistry()).run(
+        AgentRunRequest(
+            model_id="probe",
+            instructions="base instructions",
+            messages=(ModelMessage(role=ModelRole.USER, content="hello"),),
+            reply_locale="en-US",
+            memory_language="zh-CN",
+        )
+    )
+
+    assert "- Reply in Chinese (zh-CN) by default" in provider.requests[0].messages[0].content

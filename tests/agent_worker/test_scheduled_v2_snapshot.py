@@ -196,10 +196,10 @@ def _memory_materials(*, degraded: bool = False) -> ScheduleMemoryMaterials:
             ScheduleMemoryCandidate(
                 memory_key="preference.reply_language",
                 memory_kind="PREFERENCE",
-                predicate="reply_language",
+                predicate="language",
                 scope_state="ABSENT",
                 scope={},
-                content={"value": "中文"},
+                content={"value": "zh-CN"},
                 title="输出用中文",
                 summary="用户要求中文回复",
                 tags=[],
@@ -305,6 +305,7 @@ def test_agentic_snapshot_freezes_dependencies_and_readonly_memory() -> None:
     assert memory["degraded"] is False
     assert memory["block"]["entries"][0]["memory_key"] == "preference.reply_language"
     assert "中文" in memory["block"]["rendered_text"]
+    assert memory["block"]["language"] == "zh-CN"
     assert memory["payload_hash"].startswith("sha256:")
 
     expected = default_platform_settings().agent

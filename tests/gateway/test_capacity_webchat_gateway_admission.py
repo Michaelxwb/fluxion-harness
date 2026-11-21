@@ -53,7 +53,6 @@ from muad_im_connector.channels.wecom.sdk_port import WeComInboundMessage
 from muad_im_gateway.application.console_client import ConsoleClient
 from muad_im_gateway.application.inbound import (
     MAX_CONCURRENT_HANDLERS,
-    STOP_ACCEPTED_TEXT,
     InboundPipeline,
 )
 from muad_im_gateway.application.runtime_client import RuntimeClient
@@ -695,7 +694,7 @@ async def test_b248_wecom_entry_pointer_and_commands_stay_on_their_own_source(
                 },
             }
         ]
-        assert sdk.replied_texts == [("req-b248-stop", STOP_ACCEPTED_TEXT)]
+        assert sdk.replied_texts == [("req-b248-stop", "正在停止当前任务…")]
         assert runtime_probe.finished == [], "断言前提：两条长流都仍挂着（命令不串别的 Run）"
 
         # ④ 企微 `/new`：会话创建用**本来源自己的**身份与稳定幂等键，回执回到自己的消息

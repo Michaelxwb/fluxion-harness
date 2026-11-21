@@ -220,8 +220,12 @@ async def _mcp_servers(
     }
 
 
-async def _reply_locale(deps: AgenticDependencies, tenant_id: str) -> str | None:
-    """Read the platform default once at execution start; degrade without blocking."""
+async def _platform_reply_locale(deps: AgenticDependencies, tenant_id: str) -> str | None:
+    """Read the platform default once at execution start; degrade without blocking.
+
+    The Runner combines it with the frozen memory language; this function only
+    owns the platform source so the priority is defined in one place.
+    """
     if deps.settings_client is None:
         return None
     try:
@@ -323,7 +327,8 @@ async def execute_agentic(
         messages=resume.messages if resume is not None else base_messages(frozen, scheduled),
         skills=prompt_skills(frozen),
         policy=agent_policy(frozen),
-        reply_locale=await _reply_locale(deps, frozen.tenant_id),
+        reply_locale=await _platform_reply_locale(deps, frozen.tenant_id),
+        memory_language=frozen.memory_language,
         temperature=_float_param(target.params, "temperature"),
         max_tokens=_int_param(target.params, "max_tokens"),
         params=dict(target.params),

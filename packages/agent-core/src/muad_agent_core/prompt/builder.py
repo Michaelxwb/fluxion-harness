@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from muad_contracts import ResolvedSkill
+from muad_contracts.i18n import DEFAULT_LOCALE, normalize_locale
 from muad_logging import get_logger
 
 logger = get_logger(__name__)
@@ -107,8 +108,9 @@ class DefaultPromptBuilder:
         `instructions` 不在这里截断——截断系统提示等于换了一个 Agent（`harness-arch`：
         降级必须语义等价，否则不许降级），它的上限在保存边界（Console 的 DTO）。
 
-        `reply_locale` 是平台默认的回复语言；`None` 表示旧 Run/直构路径不追加语言段。
-        语言段放在 instructions 之后、技能目录之前，明确「当前消息 > memory > 平台默认」。
+        `reply_locale` 是**已经裁决过的有效默认语言**（memory > 平台默认）；
+        `None` 表示旧 Run/直构路径不追加语言段。当前消息的显式语言请求仍由提示词
+        的第二条规则覆盖。语言段放在 instructions 之后、技能目录之前。
         """
         sections = [instructions.strip()]
         if reply_locale:
@@ -125,24 +127,25 @@ class DefaultPromptBuilder:
         return "\n\n".join(sections)
 
 
+_LANGUAGE_NAMES = {
+    "zh-CN": "Chinese (zh-CN)",
+    "en-US": "English (en-US)",
+}
+
+
 def _reply_language_section(reply_locale: str) -> str:
-    """Render the platform language rule without inventing a locale."""
-    normalized = reply_locale.strip().lower()
-    if normalized.startswith("en"):
-        language = "English (en-US)"
-    elif normalized.startswith("zh"):
-        language = "Chinese (zh-CN)"
-    else:
+    """Render the effective default language rule without inventing a locale."""
+    normalized = normalize_locale(reply_locale)
+    if normalized is None:
         logger.warning("unknown_reply_locale locale=%s", reply_locale)
-        language = "Chinese (zh-CN)"
+        normalized = DEFAULT_LOCALE
     return "\n".join(
         [
             "## Reply language",
-            f"- Reply in {language} by default, regardless of the language the user writes in.",
+            f"- Reply in {_LANGUAGE_NAMES[normalized]} by default, regardless of the language "
+            "the user writes in.",
             "- Only an explicit request in the current user message to use another language "
             "overrides this default.",
-            "- If user memory contains a `language` preference, follow it unless the current "
-            "message explicitly overrides it.",
             "- Do not infer a language preference from the language of the user's message.",
         ]
     )

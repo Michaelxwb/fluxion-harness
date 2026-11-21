@@ -186,12 +186,17 @@ class ActivityMessages:
         minutes, seconds = divmod(progress.elapsed_seconds, 60)
         return self._templates[progress.phase].format(elapsed=f"{minutes:02d}:{seconds:02d}")
 
-    def fixed(self, key: str) -> str:
-        """Localized non-error text (stopped / broken stream / accepted)."""
+    def fixed(self, key: str, **values: object) -> str:
+        """Localized non-error text (activity + IM command receipts).
+
+        Missing keys fall back to the key itself so a catalog gap is visible in
+        tests/logs instead of silently rendering an empty message.
+        """
         templates = self._fixed.get(key)
         if not isinstance(templates, Mapping):
             return key
-        return str(templates.get(self._locale) or templates.get("en-US") or key)
+        text = str(templates.get(self._locale) or templates.get("en-US") or key)
+        return text.format(**values) if values else text
 
 
 async def iter_with_ticks(

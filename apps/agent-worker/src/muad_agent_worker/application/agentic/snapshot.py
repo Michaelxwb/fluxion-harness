@@ -24,6 +24,7 @@ from muad_contracts import (
     load_schedule_snapshot,
     schedule_snapshot_hash,
 )
+from muad_contracts.i18n import normalize_locale
 
 from ...infrastructure.models.task import TaskExecution
 
@@ -102,6 +103,14 @@ class FrozenAgenticExecution:
             return ""
         text = memory.block.get("rendered_text")
         return text if isinstance(text, str) else ""
+
+    @property
+    def memory_language(self) -> str | None:
+        """冻结的用户语言偏好；缺失/非法时返回 None，由平台默认兜底。"""
+        memory = self.snapshot.memory
+        if memory is None:
+            return None
+        return normalize_locale(memory.block.get("language"))
 
     @property
     def deadline_at(self) -> datetime:

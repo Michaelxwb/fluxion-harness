@@ -23,6 +23,9 @@ class MemoryComponent:
     text: str | None
     references: tuple[MemoryReference, ...] = ()
     block: RenderedExperienceBlock | None = None
+    #: Effective `PREFERENCE/language`, already normalized; the runner uses it
+    #: to resolve the prompt's default reply locale without re-parsing text.
+    language: str | None = None
 
     @property
     def message(self) -> ModelMessage | None:

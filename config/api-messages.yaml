@@ -1080,6 +1080,81 @@ activity_messages:
     task_accepted:
       zh-CN: 任务已受理，完成后会通知你
       en-US: Task accepted. You will be notified when it finishes.
+    bind_success:
+      zh-CN: 绑定成功
+      en-US: Binding successful.
+    bind_usage:
+      zh-CN: '用法：/bind <绑定码>'
+      en-US: 'Usage: /bind <binding-code>'
+    unbound:
+      zh-CN: '请先使用 /bind <绑定码> 完成身份绑定'
+      en-US: 'Use /bind <binding-code> first to link your identity.'
+    no_permission:
+      zh-CN: 当前账号未获得该智能体使用权限
+      en-US: This account does not have access to this agent.
+    new_conversation:
+      zh-CN: 已创建新会话
+      en-US: A new conversation was created.
+    stop_accepted:
+      zh-CN: 正在停止当前任务…
+      en-US: Stopping the current task…
+    stop_cancelled:
+      zh-CN: 当前任务已停止
+      en-US: The current task has been stopped.
+    skills_unavailable:
+      zh-CN: 技能列表暂不可用
+      en-US: The skill list is temporarily unavailable.
+    no_skills:
+      zh-CN: 暂无可用技能
+      en-US: No skills are available.
+    skills_header:
+      zh-CN: '**可用技能（{count}）**'
+      en-US: '**Available skills ({count})**'
+    confirm_usage:
+      zh-CN: '用法：/confirm <草稿编号>'
+      en-US: 'Usage: /confirm <draft-id>'
+    confirm_unsupported:
+      zh-CN: 当前入口不支持确认定时任务
+      en-US: This entry does not support confirming scheduled tasks.
+    confirm_done:
+      zh-CN: 已确认，定时任务已生效
+      en-US: Confirmed. The scheduled task is now active.
+    confirm_done_with_fire:
+      zh-CN: '已确认，定时任务首次触发：{next_fire_at}'
+      en-US: 'Confirmed. The scheduled task first fires at {next_fire_at}.'
+    human_answer_accepted:
+      zh-CN: 已收到你的回答，任务将继续执行
+      en-US: Your answer was received. The task will continue.
+    human_clarify_header:
+      zh-CN: 你有多条等待回复的定时任务，请指定要回答的任务（任务中心可按任务回答）：
+      en-US: 'Multiple scheduled tasks are waiting for your answer. Specify which one (you can also answer per task in the task center):'
+    human_clarify_item:
+      zh-CN: '- 任务「{name}」：{question}'
+      en-US: '- Task "{name}": {question}'
+    human_clarify_footer:
+      zh-CN: 这次回复没有绑定到任何任务，任务状态未改变。
+      en-US: This reply was not linked to any task; no task state changed.
+    human_reject:
+      zh-CN: '这次回答没有生效：{detail}'
+      en-US: 'This answer was not applied: {detail}'
+    human_reject_fallback:
+      zh-CN: 任务当前不接受回答，请在任务中心查看
+      en-US: The task does not accept answers right now. Check the task center.
+    human_interaction_expired:
+      zh-CN: 问题已超时，请等待任务超时收尾
+      en-US: The question has expired. Wait for the task to finish.
+    human_response_invalid:
+      zh-CN: 该问题需要结构化回答，请在任务中心回答
+      en-US: This question requires a structured answer. Answer it in the task center.
+    human_input_schema_invalid:
+      zh-CN: 该问题需要结构化回答，请在任务中心回答
+      en-US: This question requires a structured answer. Answer it in the task center.
+    human_execution_not_resumable:
+      zh-CN: 该任务已结束或已被取消，回答不会再续接
+      en-US: The task has ended or was cancelled; the answer will not resume it.
+    human_idempotency_mismatch:
+      zh-CN: 这个问题已经用另一个答案回答过了
+      en-US: This question was already answered with a different answer.
   PREPARING:
     zh-CN: '🔵 准备中 · 已执行 {elapsed}'
     en-US: '🔵 Preparing · elapsed {elapsed}'

@@ -21,6 +21,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+from muad_agent_core.memory.language import memory_language
 from muad_agent_core.memory.memory_render import render_memory
 from muad_agent_core.memory.selection import (
     MemoryRecord,
@@ -349,7 +350,12 @@ def build_memory_snapshot(
         taxonomy_version=memory.taxonomy_version,
         revision=memory.revision,
         payload_hash=_canonical_hash([[item["memory_key"], item["version"]] for item in entries]),
-        block={"entries": entries, "rendered_text": rendered.text},
+        block={
+            "entries": entries,
+            "rendered_text": rendered.text,
+            # Runner 用它裁决默认回复语言；与 entries 同源，不解析 rendered_text。
+            "language": memory_language(item.record for item in selected),
+        },
         degraded=False,
     )
 
