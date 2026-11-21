@@ -37,7 +37,7 @@
 - **期望**：
   - 第 2 步本轮回复为中文，但平台默认设置不变。
   - 第 4 步出现可确认的长期偏好候选；确认后，第 5 步新会话默认中文。
-- **实际结果**：**PASS** — `en-US` 下发送“请用中文回答这个问题”，本轮回复中文；随后“以后都用中文回答我”出现可确认的 `language=zh-CN` memory 候选，确认后 DB 生成 `v1.slot.preference.language.44136fa355b3678a`（version 1，ACTIVE）；新建会话在 `en-US` 下用中文回复。验收后已删除该测试 memory。
+- **实际结果**：**PASS** — `en-US` 下发送“请用中文回答这个问题”，本轮回复中文；随后“以后都用中文回答我”出现可确认的 `language=zh-CN` memory 候选，确认后 DB 生成 `v1.slot.preference.language.44136fa355b3678a`（version 1，ACTIVE）；新建会话在 `en-US` 下用中文回复。架构统一为 memory > 平台默认后，又以 `en-US` + memory `zh-CN` 用英文提问复测，仍回复中文。验收后已删除该测试 memory。
 
 ## S-03 平台鉴权失败时给出直白描述与错误码
 
@@ -93,7 +93,7 @@
 - **期望**：
   - 回复为英文；不因任务由定时触发而回落中文。
   - 如果该用户 memory 有 `language=zh-CN` 偏好，则回复为中文。
-- **实际结果**：**FAIL（memory 覆盖分支）** — 平台 `en-US`、用户 memory `language=zh-CN`（version 1，ACTIVE）时创建并触发 AGENTIC 任务 `ebf6a1ba-871e-4c37-8f9c-b75634684621`；执行快照已冻结 memory block（含“回复语言偏好：中文”），但 `result_json.text` 为英文 “Saturday morning is a good time…”。平台默认英文分支符合预期，memory 覆盖分支未生效，需修复后复测。
+- **实际结果**：**PASS（修复后复测）** — 平台 `en-US`、用户 memory `language=zh-CN`（version 1，ACTIVE）时创建并触发 AGENTIC 任务 `71867b4b-f2e7-4edd-b45f-882fd3af4350`；执行快照 `memory.block.language="zh-CN"`，`result_json.text` 为中文“周末午后适合把本周遗留的排查记录整理收尾…”。同一轮 WebChat 也用英文提问复测，memory 覆盖后回复中文。
 
 ## E-01 平台设置源不可读时 Draft 明确失败
 
@@ -133,7 +133,7 @@
 - **期望**：
   - IM 的“任务已受理/已停止/服务中断”等固定文案为英文。
   - WebChat 失败收尾的标题、原因、下一步为英文；技术信息中的错误码保持原样。
-- **实际结果**：**PARTIAL / FAIL** — 通过默认租户 WECOM 测试入口（`e2e-no-connector-bot`，无 Connector 连接，避免真实外发）注入入站消息：IM 状态帧 “Preparing/Thinking/Executing” 为英文，取消后终态 “The run was stopped by the user.” 为英文；WebChat 失败收尾（S-03/E-02）为英文。但 `/stop` 命令回执仍为中文“正在停止当前任务…”（`inbound.py` 固定常量），且 ASYNC 受理使用 `tool.submitted` 事件，未触发 `activity_messages.fixed.task_accepted` 的英文固定文案（实际可见的是模型自写英文）。需修复固定文案覆盖后复测。
+- **实际结果**：**PASS（修复后复测）** — 通过默认租户 WECOM 测试入口（`e2e-no-connector-bot`，无 Connector 连接，避免真实外发）注入入站消息：状态帧 “Preparing/Thinking/Executing/Handed off to a background task” 为英文；`DETACH` 受理触发固定文案 “Task accepted. You will be notified when it finishes.”；`/stop` 回执为 “Stopping the current task…”；取消终态为 “The run was stopped by the user.”。WebChat 失败收尾（S-03/E-02）仍为英文。
 
 ## B-01 平台时区变更后已建任务不跟随
 
