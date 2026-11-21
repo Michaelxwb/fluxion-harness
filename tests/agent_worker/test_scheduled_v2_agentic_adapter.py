@@ -745,9 +745,9 @@ async def test_suspension_persists_checkpoint_and_execution_state(
         assert operations and operations[0]["call_id"] == "call-1"
         checkpoints = list(
             await session.scalars(
-                select(TaskExecutionCheckpoint).where(
-                    TaskExecutionCheckpoint.execution_id == task.id
-                )
+                select(TaskExecutionCheckpoint)
+                .where(TaskExecutionCheckpoint.execution_id == task.id)
+                .order_by(TaskExecutionCheckpoint.checkpoint_no)
             )
         )
         assert checkpoints, "wait must persist the kernel checkpoint in the same transaction"
