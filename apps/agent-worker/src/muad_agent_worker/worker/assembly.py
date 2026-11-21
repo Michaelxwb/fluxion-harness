@@ -51,10 +51,9 @@ def build_agentic_executor(
 ) -> AgenticTaskExecutor:
     """AGENTIC 执行器：模型容量/异步操作/产物走 Runtime，凭据解析走 Console。
 
-    `settings_client` 只为装配一致性保留（当前 Agentic 路径不读平台设置：预算与压缩策略都在
-    Snapshot 里冻结）。
+    `settings_client` 只用于执行开始时读取一次平台默认回复语言；预算、压缩与记忆仍在
+    Snapshot 里冻结，不由本路径重新解析。
     """
-    del settings_client
     # 延迟导入：bootstrap 在导入时创建 artifact/cache 目录，只做装配的浏览器/单测不该有
     # 文件系统副作用（`main` 也因此只在启动装配时才引入本模块）。
     from ..bootstrap.artifacts import skill_artifact_cache
@@ -86,6 +85,7 @@ def build_agentic_executor(
         sessions=sessions,
         artifact_resolver=skill_artifact_cache,
         skill_executor=skill_executor,
+        settings_client=settings_client,
         capacity=capacity,
         credentials=credentials,
         operations=operations,

@@ -33,6 +33,7 @@ from muad_agent_core.prompt import PromptSkill, resolve_zone
 from muad_agent_core.sandbox import WorkspaceStore
 from muad_agent_core.skill import SkillArtifactResolver, SkillExecutor
 from muad_agent_core.tools import ToolExecutionPipeline
+from muad_api import AppError
 from muad_common import SharedSettings
 from muad_contracts import OperationWatermark
 from muad_logging import get_logger
@@ -44,6 +45,8 @@ from ...infrastructure.models.task import TaskEvent, TaskExecution, TaskExecutio
 from ...infrastructure.task_artifact_client import TaskArtifactClient
 from ...infrastructure.task_capacity_client import TaskCapacityClient
 from ...infrastructure.task_operation_client import TaskOperationClient, TaskOperationError
+from ..platform_settings import resolve_platform_settings
+from ..ports import PlatformSettingsClient
 from ..task_events import EntityType, TaskEventType
 from .artifacts import TaskArtifactRoundWriter
 from .async_results import (
@@ -89,6 +92,8 @@ class AgenticDependencies:
     sessions: async_sessionmaker[AsyncSession]
     artifact_resolver: SkillArtifactResolver
     skill_executor: SkillExecutor
+    #: 执行开始时读一次平台默认语言；None = 直构/测试不追加语言段。
+    settings_client: PlatformSettingsClient | None = None
     capacity: TaskCapacityClient | None = None
     credentials: ConsoleCredentialClient | None = None
     operations: TaskOperationClient | None = None
@@ -215,6 +220,25 @@ async def _mcp_servers(
     }
 
 
+async def _reply_locale(deps: AgenticDependencies, tenant_id: str) -> str | None:
+    """Read the platform default once at execution start; degrade without blocking."""
+    if deps.settings_client is None:
+        return None
+    try:
+        snapshot = await deps.settings_client.fetch_snapshot(tenant_id=tenant_id)
+        return resolve_platform_settings(
+            snapshot,
+            batch_platform_limit=deps.settings.batch_platform_limit,
+        ).locale.default_locale
+    except AppError as exc:
+        logger.warning(
+            "agentic_locale_unavailable tenant=%s code=%s",
+            tenant_id,
+            exc.code,
+        )
+        return None
+
+
 async def execute_agentic(
     deps: AgenticDependencies,
     task: TaskExecution,
@@ -299,6 +323,7 @@ async def execute_agentic(
         messages=resume.messages if resume is not None else base_messages(frozen, scheduled),
         skills=prompt_skills(frozen),
         policy=agent_policy(frozen),
+        reply_locale=await _reply_locale(deps, frozen.tenant_id),
         temperature=_float_param(target.params, "temperature"),
         max_tokens=_int_param(target.params, "max_tokens"),
         params=dict(target.params),

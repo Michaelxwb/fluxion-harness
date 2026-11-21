@@ -36,6 +36,7 @@ from muad_agent_worker.application.agentic.checkpoints import (
 from muad_agent_worker.application.agentic.run import AgenticDependencies
 from muad_agent_worker.application.agentic.suspension import ASYNC_SUBMITTED_PROMPT
 from muad_agent_worker.application.agentic.tools import build_registry
+from muad_agent_worker.application.ports import PlatformSettingsSnapshot
 from muad_agent_worker.infrastructure.console_credentials import (
     ResolvedCredentials,
     ResolvedModelCredential,
@@ -53,6 +54,7 @@ from muad_agent_worker.worker.execution_outcomes import (
     interpret_execution,
 )
 from muad_agent_worker.worker.service import WorkerLoop
+from muad_api import AppError, ErrorCode
 from muad_contracts import (
     CompletionMode,
     HumanInteractionStatus,
@@ -456,6 +458,30 @@ class _ScriptedFactory:
 # ---------------------------------------------------------------------------
 
 
+class _LocaleSettingsClient:
+    """最小平台设置替身：只回答 locale.default_locale。"""
+
+    def __init__(self, locale: str) -> None:
+        self.locale = locale
+        self.calls = 0
+
+    async def fetch_snapshot(
+        self, *, tenant_id: str, trace_id: str = ""
+    ) -> PlatformSettingsSnapshot:
+        self.calls += 1
+        return PlatformSettingsSnapshot(
+            revision=1,
+            settings={"locale": {"default_locale": self.locale}},
+        )
+
+
+class _FailingSettingsClient:
+    async def fetch_snapshot(
+        self, *, tenant_id: str, trace_id: str = ""
+    ) -> PlatformSettingsSnapshot:
+        raise AppError(str(ErrorCode.COMMON_INTERNAL_ERROR))
+
+
 class WorkerAdapterHarness:
     """宿主差异只在这里：Worker 用 Task-owned ASYNC 提交表达工具级挂起。"""
 
@@ -464,7 +490,12 @@ class WorkerAdapterHarness:
     reason = "ASYNC_OPERATION"
     prompt = ASYNC_SUBMITTED_PROMPT
 
-    def __init__(self, tenant: TenantContext) -> None:
+    def __init__(
+        self,
+        tenant: TenantContext,
+        *,
+        settings_client: Any = None,
+    ) -> None:
         self._tenant = tenant
         self._capacity = RecordingCapacity()
         self._credentials = RecordingCredentials()
@@ -480,6 +511,7 @@ class WorkerAdapterHarness:
             sessions=tenant.session_factory,
             artifact_resolver=StubResolver(),  # type: ignore[arg-type]
             skill_executor=object(),  # type: ignore[arg-type]
+            settings_client=settings_client,
             capacity=self._capacity,  # type: ignore[arg-type]
             credentials=self._credentials,  # type: ignore[arg-type]
             operations=self._operations,  # type: ignore[arg-type]
@@ -888,6 +920,43 @@ async def test_frozen_memory_is_injected_and_never_written(
     assert not any("memory" in name for name in names)
     # 一次 MCP 认证值解析 + 一次模型调用解析（密钥不进快照、每次执行解析当前值）
     assert worker_adapter.credentials.resolved_calls >= 1
+
+
+async def test_agentic_reply_locale_is_read_at_execution_start(
+    tenant: TenantContext,
+) -> None:
+    settings_client = _LocaleSettingsClient("en-US")
+    harness = WorkerAdapterHarness(tenant, settings_client=settings_client)
+    try:
+        observation = await harness.run(RoundPlan((text_reply("done"),)))
+    finally:
+        await harness._mcp_http.aclose()  # noqa: SLF001
+
+    assert observation.status is AgentRunStatus.COMPLETED
+    assert settings_client.calls == 1
+    provider = harness._factory.provider  # noqa: SLF001
+    assert provider is not None
+    request = provider.requests[0]
+    system = [message.content for message in request.messages if message.role is ModelRole.SYSTEM]
+    assert any("## Reply language" in content for content in system)
+    assert any("English (en-US)" in content for content in system)
+
+
+async def test_agentic_locale_read_failure_does_not_block_execution(
+    tenant: TenantContext,
+) -> None:
+    harness = WorkerAdapterHarness(tenant, settings_client=_FailingSettingsClient())
+    try:
+        observation = await harness.run(RoundPlan((text_reply("done"),)))
+    finally:
+        await harness._mcp_http.aclose()  # noqa: SLF001
+
+    assert observation.status is AgentRunStatus.COMPLETED
+    provider = harness._factory.provider  # noqa: SLF001
+    assert provider is not None
+    request = provider.requests[0]
+    system = [message.content for message in request.messages if message.role is ModelRole.SYSTEM]
+    assert not any("## Reply language" in content for content in system)
 
 
 async def test_registry_only_contains_allowlisted_and_granted_tools(

@@ -129,7 +129,7 @@
   - runtime-locale PASS exit=0
 ## TASK-003: Worker AGENTIC 默认回复语言
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-002
 - **Source**: agent-output-and-platform-defaults.design.md#3.2, #3.4
 - **Scenarios**: agent-output-and-platform-defaults:S-06
@@ -161,10 +161,10 @@
 
 ### Checklist
 
-- [ ] `settings_client` 从装配根传到 `AgenticDependencies`。
-- [ ] AGENTIC 执行只读一次 locale，并写入 `AgentRunRequest.reply_locale`。
-- [ ] 设置不可读时任务继续执行，语言段省略且有 warning。
-- [ ] 声明测试通过。
+- [x] `settings_client` 从装配根传到 `AgenticDependencies`。
+- [x] AGENTIC 执行只读一次 locale，并写入 `AgentRunRequest.reply_locale`。
+- [x] 设置不可读时任务继续执行，语言段省略且有 warning。
+- [x] 声明测试通过。
 
 ### Spec Delta
 
@@ -175,11 +175,13 @@
 ### Log
 
 - [2026-11-21] created
+- [2026-11-21T02:33:41.923Z] started tests=bf7b3225547e
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-21T02:36:51.507Z PASS commands=1/1 executed=1 deduped=0 elapsed=12470ms tests=bf7b3225547e head=75a63e40543a dirty=1
+  - worker-agentic-locale PASS exit=0
 ## TASK-004: IM 固定文案与空正文 locale 兜底
 
 - **Status**: draft
