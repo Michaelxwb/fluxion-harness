@@ -1735,6 +1735,8 @@
   "overview.attention.failedRuns": "Failed runs",
   "overview.attention.failedTasks": "Failed tasks",
   "overview.attention.failedDeliveries": "Failed deliveries",
+  "settings.effect.agent_reply_language": "Used for agent replies and background task delivery; the console UI language is not affected",
+  "settings.effect.schedule_default_timezone": "Used when a new scheduled task omits its timezone; existing schedules are not changed",
   "settings.effect.new_admission": "Applies when accepting new requests; lower limits do not stop existing runs",
   "settings.effect.new_run": "Applies to new runs; retries and recovery retain the original wait deadline",
   "settings.effect.new_run_or_job": "Applies to new runs and background model jobs; existing jobs retain their policy",

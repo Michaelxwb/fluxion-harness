@@ -298,12 +298,12 @@
   - schedule-default-timezone PASS exit=0
 ## TASK-006: 失效 env 清理与设置页 effect 文案
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-005
 - **Source**: agent-output-and-platform-defaults.design.md#3.4, #3.5
 - **Scenarios**: agent-output-and-platform-defaults:S-04
 - **Spec-Refs**: i18n/harness-i18n#RULE-i18n-001, ui/harness-ui
-- **Paths**: .env, .env.example, apps/console-platform/backend/src/muad_console_platform/application/platform_settings_catalog.py, apps/console-platform/frontend/src/locales/zh-CN.json, apps/console-platform/frontend/src/locales/en-US.json, tests/test_configuration_convergence.py, tests/console_platform/test_platform_settings_schema.py, tests/frontend/test_capacity_webchat_settings_ui.py
+- **Paths**: .env, .env.example, apps/console-platform/backend/src/muad_console_platform/application/platform_settings_catalog.py, apps/console-platform/frontend/src/locales/zh-CN.json, apps/console-platform/frontend/src/locales/en-US.json, tests/test_configuration_convergence.py, tests/test_platform_settings_schema.py, tests/frontend/test_capacity_webchat_settings_ui.py
 - **E2E**:
 - **Skip-Tests**: false
 - **Skip-Reason**:
@@ -314,7 +314,7 @@
 [
   {
     "id": "config-locale-hints",
-    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/test_configuration_convergence.py", "tests/console_platform/test_platform_settings_schema.py", "tests/frontend/test_capacity_webchat_settings_ui.py"],
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/test_configuration_convergence.py", "tests/test_platform_settings_schema.py", "tests/frontend/test_capacity_webchat_settings_ui.py"],
     "timeout": 300,
     "parallel": false
   }
@@ -330,11 +330,11 @@
 
 ### Checklist
 
-- [ ] `.env` 不再有 `DEFAULT_LOCALE`；`.env.example` 键集不变。
-- [ ] 两个字段的 `effect_key` 由 API 元数据返回。
-- [ ] 中英文词条均存在且与后端 key 一致。
-- [ ] 设置页渲染说明文案，无组件回归。
-- [ ] 声明测试通过。
+- [x] `.env` 不再有 `DEFAULT_LOCALE`；`.env.example` 键集不变。
+- [x] 两个字段的 `effect_key` 由 API 元数据返回。
+- [x] 中英文词条均存在且与后端 key 一致。
+- [x] 设置页渲染说明文案，无组件回归。
+- [x] 声明测试通过。
 
 ### Spec Delta
 
@@ -345,11 +345,13 @@
 ### Log
 
 - [2026-11-21] created
+- [2026-11-21T02:50:52.640Z] started tests=e640679ade1c
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-21T02:53:40.609Z PASS commands=1/1 executed=1 deduped=0 elapsed=49526ms tests=807e12ea1d7b head=f5db6d46347d dirty=1 tests-changed
+  - config-locale-hints PASS exit=0
 ## TASK-007: 配置盘点、Spec Delta 与规范收口
 
 - **Status**: draft

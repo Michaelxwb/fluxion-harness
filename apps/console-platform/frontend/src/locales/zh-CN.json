@@ -1735,6 +1735,8 @@
   "overview.attention.failedRuns": "失败运行",
   "overview.attention.failedTasks": "失败任务",
   "overview.attention.failedDeliveries": "投递失败",
+  "settings.effect.agent_reply_language": "用于 Agent 回复用户与后台任务投递；控制台界面语言不受影响",
+  "settings.effect.schedule_default_timezone": "新建定时任务未指定时区时使用；不会改写已创建的任务",
   "settings.effect.new_admission": "新请求受理时生效；降低上限不终止已有运行",
   "settings.effect.new_run": "新运行生效；重试和恢复保留原等待期限",
   "settings.effect.new_run_or_job": "新运行和新的后台模型任务生效；已有任务保留原策略",
