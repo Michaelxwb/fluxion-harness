@@ -32,8 +32,6 @@ B115_SECRET = "b115-secret"
 B115_EXTERNAL_USER = "ext-b115"
 B115_CHAT = "chat-b115"
 WAIT_TIMEOUT_SEC = 20.0
-STOPPED_TEXT = "当前任务已停止"
-BROKEN_STREAM_TEXT = "服务暂时中断，请重发消息"
 STREAM_CMD = "aibot_respond_msg"
 SEND_CMD = "aibot_send_msg"
 

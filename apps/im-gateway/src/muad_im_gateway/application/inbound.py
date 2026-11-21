@@ -82,7 +82,6 @@ from .progress import (
 )
 from .runtime_client import RuntimeClientPort, SseEvent
 from .stream_renderer import (
-    BROKEN_STREAM_TEXT,
     DELTA_FLUSH_INTERVAL_SEC,
     FINALIZE_KIND,
     STREAM_KIND,
@@ -1526,7 +1525,12 @@ class InboundPipeline:
                     # 非状态能力渠道：正文尾段先落、流先收尾，错误文案在后（与提交错误同序）。
                     await self._run_actions(adapter, route, state, state.renderer.finalize())
                     finalized = True
-                await self._send_run_text(adapter, route, state, BROKEN_STREAM_TEXT)
+                await self._send_run_text(
+                    adapter,
+                    route,
+                    state,
+                    self._activity_messages(self._locale).fixed("broken_stream"),
+                )
         except AppError as exc:
             state.progress.apply(SseEvent("run.failed", {}))
             await self._update_progress(route, state, force=True)
@@ -1756,6 +1760,7 @@ class InboundPipeline:
         return StreamRenderer(
             flush_interval_sec=self._delta_flush_interval_sec,
             message_for=lambda code: self._catalog.message(code, self._locale),
+            system_text=self._activity_messages(self._locale).fixed,
         )
 
     async def _apply_run_event(

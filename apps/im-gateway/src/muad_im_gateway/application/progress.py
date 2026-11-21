@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from collections.abc import AsyncGenerator, AsyncIterator, Callable
+from collections.abc import AsyncGenerator, AsyncIterator, Callable, Mapping
 from contextlib import suppress
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -168,15 +168,30 @@ def _event_age(timestamp: str | None) -> float:
 
 class ActivityMessages:
     def __init__(self, catalog_path: Path, locale: str) -> None:
-        raw = yaml.safe_load(catalog_path.read_text(encoding="utf-8"))["activity_messages"]
+        document = yaml.safe_load(catalog_path.read_text(encoding="utf-8")) or {}
+        raw = document.get("activity_messages") or {}
+        self._locale = locale
         self._templates: dict[ProgressPhase, str] = {}
         for phase in ProgressPhase:
-            templates = raw[phase.value]
-            self._templates[phase] = str(templates.get(locale) or templates["en-US"])
+            templates = raw.get(phase.value)
+            if not isinstance(templates, Mapping):
+                templates = {}
+            self._templates[phase] = str(
+                templates.get(locale) or templates.get("en-US") or phase.value
+            )
+        fixed = raw.get("fixed")
+        self._fixed: Mapping[str, Mapping[str, str]] = fixed if isinstance(fixed, Mapping) else {}
 
     def render(self, progress: ExecutionProgress) -> str:
         minutes, seconds = divmod(progress.elapsed_seconds, 60)
         return self._templates[progress.phase].format(elapsed=f"{minutes:02d}:{seconds:02d}")
+
+    def fixed(self, key: str) -> str:
+        """Localized non-error text (stopped / broken stream / accepted)."""
+        templates = self._fixed.get(key)
+        if not isinstance(templates, Mapping):
+            return key
+        return str(templates.get(self._locale) or templates.get("en-US") or key)
 
 
 async def iter_with_ticks(

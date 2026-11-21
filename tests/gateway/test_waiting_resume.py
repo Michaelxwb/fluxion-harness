@@ -30,12 +30,12 @@ from muad_im_gateway.application.channel_delivery import ActiveChannelDelivery
 from muad_im_gateway.application.inbound import InboundPipeline
 from muad_im_gateway.application.progress import ExecutionProgress, ProgressPhase
 from muad_im_gateway.application.sse import SseEvent, iter_sse_events
-from muad_im_gateway.application.stream_renderer import BROKEN_STREAM_TEXT
 from muad_im_gateway.channels.base import ChannelAdapterUnavailable
 from muad_im_gateway.channels.fake import FakeChannelAdapter
 from muad_im_gateway.infrastructure.dedupe import InMemoryDedupeStore
 
 WAITING_TEXT = "等待任务结果"
+BROKEN_STREAM_TEXT = "服务暂时中断，请重发消息"
 
 
 class RecordingSession:

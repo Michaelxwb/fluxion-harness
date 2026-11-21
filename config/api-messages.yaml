@@ -1070,6 +1070,16 @@ codes:
 
 # Transient IM activity presentation; these are UI templates, not API error codes.
 activity_messages:
+  fixed:
+    stopped:
+      zh-CN: 当前任务已停止
+      en-US: This run has been stopped.
+    broken_stream:
+      zh-CN: 服务暂时中断，请重发消息
+      en-US: The service was interrupted. Please resend your message.
+    task_accepted:
+      zh-CN: 任务已受理，完成后会通知你
+      en-US: Task accepted. You will be notified when it finishes.
   PREPARING:
     zh-CN: '🔵 准备中 · 已执行 {elapsed}'
     en-US: '🔵 Preparing · elapsed {elapsed}'

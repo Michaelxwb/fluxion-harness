@@ -14,7 +14,6 @@ from muad_api.error_codes import ErrorCode
 from muad_contracts import ChannelResolveRequest, ChannelResolveResponse, DeliveryMessage, DeliveryRouteInput
 from muad_im_gateway.application.inbound import (
     BIND_USAGE_TEXT,
-    BROKEN_STREAM_TEXT,
     DELTA_FLUSH_INTERVAL_SEC,
     NEW_CONVERSATION_TEXT,
     NO_PERMISSION_TEXT,
@@ -35,6 +34,8 @@ from muad_im_gateway.infrastructure.dedupe import (
     InMemoryDedupeStore,
     NullDedupeStore,
 )
+
+BROKEN_STREAM_TEXT = "服务暂时中断，请重发消息"
 
 
 class _BrokenSendAdapter(FakeChannelAdapter):

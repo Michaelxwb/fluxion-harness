@@ -184,7 +184,7 @@
   - worker-agentic-locale PASS exit=0
 ## TASK-004: IM 固定文案与空正文 locale 兜底
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-002
 - **Source**: agent-output-and-platform-defaults.design.md#3.4, #4.2
 - **Scenarios**: agent-output-and-platform-defaults:E-03
@@ -217,11 +217,11 @@
 
 ### Checklist
 
-- [ ] 三条固定文案在 YAML 两侧齐全，代码无硬编码中文。
-- [ ] `StreamRenderer`/`inbound.py`/`delivery.py` 均按回复 locale 取文案。
-- [ ] 空正文 terminal 使用租户 locale；设置读取失败仍能投递并留 warning。
-- [ ] 不新增 `DeliveryRequest` 字段；旧调用方行为不变。
-- [ ] 声明测试通过。
+- [x] 三条固定文案在 YAML 两侧齐全，代码无硬编码中文。
+- [x] `StreamRenderer`/`inbound.py`/`delivery.py` 均按回复 locale 取文案。
+- [x] 空正文 terminal 使用租户 locale；设置读取失败仍能投递并留 warning。
+- [x] 不新增 `DeliveryRequest` 字段；旧调用方行为不变。
+- [x] 声明测试通过。
 
 ### Spec Delta
 
@@ -232,11 +232,13 @@
 ### Log
 
 - [2026-11-21] created
+- [2026-11-21T02:37:01.758Z] started tests=bb96f967224b
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-21T02:45:29.270Z PASS commands=1/1 executed=1 deduped=0 elapsed=45353ms tests=bb96f967224b head=b868463a97b6 dirty=1
+  - gateway-locale PASS exit=0
 ## TASK-005: 新建 Draft 使用平台默认时区
 
 - **Status**: draft
