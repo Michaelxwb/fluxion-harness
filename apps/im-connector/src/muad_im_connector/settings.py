@@ -33,6 +33,8 @@ class ConnectorSettings(BaseSettings):
     connector_lease_renew_sec: float = Field(default=10.0, gt=0.0)
     #: 入站标记超过该时长仍是 RECEIVED（XADD 前崩溃）即显式记 LOST；不假装成功。
     connector_inbound_lost_after_sec: int = Field(default=60, ge=1)
+    #: Download slots are independent of inbound registration and commands.
+    connector_attachment_concurrency: int = Field(default=8, ge=1, le=64)
     #: 验收故障注入：在写 RECEIVED 之后、XADD 之前暂停（0 = 关闭）。生产必须为 0。
     connector_test_pause_before_xadd_sec: float = Field(default=0.0, ge=0.0)
     #: 出站命令最大 age：超过即显式 EXPIRED，不重放远古命令。

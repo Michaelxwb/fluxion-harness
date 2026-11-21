@@ -57,7 +57,7 @@ def test_b401_real_elapsed_and_parallel_tools():
     state.apply(SseEvent("tool.completed", {"tool_call_id": "a"}))
     assert state.phase == ProgressPhase.EXECUTING
     state.apply(SseEvent("tool.completed", {"tool_call_id": "b"}))
-    assert state.phase == ProgressPhase.THINKING
+    assert state.phase == ProgressPhase.EXECUTING, "跑过工具后不再退回「思考中」，避免状态行抖动"
     state.apply(SseEvent("run.completed", {"status": "COMPLETED"}))
     now[0] += 100
     assert state.elapsed_seconds == 2
@@ -94,6 +94,16 @@ class Sdk:
         self.replied_texts.append((reply_id, text))
 
 
+#: 状态帧的形态：`阶段 · 已执行 mm:ss`（`activity_messages` 的模板），**不带 `<think>`**。
+#: 2026-11-21 手机端实测：企微「思考中」区域不刷新（闭合/未闭合都只渲染第一帧），
+#: 计时要跟着走只能放在可见正文里。
+_STATUS_STARTS = ("🔵", "⚙️", "⏳", "⏸", "📥", "✅", "❌", "⏹")
+
+
+def _is_status(text: str) -> bool:
+    return text.startswith(_STATUS_STARTS)
+
+
 async def test_b402_status_replaces_and_final_body_excludes_thinking():
     sdk = Sdk()
     reply = ReplySession(client=lambda: sdk, reply_ref="original", flush_interval_sec=0)
@@ -103,7 +113,9 @@ async def test_b402_status_replaces_and_final_body_excludes_thinking():
     await reply.stream(" world")
     await reply.finish()
     await reply.finish()
-    assert sdk.frames[0][2].startswith("<think>")
+    assert _is_status(sdk.frames[0][2])
+    assert "00:00" in sdk.frames[0][2]
+    assert "思考中" in sdk.frames[0][2]
     assert "00:00" not in sdk.frames[1][2]
     assert sdk.frames[-1][2] == "hello world"
     assert sdk.frames[-1][3] is True
@@ -149,7 +161,7 @@ async def test_e401_pipeline_closes_real_reply_on_wait_or_task_accept(
     assert any("思考中" in frame_text(frame) for frame in streams)
     assert sum(bool(frame["body"]["stream"].get("finish")) for frame in streams) == 1
     assert not adapter._replies
-    assert not streams[-1]["body"]["stream"]["content"].startswith("<think>")
+    assert not _is_status(streams[-1]["body"]["stream"]["content"])
 
 
 async def test_e401_pipeline_eof_is_failure_and_closes_reply(
@@ -227,7 +239,7 @@ async def test_b401_budget_exhaustion_never_blocks_body_or_finish():
     await reply.update_status("skipped")
     await reply.stream("answer")
     await reply.finish()
-    assert [frame[2] for frame in sdk.frames] == ["<think>first</think>", "answer", "answer"]
+    assert [frame[2] for frame in sdk.frames] == ["first", "answer", "answer"]
     assert sdk.frames[-1][3]
 
 
@@ -407,13 +419,14 @@ def _pipeline_with_progress(
     )
 
 
-def test_b401_progress_interval_default_is_five_seconds():
-    """生产默认节拍只有一个来源：平台设置 schema 的 `im.progress_interval_sec`（=5.0）。
+def test_b401_progress_interval_default_is_two_seconds():
+    """生产默认节拍只有一个来源：平台设置 schema 的 `im.progress_interval_sec`（=2.0）。
 
-    E2E 用 1s 只证明「计时在走、秒数在涨」这条规律；「生产默认是 5 秒」这条**常量事实**
-    在这里钉——它同时也是客户端重排成本的取舍，改它要有意识地改（改 schema 默认即改此断言）。
+    E2E 用 1s 只证明「计时在走、秒数在涨」这条规律；「生产默认是 2 秒」这条**常量事实**
+    在这里钉——它与正文合并窗口共用企微「同一会话 30 条/分钟」的额度，改它要有意识地改
+    （改 schema 默认即改此断言）。
     """
-    assert parse_platform_settings({}).im.progress_interval_sec == 5.0
+    assert parse_platform_settings({}).im.progress_interval_sec == 2.0
     assert (
         parse_platform_settings({"im": {"progress_interval_sec": 1.0}}).im.progress_interval_sec
         == 1.0
@@ -429,16 +442,17 @@ async def test_b402_identical_status_frame_is_not_re_sent():
     await reply.update_status("🔵 准备中 · 已执行 00:00")
     await reply.update_status("🔵 思考中 · 已执行 00:00")
     assert [frame[2] for frame in sdk.frames] == [
-        "<think>🔵 准备中 · 已执行 00:00</think>",
-        "<think>🔵 思考中 · 已执行 00:00</think>",
+        "🔵 准备中 · 已执行 00:00",
+        "🔵 思考中 · 已执行 00:00",
     ]
 
 
 def test_b401_never_falls_back_to_preparing_after_execution_started():
-    """执行一旦开始就不再显示「准备中」。
+    """执行一旦开始就不再显示「准备中」，跑过工具后也不再退回「思考中」。
 
-    模型结束到工具开始之间落回 PREPARING 会让阶段一路跳（思考中→准备中→执行中→准备中），
-    而每次跳都是一次整帧重排。
+    模型结束到工具开始之间落回 PREPARING 会让阶段一路跳（思考中→准备中→执行中→准备中）；
+    同理，工具之间每个模型边界都退回 THINKING，会让状态行每秒翻一次（实测 10 秒 11 帧，
+    客户端整帧重排）。同一执行段里跑过工具之后统一显示「执行中」。
     """
     state = ExecutionProgress(clock=lambda: 100.0)
     state.apply(SseEvent("run.created", {}))
@@ -452,7 +466,15 @@ def test_b401_never_falls_back_to_preparing_after_execution_started():
     state.apply(SseEvent("tool.started", {"tool_call_id": "t1"}))
     assert state.phase == ProgressPhase.EXECUTING
     state.apply(SseEvent("tool.completed", {"tool_call_id": "t1"}))
-    assert state.phase == ProgressPhase.THINKING
+    state.apply(SseEvent("model.completed", {}))
+    state.apply(SseEvent("model.started", {}))
+    assert state.phase == ProgressPhase.EXECUTING, "跑过工具后不再退回「思考中」"
+
+    # 真等待仍然要如实切换（不是阶段抖动）。
+    state.apply(SseEvent("run.waiting_tool", {}))
+    assert state.phase == ProgressPhase.WAITING_TOOL
+    state.apply(SseEvent("run.resumed", {}))
+    assert state.phase == ProgressPhase.EXECUTING
 
 
 async def test_b401_in_flight_status_never_shares_the_stream_with_the_answer(
@@ -517,7 +539,7 @@ class StallingSdk(Sdk):
     """状态帧不回执：模拟通道侧挂住（正文帧照常返回）。"""
 
     async def send_stream(self, reply_id, stream_id, content, *, finish):
-        if content.startswith("<think>"):
+        if _is_status(content):
             await asyncio.Event().wait()
         await super().send_stream(reply_id, stream_id, content, finish=finish)
 

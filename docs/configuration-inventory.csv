@@ -1488,24 +1488,28 @@ apps/im-connector/src/muad_im_connector/metrics.py,18,OUTBOUND_DEAD_METRIC,'conn
 apps/im-connector/src/muad_im_connector/metrics.py,19,SNAPSHOT_METRIC,'connector_snapshot_refresh_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-connector/src/muad_im_connector/metrics.py,37,CATALOG,"((LEASE_METRIC, 'counter', ('outcome',), 'Connector bot lease outcomes'), (LEASE_LOST_METRIC, 'counter', (), 'Connector bot lease losses'), (LEASE_ACTIVE_METRIC, 'gauge', (), 'Bots currently owned by this connector'), (INBOUND_METRIC, 'counter', ('outcome',), 'Connector inbound publish outcomes'), (INBOUND_LOST_METRIC, 'counter', (), 'Inbound messages lost before XADD'), (OUTBOUND_METRIC, 'counter', ('outcome',), 'Connector outbound command outcomes'), (OUTBOUND_DEAD_METRIC, 'counter', (), 'Connector outbound dead letters'), (SNAPSHOT_METRIC, 'counter', ('outcome',), 'Connector bot snapshot refresh outcomes'))",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-connector/src/muad_im_connector/outbound.py,54,RESULT_TTL_SEC,600,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/outbound.py,55,COMMAND_MARKER_PREFIX,'muad:connector:cmd',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/outbound.py,56,STREAM_MAXLEN,100000,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/outbound.py,57,RESULT_CODE_REPLY_EXPIRED,'REPLY_REF_EXPIRED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/outbound.py,58,RESULT_CODE_REPLY_FAILED,'REPLY_SEND_FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/outbound.py,59,RESULT_CODE_LEASE_LOST,'LEASE_LOST',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/outbound.py,60,RESULT_CODE_FENCED,'FENCED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/outbound.py,61,RESULT_CODE_CHANNEL_UNAVAILABLE,'CHANNEL_UNAVAILABLE',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/outbound.py,62,RESULT_CODE_EXECUTION_FAILED,'COMMAND_EXECUTION_FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/outbound.py,63,RESULT_CODE_EXPIRED,'COMMAND_EXPIRED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/outbound.py,64,RESULT_CODE_BAD_PAYLOAD,'COMMAND_PAYLOAD_INVALID',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/outbound.py,68,ACCEPTED,'ACCEPTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/outbound.py,69,DELIVERED,'DELIVERED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/outbound.py,70,DEGRADED,'DEGRADED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/outbound.py,71,FAILED,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/outbound.py,72,FENCED,'FENCED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/outbound.py,73,EXPIRED,'EXPIRED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/outbound.py,74,DUPLICATE,'DUPLICATE',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/outbound.py,76,RETRY,'RETRY',python-constant,code,状态或错误码，不是时间参数
+apps/im-connector/src/muad_im_connector/outbound.py,58,FRAME_MIN_INTERVAL_SEC,2.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/outbound.py,61,FRAME_PACING_TOLERANCE_SEC,0.25,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/outbound.py,63,PACING_ENTRIES_SOFT_CAP,1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/outbound.py,64,PACING_STALE_SEC,60.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/outbound.py,65,COMMAND_MARKER_PREFIX,'muad:connector:cmd',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/outbound.py,66,STREAM_MAXLEN,100000,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/outbound.py,67,RESULT_CODE_REPLY_EXPIRED,'REPLY_REF_EXPIRED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/outbound.py,68,RESULT_CODE_REPLY_FAILED,'REPLY_SEND_FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/outbound.py,69,RESULT_CODE_LEASE_LOST,'LEASE_LOST',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/outbound.py,70,RESULT_CODE_FENCED,'FENCED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/outbound.py,71,RESULT_CODE_CHANNEL_UNAVAILABLE,'CHANNEL_UNAVAILABLE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/outbound.py,72,RESULT_CODE_EXECUTION_FAILED,'COMMAND_EXECUTION_FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/outbound.py,73,RESULT_CODE_EXPIRED,'COMMAND_EXPIRED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/outbound.py,74,RESULT_CODE_BAD_PAYLOAD,'COMMAND_PAYLOAD_INVALID',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/outbound.py,78,ACCEPTED,'ACCEPTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/outbound.py,79,DELIVERED,'DELIVERED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/outbound.py,80,DEGRADED,'DEGRADED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/outbound.py,81,FAILED,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/outbound.py,82,FENCED,'FENCED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/outbound.py,83,EXPIRED,'EXPIRED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/outbound.py,84,DUPLICATE,'DUPLICATE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/outbound.py,86,RETRY,'RETRY',python-constant,code,状态或错误码，不是时间参数
 apps/im-connector/src/muad_im_connector/platform_settings.py,26,PLATFORM_SETTINGS_CACHE_TTL_SEC,60.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-connector/src/muad_im_connector/reply_store.py,21,DEFAULT_MESSAGE_TTL_SEC,300,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-connector/src/muad_im_connector/reply_store.py,22,DEFAULT_RUN_TTL_SEC,3600,python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1555,61 +1559,62 @@ apps/im-gateway/src/muad_im_gateway/application/console_client.py,55,FETCH_LINK_
 apps/im-gateway/src/muad_im_gateway/application/console_client.py,56,REQUEST_TIMEOUT_SEC,5.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/im-gateway/src/muad_im_gateway/application/inbound.py,96,DEDUPE_PREFIX,'muad:im:dedupe',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/inbound.py,97,DEDUPE_TTL_SEC,600,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,99,AUDIT_RECEIVED,'RECEIVED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,100,AUDIT_REJECTED,'REJECTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,101,AUDIT_FAILED,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,102,UNSUPPORTED_MEDIA_CODE,'UNSUPPORTED_MEDIA',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,104,CHANNEL_BUSY,'CHANNEL_BUSY',python-constant,code,排队积压时给用户的可见拒绝码（RULE-01：不静默丢消息）
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,106,DEFAULT_REPLY_LOCALE,'zh-CN',python-constant,code,取不到平台设置快照时（排队拒绝路径）用于取文案的默认语言
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,108,RUN_CREATED_EVENT,'run.created',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,109,MESSAGE_DELTA_EVENT,'message.delta',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,110,TASK_ACCEPTED_EVENT,'task.accepted',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,111,INTERRUPT_REQUIRED_EVENT,'interrupt.required',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,112,RUN_COMPLETED_EVENT,'run.completed',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,113,RUN_FAILED_EVENT,'run.failed',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,117,MAX_CONCURRENT_HANDLERS,8,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,120,MAX_PENDING_HANDLERS,256,python-constant,code,全局排队上限（读循环不阻塞，但内存必须有界）
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,122,MAX_PENDING_PER_ROUTE,8,python-constant,code,单路由排队上限（一个用户狂发不该挤掉别人）
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,124,MAX_PENDING_COMMANDS,32,python-constant,code,命令排队上限（/stop 必须一直读得到）
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,129,_REPLY_SETTINGS,"contextvars.ContextVar('gateway_reply_settings', default=None)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,136,_REPLY_SESSION,"contextvars.ContextVar('gateway_reply_session', default=None)",python-constant,code,_REPLY_SESSION：本次 im-gateway review 修复新增
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,141,MESSAGES_METRIC,'im_messages_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,142,DEDUPE_HITS_METRIC,'im_dedupe_hits_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,143,RUNTIME_ERRORS_METRIC,'im_runtime_errors_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,144,MESSAGE_FAILURES_METRIC,'im_message_failures_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,145,STREAM_FIRST_CHUNK_METRIC,'im_stream_first_chunk_ms',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,146,STREAM_LATENCY_METRIC,'im_stream_latency_ms',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,147,RUNTIME_REQUEST_LATENCY_METRIC,'im_runtime_request_latency_ms',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,148,FINAL_DELIVERY_METRIC,'im_final_delivery_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,149,METRIC_HELP,'IM gateway runtime metric',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,151,BIND_COMMAND,'/bind',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,152,NEW_COMMAND,'/new',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,153,STOP_COMMAND,'/stop',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,154,SKILLS_COMMAND,'/skills',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,156,SKILLS_MAX_PAGES,20,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,157,SKILLS_PAGE_INTERVAL_SEC,0.05,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,159,BIND_SUCCESS_TEXT,'绑定成功',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,160,BIND_USAGE_TEXT,'用法：/bind <绑定码>',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,161,UNBOUND_TEXT,'请先使用 /bind <绑定码> 完成身份绑定',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,162,NO_PERMISSION_TEXT,'当前账号未获得该智能体使用权限',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,163,SKILLS_UNAVAILABLE_TEXT,'技能列表暂不可用',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,164,NO_SKILLS_TEXT,'暂无可用技能',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,165,NEW_CONVERSATION_TEXT,'已创建新会话',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,166,STOP_ACCEPTED_TEXT,'正在停止当前任务…',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,167,STOP_CANCELLED_TEXT,'当前任务已停止',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,168,CONFIRM_USAGE_TEXT,f'用法：{SCHEDULE_CONFIRM_COMMAND} <草稿编号>',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,169,CONFIRM_UNSUPPORTED_TEXT,'当前入口不支持确认定时任务',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,170,CONFIRM_DONE_TEXT,'已确认，定时任务已生效',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,171,CONFIRM_DONE_WITH_FIRE_TEXT,'已确认，定时任务首次触发：{next_fire_at}',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,172,HUMAN_ANSWER_ACCEPTED_TEXT,'已收到你的回答，任务将继续执行',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,173,HUMAN_CLARIFY_HEADER,'你有多条等待回复的定时任务，请指定要回答的任务（任务中心可按任务回答）：',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,174,HUMAN_CLARIFY_ITEM,'- 任务「{name}」：{question}',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,175,HUMAN_CLARIFY_FOOTER,'这次回复没有绑定到任何任务，任务状态未改变。',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,177,HUMAN_REJECT_TEXT,'这次回答没有生效：{detail}',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,178,HUMAN_REJECT_DETAILS,"{'HUMAN_INTERACTION_EXPIRED': '问题已超时，请等待任务超时收尾', 'HUMAN_RESPONSE_INVALID': '该问题需要结构化回答，请在任务中心回答', 'HUMAN_INPUT_SCHEMA_INVALID': '该问题需要结构化回答，请在任务中心回答', 'EXECUTION_NOT_RESUMABLE': '该任务已结束或已被取消，回答不会再续接', 'IDEMPOTENCY_MISMATCH': '这个问题已经用另一个答案回答过了'}",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,185,HUMAN_REJECT_FALLBACK,'任务当前不接受回答，请在任务中心查看',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,188,COMMAND_PREFIXES,"('/bind', '/new', '/stop', '/skills', '/memory', SCHEDULE_CONFIRM_COMMAND)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/inbound.py,500,_FEEDBACK_PRIORITY,"(ATTACHMENT_TOO_LARGE, ATTACHMENT_TYPE_NOT_ALLOWED, ATTACHMENT_COUNT_EXCEEDED)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,101,PROGRESS_THROTTLE_TOLERANCE_SEC,0.25,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,108,AUDIT_RECEIVED,'RECEIVED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,109,AUDIT_REJECTED,'REJECTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,110,AUDIT_FAILED,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,111,UNSUPPORTED_MEDIA_CODE,'UNSUPPORTED_MEDIA',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,113,CHANNEL_BUSY,'CHANNEL_BUSY',python-constant,code,排队积压时给用户的可见拒绝码（RULE-01：不静默丢消息）
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,115,DEFAULT_REPLY_LOCALE,'zh-CN',python-constant,code,取不到平台设置快照时（排队拒绝路径）用于取文案的默认语言
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,117,RUN_CREATED_EVENT,'run.created',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,118,MESSAGE_DELTA_EVENT,'message.delta',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,119,TASK_ACCEPTED_EVENT,'task.accepted',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,120,INTERRUPT_REQUIRED_EVENT,'interrupt.required',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,121,RUN_COMPLETED_EVENT,'run.completed',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,122,RUN_FAILED_EVENT,'run.failed',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,126,MAX_CONCURRENT_HANDLERS,8,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,129,MAX_PENDING_HANDLERS,256,python-constant,code,全局排队上限（读循环不阻塞，但内存必须有界）
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,131,MAX_PENDING_PER_ROUTE,8,python-constant,code,单路由排队上限（一个用户狂发不该挤掉别人）
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,133,MAX_PENDING_COMMANDS,32,python-constant,code,命令排队上限（/stop 必须一直读得到）
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,138,_REPLY_SETTINGS,"contextvars.ContextVar('gateway_reply_settings', default=None)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,145,_REPLY_SESSION,"contextvars.ContextVar('gateway_reply_session', default=None)",python-constant,code,_REPLY_SESSION：本次 im-gateway review 修复新增
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,150,MESSAGES_METRIC,'im_messages_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,151,DEDUPE_HITS_METRIC,'im_dedupe_hits_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,152,RUNTIME_ERRORS_METRIC,'im_runtime_errors_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,153,MESSAGE_FAILURES_METRIC,'im_message_failures_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,154,STREAM_FIRST_CHUNK_METRIC,'im_stream_first_chunk_ms',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,155,STREAM_LATENCY_METRIC,'im_stream_latency_ms',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,156,RUNTIME_REQUEST_LATENCY_METRIC,'im_runtime_request_latency_ms',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,157,FINAL_DELIVERY_METRIC,'im_final_delivery_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,158,METRIC_HELP,'IM gateway runtime metric',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,160,BIND_COMMAND,'/bind',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,161,NEW_COMMAND,'/new',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,162,STOP_COMMAND,'/stop',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,163,SKILLS_COMMAND,'/skills',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,165,SKILLS_MAX_PAGES,20,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,166,SKILLS_PAGE_INTERVAL_SEC,0.05,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,168,BIND_SUCCESS_TEXT,'绑定成功',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,169,BIND_USAGE_TEXT,'用法：/bind <绑定码>',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,170,UNBOUND_TEXT,'请先使用 /bind <绑定码> 完成身份绑定',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,171,NO_PERMISSION_TEXT,'当前账号未获得该智能体使用权限',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,172,SKILLS_UNAVAILABLE_TEXT,'技能列表暂不可用',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,173,NO_SKILLS_TEXT,'暂无可用技能',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,174,NEW_CONVERSATION_TEXT,'已创建新会话',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,175,STOP_ACCEPTED_TEXT,'正在停止当前任务…',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,176,STOP_CANCELLED_TEXT,'当前任务已停止',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,177,CONFIRM_USAGE_TEXT,f'用法：{SCHEDULE_CONFIRM_COMMAND} <草稿编号>',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,178,CONFIRM_UNSUPPORTED_TEXT,'当前入口不支持确认定时任务',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,179,CONFIRM_DONE_TEXT,'已确认，定时任务已生效',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,180,CONFIRM_DONE_WITH_FIRE_TEXT,'已确认，定时任务首次触发：{next_fire_at}',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,181,HUMAN_ANSWER_ACCEPTED_TEXT,'已收到你的回答，任务将继续执行',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,182,HUMAN_CLARIFY_HEADER,'你有多条等待回复的定时任务，请指定要回答的任务（任务中心可按任务回答）：',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,183,HUMAN_CLARIFY_ITEM,'- 任务「{name}」：{question}',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,184,HUMAN_CLARIFY_FOOTER,'这次回复没有绑定到任何任务，任务状态未改变。',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,186,HUMAN_REJECT_TEXT,'这次回答没有生效：{detail}',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,187,HUMAN_REJECT_DETAILS,"{'HUMAN_INTERACTION_EXPIRED': '问题已超时，请等待任务超时收尾', 'HUMAN_RESPONSE_INVALID': '该问题需要结构化回答，请在任务中心回答', 'HUMAN_INPUT_SCHEMA_INVALID': '该问题需要结构化回答，请在任务中心回答', 'EXECUTION_NOT_RESUMABLE': '该任务已结束或已被取消，回答不会再续接', 'IDEMPOTENCY_MISMATCH': '这个问题已经用另一个答案回答过了'}",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,194,HUMAN_REJECT_FALLBACK,'任务当前不接受回答，请在任务中心查看',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,197,COMMAND_PREFIXES,"('/bind', '/new', '/stop', '/skills', '/memory', SCHEDULE_CONFIRM_COMMAND)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/inbound.py,509,_FEEDBACK_PRIORITY,"(ATTACHMENT_TOO_LARGE, ATTACHMENT_TYPE_NOT_ALLOWED, ATTACHMENT_COUNT_EXCEEDED)",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/inbound_streams.py,37,INBOUND_GROUP,'im-ingress',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/inbound_streams.py,38,INBOUND_DEAD_STREAM,'muad:im:inbound:dead',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/inbound_streams.py,39,DEAD_STREAM_MAXLEN,10000,python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1630,7 +1635,7 @@ apps/im-gateway/src/muad_im_gateway/application/progress.py,24,ACCEPTED,'ACCEPTE
 apps/im-gateway/src/muad_im_gateway/application/progress.py,25,COMPLETED,'COMPLETED',python-constant,code,状态或错误码，不是时间参数
 apps/im-gateway/src/muad_im_gateway/application/progress.py,26,FAILED,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/progress.py,27,CANCELLED,'CANCELLED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
-apps/im-gateway/src/muad_im_gateway/application/progress.py,141,_STOP_PHASES,"{'interrupt.required': ProgressPhase.WAITING_INPUT, 'memory.confirmation_required': ProgressPhase.WAITING_INPUT, 'task.accepted': ProgressPhase.ACCEPTED, 'run.completed': ProgressPhase.COMPLETED, 'run.failed': ProgressPhase.FAILED}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/progress.py,145,_STOP_PHASES,"{'interrupt.required': ProgressPhase.WAITING_INPUT, 'memory.confirmation_required': ProgressPhase.WAITING_INPUT, 'task.accepted': ProgressPhase.ACCEPTED, 'run.completed': ProgressPhase.COMPLETED, 'run.failed': ProgressPhase.FAILED}",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,56,RUNS_PATH,'/v1/runs',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,57,RUN_PATH,'/v1/runs/{run_id}',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,58,RUN_CANCEL_PATH,'/v1/runs/{run_id}/cancel',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1657,15 +1662,15 @@ apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,87,STREAM_TIME
 apps/im-gateway/src/muad_im_gateway/application/runtime_client.py,88,CALLER_SERVICE,'muad-im-gateway',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/sse.py,24,KNOWN_EVENT_TYPES,"frozenset({'run.created', 'model.started', 'model.completed', 'message.delta', 'message.snapshot', 'run.stage', 'skill.loaded', 'tool.started', 'tool.completed', 'tool.submission_pending', 'tool.submitted', 'tool.submission.failed', 'tool.result.received', 'tool.result', 'tool.result.late', 'run.waiting_tool', 'run.resumed', 'task.accepted', 'artifact.created', 'interrupt.required', 'memory.confirmation_required', 'run.completed', 'run.failed'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/sse.py,58,ENVELOPE_KEYS,"('seq', 'timestamp', 'run_id')",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,24,DELTA_FLUSH_INTERVAL_SEC,0.5,python-constant,code,IM 展示节拍实现常量（非平台设置 im.progress_interval_sec）；运行期不可改
-apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,25,CANCELLED_STATUS,'CANCELLED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,26,RUN_ABANDONED_CODE,'RUN_ABANDONED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,27,STOPPED_TEXT,'当前任务已停止',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,28,BROKEN_STREAM_TEXT,'服务暂时中断，请重发消息',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,29,TASK_ACCEPTED_TEXT,'任务已受理，完成后会通知你',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,31,STREAM_KIND,'stream',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,32,TEXT_KIND,'text',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,33,FINALIZE_KIND,'finalize',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,27,DELTA_FLUSH_INTERVAL_SEC,2.0,python-constant,code,IM 展示节拍实现常量（非平台设置 im.progress_interval_sec）；运行期不可改
+apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,28,CANCELLED_STATUS,'CANCELLED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,29,RUN_ABANDONED_CODE,'RUN_ABANDONED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,30,STOPPED_TEXT,'当前任务已停止',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,31,BROKEN_STREAM_TEXT,'服务暂时中断，请重发消息',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,32,TASK_ACCEPTED_TEXT,'任务已受理，完成后会通知你',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,34,STREAM_KIND,'stream',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,35,TEXT_KIND,'text',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py,36,FINALIZE_KIND,'finalize',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/task_center.py,72,WEBCHAT_SURFACE,"TaskCenterSurface(name='webchat', confirmation_surface=ConfirmationSurface.WEBCHAT)",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/task_center.py,77,TASK_CENTER_ITEM_FIELDS,tuple(TaskCenterTaskItem.model_fields),python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/webchat_artifacts.py,45,SAFE_PREVIEW_MEDIA_TYPES,"frozenset({'image/png', 'image/jpeg', 'image/gif', 'image/webp'})",python-constant,code,可内联预览的媒体类型白名单（栅格图片；其余按附件下载）
@@ -2592,56 +2597,56 @@ packages/contracts/src/muad_contracts/platform_settings.py,198,lock_duration_min
 packages/contracts/src/muad_contracts/platform_settings.py,199,session_ttl_hours,12,policy-field,business,平台设置策略默认值
 packages/contracts/src/muad_contracts/platform_settings.py,206,default_locale,'zh-CN',policy-field,business,平台设置 schema 的默认值来源（design §2.3.2）；迁移后由 Console 系统设置按租户持久化
 packages/contracts/src/muad_contracts/platform_settings.py,207,default_timezone,'Asia/Shanghai',policy-field,business,平台设置 schema 的默认值来源（design §2.3.2）；迁移后由 Console 系统设置按租户持久化
-packages/contracts/src/muad_contracts/platform_settings.py,214,progress_interval_sec,5.0,policy-field,business,平台设置 schema 的默认值来源（design §2.3.2）；迁移后由 Console 系统设置按租户持久化
-packages/contracts/src/muad_contracts/platform_settings.py,216,inbound_batch_quiet_ms,"field(default=300, metadata={'minimum': 100, 'maximum': 2000, 'unit': 'ms'})",policy-field,business,业务策略默认（平台设置来源）
-packages/contracts/src/muad_contracts/platform_settings.py,221,inbound_batch_max_wait_ms,"field(default=5000, metadata={'minimum': 500, 'maximum': 30000, 'unit': 'ms'})",policy-field,business,业务策略默认（平台设置来源）
-packages/contracts/src/muad_contracts/platform_settings.py,226,inbound_batch_max_attachments,"field(default=5, metadata={'minimum': 1, 'maximum': 20})",policy-field,business,业务策略默认（平台设置来源）
-packages/contracts/src/muad_contracts/platform_settings.py,236,max_tools_per_server,200,policy-field,business,平台设置 schema 的默认值来源（design §2.3.2）；迁移后由 Console 系统设置按租户持久化
-packages/contracts/src/muad_contracts/platform_settings.py,243,max_open_runs_per_tenant,"field(default=2000, metadata={'minimum': 2, 'maximum': 100000})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
-packages/contracts/src/muad_contracts/platform_settings.py,244,max_open_runs_per_user,"field(default=2, metadata={'minimum': 2, 'maximum': 100})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
-packages/contracts/src/muad_contracts/platform_settings.py,245,queue_wait_timeout_sec,"field(default=60, metadata={'minimum': 1, 'maximum': 3600, 'unit': 'seconds'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
-packages/contracts/src/muad_contracts/platform_settings.py,249,model_wait_timeout_sec,"field(default=30, metadata={'minimum': 1, 'maximum': 600, 'unit': 'seconds'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
-packages/contracts/src/muad_contracts/platform_settings.py,259,dispatch_epoch_sec,"field(default=60, metadata={'minimum': 10, 'maximum': 3600, 'unit': 'seconds'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
-packages/contracts/src/muad_contracts/platform_settings.py,263,input_estimate_multiplier,"field(default=1.25, metadata={'minimum': 1, 'maximum': 4})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
-packages/contracts/src/muad_contracts/platform_settings.py,264,interactive_weight,"field(default=8, metadata={'minimum': 1, 'maximum': 100})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
-packages/contracts/src/muad_contracts/platform_settings.py,265,background_weight,"field(default=1, metadata={'minimum': 1, 'maximum': 100})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
-packages/contracts/src/muad_contracts/platform_settings.py,266,aging_interval_sec,"field(default=30, metadata={'minimum': 1, 'maximum': 300, 'unit': 'seconds'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
-packages/contracts/src/muad_contracts/platform_settings.py,276,access_ttl_days,"field(default=30, metadata={'minimum': 1, 'maximum': 365, 'unit': 'days'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
-packages/contracts/src/muad_contracts/platform_settings.py,277,session_ttl_hours,"field(default=12, metadata={'minimum': 1, 'maximum': 24, 'unit': 'hours'})",policy-field,business,平台设置策略默认值
-packages/contracts/src/muad_contracts/platform_settings.py,278,text_max_bytes,"field(default=65536, metadata={'minimum': 1, 'maximum': 1048576, 'unit': 'bytes'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
-packages/contracts/src/muad_contracts/platform_settings.py,279,upload_max_bytes,"field(default=52428800, metadata={'minimum': 1, 'unit': 'bytes'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
-packages/contracts/src/muad_contracts/platform_settings.py,280,upload_max_per_message,"field(default=5, metadata={'minimum': 1, 'maximum': 20})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
-packages/contracts/src/muad_contracts/platform_settings.py,281,upload_staging_ttl_sec,"field(default=86400, metadata={'minimum': 60, 'maximum': 604800, 'unit': 'seconds'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
-packages/contracts/src/muad_contracts/platform_settings.py,285,history_page_size,"field(default=50, metadata={'minimum': 1, 'maximum': 100})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
-packages/contracts/src/muad_contracts/platform_settings.py,286,notification_poll_sec,"field(default=5.0, metadata={'minimum': 1, 'maximum': 60, 'unit': 'seconds'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
-packages/contracts/src/muad_contracts/platform_settings.py,290,reconnect_base_ms,"field(default=500, metadata={'minimum': 100, 'maximum': 5000, 'unit': 'ms'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
-packages/contracts/src/muad_contracts/platform_settings.py,291,reconnect_cap_ms,"field(default=30000, metadata={'minimum': 1000, 'maximum': 120000, 'unit': 'ms'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
-packages/contracts/src/muad_contracts/platform_settings.py,292,reconnect_max_attempts,"field(default=10, metadata={'minimum': 1, 'maximum': 100})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
-packages/contracts/src/muad_contracts/platform_settings.py,293,stream_replay_retention_hours,"field(default=24, metadata={'minimum': 1, 'maximum': 168, 'unit': 'hours'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
-packages/contracts/src/muad_contracts/platform_settings.py,297,notification_retention_days,"field(default=30, metadata={'minimum': 1, 'maximum': 365, 'unit': 'days'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
-packages/contracts/src/muad_contracts/platform_settings.py,301,history_retention_days,"field(default=0, metadata={'minimum': 0, 'maximum': 3650, 'unit': 'days'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
-packages/contracts/src/muad_contracts/platform_settings.py,303,max_conversations_per_entry,"field(default=50, metadata={'minimum': 1, 'maximum': 1000})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
-packages/contracts/src/muad_contracts/platform_settings.py,308,conversation_retention_days,"field(default=30, metadata={'minimum': 0, 'maximum': 3650, 'unit': 'days'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
-packages/contracts/src/muad_contracts/platform_settings.py,318,learning_enabled,False,policy-field,business,平台设置 schema 默认值
-packages/contracts/src/muad_contracts/platform_settings.py,319,signal_detection_enabled,True,policy-field,business,平台设置 schema 默认值
-packages/contracts/src/muad_contracts/platform_settings.py,320,retrieval_min_score,0.35,policy-field,business,平台设置 schema 默认值
-packages/contracts/src/muad_contracts/platform_settings.py,321,retrieval_preference_items,3,policy-field,business,平台设置 schema 默认值
-packages/contracts/src/muad_contracts/platform_settings.py,322,retrieval_preference_bytes,512,policy-field,business,平台设置 schema 默认值
-packages/contracts/src/muad_contracts/platform_settings.py,323,experience_min_success_runs,3,policy-field,business,平台设置 schema 默认值
-packages/contracts/src/muad_contracts/platform_settings.py,324,experience_auto_activate,"field(default_factory=lambda: ['PROCEDURE', 'FAILURE_PATTERN'])",policy-field,business,平台设置 schema 默认值
-packages/contracts/src/muad_contracts/platform_settings.py,325,experience_trial_runs,20,policy-field,business,平台设置 schema 默认值
-packages/contracts/src/muad_contracts/platform_settings.py,326,experience_trial_max_regression,0.05,policy-field,business,平台设置 schema 默认值
-packages/contracts/src/muad_contracts/platform_settings.py,327,verification_max_attempts,2,policy-field,business,平台设置 schema 默认值
-packages/contracts/src/muad_contracts/platform_settings.py,328,eval_min_improvement,0.05,policy-field,business,平台设置 schema 默认值
-packages/contracts/src/muad_contracts/platform_settings.py,329,eval_min_cases,10,policy-field,business,平台设置 schema 默认值
-packages/contracts/src/muad_contracts/platform_settings.py,330,eval_max_cases,50,policy-field,business,平台设置 schema 默认值
-packages/contracts/src/muad_contracts/platform_settings.py,331,eval_max_items_per_case,10,policy-field,business,平台设置 schema 默认值
-packages/contracts/src/muad_contracts/platform_settings.py,406,_SECTIONS,"{'snip': SnipSettings, 'tool_result': ToolResultSettings, 'micro': MicroSettings, 'summary': SummarySettings}",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/platform_settings.py,413,_COMPACTION_SCALARS,"('history_budget_messages', 'max_history_tool_rounds')",python-constant,business,平台设置 schema 默认值；保存后新操作立即生效
-packages/contracts/src/muad_contracts/platform_settings.py,415,_GROUPS,"{'agent': AgentSettings, 'task': TaskSettings, 'memory': MemoryPolicySettings, 'learning': LearningSettings, 'artifact': ArtifactSettings, 'auth': AuthSettings, 'locale': LocaleSettings, 'im': ImSettings, 'mcp': McpSettings, 'capacity': CapacitySettings, 'model_pool': ModelPoolSettings, 'webchat': WebchatSettings, 'egress': EgressSettings, 'schedule': ScheduleSettings}",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/platform_settings.py,708,LEARNING_SETTING_BOUNDS,"{'retrieval_min_score': (0.0, 1.0), 'retrieval_preference_items': (0, 20), 'retrieval_preference_bytes': (0, 16384), 'experience_min_success_runs': (1, 100), 'experience_trial_runs': (1, 1000), 'experience_trial_max_regression': (0.0, 1.0), 'verification_max_attempts': (1, 10), 'eval_min_improvement': (0.0, 1.0), 'eval_min_cases': (1, 1000), 'eval_max_cases': (1, 1000), 'eval_max_items_per_case': (1, 100)}",python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
-packages/contracts/src/muad_contracts/platform_settings.py,722,_LEARNING_CATEGORIES,"frozenset({'PROCEDURE', 'FAILURE_PATTERN', 'VERIFICATION'})",python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
-packages/contracts/src/muad_contracts/platform_settings.py,897,MIN_PASSWORD_LENGTH_FLOOR,8,python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/platform_settings.py,216,progress_interval_sec,2.0,policy-field,business,平台设置 schema 的默认值来源（design §2.3.2）；迁移后由 Console 系统设置按租户持久化
+packages/contracts/src/muad_contracts/platform_settings.py,218,inbound_batch_quiet_ms,"field(default=300, metadata={'minimum': 100, 'maximum': 2000, 'unit': 'ms'})",policy-field,business,业务策略默认（平台设置来源）
+packages/contracts/src/muad_contracts/platform_settings.py,223,inbound_batch_max_wait_ms,"field(default=5000, metadata={'minimum': 500, 'maximum': 30000, 'unit': 'ms'})",policy-field,business,业务策略默认（平台设置来源）
+packages/contracts/src/muad_contracts/platform_settings.py,228,inbound_batch_max_attachments,"field(default=5, metadata={'minimum': 1, 'maximum': 20})",policy-field,business,业务策略默认（平台设置来源）
+packages/contracts/src/muad_contracts/platform_settings.py,238,max_tools_per_server,200,policy-field,business,平台设置 schema 的默认值来源（design §2.3.2）；迁移后由 Console 系统设置按租户持久化
+packages/contracts/src/muad_contracts/platform_settings.py,245,max_open_runs_per_tenant,"field(default=2000, metadata={'minimum': 2, 'maximum': 100000})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
+packages/contracts/src/muad_contracts/platform_settings.py,246,max_open_runs_per_user,"field(default=2, metadata={'minimum': 2, 'maximum': 100})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
+packages/contracts/src/muad_contracts/platform_settings.py,247,queue_wait_timeout_sec,"field(default=60, metadata={'minimum': 1, 'maximum': 3600, 'unit': 'seconds'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
+packages/contracts/src/muad_contracts/platform_settings.py,251,model_wait_timeout_sec,"field(default=30, metadata={'minimum': 1, 'maximum': 600, 'unit': 'seconds'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
+packages/contracts/src/muad_contracts/platform_settings.py,261,dispatch_epoch_sec,"field(default=60, metadata={'minimum': 10, 'maximum': 3600, 'unit': 'seconds'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
+packages/contracts/src/muad_contracts/platform_settings.py,265,input_estimate_multiplier,"field(default=1.25, metadata={'minimum': 1, 'maximum': 4})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
+packages/contracts/src/muad_contracts/platform_settings.py,266,interactive_weight,"field(default=8, metadata={'minimum': 1, 'maximum': 100})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
+packages/contracts/src/muad_contracts/platform_settings.py,267,background_weight,"field(default=1, metadata={'minimum': 1, 'maximum': 100})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
+packages/contracts/src/muad_contracts/platform_settings.py,268,aging_interval_sec,"field(default=30, metadata={'minimum': 1, 'maximum': 300, 'unit': 'seconds'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
+packages/contracts/src/muad_contracts/platform_settings.py,278,access_ttl_days,"field(default=30, metadata={'minimum': 1, 'maximum': 365, 'unit': 'days'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
+packages/contracts/src/muad_contracts/platform_settings.py,279,session_ttl_hours,"field(default=12, metadata={'minimum': 1, 'maximum': 24, 'unit': 'hours'})",policy-field,business,平台设置策略默认值
+packages/contracts/src/muad_contracts/platform_settings.py,280,text_max_bytes,"field(default=65536, metadata={'minimum': 1, 'maximum': 1048576, 'unit': 'bytes'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
+packages/contracts/src/muad_contracts/platform_settings.py,281,upload_max_bytes,"field(default=52428800, metadata={'minimum': 1, 'unit': 'bytes'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
+packages/contracts/src/muad_contracts/platform_settings.py,282,upload_max_per_message,"field(default=5, metadata={'minimum': 1, 'maximum': 20})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
+packages/contracts/src/muad_contracts/platform_settings.py,283,upload_staging_ttl_sec,"field(default=86400, metadata={'minimum': 60, 'maximum': 604800, 'unit': 'seconds'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
+packages/contracts/src/muad_contracts/platform_settings.py,287,history_page_size,"field(default=50, metadata={'minimum': 1, 'maximum': 100})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
+packages/contracts/src/muad_contracts/platform_settings.py,288,notification_poll_sec,"field(default=5.0, metadata={'minimum': 1, 'maximum': 60, 'unit': 'seconds'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
+packages/contracts/src/muad_contracts/platform_settings.py,292,reconnect_base_ms,"field(default=500, metadata={'minimum': 100, 'maximum': 5000, 'unit': 'ms'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
+packages/contracts/src/muad_contracts/platform_settings.py,293,reconnect_cap_ms,"field(default=30000, metadata={'minimum': 1000, 'maximum': 120000, 'unit': 'ms'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
+packages/contracts/src/muad_contracts/platform_settings.py,294,reconnect_max_attempts,"field(default=10, metadata={'minimum': 1, 'maximum': 100})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
+packages/contracts/src/muad_contracts/platform_settings.py,295,stream_replay_retention_hours,"field(default=24, metadata={'minimum': 1, 'maximum': 168, 'unit': 'hours'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
+packages/contracts/src/muad_contracts/platform_settings.py,299,notification_retention_days,"field(default=30, metadata={'minimum': 1, 'maximum': 365, 'unit': 'days'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
+packages/contracts/src/muad_contracts/platform_settings.py,303,history_retention_days,"field(default=0, metadata={'minimum': 0, 'maximum': 3650, 'unit': 'days'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
+packages/contracts/src/muad_contracts/platform_settings.py,305,max_conversations_per_entry,"field(default=50, metadata={'minimum': 1, 'maximum': 1000})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
+packages/contracts/src/muad_contracts/platform_settings.py,310,conversation_retention_days,"field(default=30, metadata={'minimum': 0, 'maximum': 3650, 'unit': 'days'})",policy-field,business,平台设置 schema 唯一默认与范围；按声明操作边界生效（capacity/webchat design §3.7）
+packages/contracts/src/muad_contracts/platform_settings.py,320,learning_enabled,False,policy-field,business,平台设置 schema 默认值
+packages/contracts/src/muad_contracts/platform_settings.py,321,signal_detection_enabled,True,policy-field,business,平台设置 schema 默认值
+packages/contracts/src/muad_contracts/platform_settings.py,322,retrieval_min_score,0.35,policy-field,business,平台设置 schema 默认值
+packages/contracts/src/muad_contracts/platform_settings.py,323,retrieval_preference_items,3,policy-field,business,平台设置 schema 默认值
+packages/contracts/src/muad_contracts/platform_settings.py,324,retrieval_preference_bytes,512,policy-field,business,平台设置 schema 默认值
+packages/contracts/src/muad_contracts/platform_settings.py,325,experience_min_success_runs,3,policy-field,business,平台设置 schema 默认值
+packages/contracts/src/muad_contracts/platform_settings.py,326,experience_auto_activate,"field(default_factory=lambda: ['PROCEDURE', 'FAILURE_PATTERN'])",policy-field,business,平台设置 schema 默认值
+packages/contracts/src/muad_contracts/platform_settings.py,327,experience_trial_runs,20,policy-field,business,平台设置 schema 默认值
+packages/contracts/src/muad_contracts/platform_settings.py,328,experience_trial_max_regression,0.05,policy-field,business,平台设置 schema 默认值
+packages/contracts/src/muad_contracts/platform_settings.py,329,verification_max_attempts,2,policy-field,business,平台设置 schema 默认值
+packages/contracts/src/muad_contracts/platform_settings.py,330,eval_min_improvement,0.05,policy-field,business,平台设置 schema 默认值
+packages/contracts/src/muad_contracts/platform_settings.py,331,eval_min_cases,10,policy-field,business,平台设置 schema 默认值
+packages/contracts/src/muad_contracts/platform_settings.py,332,eval_max_cases,50,policy-field,business,平台设置 schema 默认值
+packages/contracts/src/muad_contracts/platform_settings.py,333,eval_max_items_per_case,10,policy-field,business,平台设置 schema 默认值
+packages/contracts/src/muad_contracts/platform_settings.py,408,_SECTIONS,"{'snip': SnipSettings, 'tool_result': ToolResultSettings, 'micro': MicroSettings, 'summary': SummarySettings}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/platform_settings.py,415,_COMPACTION_SCALARS,"('history_budget_messages', 'max_history_tool_rounds')",python-constant,business,平台设置 schema 默认值；保存后新操作立即生效
+packages/contracts/src/muad_contracts/platform_settings.py,417,_GROUPS,"{'agent': AgentSettings, 'task': TaskSettings, 'memory': MemoryPolicySettings, 'learning': LearningSettings, 'artifact': ArtifactSettings, 'auth': AuthSettings, 'locale': LocaleSettings, 'im': ImSettings, 'mcp': McpSettings, 'capacity': CapacitySettings, 'model_pool': ModelPoolSettings, 'webchat': WebchatSettings, 'egress': EgressSettings, 'schedule': ScheduleSettings}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/platform_settings.py,710,LEARNING_SETTING_BOUNDS,"{'retrieval_min_score': (0.0, 1.0), 'retrieval_preference_items': (0, 20), 'retrieval_preference_bytes': (0, 16384), 'experience_min_success_runs': (1, 100), 'experience_trial_runs': (1, 1000), 'experience_trial_max_regression': (0.0, 1.0), 'verification_max_attempts': (1, 10), 'eval_min_improvement': (0.0, 1.0), 'eval_min_cases': (1, 1000), 'eval_max_cases': (1, 1000), 'eval_max_items_per_case': (1, 100)}",python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
+packages/contracts/src/muad_contracts/platform_settings.py,724,_LEARNING_CATEGORIES,"frozenset({'PROCEDURE', 'FAILURE_PATTERN', 'VERIFICATION'})",python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
+packages/contracts/src/muad_contracts/platform_settings.py,899,MIN_PASSWORD_LENGTH_FLOOR,8,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/scheduling.py,69,SNAPSHOT_HASH_PATTERN,'^sha256:[0-9a-f]{64}$',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 packages/contracts/src/muad_contracts/scheduling.py,72,SCHEDULE_CONFIRM_COMMAND,'/confirm',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 packages/contracts/src/muad_contracts/scheduling.py,283,_PAYLOAD_ADAPTER,TypeAdapter(SchedulePayload),python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -2671,12 +2676,13 @@ packages/contracts/src/muad_contracts/webchat.py,405,ADMISSION_CONVERSATION_ID_H
 packages/contracts/src/muad_contracts/webchat.py,406,ADMISSION_RESUMED_HEADER,'X-Muad-Resumed',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/webchat.py,407,ADMISSION_EXECUTION_STATUS_HEADER,'X-Muad-Execution-Status',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/webchat.py,408,ADMISSION_RUN_STATUS_HEADER,'X-Muad-Run-Status',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/im-core/src/muad_im_core/inbound_batch.py,30,BATCH_STATE_PENDING,'PENDING',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/im-core/src/muad_im_core/inbound_batch.py,31,BATCH_STATE_PUBLISHING,'PUBLISHING',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/im-core/src/muad_im_core/inbound_batch.py,32,BATCH_STATE_PUBLISHED,'PUBLISHED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/im-core/src/muad_im_core/inbound_batch.py,33,BATCH_JOURNAL_TTL_SEC,86400,python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/im-core/src/muad_im_core/inbound_batch.py,35,FRAME_TEXT,'text',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/im-core/src/muad_im_core/inbound_batch.py,36,FRAME_MEDIA,'media',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/im-core/src/muad_im_core/inbound_batch_journal.py,18,BATCH_JOURNAL_TTL_SEC,86400,python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/im-core/src/muad_im_core/inbound_batch_journal.py,19,BATCH_SCAN_LIMIT,10000,python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/im-core/src/muad_im_core/inbound_batch_journal.py,20,BATCH_STATE_PENDING,'PENDING',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/im-core/src/muad_im_core/inbound_batch_journal.py,21,BATCH_STATE_PUBLISHING,'PUBLISHING',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/im-core/src/muad_im_core/inbound_batch_journal.py,22,BATCH_STATE_PUBLISHED,'PUBLISHED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/im-core/src/muad_im_core/inbound_batch_journal.py,23,FRAME_TEXT,'text',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/im-core/src/muad_im_core/inbound_batch_journal.py,24,FRAME_MEDIA,'media',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/im-core/src/muad_im_core/ingress.py,29,STATE_RECEIVED,'RECEIVED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/im-core/src/muad_im_core/ingress.py,30,STATE_PUBLISHED,'PUBLISHED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/im-core/src/muad_im_core/ingress.py,31,STATE_LOST,'LOST',python-constant,code,协议标识、枚举、schema、文本或实现常量

@@ -99,9 +99,9 @@ def test_b03_interval_floor_accepts_one_and_rejects_below() -> None:
 
 
 def test_b03_defaults_when_tenant_has_no_record() -> None:
-    """无记录（revision 0）等价于 schema 默认：5.0 秒 / zh-CN。"""
+    """无记录（revision 0）等价于 schema 默认：2.0 秒 / zh-CN。"""
     reply = resolve_reply_settings(PlatformSettingsSnapshot(revision=0))
-    assert (reply.locale, reply.progress_interval_sec) == ("zh-CN", 5.0)
+    assert (reply.locale, reply.progress_interval_sec) == ("zh-CN", 2.0)
 
 
 async def test_b03_one_fetch_per_reply_and_next_message_uses_new_value(
@@ -156,6 +156,19 @@ async def test_b03_tick_is_the_smaller_of_progress_and_delta_window(
     await pipeline.handle(adapter, make_envelope("hi", message_id="msg-tick"))
 
     assert recorded_intervals == [0.25]
+
+
+def test_b03_status_tick_tolerates_jitter_against_its_own_cadence() -> None:
+    """节流窗口与读取循环的醒来节拍同值：抖动 0.1s 的那一拍必须照发。
+
+    回归：窗口等于节拍时，`now - last` 永远差一点点不到节拍，状态行实际变成 4 秒一刷
+    （实测 `已执行 00:00 → 00:04`）。
+    """
+    from muad_im_gateway.application.inbound import PROGRESS_THROTTLE_TOLERANCE_SEC, _status_due
+
+    assert PROGRESS_THROTTLE_TOLERANCE_SEC > 0
+    assert _status_due(101.9, 100.0, 2.0), "标称节拍那一拍必须发"
+    assert not _status_due(101.0, 100.0, 2.0), "明显太近的仍要节流"
 
 
 async def test_b03_reply_render_locale_comes_from_snapshot(catalog) -> None:

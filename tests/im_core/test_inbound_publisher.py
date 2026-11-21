@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 
 import pytest
 from muad_contracts import InboundEvent
+from muad_contracts.im import inbound_dedupe_key
 from muad_im_core.ingress import InboundPublisher, PublishOutcome
 
 pytestmark = pytest.mark.unit
@@ -92,3 +93,13 @@ async def test_single_identity_publish_keeps_existing_shape() -> None:
     assert await publisher.is_published(
         tenant_id="t", bot_id="b", message_id="other"
     ) is False
+
+
+async def test_partial_member_marks_are_repaired_on_retry() -> None:
+    redis = _FakeRedis()
+    publisher = InboundPublisher(redis, shards=1, stream_maxlen=100, lost_after_sec=60)
+    await publisher.publish(_event("t1"), dedupe_ids=("t1", "f1"))
+    redis.values.pop(inbound_dedupe_key("t", "b", "f1"))
+    assert await publisher.publish(_event("t1"), dedupe_ids=("t1", "f1")) is PublishOutcome.DUPLICATE
+    assert await publisher.is_published(tenant_id="t", bot_id="b", message_id="f1")
+    assert len(redis.xadds) == 1

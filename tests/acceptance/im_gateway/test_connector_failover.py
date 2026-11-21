@@ -370,7 +370,9 @@ async def test_e07_no_redelivery_is_explicitly_lost_and_never_fakes_a_run(
         bot_id=BOT_ID,
         message_id=message_id,
         external_user_id="e2e-im-ext-bound",
-        text="E-07 不重投",
+        # This tests the publisher's RECEIVED-only loss boundary. Commands have no
+        # batch journal; recoverable text batches are tested separately.
+        text="/skills",
         reply_id=f"req-{message_id}",
         chat_id="e2e-im-chat",
     )

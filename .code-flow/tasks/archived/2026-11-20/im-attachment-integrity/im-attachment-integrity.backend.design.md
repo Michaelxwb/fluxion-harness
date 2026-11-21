@@ -5,10 +5,10 @@ design_template: full
 # IM 附件完整性与后台任务产物交付 模块需求与设计一体化文档
 
 > **文档编号**: MOD-IM-ATTACH-1.0
-> **文档版本**: v1.0
+> **文档版本**: v1.2
 > **创建日期**: 2026-11-20
-> **文档状态**: 设计评审中
-> **需求基线**: `im-attachment-integrity.prd.md` v1.1
+> **文档状态**: 已批准（用户已明确要求开始编码修复）
+> **需求基线**: `im-attachment-integrity.prd.md` 修订历史 v1.4 + 2026-11-20 回归分析
 
 **评审边界说明**:
 
@@ -35,6 +35,7 @@ design_template: full
 | v0.1 | 2026-11-20 | code-flow | 初始设计：Connector 聚合、产物 owner、附件来源标注 |
 | v1.0 | 2026-11-20 | code-flow | 细化为可拆分任务的设计基线 |
 | v1.1 | 2026-11-20 | code-flow | 纳入 WebChat/MSSWWEB 发布下载、批次 journal、在途成员、精确 task owner、整批重发提示 |
+| v1.2 | 2026-11-20 | code-flow | 回归修订待评审：修正批次任务取消、下载阻塞、失败合并和 journal 恢复；沿用现有组件，不扩大业务范围 |
 
 ---
 
@@ -88,7 +89,7 @@ design_template: full
 | **范围（In Scope）** | 生产 `im.inbound` 的 Connector 路径（企微文字/1..N 媒体帧）；附件枚举标签；任务产物 owner 读取/交付；WebChat 与 MSSWWEB 的本地流发布/下载；多附件回归。 |
 | **非范围（Out of Scope）** | Gateway 直连适配器路径的企微分帧（该路径不持有企微 socket；生产 WECOM 走 Connector）；其他 IM 通道协议；任务调度/执行/投递模型；新数据库表/迁移；新增 UI 页面。 |
 | **前置假设** | 同一 route 的文字/媒体帧由同一 Connector 处理（bot lease 单 owner）；媒体字节在 Connector 已落共享存储；`artifact.user_id/agent_id` 是任务产物的权威 owner；用户明确要求可代表内部产物交付意图。 |
-| **有意妥协 / 技术债** | Connector 批次热路径在进程内，Redis `InboundBatchJournal` 只保存批次身份/成员/合并事件元数据用于等待期去重和崩溃恢复，不保存附件字节；批次窗口会给企微文本增加有界延迟。 |
+| **有意妥协 / 技术债** | 聚合依赖同 route 的短窗口，不能识别协议未提供的逻辑发送身份；批次窗口给纯文本增加有界延迟。Journal 保存恢复所需元数据与已物化引用，不保存附件字节或取件凭据；重启时无法续取的在途成员按整批失败处理。 |
 
 ### 2.5 验收条件
 
@@ -119,6 +120,9 @@ design_template: full
 | B-01/B-02/B-03 | 多附件、重投、窗口超时边界 |
 | B-04/B-05 | 命令穿插、系统设置页上限变更 |
 | S-06 | MSSWWEB 任务产物发布/下载共用本地流裁决 |
+| S-05、S-07 | 单条普通文字自然到期即可执行；既有执行状态随真实执行事件展示 |
+| B-06 | 慢下载期间，其他用户文字和命令不等待该下载 |
+| E-05、E-06 | 重启按原批次恢复；无法恢复完整附件时整批失败 |
 
 #### 2.5.3 非功能指标
 
@@ -173,6 +177,15 @@ design_template: full
 
 Python 3.12、asyncio、Redis Streams、SQLAlchemy async、FastAPI；不新增第三方依赖、不新增数据库迁移。
 
+#### 3.1.4 回归修订的依据与改动边界
+
+- `b73b0e8b` 已修正 `_batch_frame` 的 coroutine 误用，并隔离单条入站消息异常；仍需保留这些修复。
+- 当前批次定时器调用 `_flush` 后被其自身取消。独立真实 Redis 复现为 `PUBLISHING`、零 Stream 事件；主动 flush 则可发布。运行中的两条普通文字也没有 Run 提交记录。
+- 原内存 journal 的异步方法不挂起，掩盖了取消；仅加入一次异步挂起即可复现零发布。批次关键回归必须经过真实 Redis。
+- 合并事件遗漏成员事件的附件失败；下载占用唯一入站消费者；原设计承诺的批次恢复尚未实现。这些均在原需求范围内。
+- 本轮只修 Connector / `im-core` 批次实现及其契约回归。沿用 bot 租约、现有 Stream、journal、Runtime 幂等和 Gateway 状态展示；不增加服务、消息队列、通用任务调度器或另一套回复状态机制，不改任务产物业务。
+- 实现采用每批一个生命周期任务、一个有界媒体任务集合与并发限制。任务失败由所属 runtime/coordinator 记录并处理，不引入通用 supervisor 框架。只有取件并发需要新增 Connector 运行参数，默认与范围由 `ConnectorSettings` 定义；缓冲容量复用现有入站容量。
+
 ### 3.2 架构设计
 
 ```mermaid
@@ -200,7 +213,9 @@ graph TB
     end
     T --> A
     F --> A
-    A --> M --> B
+    A -->|先登记原始帧| B
+    B -->|有界取件| M
+    M -->|完成或失败| B
     B <-->|成员/状态/恢复| J
     B -->|一个 InboundEvent| P --> S --> R --> L --> R1
     R1 --> AT --> AR
@@ -210,37 +225,38 @@ graph TB
 
 #### 3.2.1 Connector 批次（含在途成员与 journal）
 
-新增 `InboundBatchCoordinator`（建议放在 `packages/im-core/src/muad_im_core/inbound_batch.py`，保持渠道中立）和轻量 `InboundBatchJournal`（Redis）：
+沿用 `packages/im-core/src/muad_im_core/inbound_batch.py` 的 `InboundBatchCoordinator` 与 `RedisBatchJournal`，修正生命周期和恢复实现。
 
-- 输入是原始帧 + 已物化的 `InboundEvent`；按 `route_key(channel, tenant_id, bot_id, external_conversation_id, external_user_id)` 分组。
-- **下载前登记**：`raw_sink` 或 `_publish_inbound` 在取件前调用 `register_frame(route, message_id, kind)`，把成员标为 `PENDING`；文字帧立即 `READY`，媒体帧取件成功后 `complete_frame(event)`，失败则 `fail_frame(message_id, code)`。这样最大等待到点时不会把“还在下载的附件”当成不存在。
-- 批次参数从 Console 内部 `platform-settings` 快照读取（见 §3.3/§3.4），Connector 按租户缓存；Console 暂不可用时使用最近一次成功快照，若从未取到则使用代码默认值并记 WARNING，不阻断入站。
-- 每个 route 一个 `_Batch`：
-  - `members: list[BatchMember]`（`message_id`、`kind`、`status`、`event`、`failure`）
-  - `primary`（第一条文字；没有文字则第一条媒体）
-  - `created_at` / `last_at`
-  - `timer: asyncio.Task`
-- 入批规则：
-  - 若成员 key 已映射到 `PUBLISHED` 批次：直接丢弃（重复）。
-  - 若成员 key 已映射到当前 `PENDING` 批次：同一 `message_id` 直接忽略；新成员加入。
-  - 命令帧（`/bind`、`/new`、`/stop`、`/skills`、`/confirm`、`/memory` 等）：不加入批次；先 flush 当前批次，再返回该命令事件单独发布。
-  - `unsupported_media`：不加入批次；先 flush 当前批次，再单独发布。
-  - 批次为空：创建，登记成员，启动计时。
-  - 新事件是文字且批次已有文字：立即 flush 当前批次，以新文字开新批次（避免合并两条独立指令）。
-  - 新媒体：登记 `PENDING`；取件完成后加入；媒体数达到 `im.inbound_batch_max_attachments` 后停止接收新媒体，等待静默/最大等待到期；若到期前又来新媒体，追加 `ATTACHMENT_COUNT_EXCEEDED` 失败并立即 flush。
-- 计时（**按 route，不按 bot 全局队列**）：
-  - 静默窗口：当本 route 没有 `PENDING` 成员、且最近一次成员完成后开始/刷新；同 bot 其他用户流量不影响本批。
-  - 最大等待：从 `created_at` 起算。到点仍有 `PENDING` 成员 ⇒ 追加 `ATTACHMENT_FETCH_TIMEOUT` 并整批失败；**不允许只带文字 flush**。
-  - 三个值来自系统设置页 `im` 配置（见 §3.4），必须 `quiet < max`、`max` 有上界。
-- `_flush(batch, reason)`：
-  - 合并 `InboundEvent`：`external_message_id` = primary；`text` = primary；`attachments`/`attachment_failures` 按成员顺序拼接；`reply_ref` = primary；`require_complete_attachments = len(members) > 1`。
-  - `InboundBatchJournal` 写 `PUBLISHING` + 合并事件；调用 `InboundPublisher.publish(merged, dedupe_ids=全部成员 id)`；成功后写 `PUBLISHED` 并标记成员；失败回 `PENDING` 并退避重试。
-- Journal 结构（Redis，不落库）：
-  - `muad:connector:inbound-batch:{tenant}:{bot}:{batch_id}` → JSON：主消息 id、成员列表、合并事件、状态、时间戳；TTL 覆盖重投窗口。
-  - `muad:connector:inbound-batch-member:{tenant}:{bot}:{message_id}` → `batch_id`；TTL 同上。
-  - Connector 启动/接管时扫描 owned bot 的 `PENDING/PUBLISHING` journal：超过最大等待仍未完成则按当前成员整批失败/重发，不把文字单独放行。
-- 命令/不支持媒体的顺序：先 flush 当前批次，再发布命令/不支持媒体事件；保证用户文字/附件不被静默丢弃。
-- 停机：`stop()` 时对全部 pending 批次做一次有界 flush；失败只记日志，journal 留给接管者/重投。
+**先登记，再取件**：
+
+- 原始帧按到达顺序经现有有界队列登记，仍使用 `route_key` 分组。普通文字立即完成；媒体登记为 `PENDING` 后交给 runtime 持有的媒体任务集合，入站消费者不等待下载。
+- 媒体任务以信号量限制实际取件并发；未完成批次与媒体任务集合均以现有入站容量封顶，队列本身容量保持不变，不能排空为无限等待信号量的任务。超容量显式记录并走失败反馈，不静默丢失。
+- 命令与纯文本不占媒体取件名额。媒体任务的异常转换为原成员失败；批次已封闭后的迟到结果不能重新开批或生成另一个 Run。
+- 批次设置沿用租户缓存与最近成功快照/默认值降级；创建时固定参数。配置读取失败、坏帧只影响当前消息，必须留下日志与指标。
+
+**批次生命周期**：
+
+- 每个 route 至多一个接收新成员的批次。主消息仍优先选择文字，没有文字则首个媒体；封批后主消息、成员顺序和合并事件固定。
+- 每批只持有一个生命周期任务，负责等待窗口和发布重试；成员完成或显式 flush 用唤醒信号重算截止时间，不用取消任务刷新窗口。外部取消只用于停机或失去租约，不能由发布函数取消当前任务自身。
+- 状态修改使用批次内的短临界区，覆盖计时到期与成员完成的竞态；不持锁等待下载、窗口或发布重试。发布中的批次仍被持有和观察，不能先移除唯一引用再执行 Redis 操作。
+- 第二段独立文字先封闭前批，再创建新批。命令/不支持媒体先封闭前批，再按原独立事件发布，不加入聚合，也不等待取件完成；封批时仍有未完成成员则明确整批失败，不能把文字单独放行。
+- 新媒体先按附件数量检查上限，超限成员不启动下载，追加 `ATTACHMENT_COUNT_EXCEEDED` 后封批。达到上限但没有超限时仍等待静默或最大等待。
+- 静默到期要求本批没有 `PENDING` 成员；最大等待始于批次创建，同 bot 其他用户流量不改变它。到点仍未完成的成员记 `ATTACHMENT_FETCH_TIMEOUT`，整批失败。等待下载名额的时间也算在最大等待内。
+
+**封批与发布**：
+
+- 所有封批入口共用同一实现：合并成员事件的附件引用、`attachment_failures`、失败键及协调器产生的失败，按原顺序保留并去重；未完成成员必须先转为失败。
+- 合并事件使用固定的 primary message id、reply_ref 和 event_id。沿用多成员批次的 `require_complete_attachments` 契约，由 Gateway 统一反馈、审计并禁止失败批次建 Run。
+- 发布前保存 `PUBLISHING` 与不可变合并事件；成功发布并完成 journal 确认后才清理内存批次和成员索引。Redis 异常覆盖 journal 写入和发布两段，不能只保护 XADD；失败保留状态，沿用退避并记录日志/指标。
+- 重试始终使用同一合并事件和主消息身份，不能把 `PUBLISHING` 退回可接收新成员的批次，也不能重新生成部分成功事件。
+
+**最小 journal 恢复**：
+
+- Redis key 继续由 contracts 的 `inbound_batch_key` / `inbound_batch_member_key` 定义。`PENDING` 保存 route、原帧必要元数据、成员顺序/状态、已完成事件、设置快照与恢复所需截止时间；`PUBLISHING` 另保存最终合并事件。时间须可跨进程解释，不持久化 monotonic 值；不保存附件字节或取件凭据。
+- 仅在取得 bot 租约后，对该 bot 的未完成 journal 做有界扫描；恢复与续租解耦，恢复结束前不把该 bot 的新帧登记到冲突的新批次。失去租约立即停止该 bot 的取件和批次任务。
+- `PUBLISHING` 重发/确认原合并事件；`PENDING` 全部物化成功则按原成员封批，仍有无法续取成员则追加明确附件失败并整批反馈。成员重投先恢复原批次，不以文件帧身份另起主消息。
+- 扫描仅在启动/接管发生，不新增常驻恢复服务或第二条持久队列。损坏、缺少必要恢复事实的记录显式记失败，不补造成功 Run。
+- 停机先停止接收新成员，按有界时间结束取件和封批；未确认发布的 journal 保留给接管者，不能在取消时误记 `PUBLISHED`。
 
 #### 3.2.2 Publisher 多成员去重
 
@@ -248,10 +264,10 @@ graph TB
 
 - `publish(event, *, dedupe_ids: Sequence[str] | None = None)`：
   - 身份集合 = `dedupe_ids or (event.external_message_id,)`。
-  - 对每个身份复用现有 `_begin`：任一已是 `PUBLISHED` ⇒ 整个批次视为重复，返回 `DUPLICATE`；`RECEIVED`/`LOST`/缺失 ⇒ 继续。
+  - 对每个身份复用现有 `_begin`：任一已是 `PUBLISHED` ⇒ 使用其发布事实补齐本批其余成员标记，再返回 `DUPLICATE`；`RECEIVED`/`LOST`/缺失 ⇒ 继续。
   - XADD 一次；随后把全部身份写为 `PUBLISHED:<entry_id>`。
   - 任一步失败保持现有语义：标记停在 `RECEIVED`，由 `sweep_lost` 显式处理。
-- 新增 `is_published(message_id) -> bool`：批次入口先查，重复帧不下载、不合并。
+- 沿用 `is_published(message_id) -> bool`；批次入口先恢复 member→batch 身份，再查已发布事实，重复帧不下载、不合并。
 - 批次主消息 id = 文字 id（无文字则首个媒体 id）；Runtime 幂等键继续使用这个 id。
 - XADD 成功、全部 PUBLISHED 标记写入前崩溃：`InboundBatchJournal` 保持 `PUBLISHING` + 合并事件；任一成员重投先从 member key 找到原主消息 id，按 Journal 重发/确认，不用文件 id 另起 Run。Journal 与 PUBLISHED 标记不追求跨 key 原子，靠“主消息 id 稳定 + Runtime 幂等 + 重投检查”收敛。
 
@@ -337,8 +353,8 @@ WebChat 与 MSSWWEB 共用 `LOCAL_STREAM_CHANNELS` 和同一套 `publish_artifac
   - 当前任务写入方 `_new_row` 写 `user_id/agent_id`；库内历史 `task_id` 但 owner 为空、且无 live `task_execution` 的行不回填、不放行，按“归属不完整”拒绝。
 - Redis：
   - 复用 `InboundPublisher` 的 `inbound_dedupe_key` 多身份标记。
-  - 新增轻量 `InboundBatchJournal`：batch JSON + member→batch 映射，只保存主消息 id、成员 message_id、合并事件（文字/附件 refs/failures）和发布状态；TTL 覆盖重投窗口。不保存附件字节、不建数据库表。
-  - 热路径批次仍在 Connector 内存；Journal 只用于等待期重复帧、崩溃恢复和接管，避免每次帧都做全量状态机。
+  - 沿用 `InboundBatchJournal` 的 batch JSON + member→batch 映射，保存 §3.2.1 的必要恢复字段与合并事件；TTL 覆盖重投窗口。不保存附件字节或取件凭据、不建数据库表。
+  - 热路径批次仍在 Connector 内存；Journal 在登记、完成和发布边界更新，不新增事件溯源日志。发布确认后清理内存成员索引，跨重投去重由 Redis TTL 保留。
 - 配置新增（系统设置页 `ImSettings`，非 ConnectorSettings）：
   - `im.inbound_batch_quiet_ms`：默认 300，范围 100–2000
   - `im.inbound_batch_max_wait_ms`：默认 5000，范围 500–30000
@@ -347,6 +363,7 @@ WebChat 与 MSSWWEB 共用 `LOCAL_STREAM_CHANNELS` 和同一套 `publish_artifac
 - Connector 读取路径：复用 Console 内部 `GET /internal/v1/platform-settings`（已有服务身份），按租户做进程内缓存；成功快照优先，取不到时用最近一次成功快照，从未成功则用 `ImSettings` 默认值并记 WARNING。
 - 缓存周期由 Connector 实现常量定义（不在页面配置），页面保存后最多延迟一个缓存周期对新批次生效；批次参数只影响新批次，不追溯正在等待的批次。
 - 本版不新增“单批总字节上限”，沿用现有单附件大小限制；若 1000 用户压测发现单批总体积需要额外保护，再评估增加 `im.inbound_batch_max_total_bytes`，不阻塞本次修复。
+- 回归修订增加一个 Connector 取件并发参数，收敛在 `ConnectorSettings`；不增加平台设置项。未完成任务集合沿用已有入站容量作上限，不另外创建下载队列或无界任务池。
 
 ### 3.4 接口设计
 
@@ -355,9 +372,11 @@ WebChat 与 MSSWWEB 共用 `LOCAL_STREAM_CHANNELS` 和同一套 `publish_artifac
 | 接口 | 入参 | 返回 | 错误处理 |
 |---|---|---|---|
 | `ConnectorPlatformSettings.batch(tenant_id)` | 租户 | `ImBatchSettings`（quiet/max/count） | 缓存/最近成功/默认值；WARNING 日志 |
-| `InboundBatchCoordinator.register_frame(route, message_id, kind)` | 原始帧元数据 | member 状态 | 重复/已发布直接忽略 |
-| `InboundBatchCoordinator.complete_frame(event)` | 物化后的 `InboundEvent` | 需要立即发布的合并事件或 `None` | 发布失败保留批次；不抛给入站循环 |
-| `InboundBatchCoordinator.fail_frame(message_id, code)` | 失败原因 | 批次失败状态 | 整批不执行业务 |
+| `InboundBatchCoordinator.register(frame, settings)` | 原始帧与批次参数 | 是否接受新成员 | 重投关联原批次；重复直接忽略 |
+| `InboundBatchCoordinator.complete(event)` | 物化后的 `InboundEvent` | 无 | 保留全部失败；已封批的迟到结果不重开批次 |
+| `InboundBatchCoordinator.fail(frame, code)` | 原成员与失败原因 | 无 | 整批不执行业务 |
+| `InboundBatchCoordinator.flush_route(frame, reason)` | route 与封批原因 | 无 | 同一封批实现；未完成成员不能被略过 |
+| `InboundBatchCoordinator.recover(tenant_id, bot_id)` | 当前持有租约的 bot | 恢复结果 | 有界扫描，沿用原主消息；失败不伪造成功 |
 | `InboundBatchCoordinator.flush_all()` | 无 | 无 | 停机有界 flush |
 | `publish_artifact_to_conversation(..., allow_internal=False)` | 目标会话/Run/产物 | 发布 seq | task owner 校验；TOOL_RESULT 需显式允许 |
 | `InboundPublisher.publish(event, dedupe_ids=...)` | 事件 + 成员身份集合 | `PUBLISHED` / `DUPLICATE` | 保持现有 Redis 故障语义 |
@@ -385,14 +404,14 @@ WebChat 与 MSSWWEB 共用 `LOCAL_STREAM_CHANNELS` 和同一套 `publish_artifac
 #### 3.5.1 性能
 
 - 批次热路径只在 Connector 内存保存成员/引用；`InboundBatchJournal` 只存元数据与合并事件（不含字节），每个 route 至多一个批次，成员数受 `im.inbound_batch_max_attachments` 限制。
-- 按 1000 并发用户估算：1000 个批次只持有文字 + 附件引用（不复制字节），内存量级可忽略；每个批次一个 asyncio 定时任务，远低于 Connector 既有 10k 入站队列上限。
+- 批次任务和未完成取件都计入容量；每批一个生命周期任务，内存只保存文字、状态和引用，不复制附件字节。容量不足显式反馈；吞吐与延迟由靶向测量确认，不以并发人数推断内存可忽略。
 - 文本消息最多增加一个静默窗口延迟（默认 300ms）；最大等待（默认 5s）只在连续来帧/慢下载时生效，不拖慢纯文本。
 - 发布仍是每批一次 XADD，不增加每附件一次 Stream。
-- 媒体下载/落盘仍是现有串行链路；批次不改变单附件大小上限，也不把字节读入内存批次。
+- 媒体下载独立于入站登记并限制并发，沿用原下载、解密、门控和落盘实现；单附件大小限制不变。
 
 #### 3.5.2 可靠性
 
-- 静默/最大等待/数量上限三个 flush 条件；计时任务异常必须记 ERROR 并保留批次。
+- 静默/最大等待/数量上限及命令/第二段文字共用封批规则；批次任务异常必须记 ERROR、失败指标并保留未确认事实。
 - 发布失败保留批次并退避重试；停机有界 flush；Journal 状态允许接管者重发同一主消息 id。
 - 成员去重覆盖全部 `message_id`：等待期由内存成员集合 + Journal，发布后由 `InboundPublisher` multi-identity；重复帧不下载、不合并。
 - 最大等待到点仍有 `PENDING` 媒体：整批失败并给友好提示，不允许文字单独执行。
@@ -403,17 +422,24 @@ WebChat 与 MSSWWEB 共用 `LOCAL_STREAM_CHANNELS` 和同一套 `publish_artifac
 - 任务产物直接归属只对 `task_id + OUTPUT + user_id + agent_id` 精确匹配生效；`agent_id` 为空明确拒绝；`task_execution` 必须同租户且 live。
 - WebChat/MSSWWEB 发布/下载同样按 task owner 校验；跨会话下载还要求目标会话存在对应 publish 事实与 checksum。
 - `TOOL_RESULT` 默认不可交付；`allow_internal=true` 仅在 owner 校验通过后生效；审计参数可见。
-- 日志只记 batch_id、primary message_id、member_count、reason、code；不记附件内容/URL/Cookie/AK/SK。
+- 日志只记 batch_id、primary message_id、member_count、reason、code 与耗时；不记正文、附件内容/URL/Cookie/AK/SK。
 
 #### 3.5.4 可观测性
 
 | 指标/日志 | 说明 |
 |---|---|
-| `im_inbound_batch_total{reason}` | reason = quiet / max_wait / count_limit / command / unsupported |
-| `im_inbound_batch_members` | 批次成员数直方图 |
-| `im_inbound_batch_failures_total{code}` | 附件失败/超限 |
-| `attachment_owner_fallback_total` | 任务产物走 `artifact.user_id/agent_id` 的次数 |
-| 日志 | `inbound_batch_flush batch_id=... primary=... members=... reason=...`；无正文 |
+| 入站结果与批次失败 | 复用 Connector 指标入口，记录发布、重复、失败与恢复结果；发布取消不能被当成正常成功 |
+| 批次日志 | 记录批次身份、主消息、成员数、封批原因与耗时；无正文 |
+| 就绪信息 | 检查关键循环存活并报告批次异常、未确认发布数量；个别下载失败不让整个 Connector 失去就绪 |
+
+#### 3.5.5 回归验证
+
+- 单元回归保留 `tests/im_connector/test_runtime_inbound.py`、`tests/im_core/test_inbound_batch.py` 和 `tests/im_core/test_inbound_publisher.py`，覆盖原 coroutine 误用、坏帧隔离与批次规则；至少保留一个会真正挂起的 journal 替身对照。
+- 增补真实 Redis 集成：自然窗口到期（不能用手动 flush 代替）、最大等待、失败合并、journal 写入/发布失败、同 route 封批竞态、进程重启和成员重投。断言 Stream 与 journal 两步均完成后再判断成功，确认原 primary/event 身份不漂移。
+- 慢下载用可控真实 HTTP 媒体源，验证后续媒体已登记，另一用户文本和命令能先完成；并发与容量不超过声明限制，超时后的迟到结果不产生第二个 Run。
+- 复用 `tests/acceptance/im_gateway/environment.py` 的完整真实栈（`connector_environment.py` 仅覆盖 Connector、不启动 Gateway），补入站到 Runtime 受理、执行状态、最终回复的完整旅程。Redis、PostgreSQL、服务 HTTP 与 WS 边界不得 mock；故障注入只控制媒体源或服务退出时机。
+- 既有 Gateway 失败和状态回归建议执行 `tests/gateway/test_inbound_batch_failure.py`、`tests/gateway/test_inbound_attachment_flow.py`、`tests/gateway/test_execution_progress.py`；具体命令由后续 TASK 声明。
+- 修复必须有负向实证：注入旧的自身取消行为，真实 Redis 自然到期回归必须失败；恢复修复后通过。全量以 CI 为准，浏览器/真实企微按场景人工执行。
 
 ---
 
@@ -421,20 +447,20 @@ WebChat 与 MSSWWEB 共用 `LOCAL_STREAM_CHANNELS` 和同一套 `publish_artifac
 
 ### 4.1 部署架构
 
-- 变更镜像：`agent-runtime`（附件工具/契约）、`im-connector`（批次/发布器）、`im-gateway`（契约/失败语义）。
-- 无数据库迁移；系统设置页新增 `im.inbound_batch_*` 三项，使用代码默认值，租户可在页面调整。Connector 读取 Console 内部设置快照；无新增 Connector 环境变量。
-- 回滚：回滚三个镜像即可；已发布批次事件与新字段向后兼容（默认 false）。
+- 原需求涉及 `agent-runtime`、`im-connector`、`im-gateway`；本轮回归修订以 Connector 和共用 `im-core` 为主，不为修回复链路改任务产物实现。
+- 无数据库迁移；聚合窗口/上限沿用平台设置，Connector 新增取件并发参数；其他部署边界沿用当前配置。
+- 发布前确认 bot 租约接管和未完成 journal 的处理，记录原批次状态；不能把重启成功作为消息恢复成功的证据。
 
 ### 4.2 发布与回滚
 
 - 先在验收栈验证真实 WS 探针 + 真实 PG/Redis；再灰度一个 Connector 副本（bot lease 单 owner，灰度时注意 lease 接管）。
 - 回滚条件：批次异常导致消息积压、重复 Run 指标上升、附件失败率上升。
+- 当前遗留 `PUBLISHING` 批次按已有合并事件与主消息身份单独核对；回复目标过期走既有交付裁决或显式失败，不能盲目补执行未知状态的业务，也不新增旧格式转换层。
 
 ### 4.3 监控告警
 
-- `im_inbound_batch_total{reason=max_wait}` 持续偏高：窗口/上限配置或 Connector 处理慢。
-- `im_inbound_batch_failures_total` 上升：附件取件/权限/上限问题。
-- `attachment_owner_fallback_total` 异常：任务产物归属路径被频繁触发，需检查是否有异常访问。
+- 窗口超时/取件失败上升时，先区分等待下载名额、媒体源耗时和发布失败，再判断是否需要调整配置。
+- 关键循环退出或批次任务异常必须从日志、失败指标和就绪详情看见；不新增常驻监控进程或自动重启策略。
 
 ### 4.4 数据迁移
 
@@ -447,7 +473,7 @@ WebChat 与 MSSWWEB 共用 `LOCAL_STREAM_CHANNELS` 和同一套 `publish_artifac
 | 风险ID | 类型 | 描述 | 概率 | 影响 | 应对 | 场景 |
 |---|---|---|---|---|---|---|
 | RISK-01 | 性能 | 静默窗口增加文本延迟 | 中 | 中 | 窗口可配、默认小、指标观察 | S-04 |
-| RISK-02 | 可靠 | Connector 崩溃丢失内存批次 | 低 | 中 | Journal PENDING/PUBLISHING 恢复；平台重投；停机 flush | E-03 |
+| RISK-02 | 可靠 | 发布任务取消后遗留未确认批次；崩溃接管也需要恢复 | 已复现取消路径 | 高 | Journal PENDING/PUBLISHING 恢复；平台重投；停机有界封批 | E-05、E-06 |
 | RISK-03 | 一致 | XADD 成功但 PUBLISHED 标记未完成 | 低 | 中 | Journal 保留主消息 id + 合并事件；重投按 Journal 重发/跳过；Runtime 幂等 | B-02 |
 | RISK-04 | 安全 | 任务产物 owner 放宽 | 低 | 高 | task_id + OUTPUT + user + agent 精确匹配 + live task_execution；跨用户负例 | E-02 |
 | RISK-05 | 安全 | `allow_internal` 被模型误用 | 中 | 中 | 默认 false；工具说明；审计参数；用户明确要求 | S-03 |
@@ -468,6 +494,7 @@ WebChat 与 MSSWWEB 共用 `LOCAL_STREAM_CHANNELS` 和同一套 `publish_artifac
 | US-03 | FEAT-02 | 标签/`allow_internal` §3.2.5 | S-03 | unit + integration | pytest + manual |
 | US-04 | FEAT-04 | WebChat/MSSWWEB 回归 | S-04、S-06 | integration | pytest |
 | US-05 | FEAT-05 | 指标/失败语义 §3.5 | E-01、E-03、E-04 | integration | pytest + manual |
+| US-01、US-05 | FEAT-01、FEAT-05 | 批次生命周期、并发取件、恢复 §3.2.1/§3.5.5 | S-05、S-07、B-06、E-05、E-06 | unit + integration | pytest + manual |
 
 ---
 
@@ -495,7 +522,7 @@ WebChat 与 MSSWWEB 共用 `LOCAL_STREAM_CHANNELS` 和同一套 `publish_artifac
 | 术语 | 定义 |
 |---|---|
 | 批次 | 同一 route 内文字 + 1..N 个媒体帧的聚合单元 |
-| 静默窗口 | 最后一次帧到达后等待新帧的时间 |
+| 静默窗口 | 无未完成成员时，从最近一次成员完成起等待新帧的时间 |
 | 最大等待 | 从批次创建起的最长等待上限 |
 | 主消息 | 批次的幂等/回复身份：文字帧优先，否则首个媒体帧 |
 | `require_complete_attachments` | 批次失败时禁止创建 Run 的契约标志 |

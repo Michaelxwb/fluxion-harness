@@ -211,7 +211,9 @@ class LocaleSettings:
 class ImSettings:
     """IM 回复生命周期内的展示节拍与入站附件聚合窗口。"""
 
-    progress_interval_sec: float = 5.0
+    #: 状态行与计时器的刷新节拍。与正文合并窗口共用「同一会话 30 条/分钟」的额度，
+    #: 所以两者都取 2s（≈30 帧/分钟的上限，靠出站侧的最小时距兜底）。
+    progress_interval_sec: float = 2.0
     #: 同一 route 最后一条帧到达后的静默等待；纯文本回复主要延迟。
     inbound_batch_quiet_ms: int = field(
         default=300,

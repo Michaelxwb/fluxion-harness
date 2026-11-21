@@ -21,7 +21,10 @@ from .sse import SseEvent
 
 logger = get_logger(__name__)
 
-DELTA_FLUSH_INTERVAL_SEC = 0.5
+#: 正文合并窗口：每帧携带的是**累积全文**，窗口只决定客户端多久看到一次增长。
+#: 企微限「同一会话 30 条/分钟」，窗口与状态节拍（`im.progress_interval_sec`）合起来不能超；
+#: 0.5s 的旧值等于 120 帧/分钟，实测会被服务端限流成「攒着一次刷」。
+DELTA_FLUSH_INTERVAL_SEC = 2.0
 CANCELLED_STATUS = "CANCELLED"
 RUN_ABANDONED_CODE = "RUN_ABANDONED"
 STOPPED_TEXT = "当前任务已停止"

@@ -96,6 +96,15 @@ logger = get_logger(__name__)
 DEDUPE_PREFIX = "muad:im:dedupe"
 DEDUPE_TTL_SEC = 600
 
+#: 计时状态节流的容差。读取循环的醒来节拍**就等于** `im.progress_interval_sec`，所以
+#: 不留容差时每一拍都会「差一点不到」而被跳过，实际变成两倍间隔（实测 `00:00 → 00:04`）。
+PROGRESS_THROTTLE_TOLERANCE_SEC = 0.25
+
+
+def _status_due(now: float, last_sent_at: float, interval_sec: float) -> bool:
+    """这一拍该不该刷新状态行：标称节拍本身允许一点抖动，否则会自我吞没。"""
+    return now - last_sent_at >= interval_sec - PROGRESS_THROTTLE_TOLERANCE_SEC
+
 AUDIT_RECEIVED = "RECEIVED"
 AUDIT_REJECTED = "REJECTED"
 AUDIT_FAILED = "FAILED"
@@ -1699,7 +1708,7 @@ class InboundPipeline:
         # 读取循环的醒来节拍（0.5s，为了及时冲正文）**不等于**计时节拍（5s）：正文要快，
         # 计时帧要少（每帧都让客户端整帧重排）。这里按 `im.progress_interval_sec` 节流。
         now = time.monotonic()
-        if now - state.last_progress_at < self._progress_interval_sec:
+        if not _status_due(now, state.last_progress_at, self._progress_interval_sec):
             return
         if state.status_task is None or state.status_task.done():
             state.status_task = asyncio.create_task(self._send_status(route, state))

@@ -41,6 +41,9 @@ class ExecutionProgress:
         self._accumulated = 0.0
         self._stopped: float | None = None
         self._tools: set[str] = set()
+        #: 本次执行段里是否已经跑过工具。跑过之后就不再退回「思考中」：模型两次调用之间的
+        #: 思考与工具之间来回切，会让状态行每秒跳一次（实测 10 秒内 11 帧），整帧重排很廉价。
+        self._executed = False
         self._model_active = False
         #: 是否已经开过一次模型调用。**只有**它还是 False 才允许显示 PREPARING：
         #: 执行一旦开始，「准备中」就是倒退（模型结束到工具开始之间会闪一下），
@@ -98,6 +101,7 @@ class ExecutionProgress:
             call_id = str(event.data.get("tool_call_id", ""))
             if event.type == "tool.started":
                 self._tools.add(call_id)
+                self._executed = True
                 self.visible = True
             else:
                 self._tools.discard(call_id)
@@ -128,7 +132,7 @@ class ExecutionProgress:
         self._segment_started = None
 
     def _execution_phase(self) -> None:
-        if self._tools:
+        if self._tools or self._executed:
             self.phase = ProgressPhase.EXECUTING
         elif self._model_active or self._model_started:
             # 模型调用之间（上一个模型返回、工具还没起）仍然是「思考中」：

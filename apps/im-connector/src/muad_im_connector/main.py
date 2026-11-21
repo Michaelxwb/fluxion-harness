@@ -155,6 +155,7 @@ def _build_resources(settings: SharedSettings) -> ConnectorResources:
         renew_sec=connector.connector_lease_renew_sec,
         platform_settings=platform_settings,
         batch_journal=RedisBatchJournal(redis),
+        attachment_concurrency=connector.connector_attachment_concurrency,
         # 入站附件：字节只在本进程取（渠道凭据不出适配器），落共享存储后上行只给引用。
         attachment_store=InboundAttachmentStore(artifact_store),
     )

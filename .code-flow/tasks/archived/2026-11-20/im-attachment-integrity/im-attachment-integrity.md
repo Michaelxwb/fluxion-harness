@@ -565,3 +565,209 @@ Connector 通过 Console 内部 `platform-settings` 快照读取，按租户缓�
 - 尚未执行
 - 2026-11-20T14:02:57.162Z PASS commands=1/1 executed=1 deduped=0 elapsed=3253ms tests=c6dbac996e09 head=aebc2ebf41ed dirty=1
   - connector-inbound-loop PASS exit=0
+
+## TASK-010: 批次生命周期、失败合并与 journal 恢复
+
+- **Status**: done
+- **Depends**: TASK-009
+- **Source**: im-attachment-integrity.backend.design.md#3.1.4, #3.2.1, #3.2.2, #3.5.5
+- **Scenarios**: im-attachment-integrity:S-05, im-attachment-integrity:E-01, im-attachment-integrity:E-04, im-attachment-integrity:E-05, im-attachment-integrity:E-06, im-attachment-integrity:B-02, im-attachment-integrity:B-03
+- **Spec-Refs**: im/harness-im#RULE-im-002, test/harness-test#RULE-test-001, test/harness-test#RULE-002
+- **Paths**: packages/im-core/src/muad_im_core, tests/im_core, tests/im_connector/test_runtime_inbound.py
+- **E2E**:
+- **Skip-Tests**: false
+- **Skip-Reason**:
+
+### Tests
+
+```json
+[
+  {
+    "id": "connector-integrity-010",
+    "argv": [
+      "uv",
+      "run",
+      "python",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/im_core",
+      "tests/im_connector/test_runtime_inbound.py"
+    ],
+    "timeout": 600,
+    "parallel": false
+  }
+]
+```
+
+### Description
+
+按已复核 v1.2 设计修复 批次生命周期、失败合并与 journal 恢复。沿用现有组件与消息身份，真实 Redis/HTTP/PG 边界验证，不新增调度框架。用户已于本轮明确要求开始编码。
+
+### Checklist
+
+- [x] 实现对应设计中的必要修复，保持失败可见与原消息幂等。
+- [x] 补充有实际异步挂起/真实存储边界的回归，覆盖修复前失败行为。
+- [x] 声明测试通过，记录验证范围与剩余人工验收。
+
+### Spec Delta
+
+```json
+[]
+```
+
+### Log
+
+- [2026-11-20] created; user requested implementation after design review
+- [2026-11-20T14:31:40.889Z] started tests=a509b1046564
+
+### Verification
+
+- 尚未执行
+- 2026-11-20T14:32:20.037Z FAIL commands=0/1 executed=1 deduped=0 elapsed=6702ms tests=a509b1046564 head=b73b0e8bd139 dirty=1
+  - connector-integrity-010 FAIL exit=1
+- 2026-11-20T14:37:15.015Z PASS commands=1/1 executed=1 deduped=0 elapsed=5620ms tests=a509b1046564 head=b73b0e8bd139 dirty=1
+  - connector-integrity-010 PASS exit=0
+## TASK-011: 有界取件调度与真实回复链路回归
+
+- **Status**: done
+- **Depends**: TASK-010
+- **Source**: im-attachment-integrity.backend.design.md#3.1.4, #3.2.1, #3.2.2, #3.5.5
+- **Scenarios**: im-attachment-integrity:S-01, im-attachment-integrity:S-05, im-attachment-integrity:S-07, im-attachment-integrity:E-01, im-attachment-integrity:E-04, im-attachment-integrity:E-05, im-attachment-integrity:E-06, im-attachment-integrity:B-04, im-attachment-integrity:B-06
+- **Spec-Refs**: im/harness-im#RULE-im-002, test/harness-test#RULE-test-001, test/harness-test#RULE-002
+- **Paths**: apps/im-connector/src/muad_im_connector, tests/im_connector, tests/acceptance/im_gateway/test_connector_attachment_integrity.py, docs/configuration-inventory.csv, tests/acceptance/im_gateway/environment.py, tests/acceptance/im_gateway/test_connector_failover.py, tests/im_attachment_integrity_inventory.py
+- **E2E**:
+- **Skip-Tests**: false
+- **Skip-Reason**:
+
+### Tests
+
+```json
+[
+  {
+    "id": "connector-integrity-011",
+    "argv": [
+      "uv",
+      "run",
+      "python",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/im_connector",
+      "tests/im_core",
+      "tests/gateway/test_inbound_batch_failure.py",
+      "tests/gateway/test_inbound_attachment_flow.py",
+      "tests/gateway/test_execution_progress.py",
+      "tests/test_configuration_inventory.py",
+      "tests/im_attachment_integrity_inventory.py",
+      "tests/architecture/test_channel_neutrality.py"
+    ],
+    "timeout": 600,
+    "parallel": false
+  },
+  {
+    "id": "test_connector_attachment_integrity",
+    "argv": [
+      "uv",
+      "run",
+      "python",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/acceptance/im_gateway/test_connector_attachment_integrity.py"
+    ],
+    "timeout": 600,
+    "parallel": false
+  },
+  {
+    "id": "test_connector_lease",
+    "argv": [
+      "uv",
+      "run",
+      "python",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/acceptance/im_gateway/test_connector_lease.py"
+    ],
+    "timeout": 600,
+    "parallel": false
+  },
+  {
+    "id": "test_connector_failover",
+    "argv": [
+      "uv",
+      "run",
+      "python",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/acceptance/im_gateway/test_connector_failover.py"
+    ],
+    "timeout": 600,
+    "parallel": false
+  },
+  {
+    "id": "connector-static",
+    "argv": [
+      "uv",
+      "run",
+      "mypy",
+      "apps/im-connector/src/muad_im_connector",
+      "packages/im-core/src/muad_im_core"
+    ],
+    "timeout": 120,
+    "parallel": false
+  }
+]
+```
+
+### Description
+
+按已复核 v1.2 设计修复 有界取件调度与真实回复链路回归。沿用现有组件与消息身份，真实 Redis/HTTP/PG 边界验证，不新增调度框架。用户已于本轮明确要求开始编码。
+
+### Checklist
+
+- [x] 实现对应设计中的必要修复，保持失败可见与原消息幂等。
+- [x] 补充有实际异步挂起/真实存储边界的回归，覆盖修复前失败行为。
+- [x] 声明测试通过，记录验证范围与剩余人工验收。
+
+### Spec Delta
+
+```json
+[]
+```
+
+### Log
+
+- [2026-11-20] created; user requested implementation after design review
+- [2026-11-20T14:38:24.741Z] started tests=19c2027b7442
+- [2026-11-20T14:48:16.905Z] reopen: 增加租约/崩溃回归与清单校验，重新验证最终代码
+- [2026-11-20T14:51:00.489Z] reopen: 显式 flush 统一由批次任务发布，验证取消与租约边界
+
+### Verification
+
+- 尚未执行
+- 2026-11-20T14:41:07.951Z FAIL commands=0/1 executed=1 deduped=0 elapsed=27487ms tests=19c2027b7442 head=b73b0e8bd139 dirty=1
+  - connector-integrity-011 FAIL exit=1
+- 2026-11-20T14:42:48.110Z PASS commands=1/1 executed=1 deduped=0 elapsed=26862ms tests=19c2027b7442 head=b73b0e8bd139 dirty=1
+  - connector-integrity-011 PASS exit=0
+- 2026-11-20T14:49:12.740Z PASS commands=2/2 executed=2 deduped=0 elapsed=54745ms tests=e5b0238c0c69 head=b73b0e8bd139 dirty=1 tests-changed
+  - connector-integrity-011 PASS exit=0
+  - connector-static PASS exit=0
+- 2026-11-20T14:52:05.311Z FAIL commands=0/5 executed=1 deduped=0 elapsed=29717ms tests=434b21a0a6a8 head=b73b0e8bd139 dirty=1 tests-changed
+  - connector-integrity-011 FAIL exit=1
+  - test_connector_attachment_integrity NOT-RUN
+  - test_connector_lease NOT-RUN
+  - test_connector_failover NOT-RUN
+  - connector-static NOT-RUN
+- 2026-11-20T14:54:27.770Z PASS commands=5/5 executed=5 deduped=0 elapsed=84416ms tests=434b21a0a6a8 head=b73b0e8bd139 dirty=1 tests-changed
+  - connector-integrity-011 PASS exit=0
+  - test_connector_attachment_integrity PASS exit=0
+  - test_connector_lease PASS exit=0
+  - test_connector_failover PASS exit=0
+  - connector-static PASS exit=0
+
+- 2026-11-20 最终验证：TASK-011 的五条命令均真实执行通过，pytest 共 84 项，严格 mypy 检查 24 个源码文件。修复前真实 Redis 的自然到期与失败合并回归为 RED；修复后为 GREEN。
+- 本轮 dirty_before_start 均为本轮已授权修复产生的改动，已在同一 session 的 Spec 约束下审查并保留；最终检查对应当前未提交工作区，未归档。
+- 真实 TLS WebSocket/HTTP 媒体源及隔离 PostgreSQL/Redis 已验证；真实企微人工场景仍待用户验收，未把探针结果登记为实网验收通过。

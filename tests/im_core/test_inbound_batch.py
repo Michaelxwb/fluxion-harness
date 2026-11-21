@@ -14,32 +14,30 @@ from muad_im_core.inbound_batch import (
     BatchSettings,
     InboundBatchCoordinator,
 )
+from muad_im_core.inbound_batch_journal import BatchRecord
 
 pytestmark = pytest.mark.unit
 
 
 class MemoryJournal:
     def __init__(self) -> None:
-        self.batches: dict[str, dict[str, Any]] = {}
+        self.batches: dict[str, BatchRecord] = {}
         self.members: dict[tuple[str, str, str], str] = {}
 
-    async def load(self, *, tenant_id: str, bot_id: str, batch_id: str) -> dict[str, Any] | None:
+    async def load(self, *, tenant_id: str, bot_id: str, batch_id: str) -> BatchRecord | None:
         return self.batches.get(batch_id)
 
-    async def save(
-        self, *, tenant_id: str, bot_id: str, batch_id: str, payload: Any
-    ) -> None:
-        self.batches[batch_id] = dict(payload)
+    async def save(self, *, tenant_id: str, bot_id: str, batch_id: str, payload: BatchRecord) -> None:
+        await asyncio.sleep(0)
+        self.batches[batch_id] = payload.model_copy(deep=True)
+        for message_id in payload.members:
+            self.members[(tenant_id, bot_id, message_id)] = batch_id
 
-    async def bind_member(
-        self, *, tenant_id: str, bot_id: str, message_id: str, batch_id: str
-    ) -> None:
-        self.members[(tenant_id, bot_id, message_id)] = batch_id
-
-    async def member_batch(
-        self, *, tenant_id: str, bot_id: str, message_id: str
-    ) -> str | None:
+    async def member_batch(self, *, tenant_id: str, bot_id: str, message_id: str) -> str | None:
         return self.members.get((tenant_id, bot_id, message_id))
+
+    async def unfinished(self, *, tenant_id: str, bot_id: str) -> list[BatchRecord]:
+        return [r for r in self.batches.values() if r.state != BATCH_STATE_PUBLISHED]
 
 
 class Publisher:
@@ -183,4 +181,32 @@ async def test_published_member_is_not_registered_again() -> None:
     assert await coordinator.register(_frame("t1", text="解析"), settings) is False
     await asyncio.sleep(0.05)
     assert len(publisher.events) == 1
-    assert journal.batches[next(iter(journal.batches))]["state"] == BATCH_STATE_PUBLISHED
+    assert journal.batches[next(iter(journal.batches))].state == BATCH_STATE_PUBLISHED
+
+
+async def test_explicit_flush_is_owned_by_batch_task_and_suspend_unblocks_caller() -> None:
+    journal = MemoryJournal()
+    entered = asyncio.Event()
+    publishing_tasks: list[str] = []
+
+    async def blocked_publish(event, members) -> None:
+        publishing_tasks.append(asyncio.current_task().get_name())
+        entered.set()
+        await asyncio.Event().wait()
+
+    coordinator = InboundBatchCoordinator(journal=journal, publish=blocked_publish)
+    frame = _frame("t1", text="hello")
+    await coordinator.register(frame, BatchSettings(1000, 2000, 5))
+    await coordinator.complete(_event("t1", text="hello"))
+    caller = asyncio.create_task(coordinator.flush_route(frame, "command"), name="incoming-command")
+    try:
+        await asyncio.wait_for(entered.wait(), timeout=1)
+        assert publishing_tasks[0].startswith("inbound.batch:")
+        await coordinator.suspend_bot("tenant", "bot")
+        await asyncio.wait_for(caller, timeout=1)
+        assert coordinator.pending_count == 0
+        assert next(iter(journal.batches.values())).state == "PUBLISHING"
+    finally:
+        await coordinator.suspend_bot("tenant", "bot")
+        caller.cancel()
+        await asyncio.gather(caller, return_exceptions=True)

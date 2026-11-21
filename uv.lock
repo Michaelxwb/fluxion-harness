@@ -1525,6 +1525,7 @@ dependencies = [
     { name = "muad-api" },
     { name = "muad-contracts" },
     { name = "muad-logging" },
+    { name = "pydantic" },
     { name = "redis" },
 ]
 
@@ -1533,6 +1534,7 @@ requires-dist = [
     { name = "muad-api", editable = "packages/api-kit" },
     { name = "muad-contracts", editable = "packages/contracts" },
     { name = "muad-logging", editable = "packages/logging-kit" },
+    { name = "pydantic", specifier = ">=2.6,<3" },
     { name = "redis", specifier = ">=5,<7" },
 ]
 

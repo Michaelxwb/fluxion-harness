@@ -202,8 +202,10 @@ async def test_b115_stream_tail_is_complete_without_gateway_finalize(
     stream_frames = [frame for frame in frames if _is_stream(frame)]
     # 真实 WeCom 流式协议：每帧携带"当前累积全文"，末帧 finish=true
     assert [_frame_text(frame) for frame in stream_frames][-1] == "分析完成", stream_frames
+    # 状态帧以阶段 emoji 开头（企微思考区不刷新，状态走可见正文），正文帧是累积全文的前缀。
     assert all(
-        _frame_text(frame).startswith("<think>") or "分析完成".startswith(_frame_text(frame))
+        _frame_text(frame).startswith(("🔵", "⚙️", "⏳", "⏸", "📥", "✅", "❌", "⏹"))
+        or "分析完成".startswith(_frame_text(frame))
         for frame in stream_frames
     ), [(_frame_text(frame)) for frame in stream_frames]
     # 机器人终态的收尾帧由持久投递链发送；Gateway 的实时流只负责增量，不再 finish。

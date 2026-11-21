@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from muad_im_connector.channels.wecom.sdk_port import WeComInboundMessage
+from muad_im_connector.runtime import ConnectorRuntime
 from muad_im_core.inbound_batch import BatchSettings
 from muad_im_core.ingress import PublishOutcome
 
-from muad_im_connector.channels.wecom.sdk_port import WeComInboundMessage
-from muad_im_connector.runtime import ConnectorRuntime
+from tests.im_core.test_inbound_batch import MemoryJournal as _MemoryJournal
 
 pytestmark = pytest.mark.unit
 
@@ -18,28 +20,6 @@ TENANT = "tenant"
 BOT = "bot"
 
 
-class _MemoryJournal:
-    def __init__(self) -> None:
-        self.batches: dict[str, dict[str, Any]] = {}
-        self.members: dict[tuple[str, str, str], str] = {}
-
-    async def load(self, *, tenant_id: str, bot_id: str, batch_id: str) -> dict[str, Any] | None:
-        return self.batches.get(batch_id)
-
-    async def save(
-        self, *, tenant_id: str, bot_id: str, batch_id: str, payload: Any
-    ) -> None:
-        self.batches[batch_id] = dict(payload)
-
-    async def bind_member(
-        self, *, tenant_id: str, bot_id: str, message_id: str, batch_id: str
-    ) -> None:
-        self.members[(tenant_id, bot_id, message_id)] = batch_id
-
-    async def member_batch(
-        self, *, tenant_id: str, bot_id: str, message_id: str
-    ) -> str | None:
-        return self.members.get((tenant_id, bot_id, message_id))
 
 
 class _Replies:
@@ -79,7 +59,8 @@ class _Adapter:
 
 
 def _runtime(
-    *, batch_journal: _MemoryJournal | None = None
+    *, batch_journal: _MemoryJournal | None = None,
+    attachment_concurrency: int = 8, inbound_queue_size: int = 10_000,
 ) -> tuple[ConnectorRuntime, _Replies, _Publisher]:
     replies = _Replies()
     publisher = _Publisher()
@@ -95,7 +76,10 @@ def _runtime(
         renew_sec=1.0,
         platform_settings=_PlatformSettings(),  # type: ignore[arg-type]
         batch_journal=batch_journal,  # type: ignore[arg-type]
+        attachment_concurrency=attachment_concurrency,
+        inbound_queue_size=inbound_queue_size,
     )
+    runtime._owned[(TENANT, BOT)] = SimpleNamespace(lease=SimpleNamespace(epoch=1))
     return runtime, replies, publisher
 
 

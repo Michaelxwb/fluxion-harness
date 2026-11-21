@@ -92,7 +92,8 @@ class ReplySession:
     async def update_status(self, text: str) -> None:
         if self._closed or self._closing:
             return
-        content = f"<think>{text}</think>" + ("\n\n" + self._body if self._body else "")
+        # 企微的思考区不刷新（只渲染第一帧），阶段与计时走可见正文才能跟着变。
+        content = text + ("\n\n" + self._body if self._body else "")
         if content == self._status_sent:
             # 一字不差的重复帧 = 客户端白重排一次、白滚动一次（实测 run.created 会紧跟着
             # 起始帧再发一遍同样的「准备中」）。额度也不该为它花掉。

@@ -101,7 +101,7 @@ def test_other_groups_keep_designed_defaults() -> None:
         "zh-CN",
         "Asia/Shanghai",
     )
-    assert settings.im.progress_interval_sec == 5.0
+    assert settings.im.progress_interval_sec == 2.0
     assert (
         settings.im.inbound_batch_quiet_ms,
         settings.im.inbound_batch_max_wait_ms,

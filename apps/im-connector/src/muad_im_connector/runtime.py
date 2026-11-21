@@ -120,14 +120,15 @@ class ConnectorRuntime:
         outbound: OutboundRunner,
         snapshot: BotSnapshotCache,
         renew_sec: float,
+        attachment_concurrency: int,
         platform_settings: ConnectorPlatformSettings | None = None,
         batch_journal: BatchJournal | None = None,
         attachment_store: InboundAttachmentStore | None = None,
         max_attachment_bytes: int = MAX_ATTACHMENT_BYTES,
         inbound_queue_size: int = 10_000,
     ) -> None:
-        if renew_sec <= 0:
-            raise ValueError("renew_sec must be positive")
+        if renew_sec <= 0 or attachment_concurrency < 1 or inbound_queue_size < 1:
+            raise ValueError("renewal, attachment concurrency and inbound capacity must be positive")
         self._tenant_id = tenant_id
         self._channels = handled_channels
         self._adapter = adapter
@@ -138,18 +139,8 @@ class ConnectorRuntime:
         self._snapshot = snapshot
         self._renew_sec = renew_sec
         self._platform_settings = platform_settings
-        self._batch_coordinator = (
-            InboundBatchCoordinator(journal=batch_journal, publish=self._publish_event)
-            if batch_journal is not None
-            else None
-        )
-        #: 入站附件落盘（设计 §3.2.1 ⑤）：**字节只在内持有连接的角色里取**，落共享存储后
-        #: 上行只给 `AttachmentRef`（上层不接触 URL/aes_key）。
-        self._attachment_store = attachment_store
-        self._max_attachment_bytes = max_attachment_bytes
-        self._queue: asyncio.Queue[WeComInboundMessage] = asyncio.Queue(
-            maxsize=inbound_queue_size
-        )
+        self._configure_inbound(batch_journal, attachment_store, max_attachment_bytes,
+                                inbound_queue_size, attachment_concurrency)
         self._owned: dict[tuple[str, str], OwnedBot] = {}
         self._items: tuple[BotSnapshotItem, ...] = ()
         self._tasks: list[asyncio.Task[None]] = []
@@ -164,6 +155,27 @@ class ConnectorRuntime:
         self._desired_items: tuple[BotSnapshotItem, ...] = ()
         #: 抢不到 lease 的 bot 退避到下一窗口再试：稳态下 loser 不应该每秒对每个 bot 打 Redis。
         self._retry_after: dict[tuple[str, str], float] = {}
+
+    def _configure_inbound(
+        self, journal: BatchJournal | None, store: InboundAttachmentStore | None,
+        max_bytes: int, capacity: int, concurrency: int,
+    ) -> None:
+        self._batch_coordinator = (
+            InboundBatchCoordinator(journal=journal, publish=self._publish_once,
+                                    capacity=capacity)
+            if journal is not None
+            else None
+        )
+        #: 入站附件落盘（设计 §3.2.1 ⑤）：**字节只在内持有连接的角色里取**，落共享存储后
+        #: 上行只给 `AttachmentRef`（上层不接触 URL/aes_key）。
+        self._attachment_store = store
+        self._max_attachment_bytes = max_bytes
+        self._queue: asyncio.Queue[WeComInboundMessage] = asyncio.Queue(
+            maxsize=capacity
+        )
+        self._media_slots = asyncio.Semaphore(concurrency)
+        self._media_tasks: dict[asyncio.Task[None], str] = {}
+        self._recovered: dict[tuple[str, str], int] = {}
 
     # ---- lifecycle ------------------------------------------------------------
     async def start(self) -> None:
@@ -181,16 +193,26 @@ class ConnectorRuntime:
             asyncio.create_task(self._inbound_loop(), name="connector.inbound"),
             asyncio.create_task(self._outbound.run_forever(), name="connector.outbound"),
         ]
+        for task in self._tasks:
+            task.add_done_callback(self._critical_done)
+
+    def _critical_done(self, task: asyncio.Task[None]) -> None:
+        error = None if task.cancelled() else task.exception()
+        if not self._stopped.is_set():
+            record_inbound("failed")
+            logger.error("connector_loop_stopped task=%s error=%s", task.get_name(),
+                         type(error).__name__ if error else "cancelled_or_finished")
 
     async def stop(self) -> None:
-        if self._batch_coordinator is not None:
-            with contextlib.suppress(asyncio.TimeoutError):
-                await asyncio.wait_for(self._batch_coordinator.flush_all(), timeout=5.0)
         self._stopped.set()
-        for task in self._tasks:
-            task.cancel()
-        if self._tasks:
-            await asyncio.gather(*self._tasks, return_exceptions=True)
+        await self._cancel_tasks(tuple(self._tasks))
+        await self._cancel_tasks(tuple(self._media_tasks))
+        if self._batch_coordinator is not None:
+            try:
+                await asyncio.wait_for(self._batch_coordinator.flush_all(), timeout=5.0)
+            except TimeoutError:
+                record_inbound("failed")
+                logger.warning("connector_batch_shutdown_timeout")
         for owned in tuple(self._owned.values()):
             with contextlib.suppress(Exception):
                 await self._leases.release(owned.lease)
@@ -206,12 +228,17 @@ class ConnectorRuntime:
 
     @property
     def ready(self) -> bool:
-        return self._ready and self._snapshot.is_ready()
+        return (self._ready and self._snapshot.is_ready()
+                and all(not task.done() for task in self._tasks)
+                and (self._batch_coordinator is None or self._batch_coordinator.healthy))
 
     def readiness_detail(self) -> dict[str, object]:
         return {
             "owned_bots": [f"{tenant}:{bot}" for tenant, bot in self.owned_bots],
             "snapshot_revision": self._snapshot.revision,
+            "inbound_tasks": {task.get_name(): not task.done() for task in self._tasks},
+            "attachment_tasks": len(self._media_tasks),
+            "pending_batches": self._batch_coordinator.pending_count if self._batch_coordinator else 0,
             "connection_states": {
                 bot_id: getattr(state, "value", state)
                 for bot_id, state in self._adapter.connection_states.items()
@@ -229,7 +256,11 @@ class ConnectorRuntime:
 
     async def _reconcile(self) -> None:
         async with self._state_lock:
+            previous = set(self._owned)
             await self._reconcile_locked()
+            removed = previous - self._owned.keys()
+        for tenant_id, bot_id in removed:
+            await self._drop_inbound_bot(tenant_id, bot_id)
         # 连接建立放到独立 worker：续租循环绝不能被 SDK 握手阻塞。
         self._apply_event.set()
 
@@ -318,6 +349,7 @@ class ConnectorRuntime:
                     self._retry_after.pop(key, None)
             # 失权立即断开，不能等下一次 apply（旧连接多活一秒就可能重复入站）。
             for _tenant_id, bot_id in lost:
+                await self._drop_inbound_bot(_tenant_id, bot_id)
                 await self._adapter.drop_bot(bot_id)
             # 重试获取已过期但未归属的 bot（另一个 Connector 崩溃后的接管路径）。
             await self._reconcile()
@@ -332,6 +364,8 @@ class ConnectorRuntime:
             self._apply_event.clear()
             items = self._desired_items
             try:
+                await self._recover_batches()
+                items = tuple(item for item in items if (self._tenant_id, item.bot_id) in self._owned)
                 await self._adapter.apply_snapshot(items)
             except Exception as exc:  # noqa: BLE001 - 连接失败由适配器退避，下一拍重试
                 logger.warning(
@@ -358,10 +392,17 @@ class ConnectorRuntime:
                     exc,
                     exc_info=True,
                 )
+            finally:
+                self._queue.task_done()
 
     async def _publish_inbound(self, message: WeComInboundMessage) -> None:
         owned = self._owned.get((self._tenant_id, message.bot_id))
-        epoch = owned.lease.epoch if owned is not None else 0
+        if owned is None:
+            record_inbound("failed")
+            logger.warning("connector_inbound_without_lease bot_id=%s message_id=%s",
+                           message.bot_id, message.message_id)
+            return
+        epoch = owned.lease.epoch
         await self._replies.remember_message(
             tenant_id=self._tenant_id,
             bot_id=message.bot_id,
@@ -392,7 +433,74 @@ class ConnectorRuntime:
         if not await coordinator.register(frame, settings):
             record_inbound("duplicate")
             return
-        await coordinator.complete(await self._event_for(message))
+        if message.media:
+            await self._schedule_media(message)
+        else:
+            await coordinator.complete(await self._event_for(message))
+
+    async def _schedule_media(self, message: WeComInboundMessage) -> None:
+        coordinator = self._batch_coordinator
+        assert coordinator is not None
+        if len(self._media_tasks) >= self._queue.maxsize:
+            logger.error("connector_attachment_capacity_exceeded message_id=%s", message.message_id)
+            record_inbound("failed")
+            await coordinator.fail(self._batch_frame(message), ATTACHMENT_FETCH_FAILED)
+            return
+        task = asyncio.create_task(self._complete_media(message),
+                                   name=f"connector.media:{message.message_id}")
+        self._media_tasks[task] = message.bot_id
+        task.add_done_callback(self._media_done)
+
+    async def _complete_media(self, message: WeComInboundMessage) -> None:
+        coordinator = self._batch_coordinator
+        assert coordinator is not None
+        frame = self._batch_frame(message)
+        remaining = coordinator.remaining(frame)
+        if remaining is None:
+            return
+        try:
+            async with asyncio.timeout(remaining):
+                async with self._media_slots:
+                    if coordinator.remaining(frame) is not None:
+                        await coordinator.complete(await self._event_for(message))
+        except TimeoutError:
+            await coordinator.fail(frame, "ATTACHMENT_FETCH_TIMEOUT")
+        except Exception as exc:  # noqa: BLE001 - translate unexpected per-member failures
+            record_inbound("failed")
+            logger.error("connector_attachment_failed message_id=%s error=%s",
+                         message.message_id, type(exc).__name__)
+            await coordinator.fail(frame, ATTACHMENT_FETCH_FAILED)
+
+    def _media_done(self, task: asyncio.Task[None]) -> None:
+        self._media_tasks.pop(task, None)
+        if not task.cancelled() and (error := task.exception()) is not None:
+            record_inbound("failed")
+            logger.error("connector_attachment_task_failed error=%s", type(error).__name__)
+
+    @staticmethod
+    async def _cancel_tasks(tasks: Sequence[asyncio.Task[None]]) -> None:
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def _drop_inbound_bot(self, tenant_id: str, bot_id: str) -> None:
+        await self._cancel_tasks(tuple(t for t, bot in self._media_tasks.items() if bot == bot_id))
+        if self._batch_coordinator is not None:
+            await self._batch_coordinator.suspend_bot(tenant_id, bot_id)
+        self._recovered.pop((tenant_id, bot_id), None)
+
+    async def _recover_batches(self) -> None:
+        if self._batch_coordinator is None:
+            return
+        for key, owned in tuple(self._owned.items()):
+            if self._recovered.get(key) != owned.lease.epoch:
+                await self._batch_coordinator.recover(*key)
+                current = self._owned.get(key)
+                if current is not None and current.lease.epoch == owned.lease.epoch:
+                    self._recovered[key] = owned.lease.epoch
+                else:
+                    await self._batch_coordinator.suspend_bot(*key)
 
     def _batch_frame(self, message: WeComInboundMessage) -> BatchFrame:
         return BatchFrame(
@@ -405,6 +513,7 @@ class ConnectorRuntime:
             kind=FRAME_MEDIA if message.media else FRAME_TEXT,
             text=message.text,
             reply_ref=message.reply_id or None,
+            media_count=len(message.media),
         )
 
     async def _batch_settings(self) -> BatchSettings:
@@ -445,7 +554,7 @@ class ConnectorRuntime:
     ) -> None:
         while not self._stopped.is_set():
             try:
-                outcome = await self._publisher.publish(event, dedupe_ids=member_ids)
+                await self._publish_once(event, member_ids)
             except Exception as exc:  # noqa: BLE001 - Redis 抖动不能吞消息
                 record_inbound("failed")
                 logger.error(
@@ -455,10 +564,12 @@ class ConnectorRuntime:
                 )
                 await self._sleep(1.0)
                 continue
-            record_inbound(
-                "published" if outcome is PublishOutcome.PUBLISHED else "duplicate"
-            )
             return
+        raise asyncio.CancelledError
+
+    async def _publish_once(self, event: InboundEvent, member_ids: Sequence[str] | None = None) -> None:
+        outcome = await self._publisher.publish(event, dedupe_ids=member_ids)
+        record_inbound("published" if outcome is PublishOutcome.PUBLISHED else "duplicate")
 
     async def _materialize_attachments(
         self, message: WeComInboundMessage
@@ -541,6 +652,10 @@ class ConnectorRuntime:
     # ---- helpers --------------------------------------------------------------
     def raw_sink(self, message: WeComInboundMessage) -> None:
         """适配器回调 → 有界队列；队满时显式失败（不静默丢）。"""
+        if self._stopped.is_set():
+            record_inbound("failed")
+            logger.warning("connector_inbound_after_stop message_id=%s", message.message_id)
+            return
         try:
             self._queue.put_nowait(message)
         except asyncio.QueueFull:
