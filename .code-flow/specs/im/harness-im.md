@@ -1,7 +1,7 @@
 ---
 {
   "description": "IM 网关、通道与 WebChat",
-  "next_rule": 12
+  "next_rule": 13
 }
 ---
 
@@ -32,6 +32,8 @@
 - [RULE-010] 同一逻辑发送的文字与 1..N 个媒体帧必须在 Connector 按 route 有界聚合：下载前登记在途成员，全部附件成功物化后发布一个 InboundEvent；批次成员共享去重；窗口与上限由系统设置 im.inbound_batch_* 定义；批次失败整批不执行，不产生部分成功结果。
 
 - [RULE-011] 附件枚举必须按 artifact_type 标注来源：INBOUND_* 为入站、OUTPUT 为自产、TOOL_RESULT 为工具结果、其他为内部产物；TOOL_RESULT 不得标成入站。显式访问保留，内部产物默认不交付，用户明确要求时按 owner 校验交付。
+
+- [RULE-012] 所有用户可见固定文案（任务受理、停止、断流、附件回执等）必须按回复 locale 从 config/api-messages.yaml 的 activity_messages 模板取，不得硬编码中文；终态正文为空时才读取租户 locale 兜底，读取失败回落目录默认并留 warning。
 
 ## Conventions
 
@@ -117,3 +119,5 @@
 - {"source":"2026-11-20/im-attachment-integrity/im-attachment-integrity.md#TASK-002#DELTA-001","op":"add","rule":"RULE-010","payload_sha256":"e09cffd4db7a6d3c8d1d4d677abc12bf57c0aa75e0b73d07272c37569644ecf3","at":"2026-11-21T01:12:04.046Z"}
 
 - {"source":"2026-11-20/im-attachment-integrity/im-attachment-integrity.md#TASK-005#DELTA-001","op":"add","rule":"RULE-011","payload_sha256":"40ddae60ee7969df184a9fd613bc8961e5f3a9b267ad73d07a976033c00d4279","at":"2026-11-21T01:12:04.047Z"}
+
+- {"source":"2026-11-21/agent-output-and-platform-defaults/agent-output-and-platform-defaults.md#TASK-007#DELTA-006","op":"add","rule":"RULE-012","payload_sha256":"c13c9d5a87dfdb2095bcc911ea401885e5ff7e9a2b460f0f21e84533943aab8d","at":"2026-11-21T07:54:54.594Z"}

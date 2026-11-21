@@ -1,5 +1,8 @@
 ---
-{"description": "时间与时区口径", "next_rule": 1}
+{
+  "description": "时间与时区口径",
+  "next_rule": 2
+}
 ---
 
 # harness-time
@@ -7,6 +10,8 @@
 ## Rules
 
 - [RULE-time-001] 数据库时间统一遵循 RULE-data-001；内部 API 输出带时区的 ISO8601，Console 面向前端的时间由共享格式化器输出 offset，前端统一经 DateTimeText 渲染。调度规则与支持的 recurrence 类型由共享调度契约持有，IANA 时区必须显式提供并验证，不得使用服务器本地时区兜底。调度按本地计划槽计算：不存在的墙钟时刻按策略留调度事件，重复墙钟时刻只采用策略允许的映射；不得伪造 UTC Fire。计划槽计数、聚合错过区间的额外次数与结束条件必须一致；已终止的单次计划只能重新创建，不能恢复原 occurrence。
+
+- [RULE-001] 新建 Schedule Draft 未指定时区时，允许在 Draft 创建边界读取当前平台设置 locale.default_timezone 作为默认值，并在 Draft/Revision 显式存储具体 IANA 时区；用户显式提供的时区优先，更新 Draft 仍要求完整配置；禁止使用服务器本地时区或硬编码 UTC 作为静默兜底。本条是 RULE-time-001 的 authoring 默认值例外。
 
 ## Conventions
 
@@ -30,3 +35,5 @@
 ## Applied Deltas
 
 - {"source":"2026-11-15/scheduled-task-v2/scheduled-task-v2.md#TASK-004#DELTA-001","op":"update","rule":"RULE-time-001","payload_sha256":"f2cac806f9f6f2b7d0de281c46c3c985e5c9f9570be6ba294851c6732efa49eb","at":"2026-11-16T05:09:15.750Z"}
+
+- {"source":"2026-11-21/agent-output-and-platform-defaults/agent-output-and-platform-defaults.md#TASK-007#DELTA-003","op":"add","rule":"RULE-001","payload_sha256":"046e6c71899f6c91043f010cf00611be1c792d515678d209088502c4290ed955","at":"2026-11-21T07:54:54.594Z"}

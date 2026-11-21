@@ -6,7 +6,7 @@
 
 ## Rules
 
-- [RULE-i18n-001] 后端错误消息与前端页面必须支持 zh-CN/en-US；新增业务仅新增配置/词条，不改框架代码；语言经 `X-Locale`/`Accept-Language` 协商。
+- [RULE-i18n-001] 后端错误消息与前端页面必须支持 zh-CN/en-US；新增业务仅新增配置/词条，不改框架代码；语言经 `X-Locale`/`Accept-Language` 协商。Agent 的默认回复语言取平台设置 locale.default_locale，当前用户消息的显式语言要求优先，用户 memory 的 language 偏好次之；工具/平台错误码必须同时提供 zh-CN/en-US 直白描述，错误码本身不翻译，未知码必须有通用描述与回退；API/入口错误仍只用 config/api-messages.yaml，Agent 失败收尾的码族描述可由 agent-core 维护。
 
 ## Conventions
 
@@ -36,3 +36,7 @@
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。
+
+## Applied Deltas
+
+- {"source":"2026-11-21/agent-output-and-platform-defaults/agent-output-and-platform-defaults.md#TASK-007#DELTA-001","op":"update","rule":"RULE-i18n-001","payload_sha256":"5dc66542a05f947e5a9ab7a7d3c3f38a2e9d1cfd531900b5e4c3c0f33e3932f6","at":"2026-11-21T07:54:54.593Z"}

@@ -1,7 +1,7 @@
 ---
 {
   "description": "Run/Task 快照冻结",
-  "next_rule": 2
+  "next_rule": 3
 }
 ---
 
@@ -12,6 +12,8 @@
 - [RULE-snapshot-001] 每个新 Run/Task 在执行前冻结其执行契约要求的完整非密钥材料，包括 Agent/Model、模型池与摘要模型、Prompt 模板、执行策略、工具定义及依赖内 Skill/MCP 材料；Task 快照按执行模式约束依赖集合，不能用固定单 Skill 假设覆盖所有模式，也不能以 hash 替代恢复所需内容。任务预算归 execution snapshot，Run 的等价策略载体保持其自身契约。定时任务冻结实际只读记忆块及版本，等待与恢复使用原块；读取失败显式记录降级。快照大小按设置所有者约束，超限拒绝而非截断；快照、检查点随执行保留，配置变化只影响后续新执行，非终态与终态写入均受状态及执行权 CAS 保护。
 
 - [RULE-001] 共享 Agent 执行内核仅依赖中立执行契约和端口，既有 Agent 循环由不同宿主适配，不得复制简化循环或按宿主类型分支。持久检查点必须覆盖完整模型回合与异步工具挂起所需的调用、结果消费和预算状态；恢复同一执行不能重新解析当前定义。上下文压缩失败必须保留原历史，批量工具结果外置失败整轮回滚为内联结果，并记录可观测的降级，不能使主执行失败。
+
+- [RULE-002] Run 的 policy_json 冻结 locale.default_locale；旧行缺失时不追加语言段，失败文案回落默认语言。Draft 创建时读取当前 locale.default_timezone 属于 authoring 输入，不替代执行期冻结；Worker AGENTIC 在 admission 把用户 memory 的 language 偏好冻结进 SnapshotMemory.block.language，执行期与平台默认经同一 resolve_reply_locale 裁决，配置变化只影响后续新执行。
 
 ## Conventions
 
@@ -41,3 +43,5 @@
 - {"source":"2026-11-15/scheduled-task-v2/scheduled-task-v2.md#TASK-009#DELTA-001","op":"add","rule":"RULE-001","payload_sha256":"cb42099d0b650c5050856f22f1f39c81f92e364f5bf6d23b9ee4aff96242efd7","at":"2026-11-16T05:09:15.751Z"}
 
 - {"source":"2026-11-15/scheduled-task-v2/scheduled-task-v2.md#TASK-010#DELTA-001","op":"update","rule":"RULE-snapshot-001","payload_sha256":"79ca71e73965785f513e78275bdd783f5293a316a307372448964d743614602e","at":"2026-11-16T05:09:15.751Z"}
+
+- {"source":"2026-11-21/agent-output-and-platform-defaults/agent-output-and-platform-defaults.md#TASK-007#DELTA-005","op":"add","rule":"RULE-002","payload_sha256":"c31b695ec19d13f2d7acc4c91bbede6d85f946a66fb4cc41ab852c8cd88f0f95","at":"2026-11-21T07:54:54.594Z"}
