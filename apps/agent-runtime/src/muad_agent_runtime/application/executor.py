@@ -142,7 +142,7 @@ from .model_allocator import (
 )
 from .model_call_trace import ModelCallTrace
 from .model_capacity_service import ModelCapacityService
-from .ports import CredentialsClient
+from .ports import CredentialsClient, PlatformSettingsClient
 from .run_events import DeltaWindow, delta_payload, delta_window_from_settings
 from .skill_tools import (
     DraftShellContext,
@@ -298,6 +298,8 @@ class ExecutorRequest:
     summary_model_members: tuple[MemberRef, ...] | None = None
     #: 本次 Run **冻结**的执行期平台默认（来自 `policy_json`）；None = schema 默认。
     execution: ExecutionDefaults | None = None
+    #: 仅 Draft 创建时按需读取当前平台默认时区；None = 直构/单测用冻结值兜底。
+    settings_client: PlatformSettingsClient | None = None
     checkpoint: RunnerCheckpoint | None = None
     runtime_events: ExecutionEventPort | None = None
     deadline_at: datetime | None = None
@@ -2095,6 +2097,8 @@ def _register_other_tools(
             skills=request.skills,
             # Draft 确认卡片是同回合写进会话的 canonical 事件（不是 SSE 临时拼的）。
             session_factory=get_session_factory,
+            settings_client=request.settings_client,
+            fallback_timezone=execution_defaults_for(request).timezone,
         ).register(registry)
     TimeToolSet(zone=resolve_zone(execution_defaults_for(request).timezone)).register(registry)
     if mcp_adapter is not None and request.mcp_servers and request.run_context is not None:

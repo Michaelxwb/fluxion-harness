@@ -158,6 +158,8 @@ class ScheduleAuthoringContext:
     delivery_route: DeliveryRouteInput | None = None
     delivery_targets: Sequence[DeliveryTargetOption] = ()
     conversation_id: uuid.UUID | None = None
+    #: 当前平台默认时区；仅在调用方未提供 timezone 时作为 authoring 默认值。
+    default_timezone: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -203,7 +205,7 @@ def compile_schedule_plan(
     """Compile tool arguments into `SchedulePlan`, a clarification, or field errors."""
     errors: list[ScheduleFieldError] = []
     confidence = _confidence(arguments, errors)
-    timezone = _timezone(arguments, errors)
+    timezone = _timezone(arguments, errors, default=context.default_timezone)
     recurrence = _recurrence(arguments, timezone, errors)
     raw = arguments.get("payload")
     payload: Mapping[str, Any] | None
@@ -273,8 +275,15 @@ def _confidence(arguments: Mapping[str, Any], errors: list[ScheduleFieldError]) 
     return float(value)
 
 
-def _timezone(arguments: Mapping[str, Any], errors: list[ScheduleFieldError]) -> str | None:
+def _timezone(
+    arguments: Mapping[str, Any],
+    errors: list[ScheduleFieldError],
+    *,
+    default: str | None = None,
+) -> str | None:
     raw = arguments.get("timezone")
+    if not isinstance(raw, str) or not raw.strip():
+        raw = default
     if not isinstance(raw, str) or not raw.strip():
         errors.append(
             _field("timezone", "TIMEZONE_MISSING", "ASK_USER_TIMEZONE")

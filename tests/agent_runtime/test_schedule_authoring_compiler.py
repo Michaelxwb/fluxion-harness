@@ -362,6 +362,32 @@ class TestScheduleShape:
         assert _fields(caught.value)[0]["repair"] == "ASK_USER_TIMEZONE"
         assert "ask the user" in caught.value.message
 
+    def test_platform_default_fills_a_missing_timezone(self) -> None:
+        arguments = _args({"text": "开会"})
+        arguments.pop("timezone")
+
+        result = compile_schedule_plan(
+            arguments,
+            context=_context(default_timezone="America/New_York"),
+        )
+
+        assert result.timezone == "America/New_York"
+        assert result.recurrence == {
+            "kind": "CRON",
+            "cron": "0 9 * * *",
+            "timezone": "America/New_York",
+        }
+
+    def test_explicit_timezone_wins_over_the_platform_default(self) -> None:
+        result = compile_schedule_plan(
+            _args({"text": "开会"}, timezone="Asia/Tokyo"),
+            context=_context(default_timezone="America/New_York"),
+        )
+
+        assert result.timezone == "Asia/Tokyo"
+        assert result.recurrence is not None
+        assert result.recurrence["timezone"] == "Asia/Tokyo"
+
     def test_invalid_timezone_is_explicit(self) -> None:
         with pytest.raises(ScheduleAuthoringError) as caught:
             compile_schedule_plan(

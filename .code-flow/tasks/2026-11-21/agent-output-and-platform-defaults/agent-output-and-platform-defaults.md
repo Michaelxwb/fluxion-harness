@@ -241,7 +241,7 @@
   - gateway-locale PASS exit=0
 ## TASK-005: 新建 Draft 使用平台默认时区
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-002
 - **Source**: agent-output-and-platform-defaults.design.md#3.4
 - **Scenarios**: agent-output-and-platform-defaults:S-04, agent-output-and-platform-defaults:S-05, agent-output-and-platform-defaults:E-01, agent-output-and-platform-defaults:B-01, agent-output-and-platform-defaults:B-03
@@ -274,11 +274,11 @@
 
 ### Checklist
 
-- [ ] `draft_schedule`/`promote_run` 缺省时区时使用当前平台默认，并存储具体 IANA 名。
-- [ ] 显式时区优先；更新 Draft 未提供时区明确报字段错误，不静默改写。
-- [ ] 设置源不可读时明确失败且不落草稿；直构/单测有稳定兜底。
-- [ ] 平台时区变更不影响已建 Schedule；新 Draft 使用新值。
-- [ ] 声明测试通过。
+- [x] `draft_schedule`/`promote_run` 缺省时区时使用当前平台默认，并存储具体 IANA 名。
+- [x] 显式时区优先；更新 Draft 未提供时区明确报字段错误，不静默改写。
+- [x] 设置源不可读时明确失败且不落草稿；直构/单测有稳定兜底。
+- [x] 平台时区变更不影响已建 Schedule；新 Draft 使用新值。
+- [x] 声明测试通过。
 
 ### Spec Delta
 
@@ -289,11 +289,13 @@
 ### Log
 
 - [2026-11-21] created
+- [2026-11-21T02:45:38.814Z] started tests=8743ee70aa60
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-21T02:50:41.185Z PASS commands=1/1 executed=1 deduped=0 elapsed=18163ms tests=8743ee70aa60 head=8eea45f6fdb5 dirty=1
+  - schedule-default-timezone PASS exit=0
 ## TASK-006: 失效 env 清理与设置页 effect 文案
 
 - **Status**: draft

@@ -3018,6 +3018,7 @@ class RunService:
                 history=tuple(history),
                 compaction=compaction,
                 execution=execution,
+                settings_client=self._settings_client,
                 summary_model=summary_model,
                 checkpoint=progress,
                 runtime_events=port,

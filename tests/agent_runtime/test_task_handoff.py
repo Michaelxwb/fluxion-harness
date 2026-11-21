@@ -519,8 +519,8 @@ async def test_b123_draft_tool_uses_run_actor_and_never_creates_a_schedule(
     assert draft.owner_user_id == actor
     assert draft.agent_id == context.agent.id
     assert draft.payload_json["payload"]["skill_id"] == str(skill.skill_id)
-async def test_b123_draft_tool_asks_for_the_user_timezone() -> None:
-    """缺少用户 IANA 时区就问用户，绝不回退服务端默认时区。"""
+async def test_b123_draft_tool_asks_for_the_user_timezone_when_no_default_exists() -> None:
+    """直构路径没有平台设置源/冻结值时仍问用户，不自造服务端本地时区。"""
     skill = _async_skill()
     client = _client()
     context = _submission_context(actor_user_id=uuid.uuid4(), skill=skill, delivery_route=None)

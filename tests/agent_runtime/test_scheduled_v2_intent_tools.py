@@ -45,6 +45,7 @@ from muad_agent_runtime.infrastructure.models.runtime import CanonicalEvent, Con
 from muad_agent_worker.application.ports import PlatformSettingsSnapshot
 from muad_agent_worker.infrastructure.db import get_session_factory as worker_session_factory
 from muad_agent_worker.main import app as worker_app
+from muad_api import AppError
 from muad_contracts import (
     DeliveryRouteInput,
     ResolvedAgent,
@@ -82,6 +83,27 @@ class FakeSettingsClient:
         self, *, tenant_id: str, trace_id: str = ""
     ) -> PlatformSettingsSnapshot:
         return PlatformSettingsSnapshot(revision=1, settings={})
+
+
+@dataclass(frozen=True, slots=True)
+class _DefaultTimezoneClient:
+    timezone: str
+
+    async def fetch_snapshot(
+        self, *, tenant_id: str, trace_id: str = ""
+    ) -> PlatformSettingsSnapshot:
+        return PlatformSettingsSnapshot(
+            revision=1,
+            settings={"locale": {"default_timezone": self.timezone}},
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class _FailingSettingsClient:
+    async def fetch_snapshot(
+        self, *, tenant_id: str, trace_id: str = ""
+    ) -> PlatformSettingsSnapshot:
+        raise AppError("COMMON_INTERNAL_ERROR")
 
 
 @dataclass(slots=True)
@@ -270,13 +292,21 @@ def _context(
     )
 
 
-def _registry(context: TaskSubmissionContext, client: WorkerTaskClient) -> ToolRegistry:
+def _registry(
+    context: TaskSubmissionContext,
+    client: WorkerTaskClient,
+    *,
+    settings_client: Any = None,
+    fallback_timezone: str | None = None,
+) -> ToolRegistry:
     registry = ToolRegistry()
     BackgroundTaskToolSet(
         client=client,
         context=context,
         skills=[_skill()],
         session_factory=runtime_session_factory,
+        settings_client=settings_client,
+        fallback_timezone=fallback_timezone,
     ).register(registry)
     return registry
 
@@ -599,6 +629,63 @@ async def test_chat_entry_tells_the_model_the_confirm_command(
 # --------------------------------------------------------------------------------------
 # 2. 澄清：时区缺失/非法、复合指令必须拆分
 # --------------------------------------------------------------------------------------
+
+
+async def test_draft_uses_current_platform_default_timezone(
+    tenant: TenantContext, conversation: uuid.UUID
+) -> None:
+    client = _client()
+    try:
+        registry = _registry(
+            _context(tenant, conversation),
+            client,
+            settings_client=_DefaultTimezoneClient("America/New_York"),
+        )
+        result = await _invoke(registry, DRAFT_SCHEDULE_TOOL, _draft_args(timezone=None))
+    finally:
+        await client.aclose()
+
+    assert "error" not in result, result
+    assert "America/New_York" in result["preview"]["when"]
+    assert await _count("task_schedule_draft", tenant.tenant_id) == 1
+
+
+async def test_explicit_timezone_wins_without_reading_settings(
+    tenant: TenantContext, conversation: uuid.UUID
+) -> None:
+    client = _client()
+    try:
+        registry = _registry(
+            _context(tenant, conversation),
+            client,
+            # If the tool reads settings despite an explicit timezone, this raises.
+            settings_client=_FailingSettingsClient(),
+        )
+        result = await _invoke(registry, DRAFT_SCHEDULE_TOOL, _draft_args(timezone="Asia/Tokyo"))
+    finally:
+        await client.aclose()
+
+    assert "error" not in result, result
+    assert "Asia/Tokyo" in result["preview"]["when"]
+
+
+async def test_settings_unavailable_fails_without_creating_a_draft(
+    tenant: TenantContext, conversation: uuid.UUID
+) -> None:
+    client = _client()
+    try:
+        registry = _registry(
+            _context(tenant, conversation),
+            client,
+            settings_client=_FailingSettingsClient(),
+        )
+        result = await _invoke(registry, DRAFT_SCHEDULE_TOOL, _draft_args(timezone=None))
+    finally:
+        await client.aclose()
+
+    assert result["error"]["code"] == "PLATFORM_SETTINGS_UNAVAILABLE"
+    assert await _count("task_schedule_draft", tenant.tenant_id) == 0
+    assert await _card_events(tenant.tenant_id) == []
 
 
 async def test_missing_timezone_asks_the_user_instead_of_defaulting(
