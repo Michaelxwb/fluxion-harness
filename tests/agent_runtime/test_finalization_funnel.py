@@ -166,7 +166,7 @@ async def test_turn_budget_persists_platform_finalization_and_message(
     assert payload["finalization"]["termination"]["reason"] == "TURN_BUDGET"
     assert payload["finalization"]["usage"]["turns_used"] == 20
     assert payload["final_text"]
-    assert "终止原因：轮次预算耗尽" in payload["final_text"]
+    assert "原因：本轮执行达到最大轮次上限" in payload["final_text"]
 
     async with factory() as session:
         saved = await session.get(RunRecord, run.id)

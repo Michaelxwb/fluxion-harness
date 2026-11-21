@@ -2,117 +2,53 @@
 
 失败收尾不调用模型：同一份 facts 在任何历史/压缩状态下都渲染出同一段文本。文案只引用
 facts 中已脱敏、有界的摘要，不渲染原始 stdout/stderr，也不写与事实矛盾的固定句。
+
+用户可见正文只放「发生了什么、下一步」；终止码、工具码、Run ID 与平台原文属于运维证据，
+统一放在末尾的技术信息块，供用户复制给开发排查。
 """
 
 from __future__ import annotations
 
 from muad_agent_core.agent.termination import TerminationReason
+from muad_agent_core.failures import failure_hint
 
 from .facts import EvidenceStatus, FailureSummary, FinalizationFacts
 
 _PREVIEW_LIMIT = 300
-_REASON_LABELS = {
-    TerminationReason.TURN_BUDGET: ("轮次预算耗尽", "turn budget exhausted"),
-    TerminationReason.TOOL_BUDGET: ("工具调用预算耗尽", "tool-call budget exhausted"),
-    TerminationReason.DEADLINE: ("执行期限已到", "run deadline exceeded"),
-    TerminationReason.NO_PROGRESS: ("重复失败，已停止", "repeated failures, stopped"),
-    TerminationReason.CANCELLED: ("用户已停止", "cancelled by the user"),
-    TerminationReason.RUN_ERROR: ("执行错误", "run error"),
-}
-_SUGGESTIONS = {
-    TerminationReason.TURN_BUDGET: (
-        "减少单次执行中的排查轮次，或拆分任务后重试。",
-        "Reduce diagnosis turns or split the task, then retry.",
-    ),
-    TerminationReason.TOOL_BUDGET: (
-        "减少工具调用次数，或拆分任务后重试。",
-        "Reduce tool calls or split the task, then retry.",
-    ),
-    TerminationReason.DEADLINE: (
-        "任务在期限内未完成；可缩小范围或延长期限后重试。",
-        "The task did not finish in time; narrow it or extend the deadline.",
-    ),
-    TerminationReason.NO_PROGRESS: (
-        "先按上面的失败证据修正参数、凭据或输入，避免重复相同调用。",
-        "Fix the arguments, credentials or input shown above before retrying.",
-    ),
-    TerminationReason.CANCELLED: (
-        "如需完整结果，请重新发起执行。",
-        "Start a new run if you still need the result.",
-    ),
-    TerminationReason.RUN_ERROR: (
-        "根据失败证据修正后重试；若持续失败，请联系平台管理员。",
-        "Fix the cause shown above and retry; contact the platform admin if it persists.",
-    ),
-}
 
 
-def render_finalization(facts: FinalizationFacts, *, locale: str = "zh-CN") -> str:
+def render_finalization(
+    facts: FinalizationFacts,
+    *,
+    locale: str | None = "zh-CN",
+    run_id: str | None = None,
+) -> str:
     """确定性渲染；未知 locale 回落 zh-CN，不编造语言。"""
     zh = _is_chinese(locale)
     reason = facts.termination.reason
     if reason is TerminationReason.CANCELLED:
-        return render_cancelled(facts, locale=locale)
+        return render_cancelled(facts, locale=locale, run_id=run_id)
 
-    lines: list[str] = []
-    lines.append(
-        _pick(zh, "执行未完成。", "The run did not complete.")
-    )
-    reason_text = _reason_label(reason, zh)
-    secondary = [
-        _reason_label(item, zh)
-        for item in facts.termination.secondary_reasons
-        if item is not reason
+    primary = _primary_failure(facts)
+    reason_text, next_step = _reason_and_next(facts, primary, locale=locale, zh=zh)
+    lines = [
+        _pick(zh, "执行未完成。", "The run did not complete."),
+        _pick(zh, "原因：", "Cause: ") + reason_text,
+        _pick(zh, "下一步：", "Next step: ") + next_step,
+        _completion_line(facts, zh),
+        "",
+        *_technical_lines(facts, primary, zh=zh, run_id=run_id),
     ]
-    termination_line = _pick(zh, "终止原因：", "Termination: ") + reason_text
-    if facts.termination.error_code:
-        termination_line += f"（{facts.termination.error_code}）"
-    if secondary:
-        termination_line += _pick(zh, "；同时命中：", "; also reached: ") + "、".join(secondary)
-    lines.append(termination_line + "。")
-    lines.append(_usage_line(facts, zh))
-    lines.append(_tool_outcome_line(facts, zh))
-
-    failures = facts.business_failure_evidence.failures
-    last = facts.business_failure_evidence.last_failure
-    if failures:
-        lines.append(_pick(zh, "业务失败证据：", "Business failure evidence:"))
-        for failure in failures:
-            lines.append(_failure_line(failure, zh))
-        if last is not None and last not in failures:
-            lines.append(_pick(zh, "最近失败：", "Most recent failure: ") + _failure_line(last, zh))
-    elif last is not None:
-        lines.append(
-            _pick(zh, "业务失败证据（来自运行快照）：", "Business failure evidence (run snapshot):")
-        )
-        lines.append(_failure_line(last, zh))
-    else:
-        lines.append(
-            _pick(
-                zh,
-                "业务失败证据：未确认到业务失败。",
-                "Business failure evidence: none confirmed.",
-            )
-        )
-
-    lines.append(_evidence_line(facts, zh))
-    if facts.pending_tool_calls:
-        names = "、".join(
-            call.get("tool_name") or call.get("call_id") or "?"
-            for call in facts.pending_tool_calls
-        )
-        lines.append(
-            _pick(zh, "未执行的调用：", "Calls not executed: ")
-            + f"{len(facts.pending_tool_calls)}"
-            + _pick(zh, f" 个（{names}），不计入失败。", f" ({names}); not counted as failures.")
-        )
-    lines.append(_completion_line(facts, zh))
-    suggestion = _SUGGESTIONS.get(reason, _SUGGESTIONS[TerminationReason.RUN_ERROR])
-    lines.append(_pick(zh, "建议：", "Next step: ") + suggestion[0 if zh else 1])
     return "\n".join(lines)
 
 
-def render_cancelled(facts: FinalizationFacts | None = None, *, locale: str = "zh-CN") -> str:
+def render_cancelled(
+    facts: FinalizationFacts | None = None,
+    *,
+    locale: str | None = "zh-CN",
+    run_id: str | None = None,
+) -> str:
+    """取消不是失败：不写错误码，只说明已停止与可查看的既有结果。"""
     zh = _is_chinese(locale)
     lines = [
         _pick(zh, "执行已被用户停止。", "The run was stopped by the user."),
@@ -122,72 +58,155 @@ def render_cancelled(facts: FinalizationFacts | None = None, *, locale: str = "z
             "No final conclusion was produced; completed tool results remain available in the run record.",
         ),
     ]
+    technical: list[str] = []
+    if run_id:
+        technical.append(_pick(zh, "- Run ID：", "- Run ID: ") + str(run_id))
     if facts is not None:
-        lines.append(_usage_line(facts, zh))
+        usage = _usage_brief(facts, zh)
+        if usage:
+            technical.append("- " + usage)
+    if technical:
+        lines.extend(
+            [
+                "",
+                _pick(zh, "技术信息（提供给开发排查）：", "Technical details (for support):"),
+                *technical,
+            ]
+        )
     return "\n".join(lines)
 
 
-def _usage_line(facts: FinalizationFacts, zh: bool) -> str:
+def _primary_failure(facts: FinalizationFacts) -> FailureSummary | None:
+    """NO_PROGRESS 用决定性失败；预算/期限仍用最近失败作为技术信息。"""
+    evidence = facts.business_failure_evidence
+    if facts.termination.reason is TerminationReason.NO_PROGRESS:
+        return evidence.decisive_failure or evidence.last_failure
+    return evidence.last_failure
+
+
+def _reason_and_next(
+    facts: FinalizationFacts,
+    primary: FailureSummary | None,
+    *,
+    locale: str | None,
+    zh: bool,
+) -> tuple[str, str]:
+    reason = facts.termination.reason
+    if reason is TerminationReason.TURN_BUDGET:
+        return (
+            _pick(
+                zh,
+                "本轮执行达到最大轮次上限，已停止。",
+                "The run reached its turn limit and stopped.",
+            ),
+            _pick(
+                zh,
+                "请拆分任务或减少排查轮次后重试。",
+                "Split the task or reduce diagnosis turns, then retry.",
+            ),
+        )
+    if reason is TerminationReason.TOOL_BUDGET:
+        return (
+            _pick(
+                zh,
+                "本轮执行达到工具调用上限，已停止。",
+                "The run reached its tool-call limit and stopped.",
+            ),
+            _pick(zh, "请拆分任务或减少工具调用后重试。", "Split the task or reduce tool calls, then retry."),
+        )
+    if reason is TerminationReason.DEADLINE:
+        return (
+            _pick(zh, "本轮执行超过期限，已停止。", "The run exceeded its deadline and stopped."),
+            _pick(zh, "请缩小范围或延长期限后重试。", "Narrow the task or extend the deadline, then retry."),
+        )
+    if reason is TerminationReason.NO_PROGRESS:
+        hint = failure_hint(
+            primary.error_code if primary is not None else facts.termination.error_code,
+            locale=locale,
+            tool=primary.tool if primary is not None else None,
+        )
+        if primary is not None and not primary.retryable:
+            prefix = _pick(
+                zh, "失败不可重试，已停止。", "The failure is not retryable, so the run stopped."
+            )
+        elif primary is not None:
+            prefix = _pick(
+                zh,
+                "同一失败重复达到上限，已停止。",
+                "The same failure reached the retry limit, so the run stopped.",
+            )
+        else:
+            prefix = _pick(zh, "执行失败，已停止。", "The run failed and stopped.")
+        return _sentence(prefix, hint.title, zh), hint.next_step
+
+    hint = failure_hint(facts.termination.error_code, locale=locale)
+    if hint.known:
+        return hint.title, hint.next_step
+    return (
+        _pick(zh, "执行过程中发生错误，已停止。", "The run stopped after an error."),
+        _pick(
+            zh,
+            "请根据技术信息修正后重试；若持续失败，请联系管理员。",
+            "Fix the cause using the technical details; if it persists, contact an administrator.",
+        ),
+    )
+
+
+def _technical_lines(
+    facts: FinalizationFacts,
+    primary: FailureSummary | None,
+    *,
+    zh: bool,
+    run_id: str | None,
+) -> list[str]:
+    lines = [_pick(zh, "技术信息（提供给开发排查）：", "Technical details (for support):")]
+    if facts.termination.error_code:
+        lines.append(_pick(zh, "- 终止码：", "- Termination code: ") + facts.termination.error_code)
+    if primary is not None:
+        if primary.error_code:
+            lines.append(_pick(zh, "- 错误码：", "- Error code: ") + primary.error_code)
+        if primary.tool:
+            lines.append(_pick(zh, "- 工具：", "- Tool: ") + primary.tool)
+        if primary.exit_code is not None:
+            lines.append(_pick(zh, "- 退出码：", "- Exit code: ") + str(primary.exit_code))
+        if primary.retryable:
+            lines.append(_pick(zh, "- 可重试：是", "- Retryable: yes"))
+    if run_id:
+        lines.append(_pick(zh, "- Run ID：", "- Run ID: ") + str(run_id))
+    usage = _usage_brief(facts, zh)
+    if usage:
+        lines.append("- " + usage)
+    lines.append("- " + _evidence_line(facts, zh))
+    if primary is not None and primary.evidence_preview.strip():
+        lines.append(
+            _pick(zh, "- 平台返回：", "- Platform response: ") + _clip(primary.evidence_preview)
+        )
+    if facts.pending_tool_calls:
+        names = "、".join(
+            call.get("tool_name") or call.get("call_id") or "?"
+            for call in facts.pending_tool_calls
+        )
+        lines.append(
+            _pick(
+                zh,
+                f"- 未执行调用：{len(facts.pending_tool_calls)} 个（{names}）",
+                f"- Calls not executed: {len(facts.pending_tool_calls)} ({names})",
+            )
+        )
+    return lines
+
+
+def _usage_brief(facts: FinalizationFacts, zh: bool) -> str:
     usage = facts.usage
+    if not any((usage.turns_used, usage.tool_calls_used, usage.elapsed_ms)):
+        return ""
     parts = [
-        _pick(zh, "轮次 ", "turns ")
-        + f"{usage.turns_used}/{usage.turns_limit or '-'}",
-        _pick(zh, "工具 ", "tools ")
-        + f"{usage.tool_calls_used}/{usage.tool_calls_limit or '-'}",
+        _pick(zh, "轮次 ", "turns ") + f"{usage.turns_used}/{usage.turns_limit or '-'}",
+        _pick(zh, "工具 ", "tools ") + f"{usage.tool_calls_used}/{usage.tool_calls_limit or '-'}",
         _pick(zh, "耗时 ", "elapsed ")
         + f"{usage.elapsed_ms / 1000:.1f}s/{usage.deadline_ms / 1000:.1f}s",
     ]
-    return _pick(zh, "用量：", "Usage: ") + "，".join(parts) + "。"
-
-
-def _tool_outcome_line(facts: FinalizationFacts, zh: bool) -> str:
-    counts = facts.tool_outcomes
-    parts = [
-        _pick(zh, "成功 ", "succeeded ") + str(counts.succeeded),
-        _pick(zh, "失败 ", "failed ") + str(counts.failed),
-    ]
-    if counts.timed_out:
-        parts.append(_pick(zh, "超时 ", "timed out ") + str(counts.timed_out))
-    if counts.denied:
-        parts.append(_pick(zh, "拒绝 ", "denied ") + str(counts.denied))
-    if counts.cancelled:
-        parts.append(_pick(zh, "取消 ", "cancelled ") + str(counts.cancelled))
-    if counts.not_applicable:
-        parts.append(_pick(zh, "非业务 ", "not applicable ") + str(counts.not_applicable))
-    if counts.unknown:
-        parts.append(_pick(zh, "未知 ", "unknown ") + str(counts.unknown))
-    layer_parts = [
-        f"{layer} {count}"
-        for layer, count in sorted(counts.failure_layers.items())
-        if count
-    ]
-    line = _pick(zh, "工具结果：", "Tool results: ") + f"{counts.total}" + _pick(zh, " 次（", " calls (")
-    line += "，".join(parts) + "）"
-    if layer_parts:
-        line += _pick(zh, "；失败层：", "; failure layers: ") + "，".join(layer_parts)
-    return line + "。"
-
-
-def _failure_line(failure: FailureSummary, zh: bool) -> str:
-    layer_labels = {
-        "TOOL": ("工具层", "tool layer"),
-        "CONTENT": ("内容层", "content layer"),
-    }
-    layer_pair = layer_labels.get(
-        failure.failure_layer or "", ("未知层", "unknown layer")
-    )
-    layer = layer_pair[0 if zh else 1]
-    line = f"- {failure.tool or '?'}（{layer}）"
-    if failure.error_code:
-        line += _pick(zh, "错误码 ", " code ") + failure.error_code
-    if failure.exit_code is not None:
-        line += _pick(zh, "，退出码 ", ", exit code ") + str(failure.exit_code)
-    if failure.retryable:
-        line += _pick(zh, "，可重试", ", retryable")
-    preview = (failure.evidence_preview or "").strip()
-    if preview:
-        line += "：" + _clip(preview)
-    return line
+    return _pick(zh, "用量：", "Usage: ") + "，".join(parts)
 
 
 def _evidence_line(facts: FinalizationFacts, zh: bool) -> str:
@@ -202,10 +221,10 @@ def _evidence_line(facts: FinalizationFacts, zh: bool) -> str:
     if facts.evidence_incomplete:
         line += _pick(
             zh,
-            "；输出被截断，证据可能不完整。",
-            "; output was truncated, evidence may be incomplete.",
+            "；输出被截断，证据可能不完整",
+            "; output was truncated, evidence may be incomplete",
         )
-    return line + "。"
+    return line
 
 
 def _completion_line(facts: FinalizationFacts, zh: bool) -> str:
@@ -220,17 +239,20 @@ def _completion_line(facts: FinalizationFacts, zh: bool) -> str:
     return _pick(zh, "完成情况：输出契约未通过。", "Completion: output contract failed.")
 
 
-def _reason_label(reason: TerminationReason, zh: bool) -> str:
-    labels = _REASON_LABELS.get(reason, _REASON_LABELS[TerminationReason.RUN_ERROR])
-    return labels[0 if zh else 1]
+def _sentence(first: str, second: str, zh: bool) -> str:
+    if not second:
+        return first
+    return first + second if zh else first + " " + second
 
 
 def _pick(zh: bool, chinese: str, english: str) -> str:
     return chinese if zh else english
 
 
-def _is_chinese(locale: str) -> bool:
-    return str(locale or "").lower().startswith("zh")
+def _is_chinese(locale: str | None) -> bool:
+    # Only an explicit English signal selects English; an unknown/empty locale
+    # falls back to zh-CN (the project's default-locale policy).
+    return not str(locale or "").lower().startswith("en")
 
 
 def _clip(text: str) -> str:
