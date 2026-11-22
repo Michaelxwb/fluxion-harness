@@ -31,7 +31,7 @@ from typing import Any, cast
 import httpx
 import pytest
 import sqlalchemy as sa
-from muad_agent_core.tools import ToolEffect, ToolRegistry
+from muad_agent_core.tools import ToolCall, ToolEffect, ToolRegistry
 from muad_agent_runtime.application.async_tools.control_dispatcher import ControlDispatcher
 from muad_agent_runtime.application.async_tools.operations import (
     DurableTaskSubmitter,
@@ -43,7 +43,7 @@ from muad_agent_runtime.application.mcp_runtime_adapter import (
     McpServerDefinition,
     McpToolDefinition,
 )
-from muad_agent_runtime.application.skill_tools import EXECUTE_SKILL_TOOL, SkillToolSet
+from muad_agent_runtime.application.skill_tools import EXECUTE_TOOL, SkillToolSet
 from muad_agent_runtime.application.task_client import TaskSubmissionContext
 from muad_agent_runtime.infrastructure import db as runtime_db
 from muad_agent_runtime.infrastructure.db import get_session_factory
@@ -84,9 +84,15 @@ async def test_cli_arguments_are_durable_and_part_of_operation_identity(
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=worker_app)) as client:
         tools = _tool_set(context=context, factory=factory, client=client, tmp_path=tmp_path,
                           declaration=ToolRetrySafety.NON_RETRYABLE)
-        receipt = json.loads(await tools.execute_skill(
-            {"skill_key": skill.key, "input": {"x": 1}, "argv": argv}, call_id="cli-call"
-        ))
+        arguments = {"skill_key": skill.key, "input": {"x": 1}, "argv": argv}
+        receipt = json.loads(
+            (
+                await tools.execute_skill(
+                    arguments,
+                    call=ToolCall(call_id="cli-call", name="execute_skill", arguments=arguments),
+                )
+            ).content
+        )
     operation = await _operation(factory, uuid.UUID(receipt["operation_id"]))
     task = await _task(factory, uuid.UUID(receipt["task_id"]))
     assert operation.submission_json["execution_snapshot"]["argv"] == argv
@@ -254,10 +260,19 @@ async def test_b237_trusted_declaration_freezes_into_operation_policy_and_worker
             tmp_path=tmp_path,
             declaration=ToolRetrySafety.IDEMPOTENT,
         )
-        definition = tool_set.registry().get(EXECUTE_SKILL_TOOL)
+        definition = tool_set.registry().get(EXECUTE_TOOL)
         assert definition.retry_safety is ToolRetrySafety.IDEMPOTENT, "可信声明在 ToolRegistry（Owner 侧）"
         receipt = json.loads(
-            await definition.handler({"skill_key": skill.key, "input": {"x": 1}}, call_id=CALL_ID)
+            (
+                await definition.handler(
+                    {"target": "skill", "skill_key": skill.key, "input": {"x": 1}},
+                    call=ToolCall(
+                        call_id=CALL_ID,
+                        name=definition.name,
+                        arguments={"target": "skill", "skill_key": skill.key, "input": {"x": 1}},
+                    ),
+                )
+            ).content
         )
 
     operation = await _operation(factory, uuid.UUID(receipt["operation_id"]))
@@ -372,9 +387,18 @@ async def test_b237_freeze_happens_once_and_replay_never_refreshes(
             tmp_path=tmp_path,
             declaration=ToolRetrySafety.IDEMPOTENT,
         )
-        definition = tool_set.registry().get(EXECUTE_SKILL_TOOL)
+        definition = tool_set.registry().get(EXECUTE_TOOL)
         first = json.loads(
-            await definition.handler({"skill_key": skill.key, "input": {"x": 1}}, call_id=CALL_ID)
+            (
+                await definition.handler(
+                    {"target": "skill", "skill_key": skill.key, "input": {"x": 1}},
+                    call=ToolCall(
+                        call_id=CALL_ID,
+                        name=definition.name,
+                        arguments={"target": "skill", "skill_key": skill.key, "input": {"x": 1}},
+                    ),
+                )
+            ).content
         )
     operation = await _operation(factory, uuid.UUID(first["operation_id"]))
     assert task_retry_safety(operation.submission_json["execution_snapshot"]) is ToolRetrySafety.IDEMPOTENT

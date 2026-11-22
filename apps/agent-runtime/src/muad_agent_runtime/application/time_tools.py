@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
+from muad_agent_core.tools import ToolCall, ToolDefinition, ToolEffect, ToolRegistry, ToolResult
 
 CURRENT_TIME_TOOL = "current_time"
 
@@ -67,6 +67,6 @@ class TimeToolSet:
             )
         )
 
-    async def current_time(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+    async def current_time(self, arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
         now = self._clock().astimezone(self._zone)
-        return f"{now.isoformat(timespec='seconds')} ({self._zone.key})"
+        return ToolResult(f"{now.isoformat(timespec='seconds')} ({self._zone.key})")

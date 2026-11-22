@@ -27,8 +27,8 @@ def _skill_events(count: int, skill: str = "demo") -> list[dict[str, Any]]:
     calls = [
         {
             "id": f"call-{index}",
-            "name": "execute_skill",
-            "arguments": {"skill_key": skill, "input": {"customer": index}},
+            "name": "execute",
+            "arguments": {"target": "skill", "skill_key": skill, "input": {"customer": index}},
         }
         for index in range(count)
     ]
@@ -36,7 +36,7 @@ def _skill_events(count: int, skill: str = "demo") -> list[dict[str, Any]]:
     events.extend(
         {
             "event_type": "TOOL_CALL",
-            "payload": {"tool_call_id": call["id"], "tool_name": "execute_skill", "status": "OK"},
+            "payload": {"tool_call_id": call["id"], "tool_name": "execute", "status": "OK"},
         }
         for call in calls
     )
@@ -51,13 +51,13 @@ def test_s09_derives_family_from_first_successful_skill() -> None:
             "event_type": "ASSISTANT_TURN",
             "payload": {
                 "tool_calls": [
-                    {"id": "c1", "name": "execute_skill", "arguments": {"skill_key": "demo"}}
+                    {"id": "c1", "name": "execute", "arguments": {"target": "skill", "skill_key": "demo"}}
                 ]
             },
         },
         {
             "event_type": "TOOL_CALL",
-            "payload": {"tool_call_id": "c1", "tool_name": "execute_skill", "status": "ERROR"},
+            "payload": {"tool_call_id": "c1", "tool_name": "execute", "status": "ERROR"},
         },
     ]
     assert derive_task_family(failed, agent_id="agent-1") == "agent:agent-1"

@@ -7,6 +7,7 @@ from uuid import uuid4
 
 import httpx
 import pytest
+from muad_agent_core.tools import ToolCall
 from muad_agent_runtime.application.async_tools.operations import _input_hash
 from muad_agent_runtime.application.skill_tools import SkillToolSet
 from muad_agent_runtime.application.task_client import WorkerTaskClient, build_task_snapshot
@@ -56,8 +57,10 @@ async def test_background_tool_freezes_argv_separately_from_stdin(tmp_path: Path
     submitter.submit_task.return_value = {"status": "SUBMISSION_PENDING"}
     tools = SkillToolSet(cache=env.cache, skills=[skill], timeout_sec=10,
                          task_client=submitter, task_context=context)
+    arguments = {"target": "skill", "skill_key": skill.key, "argv": ARGV, "input": {"x": 1}}
     await tools.execute(
-        {"target": "skill", "skill_key": skill.key, "argv": ARGV, "input": {"x": 1}}, call_id="cli"
+        arguments,
+        call=ToolCall(call_id="cli", name="execute", arguments=arguments),
     )
     submitted = submitter.submit_task.call_args.kwargs
     assert submitted["argv"] == tuple(ARGV)

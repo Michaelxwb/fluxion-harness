@@ -15,7 +15,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from muad_agent_core.prompt import strip_internal_tokens
-from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
+from muad_agent_core.tools import ToolCall, ToolDefinition, ToolEffect, ToolRegistry, ToolResult
 
 RECORD_RESULT_TOOL = "record_result"
 RECORD_RESULT_ALLOWLIST_KEY = f"PLATFORM:{RECORD_RESULT_TOOL}"
@@ -55,12 +55,14 @@ class ResultRecorder:
         self._status = status
 
     def register(self, registry: ToolRegistry) -> None:
-        async def record(arguments: Mapping[str, Any], *, call_id: str) -> str:
+        async def record(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
             raw = arguments.get("status")
             if not isinstance(raw, str) or raw not in RESULT_STATUSES:
-                return f'{{"status":"INVALID","error":"status must be one of {list(RESULT_STATUSES)}"}}'
+                return ToolResult(
+                    f'{{"status":"INVALID","error":"status must be one of {list(RESULT_STATUSES)}"}}'
+                )
             self.record(raw)
-            return f'{{"status":"RECORDED","result_status":"{raw}"}}'
+            return ToolResult(f'{{"status":"RECORDED","result_status":"{raw}"}}')
 
         registry.register(
             ToolDefinition(

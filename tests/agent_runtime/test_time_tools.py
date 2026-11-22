@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
 import pytest
-from muad_agent_core.tools import ToolRegistry
+from muad_agent_core.tools import ToolCall, ToolRegistry
 from muad_agent_runtime.application.time_tools import (
     CURRENT_TIME_TOOL,
     TimeToolSet,
@@ -32,7 +32,10 @@ def _registry_for(zone_name: str) -> ToolRegistry:
 async def _call(tool_set_registry: ToolRegistry, call_id: str = "call-1") -> str:
     definition = tool_set_registry.get(CURRENT_TIME_TOOL)
     assert definition.handler is not None, "current_time 必须注册处理器"
-    return await definition.handler({}, call_id=call_id)
+    result = await definition.handler(
+        {}, call=ToolCall(call_id=call_id, name=CURRENT_TIME_TOOL)
+    )
+    return result.content
 
 
 async def test_b08_current_time_returns_injected_instant_with_iana_zone() -> None:

@@ -1,58 +1,61 @@
-"""冻结 MCP catalog 的运行适配器：ToolRegistry 注册 + 执行经 Egress 策略/审计。
+"""Runtime 的冻结 MCP catalog 适配：注册工具并统一走共享 `McpClient`。
 
-Run 内不执行 tools/list：工具定义来自 Snapshot 冻结的 catalog；执行时对
-server.endpoint 发起 Streamable HTTP JSON-RPC `tools/call`（initialize 每 server 一次）。
+Runtime 只负责把 `McpServerDefinition` 映射成共享 client 的配置、适配审计端口；
+session、协议初始化、认证头、接收上限、retryable 与媒体转换全部由
+`muad_platform_sdk.mcp_client` 提供，不再维护第二套会话实现。
 """
 
 from __future__ import annotations
 
-import asyncio
-import json
-import time
 import uuid
-from collections.abc import AsyncIterator, Mapping
-from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
-from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolHandler, ToolRegistry
+from muad_agent_core.tools import (
+    ArtifactRef,
+    ToolCall,
+    ToolCapability,
+    ToolDefinition,
+    ToolEffect,
+    ToolHandler,
+    ToolRegistry,
+    ToolResult,
+)
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_platform_sdk.mcp_audit import McpAuditEvent, McpAuditPort
+from muad_platform_sdk.mcp_client import McpClient, McpError, McpServerConfig
+from muad_platform_sdk.mcp_content import McpArtifact, McpArtifactWriter, McpResult
+from muad_platform_sdk.mcp_limits import McpLimits
 from muad_platform_sdk.platform_transport import McpBudgetScope
-from muad_platform_sdk.shared_redis import MeteringUnavailable, SharedLimitExceeded
 
 from ..infrastructure.audit_writer import RuntimeAuditWriter
 from ..metrics import EGRESS_CALLS_METRIC, record_outcome
 
-JSON_RPC_VERSION = "2.0"
-MCP_PROTOCOL_VERSION = "2025-03-26"
-MCP_ACCEPT = "application/json, text/event-stream"
-MCP_CLIENT_NAME = "muad-agent-runtime"
 MCP_CALL_TIMEOUT_SEC = 10.0
 # Egress 审计与 `egress_calls_total{platform}` 共用同一取值（非资源 ID，不含 endpoint）。
 EGRESS_TARGET_TYPE = "MCP"
 
 
 class McpToolError(RuntimeError):
-    """MCP 传输/协议/工具执行失败；详情不携带凭据。"""
+    """MCP 传输/协议/工具执行失败；只携带共享 client 的稳定 code。"""
 
     def __init__(
         self,
-        reason: str,
+        code: str,
         detail: str,
         *,
         status_code: int | None = None,
         retry_after: str | None = None,
-        code: str = "COMMON_INTERNAL_ERROR",
+        retryable: bool = False,
     ) -> None:
-        self.reason = reason
+        self.code = code
         self.detail = detail
         self.status_code = status_code
         self.retry_after = retry_after
-        self.code = code
-        self.retryable = False
-        super().__init__(f"MCP {reason}: {detail}")
+        self.retryable = retryable
+        super().__init__(f"{code}: {detail}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,6 +64,8 @@ class McpToolDefinition:
     description: str
     input_schema: dict[str, Any]
     effect: str = "READ"
+    #: Owner 冻结的重放声明；effect 只做效果分类，不参与重试许可。
+    retry_safety: str = "NON_RETRYABLE"
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,193 +88,60 @@ def tool_registry_name(server_key: str, tool_name: str) -> str:
     return f"mcp::{server_key}::{tool_name}"
 
 
-class _McpSession:
-    """单个冻结 server 的 Streamable HTTP 会话。
+class _RuntimeMcpAudit(McpAuditPort):
+    def __init__(self, writer: RuntimeAuditWriter | None) -> None:
+        self._writer = writer
 
-    请求 ID 由会话内计数器提供（initialize / tools/call 每次递增、不复用）；响应 ID 必须与
-    请求 ID 严格相等，缺失/错配按协议错误处理。初始化由 `McpRuntimeAdapter` 的 singleflight
-    锁保护：成功才置 `_initialized`，失败关闭本会话并允许后续调用重建重试。
-    """
+    async def record(self, event: McpAuditEvent) -> None:
+        target = f"mcp://{event.server_key}/{event.tool_name}"
+        record_outcome(EGRESS_CALLS_METRIC, event.result_status, {"platform": EGRESS_TARGET_TYPE})
+        if self._writer is None:
+            return
+        await self._writer.record_egress(
+            target_type=EGRESS_TARGET_TYPE,
+            target=target,
+            policy_decision="ALLOW",
+            operation="mcp.tool",
+            method="POST",
+            status_code=event.http_status,
+            result_status=event.result_status,
+            latency_ms=event.latency_ms,
+            error_code=event.error_code,
+            attempt_id=event.attempt_id,
+        )
+
+
+class RuntimeMcpArtifactWriter(McpArtifactWriter):
+    """把 MCP 媒体写成 Run Artifact；只接受已冻结的 Run 身份。"""
 
     def __init__(
         self,
-        server: McpServerDefinition,
-        timeout_sec: float,
-        transport: httpx.AsyncBaseTransport | None = None,
-        client: httpx.AsyncClient | None = None,
-        budget: McpBudgetScope | None = None,
+        writer: Any,
+        *,
+        tenant_id: str,
+        conversation_id: uuid.UUID,
+        run_id: uuid.UUID,
     ) -> None:
-        self._budget = budget
-        # 与 Console `McpClient` 同一组装语义：静态头 → Accept → 密钥头/Bearer。
-        # 头值（含密钥）只进内存请求，不写日志/审计。
-        headers = dict(server.headers)
-        headers["Accept"] = MCP_ACCEPT
-        if server.auth_secret:
-            if server.secret_header:
-                headers[server.secret_header] = server.auth_secret
-            else:
-                headers["Authorization"] = f"Bearer {server.auth_secret}"
-        # 装配根注入的 MCP 池由**装配根拥有并关闭**（本会话只借用）；未注入时自建自关。
-        self._owns_client = client is None
-        self._client = client or httpx.AsyncClient(
-            headers=headers, timeout=httpx.Timeout(timeout_sec), transport=transport
+        self._writer = writer
+        self._tenant_id = tenant_id
+        self._conversation_id = conversation_id
+        self._run_id = run_id
+
+    async def write(self, artifact: McpArtifact) -> str:
+        artifact_id = await self._writer.persist_mcp_artifact(
+            tenant_id=self._tenant_id,
+            conversation_id=self._conversation_id,
+            run_id=self._run_id,
+            task_id=None,
+            filename=artifact.filename or "mcp-artifact.bin",
+            media_type=artifact.media_type,
+            content=artifact.data,
         )
-        # 每个请求都显式带上 Accept/Authorization：借用的共享池客户端没有本会话的默认头。
-        self._auth_headers = headers
-        self._endpoint = server.endpoint
-        self._server_key = server.key
-        self._session_id: str | None = None
-        self._initialized = False
-        self._request_seq = 0
-
-    @property
-    def initialized(self) -> bool:
-        return self._initialized
-
-    async def aclose(self) -> None:
-        if self._owns_client:
-            await self._client.aclose()
-
-    def _headers(self) -> dict[str, str]:
-        headers = dict(self._auth_headers)
-        headers["MCP-Protocol-Version"] = MCP_PROTOCOL_VERSION
-        if self._session_id:
-            headers["Mcp-Session-Id"] = self._session_id
-        return headers
-
-    def _next_request_id(self) -> int:
-        self._request_seq += 1
-        return self._request_seq
-
-    async def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
-        request_id = payload.get("id")
-        expects_response = request_id is not None
-        try:
-            async with (
-                self._budget.attempt(
-                    self._server_key,
-                    str(payload.get("method", "")),
-                    (payload.get("params") or {}).get("name")
-                    if payload.get("method") == "tools/call"
-                    else None,
-                )
-                if self._budget is not None
-                else _null_async_context()
-            ) as lease:
-                response = await self._client.post(self._endpoint, json=payload, headers=self._headers())
-                if lease is not None and response.status_code == 429:
-                    lease.outcome = "proxy_rate_limited"
-        except SharedLimitExceeded as exc:
-            code = "LOCAL_BUDGET_EXHAUSTED" if exc.kind == "TOTAL" else "LOCAL_RATE_LIMITED"
-            raise McpToolError("local_limit", str(exc), code=code) from exc
-        except MeteringUnavailable:
-            raise McpToolError(
-                "metering_unavailable", "shared metering unavailable", code="EGRESS_METERING_UNAVAILABLE"
-            ) from None
-        except httpx.TimeoutException as exc:
-            raise McpToolError("timeout", "request timed out") from exc
-        except httpx.HTTPError as exc:
-            # 不携带请求头（含 auth）内容，避免 Secret 泄漏
-            raise McpToolError("connect", type(exc).__name__) from exc
-        session_id = response.headers.get("mcp-session-id")
-        if session_id:
-            self._session_id = session_id
-        if response.status_code >= 400:
-            raise McpToolError(
-                "upstream_http",
-                f"http {response.status_code}",
-                status_code=response.status_code,
-                retry_after=response.headers.get("retry-after"),
-            )
-        if response.status_code == 202 or not response.content:
-            if expects_response:
-                raise McpToolError("protocol", "missing response payload")
-            return {}
-        body = self._decode(response)
-        if expects_response and body.get("id") != request_id:
-            raise McpToolError("protocol", "response id mismatch")
-        if body.get("error") is not None:
-            error = body["error"]
-            message = error.get("message", "rpc error") if isinstance(error, dict) else "rpc error"
-            raise McpToolError("protocol", str(message))
-        return body
-
-    @staticmethod
-    def _decode(response: httpx.Response) -> dict[str, Any]:
-        content_type = response.headers.get("content-type", "")
-        if "text/event-stream" in content_type:
-            for line in response.text.splitlines():
-                if not line.startswith("data:"):
-                    continue
-                try:
-                    payload = json.loads(line[len("data:") :].strip())
-                except json.JSONDecodeError:
-                    continue
-                if isinstance(payload, dict) and ("result" in payload or "error" in payload):
-                    return payload
-            raise McpToolError("protocol", "empty sse payload")
-        try:
-            payload = response.json()
-        except ValueError as exc:
-            raise McpToolError("protocol", "invalid json payload") from exc
-        if not isinstance(payload, dict):
-            raise McpToolError("protocol", "payload is not an object")
-        return payload
-
-    async def initialize(self) -> None:
-        """initialize + initialized 通知；由调用方的 singleflight 锁串行化，成功才置位。"""
-        if self._initialized:
-            return
-        await self._post(
-            {
-                "jsonrpc": JSON_RPC_VERSION,
-                "id": self._next_request_id(),
-                "method": "initialize",
-                "params": {
-                    "protocolVersion": MCP_PROTOCOL_VERSION,
-                    "capabilities": {},
-                    "clientInfo": {"name": MCP_CLIENT_NAME, "version": "1.0.0"},
-                },
-            }
-        )
-        await self._post({"jsonrpc": JSON_RPC_VERSION, "method": "notifications/initialized"})
-        self._initialized = True
-
-    async def call_tool(self, tool_name: str, arguments: Mapping[str, Any]) -> str:
-        if not self._initialized:
-            raise McpToolError("protocol", "session is not initialized")
-        body = await self._post(
-            {
-                "jsonrpc": JSON_RPC_VERSION,
-                "id": self._next_request_id(),
-                "method": "tools/call",
-                "params": {"name": tool_name, "arguments": dict(arguments)},
-            }
-        )
-        result = body.get("result") or {}
-        if not isinstance(result, dict):
-            raise McpToolError("protocol", "tools/call result is not an object")
-        if result.get("isError") is True:
-            raise McpToolError("tool_error", _content_text(result))
-        return _content_text(result)
-
-
-def _content_text(result: Mapping[str, Any]) -> str:
-    content = result.get("content")
-    if isinstance(content, list):
-        parts = [
-            str(item.get("text", ""))
-            for item in content
-            if isinstance(item, dict) and item.get("type") == "text"
-        ]
-        return "".join(parts)
-    if isinstance(content, str):
-        return content
-    return json.dumps(dict(result), ensure_ascii=False)
+        return str(artifact_id)
 
 
 class McpRuntimeAdapter:
-    """Runtime 侧 MCP 消费：注册冻结 catalog 到 ToolRegistry；执行统一走 Egress 审计。"""
+    """Runtime 侧 MCP 消费：注册冻结 catalog 到 ToolRegistry；执行统一走共享 client。"""
 
     def __init__(
         self,
@@ -279,21 +151,28 @@ class McpRuntimeAdapter:
         transport: httpx.AsyncBaseTransport | None = None,
         client: httpx.AsyncClient | None = None,
         budget: McpBudgetScope | None = None,
+        artifact_writer: McpArtifactWriter | None = None,
+        limits: McpLimits | None = None,
     ) -> None:
         self._audit_writer = audit_writer
-        self._timeout_sec = timeout_sec
-        self._transport = transport
-        self._client = client
-        self._budget = budget
-        self._sessions: dict[str, _McpSession] = {}
-        # 每 server 一把初始化 singleflight 锁：并发调用只初始化一次；失败释放锁并允许重试。
-        self._session_locks: dict[str, asyncio.Lock] = {}
+        self._artifact_writer = artifact_writer
+        self._owns_client = client is None
+        self._http = client or httpx.AsyncClient(
+            timeout=httpx.Timeout(timeout_sec), transport=transport
+        )
+        self._client = McpClient(
+            self._http,
+            limits=limits,
+            audit=_RuntimeMcpAudit(audit_writer),
+            artifact_writer=artifact_writer,
+            budget=budget,
+            timeout_sec=timeout_sec,
+            client_name="muad-agent-runtime",
+        )
 
     async def aclose(self) -> None:
-        for session in self._sessions.values():
-            await session.aclose()
-        self._sessions.clear()
-        self._session_locks.clear()
+        if self._owns_client:
+            await self._http.aclose()
 
     def register_catalog(
         self,
@@ -313,6 +192,7 @@ class McpRuntimeAdapter:
                         input_schema=tool.input_schema,
                         effect=_effect(tool.effect),
                         handler=self._make_handler(server, tool),
+                        capabilities=frozenset({ToolCapability.MCP_CALL}),
                     )
                 )
 
@@ -321,106 +201,82 @@ class McpRuntimeAdapter:
         server: McpServerDefinition,
         tool: McpToolDefinition,
     ) -> ToolHandler:
-        async def handler(arguments: Mapping[str, Any], *, call_id: str) -> str:
-            return await self.execute_tool(
+        async def handler(arguments: Any, *, call: ToolCall) -> ToolResult:
+            result = await self.execute_tool_result(
                 server=server,
                 tool=tool,
                 arguments=dict(arguments),
                 policy_decision="ALLOW",
+                call_id=call.call_id,
+            )
+            return ToolResult(
+                result.text,
+                artifacts=tuple(
+                    ArtifactRef(
+                        artifact_id=str(item.artifact_id),
+                        media_type=item.media_type,
+                        filename=item.filename,
+                        size=len(item.data),
+                    )
+                    for item in result.artifacts
+                    if item.artifact_id
+                ),
             )
 
         return handler
 
-    async def execute_tool(
+    async def execute_tool_result(
         self,
         *,
         server: McpServerDefinition,
         tool: McpToolDefinition,
         arguments: dict[str, Any],
         policy_decision: str,
-    ) -> str:
-        """MCP 工具执行统一入口：策略拒绝先落 DENY 审计再抛 FORBIDDEN。
-
-        任何失败（协议错误/超时/isError/取消）都明确向上抛出并**丢弃该 server 会话、关闭其
-        HTTP 连接**：坏会话不得被后续调用复用，重试必须重新 initialize（E-14）。
-        """
-        target = f"mcp://{server.key}/{tool.name}"
-        started = time.monotonic()
+        call_id: str = "mcp",
+    ) -> McpResult:
         if policy_decision == "DENY":
-            await self._audit(target, "DENY", None, "DENIED", latency_ms=0)
+            target = f"mcp://{server.key}/{tool.name}"
+            if self._audit_writer is not None:
+                await self._audit_writer.record_egress(
+                    target_type=EGRESS_TARGET_TYPE,
+                    target=target,
+                    policy_decision="DENY",
+                    operation="mcp.tool",
+                    method="POST",
+                    result_status="DENIED",
+                )
             raise AppError(ErrorCode.FORBIDDEN)
+        config = McpServerConfig(
+            server_id=server.mcp_server_id,
+            key=server.key,
+            endpoint=server.endpoint,
+            headers=server.headers,
+            secret_header=server.secret_header,
+            auth_secret=server.auth_secret,
+        )
         try:
-            session = await self._ready_session(server)
-            content = await session.call_tool(tool.name, arguments)
-        except McpToolError as exc:
-            if exc.reason != "local_limit":
-                await self._discard_session(server.key)
-            await self._audit(
-                target,
-                policy_decision,
-                None,
-                "ERROR",
-                latency_ms=int((time.monotonic() - started) * 1000),
-                error_code=exc.reason,
+            result = await self._client.call(
+                config,
+                tool.name,
+                arguments,
+                retry_safety=_retry_safety(tool.retry_safety),
+                call_id=call_id,
             )
-            raise
-        except asyncio.CancelledError:
-            await self._discard_session(server.key)
-            raise
-        await self._audit(
-            target,
-            policy_decision,
-            200,
-            "OK",
-            latency_ms=int((time.monotonic() - started) * 1000),
-        )
-        return content
-
-    async def _ready_session(self, server: McpServerDefinition) -> _McpSession:
-        """singleflight：并发调用只 initialize 一次；失败关闭会话并释放锁，允许重试。"""
-        lock = self._session_locks.setdefault(server.key, asyncio.Lock())
-        async with lock:
-            session = self._sessions.get(server.key)
-            if session is not None:
-                return session
-            session = _McpSession(server, self._timeout_sec, self._transport, self._client, self._budget)
-            try:
-                await session.initialize()
-            except BaseException:
-                await session.aclose()
-                raise
-            self._sessions[server.key] = session
-            return session
-
-    async def _discard_session(self, server_key: str) -> None:
-        session = self._sessions.pop(server_key, None)
-        if session is not None:
-            await session.aclose()
-
-    async def _audit(
-        self,
-        target: str,
-        decision: str,
-        status_code: int | None,
-        result_status: str,
-        *,
-        latency_ms: int | None = None,
-        error_code: str | None = None,
-    ) -> None:
-        record_outcome(EGRESS_CALLS_METRIC, result_status, {"platform": EGRESS_TARGET_TYPE})
-        if self._audit_writer is None:
-            return
-        await self._audit_writer.record_egress(
-            target_type=EGRESS_TARGET_TYPE,
-            target=target,
-            policy_decision=decision,
-            operation="mcp.tool",
-            method="POST",
-            status_code=status_code,
-            result_status=result_status,
-            latency_ms=latency_ms,
-            error_code=error_code,
-        )
+        except McpError as exc:
+            raise McpToolError(
+                exc.code,
+                exc.message,
+                status_code=exc.status_code,
+                retry_after=exc.retry_after,
+                retryable=exc.retryable,
+            ) from exc
+        if result.artifacts and self._artifact_writer is None:
+            raise McpToolError(
+                "MCP_ARTIFACT_UNAVAILABLE",
+                "MCP media requires an artifact writer",
+                retryable=False,
+            )
+        return result
 
 
 def _effect(raw: str) -> ToolEffect:
@@ -430,6 +286,10 @@ def _effect(raw: str) -> ToolEffect:
         return ToolEffect.WRITE
 
 
-@asynccontextmanager
-async def _null_async_context() -> AsyncIterator[None]:
-    yield None
+def _retry_safety(raw: str) -> Any:
+    from muad_contracts import ToolRetrySafety
+
+    try:
+        return ToolRetrySafety(raw)
+    except ValueError:
+        return ToolRetrySafety.NON_RETRYABLE

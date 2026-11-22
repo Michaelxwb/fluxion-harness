@@ -10,19 +10,29 @@ Console 上传、skill 产出）。渠道层因此不必背内容理解。
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import io
 import uuid
 from collections import OrderedDict
-from collections.abc import Awaitable, Mapping
+from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
 from typing import Any
 
 import sqlalchemy as sa
 from muad_agent_core.model import ImagePart, ModelMessage, ModelRole
 from muad_agent_core.skill import OutputFile, checksum_file
-from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
+from muad_agent_core.tools import (
+    ToolCall,
+    ToolCapability,
+    ToolDefinition,
+    ToolEffect,
+    ToolError,
+    ToolRegistry,
+    ToolResult,
+)
+from muad_agent_core.tools.attachments import TextCursor, decode_cursor, encode_cursor, read_text_segment
 from muad_artifact_store import NfsArtifactStore
 from muad_contracts import (
     DeliveryMessage,
@@ -74,9 +84,9 @@ INBOUND_ARTIFACT_TYPES = (INBOUND_DOCUMENT, INBOUND_IMAGE, INBOUND_OTHER)
 
 READ_ATTACHMENT_DESCRIPTION = (
     "Read the content of a file the user sent (or that an earlier step produced) by its "
-    "attachment id. Long documents come back one segment at a time: pass offset to continue "
-    "where the previous segment ended. Returns extracted text for documents; for images use "
-    "view_image instead."
+    "attachment id. Long documents come back one segment at a time: pass the returned cursor "
+    "to continue without re-scanning earlier text. Returns extracted text for documents; for "
+    "images use view_image instead."
 )
 SEARCH_ATTACHMENT_DESCRIPTION = (
     "Find where a keyword occurs in a file's extracted text and return the matching fragments "
@@ -188,11 +198,9 @@ _XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 _PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 
 
-class AttachmentToolError(RuntimeError):
+class AttachmentToolError(ToolError):
     def __init__(self, code: str, message: str) -> None:
-        self.code = code
-        self.message = message
-        super().__init__(message)
+        super().__init__(code, message, retryable=None)
 
 
 def _extract_document(data: bytes, media_type: str) -> str:
@@ -244,16 +252,23 @@ def _extract_document(data: bytes, media_type: str) -> str:
     raise AttachmentToolError(ATTACHMENT_TYPE_UNSUPPORTED, f"尚不支持的内容类型: {media_type}")
 
 
+def validate_text_window(offset: int, limit: int) -> None:
+    """分段参数的唯一判定：负 offset 与越界 limit 都是参数错误。"""
+    if offset < 0:
+        raise AttachmentToolError(ATTACHMENT_OFFSET_INVALID, f"offset 不能为负：{offset}")
+    if limit < 1 or limit > MAX_TEXT_CHARS:
+        raise AttachmentToolError(
+            ATTACHMENT_LIMIT_INVALID, f"limit 必须在 1..{MAX_TEXT_CHARS} 之间：{limit}"
+        )
+
+
 def slice_text(text: str, offset: int, limit: int) -> str:
     """按字符偏移切片——**纯函数**，无 IO、无副作用，分段语义的唯一实现处。
 
     越界**不是错误**（设计 §2.3.2）：`offset` 等于或超出全文长度一律返回空串，由调用方
     连区间标注一并回给模型——"读到了末尾"与"参数写错了"是两件事，不能混成同一个错。
     """
-    if offset < 0:
-        raise AttachmentToolError(ATTACHMENT_OFFSET_INVALID, f"offset 不能为负：{offset}")
-    if limit < 1 or limit > MAX_TEXT_CHARS:
-        raise AttachmentToolError(ATTACHMENT_LIMIT_INVALID, f"limit 必须在 1..{MAX_TEXT_CHARS} 之间：{limit}")
+    validate_text_window(offset, limit)
     return text[offset : offset + limit]
 
 
@@ -394,6 +409,7 @@ class AttachmentToolSet:
                     "properties": {
                         "artifact_id": string_schema,
                         "offset": {**integer_schema, "minimum": 0},
+                        "cursor": {"type": "string"},
                         "limit": {**integer_schema, "minimum": 1, "maximum": MAX_TEXT_CHARS},
                     },
                     "required": ["artifact_id"],
@@ -401,6 +417,7 @@ class AttachmentToolSet:
                 },
                 effect=ToolEffect.READ,
                 handler=self.read_attachment,
+                capabilities=frozenset({ToolCapability.ATTACHMENT_READ}),
                 # 内容投递：返回的**正文就是要给模型读的**，不得被大结果外置截成预览。
                 # 2026-10-03 端到端实测（TASK-010 的 S-03）：20 000 字符的片段被按 8KB 判据
                 # 外置，模型只拿到 **200 字符**预览——**而分页指引在结果末尾，被一并截掉了**，
@@ -426,6 +443,7 @@ class AttachmentToolSet:
                 },
                 effect=ToolEffect.READ,
                 handler=self.search_attachment,
+                capabilities=frozenset({ToolCapability.ATTACHMENT_READ}),
                 # 同 `read_attachment`：命中片段同样是"要给模型读的正文"。被外置的后果更隐蔽——
                 # 模型会以为自己搜到了、只是内容"很短"。
                 externalizable_result=False,
@@ -451,6 +469,7 @@ class AttachmentToolSet:
                 },
                 effect=ToolEffect.READ,
                 handler=self.list_attachments,
+                capabilities=frozenset({ToolCapability.ATTACHMENT_READ}),
             )
         )
         registry.register(
@@ -465,6 +484,7 @@ class AttachmentToolSet:
                 },
                 effect=ToolEffect.WRITE,
                 handler=self.append_artifact,
+                capabilities=frozenset({ToolCapability.ATTACHMENT_WRITE}),
             )
         )
         registry.register(
@@ -479,13 +499,17 @@ class AttachmentToolSet:
                         "allow_internal": {
                             "type": "boolean",
                             "default": False,
-                            "description": "Set true only when the user explicitly asks to send an internal tool result.",
+                            "description": (
+                                "Set true only when the user explicitly asks to send an internal "
+                                "tool result."
+                            ),
                         },
                     },
                     "additionalProperties": False,
                 },
                 effect=ToolEffect.WRITE,
                 handler=self.deliver_artifact,
+                capabilities=frozenset({ToolCapability.ATTACHMENT_DELIVER}),
             )
         )
         registry.register(
@@ -500,7 +524,7 @@ class AttachmentToolSet:
                 },
                 effect=ToolEffect.READ,
                 handler=self.view_image,
-                follow_up_messages=self._image_follow_up,
+                capabilities=frozenset({ToolCapability.ATTACHMENT_READ}),
             )
         )
         registry.register(
@@ -515,19 +539,55 @@ class AttachmentToolSet:
                 },
                 effect=ToolEffect.WRITE,
                 handler=self.write_artifact,
+                capabilities=frozenset({ToolCapability.ATTACHMENT_WRITE}),
             )
         )
 
-    async def read_attachment(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+    async def read_attachment(
+        self, arguments: Mapping[str, Any], *, call: ToolCall
+    ) -> ToolResult:
         """分段读。返回值**永远**带区间与总长标注，多次调用可拼接还原全文。"""
         row = await self._load(arguments.get("artifact_id"))
         if (row.metadata_json or {}).get("kind") == "IMAGE":
-            return (
+            return ToolResult(
                 f"这是图片附件 {row.id}（{_filename(row)}），不能当文本读；如需查看请调用 {VIEW_IMAGE_TOOL}。"
             )
         offset = _require_int(arguments, "offset", DEFAULT_OFFSET, ATTACHMENT_OFFSET_INVALID)
         limit = _require_int(arguments, "limit", MAX_TEXT_CHARS, ATTACHMENT_LIMIT_INVALID)
-        text = self._extract(row)
+        cursor = _cursor_arg(arguments)
+        if cursor is not None and offset:
+            raise AttachmentToolError(
+                "COMMON_VALIDATION_ERROR", "offset and cursor cannot be used together"
+            )
+        if _is_plain_text(row.media_type):
+            try:
+                validate_text_window(offset, limit)
+            except AttachmentToolError as exc:
+                raise AttachmentToolError(
+                    exc.code, f"{_filename(row)}：{exc.message}"
+                ) from exc
+            if row.size > MAX_READ_BYTES:
+                raise AttachmentToolError(
+                    ATTACHMENT_TOO_LARGE,
+                    f"{_filename(row)}：附件超过可读取上限（{MAX_READ_BYTES} 字节）",
+                )
+            path = NfsArtifactStore(self._artifact_root).resolve(row.storage_key)
+            data, total, next_cursor = await asyncio.to_thread(
+                read_text_segment, path, offset, limit, cursor
+            )
+            segment = data.decode("utf-8", errors="replace")
+            start = cursor.chars if cursor is not None else offset
+            note = f"[{_filename(row)}] 字符 {start}..{start + len(segment)}"
+            if total is not None:
+                note += f" / 共 {total} 字符"
+            if next_cursor is not None:
+                note += f"；继续读请用 cursor={encode_cursor(next_cursor)}"
+            return ToolResult("\n".join([note, segment]) if segment else note)
+        if cursor is not None:
+            raise AttachmentToolError(
+                "COMMON_VALIDATION_ERROR", "cursor is only supported for plain text"
+            )
+        text = await asyncio.to_thread(self._extract, row)
         try:
             segment = slice_text(text, offset, limit)
         except AttachmentToolError as exc:
@@ -537,9 +597,11 @@ class AttachmentToolSet:
         if segment:
             lines.append(segment)
         lines.append(_segment_note(offset, limit, len(text)))
-        return "\n".join(lines)
+        return ToolResult("\n".join(lines))
 
-    async def search_attachment(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+    async def search_attachment(
+        self, arguments: Mapping[str, Any], *, call: ToolCall
+    ) -> ToolResult:
         """在已抽取文本里定位关键词，返回命中片段与字符偏移。
 
         **未命中必须明说**（RULE-01 的同一条精神）：返回空内容会被模型当成"读到了空文档"，
@@ -565,15 +627,17 @@ class AttachmentToolSet:
             cursor = found + len(query)  # 不重叠地前进，避免同一处被反复命中
         name = _filename(row)
         if not hits:
-            return f"[{name}] 未命中「{query}」 / 共 {len(text)} 字符"
+            return ToolResult(f"[{name}] 未命中「{query}」 / 共 {len(text)} 字符")
         lines = [f"[{name}] 命中 {len(hits)} 处 / 共 {len(text)} 字符"]
         for hit in hits:
             start = max(0, hit - SEARCH_CONTEXT_CHARS)
             end = min(len(text), hit + len(query) + SEARCH_CONTEXT_CHARS)
             lines.append(f"offset={hit}：…{text[start:end].replace(chr(10), ' ')}…")
-        return "\n".join(lines)
+        return ToolResult("\n".join(lines))
 
-    async def list_attachments(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+    async def list_attachments(
+        self, arguments: Mapping[str, Any], *, call: ToolCall
+    ) -> ToolResult:
         """列出当前可寻址的附件（入站 + 自产）。**空集不是错误**——报错会让模型以为工具坏了。
 
         租户与归属过滤从 Run 上下文取，**不进工具 schema**：归属一旦成为模型可填的参数，
@@ -668,8 +732,8 @@ class AttachmentToolSet:
 
         header = f"[附件 {len(rows)} 条] scope={scope} offset={offset} limit={limit}"
         if not rows:
-            return f"{header} —— 当前范围内没有可寻址的附件"
-        return "\n".join([header, *(_list_line(row) for row in rows)])
+            return ToolResult(f"{header} —— 当前范围内没有可寻址的附件")
+        return ToolResult("\n".join([header, *(_list_line(row) for row in rows)]))
 
     def _extract(self, row: Artifact) -> str:
         """抽取全量文本，**按 Run 复用**：同一份长文档分多次读只解析一次（NFR-PERF-01）。
@@ -689,15 +753,22 @@ class AttachmentToolSet:
             self._text_cache.popitem(last=False)
         return text
 
-    async def view_image(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+    async def view_image(
+        self, arguments: Mapping[str, Any], *, call: ToolCall
+    ) -> ToolResult:
         row = await self._load(arguments.get("artifact_id"))
         if (row.metadata_json or {}).get("kind") != "IMAGE":
             raise AttachmentToolError(ATTACHMENT_TYPE_UNSUPPORTED, f"附件 {row.id} 不是图片，无法重看")
         if not row.media_type.startswith("image/"):
             raise AttachmentToolError(ATTACHMENT_TYPE_UNSUPPORTED, "该附件的媒体类型不是图片，无法重看")
-        return f"{VIEW_IMAGE_RESULT_PREFIX}{row.id}）：{_filename(row)}"
+        return ToolResult(
+            f"{VIEW_IMAGE_RESULT_PREFIX}{row.id}）：{_filename(row)}",
+            follow_ups=self._image_message(row),
+        )
 
-    async def write_artifact(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+    async def write_artifact(
+        self, arguments: Mapping[str, Any], *, call: ToolCall
+    ) -> ToolResult:
         """把结果写成产物并返回标识。**只写，不管能不能交付**（TASK-005）。
 
         原先这里还拒绝"没有交付路由"的运行——那把「写」与「可交付」**耦合错了方向**：
@@ -733,12 +804,14 @@ class AttachmentToolSet:
             raise AttachmentToolError(exc.code, exc.message) from exc
         artifact_id = row.id
         # 明确告诉模型"写"与"交"是两件事，否则它会以为写完就等于用户收到了
-        return (
+        return ToolResult(
             f"{WRITE_ARTIFACT_RESULT_PREFIX}{artifact_id}）：{name}。"
             f"如果需要把它交给用户，请再调用 {DELIVER_ARTIFACT_TOOL}"
         )
 
-    async def append_artifact(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+    async def append_artifact(
+        self, arguments: Mapping[str, Any], *, call: ToolCall
+    ) -> ToolResult:
         """分段追加写长文档：每个版本是新的不可变行，旧版本字节不变。
 
         追加合并的是**当前版本**的全文；新版本有新 `artifact_id`、`storage_key`、checksum，
@@ -818,9 +891,13 @@ class AttachmentToolSet:
 
         self._text_cache.pop(row.id, None)
         self._text_cache.pop(new_id, None)
-        return f"已追加到产物（附件 ID {new_id}）：{_filename(row)}，当前 {len(merged)} 字符"
+        return ToolResult(
+            f"已追加到产物（附件 ID {new_id}）：{_filename(row)}，当前 {len(merged)} 字符"
+        )
 
-    async def deliver_artifact(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+    async def deliver_artifact(
+        self, arguments: Mapping[str, Any], *, call: ToolCall
+    ) -> ToolResult:
         """把产物交给用户 —— **硬需求的落点**。
 
         **写出成功不等于用户收到**（RULE-03），所以这里只认同步调用回来的**真实结论**，
@@ -853,10 +930,12 @@ class AttachmentToolSet:
         # 的持久流；不在任一能力组的通道显式拒绝，不把"未知"猜成"站内"。
         channel = self._delivery_route.channel
         if channel in LOCAL_STREAM_CHANNELS:
-            return await self._publish_to_conversation(row, allow_internal=allow_internal)
-        if channel in OUTBOUND_CHANNELS:
-            return await self._deliver_via_gateway(row)
-        raise AttachmentToolError(ATTACHMENT_WRITE_UNAVAILABLE, "当前通道不支持交付产物")
+            content = await self._publish_to_conversation(row, allow_internal=allow_internal)
+        elif channel in OUTBOUND_CHANNELS:
+            content = await self._deliver_via_gateway(row)
+        else:
+            raise AttachmentToolError(ATTACHMENT_WRITE_UNAVAILABLE, "当前通道不支持交付产物")
+        return ToolResult(content)
 
     async def _publish_to_conversation(self, row: Artifact, *, allow_internal: bool = False) -> str:
         """站内入口的交付：目标会话里的持久发布事实（站内入口的"收到"就是这条事实）。"""
@@ -931,19 +1010,12 @@ class AttachmentToolSet:
     def _store(self) -> NfsArtifactStore:
         return NfsArtifactStore(self._artifact_root)
 
-    def _image_follow_up(self, result: str) -> Awaitable[tuple[ModelMessage, ...]]:
-        return self._build_image_message(result)
-
-    async def _build_image_message(self, result: str) -> tuple[ModelMessage, ...]:
+    def _image_message(self, row: Artifact) -> tuple[ModelMessage, ...]:
         """工具结果 → 补一条带图像块的 user 消息。
 
         **不 mock 读取**：字节真的从 artifact store 取，与当前消息内联图片走同一条路。
         """
-        if not result.startswith(VIEW_IMAGE_RESULT_PREFIX):
-            return ()
-        artifact_id = result[len(VIEW_IMAGE_RESULT_PREFIX) :].split("）")[0].strip()
         try:
-            row = await self._load(artifact_id)
             data = self._read_bytes(row)
         except AttachmentToolError:
             # 取不回来就不补消息：工具结果里的文本已经说明了情况，不要追加半截内容
@@ -956,6 +1028,7 @@ class AttachmentToolSet:
                     ImagePart(
                         media_type=row.media_type,
                         data_base64=base64.b64encode(data).decode("ascii"),
+                        artifact_id=str(row.id),
                     ),
                 ),
             ),
@@ -1074,6 +1147,26 @@ class AttachmentToolSet:
             return path.read_bytes()
         except OSError as exc:
             raise AttachmentToolError(ATTACHMENT_NOT_FOUND, "附件内容不可读") from exc
+
+
+def _is_plain_text(media_type: str) -> bool:
+    return media_type.startswith("text/") or media_type in {
+        "application/json",
+        "application/xml",
+        "application/yaml",
+    }
+
+
+def _cursor_arg(arguments: Mapping[str, Any]) -> TextCursor | None:
+    raw = arguments.get("cursor")
+    if raw is None:
+        return None
+    if not isinstance(raw, str) or not raw:
+        raise AttachmentToolError("COMMON_VALIDATION_ERROR", "cursor must be a non-empty string")
+    try:
+        return decode_cursor(raw)
+    except ToolError as exc:
+        raise AttachmentToolError(exc.code, exc.message) from exc
 
 
 def _filename(row: Artifact) -> str:

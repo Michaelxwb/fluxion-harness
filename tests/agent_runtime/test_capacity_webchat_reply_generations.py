@@ -192,7 +192,7 @@ class CutRound:
 
 @dataclass(frozen=True, slots=True)
 class ToolCallRound:
-    """工具回合：返回一个 `execute_skill` 调用（finish_reason=tool_calls）。"""
+    """工具回合：返回一个当前契约的 `execute` skill 调用（finish_reason=tool_calls）。"""
 
     call_id: str
     skill_key: str
@@ -237,9 +237,14 @@ def _tool_call_frame(round_: ToolCallRound) -> str:
                 "id": round_.call_id,
                 "type": "function",
                 "function": {
-                    "name": "execute_skill",
+                    "name": "execute",
                     "arguments": json.dumps(
-                        {"skill_key": round_.skill_key, "input": round_.input_data}
+                        {
+                            "target": "skill",
+                            "skill_key": round_.skill_key,
+                            "input": round_.input_data,
+                            "argv": [],
+                        }
                     ),
                 },
             }

@@ -26,7 +26,7 @@ description: 指导用户写一个符合本平台格式的自建 Skill。用户�
 | `skill_draft`（action=`read`） | 读文件或列目录 |
 | `skill_draft`（action=`delete`） | 删文件；不带 `path` 时删整个草稿 |
 | `skill_draft`（action=`review`） | 只读确定性校验，返回 pass/warn/error 明细 |
-| `skill_draft_shell` | 在当前草稿的沙箱副本里执行一条命令（验证脚本） |
+| `execute`（`target="draft"`） | 在当前草稿的沙箱副本里执行一条命令（验证脚本） |
 | `skill_draft`（action=`status`） | 查看最近一次提交的 artifact 与审批状态 |
 | `skill_draft`（action=`submit`） | 打包并提交，生成 PENDING artifact 等管理员审批 |
 
@@ -155,11 +155,11 @@ body 用祈使句写指令，遵循“渐进式披露”——核心流程放 SK
 
 然后按顺序做两件事：
 
-1. `skill_draft`（action=`review`） 做平台结构校验；验证脚本能否跑通必须调用 `skill_draft_shell`（例如 `python -m py_compile scripts/run.py`、`python scripts/run.py <args>`），**不要用 `workspace_shell` 在工作区的草稿目录里直接运行**——那是活草稿，写入会绕过 revision CAS。
+1. `skill_draft`（action=`review`） 做平台结构校验；验证脚本能否跑通必须调用 `execute(target="draft", draft_id=..., command=...)`（例如 `python -m py_compile scripts/run.py`、`python scripts/run.py <args>`），**不要用 `execute(target="workspace")` 在工作区的草稿目录里直接运行**——那是活草稿，写入会绕过 revision CAS。
    - 有状态 Skill 要用同一 `draft_id` 分多次调用真实脚本，例如先 `start`，再 `status` / `guess`；草稿的 `SKILL_DATA_DIR` 跨调用和 Run 保留。修改代码不会自动清空测试状态，需要从空状态重新验证时传 `reset_data=true`。
    - 每次测试后的源码修改仍按 revision 回写；测试数据不进入提交包，也不在审批后迁移到正式数据。测试报错、超时或 revision 冲突不会撤销已写入的测试状态。
    - 只报告真实草稿已经验证的行为；workspace 文件探针、重写的试玩脚本不能替代草稿验证。用户可以直接继续聊天测试，无需配置目录或先提交审批。
-2. 按 `self-skill-review` 做规范审查：先用 `workspace_shell` 执行 `pwd` 取工作区根，再 `execute_skill` 调用 `self-skill-review`，`argv` 传 `["--target", "<工作区根>/skill-drafts/<key>"]`，然后按该 Skill 的语义清单逐项核对。把 error/warning 摘要**原文交给用户**；有 error 先修，修完重审。
+2. 按 `self-skill-review` 做规范审查：先用 `execute(target="workspace", command="pwd")` 取工作区根，再 `execute(target="skill", skill_key="self-skill-review", argv=["--target", "<工作区根>/skill-drafts/<key>"])`，然后按该 Skill 的语义清单逐项核对。把 error/warning 摘要**原文交给用户**；有 error 先修，修完重审。
 
 ### Step 7：交付草稿，等用户上传
 

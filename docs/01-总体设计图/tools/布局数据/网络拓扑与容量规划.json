@@ -1,0 +1,436 @@
+{
+  "name": "网络拓扑与容量规划",
+  "size": [
+    1200,
+    620
+  ],
+  "nodes": {
+    "wecom": {
+      "rect": [
+        55,
+        100,
+        190,
+        70
+      ],
+      "label": "企业微信",
+      "lines": [
+        "WSS 长连接"
+      ],
+      "state": false,
+      "tone": "external",
+      "group": "users"
+    },
+    "browser": {
+      "rect": [
+        55,
+        300,
+        190,
+        70
+      ],
+      "label": "浏览器",
+      "lines": [
+        "HTTPS / SSE"
+      ],
+      "state": false,
+      "tone": "external",
+      "group": "users"
+    },
+    "nginx": {
+      "rect": [
+        325,
+        150,
+        180,
+        100
+      ],
+      "label": "Nginx",
+      "lines": [
+        "只服务浏览器入口",
+        "路径分流",
+        "请求体上限"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "edge"
+    },
+    "gateway": {
+      "rect": [
+        585,
+        100,
+        170,
+        70
+      ],
+      "label": "IM Gateway",
+      "lines": [
+        "多副本 / SSE"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "cluster"
+    },
+    "connector": {
+      "rect": [
+        800,
+        100,
+        170,
+        70
+      ],
+      "label": "IM Connector",
+      "lines": [
+        "按 bot 租约分片"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "cluster"
+    },
+    "console": {
+      "rect": [
+        585,
+        230,
+        170,
+        70
+      ],
+      "label": "Console",
+      "lines": [
+        "单 Pod"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "cluster"
+    },
+    "runtime": {
+      "rect": [
+        800,
+        230,
+        170,
+        70
+      ],
+      "label": "Agent Runtime",
+      "lines": [
+        "多副本 / 按并发"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "cluster"
+    },
+    "worker": {
+      "rect": [
+        1010,
+        230,
+        140,
+        70
+      ],
+      "label": "Agent Worker",
+      "lines": [
+        "多副本 / 按队列"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "cluster"
+    },
+    "pg": {
+      "rect": [
+        60,
+        520,
+        160,
+        55
+      ],
+      "label": "PostgreSQL",
+      "lines": [
+        "权威状态"
+      ],
+      "state": false,
+      "tone": "store",
+      "group": "external"
+    },
+    "redis": {
+      "rect": [
+        260,
+        520,
+        160,
+        55
+      ],
+      "label": "Redis",
+      "lines": [
+        "缓存与流"
+      ],
+      "state": false,
+      "tone": "store",
+      "group": "external"
+    },
+    "storage": {
+      "rect": [
+        460,
+        520,
+        160,
+        55
+      ],
+      "label": "共享存储",
+      "lines": [
+        "制品与工作区"
+      ],
+      "state": false,
+      "tone": "store",
+      "group": "external"
+    },
+    "models": {
+      "rect": [
+        660,
+        520,
+        160,
+        55
+      ],
+      "label": "外部模型网关",
+      "lines": [
+        "模型接口"
+      ],
+      "state": false,
+      "tone": "external",
+      "group": "external"
+    },
+    "platforms": {
+      "rect": [
+        860,
+        520,
+        160,
+        55
+      ],
+      "label": "业务平台",
+      "lines": [
+        "平台接口"
+      ],
+      "state": false,
+      "tone": "external",
+      "group": "external"
+    },
+    "mcp": {
+      "rect": [
+        1040,
+        520,
+        140,
+        55
+      ],
+      "label": "MCP 服务",
+      "lines": [
+        "工具接口"
+      ],
+      "state": false,
+      "tone": "external"
+    }
+  },
+  "groups": {
+    "users": {
+      "rect": [
+        30,
+        30,
+        240,
+        420
+      ],
+      "title": "用户与入口"
+    },
+    "edge": {
+      "rect": [
+        300,
+        30,
+        230,
+        420
+      ],
+      "title": "入口代理"
+    },
+    "cluster": {
+      "rect": [
+        560,
+        30,
+        610,
+        420
+      ],
+      "title": "Kubernetes 集群"
+    },
+    "external": {
+      "rect": [
+        30,
+        480,
+        1140,
+        120
+      ],
+      "title": "外部依赖与数据服务"
+    }
+  },
+  "edges": [
+    {
+      "from": "browser",
+      "to": "nginx",
+      "points": [
+        [
+          245,
+          335
+        ],
+        [
+          285,
+          335
+        ],
+        [
+          285,
+          200
+        ],
+        [
+          325,
+          200
+        ]
+      ],
+      "label": "HTTPS / SSE",
+      "both": false
+    },
+    {
+      "from": "nginx",
+      "to": "gateway",
+      "points": [
+        [
+          505,
+          185
+        ],
+        [
+          585,
+          135
+        ]
+      ],
+      "label": "聊天 / 事件",
+      "both": false
+    },
+    {
+      "from": "nginx",
+      "to": "console",
+      "points": [
+        [
+          505,
+          225
+        ],
+        [
+          585,
+          265
+        ]
+      ],
+      "label": "管理 / 认证",
+      "both": false
+    },
+    {
+      "from": "wecom",
+      "to": "connector",
+      "points": [
+        [
+          150,
+          100
+        ],
+        [
+          150,
+          80
+        ],
+        [
+          800,
+          80
+        ],
+        [
+          800,
+          100
+        ]
+      ],
+      "label": "WSS 直连 Connector",
+      "both": false
+    },
+    {
+      "from": "connector",
+      "to": "gateway",
+      "points": [
+        [
+          800,
+          135
+        ],
+        [
+          755,
+          135
+        ]
+      ],
+      "label": "事件流",
+      "both": true
+    },
+    {
+      "from": "gateway",
+      "to": "runtime",
+      "points": [
+        [
+          755,
+          150
+        ],
+        [
+          800,
+          265
+        ]
+      ],
+      "label": "内网 HTTP",
+      "both": false
+    },
+    {
+      "from": "runtime",
+      "to": "worker",
+      "points": [
+        [
+          970,
+          265
+        ],
+        [
+          1010,
+          265
+        ]
+      ],
+      "label": "任务",
+      "both": false
+    },
+    {
+      "from": "runtime",
+      "to": "models",
+      "points": [
+        [
+          885,
+          300
+        ],
+        [
+          885,
+          455
+        ],
+        [
+          740,
+          455
+        ],
+        [
+          740,
+          520
+        ]
+      ],
+      "label": "模型调用",
+      "both": false
+    },
+    {
+      "from": "worker",
+      "to": "platforms",
+      "points": [
+        [
+          1080,
+          300
+        ],
+        [
+          1080,
+          472
+        ],
+        [
+          940,
+          472
+        ],
+        [
+          940,
+          520
+        ]
+      ],
+      "label": "平台调用",
+      "both": false
+    }
+  ]
+}

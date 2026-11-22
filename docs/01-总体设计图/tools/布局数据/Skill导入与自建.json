@@ -1,0 +1,635 @@
+{
+  "name": "Skill导入与自建",
+  "size": [
+    1200,
+    802
+  ],
+  "nodes": {
+    "U": {
+      "rect": [
+        60,
+        30,
+        160,
+        60
+      ],
+      "label": "服务经理",
+      "lines": [
+        "自建与提交"
+      ],
+      "state": false,
+      "tone": "external"
+    },
+    "A": {
+      "rect": [
+        280,
+        30,
+        160,
+        60
+      ],
+      "label": "管理员",
+      "lines": [
+        "审批与导入"
+      ],
+      "state": false,
+      "tone": "external"
+    },
+    "C": {
+      "rect": [
+        500,
+        30,
+        160,
+        60
+      ],
+      "label": "Console",
+      "lines": [
+        "校验、发布与审批"
+      ],
+      "state": false,
+      "tone": "active"
+    },
+    "P": {
+      "rect": [
+        720,
+        30,
+        160,
+        60
+      ],
+      "label": "共享存储",
+      "lines": [
+        "不可变制品"
+      ],
+      "state": false,
+      "tone": "active"
+    },
+    "R": {
+      "rect": [
+        940,
+        30,
+        160,
+        60
+      ],
+      "label": "Runtime/Worker",
+      "lines": [
+        "后续执行"
+      ],
+      "state": false,
+      "tone": "active"
+    }
+  },
+  "groups": {
+    "submit": {
+      "rect": [
+        30,
+        110,
+        1140,
+        228
+      ],
+      "title": "服务经理自建并提交"
+    },
+    "approve": {
+      "rect": [
+        30,
+        358,
+        1140,
+        180
+      ],
+      "title": "管理员审批"
+    },
+    "admin_import": {
+      "rect": [
+        30,
+        558,
+        1140,
+        204
+      ],
+      "title": "管理员直接导入（默认生效）"
+    }
+  },
+  "edges": [
+    {
+      "from": "U",
+      "to": "C",
+      "points": [
+        [
+          140,
+          165
+        ],
+        [
+          580,
+          165
+        ]
+      ],
+      "label": "1 写端口检查 Skill 草稿",
+      "both": false
+    },
+    {
+      "from": "C",
+      "to": "P",
+      "points": [
+        [
+          580,
+          189
+        ],
+        [
+          800,
+          189
+        ]
+      ],
+      "label": "2 保存草稿",
+      "both": false
+    },
+    {
+      "from": "U",
+      "to": "C",
+      "points": [
+        [
+          140,
+          213
+        ],
+        [
+          580,
+          213
+        ]
+      ],
+      "label": "3 在草稿沙箱测试",
+      "both": false
+    },
+    {
+      "from": "C",
+      "to": "U",
+      "points": [
+        [
+          580,
+          237
+        ],
+        [
+          140,
+          237
+        ]
+      ],
+      "label": "4 返回测试结果",
+      "both": false
+    },
+    {
+      "from": "U",
+      "to": "C",
+      "points": [
+        [
+          140,
+          261
+        ],
+        [
+          580,
+          261
+        ]
+      ],
+      "label": "5 上传草稿并提交",
+      "both": false
+    },
+    {
+      "from": "C",
+      "to": "P",
+      "points": [
+        [
+          580,
+          285
+        ],
+        [
+          800,
+          285
+        ]
+      ],
+      "label": "6 校验并写待审制品",
+      "both": false
+    },
+    {
+      "from": "C",
+      "to": "U",
+      "points": [
+        [
+          580,
+          309
+        ],
+        [
+          140,
+          309
+        ]
+      ],
+      "label": "7 返回待审批",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "C",
+      "points": [
+        [
+          360,
+          413
+        ],
+        [
+          580,
+          413
+        ]
+      ],
+      "label": "8 打开待审批 Skill",
+      "both": false
+    },
+    {
+      "from": "C",
+      "to": "P",
+      "points": [
+        [
+          580,
+          437
+        ],
+        [
+          800,
+          437
+        ]
+      ],
+      "label": "9 读取待审制品",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "C",
+      "points": [
+        [
+          360,
+          461
+        ],
+        [
+          580,
+          461
+        ]
+      ],
+      "label": "10 审批通过",
+      "both": false
+    },
+    {
+      "from": "C",
+      "to": "P",
+      "points": [
+        [
+          580,
+          485
+        ],
+        [
+          800,
+          485
+        ]
+      ],
+      "label": "11 更新当前版本",
+      "both": false
+    },
+    {
+      "from": "C",
+      "to": "A",
+      "points": [
+        [
+          580,
+          509
+        ],
+        [
+          360,
+          509
+        ]
+      ],
+      "label": "12 返回已生效",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "C",
+      "points": [
+        [
+          360,
+          613
+        ],
+        [
+          580,
+          613
+        ]
+      ],
+      "label": "13 上传端口检查 Skill",
+      "both": false
+    },
+    {
+      "from": "C",
+      "to": "P",
+      "points": [
+        [
+          580,
+          637
+        ],
+        [
+          800,
+          637
+        ]
+      ],
+      "label": "14 校验并写制品",
+      "both": false
+    },
+    {
+      "from": "C",
+      "to": "P",
+      "points": [
+        [
+          580,
+          661
+        ],
+        [
+          800,
+          661
+        ]
+      ],
+      "label": "15 直接发布当前版本",
+      "both": false
+    },
+    {
+      "from": "C",
+      "to": "A",
+      "points": [
+        [
+          580,
+          685
+        ],
+        [
+          360,
+          685
+        ]
+      ],
+      "label": "16 返回已生效（默认生效）",
+      "both": false
+    },
+    {
+      "from": "R",
+      "to": "P",
+      "points": [
+        [
+          1020,
+          709
+        ],
+        [
+          800,
+          709
+        ]
+      ],
+      "label": "17 加载新版本",
+      "both": false
+    },
+    {
+      "from": "P",
+      "to": "R",
+      "points": [
+        [
+          800,
+          733
+        ],
+        [
+          1020,
+          733
+        ]
+      ],
+      "label": "18 返回制品",
+      "both": false
+    }
+  ],
+  "diagram_type": "sequence",
+  "lifelines": [
+    {
+      "participant": "U",
+      "node": "U",
+      "points": [
+        [
+          140,
+          90
+        ],
+        [
+          140,
+          772
+        ]
+      ]
+    },
+    {
+      "participant": "A",
+      "node": "A",
+      "points": [
+        [
+          360,
+          90
+        ],
+        [
+          360,
+          772
+        ]
+      ]
+    },
+    {
+      "participant": "C",
+      "node": "C",
+      "points": [
+        [
+          580,
+          90
+        ],
+        [
+          580,
+          772
+        ]
+      ]
+    },
+    {
+      "participant": "P",
+      "node": "P",
+      "points": [
+        [
+          800,
+          90
+        ],
+        [
+          800,
+          772
+        ]
+      ]
+    },
+    {
+      "participant": "R",
+      "node": "R",
+      "points": [
+        [
+          1020,
+          90
+        ],
+        [
+          1020,
+          772
+        ]
+      ]
+    }
+  ],
+  "messages": [
+    {
+      "scenario": "submit",
+      "order": 1,
+      "from": "U",
+      "to": "C",
+      "y": 165,
+      "label": "写端口检查 Skill 草稿",
+      "reply": false
+    },
+    {
+      "scenario": "submit",
+      "order": 2,
+      "from": "C",
+      "to": "P",
+      "y": 189,
+      "label": "保存草稿",
+      "reply": false
+    },
+    {
+      "scenario": "submit",
+      "order": 3,
+      "from": "U",
+      "to": "C",
+      "y": 213,
+      "label": "在草稿沙箱测试",
+      "reply": false
+    },
+    {
+      "scenario": "submit",
+      "order": 4,
+      "from": "C",
+      "to": "U",
+      "y": 237,
+      "label": "返回测试结果",
+      "reply": true
+    },
+    {
+      "scenario": "submit",
+      "order": 5,
+      "from": "U",
+      "to": "C",
+      "y": 261,
+      "label": "上传草稿并提交",
+      "reply": false
+    },
+    {
+      "scenario": "submit",
+      "order": 6,
+      "from": "C",
+      "to": "P",
+      "y": 285,
+      "label": "校验并写待审制品",
+      "reply": false
+    },
+    {
+      "scenario": "submit",
+      "order": 7,
+      "from": "C",
+      "to": "U",
+      "y": 309,
+      "label": "返回待审批",
+      "reply": true
+    },
+    {
+      "scenario": "approve",
+      "order": 8,
+      "from": "A",
+      "to": "C",
+      "y": 413,
+      "label": "打开待审批 Skill",
+      "reply": false
+    },
+    {
+      "scenario": "approve",
+      "order": 9,
+      "from": "C",
+      "to": "P",
+      "y": 437,
+      "label": "读取待审制品",
+      "reply": false
+    },
+    {
+      "scenario": "approve",
+      "order": 10,
+      "from": "A",
+      "to": "C",
+      "y": 461,
+      "label": "审批通过",
+      "reply": false
+    },
+    {
+      "scenario": "approve",
+      "order": 11,
+      "from": "C",
+      "to": "P",
+      "y": 485,
+      "label": "更新当前版本",
+      "reply": false
+    },
+    {
+      "scenario": "approve",
+      "order": 12,
+      "from": "C",
+      "to": "A",
+      "y": 509,
+      "label": "返回已生效",
+      "reply": true
+    },
+    {
+      "scenario": "admin_import",
+      "order": 13,
+      "from": "A",
+      "to": "C",
+      "y": 613,
+      "label": "上传端口检查 Skill",
+      "reply": false
+    },
+    {
+      "scenario": "admin_import",
+      "order": 14,
+      "from": "C",
+      "to": "P",
+      "y": 637,
+      "label": "校验并写制品",
+      "reply": false
+    },
+    {
+      "scenario": "admin_import",
+      "order": 15,
+      "from": "C",
+      "to": "P",
+      "y": 661,
+      "label": "直接发布当前版本",
+      "reply": false
+    },
+    {
+      "scenario": "admin_import",
+      "order": 16,
+      "from": "C",
+      "to": "A",
+      "y": 685,
+      "label": "返回已生效（默认生效）",
+      "reply": true
+    },
+    {
+      "scenario": "admin_import",
+      "order": 17,
+      "from": "R",
+      "to": "P",
+      "y": 709,
+      "label": "加载新版本",
+      "reply": false
+    },
+    {
+      "scenario": "admin_import",
+      "order": 18,
+      "from": "P",
+      "to": "R",
+      "y": 733,
+      "label": "返回制品",
+      "reply": true
+    }
+  ]
+}

@@ -43,7 +43,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from muad_agent_core.agent import AgentRunner
 from muad_agent_core.agent.continuation import RunnerCheckpoint, WaitDecision
 from muad_agent_core.model import OpenAICompatibleProvider
-from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
+from muad_agent_core.tools import ToolCall, ToolDefinition, ToolEffect, ToolRegistry, ToolResult
 from muad_agent_runtime.application.async_tools.continuation_pump import ContinuationPump
 from muad_agent_runtime.application.async_tools.continuation_service import (
     ExecutionIdentity,
@@ -921,13 +921,13 @@ async def test_b232_real_model_round_releases_slot_at_tool_wait(
     assert source.skill is not None
     registry = ToolRegistry()
 
-    async def submit(arguments: dict[str, Any], *, call_id: str) -> str:
+    async def submit(arguments: dict[str, Any], *, call: ToolCall) -> ToolResult:
         op = await reserve_operation(
             factory,
             _context(source),
             skill=source.skill,
             input_data={},
-            call_id=call_id,
+            call_id=call.call_id,
             completion_mode=CompletionMode.JOIN,
         )
         return json.dumps(

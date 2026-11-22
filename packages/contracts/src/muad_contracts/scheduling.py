@@ -27,6 +27,7 @@ from pydantic import (
 )
 
 from .canonical import ensure_strict_json
+from .egress_budget import EffectiveEgressBudget
 from .enums import (
     CancelScope,
     CompletionMode,
@@ -990,6 +991,22 @@ class TaskToolOperationView(ContractModel):
     result: TaskToolOperationResult | None = None
 
 
+class TaskToolOperationRecoveryView(ContractModel):
+    """Owner 恢复视图：冻结的调用参数与身份，只服务受信内部调用方。"""
+
+    operation_id: UUID
+    status: OperationStatus
+    task_id: UUID | None = None
+    tool_name: str | None = None
+    arguments: dict[str, Any] = Field(default_factory=dict)
+    input_hash: str
+
+    @field_validator("arguments", mode="before")
+    @classmethod
+    def _strict_arguments(cls, value: object) -> object:
+        return ensure_strict_json(value)
+
+
 class TaskToolOperationList(ContractModel):
     """统一列表封套（RULE-api-001）：`page>=1`、`1<=page_size<=MAX_PAGE_SIZE`。"""
 
@@ -1075,6 +1092,8 @@ class SnapshotModel(ContractModel):
 
 class SnapshotSkill(ContractModel):
     skill_id: UUID
+    #: 正式冻结 key（来自 ResolvedSkill.key）；目录/提示词/执行路由共用，不从 frontmatter 推断。
+    key: str = Field(min_length=1, max_length=128)
     artifact_id: UUID
     version: str = Field(min_length=1, max_length=64)
     checksum: str = Field(pattern=SNAPSHOT_HASH_PATTERN)
@@ -1138,6 +1157,7 @@ class SnapshotBudget(ContractModel):
     execution_timeout_sec: int | None = Field(default=None, ge=1)
     deadline_at: AwareDatetime | None = None
     retry_safety: str | None = Field(default=None, max_length=16)
+    egress_budget: EffectiveEgressBudget = Field(default_factory=EffectiveEgressBudget)
 
 
 class SnapshotGrants(ContractModel):

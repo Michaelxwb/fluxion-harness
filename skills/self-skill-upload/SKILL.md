@@ -30,15 +30,15 @@ description: 把当前用户的 Skill 草稿提交到控制台，生成待审批
 ### Step 2：提交前审查（必须，没跑过不提交）
 
 1. **规范审查**：用 `self-skill-review` 审当前草稿——
-   - `workspace_shell` 执行 `pwd` 取工作区根；
-   - `execute_skill` `{"skill_key": "self-skill-review", "input": {}, "argv": ["--target", "<工作区根>/skill-drafts/<key>"]}`；
+   - `execute(target="workspace", command="pwd")` 取工作区根；
+   - `execute(target="skill", skill_key="self-skill-review", input={}, argv=["--target", "<工作区根>/skill-drafts/<key>"])`；
    - 把 error/warning 摘要原样告诉用户。审查**不阻断提交**，但有 error 时要说明风险并建议先修；
    - 审查之后草稿又被改过 ⇒ 旧报告失效，必须重跑；拿不到报告就**不要提交**。
 2. **平台结构校验**：调用 `skill_draft {"action": "review", "draft_id": "<draft_id>"}`：
    - 有 `error`：原样转述问题（`file:line` + 原因），**不要提交**，让用户改完再试；
    - 只有 `warning`：可以继续，但把 warning 一并告知用户。
 
-需要验证脚本能否跑通时，可先调用 `skill_draft_shell`（例如 `python -m py_compile scripts/run.py`），它不是提交流程的必要步骤。
+需要验证脚本能否跑通时，可先调用 `execute(target="draft", draft_id=..., command="python -m py_compile scripts/run.py")`，它不是提交流程的必要步骤。
 
 ### Step 3：提交
 

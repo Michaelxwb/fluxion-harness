@@ -27,10 +27,12 @@ from muad_agent_core.model import (
     ModelToolCall,
 )
 from muad_agent_core.tools import (
+    ToolCall,
     ToolDefinition,
     ToolEffect,
     ToolRegistry,
-    skill_execution_outcome,
+    ToolResult,
+    skill_result_outcome,
 )
 
 
@@ -136,8 +138,8 @@ async def test_turn_budget_snapshot_derives_type_and_pending_calls() -> None:
     provider = _Provider([_tool_call(("c1", "echo"))])
     registry = ToolRegistry()
 
-    async def handler(arguments: Mapping[str, Any], *, call_id: str) -> str:
-        return json.dumps({"ok": True})
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        return ToolResult(json.dumps({"ok": True}))
 
     registry.register(
         ToolDefinition(
@@ -167,9 +169,9 @@ async def test_tool_budget_snapshot_derives_type_and_pending_calls() -> None:
     registry = ToolRegistry()
     calls: list[str] = []
 
-    async def handler(arguments: Mapping[str, Any], *, call_id: str) -> str:
-        calls.append(call_id)
-        return json.dumps({"ok": True})
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        calls.append(call.call_id)
+        return ToolResult(json.dumps({"ok": True}))
 
     registry.register(
         ToolDefinition(
@@ -214,8 +216,8 @@ async def test_workspace_shell_nonzero_exit_is_evidence_not_no_progress() -> Non
     provider = _Provider([_tool_call(("c1", "workspace_shell")), _text("done")])
     registry = ToolRegistry()
 
-    async def handler(arguments: Mapping[str, Any], *, call_id: str) -> str:
-        return _shell_payload()
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        return ToolResult(_shell_payload())
 
     registry.register(
         ToolDefinition(
@@ -254,8 +256,19 @@ async def test_skill_content_failure_stops_on_first_occurrence() -> None:
     provider = _Provider([_tool_call(("c1", "execute"))])
     registry = ToolRegistry()
 
-    async def handler(arguments: Mapping[str, Any], *, call_id: str) -> str:
-        return payload
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        return ToolResult(
+            payload,
+            outcome=skill_result_outcome(
+                status="FAILED",
+                stdout="",
+                stderr=json.dumps(
+                    {"ok": False, "code": "PLATFORM_AUTH_REJECTED", "message": "rejected"}
+                ),
+                result=None,
+                exit_code=3,
+            ),
+        )
 
     registry.register(
         ToolDefinition(
@@ -264,7 +277,6 @@ async def test_skill_content_failure_stops_on_first_occurrence() -> None:
             input_schema={"type": "object"},
             effect=ToolEffect.EXTERNAL,
             handler=handler,
-            outcome_parser=skill_execution_outcome,
         )
     )
 

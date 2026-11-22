@@ -167,12 +167,12 @@ flowchart LR
 在模型已经加载 SKILL.md、完成必要澄清后，统一调用：
 
 ```text
-execute_skill(skill_key, normalized_input, args?)
+execute(target=skill, skill_key, input, argv)
 ```
 
 ```mermaid
 flowchart LR
-    E[execute_skill] --> P[Read execution_mode]
+    E[execute target=skill] --> P[Read execution_mode]
     P -->|SYNC| S[Create Inline SkillExecutionSession]
     P -->|ASYNC| B[Submit Background Task]
     P -->|AUTO| A[Deterministic Planner]
@@ -180,14 +180,14 @@ flowchart LR
     A --> B
 ```
 
-**图说明**：`execute_skill` 是同步/异步切换点；`run_skill_script` 只是 SkillExecutionSession 内部的脚本原语，不能取代 ExecutionRouter。
+**图说明**：模型唯一执行入口是 `execute(target=skill)`；内部按冻结 ExecutionRouter 切换同步/异步。脚本调试不再是模型可见工具。
 
 
 ## 4. SkillExecutor
 
 ```mermaid
 flowchart TD
-    A[load_skill（Catalog 命中）/ execute_skill] --> B[SkillArtifactCache.ensure]
+    A[load_skill（Catalog 命中）/ execute target=skill] --> B[SkillArtifactCache.ensure]
     B --> C[Locate Skill Artifact in Snapshot]
     C --> D[Fetch or reuse local cache]
     D --> E[Verify checksum]
@@ -201,7 +201,7 @@ flowchart TD
     K --> L[Write Tool Audit]
 ```
 
-**图说明**：此处不再把 Skill 包装成 `skill::<key>` 固定 Tool。ToolRegistry 常驻的是框架工具 `load_skill/read_skill_resource/execute_skill`（`run_skill_script` 默认不注册，仅调试开关）；`load_skill`（Catalog 命中）与 `execute_skill` 都先经 `SkillArtifactCache.ensure`，再由 `SkillExecutor` 执行脚本。具体业务流程由已加载的 SKILL.md 指导，脚本只是其中可按需执行的一部分。
+**图说明**：此处不再把 Skill 包装成 `skill::<key>` 固定 Tool。ToolRegistry 常驻的是框架工具 `load_skill/read_skill_resource/execute(target=skill)`；不再注册 `execute_skill`/`run_skill_script` 隐藏别名。`load_skill`（Catalog 命中）与 `execute(target=skill)` 都先经 `SkillArtifactCache.ensure`，再由 `SkillExecutor` 执行脚本。具体业务流程由已加载的 SKILL.md 指导，脚本只是其中可按需执行的一部分。
 
 ### 4.1 本地 cache
 
@@ -220,7 +220,7 @@ emptyDir
 ```
 
 ```text
-load_skill（Catalog 命中）/ execute_skill
+load_skill（Catalog 命中）/ execute(target=skill)
  -> SkillArtifactCache.ensure(artifact_id, storage_key, checksum)
  -> memory/local READY hit? 直接执行
  -> miss 才读取 NFS

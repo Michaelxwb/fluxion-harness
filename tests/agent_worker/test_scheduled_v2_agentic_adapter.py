@@ -26,8 +26,10 @@ import httpx
 import pytest
 from muad_agent_core.agent import AgentRunStatus
 from muad_agent_core.agent.continuation import RunnerCheckpoint
+from muad_agent_core.context.plan import RunInput, plan_context, render_context
 from muad_agent_core.model import ModelMessage, ModelResponse, ModelRole, ModelToolCall
 from muad_agent_core.skill import SkillExecutionStatus
+from muad_agent_core.tools import ToolResult
 from muad_agent_worker.application.agentic.checkpoints import (
     ExecutionIdentity,
     TaskCheckpointStore,
@@ -41,6 +43,7 @@ from muad_agent_worker.infrastructure.console_credentials import (
     ResolvedCredentials,
     ResolvedModelCredential,
 )
+from muad_agent_worker.infrastructure.db_clock import database_now
 from muad_agent_worker.infrastructure.models.task import (
     TaskEvent,
     TaskExecution,
@@ -74,6 +77,7 @@ from muad_contracts import (
     TaskStatus,
     TaskToolOperationList,
     TaskToolOperationOwner,
+    TaskToolOperationRecoveryView,
     TaskToolOperationResult,
     TaskToolOperationView,
     TerminalStatus,
@@ -118,6 +122,7 @@ def agentic_snapshot(
     memory_language: str | None = None,
     compaction: dict[str, Any] | None = None,
     grants: SnapshotGrants | None = None,
+    egress_budget: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return build_schedule_snapshot(
         mode=ScheduleMode.AGENTIC,
@@ -126,7 +131,7 @@ def agentic_snapshot(
             key="agent-key",
             revision=1,
             instructions="你是定时任务助手，只依据工具结果作答。",
-            runtime_config={"max_model_retries": 1},
+            runtime_config={"max_model_retries": 1, "egress_budget": egress_budget or {}},
         ),
         model=SnapshotModel(
             id=MODEL_ID,
@@ -155,6 +160,7 @@ def agentic_snapshot(
         skills=[
             SnapshotSkill(
                 skill_id=SKILL_ID,
+                key="deliver",
                 artifact_id=ARTIFACT_ID,
                 version="1.0.0",
                 checksum=CHECKSUM,
@@ -265,7 +271,6 @@ async def insert_task(
         "priority": 100,
         "attempt": 1,
         "max_attempts": 3,
-        "not_before": now,
         "deadline_at": now + timedelta(hours=1),
         "lease_owner": WORKER_INSTANCE if status is TaskStatus.RUNNING else None,
         "lease_until": now + timedelta(minutes=10) if status is TaskStatus.RUNNING else None,
@@ -274,6 +279,9 @@ async def insert_task(
     }
     values.update(overrides)
     async with tenant.session_factory() as session, session.begin():
+        if "not_before" not in overrides:
+            # Ready-now fixtures use the same clock as claim; the host clock can lead PG.
+            values["not_before"] = await database_now(session)
         task = TaskExecution(**values)
         session.add(task)
         await session.flush()
@@ -378,6 +386,7 @@ class RecordingOperations:
         tool_name: str,
         arguments: dict[str, Any],
         completion_mode: CompletionMode = CompletionMode.JOIN,
+        input_hash: str | None = None,
     ) -> TaskToolOperationView:
         self.submits.append((call_id, tool_name, dict(arguments)))
         self.execution_id = execution_id
@@ -402,7 +411,25 @@ class RecordingOperations:
         return TaskToolOperationList(items=items, page=page, page_size=page_size, total=len(items))
 
     async def get(self, *, tenant_id: str, actor_user_id: uuid.UUID, operation_id: uuid.UUID) -> Any:
-        raise AssertionError("contract runs read operations through the owner listing only")
+        return self._view(next(iter(self.registered), "call-1"), CompletionMode.JOIN)
+
+    async def get_recovery(
+        self,
+        *,
+        tenant_id: str,
+        actor_user_id: uuid.UUID,
+        execution_id: uuid.UUID,
+        call_id: str,
+    ) -> TaskToolOperationRecoveryView:
+        view = self._view(call_id, CompletionMode.JOIN)
+        return TaskToolOperationRecoveryView(
+            operation_id=view.operation_id,
+            status=view.status,
+            task_id=view.task_id,
+            tool_name=view.tool_name,
+            arguments={"input": {"q": "本周"}, "argv": []},
+            input_hash="sha256:test",
+        )
 
     def _view(self, call_id: str, completion_mode: CompletionMode) -> TaskToolOperationView:
         result = (
@@ -561,9 +588,19 @@ class WorkerAdapterHarness:
         )
 
     def staging_call(self, call_id: str = "call-1") -> ModelToolCall:
-        return ModelToolCall(call_id, STAGING_TOOL, {"input": {"q": "本周"}, "argv": []})
+        return ModelToolCall(
+            call_id,
+            "execute",
+            {
+                "target": "skill",
+                "skill_key": "deliver",
+                "tool": "deliver_report",
+                "input": {"q": "本周"},
+                "argv": [],
+            },
+        )
 
-    def _skill_runner(self, task: TaskExecution, suspension: Any) -> Any:
+    def _skill_runner(self, task: TaskExecution, suspension: Any, egress) -> Any:
         return AgenticSkillTools(
             task=task,
             resolver=StubResolver(),  # type: ignore[arg-type]
@@ -574,6 +611,7 @@ class WorkerAdapterHarness:
             operations=self._operations,  # type: ignore[arg-type]
             workspace_store=None,
             create_async_child=False,
+            egress=egress,
         )
 
     async def _on_interrupt(self, payload: dict[str, Any]) -> None:
@@ -703,7 +741,7 @@ def _tool_results(events: list[TaskEvent]) -> list[tuple[str, str, str, str]]:
                 str(payload.get("tool_call_id")),
                 str(payload.get("tool_name")),
                 str(payload.get("status")),
-                str(payload.get("result") or ""),
+                str(payload.get("content") or payload.get("result") or ""),
             )
         )
     return results
@@ -777,7 +815,8 @@ async def test_human_question_opens_interaction_and_checkpoint(
     human_runner = _HumanSkillRunner(deadline)
     harness = worker_adapter
     harness._executor = AgenticTaskExecutor(  # noqa: SLF001
-        deps=_deps_for(tenant, harness), skill_runner=lambda task, suspension: human_runner(suspension)
+        deps=_deps_for(tenant, harness),
+        skill_runner=lambda task, suspension, egress: human_runner(suspension),
     )
     harness._factory.script = [tool_call_reply(harness.staging_call())]  # noqa: SLF001
     task = await insert_task(tenant)
@@ -871,6 +910,7 @@ class _HumanSkillRunner:
                 argv: Any,
                 *,
                 call_id: str,
+                args_hash: str | None = None,
             ) -> str:
                 suspension.stage_human(
                     question="请确认客户名单",
@@ -1014,6 +1054,24 @@ async def test_registry_only_contains_allowlisted_and_granted_tools(
     assert registry.registry.list() == ()
 
 
+async def test_worker_host_passes_the_original_input_with_a_stable_message_id(
+    worker_adapter: WorkerAdapterHarness,
+) -> None:
+    from muad_agent_worker.application.agentic.scheduled_turn import base_messages, task_run_input
+    from muad_agent_worker.application.agentic.snapshot import load_frozen_execution
+
+    task = await insert_task(worker_adapter._tenant, agentic_snapshot())  # noqa: SLF001
+    frozen = load_frozen_execution(task)
+    original = task_run_input(frozen, None)
+    messages = base_messages(frozen, None)
+
+    assert original.message_id == f"task-input:{task.id}"
+    assert original.content == frozen.goal
+    assert messages[-1].role.value == "user"
+    assert messages[-1].content == original.content
+    assert messages[-1].message_id == original.message_id
+
+
 async def test_skill_tool_without_input_schema_accepts_free_form_arguments(
     worker_adapter: WorkerAdapterHarness,
 ) -> None:
@@ -1027,9 +1085,9 @@ async def test_skill_tool_without_input_schema_accepts_free_form_arguments(
     task = await insert_task(worker_adapter._tenant, snapshot)  # noqa: SLF001
     frozen = load_frozen_execution(task)
     registry = build_registry(frozen, mcp=None, skills=object())  # type: ignore[arg-type]
-    definition = registry.registry.get(STAGING_TOOL)
+    definition = registry.registry.get("execute")
     schema = dict(definition.input_schema)
-    assert schema["properties"]["input"] == {"type": "object", "additionalProperties": True}
+    assert schema["properties"]["input"] == {"type": "object"}
     assert schema["properties"]["argv"]["type"] == "array"
     assert schema["additionalProperties"] is False
 
@@ -1105,12 +1163,12 @@ def _long_history() -> tuple[ModelMessage, ...]:
     messages: list[ModelMessage] = [ModelMessage(role=ModelRole.SYSTEM, content="你是助手")]
     for index in range(12):
         call = ModelToolCall(f"call-{index}", "echo", {})
-        messages.append(ModelMessage(role=ModelRole.USER, content=f"问题 {index}"))
+        messages.append(ModelMessage(role=ModelRole.USER, content=f"问题 {index}", message_id=f"q-{index}"))
         messages.append(ModelMessage(role=ModelRole.ASSISTANT, content="", tool_calls=(call,)))
         messages.append(
             ModelMessage(role=ModelRole.TOOL, content="x" * 400, tool_call_id=call.id)
         )
-    messages.append(ModelMessage(role=ModelRole.USER, content="当前问题"))
+    messages.append(ModelMessage(role=ModelRole.USER, content="当前问题", message_id="current"))
     return tuple(messages)
 
 
@@ -1142,8 +1200,12 @@ async def test_compaction_applies_the_free_layers_and_degrades_summary(
         artifacts=RecordingArtifacts(),  # type: ignore[arg-type]
     )
     history = _long_history()
-    outbound = await compactor.compact(history)
-    assert failing.calls == 1
+    plan = plan_context(
+        history,
+        run_input=RunInput(message_id="q-0", content="问题 0"),
+    )
+    outbound = render_context(await compactor.compact_plan(plan))
+    assert failing.calls == 0, "当前输入之后才是 working，older 为空时不应触发摘要"
     assert len(outbound) < len(history)
     assert outbound[0].content.startswith("你是助手")
 
@@ -1180,7 +1242,11 @@ async def test_summary_without_archive_is_discarded(tenant: TenantContext) -> No
         artifacts=_FailingArtifacts(),  # type: ignore[arg-type]
     )
     history = _long_history()
-    outbound = await compactor.compact(history)
+    plan = plan_context(
+        history,
+        run_input=RunInput(message_id="current", content="当前问题"),
+    )
+    outbound = render_context(await compactor.compact_plan(plan))
     assert provider.calls == 1
     assert outbound == history  # 摘要作废 ⇒ 历史原样
     assert not any(message.content.startswith("[历史摘要]") for message in outbound)
@@ -1211,7 +1277,12 @@ async def test_summary_is_archived_before_it_replaces_history(tenant: TenantCont
         summary=SummaryGenerator(_SummaryProvider(payload=_summary_payload()), model_name="summary-model"),
         artifacts=artifacts,  # type: ignore[arg-type]
     )
-    outbound = await compactor.compact(_long_history())
+    history = _long_history()
+    plan = plan_context(
+        history,
+        run_input=RunInput(message_id="current", content="当前问题"),
+    )
+    outbound = render_context(await compactor.compact_plan(plan))
     assert artifacts.writes, "摘要必须先逐字存档"
     assert any(message.content.startswith("[历史摘要]") for message in outbound)
     assert outbound[-1].content == "当前问题"
@@ -1250,8 +1321,8 @@ async def test_round_artifact_selection_and_rollback(tenant: TenantContext) -> N
             raise TaskArtifactError("artifact store down")
 
     results = (
-        ModelMessage(role=ModelRole.TOOL, content="y" * 200, tool_call_id="call-1"),
-        ModelMessage(role=ModelRole.TOOL, content="short", tool_call_id="call-2"),
+        ToolResult(content="y" * 200, call_id="call-1"),
+        ToolResult(content="short", call_id="call-2"),
     )
     writer = TaskArtifactRoundWriter(
         _FailingClient(),  # type: ignore[arg-type]
@@ -1276,6 +1347,11 @@ async def test_round_artifact_selection_and_rollback(tenant: TenantContext) -> N
     payload = json.loads(replaced[0].content)
     assert payload["artifact"]["artifact_id"]
     assert payload["artifact"]["preview"].startswith("y" * 10)
+
+    inline = await ok_writer.finish_round(
+        (ToolResult(content="z" * 200, call_id="call-3", externalizable=False),)
+    )
+    assert inline[0].content == "z" * 200, "externalizable=False 的正文不得再次外置"
 
 
 async def test_degraded_memory_block_is_empty_and_non_blocking(

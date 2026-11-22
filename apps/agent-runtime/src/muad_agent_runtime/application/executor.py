@@ -22,6 +22,7 @@ from muad_agent_core.agent import (
 )
 from muad_agent_core.agent.continuation import ExecutionEventPort, RunnerCheckpoint
 from muad_agent_core.agent.runner import AgentRunResult, AgentRunStatus
+from muad_agent_core.context.plan import MessageOrigin, RunInput
 from muad_agent_core.hooks import HookPipeline
 from muad_agent_core.model import (
     DeltaCallback,
@@ -43,7 +44,19 @@ from muad_agent_core.model import (
 from muad_agent_core.prompt import PromptSkill, bounded_catalog, prompt_skill
 from muad_agent_core.sandbox import WorkspaceShellRunner, WorkspaceStore, workspace_layout_from_settings
 from muad_agent_core.skill import DraftShellRunner
-from muad_agent_core.tools import DEFAULT_PARALLEL_LIMIT, ExecutionOutcome, ToolDefinition, ToolRegistry
+from muad_agent_core.tools import (
+    DEFAULT_PARALLEL_LIMIT,
+    ArtifactRef,
+    ArtifactRole,
+    AssistantTurn,
+    ExecutionOutcome,
+    PreparedCall,
+    ToolCall,
+    ToolCompleted,
+    ToolDefinition,
+    ToolRegistry,
+    ToolResult,
+)
 from muad_agent_core.tools.pipeline import (
     PreparedToolCall,
     ToolExecutionAudit,
@@ -57,13 +70,20 @@ from muad_api.error_codes import ErrorCode
 from muad_artifact_store import SkillArtifactCache
 from muad_common import SharedSettings, process_settings
 from muad_contracts import (
+    AssistantToolCallEvent,
+    AssistantTurnEvent,
     DeliveryRouteInput,
+    PreparedCallEvent,
     ResolveCredentialsRequest,
     ResolvedAgent,
     ResolvedMcpServer,
     ResolvedModel,
     ResolvedSkill,
     RuntimeExecutionRef,
+    ToolCompletedEvent,
+    ToolEventArtifact,
+    ToolEventFollowUp,
+    ToolEventOutcome,
 )
 from muad_contracts.egress_budget import EffectiveEgressBudget
 from muad_contracts.memory import MemoryResumeRef
@@ -127,7 +147,12 @@ from .context_settings import FrozenLearning, PoolExecutionPolicy
 from .draft_shell import build_draft_shell_runner, build_draft_tools
 from .draft_tools import SkillDraftTools
 from .egress_execution import run_egress, run_platform_trace_loader, run_trace_observer
-from .mcp_runtime_adapter import McpRuntimeAdapter, McpServerDefinition, McpToolDefinition
+from .mcp_runtime_adapter import (
+    McpRuntimeAdapter,
+    McpServerDefinition,
+    McpToolDefinition,
+    RuntimeMcpArtifactWriter,
+)
 from .memory_observability import memory_audit_preview
 from .memory_queries import MemoryReadScope
 from .memory_runtime import RunMemory, create_run_memory
@@ -283,9 +308,12 @@ class ExecutorRequest:
     #: 当前消息的内容。默认用 `input_text`；带图片时由调用方给出内容块（设计 AD-3-B：
     #: 只有**当前消息**的图片内联，历史轮次只留文本引用）。
     input_content: ModelContent | None = None
+    #: 本轮入站消息的稳定身份；历史 USER_MESSAGE 与 ContextPlan 的 run_input 共用它。
+    input_message_id: str | None = None
     skills: tuple[ResolvedSkill, ...] = ()
     mcp_servers: tuple[ResolvedMcpServer, ...] = ()
     history: tuple[ModelMessage, ...] = ()
+    active_skills: tuple[str, ...] = ()
     credentials: ExecutorCredentials = ExecutorCredentials()
     run_context: ExecutorRunContext | None = None
     #: 本次 Run **冻结**的压缩配置（来自 `policy_json`）；None = 不压缩。
@@ -433,62 +461,137 @@ class _ExecutorEventEmitter:
         data = self._model_trace.event_fields()
         await self.emit(ExecutorEvent(type=MODEL_COMPLETED_EVENT, data=data))
 
-    async def on_tool_started(self, call_id: str, name: str) -> None:
-        await self.emit(
-            ExecutorEvent(type=TOOL_STARTED_EVENT, data={"tool_call_id": call_id, "tool_name": name})
-        )
+    async def on_tool_prepared(self, prepared: PreparedCall) -> None:
+        data = PreparedCallEvent(
+            tool_call_id=prepared.call.call_id,
+            name=prepared.call.name,
+            model_name=prepared.call.model_name or prepared.call.name,
+            args_hash=prepared.args_hash,
+            args_preview=dict(prepared.args_preview),
+            source=prepared.source,
+            skill_id=str(prepared.skill_id) if prepared.skill_id is not None else None,
+            skill_key=prepared.skill_key,
+            tool_name=prepared.tool_name,
+            execution_mode=prepared.execution_mode,
+            retry_safety=str(prepared.retry_safety),
+        ).model_dump(mode="json")
+        await self.emit(ExecutorEvent(type=TOOL_STARTED_EVENT, data=data))
 
-    async def on_assistant_turn(self, message: ModelMessage) -> None:
+    async def on_assistant_turn(self, turn: AssistantTurn) -> None:
         """把带 tool_calls 的 assistant 回合**原样**落事件，供后续 Run 重建合法历史。
 
         只有带 `tool_calls` 的回合需要落：纯文本回合已由 run 结束时的 `ASSISTANT_MESSAGE`
         承载；而思考模式**只**在带 tool_calls 时要求回传 `reasoning_content`（实测），
         所以纯文本回合的思维链不必存。
         """
+        message = turn.message
         if not message.tool_calls:
             return
-        for call in message.tool_calls:
+        calls_by_id = {call.call_id: call for call in turn.calls}
+        for call in turn.calls:
             key = skill_key_for_call(call.name, call.arguments)
             if key is not None:
-                self._skill_keys[call.id] = key
+                self._skill_keys[call.call_id] = key
         await self.emit(
             ExecutorEvent(
                 type=ASSISTANT_TURN_EVENT,
-                data={
-                    # 事件载荷只接受文本：多模态消息取其文本视图（助手回合本就是文本）
-                    "text": text_of(message.content),
-                    "reasoning_content": message.reasoning_content,
-                    "tool_calls": [
-                        {"id": call.id, "name": call.name, "arguments": dict(call.arguments)}
+                data=AssistantTurnEvent(
+                    text=text_of(message.content),
+                    reasoning_content=message.reasoning_content,
+                    tool_calls=[
+                        AssistantToolCallEvent(
+                            id=call.id,
+                            name=call.name,
+                            registry_name=calls_by_id[call.id].name
+                            if call.id in calls_by_id
+                            else None,
+                            arguments=dict(call.arguments),
+                        )
                         for call in message.tool_calls
                     ],
-                },
+                ).model_dump(mode="json"),
             )
         )
 
-    async def on_tool_completed(
-        self, call_id: str, name: str, status: str, artifact_id: str | None, result_text: str | None
-    ) -> None:
-        data: dict[str, Any] = {
-            "tool_call_id": call_id,
-            "tool_name": name,
-            "status": status,
-            "artifact_id": artifact_id,
-        }
-        skill_key = self._skill_keys.pop(call_id, None)
-        if skill_key is not None and name in SKILL_TOOLS and status == "OK" and self._memory is not None:
+    async def on_tool_completed(self, completed: ToolCompleted) -> None:
+        event = ToolCompletedEvent(
+            tool_call_id=completed.tool_call_id,
+            tool_name=completed.tool_name,
+            status=completed.status,
+            outcome=ToolEventOutcome(
+                business_status=str(completed.outcome.business_status),
+                failure_layer=str(completed.outcome.failure_layer),
+                error_code=completed.outcome.error_code,
+                retryable=completed.outcome.retryable,
+                evidence_preview=completed.outcome.evidence.preview,
+                exit_code=completed.outcome.exit_code,
+            ),
+            content=completed.content,
+            artifacts=[
+                ToolEventArtifact(
+                    artifact_id=item.artifact_id,
+                    role=str(item.role),
+                    media_type=item.media_type,
+                    filename=item.filename,
+                    checksum=item.checksum,
+                    size=item.size,
+                )
+                for item in completed.artifacts
+            ],
+            follow_ups=[
+                ToolEventFollowUp(
+                    kind=item.kind,
+                    artifact_id=item.artifact_id,
+                    media_type=item.media_type,
+                    text=item.text,
+                )
+                for item in completed.follow_ups
+            ],
+        )
+        data = event.model_dump(mode="json")
+        first_artifact = next(
+            (item for item in completed.artifacts if item.role == ArtifactRole.RESULT),
+            None,
+        )
+        reference_id = (
+            first_artifact.artifact_id
+            if first_artifact is not None
+            else _reference_artifact_id(completed.content)
+        )
+        if reference_id is not None:
+            data["artifact_id"] = reference_id
+        skill_key = self._skill_keys.pop(completed.tool_call_id, None)
+        if (
+            skill_key is not None
+            and completed.tool_name in SKILL_TOOLS
+            and completed.status == "OK"
+            and self._memory is not None
+        ):
             self._memory.loader.set_task_family(f"skill:{skill_key}")
-        if result_text is not None:
+        if reference_id is None and completed.content:
             # 未外置的结果：正文在这里留一份**有界预览**（沿用引用预览的同一组字节上限）。
             # 不留就只有工具名进 canonical 行，下一 Run 重建历史时这条结果净丢（2026-10-06
             # review）。外置过的结果不带这个键——它有 artifact_id，重建按引用还原。
             settings = tool_result_settings(self._request)
             data["preview"] = preview_head_tail(
-                result_text,
+                completed.content,
                 head_bytes=settings.preview_head_bytes,
                 tail_bytes=settings.preview_tail_bytes,
             )
         await self.emit(ExecutorEvent(type=TOOL_COMPLETED_EVENT, data=data))
+
+
+def _reference_artifact_id(content: str) -> str | None:
+    """兼容宿主自己写出的引用 JSON；非法 id 交给 canonical 列校验拒绝，不在这里猜。"""
+    if not content.startswith("{"):
+        return None
+    try:
+        payload = json.loads(content)
+    except ValueError:
+        return None
+    artifact = payload.get("artifact") if isinstance(payload, dict) else None
+    raw = artifact.get("artifact_id") if isinstance(artifact, dict) else None
+    return raw if isinstance(raw, str) else None
 
 
 class AgentRunnerExecutor:
@@ -627,7 +730,7 @@ class AgentRunnerExecutor:
             on_delta=emitter.on_delta,
             on_model_started=emitter.on_model_started,
             on_model_completed=emitter.on_model_completed,
-            on_tool_started=emitter.on_tool_started,
+            on_tool_prepared=emitter.on_tool_prepared,
             on_assistant_turn=emitter.on_assistant_turn,
             on_tool_completed=emitter.on_tool_completed,
             checkpoint=self._request.checkpoint,
@@ -636,16 +739,30 @@ class AgentRunnerExecutor:
 
     def _build_run_request(self) -> AgentRunRequest:
         params = dict(self._request.model.params)
+        message_id = self._request.input_message_id
         current = ModelMessage(
             role=ModelRole.USER,
             content=self._request.input_content or self._request.input_text,
+            message_id=message_id,
+            origin=MessageOrigin.USER_INPUT.value,
         )
         messages = _with_current_turn(tuple(self._request.history), current)
+        run_input = (
+            RunInput(
+                message_id=message_id,
+                content=text_of(current.content),
+                origin=MessageOrigin.USER_INPUT,
+            )
+            if message_id
+            else None
+        )
         return AgentRunRequest(
             model_id=self._request.model.model_id,
             instructions=self._request.agent.instructions,
             skills=self._catalog_skills(),
             messages=messages,
+            run_input=run_input,
+            active_skills=self._request.active_skills,
             policy=agent_policy_for(self._request),
             reply_locale=execution_defaults_for(self._request).locale,
             temperature=_float_param(params, "temperature"),
@@ -1723,14 +1840,16 @@ class ToolCallRecorder:
         arguments: Mapping[str, Any],
         handler: ToolHandler,
         *,
-        call_id: str,
-    ) -> str:
+        call: ToolCall,
+    ) -> ToolResult:
         """执行一次工具并**只做缓冲**：落盘与否要等本轮结果到齐（ADR-04）。"""
         registry = ToolRegistry()
         registry.register(replace(definition, handler=handler))
         pipeline = ToolExecutionPipeline(registry=registry, audit=self)
-        prepared = pipeline.prepare(call_id=call_id, tool_name=definition.name, arguments=arguments)
-        return (await pipeline.execute(prepared)).content
+        prepared = pipeline.prepare(
+            call_id=call.call_id, tool_name=definition.name, arguments=arguments
+        )
+        return (await pipeline.execute(prepared)).result
 
     async def record(self, event: ToolExecutionAudit) -> None:
         call = event.prepared
@@ -1778,21 +1897,37 @@ class ToolCallRecorder:
             outcome=event.outcome,
         )
 
-    async def finish_round(self, results: Sequence[ModelMessage]) -> Sequence[ModelMessage]:
-        """整轮判定 → 批量落盘 → 替换内容 → 逐条写审计行。返回与入参**等长同序**的消息序列。"""
+    async def finish_round(self, results: Sequence[ToolResult]) -> Sequence[ToolResult]:
+        """整轮判定 → 批量落盘 → 替换内容 → 逐条写审计行。返回与入参**等长同序**的结果。"""
         if not results:
             return tuple(results)
-        call_ids = [message.tool_call_id or "" for message in results]
-        contents = [text_of(message.content) for message in results]
+        call_ids = [result.call_id for result in results]
+        contents = [result.content for result in results]
         selected = self._select(call_ids, contents)
         references = await self._persist(call_ids, contents, selected)
         await self._flush_audit(call_ids, references)
-        return tuple(
-            replace(message, content=reference_payload(references[call_id]))
-            if call_id in references
-            else message
-            for message, call_id in zip(results, call_ids, strict=True)
-        )
+        replaced: list[ToolResult] = []
+        for result, call_id in zip(results, call_ids, strict=True):
+            reference = references.get(call_id)
+            if reference is None:
+                replaced.append(result)
+                continue
+            replaced.append(
+                replace(
+                    result,
+                    content=reference_payload(reference),
+                    artifacts=(
+                        *result.artifacts,
+                        ArtifactRef(
+                            artifact_id=str(reference["artifact_id"]),
+                            media_type="text/plain",
+                            checksum=str(reference["checksum"]),
+                            size=int(reference["size"]),
+                        ),
+                    ),
+                )
+            )
+        return tuple(replaced)
 
     def _select(self, call_ids: list[str], contents: list[str]) -> set[int]:
         """本回合要外置的下标：内容投递类按内联上限**单条**判定且不进整轮预算，其余走整轮选取。"""
@@ -1924,6 +2059,8 @@ def _mcp_server_definition(
                 description=str(tool.get("description") or ""),
                 input_schema=dict(tool.get("input_schema") or {"type": "object", "properties": {}}),
                 effect=str(tool.get("effect") or "READ"),
+                # MCP 目录来自外部 server，不承载 Owner 的重放声明；未声明即不可重试。
+                retry_safety="NON_RETRYABLE",
             )
             for tool in server.definitions
             if tool.get("name")
@@ -2155,7 +2292,7 @@ def build_registry(
     return registry
 
 
-SKILL_FAMILY_TOOLS = frozenset({"execute", "execute_skill", "run_skill_script"})
+SKILL_FAMILY_TOOLS = frozenset({"execute"})
 
 
 def skill_family_from_tool_calls(tool_calls: Sequence[ModelToolCall]) -> str | None:
@@ -2309,6 +2446,7 @@ async def _scoped_mcp_adapter(
     *,
     egress: HostEgressExecution | None,
     audit: RuntimeAuditWriter | None,
+    artifact_writer: ArtifactResultWriter | None,
     stack: contextlib.AsyncExitStack,
 ) -> McpRuntimeAdapter:
     client = inputs.mcp_client
@@ -2316,7 +2454,20 @@ async def _scoped_mcp_adapter(
         identity = await egress.host_invocation(operation_key="mcp:transport", skill_key="mcp:transport")
         client = httpx.AsyncClient(transport=egress.transport(identity, client=client))
         stack.push_async_callback(client.aclose)
-    adapter = McpRuntimeAdapter(audit_writer=audit, client=client)
+    context = request.run_context
+    media_writer = (
+        RuntimeMcpArtifactWriter(
+            artifact_writer,
+            tenant_id=context.tenant_id,
+            conversation_id=context.conversation_id,
+            run_id=context.run_id,
+        )
+        if artifact_writer is not None and context is not None
+        else None
+    )
+    adapter = McpRuntimeAdapter(
+        audit_writer=audit, client=client, artifact_writer=media_writer
+    )
     stack.push_async_callback(adapter.aclose)
     return adapter
 
@@ -2406,7 +2557,14 @@ async def default_executor_factory(
     try:
         egress = await stack.enter_async_context(run_egress(request))
         models = await _model_resources(request, inputs, stack, cancel_event=cancel_event)
-        mcp = await _scoped_mcp_adapter(request, inputs, egress=egress, audit=models.audit, stack=stack)
+        mcp = await _scoped_mcp_adapter(
+            request,
+            inputs,
+            egress=egress,
+            audit=models.audit,
+            artifact_writer=artifact_writer,
+            stack=stack,
+        )
         task, delivery = _control_clients(request, inputs, stack)
         recorder = _recorder_for(request, models.audit, artifact_writer)
         memory = _memory_runtime_for(request)

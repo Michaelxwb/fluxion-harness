@@ -17,7 +17,7 @@ from typing import Any, cast
 
 import httpx
 import pytest
-from muad_agent_core.tools import ToolRegistry
+from muad_agent_core.tools import ToolCall, ToolError, ToolRegistry
 from muad_agent_runtime.application.run_service import delivery_route_of
 from muad_agent_runtime.application.skill_tools import EXECUTE_SKILL_TOOL, EXECUTE_TOOL, SkillToolSet
 from muad_agent_runtime.application.task_client import TaskSubmissionContext, WorkerTaskClient
@@ -216,10 +216,16 @@ async def _call_tool(
         arguments = {"target": "skill", **arguments}
     definition = tool_set.registry().get(name)
     assert definition.handler is not None
-    return cast(
-        dict[str, Any],
-        json.loads(await definition.handler(arguments, call_id=call_id or f"call-{uuid.uuid4()}")),
+    call = ToolCall(
+        call_id=call_id or f"call-{uuid.uuid4()}",
+        name=name,
+        arguments=arguments,
     )
+    try:
+        result = await definition.handler(arguments, call=call)
+    except ToolError as exc:
+        return cast(dict[str, Any], json.loads(exc.content()))
+    return cast(dict[str, Any], json.loads(result.content))
 
 
 async def _task_row(task_id: uuid.UUID) -> TaskExecution:
@@ -479,7 +485,12 @@ def _task_tools(
 async def _invoke(registry: ToolRegistry, name: str, arguments: dict[str, object]) -> dict[str, Any]:
     handler = registry.get(name).handler
     assert handler is not None
-    return cast(dict[str, Any], json.loads(await handler(arguments, call_id=f"call-{uuid.uuid4()}")))
+    call = ToolCall(call_id=f"call-{uuid.uuid4()}", name=name, arguments=arguments)
+    try:
+        result = await handler(arguments, call=call)
+    except ToolError as exc:
+        return cast(dict[str, Any], json.loads(exc.content()))
+    return cast(dict[str, Any], json.loads(result.content))
 
 
 async def test_b123_draft_tool_uses_run_actor_and_never_creates_a_schedule(

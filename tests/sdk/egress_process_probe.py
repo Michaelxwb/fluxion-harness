@@ -28,13 +28,13 @@ async def probe(endpoint: str) -> dict[str, object]:
     async with httpx.AsyncClient(trust_env=False) as client:
         adapter = McpRuntimeAdapter(audit_writer=None, client=client, budget=McpBudgetScope(controller))
         try:
-            await adapter.execute_tool(
+            await adapter.execute_tool_result(
                 server=server, tool=server.tools[0], arguments={}, policy_decision="ALLOW",
             )
         except McpToolError as exc:
-            result.update(origin=exc.reason, status=exc.status_code, retry_after=exc.retry_after)
+            result.update(origin=exc.code, status=exc.status_code, retry_after=exc.retry_after)
         try:
-            await adapter.execute_tool(
+            await adapter.execute_tool_result(
                 server=server, tool=server.tools[0], arguments={}, policy_decision="ALLOW",
             )
         except LocalRateLimitError as exc:

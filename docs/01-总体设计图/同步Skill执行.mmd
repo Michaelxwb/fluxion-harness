@@ -1,0 +1,27 @@
+sequenceDiagram
+  participant U as 用户
+  participant G as Gateway
+  participant A as Runtime
+  participant S as 沙箱
+  participant P as 制品存储
+  participant M as 模型网关
+  participant B as 平台接入
+  rect rgb(251, 252, 254)
+    Note over U,B: 同步 Skill 执行｜查询客户 A 昨天的告警
+    U->>G: 1 问客户 A 昨天的告警
+    G->>A: 2 提交告警查询 Run
+    A->>M: 3 请求模型选择 Skill
+    M-->>A: 4 选择告警查询 Skill
+    A->>P: 5 加载告警查询 Skill
+    P-->>A: 6 返回 Skill 制品
+    A->>S: 7 沙箱执行 Skill
+    S->>B: 8 调用外部平台接口
+    B-->>S: 9 返回业务数据
+    S-->>A: 10 返回告警结果
+    A->>P: 11 保存告警结果
+    A->>M: 12 请求模型生成摘要
+    M-->>A: 13 返回摘要
+    A-->>G: 14 SSE 推送告警摘要
+    G-->>U: 15 显示告警摘要
+    Note over U,B: 沙箱内 Skill 经平台接入调用业务平台获取业务数据；模型选择与摘要走模型网关；MCP/内置工具同属工具执行。
+  end

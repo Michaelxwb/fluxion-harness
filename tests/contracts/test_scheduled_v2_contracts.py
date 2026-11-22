@@ -103,6 +103,7 @@ def _snapshot(**overrides: Any) -> dict[str, Any]:
 def _skill() -> dict[str, Any]:
     return {
         "skill_id": uuid.uuid4(),
+        "key": "skill-a",
         "artifact_id": uuid.uuid4(),
         "version": "1.2.0",
         "checksum": HASH,

@@ -17,7 +17,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 import pytest
-from muad_agent_core.tools import ToolRegistry
+from muad_agent_core.tools import ToolCall, ToolError, ToolRegistry
 from muad_agent_runtime.application.task_client import TaskSubmissionContext
 from muad_agent_runtime.application.task_tools import (
     DRAFT_SCHEDULE_TOOL,
@@ -123,10 +123,16 @@ async def _invoke(
 ) -> dict[str, Any]:
     definition = registry.get(DRAFT_SCHEDULE_TOOL)
     assert definition is not None and definition.handler is not None
-    payload = await definition.handler(
-        arguments, call_id=call_id or f"call-{uuid.uuid4()}"
+    call = ToolCall(
+        call_id=call_id or f"call-{uuid.uuid4()}",
+        name=DRAFT_SCHEDULE_TOOL,
+        arguments=arguments,
     )
-    return cast(dict[str, Any], json.loads(payload))
+    try:
+        result = await definition.handler(arguments, call=call)
+    except ToolError as exc:
+        return cast(dict[str, Any], json.loads(exc.content()))
+    return cast(dict[str, Any], json.loads(result.content))
 
 
 def _args(payload: dict[str, Any] | None, **overrides: Any) -> dict[str, Any]:
@@ -251,7 +257,7 @@ async def test_invalid_golden_case_returns_structured_field_error_without_a_draf
     result = await _invoke(registry, _args({"kind": "SKILL_PLAN"}))
 
     assert result["error"]["code"] == "SCHEDULE_PARAMETER_INCOMPLETE"
-    fields = result["error"]["data"]["fields"]
+    fields = result["error"]["detail"]["fields"]
     assert fields[0]["field"] == "payload.skill_key"
     assert fields[0]["reason"] == "MISSING"
     assert fields[0]["repair"] == "PROVIDE_SKILL_KEY"

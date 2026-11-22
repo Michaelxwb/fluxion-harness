@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
+from muad_agent_core.tools import ToolCall
 from muad_agent_worker.application.agentic.tools import ScheduledPlatformTools, build_registry
 from muad_agent_worker.application.agentic.turn_result import ResultRecorder
 from muad_contracts import SnapshotAgent, SnapshotGrants, SnapshotModel
@@ -87,11 +88,20 @@ async def test_task_query_tools_are_owner_scoped_and_bounded() -> None:
     listed = registry.registry.get("list_tasks")
     fetched = registry.registry.get("get_task")
     assert listed.handler is not None and fetched.handler is not None
-    payload = json.loads(await listed.handler({"limit": 99}, call_id="call-list"))
+    payload = json.loads(
+        (await listed.handler(
+            {"limit": 99}, call=ToolCall(call_id="call-list", name="list_tasks")
+        )).content
+    )
     assert payload["tasks"][0]["task_id"] == "t-1"
     assert query.calls[-1] == ("list", 20)
 
     task_id = uuid.uuid4()
-    found = json.loads(await fetched.handler({"task_id": str(task_id)}, call_id="call-get"))
+    found = json.loads(
+        (await fetched.handler(
+            {"task_id": str(task_id)},
+            call=ToolCall(call_id="call-get", name="get_task"),
+        )).content
+    )
     assert found["status"] == "FOUND"
     assert query.calls[-1] == ("get", task_id)

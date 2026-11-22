@@ -105,6 +105,7 @@ async def resolve_artifact(
     tenant_id: TenantDep,
     session: SessionDep,
     _guard: InternalServiceDep,
+    task_execution_id: Annotated[uuid.UUID | None, Query()] = None,
 ) -> ApiResponse[Any]:
     """把一个 `artifact_id` 解析成渠道中立的引用。
 
@@ -113,6 +114,8 @@ async def resolve_artifact(
     """
     row = await session.get(Artifact, artifact_id)
     if row is None or row.is_deleted or row.tenant_id != tenant_id:
+        raise AppError(ErrorCode.COMMON_NOT_FOUND)
+    if task_execution_id is not None and row.task_id != task_execution_id:
         raise AppError(ErrorCode.COMMON_NOT_FOUND)
     return ok(
         request.app.state.message_catalog,

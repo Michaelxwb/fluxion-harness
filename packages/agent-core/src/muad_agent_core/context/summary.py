@@ -12,13 +12,20 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from ..model.provider import ModelMessage, ModelRole
+from ..model.provider import ModelMessage, ModelRole, text_of
 
 #: 五字段摘要的字段集合——**精确相等**才接受，多一个少一个都不行（RULE-03）。
 SUMMARY_FIELDS = ("user_goal", "constraints", "progress", "open_items", "artifacts")
 
 #: 摘要前缀的固定标记（`summary_message` 的首行）：重建与压缩都靠它认出"这一段是被压掉的历史"。
 SUMMARY_MESSAGE_PREFIX = "[历史摘要]"
+
+
+def is_summary_message(message: ModelMessage) -> bool:
+    """是否是重建/压缩产生的摘要前缀（唯一判据是固定标记，不靠 origin 字段）。"""
+    return message.role is ModelRole.SYSTEM and text_of(message.content).startswith(
+        SUMMARY_MESSAGE_PREFIX
+    )
 
 _LIST_FIELDS = ("constraints", "progress", "open_items")
 ARTIFACT_FIELDS = ("artifact_id", "tool", "note")
@@ -190,6 +197,7 @@ __all__ = [
     "ARTIFACT_FIELDS",
     "SUMMARY_FIELDS",
     "SUMMARY_MESSAGE_PREFIX",
+    "is_summary_message",
     "SummaryArtifact",
     "SummaryFields",
     "SummaryRejected",

@@ -23,6 +23,7 @@ from muad_contracts import (
     TaskToolOperationCancelResponse,
     TaskToolOperationList,
     TaskToolOperationOwner,
+    TaskToolOperationRecoveryView,
     TaskToolOperationResult,
     TaskToolOperationSubmitRequest,
     TaskToolOperationView,
@@ -67,12 +68,13 @@ class TaskOperationClient:
         tool_name: str,
         arguments: Mapping[str, Any],
         completion_mode: CompletionMode = CompletionMode.JOIN,
+        input_hash: str | None = None,
     ) -> TaskToolOperationView:
         request = TaskToolOperationSubmitRequest(
             owner=TaskToolOperationOwner(task_execution_id=execution_id),
             source_tool_call_id=call_id,
             tool_name=tool_name,
-            input_hash=compute_args_hash(arguments),
+            input_hash=input_hash or compute_args_hash(arguments),
             arguments=dict(arguments),
             completion_mode=completion_mode,
         )
@@ -100,6 +102,23 @@ class TaskOperationClient:
             f"{TOOL_OPERATIONS_PATH}/{operation_id}",
         )
         return TaskToolOperationView.model_validate(data)
+
+    async def get_recovery(
+        self,
+        *,
+        tenant_id: str,
+        actor_user_id: UUID,
+        execution_id: UUID,
+        call_id: str,
+    ) -> TaskToolOperationRecoveryView:
+        data = await self._request(
+            "GET",
+            tenant_id,
+            actor_user_id,
+            f"{TOOL_OPERATIONS_PATH}/recovery",
+            params={"task_execution_id": str(execution_id), "call_id": call_id},
+        )
+        return TaskToolOperationRecoveryView.model_validate(data)
 
     async def list_operations(
         self,

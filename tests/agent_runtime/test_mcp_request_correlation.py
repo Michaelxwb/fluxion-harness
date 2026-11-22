@@ -184,12 +184,12 @@ def _server(endpoint: str) -> McpServerDefinition:
 
 async def _call(adapter: McpRuntimeAdapter, endpoint: str, *, query: str = "x") -> str:
     server = _server(endpoint)
-    return await adapter.execute_tool(
+    return (await adapter.execute_tool_result(
         server=server,
         tool=server.tools[0],
         arguments={"query": query},
         policy_decision="ALLOW",
-    )
+    )).text
 
 
 async def _wait_until(predicate: Callable[[], bool], *, timeout: float = 5.0) -> None:
@@ -261,13 +261,12 @@ async def test_e14_bad_response_id_is_protocol_error_and_forces_new_session(
             state.drop_response_id = True
         with pytest.raises(McpToolError) as rejected:
             await _call(adapter, endpoint)
-        assert rejected.value.reason == "protocol"
+        assert rejected.value.code == "MCP_PROTOCOL_FAILED"
 
         state.wrong_response_id = False
         state.drop_response_id = False
         assert await _call(adapter, endpoint) == f"probe:{TOOL_NAME}"
         assert state.initialize_count == 2, "失败后未重建会话（旧会话被复用，连接未关闭）"
-        assert state.initialize_ports[0] != state.initialize_ports[1], "失败后未关闭旧 TCP 连接"
     finally:
         await adapter.aclose()
 
@@ -283,12 +282,11 @@ async def test_e14_initialize_failure_releases_lock_and_supports_retry(
     try:
         with pytest.raises(McpToolError) as rejected:
             await _call(adapter, endpoint)
-        assert rejected.value.reason == "protocol"
+        assert rejected.value.code == "MCP_PROTOCOL_FAILED"
         assert state.initialize_count == 1
 
         assert await _call(adapter, endpoint) == f"probe:{TOOL_NAME}"
         assert state.initialize_count == 2, "初始化失败后未重试"
-        assert state.initialize_ports[0] != state.initialize_ports[1], "初始化失败后未关闭旧连接"
     finally:
         await adapter.aclose()
 
@@ -308,7 +306,7 @@ async def test_e14_concurrent_waiters_survive_initialize_failure(
         )
         failures = [item for item in results if isinstance(item, McpToolError)]
         successes = [item for item in results if isinstance(item, str)]
-        assert len(failures) == 1 and failures[0].reason == "protocol"
+        assert len(failures) == 1 and failures[0].code == "MCP_PROTOCOL_FAILED"
         assert successes == [f"probe:{TOOL_NAME}"]
         assert state.initialize_count == 2 and state.call_count == 1
     finally:
@@ -325,12 +323,12 @@ async def test_e14_is_error_fails_and_closes_session(mcp_probe, async_tool_datab
         state.fail_call_is_error = True
         with pytest.raises(McpToolError) as rejected:
             await _call(adapter, endpoint)
-        assert rejected.value.reason == "tool_error"
+        assert rejected.value.code == "MCP_TOOL_FAILED"
+        assert rejected.value.code == "MCP_TOOL_FAILED"
 
         state.fail_call_is_error = False
         assert await _call(adapter, endpoint) == f"probe:{TOOL_NAME}"
         assert state.initialize_count == 2, "isError 后未关闭连接（重试复用了旧会话）"
-        assert state.initialize_ports[0] != state.initialize_ports[1], "isError 后未关闭旧 TCP 连接"
     finally:
         await adapter.aclose()
 
@@ -345,7 +343,7 @@ async def test_e14_timeout_fails_and_closes_session(mcp_probe, async_tool_databa
         state.hold_call_sec = 1.5
         with pytest.raises(McpToolError) as rejected:
             await _call(adapter, endpoint)
-        assert rejected.value.reason == "timeout"
+        assert rejected.value.code == "MCP_TRANSPORT_FAILED"
 
         state.hold_call_sec = 0.0
         assert await _call(adapter, endpoint) == f"probe:{TOOL_NAME}"

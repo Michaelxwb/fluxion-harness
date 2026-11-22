@@ -20,7 +20,7 @@ from muad_agent_core.sandbox import (
     WorkspaceStore,
 )
 from muad_agent_core.sandbox.workspace_shell import _redact_session_output
-from muad_agent_core.tools import ToolEffect
+from muad_agent_core.tools import ToolCall, ToolEffect, ToolError
 from muad_agent_runtime.application.skill_tools import (
     EXECUTE_TOOL,
     SkillToolSet,
@@ -149,25 +149,31 @@ def test_workspace_shell_is_registered_for_agent_without_skills(tmp_path) -> Non
     assert {"target", "command", "platforms", "skill_key", "draft_id"} <= set(properties)
 
 
+async def _invoke_execute(tool_set, arguments, call_id):
+    call = ToolCall(call_id=call_id, name="execute", arguments=arguments)
+    try:
+        result = await tool_set.execute(arguments, call=call)
+    except ToolError as exc:
+        return json.loads(exc.content())
+    return json.loads(result.content)
+
+
 async def test_workspace_shell_tool_runs_real_process_and_reports_output_files(tmp_path) -> None:
     """工具 → WorkspaceShellRunner → 真实子进程；租约释放且 output 文件被登记。"""
     metadata = _MemoryMetadata()
     tool_set, context = _tool_set(tmp_path, metadata)
-    definition = tool_set.registry().get(EXECUTE_TOOL)
-
-    payload = json.loads(
-        await definition.handler({"target": "workspace", "command": "printf 'hello'"}, call_id="call-1")
+    payload = await _invoke_execute(
+        tool_set, {"target": "workspace", "command": "printf 'hello'"}, "call-1"
     )
     assert payload["exit_code"] == 0
     assert payload["stdout"] == "hello"
     assert payload["changed_files"] == []
     assert metadata.released
 
-    written = json.loads(
-        await definition.handler(
-            {"target": "workspace", "command": "printf 'artifact' > \"$SKILL_OUTPUT_DIR/result.txt\""},
-            call_id="call-2",  # type: ignore[misc]
-        )
+    written = await _invoke_execute(
+        tool_set,
+        {"target": "workspace", "command": "printf 'artifact' > \"$SKILL_OUTPUT_DIR/result.txt\""},
+        "call-2",
     )
     assert written["exit_code"] == 0
     assert written["changed_files"] == ["result.txt"]
@@ -199,15 +205,14 @@ async def test_platform_prelogin_failure_keeps_the_platform_report(tmp_path) -> 
         service_token="token",
     )
 
-    payload = json.loads(
-        await tool_set.execute(
-            {
-                "target": "workspace",
-                "platforms": ["mssp", "mssw"],
-                "command": "session-manager list-platforms",
-            },
-            call_id="prelogin",
-        )
+    payload = await _invoke_execute(
+        tool_set,
+        {
+            "target": "workspace",
+            "platforms": ["mssp", "mssw"],
+            "command": "session-manager list-platforms",
+        },
+        "prelogin",
     )
 
     assert payload["error"]["code"] == "PLATFORM_AUTH_REJECTED"
@@ -227,23 +232,26 @@ async def test_platform_shell_reuses_workspace_and_cleans_session(tmp_path) -> N
         chain.console.tenant_id = context.tenant_id
         chain.console.actor_user_id = context.user_id
         assert [item.name for item in tool_set.registry().list()] == [EXECUTE_TOOL]
-        first = json.loads(await tool_set.execute(
-            {"target": "workspace", "command": "printf ready > marker.txt"}, call_id="write",
-        ))
+        first = await _invoke_execute(
+            tool_set, {"target": "workspace", "command": "printf ready > marker.txt"}, "write"
+        )
         assert first["exit_code"] == 0
-        result = json.loads(await tool_set.execute(
+        result = await _invoke_execute(
+            tool_set,
             {"target": "workspace", "platforms": [chain.platform_key], "command":
-             "cat marker.txt; session-manager get-state --skill-name workspace"}, call_id="platform",
-        ))
+             "cat marker.txt; session-manager get-state --skill-name workspace"},
+            "platform",
+        )
         assert result["exit_code"] == 0, result
         assert result["stdout"].startswith("ready")
         state = json.loads(result["stdout"][len("ready"):])
         assert not Path(state["sessionStateFile"]).exists()
-        denied = json.loads(await tool_set.execute(
+        denied = await _invoke_execute(
+            tool_set,
             {"target": "workspace", "platforms": [chain.platform_key, "not-authorized"],
              "command": "touch should-not-run"},
-            call_id="denied",
-        ))
+            "denied",
+        )
         assert denied["error"]["code"] == "PLATFORM_SESSION_REQUIRED"
 
 
@@ -251,12 +259,8 @@ async def test_workspace_shell_tool_maps_invalid_cwd_to_validation_error(tmp_pat
     """cwd 越出 /workspace 时返回明确错误，不执行命令。"""
     metadata = _MemoryMetadata()
     tool_set, _ = _tool_set(tmp_path, metadata)
-    definition = tool_set.registry().get(EXECUTE_TOOL)
-
-    payload = json.loads(
-        await definition.handler(  # type: ignore[misc]
-            {"target": "workspace", "command": "pwd", "cwd": "/etc"}, call_id="call-cwd"
-        )
+    payload = await _invoke_execute(
+        tool_set, {"target": "workspace", "command": "pwd", "cwd": "/etc"}, "call-cwd"
     )
     assert payload["error"]["code"] == "COMMON_VALIDATION_ERROR"
     assert metadata.records == []
@@ -266,9 +270,7 @@ async def test_workspace_shell_tool_maps_invalid_cwd_to_validation_error(tmp_pat
 async def test_workspace_shell_tool_rejects_empty_command(tmp_path, command: str) -> None:
     """空命令在工具边界拒绝。"""
     tool_set, _ = _tool_set(tmp_path, _MemoryMetadata())
-    definition = tool_set.registry().get(EXECUTE_TOOL)
-
-    payload = json.loads(
-        await definition.handler({"target": "workspace", "command": command}, call_id="call-empty")
+    payload = await _invoke_execute(
+        tool_set, {"target": "workspace", "command": command}, "call-empty"
     )
     assert payload["error"]["code"] == "COMMON_VALIDATION_ERROR"

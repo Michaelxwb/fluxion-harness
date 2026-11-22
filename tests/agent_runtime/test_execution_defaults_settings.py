@@ -29,6 +29,7 @@ from typing import Any
 
 import pytest
 import sqlalchemy as sa
+from muad_agent_core.tools import ToolCall, ToolError
 from muad_agent_runtime.application.async_tools.supervisor import ExecutionSupervisor
 from muad_agent_runtime.application.attachments.archive_tools import (
     CREATE_ARCHIVE_TOOL,
@@ -60,7 +61,6 @@ from muad_agent_runtime.infrastructure.models.runtime import (
     RuntimeSnapshot,
     UserMemory,
 )
-from muad_api import AppError
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_console_platform.application.audit_service import AuditActor
 from muad_console_platform.application.platform_settings_service import PlatformSettingsService
@@ -286,12 +286,13 @@ async def test_e20_registry_uses_frozen_artifact_memory_and_locale(
     archive = registry.get(CREATE_ARCHIVE_TOOL)
     assert archive.input_schema["properties"]["files"]["maxItems"] == ARTIFACT_OVERRIDE.max_archive_files
     with pytest.raises(ArchiveToolError) as error:
+        arguments = {
+            "filename": "x.zip",
+            "files": [{"path": f"f{i}.txt", "content": "x"} for i in range(3)],
+        }
         await archive.handler(
-            {
-                "filename": "x.zip",
-                "files": [{"path": f"f{i}.txt", "content": "x"} for i in range(3)],
-            },
-            call_id="c",
+            arguments,
+            call=ToolCall(call_id="c", name=CREATE_ARCHIVE_TOOL, arguments=arguments),
         )
     assert error.value.code == "ARCHIVE_FILES_INVALID"
 
@@ -301,7 +302,11 @@ async def test_e20_registry_uses_frozen_artifact_memory_and_locale(
     assert RECALL_TOOL in names
 
     # locale.default_timezone ⇒ `current_time` 工具真的按新 IANA 时区换算。
-    current_time = await registry.get(CURRENT_TIME_TOOL).handler({}, call_id="c")
+    current_time = (
+        await registry.get(CURRENT_TIME_TOOL).handler(
+            {}, call=ToolCall(call_id="c", name=CURRENT_TIME_TOOL)
+        )
+    ).content
     assert f"({LOCALE_OVERRIDE.default_timezone})" in current_time
 
 
@@ -321,7 +326,8 @@ async def test_e20_recall_uses_frozen_limit_and_byte_cap(
     recall = build_registry(
         request=capture.requests[0], cache=_cache(tmp_path), audit_writer=None, mcp_adapter=None
     ).get(RECALL_TOOL)
-    assert len(json.loads(await recall.handler({}, call_id="c"))["items"]) == 2
+    recalled = await recall.handler({}, call=ToolCall(call_id="c", name=RECALL_TOOL))
+    assert len(json.loads(recalled.content)["items"]) == 2
 
     # 最终 JSON 含来源/版本/TTL；装不下的条目被跳过并标 `truncated`（不静默超预算）。
     capped = replace(RECALL_SCENARIO, recall_default_limit=10, max_recall_bytes=600)
@@ -331,7 +337,7 @@ async def test_e20_recall_uses_frozen_limit_and_byte_cap(
     recall2 = build_registry(
         request=capture2.requests[0], cache=_cache(tmp_path), audit_writer=None, mcp_adapter=None
     ).get(RECALL_TOOL)
-    body = json.loads(await recall2.handler({}, call_id="c"))
+    body = json.loads((await recall2.handler({}, call=ToolCall(call_id="c", name=RECALL_TOOL))).content)
     assert body["truncated"] is True
     assert 0 < len(body["items"]) < 6
     assert len(json.dumps(body, ensure_ascii=False).encode("utf-8")) <= 600
@@ -344,8 +350,8 @@ async def test_e20_recall_uses_frozen_limit_and_byte_cap(
     recall3 = build_registry(
         request=capture3.requests[0], cache=_cache(tmp_path), audit_writer=None, mcp_adapter=None
     ).get(RECALL_TOOL)
-    with pytest.raises(AppError) as caught:
-        await recall3.handler({}, call_id="c")
+    with pytest.raises(ToolError) as caught:
+        await recall3.handler({}, call=ToolCall(call_id="c", name=RECALL_TOOL))
     assert caught.value.code == "MEMORY_RESULT_BUDGET_EXCEEDED"
 
 

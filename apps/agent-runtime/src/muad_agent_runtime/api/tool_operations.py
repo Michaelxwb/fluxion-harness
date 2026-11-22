@@ -22,6 +22,7 @@ from muad_contracts import (
     TaskToolOperationCancelRequest,
     TaskToolOperationCancelResponse,
     TaskToolOperationList,
+    TaskToolOperationRecoveryView,
     TaskToolOperationSubmitRequest,
     TaskToolOperationView,
 )
@@ -79,6 +80,26 @@ async def list_operations(
         request.app.state.message_catalog,
         TaskToolOperationList(items=items, page=page, page_size=page_size, total=total),
     )
+
+
+@router.get("/recovery")
+async def get_operation_recovery(
+    request: Request,
+    session: SessionDep,
+    tenant: TenantDep,
+    actor: ActorDep,
+    task_execution_id: Annotated[uuid.UUID, Query()],
+    call_id: Annotated[str, Query(min_length=1, max_length=256)],
+) -> ApiResponse[TaskToolOperationRecoveryView]:
+    view = await task_operations.get_recovery(
+        session,
+        tenant_id=tenant,
+        actor_user_id=actor,
+        task_execution_id=task_execution_id,
+        call_id=call_id,
+    )
+    await session.commit()
+    return ok(request.app.state.message_catalog, view)
 
 
 @router.get("/{operation_id}")

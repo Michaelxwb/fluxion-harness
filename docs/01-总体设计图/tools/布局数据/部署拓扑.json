@@ -1,0 +1,370 @@
+{
+  "name": "部署拓扑",
+  "size": [
+    1200,
+    620
+  ],
+  "nodes": {
+    "browser": {
+      "rect": [
+        30,
+        130,
+        180,
+        70
+      ],
+      "label": "浏览器",
+      "lines": [
+        "Console / WebChat"
+      ],
+      "state": false,
+      "tone": "external"
+    },
+    "wecom": {
+      "rect": [
+        30,
+        335,
+        180,
+        74
+      ],
+      "label": "企业微信",
+      "lines": [
+        "官方长连接协议"
+      ],
+      "state": false,
+      "tone": "external"
+    },
+    "nginx": {
+      "rect": [
+        280,
+        130,
+        170,
+        70
+      ],
+      "label": "Nginx",
+      "lines": [
+        "Pod / Service · 入口"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "cluster"
+    },
+    "gateway": {
+      "rect": [
+        500,
+        130,
+        170,
+        70
+      ],
+      "label": "IM Gateway",
+      "lines": [
+        "无状态请求面"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "cluster"
+    },
+    "runtime": {
+      "rect": [
+        750,
+        130,
+        180,
+        70
+      ],
+      "label": "Agent Runtime",
+      "lines": [
+        "多副本 / 无状态"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "cluster"
+    },
+    "worker": {
+      "rect": [
+        1000,
+        130,
+        150,
+        70
+      ],
+      "label": "Agent Worker",
+      "lines": [
+        "多副本 / 任务领取"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "cluster"
+    },
+    "console": {
+      "rect": [
+        280,
+        275,
+        170,
+        70
+      ],
+      "label": "Console Platform",
+      "lines": [
+        "API + 页面资源"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "cluster"
+    },
+    "connector": {
+      "rect": [
+        500,
+        275,
+        170,
+        70
+      ],
+      "label": "IM Connector",
+      "lines": [
+        "可选 / 多副本"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "cluster"
+    },
+    "artifact-pvc": {
+      "rect": [
+        750,
+        335,
+        180,
+        120
+      ],
+      "label": "制品文件存储",
+      "lines": [
+        "Skill 包 / 附件 / 结果",
+        "Console / Gateway",
+        "Runtime / Worker",
+        "Connector"
+      ],
+      "state": false,
+      "tone": "store",
+      "group": "cluster"
+    },
+    "workspace-pvc": {
+      "rect": [
+        970,
+        345,
+        180,
+        100
+      ],
+      "label": "工作区文件存储",
+      "lines": [
+        "草稿 / 执行输出",
+        "Console / Runtime",
+        "Worker"
+      ],
+      "state": false,
+      "tone": "store",
+      "group": "cluster"
+    },
+    "postgres": {
+      "rect": [
+        280,
+        530,
+        400,
+        56
+      ],
+      "label": "PostgreSQL",
+      "lines": [
+        "Console / Runtime / Worker"
+      ],
+      "state": false,
+      "tone": "store",
+      "group": "data-services"
+    },
+    "redis": {
+      "rect": [
+        710,
+        530,
+        440,
+        56
+      ],
+      "label": "Redis",
+      "lines": [
+        "各运行角色的缓存、会话和通道流"
+      ],
+      "state": false,
+      "tone": "store",
+      "group": "data-services"
+    }
+  },
+  "groups": {
+    "cluster": {
+      "rect": [
+        245,
+        35,
+        925,
+        435
+      ],
+      "title": "Kubernetes 集群 · 入口代理与业务工作负载"
+    },
+    "data-services": {
+      "rect": [
+        245,
+        490,
+        925,
+        110
+      ],
+      "title": "由环境提供的数据服务"
+    }
+  },
+  "edges": [
+    {
+      "from": "browser",
+      "to": "nginx",
+      "points": [
+        [
+          210,
+          165
+        ],
+        [
+          280,
+          165
+        ]
+      ],
+      "label": "HTTPS",
+      "both": false
+    },
+    {
+      "from": "nginx",
+      "to": "gateway",
+      "points": [
+        [
+          450,
+          165
+        ],
+        [
+          500,
+          165
+        ]
+      ],
+      "label": "聊天",
+      "both": false
+    },
+    {
+      "from": "nginx",
+      "to": "console",
+      "points": [
+        [
+          365,
+          200
+        ],
+        [
+          365,
+          275
+        ]
+      ],
+      "label": "管理 / 认证",
+      "both": false
+    },
+    {
+      "from": "gateway",
+      "to": "runtime",
+      "points": [
+        [
+          670,
+          165
+        ],
+        [
+          750,
+          165
+        ]
+      ],
+      "label": "Run",
+      "both": false
+    },
+    {
+      "from": "runtime",
+      "to": "worker",
+      "points": [
+        [
+          930,
+          150
+        ],
+        [
+          1000,
+          150
+        ]
+      ],
+      "label": "Task",
+      "both": false
+    },
+    {
+      "from": "worker",
+      "to": "runtime",
+      "points": [
+        [
+          1000,
+          180
+        ],
+        [
+          930,
+          180
+        ]
+      ],
+      "label": "结果",
+      "both": false
+    },
+    {
+      "from": "worker",
+      "to": "gateway",
+      "points": [
+        [
+          1075,
+          130
+        ],
+        [
+          1075,
+          88
+        ],
+        [
+          585,
+          88
+        ],
+        [
+          585,
+          130
+        ]
+      ],
+      "label": "独立投递",
+      "both": false
+    },
+    {
+      "from": "wecom",
+      "to": "connector",
+      "points": [
+        [
+          210,
+          372
+        ],
+        [
+          585,
+          372
+        ],
+        [
+          585,
+          345
+        ]
+      ],
+      "label": "WSS",
+      "both": true
+    },
+    {
+      "from": "connector",
+      "to": "gateway",
+      "points": [
+        [
+          555,
+          275
+        ],
+        [
+          555,
+          200
+        ]
+      ],
+      "label": "事件流",
+      "both": true
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from dataclasses import asdict
 from datetime import UTC, datetime
 from typing import Any, Literal, cast
@@ -257,7 +258,7 @@ def _task_policy(settings: PlatformSettings) -> dict[str, Any]:
     }
 
 
-def _tool_retry_safety(definition: dict[str, Any]) -> str | None:
+def _tool_retry_safety(definition: Mapping[str, Any]) -> str | None:
     value = definition.get("retry_safety")
     return value if isinstance(value, str) and value in RETRY_SAFETY_VALUES else None
 
@@ -431,6 +432,8 @@ class ScheduleResolveService:
         )
         if payload.mode is ScheduleMode.SKILL:
             return [await self._require_skill(tenant_id, payload.skill_id, effective)]
+        if payload.mode is ScheduleMode.AGENTIC and not payload.tool_allowlist:
+            return effective
         referenced: list[Any] = []
         for entry in payload.tool_allowlist:
             if entry.source == "SKILL" and entry.skill_id not in referenced:
@@ -474,11 +477,64 @@ class ScheduleResolveService:
     ) -> list[ScheduleToolMaterials]:
         if payload.mode is not ScheduleMode.AGENTIC:
             return []
+        if payload.mode is ScheduleMode.AGENTIC and not payload.tool_allowlist:
+            return self._owner_tools(skills, mcp_servers)
         by_key = {server.key: server for server in mcp_servers}
         by_skill = {skill.id: (skill, artifact) for skill, artifact in skills}
         tools: list[ScheduleToolMaterials] = []
         for entry in payload.tool_allowlist:
             tools.append(self._resolve_tool(entry, by_key, by_skill))
+        return tools
+
+    def _owner_tools(
+        self,
+        skills: list[tuple[Any, Any]],
+        mcp_servers: list[Any],
+    ) -> list[ScheduleToolMaterials]:
+        """`tools_allow` 为空/`*`：冻结 owner 当前生效的全部工具材料。"""
+        tools: list[ScheduleToolMaterials] = []
+        for server in mcp_servers:
+            for definition in server.definitions:
+                if not isinstance(definition, Mapping):
+                    continue
+                name = definition.get("name")
+                if not isinstance(name, str) or not name:
+                    continue
+                schema = definition.get("input_schema") or {}
+                if not isinstance(schema, dict):
+                    continue
+                tools.append(
+                    ScheduleToolMaterials(
+                        source="MCP",
+                        tool_name=name,
+                        input_schema=dict(schema),
+                        retry_safety=_tool_retry_safety(definition),
+                        server_id=server.mcp_server_id,
+                        server_key=server.key,
+                        catalog_revision=server.catalog_revision or None,
+                    )
+                )
+        for skill, artifact in skills:
+            execution_mode = artifact.execution_mode
+            if execution_mode not in EXECUTION_MODES:
+                raise _admission_error(
+                    ErrorCode.ASYNC_OPERATION_UNAVAILABLE,
+                    "ASYNC_OPERATION_UNAVAILABLE",
+                    REPAIR_REIMPORT_SKILL,
+                )
+            frontmatter = artifact.frontmatter_json or {}
+            retry_safety = frontmatter.get("retry_safety")
+            tools.append(
+                ScheduleToolMaterials(
+                    source="SKILL",
+                    tool_name="execute_skill",
+                    retry_safety=retry_safety if retry_safety in RETRY_SAFETY_VALUES else None,
+                    skill_id=skill.id,
+                    artifact_id=artifact.id,
+                    checksum=artifact.checksum,
+                    execution_mode=execution_mode,
+                )
+            )
         return tools
 
     def _resolve_tool(

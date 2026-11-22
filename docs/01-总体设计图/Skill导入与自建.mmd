@@ -1,0 +1,36 @@
+sequenceDiagram
+  participant U as 服务经理
+  participant A as 管理员
+  participant C as Console
+  participant P as 共享存储
+  participant R as Runtime/Worker
+  rect rgb(251, 252, 254)
+    Note over U,R: 服务经理自建并提交
+    U->>C: 1 写端口检查 Skill 草稿
+    C->>P: 2 保存草稿
+    U->>C: 3 在草稿沙箱测试
+    C-->>U: 4 返回测试结果
+    U->>C: 5 上传草稿并提交
+    C->>P: 6 校验并写待审制品
+    C-->>U: 7 返回待审批
+    Note over U,R: 服务经理在 Console 写草稿、沙箱测试、上传后进入待审批。
+  end
+  rect rgb(251, 252, 254)
+    Note over U,R: 管理员审批
+    A->>C: 8 打开待审批 Skill
+    C->>P: 9 读取待审制品
+    A->>C: 10 审批通过
+    C->>P: 11 更新当前版本
+    C-->>A: 12 返回已生效
+    Note over U,R: 管理员就是 Console 用户，不是独立审批节点；审批通过后更新当前版本。
+  end
+  rect rgb(251, 252, 254)
+    Note over U,R: 管理员直接导入（默认生效）
+    A->>C: 13 上传端口检查 Skill
+    C->>P: 14 校验并写制品
+    C->>P: 15 直接发布当前版本
+    C-->>A: 16 返回已生效（默认生效）
+    R->>P: 17 加载新版本
+    P-->>R: 18 返回制品
+    Note over U,R: 管理员在 Console 直接上传并发布，默认生效，不再进入审批。
+  end

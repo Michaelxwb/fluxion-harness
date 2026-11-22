@@ -13,18 +13,19 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Protocol, runtime_checkable
 
-from ..model.provider import ModelMessage
+from .result import ToolResult
 
 
 @runtime_checkable
 class ToolResultRoundPort(Protocol):
-    """给定本回合创建的全部 tool 消息，返回**要替换成什么**（未替换的原样返回）。
+    """给定本回合创建的全部 typed 结果，返回**要替换成什么**（未替换的原样返回）。
 
     返回序列必须与入参**等长且同序**：调用方按下标回填历史，错位会让工具声明与结果对不上。
-    实现方可以原样返回入参（表示"本回合一条都不外置"）。
+    实现方可以原样返回入参（表示"本回合一条都不外置"）。外置正文时用
+    `ToolResult.artifacts` 报告产物 role，宿主据此重建完成事件。
     """
 
-    async def finish_round(self, results: Sequence[ModelMessage]) -> Sequence[ModelMessage]: ...
+    async def finish_round(self, results: Sequence[ToolResult]) -> Sequence[ToolResult]: ...
 
 
 __all__ = ["ToolResultRoundPort"]

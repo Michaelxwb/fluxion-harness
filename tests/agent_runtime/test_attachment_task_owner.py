@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 import sqlalchemy as sa
-from muad_agent_core.tools import ToolRegistry
+from muad_agent_core.tools import ToolCall, ToolRegistry
 from muad_agent_runtime.application.attachments.tools import (
     ATTACHMENT_NOT_FOUND,
     ATTACHMENT_SCOPE_INVALID,
@@ -119,7 +119,11 @@ async def _call(tool_set: AttachmentToolSet, name: str, arguments: dict[str, Any
     tool_set.register(registry)
     definition = registry.get(name)
     assert definition.handler is not None
-    return await definition.handler(arguments, call_id="call-1")
+    result = await definition.handler(
+        arguments,
+        call=ToolCall(call_id="call-1", name=name, arguments=arguments),
+    )
+    return result.content
 
 
 async def test_task_artifact_is_listed_read_and_owner_scoped(

@@ -124,7 +124,7 @@ async def test_b116_execute_audits_disabled_server_denied() -> None:
     adapter = McpRuntimeAdapter(audit_writer=_audit(), transport=ASGITransport(app=probe_app))
 
     with pytest.raises(AppError) as exc:
-        await adapter.execute_tool(
+        await adapter.execute_tool_result(
             server=server, tool=server.tools[0], arguments={}, policy_decision="DENY"
         )
     assert exc.value.code == "FORBIDDEN"
@@ -144,12 +144,12 @@ async def test_b116_real_tools_call_over_http_with_audit() -> None:
     server = _server("live", [_tool("probe_tool_1")])
     adapter = McpRuntimeAdapter(audit_writer=_audit(), transport=ASGITransport(app=probe_app))
 
-    content = await adapter.execute_tool(
+    content = (await adapter.execute_tool_result(
         server=server,
         tool=server.tools[0],
         arguments={"query": "hello"},
         policy_decision="ALLOW",
-    )
+    )).text
     assert content == "probe-result:probe_tool_1:hello"
 
     rows = await _egress_rows()
@@ -172,7 +172,7 @@ async def test_b116_tool_is_error_maps_to_error_audit() -> None:
     os.environ["MCP_PROBE_FAIL_CALL"] = "1"
     try:
         with pytest.raises(McpToolError):
-            await adapter.execute_tool(
+            await adapter.execute_tool_result(
                 server=server,
                 tool=server.tools[0],
                 arguments={"query": "x"},

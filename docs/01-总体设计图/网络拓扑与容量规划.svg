@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title">
+<title id="title">网络拓扑与容量规划</title>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"/></marker></defs>
+<style>text{font-family:PingFang SC,Microsoft YaHei,Arial,sans-serif;fill:#20344B}path,polyline{stroke-linejoin:round;stroke-linecap:round}</style>
+<rect width="1200" height="620" fill="#FFFFFF"/>
+<rect x="30" y="30" width="240" height="420" rx="12" fill="#FBFCFE" stroke="#DCE4EC" stroke-width="1.4"/>
+<text x="46" y="57" font-size="16" font-weight="600" text-anchor="start" style="fill:#4B637C">用户与入口</text>
+<g data-node="wecom"><rect x="55" y="100" width="190" height="70" rx="8" fill="#F4F6F9" stroke="#CBD3DE" stroke-width="1.5"/>
+<text x="150.0" y="127" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">企业微信</text>
+<text x="150.0" y="149" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">WSS 长连接</text>
+</g>
+<g data-node="browser"><rect x="55" y="300" width="190" height="70" rx="8" fill="#F4F6F9" stroke="#CBD3DE" stroke-width="1.5"/>
+<text x="150.0" y="327" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">浏览器</text>
+<text x="150.0" y="349" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">HTTPS / SSE</text>
+</g>
+<rect x="300" y="30" width="230" height="420" rx="12" fill="#FBFCFE" stroke="#DCE4EC" stroke-width="1.4"/>
+<text x="316" y="57" font-size="16" font-weight="600" text-anchor="start" style="fill:#4B637C">入口代理</text>
+<g data-node="nginx"><rect x="325" y="150" width="180" height="100" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="415.0" y="177" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Nginx</text>
+<text x="415.0" y="199" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">只服务浏览器入口</text>
+<text x="415.0" y="218" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">路径分流</text>
+<text x="415.0" y="237" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">请求体上限</text>
+</g>
+<rect x="560" y="30" width="610" height="420" rx="12" fill="#FBFCFE" stroke="#DCE4EC" stroke-width="1.4"/>
+<text x="576" y="57" font-size="16" font-weight="600" text-anchor="start" style="fill:#4B637C">Kubernetes 集群</text>
+<g data-node="gateway"><rect x="585" y="100" width="170" height="70" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="670.0" y="127" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">IM Gateway</text>
+<text x="670.0" y="149" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">多副本 / SSE</text>
+</g>
+<g data-node="connector"><rect x="800" y="100" width="170" height="70" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="885.0" y="127" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">IM Connector</text>
+<text x="885.0" y="149" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">按 bot 租约分片</text>
+</g>
+<g data-node="console"><rect x="585" y="230" width="170" height="70" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="670.0" y="257" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Console</text>
+<text x="670.0" y="279" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">单 Pod</text>
+</g>
+<g data-node="runtime"><rect x="800" y="230" width="170" height="70" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="885.0" y="257" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Agent Runtime</text>
+<text x="885.0" y="279" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">多副本 / 按并发</text>
+</g>
+<g data-node="worker"><rect x="1010" y="230" width="140" height="70" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="1080.0" y="257" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Agent Worker</text>
+<text x="1080.0" y="279" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">多副本 / 按队列</text>
+</g>
+<rect x="30" y="480" width="1140" height="120" rx="12" fill="#FBFCFE" stroke="#DCE4EC" stroke-width="1.4"/>
+<text x="46" y="507" font-size="16" font-weight="600" text-anchor="start" style="fill:#4B637C">外部依赖与数据服务</text>
+<g data-node="pg"><rect x="60" y="520" width="160" height="55" rx="8" fill="#F2F7F6" stroke="#BAD6CE" stroke-width="1.5"/>
+<text x="140.0" y="547" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">PostgreSQL</text>
+<text x="140.0" y="569" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">权威状态</text>
+</g>
+<g data-node="redis"><rect x="260" y="520" width="160" height="55" rx="8" fill="#F2F7F6" stroke="#BAD6CE" stroke-width="1.5"/>
+<text x="340.0" y="547" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Redis</text>
+<text x="340.0" y="569" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">缓存与流</text>
+</g>
+<g data-node="storage"><rect x="460" y="520" width="160" height="55" rx="8" fill="#F2F7F6" stroke="#BAD6CE" stroke-width="1.5"/>
+<text x="540.0" y="547" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">共享存储</text>
+<text x="540.0" y="569" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">制品与工作区</text>
+</g>
+<g data-node="models"><rect x="660" y="520" width="160" height="55" rx="8" fill="#F4F6F9" stroke="#CBD3DE" stroke-width="1.5"/>
+<text x="740.0" y="547" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">外部模型网关</text>
+<text x="740.0" y="569" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">模型接口</text>
+</g>
+<g data-node="platforms"><rect x="860" y="520" width="160" height="55" rx="8" fill="#F4F6F9" stroke="#CBD3DE" stroke-width="1.5"/>
+<text x="940.0" y="547" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">业务平台</text>
+<text x="940.0" y="569" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">平台接口</text>
+</g>
+<g data-node="mcp"><rect x="1040" y="520" width="140" height="55" rx="8" fill="#F4F6F9" stroke="#CBD3DE" stroke-width="1.5"/>
+<text x="1110.0" y="547" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">MCP 服务</text>
+<text x="1110.0" y="569" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">工具接口</text>
+</g>
+<polyline points="245,335 285,335 285,200 325,200" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="242.79999999999998" y="175" width="104.40000000000003" height="20" rx="4" fill="#FFFFFF"/>
+<text x="295" y="190" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">HTTPS / SSE</text>
+<polyline points="505,185 585,135" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="496.4" y="130" width="97.19999999999999" height="20" rx="4" fill="#FFFFFF"/>
+<text x="545" y="145" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">聊天 / 事件</text>
+<polyline points="505,225 585,265" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="496.4" y="245" width="97.19999999999999" height="20" rx="4" fill="#FFFFFF"/>
+<text x="545" y="260" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">管理 / 认证</text>
+<polyline points="150,100 150,80 800,80 800,100" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="395.19999999999993" y="53" width="159.60000000000008" height="20" rx="4" fill="#FFFFFF"/>
+<text x="475" y="68" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">WSS 直连 Connector</text>
+<polyline points="800,135 755,135" fill="none" stroke="#7A8798" stroke-width="1.8" marker-end="url(#arrow)" marker-start="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="748.5" y="108" width="57.0" height="20" rx="4" fill="#FFFFFF"/>
+<text x="777" y="123" font-size="15" font-weight="500" text-anchor="middle" style="fill:#7A8798">事件流</text>
+<polyline points="755,150 800,265" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="788.0" y="170" width="84.00000000000001" height="20" rx="4" fill="#FFFFFF"/>
+<text x="830" y="185" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">内网 HTTP</text>
+<polyline points="970,265 1010,265" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="969.0" y="238" width="42.0" height="20" rx="4" fill="#FFFFFF"/>
+<text x="990" y="253" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">任务</text>
+<polyline points="885,300 885,455 740,455 740,520" fill="none" stroke="#91A0AF" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="774.0" y="428" width="72.0" height="20" rx="4" fill="#FFFFFF"/>
+<text x="810" y="443" font-size="15" font-weight="500" text-anchor="middle" style="fill:#91A0AF">模型调用</text>
+<polyline points="1080,300 1080,472 940,472 940,520" fill="none" stroke="#91A0AF" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="974.0" y="445" width="72.0" height="20" rx="4" fill="#FFFFFF"/>
+<text x="1010" y="460" font-size="15" font-weight="500" text-anchor="middle" style="fill:#91A0AF">平台调用</text>
+<text x="46" y="612" font-size="14" font-weight="400" text-anchor="start" style="fill:#536B81">Nginx 只服务浏览器入口；企业微信 WSS 直连 Connector；数据服务访问关系见正文表。</text>
+</svg>

@@ -1,0 +1,782 @@
+{
+  "name": "定时与批量任务",
+  "size": [
+    1200,
+    818
+  ],
+  "nodes": {
+    "U": {
+      "rect": [
+        20,
+        30,
+        160,
+        60
+      ],
+      "label": "用户/管理员",
+      "lines": [
+        "发起与接收"
+      ],
+      "state": false,
+      "tone": "active"
+    },
+    "A": {
+      "rect": [
+        180,
+        30,
+        160,
+        60
+      ],
+      "label": "Runtime",
+      "lines": [
+        "受理与计划"
+      ],
+      "state": false,
+      "tone": "active"
+    },
+    "W": {
+      "rect": [
+        340,
+        30,
+        160,
+        60
+      ],
+      "label": "Worker",
+      "lines": [
+        "调度与执行"
+      ],
+      "state": false,
+      "tone": "active"
+    },
+    "P": {
+      "rect": [
+        500,
+        30,
+        160,
+        60
+      ],
+      "label": "共享存储",
+      "lines": [
+        "计划、任务与结果"
+      ],
+      "state": false,
+      "tone": "active"
+    },
+    "B": {
+      "rect": [
+        660,
+        30,
+        160,
+        60
+      ],
+      "label": "平台接入",
+      "lines": [
+        "调用业务平台接口"
+      ],
+      "state": false,
+      "tone": "active"
+    },
+    "M": {
+      "rect": [
+        820,
+        30,
+        160,
+        60
+      ],
+      "label": "模型网关",
+      "lines": [
+        "生成摘要"
+      ],
+      "state": false,
+      "tone": "active"
+    },
+    "G": {
+      "rect": [
+        980,
+        30,
+        160,
+        60
+      ],
+      "label": "Gateway",
+      "lines": [
+        "结果通知"
+      ],
+      "state": false,
+      "tone": "active"
+    }
+  },
+  "groups": {
+    "schedule": {
+      "rect": [
+        30,
+        110,
+        1140,
+        348
+      ],
+      "title": "定时任务｜每天 9 点导出日报"
+    },
+    "batch": {
+      "rect": [
+        30,
+        478,
+        1140,
+        300
+      ],
+      "title": "批量任务｜同时检查客户 A/B/C"
+    }
+  },
+  "edges": [
+    {
+      "from": "U",
+      "to": "A",
+      "points": [
+        [
+          100,
+          165
+        ],
+        [
+          260,
+          165
+        ]
+      ],
+      "label": "1 设置每天 9 点导出日报",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "P",
+      "points": [
+        [
+          260,
+          189
+        ],
+        [
+          580,
+          189
+        ]
+      ],
+      "label": "2 保存定时计划",
+      "both": false
+    },
+    {
+      "from": "W",
+      "to": "P",
+      "points": [
+        [
+          420,
+          213
+        ],
+        [
+          580,
+          213
+        ]
+      ],
+      "label": "3 到点领取日报计划",
+      "both": false
+    },
+    {
+      "from": "W",
+      "to": "P",
+      "points": [
+        [
+          420,
+          237
+        ],
+        [
+          580,
+          237
+        ]
+      ],
+      "label": "4 复核授权与 Skill 版本",
+      "both": false
+    },
+    {
+      "from": "W",
+      "to": "P",
+      "points": [
+        [
+          420,
+          261
+        ],
+        [
+          580,
+          261
+        ]
+      ],
+      "label": "5 创建日报任务",
+      "both": false
+    },
+    {
+      "from": "W",
+      "to": "B",
+      "points": [
+        [
+          420,
+          285
+        ],
+        [
+          740,
+          285
+        ]
+      ],
+      "label": "6 调用平台接口取业务数据",
+      "both": false
+    },
+    {
+      "from": "B",
+      "to": "W",
+      "points": [
+        [
+          740,
+          309
+        ],
+        [
+          420,
+          309
+        ]
+      ],
+      "label": "7 返回业务数据",
+      "both": false
+    },
+    {
+      "from": "W",
+      "to": "M",
+      "points": [
+        [
+          420,
+          333
+        ],
+        [
+          900,
+          333
+        ]
+      ],
+      "label": "8 请求模型生成摘要",
+      "both": false
+    },
+    {
+      "from": "M",
+      "to": "W",
+      "points": [
+        [
+          900,
+          357
+        ],
+        [
+          420,
+          357
+        ]
+      ],
+      "label": "9 返回摘要",
+      "both": false
+    },
+    {
+      "from": "W",
+      "to": "P",
+      "points": [
+        [
+          420,
+          381
+        ],
+        [
+          580,
+          381
+        ]
+      ],
+      "label": "10 保存日报终态",
+      "both": false
+    },
+    {
+      "from": "W",
+      "to": "G",
+      "points": [
+        [
+          420,
+          405
+        ],
+        [
+          1060,
+          405
+        ]
+      ],
+      "label": "11 入口支持 PUSH 时投递",
+      "both": false
+    },
+    {
+      "from": "G",
+      "to": "U",
+      "points": [
+        [
+          1060,
+          429
+        ],
+        [
+          100,
+          429
+        ]
+      ],
+      "label": "12 到点后推送日报",
+      "both": false
+    },
+    {
+      "from": "U",
+      "to": "A",
+      "points": [
+        [
+          100,
+          533
+        ],
+        [
+          260,
+          533
+        ]
+      ],
+      "label": "13 同时检查客户 A/B/C",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "W",
+      "points": [
+        [
+          260,
+          557
+        ],
+        [
+          420,
+          557
+        ]
+      ],
+      "label": "14 创建三个子任务",
+      "both": false
+    },
+    {
+      "from": "W",
+      "to": "P",
+      "points": [
+        [
+          420,
+          581
+        ],
+        [
+          580,
+          581
+        ]
+      ],
+      "label": "15 持久化任务树",
+      "both": false
+    },
+    {
+      "from": "W",
+      "to": "B",
+      "points": [
+        [
+          420,
+          605
+        ],
+        [
+          740,
+          605
+        ]
+      ],
+      "label": "16 并行调用平台接口",
+      "both": false
+    },
+    {
+      "from": "B",
+      "to": "W",
+      "points": [
+        [
+          740,
+          629
+        ],
+        [
+          420,
+          629
+        ]
+      ],
+      "label": "17 返回三家业务数据",
+      "both": false
+    },
+    {
+      "from": "W",
+      "to": "M",
+      "points": [
+        [
+          420,
+          653
+        ],
+        [
+          900,
+          653
+        ]
+      ],
+      "label": "18 请求模型汇总",
+      "both": false
+    },
+    {
+      "from": "M",
+      "to": "W",
+      "points": [
+        [
+          900,
+          677
+        ],
+        [
+          420,
+          677
+        ]
+      ],
+      "label": "19 返回汇总摘要",
+      "both": false
+    },
+    {
+      "from": "W",
+      "to": "P",
+      "points": [
+        [
+          420,
+          701
+        ],
+        [
+          580,
+          701
+        ]
+      ],
+      "label": "20 汇总三份结果",
+      "both": false
+    },
+    {
+      "from": "W",
+      "to": "G",
+      "points": [
+        [
+          420,
+          725
+        ],
+        [
+          1060,
+          725
+        ]
+      ],
+      "label": "21 入口支持 PUSH 时投递",
+      "both": false
+    },
+    {
+      "from": "G",
+      "to": "U",
+      "points": [
+        [
+          1060,
+          749
+        ],
+        [
+          100,
+          749
+        ]
+      ],
+      "label": "22 显示三份结果",
+      "both": false
+    }
+  ],
+  "diagram_type": "sequence",
+  "lifelines": [
+    {
+      "participant": "U",
+      "node": "U",
+      "points": [
+        [
+          100,
+          90
+        ],
+        [
+          100,
+          788
+        ]
+      ]
+    },
+    {
+      "participant": "A",
+      "node": "A",
+      "points": [
+        [
+          260,
+          90
+        ],
+        [
+          260,
+          788
+        ]
+      ]
+    },
+    {
+      "participant": "W",
+      "node": "W",
+      "points": [
+        [
+          420,
+          90
+        ],
+        [
+          420,
+          788
+        ]
+      ]
+    },
+    {
+      "participant": "P",
+      "node": "P",
+      "points": [
+        [
+          580,
+          90
+        ],
+        [
+          580,
+          788
+        ]
+      ]
+    },
+    {
+      "participant": "B",
+      "node": "B",
+      "points": [
+        [
+          740,
+          90
+        ],
+        [
+          740,
+          788
+        ]
+      ]
+    },
+    {
+      "participant": "M",
+      "node": "M",
+      "points": [
+        [
+          900,
+          90
+        ],
+        [
+          900,
+          788
+        ]
+      ]
+    },
+    {
+      "participant": "G",
+      "node": "G",
+      "points": [
+        [
+          1060,
+          90
+        ],
+        [
+          1060,
+          788
+        ]
+      ]
+    }
+  ],
+  "messages": [
+    {
+      "scenario": "schedule",
+      "order": 1,
+      "from": "U",
+      "to": "A",
+      "y": 165,
+      "label": "设置每天 9 点导出日报",
+      "reply": false
+    },
+    {
+      "scenario": "schedule",
+      "order": 2,
+      "from": "A",
+      "to": "P",
+      "y": 189,
+      "label": "保存定时计划",
+      "reply": false
+    },
+    {
+      "scenario": "schedule",
+      "order": 3,
+      "from": "W",
+      "to": "P",
+      "y": 213,
+      "label": "到点领取日报计划",
+      "reply": false
+    },
+    {
+      "scenario": "schedule",
+      "order": 4,
+      "from": "W",
+      "to": "P",
+      "y": 237,
+      "label": "复核授权与 Skill 版本",
+      "reply": false
+    },
+    {
+      "scenario": "schedule",
+      "order": 5,
+      "from": "W",
+      "to": "P",
+      "y": 261,
+      "label": "创建日报任务",
+      "reply": false
+    },
+    {
+      "scenario": "schedule",
+      "order": 6,
+      "from": "W",
+      "to": "B",
+      "y": 285,
+      "label": "调用平台接口取业务数据",
+      "reply": false
+    },
+    {
+      "scenario": "schedule",
+      "order": 7,
+      "from": "B",
+      "to": "W",
+      "y": 309,
+      "label": "返回业务数据",
+      "reply": true
+    },
+    {
+      "scenario": "schedule",
+      "order": 8,
+      "from": "W",
+      "to": "M",
+      "y": 333,
+      "label": "请求模型生成摘要",
+      "reply": false
+    },
+    {
+      "scenario": "schedule",
+      "order": 9,
+      "from": "M",
+      "to": "W",
+      "y": 357,
+      "label": "返回摘要",
+      "reply": true
+    },
+    {
+      "scenario": "schedule",
+      "order": 10,
+      "from": "W",
+      "to": "P",
+      "y": 381,
+      "label": "保存日报终态",
+      "reply": false
+    },
+    {
+      "scenario": "schedule",
+      "order": 11,
+      "from": "W",
+      "to": "G",
+      "y": 405,
+      "label": "入口支持 PUSH 时投递",
+      "reply": false
+    },
+    {
+      "scenario": "schedule",
+      "order": 12,
+      "from": "G",
+      "to": "U",
+      "y": 429,
+      "label": "到点后推送日报",
+      "reply": true
+    },
+    {
+      "scenario": "batch",
+      "order": 13,
+      "from": "U",
+      "to": "A",
+      "y": 533,
+      "label": "同时检查客户 A/B/C",
+      "reply": false
+    },
+    {
+      "scenario": "batch",
+      "order": 14,
+      "from": "A",
+      "to": "W",
+      "y": 557,
+      "label": "创建三个子任务",
+      "reply": false
+    },
+    {
+      "scenario": "batch",
+      "order": 15,
+      "from": "W",
+      "to": "P",
+      "y": 581,
+      "label": "持久化任务树",
+      "reply": false
+    },
+    {
+      "scenario": "batch",
+      "order": 16,
+      "from": "W",
+      "to": "B",
+      "y": 605,
+      "label": "并行调用平台接口",
+      "reply": false
+    },
+    {
+      "scenario": "batch",
+      "order": 17,
+      "from": "B",
+      "to": "W",
+      "y": 629,
+      "label": "返回三家业务数据",
+      "reply": true
+    },
+    {
+      "scenario": "batch",
+      "order": 18,
+      "from": "W",
+      "to": "M",
+      "y": 653,
+      "label": "请求模型汇总",
+      "reply": false
+    },
+    {
+      "scenario": "batch",
+      "order": 19,
+      "from": "M",
+      "to": "W",
+      "y": 677,
+      "label": "返回汇总摘要",
+      "reply": true
+    },
+    {
+      "scenario": "batch",
+      "order": 20,
+      "from": "W",
+      "to": "P",
+      "y": 701,
+      "label": "汇总三份结果",
+      "reply": false
+    },
+    {
+      "scenario": "batch",
+      "order": 21,
+      "from": "W",
+      "to": "G",
+      "y": 725,
+      "label": "入口支持 PUSH 时投递",
+      "reply": false
+    },
+    {
+      "scenario": "batch",
+      "order": 22,
+      "from": "G",
+      "to": "U",
+      "y": 749,
+      "label": "显示三份结果",
+      "reply": true
+    }
+  ]
+}

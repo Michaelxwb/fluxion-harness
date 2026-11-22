@@ -11,7 +11,15 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import Any
 
-from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
+from muad_agent_core.tools import (
+    ToolCall,
+    ToolCapability,
+    ToolDefinition,
+    ToolEffect,
+    ToolError,
+    ToolRegistry,
+    ToolResult,
+)
 from muad_contracts.platform_settings import ArtifactSettings
 
 from .member_paths import MemberPathError, normalize_member_path
@@ -23,11 +31,9 @@ ARCHIVE_BYTES_LIMIT = MAX_OUTPUT_BYTES
 _ENCODE_CHUNK_CHARS = 64 * 1024
 
 
-class ArchiveToolError(RuntimeError):
+class ArchiveToolError(ToolError):
     def __init__(self, code: str, message: str) -> None:
-        self.code = code
-        self.message = message
-        super().__init__(message)
+        super().__init__(code, message, retryable=None)
 
 
 @dataclass(frozen=True)
@@ -202,10 +208,13 @@ class ArchiveToolSet:
                 },
                 effect=ToolEffect.WRITE,
                 handler=self.create_archive,
+                capabilities=frozenset({ToolCapability.ATTACHMENT_WRITE}),
             )
         )
 
-    async def create_archive(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+    async def create_archive(
+        self, arguments: Mapping[str, Any], *, call: ToolCall
+    ) -> ToolResult:
         if set(arguments) != {"filename", "files"}:
             raise ArchiveToolError("ARCHIVE_ARGUMENTS_INVALID", "必须且仅提供 filename 和 files")
         filename = archive_filename(arguments["filename"])
@@ -241,4 +250,4 @@ class ArchiveToolSet:
             preview.pop()
             result["files_truncated"] = True
             receipt = json.dumps(result, ensure_ascii=False)
-        return receipt
+        return ToolResult(receipt)

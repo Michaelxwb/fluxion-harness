@@ -16,7 +16,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -24,6 +24,14 @@ import httpx
 import pytest
 from muad_agent_core.agent.continuation import RunnerCheckpoint
 from muad_agent_core.model import ModelMessage, ModelRole, ModelToolCall
+from muad_agent_core.tools import (
+    AssistantTurn,
+    PreparedCall,
+    ToolCall,
+    ToolCompleted,
+    not_applicable_outcome,
+    tool_exception_outcome,
+)
 from muad_agent_core.tools.pipeline import compute_args_hash
 from muad_agent_worker.application.agentic.async_results import (
     advance_watermarks,
@@ -58,9 +66,11 @@ from muad_contracts import (
     TaskStatus,
     TaskToolOperationList,
     TaskToolOperationOwner,
+    TaskToolOperationRecoveryView,
     TaskToolOperationResult,
     TaskToolOperationView,
     TerminalStatus,
+    ToolRetrySafety,
     WaitKind,
 )
 from sqlalchemy import select
@@ -83,7 +93,17 @@ RECEIPT = '{"async_operation": {"operation_id": "00000000-0000-4000-8000-0000000
 
 
 def staging_call(call_id: str, query: str = "本周") -> ModelToolCall:
-    return ModelToolCall(call_id, STAGING_TOOL, {"input": {"q": query}, "argv": []})
+    return ModelToolCall(
+        call_id,
+        "execute",
+        {
+            "target": "skill",
+            "skill_key": "deliver",
+            "tool": "deliver_report",
+            "input": {"q": query},
+            "argv": [],
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -97,6 +117,7 @@ class _Operation:
     call_id: str
     tool_name: str
     input_hash: str
+    arguments: dict[str, Any] = field(default_factory=dict)
     execution_id: uuid.UUID | None = None
     result: TaskToolOperationResult | None = None
 
@@ -123,16 +144,24 @@ class MemoryOperations:
         tool_name: str,
         arguments: Mapping[str, Any],
         completion_mode: CompletionMode = CompletionMode.JOIN,
+        input_hash: str | None = None,
     ) -> TaskToolOperationView:
         self.submits.append((call_id, tool_name, dict(arguments)))
-        fingerprint = compute_args_hash(arguments)
+        fingerprint = input_hash or compute_args_hash(arguments)
         existing = self.operations.get(call_id)
         if existing is not None:
             if existing.input_hash != fingerprint:
                 raise TaskOperationError("input mismatch", code="TOOL_OPERATION_INPUT_MISMATCH")
             existing.execution_id = execution_id
             return self._view(existing, completion_mode)
-        created = _Operation(uuid.uuid4(), call_id, tool_name, fingerprint, execution_id)
+        created = _Operation(
+            uuid.uuid4(),
+            call_id,
+            tool_name,
+            fingerprint,
+            arguments=dict(arguments),
+            execution_id=execution_id,
+        )
         self.operations[call_id] = created
         return self._view(created, completion_mode)
 
@@ -158,6 +187,29 @@ class MemoryOperations:
         if ready is True:
             items = [item for item in items if item.result is not None]
         return TaskToolOperationList(items=items, page=page, page_size=page_size, total=len(items))
+
+    async def get_recovery(
+        self,
+        *,
+        tenant_id: str,
+        actor_user_id: uuid.UUID,
+        execution_id: uuid.UUID,
+        call_id: str,
+    ) -> TaskToolOperationRecoveryView:
+        operation = self.operations.get(call_id)
+        if operation is None:
+            from muad_agent_worker.infrastructure.task_operation_client import TaskOperationError
+
+            raise TaskOperationError("not found", code="COMMON_NOT_FOUND")
+        view = self._view(operation, CompletionMode.JOIN)
+        return TaskToolOperationRecoveryView(
+            operation_id=operation.operation_id,
+            status=view.status,
+            task_id=view.task_id,
+            tool_name=operation.tool_name,
+            arguments=dict(operation.arguments),
+            input_hash=operation.input_hash,
+        )
 
     async def get(
         self, *, tenant_id: str, actor_user_id: uuid.UUID, operation_id: uuid.UUID
@@ -259,7 +311,7 @@ def build_harness(tenant: TenantContext, http: httpx.AsyncClient) -> AsyncHarnes
         provider_factory=factory,
     )
 
-    def skill_runner(task: TaskExecution, suspension: Any) -> AgenticSkillTools:
+    def skill_runner(task: TaskExecution, suspension: Any, egress) -> AgenticSkillTools:
         return AgenticSkillTools(
             task=task,
             resolver=StubResolver(),  # type: ignore[arg-type]
@@ -270,6 +322,7 @@ def build_harness(tenant: TenantContext, http: httpx.AsyncClient) -> AsyncHarnes
             operations=operations,  # type: ignore[arg-type]
             workspace_store=None,
             create_async_child=False,
+            egress=egress,
         )
 
     return AsyncHarness(
@@ -358,13 +411,24 @@ async def seed_turn_boundary(
         execution_id=task.id,
         model_id="gpt-test",
     )
+    message = ModelMessage(
+        role=ModelRole.ASSISTANT,
+        content="",
+        tool_calls=(
+            ModelToolCall(
+                call_id,
+                STAGING_TOOL,
+                dict(arguments or {"input": {"q": "本周"}, "argv": []}),
+            ),
+        ),
+    )
     await sink.on_assistant_turn(
-        ModelMessage(
-            role=ModelRole.ASSISTANT,
-            content="",
-            tool_calls=(
-                ModelToolCall(
+        AssistantTurn(
+            message,
+            (
+                ToolCall(
                     call_id,
+                    STAGING_TOOL,
                     STAGING_TOOL,
                     dict(arguments or {"input": {"q": "本周"}, "argv": []}),
                 ),
@@ -372,14 +436,93 @@ async def seed_turn_boundary(
         )
     )
     if receipt is not None:
-        await sink.on_tool_started(call_id, STAGING_TOOL)
-        await sink.on_tool_completed(call_id, STAGING_TOOL, "SUCCEEDED", None, receipt)
+        await sink.on_tool_prepared(
+            PreparedCall(
+                call=ToolCall(
+                    call_id,
+                    STAGING_TOOL,
+                    STAGING_TOOL,
+                    dict(arguments or {"input": {"q": "本周"}, "argv": []}),
+                ),
+                args_hash="sha256:test",
+                args_preview={},
+                source="SKILL",
+                tool_name=STAGING_TOOL,
+                retry_safety=ToolRetrySafety.NON_RETRYABLE,
+            )
+        )
+        await sink.on_tool_completed(
+            ToolCompleted(
+                tool_call_id=call_id,
+                tool_name=STAGING_TOOL,
+                status="SUCCEEDED",
+                outcome=not_applicable_outcome(),
+                content=receipt,
+            )
+        )
     store = TaskCheckpointStore(
         tenant.session_factory,
         ExecutionIdentity(task.tenant_id, task.id, WORKER_INSTANCE, task.lease_epoch),
     )
     await store.persist(RunnerCheckpoint(turns=1, tool_calls=1))
     return await fetch(tenant, task.id)
+
+
+async def test_no_checkpoint_recovery_rebuilds_counters_and_failure_state(
+    harness: AsyncHarness,
+) -> None:
+    """没有 checkpoint 也要从事件恢复轮次、工具计数与不可重试失败。"""
+    tenant = harness.tenant
+    task = await insert_task(tenant, agentic_snapshot(), status=TaskStatus.RUNNING)
+    sink = TaskEventSink(
+        tenant.session_factory,
+        tenant_id=tenant.tenant_id,
+        execution_id=task.id,
+        model_id="gpt-test",
+    )
+    call = ToolCall("call-1", "write_tool", "write_tool", {"value": 1})
+    await sink.on_assistant_turn(
+        AssistantTurn(
+            ModelMessage(
+                role=ModelRole.ASSISTANT,
+                content="",
+                tool_calls=(ModelToolCall("call-1", "write_tool", {"value": 1}),),
+            ),
+            (call,),
+        )
+    )
+    await sink.on_tool_prepared(
+        PreparedCall(
+            call=call,
+            args_hash=compute_args_hash(call.arguments),
+            args_preview={},
+            source="PLATFORM",
+            tool_name="write_tool",
+            retry_safety=ToolRetrySafety.NON_RETRYABLE,
+        )
+    )
+    await sink.on_tool_completed(
+        ToolCompleted(
+            tool_call_id="call-1",
+            tool_name="write_tool",
+            status="ERROR",
+            outcome=tool_exception_outcome(
+                code="PLATFORM_AUTH_REJECTED",
+                message="rejected",
+                retryable=False,
+            ),
+            content="rejected",
+        )
+    )
+
+    resume = await load_resume_state(tenant.session_factory, task, operations=None)
+
+    assert resume is not None
+    assert resume.checkpoint.turns == 1
+    assert resume.checkpoint.tool_calls == 1
+    assert resume.checkpoint.failure_state is not None
+    assert resume.checkpoint.failure_state["no_progress"] is True
+    assert resume.checkpoint.failure_state["last_failure"]["code"] == "PLATFORM_AUTH_REJECTED"
 
 
 # ---------------------------------------------------------------------------
@@ -609,37 +752,22 @@ async def test_unreadable_inbox_keeps_waiting_and_the_sweep_retries(harness: Asy
 # ---------------------------------------------------------------------------
 
 
-async def test_crash_before_checkpoint_refinds_the_operation_by_call_identity(
+async def test_crash_before_checkpoint_without_operation_does_not_replay(
     harness: AsyncHarness,
 ) -> None:
-    """提交后、回合收口前崩溃：按 `call_id` 重提交找回 operation，不跑模型、不建第二个调用。"""
+    """回合边界崩溃、没有任何 prepared/operation：声明补 NOT_EXECUTED，不重新提交、不重放参数。"""
     tenant = harness.tenant
     task = await insert_task(tenant, agentic_snapshot(), status=TaskStatus.RUNNING)
     crashed = await seed_turn_boundary(tenant, task)
-    harness.factory.script = [text_reply("不该被调用")]
+    harness.factory.script = [text_reply("恢复后继续")]
 
     outcome = await harness.outcome(crashed)
-    assert outcome.kind is OutcomeKind.WAITING
-    assert harness.operations.submits == [
-        ("call-1", STAGING_TOOL, {"input": {"q": "本周"}, "argv": []})
-    ]
-    assert len(harness.operations.operations) == 1
-    assert harness.model_calls == 0, "还有未终态调用时不得发起模型回合"
-
-    loop = worker_loop(harness)
-    assert await loop._wait(crashed, outcome, now=None) is False  # noqa: SLF001
-    waiting = await fetch(tenant, task.id)
-    assert waiting.status == str(TaskStatus.WAITING_EXTERNAL)
-    assert (await operations_of(waiting))["call-1"]["status"] == OperationStatus.SUBMITTED.value
-
-    harness.operations.complete("call-1", "找回的结果")
-    assert await sweeper(harness).sweep() == 1
-    harness.factory.script = [text_reply("已确认")]
-    await loop.run_once()
-    assert (await fetch(tenant, task.id)).status == str(TaskStatus.COMPLETED)
-    assert "找回的结果" in harness.last_tool_messages()["call-1"]
-    assert len(harness.operations.operations) == 1, "恢复不得产生第二个业务调用"
-
+    assert outcome.kind is OutcomeKind.COMPLETED
+    assert harness.operations.submits == [], "声明窗口不得当成首次执行"
+    assert harness.operations.operations == {}
+    assert harness.model_calls == 1
+    tool_messages = harness.last_tool_messages()
+    assert "TOOL_NOT_EXECUTED" in tool_messages["call-1"]
 
 async def test_crash_after_the_receipt_replaces_it_without_resubmitting(
     harness: AsyncHarness,
@@ -685,6 +813,261 @@ async def test_recovery_with_changed_arguments_fails_explicitly(harness: AsyncHa
         await harness.executor.execute(crashed)
     assert failure.value.code == "TOOL_OPERATION_INPUT_MISMATCH"
     assert len(harness.operations.operations) == 1
+
+
+async def _append_tool_result(
+    sink: TaskEventSink,
+    call_id: str,
+    *,
+    code: str | None = None,
+    retryable: bool = False,
+) -> None:
+    call = ToolCall(call_id, "write_tool", "write_tool", {"value": call_id})
+    await sink.on_assistant_turn(
+        AssistantTurn(
+            ModelMessage(
+                role=ModelRole.ASSISTANT,
+                content="",
+                tool_calls=(ModelToolCall(call_id, "write_tool", {"value": call_id}),),
+            ),
+            (call,),
+        )
+    )
+    await sink.on_tool_prepared(
+        PreparedCall(
+            call=call,
+            args_hash=compute_args_hash(call.arguments),
+            args_preview={},
+            source="PLATFORM",
+            tool_name="write_tool",
+            retry_safety=ToolRetrySafety.NON_RETRYABLE,
+        )
+    )
+    await sink.on_tool_completed(
+        ToolCompleted(
+            tool_call_id=call_id,
+            tool_name="write_tool",
+            status="ERROR" if code else "SUCCEEDED",
+            outcome=(
+                tool_exception_outcome(code=code, message="rejected", retryable=retryable)
+                if code
+                else not_applicable_outcome()
+            ),
+            content="rejected" if code else "ok",
+        )
+    )
+
+
+async def _failure_state_from_events(harness: AsyncHarness, task: TaskExecution) -> Any:
+    from muad_agent_worker.application.agentic.run import load_resume_state
+
+    resume = await load_resume_state(
+        harness.tenant.session_factory,
+        task,
+        operations=None,
+    )
+    assert resume is not None
+    return resume.checkpoint.failure_state
+
+
+async def test_recovery_clears_failure_counter_after_a_success(harness: AsyncHarness) -> None:
+    """失败 → 成功 → 再失败 必须按"成功清零"恢复，不能被旧计数判成 NO_PROGRESS。"""
+    tenant = harness.tenant
+    task = await insert_task(tenant, agentic_snapshot(), status=TaskStatus.RUNNING)
+    sink = TaskEventSink(
+        tenant.session_factory,
+        tenant_id=tenant.tenant_id,
+        execution_id=task.id,
+        model_id="gpt-test",
+    )
+    await _append_tool_result(sink, "call-1", code="PLATFORM_TIMEOUT", retryable=True)
+    await _append_tool_result(sink, "call-2")
+    await _append_tool_result(sink, "call-3", code="PLATFORM_TIMEOUT", retryable=True)
+
+    state = await _failure_state_from_events(harness, task)
+
+    assert state is not None
+    assert state["no_progress"] is False
+    assert sum(state["identical_failures"].values()) == 1, "success reset the earlier chain"
+
+
+@pytest.mark.parametrize("code", ["TOOL_NOT_EXECUTED", "TOOL_BUDGET_EXHAUSTED"])
+async def test_unexecuted_results_preserve_the_original_failure(harness: AsyncHarness, code: str) -> None:
+    tenant = harness.tenant
+    task = await insert_task(tenant, agentic_snapshot(), status=TaskStatus.RUNNING)
+    sink = TaskEventSink(
+        tenant.session_factory, tenant_id=tenant.tenant_id, execution_id=task.id, model_id="gpt-test",
+    )
+    await _append_tool_result(sink, "failed", code="PLATFORM_AUTH_REJECTED")
+    before = await _failure_state_from_events(harness, task)
+    call = ToolCall("skipped", "write_tool", "write_tool", {})
+    await sink.on_assistant_turn(AssistantTurn(
+        ModelMessage(ModelRole.ASSISTANT, "", tool_calls=(ModelToolCall(call.call_id, call.name, {}),)),
+        (call,),
+    ))
+    await sink.on_tool_completed(ToolCompleted(
+        tool_call_id=call.call_id, tool_name=call.name, status="ERROR", content="not executed",
+        outcome=tool_exception_outcome(code=code, message="not executed", retryable=False),
+    ))
+    assert await _failure_state_from_events(harness, task) == before
+
+
+async def test_recovery_restores_the_identical_failure_threshold(harness: AsyncHarness) -> None:
+    """连续两次同因失败达到冻结阈值后，恢复不得再发起模型回合。"""
+    tenant = harness.tenant
+    task = await insert_task(tenant, agentic_snapshot(), status=TaskStatus.RUNNING)
+    sink = TaskEventSink(
+        tenant.session_factory,
+        tenant_id=tenant.tenant_id,
+        execution_id=task.id,
+        model_id="gpt-test",
+    )
+    await _append_tool_result(sink, "call-1", code="PLATFORM_TIMEOUT", retryable=True)
+    await _append_tool_result(sink, "call-2", code="PLATFORM_TIMEOUT", retryable=True)
+
+    state = await _failure_state_from_events(harness, task)
+    assert state is not None and state["no_progress"] is True
+
+    harness.factory.script = []
+    with pytest.raises(TaskExecutionError) as stopped:
+        await harness.outcome(await fetch(tenant, task.id))
+
+    assert stopped.value.code == "TASK_NO_PROGRESS"
+    assert harness.model_calls == 0, "threshold-stop must survive recovery"
+
+
+async def test_recovery_compares_the_prepared_hash_not_the_assistant_arguments(
+    harness: AsyncHarness,
+) -> None:
+    """Hook 改写后的 B 是执行事实；恢复不得用 assistant 里的 A 重算指纹。"""
+    tenant = harness.tenant
+    task = await insert_task(tenant, agentic_snapshot(), status=TaskStatus.RUNNING)
+    prepared_arguments = {"input": {"q": "B"}, "argv": []}
+    assistant_arguments = {"input": {"q": "A"}, "argv": []}
+    await harness.operations.submit(
+        tenant_id=tenant.tenant_id,
+        actor_user_id=task.actor_user_id,
+        execution_id=task.id,
+        call_id="call-1",
+        tool_name=STAGING_TOOL,
+        arguments=prepared_arguments,
+    )
+    harness.operations.submits.clear()
+
+    sink = TaskEventSink(
+        tenant.session_factory,
+        tenant_id=tenant.tenant_id,
+        execution_id=task.id,
+        model_id="gpt-test",
+    )
+    await sink.on_assistant_turn(
+        AssistantTurn(
+            ModelMessage(
+                role=ModelRole.ASSISTANT,
+                content="",
+                tool_calls=(ModelToolCall("call-1", STAGING_TOOL, assistant_arguments),),
+            ),
+            (ToolCall("call-1", STAGING_TOOL, STAGING_TOOL, assistant_arguments),),
+        )
+    )
+    await sink.on_tool_prepared(
+        PreparedCall(
+            call=ToolCall("call-1", STAGING_TOOL, STAGING_TOOL, prepared_arguments),
+            args_hash=compute_args_hash(prepared_arguments),
+            args_preview={},
+            source="SKILL",
+            tool_name=STAGING_TOOL,
+            retry_safety=ToolRetrySafety.NON_RETRYABLE,
+        )
+    )
+    children: list[tuple[str, Mapping[str, Any]]] = []
+
+    async def ensure_child(
+        call_id: str, operation_id: uuid.UUID, tool_name: str, arguments: Mapping[str, Any]
+    ) -> uuid.UUID:
+        children.append((call_id, dict(arguments)))
+        return uuid.uuid4()
+
+    resume = await load_resume_state(
+        tenant.session_factory,
+        await fetch(tenant, task.id),
+        operations=harness.operations,
+        ensure_child=ensure_child,
+    )
+
+    assert resume is not None
+    assert children == [("call-1", prepared_arguments)]
+
+
+async def test_checkpoint_failure_state_does_not_mask_newer_events(harness: AsyncHarness) -> None:
+    """checkpoint 的空状态字典不是"最新事实"，后续不可重试失败必须覆盖它。"""
+    tenant = harness.tenant
+    task = await insert_task(tenant, agentic_snapshot(), status=TaskStatus.RUNNING)
+    store = TaskCheckpointStore(
+        tenant.session_factory,
+        ExecutionIdentity(task.tenant_id, task.id, WORKER_INSTANCE, task.lease_epoch),
+    )
+    await store.persist(
+        RunnerCheckpoint(
+            turns=1,
+            tool_calls=1,
+            failure_state={
+                "last_failure": None,
+                "identical_failures": {},
+                "no_progress": False,
+            },
+        )
+    )
+
+    sink = TaskEventSink(
+        tenant.session_factory,
+        tenant_id=tenant.tenant_id,
+        execution_id=task.id,
+        model_id="gpt-test",
+    )
+    call = ToolCall("call-1", "write_tool", "write_tool", {"value": 1})
+    await sink.on_assistant_turn(
+        AssistantTurn(
+            ModelMessage(
+                role=ModelRole.ASSISTANT,
+                content="",
+                tool_calls=(ModelToolCall("call-1", "write_tool", {"value": 1}),),
+            ),
+            (call,),
+        )
+    )
+    await sink.on_tool_prepared(
+        PreparedCall(
+            call=call,
+            args_hash=compute_args_hash(call.arguments),
+            args_preview={},
+            source="PLATFORM",
+            tool_name="write_tool",
+            retry_safety=ToolRetrySafety.NON_RETRYABLE,
+        )
+    )
+    await sink.on_tool_completed(
+        ToolCompleted(
+            tool_call_id="call-1",
+            tool_name="write_tool",
+            status="ERROR",
+            outcome=tool_exception_outcome(
+                code="PLATFORM_AUTH_REJECTED",
+                message="rejected",
+                retryable=False,
+            ),
+            content="rejected",
+        )
+    )
+
+    resume = await load_resume_state(
+        tenant.session_factory, await fetch(tenant, task.id), operations=None
+    )
+
+    assert resume is not None
+    assert resume.checkpoint.failure_state is not None
+    assert resume.checkpoint.failure_state["no_progress"] is True
+    assert resume.checkpoint.failure_state["last_failure"]["code"] == "PLATFORM_AUTH_REJECTED"
 
 
 async def test_resume_state_reports_pending_and_ready_per_call(harness: AsyncHarness) -> None:

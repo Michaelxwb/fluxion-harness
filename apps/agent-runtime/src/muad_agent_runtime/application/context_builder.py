@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import Mapping
-from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, replace
 from typing import Any
 
+import sqlalchemy as sa
+from muad_agent_core.agent.recovery import fold_events
+from muad_agent_core.context.compactor import Group, split_groups, split_protected_prefix
 from muad_agent_core.context.summary import summary_from_payload, summary_message
 from muad_agent_core.model.provider import ModelMessage, ModelRole, ModelToolCall, text_of
 from muad_contracts.platform_settings import default_compaction_settings
@@ -18,7 +21,7 @@ from ..infrastructure.db import SessionFactoryProvider
 from ..infrastructure.models.runtime import Artifact, CanonicalEvent, Conversation
 from .attachments.inbound import attachments_from_payload, render_attachment_reference
 from .attachments.tool_results import reference_payload
-from .context_events import covered_up_to, latest_summary
+from .context_events import covered_up_to, latest_summary, protected_event_ids
 from .memory_confirmation_outcome import confirmation_context_note
 
 HISTORY_EVENT_TYPES = (
@@ -41,6 +44,23 @@ class BudgetPolicy:
     max_messages: int = default_compaction_settings().history_budget_messages
 
 
+@dataclass(frozen=True, slots=True)
+class ActiveSkillContext:
+    keys: tuple[str, ...] = ()
+    groups: tuple[Group, ...] = ()
+
+    def merge(self, history: Sequence[ModelMessage]) -> tuple[ModelMessage, ...]:
+        """Restore complete instruction groups before the request's protected-context plan."""
+        if not self.groups:
+            return tuple(history)
+        prefix, body = split_protected_prefix(history)
+        protected = {group[0].source_event_id: group for group in self.groups}
+        groups = [protected.pop(group[0].source_event_id, group) for group in split_groups(body)]
+        groups.extend(protected.values())
+        groups.sort(key=lambda group: group[0].source_event_seq or 0)
+        return (*prefix, *(message for group in groups for message in group))
+
+
 class DbBackedContextBuilder:
     def __init__(
         self,
@@ -50,6 +70,25 @@ class DbBackedContextBuilder:
     ) -> None:
         self._session_factory = session_factory
         self._budget = budget or BudgetPolicy()
+
+    async def load_skill_context(
+        self, *, tenant_id: str, conversation_id: uuid.UUID, run_id: uuid.UUID
+    ) -> ActiveSkillContext:
+        """Read this Run's completed Skill loads independently of the recent-history window."""
+        async with self._session_factory()() as session:
+            events = list(await session.scalars(
+                select(CanonicalEvent).where(
+                    CanonicalEvent.tenant_id == tenant_id,
+                    CanonicalEvent.conversation_id == conversation_id,
+                    CanonicalEvent.run_id == run_id,
+                    CanonicalEvent.event_type.in_(("ASSISTANT_TURN", "TOOL_CALL")),
+                    CanonicalEvent.is_deleted.is_(False),
+                ).order_by(CanonicalEvent.seq)
+            ))
+            references = await self._artifact_references(
+                session, tenant_id, [event.artifact_id for event in events if event.artifact_id]
+            )
+        return _active_skill_context(events, references)
 
     async def load_history(
         self,
@@ -78,13 +117,16 @@ class DbBackedContextBuilder:
                 if owned is None:
                     return ()
             summary_row = await latest_summary(session, tenant_id, conversation_id)
-            covered = covered_up_to(summary_row.payload_json if summary_row is not None else None)
+            summary_payload = summary_row.payload_json if summary_row is not None else None
+            covered = covered_up_to(summary_payload)
+            protected = protected_event_ids(summary_payload)
             events = await self._recent_events(
                 session,
                 tenant_id,
                 conversation_id,
                 budget,
                 after_seq=covered,
+                protected_event_ids=protected,
                 through_seq=through_seq,
                 unconsumed_run_id=unconsumed_run_id,
                 consumed_event_seq=consumed_event_seq,
@@ -94,7 +136,14 @@ class DbBackedContextBuilder:
         if summary_row is not None:
             fields = summary_from_payload((summary_row.payload_json or {}).get("summary"))
             if fields is not None:
-                summaries.append(summary_message(fields))
+                summaries.append(
+                    replace(
+                        summary_message(fields),
+                        source_event_id=str(summary_row.id),
+                        source_event_seq=summary_row.seq,
+                        origin="SUMMARY",
+                    )
+                )
         return (*summaries, *history)
 
     async def _recent_events(
@@ -105,6 +154,7 @@ class DbBackedContextBuilder:
         budget: int,
         *,
         after_seq: int = 0,
+        protected_event_ids: Sequence[str] = (),
         through_seq: int | None = None,
         unconsumed_run_id: uuid.UUID | None = None,
         consumed_event_seq: int = 0,
@@ -123,7 +173,12 @@ class DbBackedContextBuilder:
                         CanonicalEvent.tenant_id == tenant_id,
                         CanonicalEvent.conversation_id == conversation_id,
                         CanonicalEvent.event_type.in_(HISTORY_EVENT_TYPES),
-                        CanonicalEvent.seq > after_seq,
+                        sa.or_(
+                            CanonicalEvent.seq > after_seq,
+                            CanonicalEvent.id.in_(protected_event_ids),
+                        )
+                        if protected_event_ids
+                        else CanonicalEvent.seq > after_seq,
                         CanonicalEvent.is_deleted.is_(False),
                         CanonicalEvent.seq <= through_seq if through_seq is not None else true(),
                         ~(
@@ -196,6 +251,40 @@ class DbBackedContextBuilder:
         }
 
 
+def _active_skill_context(
+    events: Sequence[CanonicalEvent], references: Mapping[uuid.UUID, dict[str, JsonValue]]
+) -> ActiveSkillContext:
+    fold = fold_events([
+        {"event_type": event.event_type, "payload": event.payload_json or {}}
+        for event in events
+    ])
+    latest: dict[str, str] = {}
+    for call in fold.calls:
+        key = call.declaration.arguments.get("skill_key")
+        if (call.declaration.tool_name == "load_skill" and isinstance(key, str) and key
+                and call.completed is not None and call.completed.status == "OK"):
+            latest[key] = call.declaration.call_id
+    selected = set(latest.values())
+    results = _paired_tool_results(list(events), references)
+    contents = {
+        call.declaration.call_id: call.completed.content
+        for call in fold.calls
+        if call.declaration.call_id in selected and call.completed is not None
+    }
+    for turn_results in results.values():
+        for call_id, message in turn_results.items():
+            if call_id in contents:
+                turn_results[call_id] = replace(message, content=contents[call_id])
+    groups = tuple(
+        _tool_exchange(event, results.get(event.seq, {}))
+        for event in events
+        if event.event_type == "ASSISTANT_TURN" and any(
+            call.id in selected for call in _tool_calls((event.payload_json or {}).get("tool_calls"))
+        )
+    )
+    return ActiveSkillContext(tuple(latest), tuple(group for group in groups if group))
+
+
 def _paired_tool_results(
     events: list[CanonicalEvent], references: Mapping[uuid.UUID, dict[str, JsonValue]]
 ) -> dict[int, dict[str, ModelMessage]]:
@@ -219,6 +308,9 @@ def _paired_tool_results(
                 role=ModelRole.TOOL,
                 content=_tool_message_content(payload, artifact_ref),
                 tool_call_id=call_id,
+                source_event_id=str(event.id),
+                source_event_seq=event.seq,
+                origin="TOOL",
             )
     return results
 
@@ -261,6 +353,9 @@ def _tool_exchange(
         content=str(payload.get("text") or ""),
         tool_calls=calls,
         reasoning_content=reasoning if isinstance(reasoning, str) and reasoning else None,
+        source_event_id=str(event.id),
+        source_event_seq=event.seq,
+        origin="ASSISTANT",
     )
     return (assistant, *(results[call.id] for call in calls))
 
@@ -271,15 +366,33 @@ def _ordinary_message(event: CanonicalEvent) -> ModelMessage | None:
         # 历史附件保留文本引用；模型需要正文时通过附件工具按需读取。
         reference = render_attachment_reference(attachments_from_payload(payload.get("attachments")))
         text = str(payload.get("text", ""))
+        message_id = payload.get("message_id")
         return ModelMessage(
-            role=ModelRole.USER, content="\n".join(part for part in (text, reference) if part)
+            role=ModelRole.USER,
+            content="\n".join(part for part in (text, reference) if part),
+            message_id=message_id if isinstance(message_id, str) and message_id else str(event.id),
+            source_event_id=str(event.id),
+            source_event_seq=event.seq,
+            origin="USER_INPUT",
         )
     if event.event_type == "ASSISTANT_MESSAGE":
-        return ModelMessage(role=ModelRole.ASSISTANT, content=str(payload.get("text", "")))
+        return ModelMessage(
+            role=ModelRole.ASSISTANT,
+            content=str(payload.get("text", "")),
+            source_event_id=str(event.id),
+            source_event_seq=event.seq,
+            origin="ASSISTANT",
+        )
     if event.event_type in ("TOOL_TASK_ACCEPTED", "BACKGROUND_RESULT", "TOOL_SUBMISSION_FAILED"):
         from .async_tools.materialization import external_data
 
-        return ModelMessage(role=ModelRole.USER, content=external_data(event.event_type, payload))
+        return ModelMessage(
+            role=ModelRole.USER,
+            content=external_data(event.event_type, payload),
+            source_event_id=str(event.id),
+            source_event_seq=event.seq,
+            origin="BACKGROUND_RESULT",
+        )
     return None
 
 
@@ -296,7 +409,7 @@ def _append_confirmation(
         content = text_of(entries[-1][1].content)
         entries[-1] = (
             0,
-            ModelMessage(role=ModelRole.USER, content=f"{content}\n{note}" if content else note),
+            replace(entries[-1][1], content=f"{content}\n{note}" if content else note),
         )
     else:
         entries.append((0, ModelMessage(role=ModelRole.USER, content=note)))

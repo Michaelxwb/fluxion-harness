@@ -1,0 +1,149 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="770" viewBox="0 0 1200 770" role="img" aria-labelledby="title">
+<title id="title">对话请求生命周期</title>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"/></marker></defs>
+<style>text{font-family:PingFang SC,Microsoft YaHei,Arial,sans-serif;fill:#20344B}path,polyline{stroke-linejoin:round;stroke-linecap:round}</style>
+<rect width="1200" height="770" fill="#FFFFFF"/>
+<rect x="30" y="110" width="1140" height="396" rx="12" fill="#FBFCFE" stroke="#DCE4EC" stroke-width="1.4"/>
+<rect x="30" y="526" width="1140" height="204" rx="12" fill="#FBFCFE" stroke="#DCE4EC" stroke-width="1.4"/>
+<g data-node="U"><rect x="40" y="30" width="160" height="60" rx="8" fill="#F4F6F9" stroke="#CBD3DE" stroke-width="1.5"/>
+<text x="120.0" y="57" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">用户</text>
+<text x="120.0" y="79" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">企微 / WebChat</text>
+</g>
+<line data-lifeline="U" x1="120" y1="90" x2="120" y2="740" stroke="#6B8199" stroke-width="1.5"/>
+<circle cx="120" cy="740" r="3" fill="#8FA3B6"/>
+<g data-node="G"><rect x="230" y="30" width="160" height="60" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="310.0" y="57" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Gateway</text>
+<text x="310.0" y="79" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">接入、去重与回复</text>
+</g>
+<line data-lifeline="G" x1="310" y1="90" x2="310" y2="740" stroke="#6B8199" stroke-width="1.5"/>
+<circle cx="310" cy="740" r="3" fill="#8FA3B6"/>
+<g data-node="A"><rect x="420" y="30" width="160" height="60" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="500.0" y="57" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Runtime 甲</text>
+<text x="500.0" y="79" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">受理与执行</text>
+</g>
+<line data-lifeline="A" x1="500" y1="90" x2="500" y2="740" stroke="#6B8199" stroke-width="1.5"/>
+<circle cx="500" cy="740" r="3" fill="#8FA3B6"/>
+<g data-node="B"><rect x="610" y="30" width="160" height="60" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="690.0" y="57" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Runtime 乙</text>
+<text x="690.0" y="79" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">下一轮受理与执行</text>
+</g>
+<line data-lifeline="B" x1="690" y1="90" x2="690" y2="740" stroke="#6B8199" stroke-width="1.5"/>
+<circle cx="690" cy="740" r="3" fill="#8FA3B6"/>
+<g data-node="P"><rect x="800" y="30" width="160" height="60" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="880.0" y="57" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">共享存储</text>
+<text x="880.0" y="79" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">Run、快照与事件</text>
+</g>
+<line data-lifeline="P" x1="880" y1="90" x2="880" y2="740" stroke="#6B8199" stroke-width="1.5"/>
+<circle cx="880" cy="740" r="3" fill="#8FA3B6"/>
+<g data-node="M"><rect x="990" y="30" width="160" height="60" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="1070.0" y="57" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">外部模型网关</text>
+<text x="1070.0" y="79" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">纯模型调用</text>
+</g>
+<line data-lifeline="M" x1="1070" y1="90" x2="1070" y2="740" stroke="#6B8199" stroke-width="1.5"/>
+<circle cx="1070" cy="740" r="3" fill="#8FA3B6"/>
+<rect x="41" y="118" width="296.0" height="26" fill="#FBFCFE"/>
+<text x="46" y="137" font-size="16" font-weight="600" text-anchor="start" style="fill:#4B637C">第一轮｜解释告警含义（纯模型对话）</text>
+<line x1="40" y1="165" x2="1160" y2="165" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="120" cy="165" r="2.6" fill="#447DA5"/>
+<polyline points="120,165 310,165" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="125.6" y="141" width="178.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="215" y="156" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">1 问这条告警是什么意思</text>
+<line x1="40" y1="189" x2="1160" y2="189" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="310" cy="189" r="2.6" fill="#447DA5"/>
+<polyline points="310,189 500,189" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="321.29999999999995" y="165" width="167.40000000000003" height="20" rx="4" fill="#FFFFFF"/>
+<text x="405" y="180" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">2 校验身份后提交 Run</text>
+<line x1="40" y1="213" x2="1160" y2="213" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="500" cy="213" r="2.6" fill="#447DA5"/>
+<polyline points="500,213 880,213" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="623.1" y="189" width="133.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="690" y="204" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">3 保存会话与快照</text>
+<line x1="40" y1="237" x2="1160" y2="237" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="500" cy="237" r="2.6" fill="#447DA5"/>
+<polyline points="500,237 880,237" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="638.1" y="213" width="103.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="690" y="228" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">4 领取执行权</text>
+<line x1="40" y1="261" x2="1160" y2="261" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="880" cy="261" r="2.6" fill="#3D8585"/>
+<polyline points="880,261 500,261" fill="none" stroke="#3D8585" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="630.6" y="237" width="118.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="690" y="252" font-size="15" font-weight="500" text-anchor="middle" style="fill:#3D8585">5 返回会话历史</text>
+<line x1="40" y1="285" x2="1160" y2="285" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="500" cy="285" r="2.6" fill="#447DA5"/>
+<polyline points="500,285 1070,285" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="725.6" y="261" width="118.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="785" y="276" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">6 请求模型解释</text>
+<line x1="40" y1="309" x2="1160" y2="309" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="1070" cy="309" r="2.6" fill="#3D8585"/>
+<polyline points="1070,309 500,309" fill="none" stroke="#3D8585" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="740.6" y="285" width="88.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="785" y="300" font-size="15" font-weight="500" text-anchor="middle" style="fill:#3D8585">7 返回解释</text>
+<line x1="40" y1="333" x2="1160" y2="333" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="500" cy="333" r="2.6" fill="#447DA5"/>
+<polyline points="500,333 880,333" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="630.6" y="309" width="118.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="690" y="324" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">8 写入回答事件</text>
+<line x1="40" y1="357" x2="1160" y2="357" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="500" cy="357" r="2.6" fill="#3D8585"/>
+<polyline points="500,357 310,357" fill="none" stroke="#3D8585" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="343.8" y="333" width="122.4" height="20" rx="4" fill="#FFFFFF"/>
+<text x="405" y="348" font-size="15" font-weight="500" text-anchor="middle" style="fill:#3D8585">9 SSE 推送解释</text>
+<line x1="40" y1="381" x2="1160" y2="381" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="310" cy="381" r="2.6" fill="#3D8585"/>
+<polyline points="310,381 120,381" fill="none" stroke="#3D8585" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="166.4" y="357" width="97.19999999999999" height="20" rx="4" fill="#FFFFFF"/>
+<text x="215" y="372" font-size="15" font-weight="500" text-anchor="middle" style="fill:#3D8585">10 显示解释</text>
+<line x1="40" y1="405" x2="1160" y2="405" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="120" cy="405" r="2.6" fill="#447DA5"/>
+<polyline points="120,405 310,405" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="158.9" y="381" width="112.19999999999999" height="20" rx="4" fill="#FFFFFF"/>
+<text x="215" y="396" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">11 断网后重连</text>
+<line x1="40" y1="429" x2="1160" y2="429" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="310" cy="429" r="2.6" fill="#447DA5"/>
+<polyline points="310,429 880,429" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="516.4" y="405" width="157.2" height="20" rx="4" fill="#FFFFFF"/>
+<text x="595" y="420" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">12 读取确认序号之后</text>
+<line x1="40" y1="453" x2="1160" y2="453" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="880" cy="453" r="2.6" fill="#3D8585"/>
+<polyline points="880,453 310,453" fill="none" stroke="#3D8585" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="531.4" y="429" width="127.19999999999999" height="20" rx="4" fill="#FFFFFF"/>
+<text x="595" y="444" font-size="15" font-weight="500" text-anchor="middle" style="fill:#3D8585">13 返回持久事件</text>
+<line x1="40" y1="477" x2="1160" y2="477" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="310" cy="477" r="2.6" fill="#3D8585"/>
+<polyline points="310,477 120,477" fill="none" stroke="#3D8585" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="151.4" y="453" width="127.19999999999999" height="20" rx="4" fill="#FFFFFF"/>
+<text x="215" y="468" font-size="15" font-weight="500" text-anchor="middle" style="fill:#3D8585">14 继续显示解释</text>
+<rect x="41" y="534" width="267.84000000000003" height="26" fill="#FBFCFE"/>
+<text x="46" y="553" font-size="16" font-weight="600" text-anchor="start" style="fill:#4B637C">第二轮｜断网重连后追问 80 端口</text>
+<line x1="40" y1="581" x2="1160" y2="581" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="120" cy="581" r="2.6" fill="#447DA5"/>
+<polyline points="120,581 310,581" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="149.6" y="557" width="130.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="215" y="572" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">15 追问 80 端口</text>
+<line x1="40" y1="605" x2="1160" y2="605" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="310" cy="605" r="2.6" fill="#447DA5"/>
+<polyline points="310,605 690,605" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="419.6" y="581" width="160.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="500" y="596" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">16 校验后提交新 Run</text>
+<line x1="40" y1="629" x2="1160" y2="629" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="690" cy="629" r="2.6" fill="#447DA5"/>
+<polyline points="690,629 1070,629" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="801.4" y="605" width="157.2" height="20" rx="4" fill="#FFFFFF"/>
+<text x="880" y="620" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">17 请求模型回答追问</text>
+<line x1="40" y1="653" x2="1160" y2="653" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="1070" cy="653" r="2.6" fill="#3D8585"/>
+<polyline points="1070,653 690,653" fill="none" stroke="#3D8585" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="816.4" y="629" width="127.19999999999999" height="20" rx="4" fill="#FFFFFF"/>
+<text x="880" y="644" font-size="15" font-weight="500" text-anchor="middle" style="fill:#3D8585">18 返回追问回答</text>
+<line x1="40" y1="677" x2="1160" y2="677" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="690" cy="677" r="2.6" fill="#3D8585"/>
+<polyline points="690,677 310,677" fill="none" stroke="#3D8585" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="419.6" y="653" width="160.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="500" y="668" font-size="15" font-weight="500" text-anchor="middle" style="fill:#3D8585">19 SSE 推送追问结果</text>
+<line x1="40" y1="701" x2="1160" y2="701" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="310" cy="701" r="2.6" fill="#3D8585"/>
+<polyline points="310,701 120,701" fill="none" stroke="#3D8585" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="151.4" y="677" width="127.19999999999999" height="20" rx="4" fill="#FFFFFF"/>
+<text x="215" y="692" font-size="15" font-weight="500" text-anchor="middle" style="fill:#3D8585">20 显示追问结果</text>
+<text x="46" y="728" font-size="14" font-weight="400" text-anchor="start" style="fill:#536B81">WebChat 与企微共用同一 Run 生命周期；入口差异（Token/Cookie 与 /bind、Connector）见正文入口说明。</text>
+</svg>

@@ -142,12 +142,12 @@ def _adapter(probe: HeaderProbe) -> McpRuntimeAdapter:
 
 
 async def _call(adapter: McpRuntimeAdapter, server: McpServerDefinition) -> str:
-    return await adapter.execute_tool(
+    return (await adapter.execute_tool_result(
         server=server,
         tool=server.tools[0],
         arguments={"query": "x"},
         policy_decision="ALLOW",
-    )
+    )).text
 
 
 async def test_s02_static_and_secret_headers_reach_initialize_and_tools_call() -> None:
@@ -223,7 +223,7 @@ async def test_e14_session_rebuild_resends_same_headers() -> None:
         probe.fail_is_error = True
         with pytest.raises(McpToolError) as rejected:
             await _call(adapter, server)
-        assert rejected.value.reason == "tool_error"
+        assert rejected.value.code == "MCP_TOOL_FAILED"
 
         probe.fail_is_error = False
         assert await _call(adapter, server) == f"probe:{TOOL_NAME}"
@@ -253,7 +253,8 @@ async def test_e14_is_error_propagates_and_allows_retry() -> None:
     try:
         with pytest.raises(McpToolError) as rejected:
             await _call(adapter, server)
-        assert rejected.value.reason == "tool_error"
+        assert rejected.value.code == "MCP_TOOL_FAILED"
+        assert rejected.value.code == "MCP_TOOL_FAILED"
         assert "probe tool failure" in rejected.value.detail
 
         probe.fail_is_error = False

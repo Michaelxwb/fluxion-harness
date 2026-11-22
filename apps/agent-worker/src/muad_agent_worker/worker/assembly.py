@@ -10,13 +10,17 @@ import httpx
 from muad_agent_core.sandbox import WorkspaceQuotaPolicy, WorkspaceStore, workspace_layout_from_settings
 from muad_agent_core.skill import build_sandboxed_skill_executor
 from muad_common import SharedSettings
+from muad_platform_sdk.host_egress_execution import HostEgressExecution
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..application.agentic.run import AgenticDependencies
 from ..application.agentic.session_context import DbSessionContextReader
+from ..application.agentic.snapshot import load_frozen_execution
+from ..application.agentic.suspension import AgenticSuspension
 from ..application.ports import PlatformSettingsClient
 from ..infrastructure.console_credentials import ConsoleCredentialClient
 from ..infrastructure.http_clients import WorkerHttpPools
+from ..infrastructure.models.task import TaskExecution
 from ..infrastructure.task_artifact_client import TaskArtifactClient
 from ..infrastructure.task_capacity_client import TaskCapacityClient
 from ..infrastructure.task_operation_client import TaskOperationClient
@@ -95,7 +99,10 @@ def build_agentic_executor(
         session_context=DbSessionContextReader(sessions),
     )
 
-    def skill_runner(task, suspension):  # type: ignore[no-untyped-def]
+    def skill_runner(
+        task: TaskExecution, suspension: AgenticSuspension, egress: HostEgressExecution | None,
+    ) -> AgenticSkillTools:
+        frozen = load_frozen_execution(task)
         return AgenticSkillTools(
             task=task,
             resolver=skill_artifact_cache,
@@ -105,6 +112,8 @@ def build_agentic_executor(
             suspension=suspension,
             operations=operations,
             workspace_store=workspace_store,
+            skills={entry.skill_id: entry for entry in frozen.snapshot.skills},
+            egress=egress,
         )
 
     return AgenticTaskExecutor(deps=deps, skill_runner=skill_runner)

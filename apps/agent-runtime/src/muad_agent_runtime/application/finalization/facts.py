@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from typing import Any
 
@@ -290,6 +290,17 @@ def build_finalization_facts(
     )
     if last_failure is None and snapshot_failure is not None:
         last_failure = FailureSummary.of_evidence(snapshot_failure)
+    elif (
+        last_failure is not None
+        and snapshot_failure is not None
+        and snapshot_failure.retryable
+        and snapshot_failure.tool == last_failure.tool
+        and snapshot_failure.code == last_failure.error_code
+    ):
+        # 审计表没有 retryable 列；同一失败以 Runner 冻结的 failure_state 为准，
+        # 否则“同类失败达到阈值”会被误渲染成“失败不可重试”。
+        last_failure = replace(last_failure, retryable=True)
+        summaries = (*summaries[:-1], last_failure)
     decisive = last_failure if termination.reason is TerminationReason.NO_PROGRESS else None
     return FinalizationFacts(
         termination=termination,

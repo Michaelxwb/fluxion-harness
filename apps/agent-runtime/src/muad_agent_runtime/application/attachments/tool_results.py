@@ -212,6 +212,41 @@ class ArtifactResultWriter:
         }
         return row, ref
 
+    async def persist_mcp_artifact(
+        self,
+        *,
+        tenant_id: str,
+        conversation_id: uuid.UUID,
+        run_id: uuid.UUID,
+        task_id: uuid.UUID | None,
+        filename: str,
+        media_type: str,
+        content: bytes,
+    ) -> str:
+        """MCP 图片/二进制资源 → 不可变 Artifact，返回可被 read_attachment/view_image 使用的 id。"""
+        artifact_id = uuid.uuid4()
+        key = _storage_key(tenant_id, run_id, artifact_id)
+        checksum = "sha256:" + hashlib.sha256(content).hexdigest()
+        row = Artifact(
+            id=artifact_id,
+            tenant_id=tenant_id,
+            run_id=run_id,
+            task_id=task_id,
+            conversation_id=conversation_id,
+            artifact_type=TOOL_RESULT_ARTIFACT_TYPE,
+            storage_key=key,
+            media_type=media_type,
+            size=len(content),
+            checksum=checksum,
+            metadata_json={"filename": filename, "source": "MCP"},
+        )
+        await asyncio.to_thread(self._write_immutable, self._artifact_root / key, content)
+        async with self._session_factory()() as session:
+            session.add(row)
+            await session.commit()
+        record_counter(ARTIFACT_BYTES_METRIC, len(content), {"type": TOOL_RESULT_ARTIFACT_TYPE})
+        return str(artifact_id)
+
     async def persist_tool_result(
         self,
         *,

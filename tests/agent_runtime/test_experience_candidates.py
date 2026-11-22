@@ -29,14 +29,14 @@ from muad_contracts.memory import FactContent, MemoryAuthor, MemoryCategory
 
 def _skill_events(count: int) -> list[dict[str, Any]]:
     calls = [
-        {"id": f"call-{index}", "name": "execute_skill", "arguments": {"skill_key": "demo"}}
+        {"id": f"call-{index}", "name": "execute", "arguments": {"target": "skill", "skill_key": "demo"}}
         for index in range(count)
     ]
     events: list[dict[str, Any]] = [{"event_type": "ASSISTANT_TURN", "payload": {"tool_calls": calls}}]
     events.extend(
         {
             "event_type": "TOOL_CALL",
-            "payload": {"tool_call_id": call["id"], "tool_name": "execute_skill", "status": "OK"},
+            "payload": {"tool_call_id": call["id"], "tool_name": "execute", "status": "OK"},
         }
         for call in calls
     )

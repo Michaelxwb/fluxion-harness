@@ -16,7 +16,7 @@ from typing import Any
 
 import pytest
 import sqlalchemy as sa
-from muad_agent_core.tools import ToolRegistry
+from muad_agent_core.tools import ToolCall, ToolRegistry
 from muad_agent_runtime.application.attachments.tools import (
     AGENT_OUTPUT_ARTIFACT_TYPE,
     APPEND_ARTIFACT_TOOL,
@@ -155,7 +155,11 @@ async def _call(tool_set: AttachmentToolSet, name: str, arguments: dict) -> str:
     tool_set.register(registry)
     definition = registry.get(name)
     assert definition.handler is not None
-    return await definition.handler(arguments, call_id="call-1")
+    result = await definition.handler(
+        arguments,
+        call=ToolCall(call_id="call-1", name=name, arguments=arguments),
+    )
+    return result.content
 
 
 async def test_reads_text_from_a_real_pdf(tenant: TenantContext, artifact_root) -> None:
@@ -293,12 +297,15 @@ async def test_view_image_follow_up_carries_the_image_part(
     tool_set.register(registry)
     definition = registry.get(VIEW_IMAGE_TOOL)
 
-    result = await _call(tool_set, VIEW_IMAGE_TOOL, {"artifact_id": str(artifact_id)})
-    assert definition.follow_up_messages is not None
-
-    follow_up = await definition.follow_up_messages(result)
-    assert len(follow_up) == 1
-    message = follow_up[0]
+    tool_call = ToolCall(
+        call_id="call-1",
+        name=VIEW_IMAGE_TOOL,
+        arguments={"artifact_id": str(artifact_id)},
+    )
+    assert definition.handler is not None
+    result = await definition.handler(tool_call.arguments, call=tool_call)
+    assert len(result.follow_ups) == 1
+    message = result.follow_ups[0]
     assert str(message.role) == "user", "tool 角色不能携带图像块，只能补 user 消息"
     parts = message.content
     assert isinstance(parts, tuple)
@@ -490,6 +497,43 @@ async def test_s01_long_document_carries_a_paging_hint(
         {"artifact_id": str(artifact_id), "offset": 40_000},
     )
     assert "offset=" not in last, "读到最后一段就不该再提示翻页"
+
+
+async def test_plain_text_cursor_continues_without_rescanning_from_the_start(
+    tenant: TenantContext, artifact_root
+) -> None:
+    text = "".join(chr(0x4E00 + (index % 200)) for index in range(6000))
+    artifact_id = await _seed_artifact(
+        tenant,
+        artifact_root,
+        data=text.encode(),
+        kind="DOCUMENT",
+        media_type="text/plain",
+        filename="长文本.txt",
+    )
+    tool_set = _tool_set(tenant, artifact_root)
+
+    first = await _call(
+        tool_set,
+        READ_ATTACHMENT_TOOL,
+        {"artifact_id": str(artifact_id), "limit": 2000},
+    )
+    matched = re.search(r"cursor=([^；\s]+)", first)
+    assert matched is not None, "full page must return a continuation cursor"
+    second = await _call(
+        tool_set,
+        READ_ATTACHMENT_TOOL,
+        {"artifact_id": str(artifact_id), "limit": 2000, "cursor": matched.group(1)},
+    )
+
+    assert "字符 2000..4000" in second
+    assert _segment_of(second) == text[2000:4000]
+    with pytest.raises(AttachmentToolError):
+        await _call(
+            tool_set,
+            READ_ATTACHMENT_TOOL,
+            {"artifact_id": str(artifact_id), "cursor": "v1:oops:1"},
+        )
 
 
 async def test_e01_rejection_paths_are_explicit_and_labelled(

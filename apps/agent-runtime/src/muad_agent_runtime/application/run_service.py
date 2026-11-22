@@ -165,7 +165,7 @@ from .channel_uploads import (
     resolve_message_uploads,
     upload_limits_from_settings,
 )
-from .context_builder import BudgetPolicy, DbBackedContextBuilder
+from .context_builder import ActiveSkillContext, BudgetPolicy, DbBackedContextBuilder
 from .context_settings import (
     PoolExecutionPolicy,
     compaction_settings_of,
@@ -2998,11 +2998,18 @@ class RunService:
 
         progress, port, async_policy = await execution_checkpoint(get_session_factory(), run)
         history = await self._restored_history(run, history, progress, compaction)
+        skill_context = (
+            await self._context_builder.load_skill_context(
+                tenant_id=run.tenant_id, conversation_id=run.conversation_id, run_id=run.id
+            )
+            if run.execution_epoch > 1 else ActiveSkillContext()
+        )
         return await self._executor_factory(
             ExecutorRequest(
                 agent=agent,
                 model=model,
                 input_text=text,
+                input_message_id=run.input_message_id,
                 # 无附件时 build_current_content 原样返回文本，故无需额外判空分支
                 input_content=build_current_content(
                     text,
@@ -3015,7 +3022,8 @@ class RunService:
                 ).check,
                 skills=tuple(skills),
                 mcp_servers=tuple(mcp_servers),
-                history=tuple(history),
+                history=skill_context.merge(history),
+                active_skills=skill_context.keys,
                 compaction=compaction,
                 execution=execution,
                 settings_client=self._settings_client,

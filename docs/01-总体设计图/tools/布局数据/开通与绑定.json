@@ -1,0 +1,470 @@
+{
+  "name": "开通与绑定",
+  "size": [
+    1200,
+    474
+  ],
+  "nodes": {
+    "A": {
+      "rect": [
+        40,
+        30,
+        160,
+        60
+      ],
+      "label": "管理员",
+      "lines": [
+        "配置资源"
+      ],
+      "state": false,
+      "tone": "external"
+    },
+    "C": {
+      "rect": [
+        230,
+        30,
+        160,
+        60
+      ],
+      "label": "Console",
+      "lines": [
+        "定义、授权与绑定码"
+      ],
+      "state": false,
+      "tone": "active"
+    },
+    "U": {
+      "rect": [
+        420,
+        30,
+        160,
+        60
+      ],
+      "label": "服务经理",
+      "lines": [
+        "企微用户"
+      ],
+      "state": false,
+      "tone": "external"
+    },
+    "W": {
+      "rect": [
+        610,
+        30,
+        160,
+        60
+      ],
+      "label": "企业微信",
+      "lines": [
+        "消息入口"
+      ],
+      "state": false,
+      "tone": "external"
+    },
+    "N": {
+      "rect": [
+        800,
+        30,
+        160,
+        60
+      ],
+      "label": "Connector",
+      "lines": [
+        "长连接与规范化"
+      ],
+      "state": false,
+      "tone": "active"
+    },
+    "G": {
+      "rect": [
+        990,
+        30,
+        160,
+        60
+      ],
+      "label": "Gateway",
+      "lines": [
+        "接入、路由与回复"
+      ],
+      "state": false,
+      "tone": "active"
+    }
+  },
+  "groups": {
+    "bind": {
+      "rect": [
+        30,
+        110,
+        1140,
+        324
+      ],
+      "title": "绑定流程｜管理员为服务经理生成绑定码"
+    }
+  },
+  "edges": [
+    {
+      "from": "A",
+      "to": "C",
+      "points": [
+        [
+          120,
+          165
+        ],
+        [
+          310,
+          165
+        ]
+      ],
+      "label": "1 为服务经理生成绑定码",
+      "both": false
+    },
+    {
+      "from": "C",
+      "to": "A",
+      "points": [
+        [
+          310,
+          189
+        ],
+        [
+          120,
+          189
+        ]
+      ],
+      "label": "2 返回绑定码 7F3K9Q",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "U",
+      "points": [
+        [
+          120,
+          213
+        ],
+        [
+          500,
+          213
+        ]
+      ],
+      "label": "3 私下发送绑定码",
+      "both": false
+    },
+    {
+      "from": "U",
+      "to": "W",
+      "points": [
+        [
+          500,
+          237
+        ],
+        [
+          690,
+          237
+        ]
+      ],
+      "label": "4 发送 /bind 7F3K9Q",
+      "both": false
+    },
+    {
+      "from": "W",
+      "to": "N",
+      "points": [
+        [
+          690,
+          261
+        ],
+        [
+          880,
+          261
+        ]
+      ],
+      "label": "5 转发绑定消息",
+      "both": false
+    },
+    {
+      "from": "N",
+      "to": "G",
+      "points": [
+        [
+          880,
+          285
+        ],
+        [
+          1070,
+          285
+        ]
+      ],
+      "label": "6 提交绑定事件",
+      "both": false
+    },
+    {
+      "from": "G",
+      "to": "C",
+      "points": [
+        [
+          1070,
+          309
+        ],
+        [
+          310,
+          309
+        ]
+      ],
+      "label": "7 校验绑定码与租户",
+      "both": false
+    },
+    {
+      "from": "C",
+      "to": "G",
+      "points": [
+        [
+          310,
+          333
+        ],
+        [
+          1070,
+          333
+        ]
+      ],
+      "label": "8 登记服务经理身份",
+      "both": false
+    },
+    {
+      "from": "G",
+      "to": "N",
+      "points": [
+        [
+          1070,
+          357
+        ],
+        [
+          880,
+          357
+        ]
+      ],
+      "label": "9 返回绑定成功",
+      "both": false
+    },
+    {
+      "from": "N",
+      "to": "W",
+      "points": [
+        [
+          880,
+          381
+        ],
+        [
+          690,
+          381
+        ]
+      ],
+      "label": "10 发送绑定成功",
+      "both": false
+    },
+    {
+      "from": "W",
+      "to": "U",
+      "points": [
+        [
+          690,
+          405
+        ],
+        [
+          500,
+          405
+        ]
+      ],
+      "label": "11 显示绑定成功",
+      "both": false
+    }
+  ],
+  "diagram_type": "sequence",
+  "lifelines": [
+    {
+      "participant": "A",
+      "node": "A",
+      "points": [
+        [
+          120,
+          90
+        ],
+        [
+          120,
+          444
+        ]
+      ]
+    },
+    {
+      "participant": "C",
+      "node": "C",
+      "points": [
+        [
+          310,
+          90
+        ],
+        [
+          310,
+          444
+        ]
+      ]
+    },
+    {
+      "participant": "U",
+      "node": "U",
+      "points": [
+        [
+          500,
+          90
+        ],
+        [
+          500,
+          444
+        ]
+      ]
+    },
+    {
+      "participant": "W",
+      "node": "W",
+      "points": [
+        [
+          690,
+          90
+        ],
+        [
+          690,
+          444
+        ]
+      ]
+    },
+    {
+      "participant": "N",
+      "node": "N",
+      "points": [
+        [
+          880,
+          90
+        ],
+        [
+          880,
+          444
+        ]
+      ]
+    },
+    {
+      "participant": "G",
+      "node": "G",
+      "points": [
+        [
+          1070,
+          90
+        ],
+        [
+          1070,
+          444
+        ]
+      ]
+    }
+  ],
+  "messages": [
+    {
+      "scenario": "bind",
+      "order": 1,
+      "from": "A",
+      "to": "C",
+      "y": 165,
+      "label": "为服务经理生成绑定码",
+      "reply": false
+    },
+    {
+      "scenario": "bind",
+      "order": 2,
+      "from": "C",
+      "to": "A",
+      "y": 189,
+      "label": "返回绑定码 7F3K9Q",
+      "reply": true
+    },
+    {
+      "scenario": "bind",
+      "order": 3,
+      "from": "A",
+      "to": "U",
+      "y": 213,
+      "label": "私下发送绑定码",
+      "reply": false
+    },
+    {
+      "scenario": "bind",
+      "order": 4,
+      "from": "U",
+      "to": "W",
+      "y": 237,
+      "label": "发送 /bind 7F3K9Q",
+      "reply": false
+    },
+    {
+      "scenario": "bind",
+      "order": 5,
+      "from": "W",
+      "to": "N",
+      "y": 261,
+      "label": "转发绑定消息",
+      "reply": false
+    },
+    {
+      "scenario": "bind",
+      "order": 6,
+      "from": "N",
+      "to": "G",
+      "y": 285,
+      "label": "提交绑定事件",
+      "reply": false
+    },
+    {
+      "scenario": "bind",
+      "order": 7,
+      "from": "G",
+      "to": "C",
+      "y": 309,
+      "label": "校验绑定码与租户",
+      "reply": false
+    },
+    {
+      "scenario": "bind",
+      "order": 8,
+      "from": "C",
+      "to": "G",
+      "y": 333,
+      "label": "登记服务经理身份",
+      "reply": true
+    },
+    {
+      "scenario": "bind",
+      "order": 9,
+      "from": "G",
+      "to": "N",
+      "y": 357,
+      "label": "返回绑定成功",
+      "reply": false
+    },
+    {
+      "scenario": "bind",
+      "order": 10,
+      "from": "N",
+      "to": "W",
+      "y": 381,
+      "label": "发送绑定成功",
+      "reply": false
+    },
+    {
+      "scenario": "bind",
+      "order": 11,
+      "from": "W",
+      "to": "U",
+      "y": 405,
+      "label": "显示绑定成功",
+      "reply": true
+    }
+  ]
+}

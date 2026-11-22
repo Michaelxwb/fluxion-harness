@@ -204,7 +204,7 @@ async def test_b306_model_probe_emits_a_tool_call_only_before_any_tool_result() 
     """工具回合注入：有工具结果前的调用返回 tool_calls，续跑（已带 tool 消息）返回正文。"""
     behavior = ModelProbeBehavior(
         deltas=("done",),
-        tool_call={"name": "execute_skill", "arguments": {"skill_key": "s", "input": {}}},
+        tool_call={"name": "execute", "arguments": {"target": "skill", "skill_key": "s", "input": {}}},
     )
 
     async def stream(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -230,7 +230,7 @@ async def test_b306_model_probe_emits_a_tool_call_only_before_any_tool_result() 
             for choice in payload["choices"]
             for call in choice["delta"].get("tool_calls") or []
         ]
-        assert [call["function"]["name"] for call in tool_calls] == ["execute_skill"]
+        assert [call["function"]["name"] for call in tool_calls] == ["execute"]
         assert first[-1]["choices"][0]["finish_reason"] == "tool_calls"
 
         second = await stream(

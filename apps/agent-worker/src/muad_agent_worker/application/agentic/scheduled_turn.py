@@ -19,6 +19,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+from muad_agent_core.context.plan import MessageOrigin, RunInput
 from muad_agent_core.model import ModelMessage, ModelRole
 from muad_agent_core.prompt import (
     TurnWindow,
@@ -174,13 +175,27 @@ async def load_scheduled_turn(
     )
 
 
+def task_run_input(frozen: FrozenAgenticExecution, turn: ScheduledTurn | None) -> RunInput:
+    """The frozen execution's original input and stable message identity."""
+    return RunInput(
+        message_id=f"task-input:{frozen.execution_id}",
+        content=turn.prompt if turn is not None else frozen.goal,
+        origin=MessageOrigin.USER_INPUT,
+        source="TASK",
+    )
+
+
 def base_messages(
     frozen: FrozenAgenticExecution, turn: ScheduledTurn | None
 ) -> tuple[ModelMessage, ...]:
     """Start messages: read-only memory, optional session tail, then this occurrence's goal."""
     memory = frozen_memory_message(frozen.memory_block)
+    original = task_run_input(frozen, turn)
     goal = ModelMessage(
-        role=ModelRole.USER, content=turn.prompt if turn is not None else frozen.goal
+        role=ModelRole.USER,
+        content=original.content,
+        message_id=original.message_id,
+        origin=original.origin.value,
     )
     head: list[ModelMessage] = []
     if memory is not None:

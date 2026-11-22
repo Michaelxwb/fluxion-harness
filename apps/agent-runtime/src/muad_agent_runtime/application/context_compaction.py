@@ -16,10 +16,13 @@ from pathlib import Path
 
 from muad_agent_core.context.compactor import (
     LayerOutcome,
-    compact_history,
     history_bytes,
-    split_summary_scopes,
+    trim_older_history,
 )
+from muad_agent_core.context.compactor import (
+    compact_plan as compact_context_plan,
+)
+from muad_agent_core.context.plan import ContextPlan, render_context, with_summary
 from muad_agent_core.context.summary import SummaryFields, summary_message, try_parse_summary
 from muad_agent_core.model import (
     ModelMessage,
@@ -29,10 +32,8 @@ from muad_agent_core.model import (
 )
 from muad_contracts.platform_settings import CompactionSettings
 from muad_logging import get_logger
-from sqlalchemy import func, select
 
 from ..infrastructure.db import SessionFactoryProvider, get_session_factory
-from ..infrastructure.models.runtime import Conversation
 from ..metrics import (
     CONTEXT_COMPACTION_BYTES_SAVED_METRIC,
     CONTEXT_COMPACTION_METRIC,
@@ -62,9 +63,9 @@ class _PendingSummary:
     fields: SummaryFields
     #: 逐字存档的对象：喂给摘要模型的那一段（= 本次的全部输入）。
     summarized: tuple[ModelMessage, ...]
-    #: 摘要生效后真正要发出去的请求：受保护前缀 + 摘要 + 当前回合。
-    outbound: tuple[ModelMessage, ...]
     layer: LayerOutcome
+    coverage_seq: int = 0
+    protected_event_ids: tuple[str, ...] = ()
 
 
 #: 摘要指令：要求**恰好**五字段的 JSON 对象，不多不少。校验仍在 `try_parse_summary` 一侧
@@ -137,80 +138,73 @@ class RuntimeContextCompactor:
         self._session_factory = session_factory or get_session_factory
         self._submission_id = submission_id
 
-    async def compact(self, messages: Sequence[ModelMessage]) -> tuple[ModelMessage, ...]:
+    async def compact_plan(self, plan: ContextPlan) -> ContextPlan:
         try:
-            return await self._compact(messages)
-        except Exception as exc:  # noqa: BLE001 —— RULE-04：压缩失败必须退化，不得让 Run 失败
-            # 失败不可归因到某一层（异常可能出在任何一步），故 `layer="*"`；退化**不等于悄悄吞掉**。
+            compacted, layers = compact_context_plan(
+                plan,
+                snip_settings=self._settings.snip,
+                micro_settings=self._settings.micro,
+                history_budget_messages=self._settings.history_budget_messages,
+                trim_older=False,
+            )
+            pending = await self._maybe_summarize(compacted)
+            if pending is not None:
+                layers = (*layers, pending.layer)
+            fired = tuple(layer for layer in layers if layer.fired)
+            persisted = await self._persist(fired, pending) if fired else ()
+            if pending is not None and any(
+                layer.layer == "summary" for layer in persisted
+            ):
+                compacted = with_summary(compacted, summary_message(pending.fields))
+            else:
+                # Summary unavailable/rejected/failed: trim only now, so its coverage watermark
+                # never includes messages that were dropped before reaching the summary model.
+                compacted, budget = trim_older_history(
+                    compacted, self._settings.history_budget_messages
+                )
+                if budget is not None:
+                    persisted = (*persisted, *(await self._persist((budget,), None)))
+            for layer in persisted:
+                if layer.fired:
+                    record_outcome(CONTEXT_COMPACTION_METRIC, "FIRED", {"layer": layer.layer})
+                    record_counter(
+                        CONTEXT_COMPACTION_BYTES_SAVED_METRIC,
+                        float(layer.bytes_saved),
+                        {"layer": layer.layer},
+                    )
+            return compacted
+        except Exception as exc:  # noqa: BLE001 —— RULE-04：压缩失败必须退化到原计划
             record_outcome(CONTEXT_COMPACTION_METRIC, "FAILED", {"layer": "*"})
             logger.warning(
                 "context_compaction_failed",
                 extra={"run_id": str(self._run_id), "error": str(exc)},
             )
-            return tuple(messages)
+            return plan
 
-    async def _compact(self, messages: Sequence[ModelMessage]) -> tuple[ModelMessage, ...]:
-        settings = self._settings
-        plain, layers = compact_history(
-            messages,
-            snip_settings=settings.snip,
-            micro_settings=settings.micro,
-            history_budget_messages=settings.history_budget_messages,
-        )
-        pending = await self._maybe_summarize(plain)
-        outbound = plain
-        if pending is not None:
-            layers = (*layers, pending.layer)
-            outbound = pending.outbound
-        fired = [layer for layer in layers if layer.fired]
-        if not fired:
-            return outbound
-        persisted = await self._persist(fired, pending)
-        if pending is not None and all(layer.layer != "summary" for layer in persisted):
-            # 逐字存档写不成 ⇒ 这次摘要作废（RULE-05），回到前三层的产物
-            outbound = plain
-        # 记录点在**回合/请求的收口处**，不逐条进热点路径，也不做任何 IO；且只在**真的落库之后**
-        # 才记，免得审计写失败时指标宣称"压缩发生了"
-        for layer in persisted:
-            record_outcome(CONTEXT_COMPACTION_METRIC, "FIRED", {"layer": layer.layer})
-            record_counter(
-                CONTEXT_COMPACTION_BYTES_SAVED_METRIC,
-                float(layer.bytes_saved),
-                {"layer": layer.layer},
-            )
-        return outbound
-
-    async def _maybe_summarize(
-        self, messages: tuple[ModelMessage, ...]
-    ) -> _PendingSummary | None:
-        """判定 + 调模型，**不碰库**：落库与其余层一个事务提交（见 `_persist`）。
-
-        请求里换出去的是"更早的历史"，留下的必须是**受保护前缀 + 新摘要 + 当前回合**：整段换成
-        一条摘要会把系统提示（等于 agent 失忆，`harness-arch` 的受保护前缀）与当前用户消息（含
-        内联图片）一起丢掉（2026-10-06 review）。喂给摘要模型的仍是**全量**——摘要要覆盖到
-        `covers_up_to_seq` 为止的一切，少喂一段就等于那段历史没人记得。
-        """
+    async def _maybe_summarize(self, plan: ContextPlan) -> _PendingSummary | None:
+        """只消费 ContextPlan 的 older/coverage/protected；不再按 USER 重新划历史。"""
         settings = self._settings.summary
-        if not settings.enabled or self._summary_runner is None:
+        if not settings.enabled or self._summary_runner is None or not plan.older:
             return None
-        scopes = split_summary_scopes(messages)
-        if not scopes.older:
-            # 没有"更早的历史"可压（整段都是受保护前缀与当前回合）：换不出任何东西，不触发
-            return None
+        messages = render_context(plan)
         before = history_bytes(messages)
         if before <= settings.threshold_bytes:
             return None
         fields = await self._summary_runner(messages)
         if fields is None:
-            # 模型没按五字段给（RULE-03）：本次摘要作废，历史原样
             record_outcome(CONTEXT_SUMMARY_METRIC, "REJECTED")
             return None
-        outbound = (*scopes.prefix, summary_message(fields), *scopes.current_turn)
+        # 逐字存档的是**喂给摘要模型的全部输入**（含旧摘要），不是只被替换的片段。
+        summarized = messages
+        outbound = render_context(with_summary(plan, summary_message(fields)))
         return _PendingSummary(
             fields=fields,
-            summarized=tuple(messages),
-            outbound=outbound,
-            layer=LayerOutcome("summary", True, 0, before, history_bytes(outbound), outbound),
+            summarized=summarized,
+            layer=LayerOutcome(
+                "summary", True, len(plan.older), before, history_bytes(outbound), outbound
+            ),
+            coverage_seq=plan.coverage_seq,
+            protected_event_ids=plan.protected_event_ids,
         )
 
     async def _persist(
@@ -247,21 +241,17 @@ class RuntimeContextCompactor:
                     record_outcome(CONTEXT_SUMMARY_METRIC, "FAILED")
                     written = tuple(layer for layer in layers if layer.layer != "summary")
                 else:
-                    covered = await session.scalar(
-                        select(func.coalesce(func.max(Conversation.last_seq), 0)).where(
-                            Conversation.id == self._conversation_id
-                        )
-                    )
                     summary_event_seq = await record_summary(
                         EventWriter(session),
                         tenant_id=self._tenant_id,
                         conversation_id=self._conversation_id,
                         run_id=self._run_id,
-                        covers_up_to_seq=int(covered or 0),
+                        covers_up_to_seq=pending.coverage_seq,
                         summary=pending.fields.as_payload(),
                         transcript_artifact_id=transcript["artifact_id"],
                         bytes_before=pending.layer.bytes_before,
                         bytes_after=pending.layer.bytes_after,
+                        protected_event_ids=pending.protected_event_ids,
                         submission_id=self._submission_id,
                     )
                     record_outcome(CONTEXT_SUMMARY_METRIC, "OK")
@@ -278,6 +268,3 @@ class RuntimeContextCompactor:
             )
             await session.commit()
         return written
-
-
-__all__ = ["RuntimeContextCompactor", "SummaryRunner", "make_summary_runner"]

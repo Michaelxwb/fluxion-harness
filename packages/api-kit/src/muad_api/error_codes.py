@@ -134,6 +134,7 @@ class ErrorCode(StrEnum):
     # 入站回执（attachment-round-trip TASK-004 / RULE-04）：与拒绝反馈合并为至多一条。
     # 它们不是错误，但文案必须同样经消息目录取（harness-im RULE 的"文案只有一个来源"），
     # 所以照样要在这里登记——双向断言不区分"错误"与"提示"。
+    ATTACHMENT_BATCH_INCOMPLETE = "ATTACHMENT_BATCH_INCOMPLETE"
     ATTACHMENT_RECEIPT_ALL = "ATTACHMENT_RECEIPT_ALL"
     ATTACHMENT_RECEIPT_PARTIAL = "ATTACHMENT_RECEIPT_PARTIAL"
     # Agent capacity / Webchat: stable public categories; raw credentials/provider errors stay internal.

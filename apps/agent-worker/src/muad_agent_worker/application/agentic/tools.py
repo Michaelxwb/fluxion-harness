@@ -22,17 +22,23 @@ import json
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from muad_agent_core.tools import (
+    ArtifactRef,
     PreparedToolCall,
+    ToolCall,
+    ToolCapability,
     ToolDefinition,
     ToolEffect,
+    ToolError,
     ToolPolicyDecision,
     ToolRegistry,
+    ToolResult,
 )
+from muad_agent_core.tools.pipeline import compute_args_hash
 from muad_contracts import (
     SnapshotSkill,
     SnapshotTool,
@@ -40,11 +46,19 @@ from muad_contracts import (
 )
 from muad_contracts.skill_invocation import validate_skill_argv
 
-from .mcp import McpToolBox, frozen_mcp_tool_schema, mcp_tool_name, mcp_tool_trust
+from .mcp import (
+    McpToolBox,
+    McpToolError,
+    frozen_mcp_tool_schema,
+    mcp_tool_name,
+    mcp_tool_trust,
+)
+from .skill_router import SkillExecutionRouter
 from .snapshot import FrozenAgenticExecution
 from .turn_result import RECORD_RESULT_ALLOWLIST_KEY, RECORD_RESULT_TOOL, ResultRecorder
 
 TOOL_NOT_ALLOWED = "TOOL_NOT_ALLOWED"
+EXECUTE_TOOL = "execute"
 #: Skill 工具没有服务端 input schema：入参是任意 JSON，不能把“未知 schema”当成“禁止参数”。
 FREE_FORM_TOOL_SCHEMA = {"type": "object", "additionalProperties": True}
 ASK_USER_TOOL = "ask_user"
@@ -75,6 +89,7 @@ class SkillToolRunner(Protocol):
         argv: Sequence[str],
         *,
         call_id: str,
+        args_hash: str | None = None,
     ) -> str: ...
 
 
@@ -166,9 +181,9 @@ class ScheduledPlatformTools:
 def _register_current_time(
     registry: ToolRegistry, allowed: dict[str, RegisteredTool], platform: ScheduledPlatformTools
 ) -> None:
-    async def current_time(arguments: Mapping[str, Any], *, call_id: str) -> str:
+    async def current_time(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
         now = platform.clock().astimezone(platform.zone)
-        return f"{now.isoformat(timespec='seconds')} ({platform.zone.key})"
+        return ToolResult(f"{now.isoformat(timespec='seconds')} ({platform.zone.key})")
 
     registry.register(
         ToolDefinition(
@@ -192,25 +207,31 @@ def _register_task_query(
 ) -> None:
     """Owner-scoped read-only task facts; list is bounded, get is exact-id only."""
 
-    async def list_tasks(arguments: Mapping[str, Any], *, call_id: str) -> str:
+    async def list_tasks(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
         raw_limit = arguments.get("limit", 10)
         if isinstance(raw_limit, bool) or not isinstance(raw_limit, int):
-            return json.dumps({"status": "INVALID", "error": "limit must be an integer"})
+            return ToolResult(
+                json.dumps({"status": "INVALID", "error": "limit must be an integer"})
+            )
         limit = max(1, min(raw_limit, 20))
         items = await query.list_tasks(limit=limit)
-        return json.dumps({"tasks": items}, ensure_ascii=False, default=str)
+        return ToolResult(json.dumps({"tasks": items}, ensure_ascii=False, default=str))
 
-    async def get_task(arguments: Mapping[str, Any], *, call_id: str) -> str:
+    async def get_task(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
         raw = arguments.get("task_id")
         try:
             task_id = UUID(str(raw))
         except (TypeError, ValueError):
-            return json.dumps({"status": "INVALID", "error": "task_id must be a UUID"})
+            return ToolResult(
+                json.dumps({"status": "INVALID", "error": "task_id must be a UUID"})
+            )
         item = await query.get_task(task_id)
-        return json.dumps(
-            {"status": "FOUND", "task": item} if item is not None else {"status": "NOT_FOUND"},
-            ensure_ascii=False,
-            default=str,
+        return ToolResult(
+            json.dumps(
+                {"status": "FOUND", "task": item} if item is not None else {"status": "NOT_FOUND"},
+                ensure_ascii=False,
+                default=str,
+            )
         )
 
     for name, description, schema, handler in (
@@ -258,6 +279,7 @@ def build_registry(
     skills: SkillToolRunner | None,
     human: HumanInputPort | None = None,
     platform: ScheduledPlatformTools | None = None,
+    attachments: Any = None,
 ) -> AgenticToolRegistry:
     """按快照构造注册表；未注册 = 模型看不到、调用即 `unknown tool`。"""
     snapshot = frozen.snapshot
@@ -267,10 +289,9 @@ def build_registry(
     allowed: dict[str, RegisteredTool] = {}
     if not grants.agent_access:
         return AgenticToolRegistry(registry, allowed)
-    skill_ids = set(grants.skill_grants)
     mcp_ids = set(grants.mcp_grants)
     _register_mcp(frozen, registry, allowed, allowlist, mcp_ids, mcp)
-    _register_skills(frozen, registry, allowed, allowlist, skill_ids, skills)
+    _register_execute(frozen, registry, allowed, skills)
     if platform is not None and frozen.scheduled:
         configured = frozen.tools_allow
         follows_owner = not configured or "*" in configured
@@ -283,6 +304,10 @@ def build_registry(
         )
     if human is not None:
         _register_human(registry, allowed, human, deadline_at=frozen.deadline_at)
+    if attachments is not None:
+        attachments.register(registry)
+        for name in ("read_attachment", "view_image"):
+            allowed[name] = RegisteredTool(name, f"PLATFORM:{name}", "PLATFORM")
     return AgenticToolRegistry(registry, allowed)
 
 
@@ -295,18 +320,22 @@ def _register_human(
 ) -> None:
     """平台内置提问工具：不依赖外部 allowlist，但受 `agent_access` 门控。"""
 
-    async def ask(arguments: Mapping[str, Any], *, call_id: str) -> str:
+    async def ask(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
         question = arguments.get("question")
         if not isinstance(question, str) or not question.strip():
-            return json.dumps(
-                {"status": "INVALID", "error": "question must be a non-empty string"},
-                ensure_ascii=False,
+            return ToolResult(
+                json.dumps(
+                    {"status": "INVALID", "error": "question must be a non-empty string"},
+                    ensure_ascii=False,
+                )
             )
         input_schema = arguments.get("input_schema")
         if input_schema is not None and not isinstance(input_schema, Mapping):
-            return json.dumps(
-                {"status": "INVALID", "error": "input_schema must be an object"},
-                ensure_ascii=False,
+            return ToolResult(
+                json.dumps(
+                    {"status": "INVALID", "error": "input_schema must be an object"},
+                    ensure_ascii=False,
+                )
             )
         try:
             human.stage_human(
@@ -316,8 +345,10 @@ def _register_human(
             )
         except ValueError as exc:
             # 同一回合已有 ASYNC 操作时不能混两种挂起：把拒绝交回模型，不中断整次执行。
-            return json.dumps({"status": "UNAVAILABLE", "error": str(exc)}, ensure_ascii=False)
-        return json.dumps({"status": "QUESTION_PENDING"}, ensure_ascii=False)
+            return ToolResult(
+                json.dumps({"status": "UNAVAILABLE", "error": str(exc)}, ensure_ascii=False)
+            )
+        return ToolResult(json.dumps({"status": "QUESTION_PENDING"}, ensure_ascii=False))
 
     registry.register(
         ToolDefinition(
@@ -366,51 +397,195 @@ def _register_mcp(
                     input_schema=schema,
                     effect=ToolEffect.READ,
                     retry_safety=_retry_safety(trust),
-                    handler=_mcp_handler(mcp, server.server_id, tool_name),
+                    handler=_mcp_handler(mcp, server.server_id, tool_name, _retry_safety(trust)),
+                    capabilities=frozenset({ToolCapability.MCP_CALL}),
                 )
             )
             allowed[name] = RegisteredTool(name, key, "MCP", server_id=server.server_id)
 
 
-def _mcp_handler(mcp: McpToolBox, server_id: UUID, tool_name: str) -> Any:
-    async def call(arguments: Mapping[str, Any], *, call_id: str) -> str:
-        return await mcp.call(server_id, tool_name, arguments)
+def _mcp_handler(
+    mcp: McpToolBox,
+    server_id: UUID,
+    tool_name: str,
+    retry_safety: ToolRetrySafety,
+) -> Any:
+    async def call(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        try:
+            result = await mcp.call(
+                server_id,
+                tool_name,
+                arguments,
+                retry_safety=retry_safety,
+                call_id=call.call_id,
+            )
+        except McpToolError as exc:
+            raise ToolError(
+                exc.code,
+                str(exc),
+                retryable=exc.retryable,
+            ) from exc
+        return ToolResult(
+            result.text,
+            artifacts=tuple(
+                ArtifactRef(
+                    artifact_id=str(item.artifact_id),
+                    media_type=item.media_type,
+                    filename=item.filename,
+                    size=len(item.data),
+                )
+                for item in result.artifacts
+                if item.artifact_id
+            ),
+        )
 
     return call
 
 
-def _register_skills(
+def _register_execute(
     frozen: FrozenAgenticExecution,
     registry: ToolRegistry,
     allowed: dict[str, RegisteredTool],
-    allowlist: set[str],
-    skill_ids: set[UUID],
     skills: SkillToolRunner | None,
 ) -> None:
+    """One model-facing skill entry: execute(target=skill)."""
     if skills is None:
         return
-    skills_by_id = {entry.skill_id: entry for entry in frozen.snapshot.skills}
-    for tool in frozen.snapshot.tools:
-        if tool.source != "SKILL" or tool.skill_id is None:
-            continue
-        skill = skills_by_id.get(tool.skill_id)
-        if skill is None or tool.skill_id not in skill_ids:
-            continue
-        key = allowlist_key("SKILL", tool_name=tool.tool_name, skill_id=tool.skill_id)
-        if key not in allowlist:
-            continue
-        name = skill_tool_name(tool.skill_id, tool.tool_name)
+    router = SkillExecutionRouter(
+        skills=frozen.snapshot.skills,
+        tools=frozen.snapshot.tools,
+        allowlist=frozen.snapshot.allowlist,
+        skill_grants=frozen.snapshot.grants.skill_grants,
+    )
+
+    async def execute(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        if arguments.get("target") != "skill":
+            raise ToolError("COMMON_VALIDATION_ERROR", "target must be skill")
+        route = router.resolve(arguments.get("skill_key"), arguments.get("tool"))
+        input_value = router.validate_input(route, arguments.get("input"))
+        argv = router.validate_argv(arguments.get("argv"))
+        try:
+            content = await skills.call(
+                route.skill,
+                skill_tool_name(route.skill.skill_id, route.tool.tool_name),
+                input_value,
+                argv,
+                call_id=call.call_id,
+                args_hash=compute_args_hash(arguments),
+            )
+        except ToolError:
+            raise
+        except Exception as exc:
+            code = getattr(exc, "code", None)
+            if not isinstance(code, str) or not code:
+                raise
+            raise ToolError(
+                code,
+                str(exc),
+                retryable=bool(getattr(exc, "retryable", False)),
+            ) from exc
+        return ToolResult(content)
+
+    registry.register(
+        ToolDefinition(
+            name=EXECUTE_TOOL,
+            description=(
+                "Execute one tool of a frozen skill. Pass skill_key; pass tool only when the "
+                "skill has multiple executable tools. input is JSON stdin, argv are literal CLI "
+                "arguments. For instructions-only skills use load_skill and MCP tools instead."
+            ),
+            input_schema={
+                "type": "object",
+                "required": ["target", "skill_key"],
+                "additionalProperties": False,
+                "properties": {
+                    "target": {"type": "string", "enum": ["skill"]},
+                    "skill_key": {"type": "string", "minLength": 1},
+                    "tool": {"type": "string", "minLength": 1},
+                    "input": {"type": "object"},
+                    "argv": {"type": "array", "items": {"type": "string"}},
+                },
+            },
+            effect=ToolEffect.EXTERNAL,
+            handler=execute,
+            capabilities=frozenset({ToolCapability.SKILL_EXECUTE}),
+        )
+    )
+    allowed[EXECUTE_TOOL] = RegisteredTool(EXECUTE_TOOL, "SKILL:execute", "SKILL")
+
+    if hasattr(skills, "load_skill"):
+        instruction_skills = cast(Any, skills)
+
+        async def load_skill(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+            key = arguments.get("skill_key")
+            if not isinstance(key, str) or not key:
+                raise ToolError("COMMON_VALIDATION_ERROR", "skill_key must be a non-empty string")
+            return ToolResult(await instruction_skills.load_skill(key))
+
+        async def read_resource(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+            key = arguments.get("skill_key")
+            path = arguments.get("path")
+            if not isinstance(key, str) or not key or not isinstance(path, str) or not path:
+                raise ToolError("COMMON_VALIDATION_ERROR", "skill_key and path are required")
+            return ToolResult(await instruction_skills.read_skill_resource(key, path))
+
+        async def search(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+            query = arguments.get("query", "")
+            if not isinstance(query, str):
+                raise ToolError("COMMON_VALIDATION_ERROR", "query must be a string")
+            return ToolResult(await instruction_skills.search_skills(query))
+
         registry.register(
             ToolDefinition(
-                name=name,
-                description=f"skill {skill.skill_id} tool {tool.tool_name}",
-                input_schema=_skill_tool_schema(tool),
-                effect=ToolEffect.EXTERNAL if skill.execution_mode == "ASYNC" else ToolEffect.WRITE,
-                retry_safety=_retry_safety(tool),
-                handler=_skill_handler(skills, skill, tool.tool_name),
+                name="load_skill",
+                description="Load a frozen skill's instructions.",
+                input_schema={
+                    "type": "object",
+                    "required": ["skill_key"],
+                    "additionalProperties": False,
+                    "properties": {"skill_key": {"type": "string"}},
+                },
+                effect=ToolEffect.READ,
+                handler=load_skill,
+                externalizable_result=False,
+                capabilities=frozenset({ToolCapability.SKILL_INSTRUCTIONS}),
             )
         )
-        allowed[name] = RegisteredTool(name, key, "SKILL", skill_id=tool.skill_id)
+        registry.register(
+            ToolDefinition(
+                name="read_skill_resource",
+                description="Read one text resource from a frozen skill.",
+                input_schema={
+                    "type": "object",
+                    "required": ["skill_key", "path"],
+                    "additionalProperties": False,
+                    "properties": {"skill_key": {"type": "string"}, "path": {"type": "string"}},
+                },
+                effect=ToolEffect.READ,
+                handler=read_resource,
+                externalizable_result=False,
+                capabilities=frozenset({ToolCapability.SKILL_RESOURCE}),
+            )
+        )
+        registry.register(
+            ToolDefinition(
+                name="search_skills",
+                description="Search the frozen skill catalog by key or name.",
+                input_schema={
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {"query": {"type": "string"}},
+                },
+                effect=ToolEffect.READ,
+                handler=search,
+                capabilities=frozenset({ToolCapability.SKILL_CATALOG}),
+            )
+        )
+        allowed["load_skill"] = RegisteredTool("load_skill", "PLATFORM:load_skill", "PLATFORM")
+        allowed["read_skill_resource"] = RegisteredTool(
+            "read_skill_resource", "PLATFORM:read_skill_resource", "PLATFORM"
+        )
+        allowed["search_skills"] = RegisteredTool("search_skills", "PLATFORM:search_skills", "PLATFORM")
 
 
 def _skill_tool_schema(tool: SnapshotTool) -> dict[str, Any]:
@@ -436,29 +611,49 @@ def _skill_tool_schema(tool: SnapshotTool) -> dict[str, Any]:
 
 def _parse_skill_arguments(
     arguments: Mapping[str, Any],
-) -> tuple[dict[str, Any], tuple[str, ...]] | str:
-    """把模型参数拆成 `(input, argv)`；形状不对时返回给模型的错误正文。"""
+) -> tuple[dict[str, Any], tuple[str, ...]] | ToolError:
+    """把模型参数拆成 `(input, argv)`；形状不对时返回 typed 工具失败。"""
     if "input" in arguments:
         raw_input = arguments["input"]
     else:
         raw_input = {}
     if not isinstance(raw_input, Mapping):
-        return '{"status":"INVALID","error":"input must be an object"}'
+        return ToolError("COMMON_VALIDATION_ERROR", "input must be an object")
     raw_argv = arguments.get("argv", [])
     try:
         argv = validate_skill_argv(raw_argv)
     except ValueError as exc:
-        return json.dumps({"status": "INVALID", "error": str(exc)}, ensure_ascii=False)
+        return ToolError("COMMON_VALIDATION_ERROR", str(exc))
     return dict(raw_input), argv
 
 
 def _skill_handler(runner: SkillToolRunner, skill: SnapshotSkill, tool_name: str) -> Any:
-    async def call(arguments: Mapping[str, Any], *, call_id: str) -> str:
+    async def call(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
         parsed = _parse_skill_arguments(arguments)
-        if isinstance(parsed, str):
-            return parsed
+        if isinstance(parsed, ToolError):
+            raise parsed
         input_value, argv = parsed
-        return await runner.call(skill, tool_name, input_value, argv, call_id=call_id)
+        try:
+            content = await runner.call(
+                skill,
+                tool_name,
+                input_value,
+                argv,
+                call_id=call.call_id,
+                args_hash=compute_args_hash(arguments),
+            )
+        except ToolError:
+            raise
+        except Exception as exc:
+            code = getattr(exc, "code", None)
+            if not isinstance(code, str) or not code:
+                raise
+            raise ToolError(
+                code,
+                str(exc),
+                retryable=bool(getattr(exc, "retryable", False)),
+            ) from exc
+        return ToolResult(content)
 
     return call
 

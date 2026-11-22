@@ -72,8 +72,6 @@ _platform_tools = frozenset(
         "create_archive",
         "load_skill",
         "read_skill_resource",
-        "execute_skill",
-        "run_skill_script",
         "search_skills",
         "execute",
         "get_task",
@@ -716,7 +714,7 @@ def _skill_tool_entry(
                 "payload.tools_allow",
                 "TOOL_NOT_OWNED",
                 "CHOOSE_DECLARED_SKILL_TOOL",
-                tuple(sorted(names)),
+                tuple(f"SKILL:{skill.skill_id}:{name}" for name in sorted(names)),
             )
         )
         return None
@@ -754,7 +752,7 @@ def _mcp_tool_entry(
                 "payload.tools_allow",
                 "TOOL_NOT_OWNED",
                 "CHOOSE_DECLARED_MCP_TOOL",
-                tuple(sorted(names)),
+                tuple(f"MCP:{server.key}:{name}" for name in sorted(names)),
             )
         )
         return None

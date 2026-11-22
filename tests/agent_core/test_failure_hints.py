@@ -87,6 +87,7 @@ def test_missing_or_unknown_inputs_fall_back_without_raising() -> None:
     assert "平台登录失败" in failure_hint("platform_auth_rejected", locale="zh-CN").title
     # Unknown locale falls back to zh-CN instead of inventing a language.
     assert "平台登录失败" in failure_hint("PLATFORM_AUTH_REJECTED", locale="fr-FR").title
+    assert failure_hint("PLATFORM_AUTH_REJECTED", locale=None) == failure_hint("PLATFORM_AUTH_REJECTED")
 
 
 def test_hint_is_deterministic() -> None:

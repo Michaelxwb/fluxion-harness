@@ -1,0 +1,259 @@
+{
+  "name": "系统组成与边界",
+  "size": [
+    1200,
+    620
+  ],
+  "nodes": {
+    "admin": {
+      "rect": [
+        45,
+        135,
+        160,
+        88
+      ],
+      "label": "管理员",
+      "lines": [
+        "Console 浏览器"
+      ],
+      "state": false,
+      "tone": "external",
+      "group": "people"
+    },
+    "users": {
+      "rect": [
+        45,
+        265,
+        160,
+        88
+      ],
+      "label": "服务经理",
+      "lines": [
+        "企微 / WebChat"
+      ],
+      "state": false,
+      "tone": "external",
+      "group": "people"
+    },
+    "console": {
+      "rect": [
+        280,
+        100,
+        280,
+        74
+      ],
+      "label": "Console Platform",
+      "lines": [
+        "定义、授权、资源与审计"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "platform"
+    },
+    "gateway": {
+      "rect": [
+        610,
+        100,
+        310,
+        74
+      ],
+      "label": "IM Gateway",
+      "lines": [
+        "身份解析、路由与事件订阅"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "platform"
+    },
+    "runtime": {
+      "rect": [
+        280,
+        210,
+        280,
+        74
+      ],
+      "label": "Agent Runtime",
+      "lines": [
+        "无状态对话执行与接续"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "platform"
+    },
+    "worker": {
+      "rect": [
+        610,
+        210,
+        310,
+        74
+      ],
+      "label": "Agent Worker",
+      "lines": [
+        "持久任务、定时、批量与交付"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "platform"
+    },
+    "connector": {
+      "rect": [
+        280,
+        320,
+        280,
+        74
+      ],
+      "label": "IM Connector（可选）",
+      "lines": [
+        "企微长连接与连接租约"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "platform"
+    },
+    "capability": {
+      "rect": [
+        610,
+        320,
+        310,
+        74
+      ],
+      "label": "共享能力层",
+      "lines": [
+        "执行内核、Skill 与平台接入"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "platform"
+    },
+    "models": {
+      "rect": [
+        995,
+        100,
+        160,
+        74
+      ],
+      "label": "模型网关",
+      "lines": [
+        "统一模型接入与脱敏",
+        "屏蔽源头供应商"
+      ],
+      "state": false,
+      "tone": "external",
+      "group": "external"
+    },
+    "mcp": {
+      "rect": [
+        995,
+        210,
+        160,
+        74
+      ],
+      "label": "MCP 服务",
+      "lines": [
+        "外部工具接口"
+      ],
+      "state": false,
+      "tone": "external",
+      "group": "external"
+    },
+    "business": {
+      "rect": [
+        995,
+        320,
+        160,
+        74
+      ],
+      "label": "业务平台",
+      "lines": [
+        "业务数据与操作"
+      ],
+      "state": false,
+      "tone": "external",
+      "group": "external"
+    },
+    "postgres": {
+      "rect": [
+        50,
+        505,
+        200,
+        62
+      ],
+      "label": "PostgreSQL",
+      "lines": [
+        "权威状态"
+      ],
+      "state": false,
+      "tone": "store",
+      "group": "data"
+    },
+    "redis": {
+      "rect": [
+        270,
+        505,
+        200,
+        62
+      ],
+      "label": "Redis",
+      "lines": [
+        "缓存、通道流与短租约"
+      ],
+      "state": false,
+      "tone": "store",
+      "group": "data"
+    },
+    "pvc": {
+      "rect": [
+        490,
+        505,
+        210,
+        62
+      ],
+      "label": "共享存储",
+      "lines": [
+        "Skill 制品 / 工作区"
+      ],
+      "state": false,
+      "tone": "store",
+      "group": "data"
+    }
+  },
+  "groups": {
+    "people": {
+      "rect": [
+        30,
+        30,
+        190,
+        390
+      ],
+      "title": "使用方与入口"
+    },
+    "platform": {
+      "rect": [
+        250,
+        30,
+        700,
+        390
+      ],
+      "title": "Fluxion Harness · 平台组件"
+    },
+    "external": {
+      "rect": [
+        980,
+        30,
+        190,
+        390
+      ],
+      "title": "外部服务"
+    },
+    "data": {
+      "rect": [
+        30,
+        450,
+        690,
+        140
+      ],
+      "title": "共享数据与文件"
+    }
+  },
+  "edges": []
+}

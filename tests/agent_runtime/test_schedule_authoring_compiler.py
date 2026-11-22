@@ -569,7 +569,7 @@ class TestToolsPolicy:
             )
         error = _fields(caught.value)[0]
         assert error["reason"] == "TOOL_NOT_OWNED"
-        assert error["allowed_values"] == ["customer.report"]
+        assert error["allowed_values"] == ["MCP:crm:customer.report"]
 
     def test_unknown_platform_tool_is_rejected(self) -> None:
         with pytest.raises(ScheduleAuthoringError) as caught:

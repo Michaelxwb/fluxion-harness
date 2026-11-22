@@ -6,6 +6,7 @@ from uuid import uuid4
 
 import pytest
 import sqlalchemy as sa
+from muad_agent_core.tools import ToolCall
 from muad_agent_runtime.application.context_builder import DbBackedContextBuilder
 from muad_agent_runtime.application.context_settings import frozen_learning_payload
 from muad_agent_runtime.application.executor import build_registry
@@ -67,11 +68,18 @@ async def test_b22_memory_redesign_old_run_reads_250_and_forgets_after_quota_inc
                 {"t": ctx.tenant_id, "u": ctx.user_id},
             )
         ).scalar_one()
+    arguments = {"memory_id": str(memory_id), "expected_version": 1}
     result = json.loads(
-        await registry.get(FORGET_TOOL).handler(
-            {"memory_id": str(memory_id), "expected_version": 1},
-            call_id="old-run-forget",
-        )
+        (
+            await registry.get(FORGET_TOOL).handler(
+                arguments,
+                call=ToolCall(
+                    call_id="old-run-forget",
+                    name=FORGET_TOOL,
+                    arguments=arguments,
+                ),
+            )
+        ).content
     )
     assert result["deleted"] and result["version"] == 2
     assert len((await queries.read_snapshot(scope)).legacy_rows) == 249

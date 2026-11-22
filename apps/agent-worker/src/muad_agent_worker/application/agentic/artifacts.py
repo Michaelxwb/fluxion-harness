@@ -11,9 +11,10 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Sequence
+from dataclasses import replace
 from uuid import UUID
 
-from muad_agent_core.model import ModelMessage, ModelRole, text_of
+from muad_agent_core.tools import ArtifactRef, ToolResult
 from muad_contracts.platform_settings import ToolResultSettings
 
 from ...infrastructure.task_artifact_client import TaskArtifactClient
@@ -87,12 +88,11 @@ class TaskArtifactRoundWriter:
         self._tenant_id = tenant_id
         self._execution_id = execution_id
 
-    async def finish_round(self, results: Sequence[ModelMessage]) -> Sequence[ModelMessage]:
-        texts = [text_of(message.content) for message in results]
+    async def finish_round(self, results: Sequence[ToolResult]) -> Sequence[ToolResult]:
         candidates = [
-            (message.tool_call_id or "unknown", len(text.encode("utf-8")))
-            for message, text in zip(results, texts, strict=True)
-            if message.role is ModelRole.TOOL
+            (result.call_id or "unknown", len(result.content.encode("utf-8")))
+            for result in results
+            if result.externalizable
         ]
         selected = set(
             select_round_persists(
@@ -103,16 +103,17 @@ class TaskArtifactRoundWriter:
         )
         if not selected:
             return results
-        replaced: list[ModelMessage] = []
-        for message, text in zip(results, texts, strict=True):
-            call_id = message.tool_call_id or "unknown"
-            if message.role is not ModelRole.TOOL or call_id not in selected:
-                replaced.append(message)
+        replaced: list[ToolResult] = []
+        for result in results:
+            call_id = result.call_id or "unknown"
+            if not result.externalizable or call_id not in selected:
+                replaced.append(result)
                 continue
-            replaced.append(await self._externalize(message, call_id, text))
+            replaced.append(await self._externalize(result, call_id))
         return tuple(replaced)
 
-    async def _externalize(self, message: ModelMessage, call_id: str, text: str) -> ModelMessage:
+    async def _externalize(self, result: ToolResult, call_id: str) -> ToolResult:
+        text = result.content
         data = text.encode("utf-8")
         checksum = "sha256:" + hashlib.sha256(data).hexdigest()
         response = await self._client.write(
@@ -129,15 +130,24 @@ class TaskArtifactRoundWriter:
             head_bytes=self._settings.preview_head_bytes,
             tail_bytes=self._settings.preview_tail_bytes,
         )
-        return ModelMessage(
-            role=message.role,
+        return replace(
+            result,
             content=reference_payload(
                 artifact_id=response.artifact_id,
                 size=len(data),
                 checksum=response.checksum,
                 preview=preview,
             ),
-            tool_call_id=message.tool_call_id,
+            artifacts=(
+                *result.artifacts,
+                ArtifactRef(
+                    artifact_id=str(response.artifact_id),
+                    media_type=ARTIFACT_MEDIA_TYPE,
+                    filename=ARTIFACT_FILENAME.format(call_id=_safe_call_id(call_id)),
+                    checksum=response.checksum,
+                    size=len(data),
+                ),
+            ),
         )
 
 

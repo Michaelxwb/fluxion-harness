@@ -168,14 +168,14 @@ async def test_s_05_mcp_initialize_notification_tool_share_counter(meter):
             )
             try:
                 with pytest.raises(Exception) as failure:
-                    await adapter.execute_tool(
+                    await adapter.execute_tool_result(
                         server=definition, tool=definition.tools[0], arguments={}, policy_decision="ALLOW"
                     )
-                assert failure.value.reason == "upstream_http"
+                assert failure.value.code == "MCP_TRANSPORT_FAILED"
                 assert failure.value.status_code == 429
                 assert failure.value.retry_after == "7"
                 with pytest.raises(McpToolError) as local_limit:
-                    await adapter.execute_tool(
+                    await adapter.execute_tool_result(
                         server=definition, tool=definition.tools[0], arguments={}, policy_decision="ALLOW"
                     )
                 assert local_limit.value.code == "LOCAL_BUDGET_EXHAUSTED"

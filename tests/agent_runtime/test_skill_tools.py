@@ -23,9 +23,10 @@ from muad_agent_core.sandbox import DevUnsafeRunner
 from muad_agent_core.skill import SandboxedSkillExecutor, SkillExecutionError
 from muad_agent_core.tools import (
     FailureLayer,
+    ToolCall,
     ToolEffect,
+    ToolError,
     ToolRegistry,
-    tool_failure_outcome,
 )
 from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
 from muad_agent_runtime.application.executor import (
@@ -197,7 +198,12 @@ async def _call(
         name = "execute"
     definition = registry.get(name)
     assert definition.handler is not None
-    return json.loads(await definition.handler(arguments, call_id=f"call-{uuid.uuid4()}"))
+    call = ToolCall(call_id=f"call-{uuid.uuid4()}", name=name, arguments=arguments)
+    try:
+        result = await definition.handler(arguments, call=call)
+    except ToolError as exc:
+        return json.loads(exc.content())
+    return json.loads(result.content)
 
 
 def _error_code(payload: Mapping[str, Any]) -> str:
@@ -240,8 +246,11 @@ async def test_load_skill_full_body_survives_tool_result_wrapper(tmp_path: Path)
     handler = definition.handler
     assert handler is not None
 
-    raw = await handler({"skill_key": SKILL_KEY}, call_id="call-skill-1")
-    assert len(raw.encode("utf-8")) > TOOL_RESULT_ARTIFACT_BYTES  # 前置条件：确实超过外置阈值
+    raw = await handler(
+        {"skill_key": SKILL_KEY},
+        call=ToolCall(call_id="call-skill-1", name=LOAD_SKILL_TOOL),
+    )
+    assert len(raw.content.encode("utf-8")) > TOOL_RESULT_ARTIFACT_BYTES  # 前置条件：确实超过外置阈值
 
     recorder = ToolCallRecorder(
         context=ExecutorRunContext(
@@ -253,7 +262,13 @@ async def test_load_skill_full_body_survives_tool_result_wrapper(tmp_path: Path)
         audit_writer=None,
         artifact_writer=ArtifactResultWriter(tmp_path / "artifacts"),
     )
-    content = await recorder(definition, {"skill_key": SKILL_KEY}, handler=handler, call_id="call-skill-1")
+    result = await recorder(
+        definition,
+        {"skill_key": SKILL_KEY},
+        handler=handler,
+        call=ToolCall(call_id="call-skill-1", name=definition.name),
+    )
+    content = result.content
 
     assert "artifact" not in content
     payload = json.loads(content)
@@ -638,14 +653,15 @@ async def test_unsupported_parameter_names_the_keys_and_the_target(skill_env: Sk
     definition = skill_env.registry.get("execute")
     assert definition.handler is not None
 
-    payload = json.loads(
-        await definition.handler(
-            {"target": "skill", "skill_key": SKILL_KEY, "command": "echo hi"},
-            call_id="call-unsupported",
-        )
+    call = ToolCall(
+        call_id="call-unsupported",
+        name="execute",
+        arguments={"target": "skill", "skill_key": SKILL_KEY, "command": "echo hi"},
     )
+    with pytest.raises(ToolError) as caught:
+        await definition.handler(call.arguments, call=call)
 
-    error = payload["error"]
+    error = json.loads(caught.value.content())["error"]
     assert error["code"] == "COMMON_VALIDATION_ERROR"
     assert error["message"].startswith("parameters do not match execution target")
     assert "target=skill cannot use command" in error["message"]
@@ -810,8 +826,12 @@ async def test_unified_execute_rejects_mixed_target_parameters(skill_env: SkillE
         {"target": "skill", "skill_key": SKILL_KEY, "command": "true"},
         {"target": "draft", "draft_id": "draft", "command": "true", "platforms": ["mssp"]},
     ):
-        result = json.loads(await handler(args, call_id="mixed"))
-        assert result["error"]["code"] == "COMMON_VALIDATION_ERROR"
+        with pytest.raises(ToolError) as caught:
+            await handler(
+                args,
+                call=ToolCall(call_id="mixed", name="execute", arguments=args),
+            )
+        assert caught.value.code == "COMMON_VALIDATION_ERROR"
 
 
 def test_unified_skill_uses_frozen_authorization(skill_env: SkillEnv) -> None:
@@ -910,13 +930,13 @@ async def test_search_skills_validation_error_is_returned_as_correctable(tmp_pat
     definition = _registry_with_keys(tmp_path, "policy-check").get(SEARCH_SKILLS_TOOL)
     assert definition.handler is not None
 
-    payload = json.loads(await definition.handler({"query": 1}, call_id="call-invalid-query"))
+    call = ToolCall(call_id="call-invalid-query", name=SEARCH_SKILLS_TOOL)
+    with pytest.raises(ToolError) as caught:
+        await definition.handler({"query": 1}, call=call)
 
-    assert _error_code(payload) == "COMMON_VALIDATION_ERROR"
-    outcome = tool_failure_outcome(json.dumps(payload))
-    assert outcome is not None
-    assert outcome.failure_layer is FailureLayer.TOOL
-    assert outcome.retryable is True
+    assert caught.value.code == "COMMON_VALIDATION_ERROR"
+    assert caught.value.outcome().failure_layer is FailureLayer.TOOL
+    assert caught.value.outcome().retryable is True
 
 
 def test_search_skills_is_content_delivery_over_a_strict_schema(tmp_path: Path) -> None:

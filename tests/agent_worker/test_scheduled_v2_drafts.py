@@ -839,6 +839,22 @@ async def test_agent_turn_without_tools_follows_the_owner(
     assert await count_rows(tenant, "task_schedule_draft") == 1
 
 
+async def test_agent_turn_follow_owner_freezes_all_material_tools(
+    client: AsyncClient, tenant: TenantContext, install: Any
+) -> None:
+    """空 allowlist 的预检也必须冻结 owner 的全部工具，不能预览成“无依赖”。"""
+    install(FakeMaterials(agentic_materials([MCP_TOOL])))
+    response = await client.post(
+        "/internal/schedule-drafts",
+        json=agentic_body(allowlist=[]),
+        headers=headers(tenant, actor=uuid.uuid4(), agent=uuid.uuid4()),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["preview"]["dependencies"] == ["MCP:crm:customer.report"]
+    assert await count_rows(tenant, "task_schedule_draft") == 1
+
+
 async def test_agentic_allowlist_must_be_resolved_by_materials(
     client: AsyncClient, tenant: TenantContext, install: Any
 ) -> None:

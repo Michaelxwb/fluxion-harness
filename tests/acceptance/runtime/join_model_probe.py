@@ -49,8 +49,9 @@ async def completion(request: Request):
                 "id": f"join-call-{index}",
                 "type": "function",
                 "function": {
-                    "name": "execute_skill",
+                    "name": "execute",
                     "arguments": json.dumps({
+                        "target": "skill",
                         "skill_key": settings["skill_key"],
                         "input": {"index": index, "gate": settings["gate"]},
                     }),

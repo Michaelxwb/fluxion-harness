@@ -28,6 +28,7 @@ from muad_agent_core.skill import (
 from muad_artifact_store import SkillArtifactCacheError
 from muad_common import SharedSettings, process_settings
 from muad_contracts import TriggerType, WaitKind
+from muad_contracts.egress_identity import egress_operation_key
 from muad_contracts.skill_invocation import validate_skill_argv
 from muad_contracts.snapshot import task_execution_timeout
 from muad_logging import get_logger
@@ -327,6 +328,7 @@ class SkillTaskExecutor:
             result = await execute_task_skill_with_egress(
                 self._executor, request, task=task, skill_key=skill_key, settings=self._settings,
                 sessions=self._sessions,
+                operation_key=egress_operation_key("TASK_SKILL", str(task.id)),
             )
         except SkillExecutionError as exc:
             if exc.code in {"LOCAL_BUDGET_EXHAUSTED", "EGRESS_CLIENT_UNSUPPORTED",

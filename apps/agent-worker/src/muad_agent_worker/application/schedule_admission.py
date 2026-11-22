@@ -366,6 +366,7 @@ def _snapshot_skills(
     return [
         SnapshotSkill(
             skill_id=skill.skill_id,
+            key=skill.key,
             artifact_id=skill.artifact_id,
             version=skill.version,
             checksum=skill.checksum,
@@ -395,6 +396,17 @@ def _snapshot_tools(materials: ScheduleAdmissionMaterials) -> list[SnapshotTool]
         )
         for tool in materials.tools
     ]
+
+
+def _material_allowlist(materials: ScheduleAdmissionMaterials) -> list[str]:
+    """`follow owner`：快照允许清单取 Console 展开后的全部工具材料。"""
+    keys: list[str] = []
+    for tool in materials.tools:
+        if tool.source == "MCP" and tool.server_key:
+            keys.append(f"MCP:{tool.server_key}:{tool.tool_name}")
+        elif tool.source == "SKILL" and tool.skill_id is not None:
+            keys.append(f"SKILL:{tool.skill_id}:{tool.tool_name}")
+    return keys
 
 
 def _snapshot_mcp(materials: ScheduleAdmissionMaterials) -> list[SnapshotMcpServer]:
@@ -533,7 +545,11 @@ def build_snapshot(
             mcp=_snapshot_mcp(materials),
             memory=memory,
             budget=_snapshot_budget(materials, request, settings),
-            allowlist=[allowlist_key(entry) for entry in request.tool_allowlist],
+            allowlist=(
+                _material_allowlist(materials)
+                if request.mode is ScheduleMode.AGENTIC and not request.tool_allowlist
+                else [allowlist_key(entry) for entry in request.tool_allowlist]
+            ),
             prompt_template={
                 "version": TASK_PROMPT_TEMPLATE_VERSION,
                 "source": "agent.instructions",

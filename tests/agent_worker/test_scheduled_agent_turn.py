@@ -13,6 +13,7 @@ import httpx
 import pytest
 import sqlalchemy as sa
 from muad_agent_core.model import ModelRole, ModelToolCall
+from muad_agent_core.tools import ToolCall
 from muad_agent_worker.application.agentic.errors import AgenticError
 from muad_agent_worker.application.agentic.run import AgenticDependencies
 from muad_agent_worker.application.agentic.scheduled_turn import (
@@ -235,16 +236,24 @@ async def test_scheduled_platform_tools_use_the_schedule_timezone(tenant: Tenant
     registry = build_registry(frozen, mcp=None, skills=None, platform=platform)
     current = registry.registry.get("current_time")
     assert current.handler is not None
-    assert await current.handler({}, call_id="call-1") == "2026-03-08T10:30:00+08:00 (Asia/Shanghai)"
+    assert (await current.handler(
+        {}, call=ToolCall(call_id="call-1", name="current_time")
+    )).content == "2026-03-08T10:30:00+08:00 (Asia/Shanghai)"
 
     recorded = registry.registry.get("record_result")
     assert recorded.handler is not None
-    assert json.loads(await recorded.handler({"status": "no_change"}, call_id="call-2")) == {
+    assert json.loads((await recorded.handler(
+        {"status": "no_change"},
+        call=ToolCall(call_id="call-2", name="record_result"),
+    )).content) == {
         "status": "RECORDED",
         "result_status": "no_change",
     }
     assert recorder.status == "no_change"
-    invalid = json.loads(await recorded.handler({"status": "oops"}, call_id="call-3"))
+    invalid = json.loads((await recorded.handler(
+        {"status": "oops"},
+        call=ToolCall(call_id="call-3", name="record_result"),
+    )).content)
     assert invalid["status"] == "INVALID"
     assert recorder.status == "no_change"
 
@@ -466,7 +475,7 @@ def _agentic_harness(tenant: TenantContext, http: httpx.AsyncClient) -> _Agentic
     )
     return _AgenticHarness(
         tenant=tenant,
-        executor=AgenticTaskExecutor(deps=deps, skill_runner=lambda task, suspension: None),
+        executor=AgenticTaskExecutor(deps=deps, skill_runner=lambda task, suspension, egress: None),
         factory=factory,
         http=http,
     )
@@ -671,7 +680,7 @@ async def test_archived_session_fails_through_the_execution_funnel(
             mcp_http=http,
             session_context=_MissingReader(),  # type: ignore[arg-type]
         )
-        executor = AgenticTaskExecutor(deps=deps, skill_runner=lambda task, suspension: None)
+        executor = AgenticTaskExecutor(deps=deps, skill_runner=lambda task, suspension, egress: None)
         with pytest.raises(TaskExecutionError) as caught:
             await executor.execute(task)
     finally:

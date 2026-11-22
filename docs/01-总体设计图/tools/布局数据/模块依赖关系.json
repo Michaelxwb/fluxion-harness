@@ -1,0 +1,488 @@
+{
+  "name": "模块依赖关系",
+  "size": [
+    1200,
+    720
+  ],
+  "nodes": {
+    "admin": {
+      "rect": [
+        130,
+        45,
+        160,
+        55
+      ],
+      "label": "管理员",
+      "lines": [
+        "Console 浏览器"
+      ],
+      "state": false,
+      "tone": "external",
+      "group": "entry"
+    },
+    "wecom": {
+      "rect": [
+        480,
+        45,
+        180,
+        55
+      ],
+      "label": "企业微信",
+      "lines": [
+        "IM 入口"
+      ],
+      "state": false,
+      "tone": "external",
+      "group": "entry"
+    },
+    "webchat": {
+      "rect": [
+        880,
+        45,
+        180,
+        55
+      ],
+      "label": "WebChat",
+      "lines": [
+        "浏览器入口"
+      ],
+      "state": false,
+      "tone": "external",
+      "group": "entry"
+    },
+    "console": {
+      "rect": [
+        55,
+        230,
+        190,
+        90
+      ],
+      "label": "Console Platform",
+      "lines": [
+        "定义、授权、发布",
+        "运行与审计查询"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "management"
+    },
+    "gateway": {
+      "rect": [
+        325,
+        190,
+        210,
+        65
+      ],
+      "label": "IM Gateway",
+      "lines": [
+        "无状态请求面"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "access"
+    },
+    "connector": {
+      "rect": [
+        325,
+        310,
+        210,
+        65
+      ],
+      "label": "IM Connector",
+      "lines": [
+        "有状态连接角色"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "access"
+    },
+    "runtime": {
+      "rect": [
+        615,
+        190,
+        250,
+        65
+      ],
+      "label": "Agent Runtime",
+      "lines": [
+        "实时执行与接续"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "execution"
+    },
+    "worker": {
+      "rect": [
+        615,
+        310,
+        250,
+        65
+      ],
+      "label": "Agent Worker",
+      "lines": [
+        "异步任务与投递"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "execution"
+    },
+    "shared_core": {
+      "rect": [
+        945,
+        170,
+        200,
+        55
+      ],
+      "label": "执行内核",
+      "lines": [
+        "运行循环与上下文"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "shared"
+    },
+    "shared_tools": {
+      "rect": [
+        945,
+        240,
+        200,
+        55
+      ],
+      "label": "工具、MCP 与 Skill",
+      "lines": [
+        "统一注册与执行"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "shared"
+    },
+    "shared_contracts": {
+      "rect": [
+        945,
+        310,
+        200,
+        55
+      ],
+      "label": "契约与公共支撑",
+      "lines": [
+        "接口、错误码、公共库"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "shared"
+    },
+    "modelpool": {
+      "rect": [
+        945,
+        380,
+        200,
+        55
+      ],
+      "label": "模型池",
+      "lines": [
+        "成员、凭据与容量"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "shared"
+    },
+    "postgres": {
+      "rect": [
+        60,
+        500,
+        200,
+        55
+      ],
+      "label": "PostgreSQL",
+      "lines": [
+        "权威状态"
+      ],
+      "state": false,
+      "tone": "store",
+      "group": "data"
+    },
+    "redis": {
+      "rect": [
+        300,
+        500,
+        200,
+        55
+      ],
+      "label": "Redis",
+      "lines": [
+        "缓存、流、短租约"
+      ],
+      "state": false,
+      "tone": "store",
+      "group": "data"
+    },
+    "storage": {
+      "rect": [
+        540,
+        500,
+        200,
+        55
+      ],
+      "label": "共享存储",
+      "lines": [
+        "制品与工作区"
+      ],
+      "state": false,
+      "tone": "store",
+      "group": "data"
+    },
+    "external": {
+      "rect": [
+        780,
+        500,
+        300,
+        55
+      ],
+      "label": "外部模型网关",
+      "lines": [
+        "统一模型接入、脱敏与屏蔽"
+      ],
+      "state": false,
+      "tone": "external",
+      "group": "data"
+    }
+  },
+  "groups": {
+    "entry": {
+      "rect": [
+        30,
+        30,
+        1140,
+        80
+      ],
+      "title": "用户入口"
+    },
+    "management": {
+      "rect": [
+        30,
+        140,
+        240,
+        300
+      ],
+      "title": "管理面"
+    },
+    "access": {
+      "rect": [
+        300,
+        140,
+        260,
+        300
+      ],
+      "title": "接入面"
+    },
+    "execution": {
+      "rect": [
+        590,
+        140,
+        300,
+        300
+      ],
+      "title": "执行面"
+    },
+    "shared": {
+      "rect": [
+        920,
+        140,
+        250,
+        300
+      ],
+      "title": "共享能力层"
+    },
+    "data": {
+      "rect": [
+        30,
+        460,
+        1140,
+        120
+      ],
+      "title": "数据与外部依赖"
+    }
+  },
+  "edges": [
+    {
+      "from": "admin",
+      "to": "console",
+      "points": [
+        [
+          210,
+          100
+        ],
+        [
+          150,
+          230
+        ]
+      ],
+      "label": "管理",
+      "both": false
+    },
+    {
+      "from": "wecom",
+      "to": "connector",
+      "points": [
+        [
+          570,
+          100
+        ],
+        [
+          570,
+          125
+        ],
+        [
+          290,
+          125
+        ],
+        [
+          290,
+          342
+        ],
+        [
+          325,
+          342
+        ]
+      ],
+      "label": "消息",
+      "both": false
+    },
+    {
+      "from": "webchat",
+      "to": "gateway",
+      "points": [
+        [
+          970,
+          100
+        ],
+        [
+          970,
+          135
+        ],
+        [
+          535,
+          135
+        ],
+        [
+          535,
+          190
+        ]
+      ],
+      "label": "消息",
+      "both": false
+    },
+    {
+      "from": "connector",
+      "to": "gateway",
+      "points": [
+        [
+          430,
+          310
+        ],
+        [
+          430,
+          255
+        ]
+      ],
+      "label": "事件",
+      "both": true
+    },
+    {
+      "from": "gateway",
+      "to": "runtime",
+      "points": [
+        [
+          535,
+          222
+        ],
+        [
+          615,
+          222
+        ]
+      ],
+      "label": "提交 Run",
+      "both": false
+    },
+    {
+      "from": "runtime",
+      "to": "worker",
+      "points": [
+        [
+          740,
+          255
+        ],
+        [
+          740,
+          310
+        ]
+      ],
+      "label": "任务/结果",
+      "both": true
+    },
+    {
+      "from": "runtime",
+      "to": "shared_core",
+      "points": [
+        [
+          865,
+          210
+        ],
+        [
+          945,
+          197
+        ]
+      ],
+      "label": "调用执行内核",
+      "both": false
+    },
+    {
+      "from": "worker",
+      "to": "shared_tools",
+      "points": [
+        [
+          865,
+          342
+        ],
+        [
+          945,
+          267
+        ]
+      ],
+      "label": "调用工具/Skill",
+      "both": false
+    },
+    {
+      "from": "modelpool",
+      "to": "external",
+      "points": [
+        [
+          1045,
+          435
+        ],
+        [
+          1045,
+          500
+        ]
+      ],
+      "label": "模型调用",
+      "both": false
+    },
+    {
+      "from": "console",
+      "to": "postgres",
+      "points": [
+        [
+          150,
+          320
+        ],
+        [
+          150,
+          500
+        ]
+      ],
+      "label": "配置与审计",
+      "both": false
+    }
+  ]
+}

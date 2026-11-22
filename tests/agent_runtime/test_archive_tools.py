@@ -10,7 +10,7 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
-from muad_agent_core.tools import ToolEffect, ToolRegistry
+from muad_agent_core.tools import ToolCall, ToolEffect, ToolRegistry
 from muad_agent_runtime.application.attachments import archive_tools
 from muad_agent_runtime.application.attachments.archive_tools import (
     CREATE_ARCHIVE_TOOL,
@@ -105,7 +105,15 @@ async def test_archive_tool_persists_a_real_run_owned_zip(tenant: TenantContext,
     tool = registry.get(CREATE_ARCHIVE_TOOL)
     assert tool.effect is ToolEffect.WRITE
     assert tool.handler is not None
-    result = json.loads(await tool.handler({"filename": "greeting.zip", "files": FILES}, call_id="archive"))
+    arguments = {"filename": "greeting.zip", "files": FILES}
+    result = json.loads(
+        (
+            await tool.handler(
+                arguments,
+                call=ToolCall(call_id="archive", name=CREATE_ARCHIVE_TOOL, arguments=arguments),
+            )
+        ).content
+    )
     assert result["media_type"] == "application/zip"
     assert "deliver_artifact" in result["message"]
     paths = [path for path in tmp_path.rglob("*") if path.is_file()]
@@ -128,7 +136,10 @@ async def test_archive_tool_persists_a_real_run_owned_zip(tenant: TenantContext,
         conversation_id=conversation_id,
     )
     with pytest.raises(AttachmentToolError) as error:
-        await other.read_attachment({"artifact_id": result["artifact_id"]}, call_id="foreign")
+        await other.read_attachment(
+            {"artifact_id": result["artifact_id"]},
+            call=ToolCall(call_id="foreign", name="read_attachment"),
+        )
     assert error.value.code == "ATTACHMENT_NOT_FOUND"
 
 
@@ -143,9 +154,12 @@ async def test_many_files_keep_a_compact_receipt(
         scope=OutputScope(tenant.tenant_id, run_id, conversation_id),
     )
     files = [{"path": str(index) + padding, "content": ""} for index in range(20)]
-    receipt = await ArchiveToolSet(writer, receipt_limit_bytes=TOOL_RESULT_ARTIFACT_BYTES).create_archive(
-        {"filename": filename, "files": files}, call_id="many"
-    )
+    receipt = (
+        await ArchiveToolSet(writer, receipt_limit_bytes=TOOL_RESULT_ARTIFACT_BYTES).create_archive(
+            {"filename": filename, "files": files},
+            call=ToolCall(call_id="many", name=CREATE_ARCHIVE_TOOL),
+        )
+    ).content
     result = json.loads(receipt)
     assert len(receipt.encode("utf-8")) < 8192
     assert result["file_count"] == 20
@@ -175,12 +189,20 @@ async def test_receipt_is_trimmed_to_the_effective_threshold(
     )
     files = [{"path": str(index) + "文" * 300, "content": ""} for index in range(5)]
 
-    tight = await ArchiveToolSet(writer, receipt_limit_bytes=1200).create_archive(
-        {"filename": "tight.zip", "files": files}, call_id="tight"
-    )
-    default = await ArchiveToolSet(writer, receipt_limit_bytes=TOOL_RESULT_ARTIFACT_BYTES).create_archive(
-        {"filename": "default.zip", "files": files}, call_id="default"
-    )
+    tight = (
+        await ArchiveToolSet(writer, receipt_limit_bytes=1200).create_archive(
+            {"filename": "tight.zip", "files": files},
+            call=ToolCall(call_id="tight", name=CREATE_ARCHIVE_TOOL),
+        )
+    ).content
+    default = (
+        await ArchiveToolSet(
+            writer, receipt_limit_bytes=TOOL_RESULT_ARTIFACT_BYTES
+        ).create_archive(
+            {"filename": "default.zip", "files": files},
+            call=ToolCall(call_id="default", name=CREATE_ARCHIVE_TOOL),
+        )
+    ).content
 
     assert len(tight.encode("utf-8")) < 1200, "回执必须裁到生效阈值以下"
     assert json.loads(tight)["files"] == [], "阈值收紧 ⇒ 预览整段让位给那句 deliver_artifact 指引"
@@ -307,7 +329,8 @@ async def test_archive_storage_failure_surfaces_the_archive_error(tmp_path: Path
 
     with pytest.raises(ArchiveToolError) as error:
         await ArchiveToolSet(writer, receipt_limit_bytes=TOOL_RESULT_ARTIFACT_BYTES).create_archive(
-            {"filename": "greeting.zip", "files": FILES}, call_id="archive"
+            {"filename": "greeting.zip", "files": FILES},
+            call=ToolCall(call_id="archive", name=CREATE_ARCHIVE_TOOL),
         )
 
     assert error.value.code == "ARTIFACT_WRITE_FAILED"
@@ -351,8 +374,13 @@ async def test_receipt_is_not_externalized_by_the_tool_result_wrapper(
         artifact_writer=ArtifactResultWriter(tool_results_root),
     )
 
-    content = await recorder(definition, arguments, handler=handler, call_id="archive")
-
+    result = await recorder(
+        definition,
+        arguments,
+        handler=handler,
+        call=ToolCall(call_id="archive", name=definition.name),
+    )
+    content = result.content
     receipt = json.loads(content)
     # 前置条件：**没裁剪**的回执确实越过了外置阈值 —— 否则这条用例什么也没证明
     untrimmed = {**receipt, "files": [item["path"] for item in files[:3]]}

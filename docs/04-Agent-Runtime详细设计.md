@@ -457,22 +457,22 @@ platform_label（如有）
 
 ### 7.3 内置 Skill Tools
 
-ToolRegistry 常驻四个框架工具：
+ToolRegistry 常驻三个框架工具：
 
 ```text
 load_skill(skill_key)
 read_skill_resource(skill_key, path)
-execute_skill(skill_key, input, args?)
-run_skill_script(skill_key, script_path, args?)
+execute(target="skill"|"draft"|"workspace", ...)
 ```
 
 其中：
 
 - `load_skill` 加载并注入完整 SKILL.md；
 - `read_skill_resource` 读取 references/assets 中按需资料；
-- `execute_skill` 是业务执行的统一边界：先进入 `ExecutionRouter`，再选择 Inline 或 Background；它不是为每个 Skill 单独生成一个 Tool；`args` 是脚本的 CLI argv（`execve` 参数，不经过 shell），ASYNC 后台 Task 当前只冻结 `input`，不接受 `args`；
-- `run_skill_script` 是已进入某个 Skill 执行上下文后的脚本原语，按包内相对路径执行 Skill 自带脚本（如 `scripts/run.py`、`phase2/phase2_wait_check.py`），`args` 同样按 CLI argv 原样传递；它始终 inline，不读取 `execution_mode`、不提交后台 Task，因此不能替代 `execute_skill` 的业务入口；脚本通过受控 `SkillContext`（含 `http.get/post/request`）调业务平台/MCP/HTTP，禁止直接 import `httpx/requests/aiohttp`；
-- 选择规则：模型只使用 `execute_skill`（Skill 的 `entrypoint` 负责内部分发 Phase）；`run_skill_script` 默认不注册，仅调试开关下可用。ASYNC Skill 的主入口由平台强制走 `execute_skill`；
+- `execute(target="skill")` 是业务执行的唯一模型入口：先进入 `ExecutionRouter`，再选择 Inline 或 Background；它不是为每个 Skill 单独生成一个 Tool；`argv` 是脚本的 CLI argv（`execve` 参数，不经过 shell），ASYNC 后台 Task 当前只冻结 `input`，不接受 `argv`；
+- `execute(target="draft")` 在草稿副本里执行调试命令；`execute(target="workspace")` 在用户工作区执行一次性排查命令；
+- 不再注册 `execute_skill` / `run_skill_script` / `workspace_shell` / `skill_draft_shell` 等隐藏别名；脚本调试只能通过 `execute(target="skill", script=...)` 的调试开关进入；
+- 选择规则：模型只使用 `execute(target=...)`（Skill 的 `entrypoint` 负责内部分发 Phase）；ASYNC Skill 的主入口由平台强制走 `execute(target="skill")`；
 
 ### 7.4 加载流程
 
@@ -493,7 +493,7 @@ flowchart TD
 
 
 
-### 7.4.1 为什么需要通用 `execute_skill`
+### 7.4.1 为什么需要通用 `execute`
 
 Skill 不是固定函数 Tool，但同步/异步必须存在一个统一的生命周期切换点。
 
@@ -503,13 +503,13 @@ Skill 不是固定函数 Tool，但同步/异步必须存在一个统一的生�
 Catalog
  -> load_skill
  -> 根据 SKILL.md 澄清/补齐输入
- -> execute_skill(skill_key, normalized_input)
+ -> execute(target="skill", skill_key=..., input=normalized_input)
  -> ExecutionRouter
 ```
 
-同步 Skill 的 `execute_skill` 在当前 Runtime 中建立 `SkillExecutionSession`，允许继续使用 `read_skill_resource/MCP`；`run_skill_script` 仅在调试开关下可用。
+同步 Skill 的 `execute(target="skill")` 在当前 Runtime 中建立 `SkillExecutionSession`，允许继续使用 `read_skill_resource/MCP`；脚本调试仅在显式调试开关下可用。
 
-异步 Skill 的 `execute_skill` 不在当前 Pod 继续跑业务步骤，而是将规范化输入与 Snapshot 提交给 Worker。这样 Agent 仍然只理解一个业务意图，且执行策略有明确的框架控制点。
+异步 Skill 的 `execute(target="skill")` 不在当前 Pod 继续跑业务步骤，而是将规范化输入与 Snapshot 提交给 Worker。这样 Agent 仍然只理解一个业务意图，且执行策略有明确的框架控制点。
 
 ### 7.5 内置任务工具
 
@@ -591,7 +591,7 @@ Pod 本地执行缓存：
 /var/cache/muad/skills/{checksum}/
 ```
 
-每次 `load_skill / execute_skill` 都调用：
+每次 `load_skill` / `execute(target="skill")` 都调用：
 
 ```python
 local_path = await skill_artifact_cache.ensure(

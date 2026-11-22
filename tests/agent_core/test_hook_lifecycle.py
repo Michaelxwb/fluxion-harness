@@ -13,7 +13,7 @@ from muad_agent_core.agent import (
 )
 from muad_agent_core.hooks import HookEvent, HookPipeline
 from muad_agent_core.model import ModelMessage, ModelResponse, ModelRole, ModelToolCall
-from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
+from muad_agent_core.tools import ToolCall, ToolDefinition, ToolEffect, ToolRegistry, ToolResult
 
 
 class ScriptedModelProvider:
@@ -53,8 +53,8 @@ def _request() -> AgentRunRequest:
 
 
 def _echo_tool(registry: ToolRegistry) -> None:
-    async def handler(arguments: dict[str, Any], *, call_id: str) -> str:
-        return "pong"
+    async def handler(arguments: dict[str, Any], *, call: ToolCall) -> ToolResult:
+        return ToolResult("pong")
 
     registry.register(
         ToolDefinition(

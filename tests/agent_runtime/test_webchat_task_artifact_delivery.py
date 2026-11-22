@@ -3,16 +3,11 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 import sqlalchemy as sa
-from muad_agent_core.tools import ToolRegistry
-from muad_api import AppError
-from muad_api.error_codes import ErrorCode
-from muad_contracts import DeliveryRouteInput
-
+from muad_agent_core.tools import ToolCall, ToolRegistry
 from muad_agent_runtime.application.attachments.publication import (
     PublicationError,
     publish_artifact_to_conversation,
@@ -30,6 +25,9 @@ from muad_agent_runtime.infrastructure.models.runtime import (
     Conversation,
     RunRecord,
 )
+from muad_api import AppError
+from muad_api.error_codes import ErrorCode
+from muad_contracts import DeliveryRouteInput
 
 from agent_runtime.conftest import TenantContext
 
@@ -219,7 +217,11 @@ async def _call(tool_set: AttachmentToolSet, name: str, arguments: dict[str, obj
     tool_set.register(registry)
     definition = registry.get(name)
     assert definition.handler is not None
-    return await definition.handler(arguments, call_id="call-1")
+    result = await definition.handler(
+        arguments,
+        call=ToolCall(call_id="call-1", name=name, arguments=arguments),
+    )
+    return result.content
 
 
 async def test_task_artifacts_are_listed_delivered_and_downloaded_in_webchat(

@@ -5,6 +5,9 @@
 `manual_pending`，需在目标环境用原始 Skill 包重跑并回填证据。  
 适用范围：`login-mssp-platform`、`mss-report-skill` 及同形态的历史 Skill。
 
+> 2026-11-21 更新：模型可见入口已统一为 `execute(target="skill", ...)`。
+> 本文中的 `execute_skill` / `run_skill_script` 只描述历史形态，不再是可调用工具。
+
 ---
 
 ## 0. 结论

@@ -530,3 +530,55 @@ async def test_cancel_command_reaches_the_worker_with_the_task_owner(factory):
     ]
     async with factory() as session:
         assert await session.scalar(text("SELECT status FROM runtime.tool_control_outbox")) == "SENT"
+
+
+async def test_recovery_view_returns_frozen_arguments(runtime_api, factory) -> None:
+    execution = await seed_execution(factory)
+    call_id = "call-1"
+    async with httpx.AsyncClient() as client:
+        submitted = await client.post(
+            runtime_api + "/internal/tool-operations",
+            headers=headers(execution.tenant_id, execution.actor_user_id),
+            json={
+                "owner": {"task_execution_id": str(execution.id)},
+                "source_tool_call_id": call_id,
+                "tool_name": "skill::s::run",
+                "input_hash": HASH,
+                "arguments": {"input": {"q": "A"}, "argv": []},
+                "completion_mode": "JOIN",
+            },
+        )
+        assert submitted.status_code == 200, submitted.text
+        operation_id = submitted.json()["data"]["operation_id"]
+
+        recovered = await client.get(
+            runtime_api + "/internal/tool-operations/recovery",
+            headers=headers(execution.tenant_id, execution.actor_user_id),
+            params={"task_execution_id": str(execution.id), "call_id": call_id},
+        )
+        assert recovered.status_code == 200, recovered.text
+        data = recovered.json()["data"]
+        assert data["operation_id"] == operation_id
+        assert data["arguments"] == {"input": {"q": "A"}, "argv": []}
+        assert data["input_hash"] == HASH
+        assert data["tool_name"] == "skill::s::run"
+        assert data["task_id"] is None
+
+
+async def test_recovery_view_missing_or_foreign_is_404(runtime_api, factory) -> None:
+    execution = await seed_execution(factory)
+    other = await seed_execution(factory)
+    async with httpx.AsyncClient() as client:
+        missing = await client.get(
+            runtime_api + "/internal/tool-operations/recovery",
+            headers=headers(execution.tenant_id, execution.actor_user_id),
+            params={"task_execution_id": str(execution.id), "call_id": "missing"},
+        )
+        assert missing.status_code == 404
+
+        foreign = await client.get(
+            runtime_api + "/internal/tool-operations/recovery",
+            headers=headers(execution.tenant_id, other.actor_user_id),
+            params={"task_execution_id": str(execution.id), "call_id": "call-1"},
+        )
+        assert foreign.status_code in (403, 404)

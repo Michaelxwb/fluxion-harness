@@ -3,6 +3,7 @@
 from dataclasses import replace
 from uuid import uuid4
 
+from muad_agent_core.tools import ToolCall
 from muad_agent_runtime.application.memory_tools import MemoryToolSet
 
 from tests.agent_runtime.memory_cache_support import queries
@@ -23,4 +24,7 @@ def tools(engine, ctx, *, memory=None, confirmation=None):
 async def recall(tool_set, arguments):
     import json
 
-    return json.loads(await tool_set.recall(arguments, call_id=uuid4().hex))
+    result = await tool_set.recall(
+        arguments, call=ToolCall(call_id=uuid4().hex, name="recall")
+    )
+    return json.loads(result.content)

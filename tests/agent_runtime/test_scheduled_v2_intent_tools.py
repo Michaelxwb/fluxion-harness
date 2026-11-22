@@ -29,7 +29,7 @@ from typing import Any, cast
 import httpx
 import pytest
 import sqlalchemy as sa
-from muad_agent_core.tools import ToolRegistry
+from muad_agent_core.tools import ToolCall, ToolError, ToolRegistry
 from muad_agent_runtime.application.task_client import TaskSubmissionContext, WorkerTaskClient
 from muad_agent_runtime.application.task_tools import (
     DELETE_SCHEDULE_TOOL,
@@ -316,8 +316,16 @@ async def _invoke(
 ) -> dict[str, Any]:
     definition = registry.get(name)
     assert definition is not None and definition.handler is not None, f"{name} is not registered"
-    payload = await definition.handler(arguments, call_id=call_id or f"call-{uuid.uuid4()}")
-    return cast(dict[str, Any], json.loads(payload))
+    call = ToolCall(
+        call_id=call_id or f"call-{uuid.uuid4()}",
+        name=name,
+        arguments=arguments,
+    )
+    try:
+        result = await definition.handler(arguments, call=call)
+    except ToolError as exc:
+        return cast(dict[str, Any], json.loads(exc.content()))
+    return cast(dict[str, Any], json.loads(result.content))
 
 
 def _internal_headers(tenant: TenantContext, **extra: str) -> dict[str, str]:
@@ -702,7 +710,8 @@ async def test_missing_timezone_asks_the_user_instead_of_defaulting(
     assert missing["error"]["code"] == "SCHEDULE_TIMEZONE_REQUIRED"
     assert "ask the user" in missing["error"]["message"]
     assert invalid["error"]["code"] == "SCHEDULE_DRAFT_INVALID"
-    assert invalid["error"]["data"]["reason"] == "INVALID_TIMEZONE"
+    assert invalid["error"]["retryable"] is True
+    assert invalid["error"]["detail"]["reason"] == "INVALID_TIMEZONE"
     assert await _count("task_schedule_draft", tenant.tenant_id) == 0
     assert await _card_events(tenant.tenant_id) == []
 
@@ -722,7 +731,8 @@ async def test_multi_customer_parameters_must_be_split_into_separate_drafts(
         await client.aclose()
 
     assert result["error"]["code"] == "SCHEDULE_DRAFT_INVALID"
-    assert result["error"]["data"] == {"reason": "MULTIPLE_TARGETS", "fields": ["customer"]}
+    assert result["error"]["retryable"] is True
+    assert result["error"]["detail"] == {"reason": "MULTIPLE_TARGETS", "fields": ["customer"]}
     assert "one schedule" in result["error"]["message"]
     assert await _count("task_schedule_draft", tenant.tenant_id) == 0
 
@@ -815,7 +825,7 @@ async def test_ambiguous_target_returns_candidates_instead_of_guessing(
         await client.aclose()
 
     assert ambiguous["error"]["code"] == "SCHEDULE_AMBIGUOUS"
-    candidate_ids = {item["schedule_id"] for item in ambiguous["error"]["data"]["candidates"]}
+    candidate_ids = {item["schedule_id"] for item in ambiguous["error"]["detail"]["candidates"]}
     assert candidate_ids == {first["schedule_id"], second["schedule_id"]}
     assert missing["error"]["code"] == "SCHEDULE_NOT_FOUND"
     assert exact["status"] == "PAUSED"
@@ -894,7 +904,7 @@ async def test_ended_or_cancelled_schedule_can_only_be_recreated(
 
     assert cancelled["status"] == "CANCELLED"
     assert update["error"]["code"] == "SCHEDULE_STATE_INVALID"
-    assert update["error"]["data"]["repair"] == "CREATE_NEW"
+    assert update["error"]["detail"]["repair"] == "CREATE_NEW"
     assert resume["error"]["code"] == "SCHEDULE_STATE_INVALID"
     assert await _count("task_schedule_draft", tenant.tenant_id) == 1, "终态目标不产生新 Draft"
 

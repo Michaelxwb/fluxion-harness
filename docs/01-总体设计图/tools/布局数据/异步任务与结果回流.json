@@ -1,0 +1,882 @@
+{
+  "name": "异步任务与结果回流",
+  "size": [
+    1200,
+    914
+  ],
+  "nodes": {
+    "U": {
+      "rect": [
+        20,
+        30,
+        160,
+        60
+      ],
+      "label": "用户",
+      "lines": [
+        "发起请求"
+      ],
+      "state": false,
+      "tone": "external"
+    },
+    "G": {
+      "rect": [
+        180,
+        30,
+        160,
+        60
+      ],
+      "label": "Gateway",
+      "lines": [
+        "接入与回复"
+      ],
+      "state": false,
+      "tone": "active"
+    },
+    "A": {
+      "rect": [
+        340,
+        30,
+        160,
+        60
+      ],
+      "label": "Runtime",
+      "lines": [
+        "受理与接续"
+      ],
+      "state": false,
+      "tone": "active"
+    },
+    "W": {
+      "rect": [
+        500,
+        30,
+        160,
+        60
+      ],
+      "label": "Worker",
+      "lines": [
+        "异步执行"
+      ],
+      "state": false,
+      "tone": "active"
+    },
+    "P": {
+      "rect": [
+        660,
+        30,
+        160,
+        60
+      ],
+      "label": "共享存储",
+      "lines": [
+        "任务、终态与结果"
+      ],
+      "state": false,
+      "tone": "active"
+    },
+    "B": {
+      "rect": [
+        820,
+        30,
+        160,
+        60
+      ],
+      "label": "平台接入",
+      "lines": [
+        "调用业务平台接口"
+      ],
+      "state": false,
+      "tone": "active"
+    },
+    "M": {
+      "rect": [
+        980,
+        30,
+        160,
+        60
+      ],
+      "label": "模型网关",
+      "lines": [
+        "生成摘要"
+      ],
+      "state": false,
+      "tone": "active"
+    }
+  },
+  "groups": {
+    "join": {
+      "rect": [
+        30,
+        110,
+        1140,
+        420
+      ],
+      "title": "JOIN｜结果回流当前 Run"
+    },
+    "detach": {
+      "rect": [
+        30,
+        550,
+        1140,
+        324
+      ],
+      "title": "DETACH｜独立执行并推送"
+    }
+  },
+  "edges": [
+    {
+      "from": "U",
+      "to": "G",
+      "points": [
+        [
+          100,
+          165
+        ],
+        [
+          260,
+          165
+        ]
+      ],
+      "label": "1 导出客户 A 近 30 天日报",
+      "both": false
+    },
+    {
+      "from": "G",
+      "to": "A",
+      "points": [
+        [
+          260,
+          189
+        ],
+        [
+          420,
+          189
+        ]
+      ],
+      "label": "2 提交日报导出 Run",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "P",
+      "points": [
+        [
+          420,
+          213
+        ],
+        [
+          740,
+          213
+        ]
+      ],
+      "label": "3 保存 Run 与快照",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "W",
+      "points": [
+        [
+          420,
+          237
+        ],
+        [
+          580,
+          237
+        ]
+      ],
+      "label": "4 提交异步任务（JOIN）",
+      "both": false
+    },
+    {
+      "from": "W",
+      "to": "P",
+      "points": [
+        [
+          580,
+          261
+        ],
+        [
+          740,
+          261
+        ]
+      ],
+      "label": "5 持久化任务受理",
+      "both": false
+    },
+    {
+      "from": "W",
+      "to": "P",
+      "points": [
+        [
+          580,
+          285
+        ],
+        [
+          740,
+          285
+        ]
+      ],
+      "label": "6 领取日报任务",
+      "both": false
+    },
+    {
+      "from": "W",
+      "to": "B",
+      "points": [
+        [
+          580,
+          309
+        ],
+        [
+          900,
+          309
+        ]
+      ],
+      "label": "7 调用平台接口取业务数据",
+      "both": false
+    },
+    {
+      "from": "B",
+      "to": "W",
+      "points": [
+        [
+          900,
+          333
+        ],
+        [
+          580,
+          333
+        ]
+      ],
+      "label": "8 返回业务数据",
+      "both": false
+    },
+    {
+      "from": "W",
+      "to": "M",
+      "points": [
+        [
+          580,
+          357
+        ],
+        [
+          1060,
+          357
+        ]
+      ],
+      "label": "9 请求模型生成摘要",
+      "both": false
+    },
+    {
+      "from": "M",
+      "to": "W",
+      "points": [
+        [
+          1060,
+          381
+        ],
+        [
+          580,
+          381
+        ]
+      ],
+      "label": "10 返回摘要",
+      "both": false
+    },
+    {
+      "from": "W",
+      "to": "P",
+      "points": [
+        [
+          580,
+          405
+        ],
+        [
+          740,
+          405
+        ]
+      ],
+      "label": "11 保存终态与日报",
+      "both": false
+    },
+    {
+      "from": "W",
+      "to": "A",
+      "points": [
+        [
+          580,
+          429
+        ],
+        [
+          420,
+          429
+        ]
+      ],
+      "label": "12 回传日报结果",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "P",
+      "points": [
+        [
+          420,
+          453
+        ],
+        [
+          740,
+          453
+        ]
+      ],
+      "label": "13 续接原 Run",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "G",
+      "points": [
+        [
+          420,
+          477
+        ],
+        [
+          260,
+          477
+        ]
+      ],
+      "label": "14 SSE 推送日报",
+      "both": false
+    },
+    {
+      "from": "G",
+      "to": "U",
+      "points": [
+        [
+          260,
+          501
+        ],
+        [
+          100,
+          501
+        ]
+      ],
+      "label": "15 显示日报结果",
+      "both": false
+    },
+    {
+      "from": "U",
+      "to": "G",
+      "points": [
+        [
+          100,
+          605
+        ],
+        [
+          260,
+          605
+        ]
+      ],
+      "label": "16 导出日报并稍后通知",
+      "both": false
+    },
+    {
+      "from": "G",
+      "to": "A",
+      "points": [
+        [
+          260,
+          629
+        ],
+        [
+          420,
+          629
+        ]
+      ],
+      "label": "17 提交日报 Run",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "W",
+      "points": [
+        [
+          420,
+          653
+        ],
+        [
+          580,
+          653
+        ]
+      ],
+      "label": "18 提交异步任务（DETACH）",
+      "both": false
+    },
+    {
+      "from": "W",
+      "to": "P",
+      "points": [
+        [
+          580,
+          677
+        ],
+        [
+          740,
+          677
+        ]
+      ],
+      "label": "19 持久化任务受理",
+      "both": false
+    },
+    {
+      "from": "W",
+      "to": "B",
+      "points": [
+        [
+          580,
+          701
+        ],
+        [
+          900,
+          701
+        ]
+      ],
+      "label": "20 调用平台接口取业务数据",
+      "both": false
+    },
+    {
+      "from": "B",
+      "to": "W",
+      "points": [
+        [
+          900,
+          725
+        ],
+        [
+          580,
+          725
+        ]
+      ],
+      "label": "21 返回业务数据",
+      "both": false
+    },
+    {
+      "from": "W",
+      "to": "M",
+      "points": [
+        [
+          580,
+          749
+        ],
+        [
+          1060,
+          749
+        ]
+      ],
+      "label": "22 请求模型生成摘要",
+      "both": false
+    },
+    {
+      "from": "M",
+      "to": "W",
+      "points": [
+        [
+          1060,
+          773
+        ],
+        [
+          580,
+          773
+        ]
+      ],
+      "label": "23 返回摘要",
+      "both": false
+    },
+    {
+      "from": "W",
+      "to": "P",
+      "points": [
+        [
+          580,
+          797
+        ],
+        [
+          740,
+          797
+        ]
+      ],
+      "label": "24 保存终态与日报",
+      "both": false
+    },
+    {
+      "from": "W",
+      "to": "G",
+      "points": [
+        [
+          580,
+          821
+        ],
+        [
+          260,
+          821
+        ]
+      ],
+      "label": "25 按入口能力投递日报",
+      "both": false
+    },
+    {
+      "from": "G",
+      "to": "U",
+      "points": [
+        [
+          260,
+          845
+        ],
+        [
+          100,
+          845
+        ]
+      ],
+      "label": "26 推送日报通知",
+      "both": false
+    }
+  ],
+  "diagram_type": "sequence",
+  "lifelines": [
+    {
+      "participant": "U",
+      "node": "U",
+      "points": [
+        [
+          100,
+          90
+        ],
+        [
+          100,
+          884
+        ]
+      ]
+    },
+    {
+      "participant": "G",
+      "node": "G",
+      "points": [
+        [
+          260,
+          90
+        ],
+        [
+          260,
+          884
+        ]
+      ]
+    },
+    {
+      "participant": "A",
+      "node": "A",
+      "points": [
+        [
+          420,
+          90
+        ],
+        [
+          420,
+          884
+        ]
+      ]
+    },
+    {
+      "participant": "W",
+      "node": "W",
+      "points": [
+        [
+          580,
+          90
+        ],
+        [
+          580,
+          884
+        ]
+      ]
+    },
+    {
+      "participant": "P",
+      "node": "P",
+      "points": [
+        [
+          740,
+          90
+        ],
+        [
+          740,
+          884
+        ]
+      ]
+    },
+    {
+      "participant": "B",
+      "node": "B",
+      "points": [
+        [
+          900,
+          90
+        ],
+        [
+          900,
+          884
+        ]
+      ]
+    },
+    {
+      "participant": "M",
+      "node": "M",
+      "points": [
+        [
+          1060,
+          90
+        ],
+        [
+          1060,
+          884
+        ]
+      ]
+    }
+  ],
+  "messages": [
+    {
+      "scenario": "join",
+      "order": 1,
+      "from": "U",
+      "to": "G",
+      "y": 165,
+      "label": "导出客户 A 近 30 天日报",
+      "reply": false
+    },
+    {
+      "scenario": "join",
+      "order": 2,
+      "from": "G",
+      "to": "A",
+      "y": 189,
+      "label": "提交日报导出 Run",
+      "reply": false
+    },
+    {
+      "scenario": "join",
+      "order": 3,
+      "from": "A",
+      "to": "P",
+      "y": 213,
+      "label": "保存 Run 与快照",
+      "reply": false
+    },
+    {
+      "scenario": "join",
+      "order": 4,
+      "from": "A",
+      "to": "W",
+      "y": 237,
+      "label": "提交异步任务（JOIN）",
+      "reply": false
+    },
+    {
+      "scenario": "join",
+      "order": 5,
+      "from": "W",
+      "to": "P",
+      "y": 261,
+      "label": "持久化任务受理",
+      "reply": false
+    },
+    {
+      "scenario": "join",
+      "order": 6,
+      "from": "W",
+      "to": "P",
+      "y": 285,
+      "label": "领取日报任务",
+      "reply": false
+    },
+    {
+      "scenario": "join",
+      "order": 7,
+      "from": "W",
+      "to": "B",
+      "y": 309,
+      "label": "调用平台接口取业务数据",
+      "reply": false
+    },
+    {
+      "scenario": "join",
+      "order": 8,
+      "from": "B",
+      "to": "W",
+      "y": 333,
+      "label": "返回业务数据",
+      "reply": true
+    },
+    {
+      "scenario": "join",
+      "order": 9,
+      "from": "W",
+      "to": "M",
+      "y": 357,
+      "label": "请求模型生成摘要",
+      "reply": false
+    },
+    {
+      "scenario": "join",
+      "order": 10,
+      "from": "M",
+      "to": "W",
+      "y": 381,
+      "label": "返回摘要",
+      "reply": true
+    },
+    {
+      "scenario": "join",
+      "order": 11,
+      "from": "W",
+      "to": "P",
+      "y": 405,
+      "label": "保存终态与日报",
+      "reply": false
+    },
+    {
+      "scenario": "join",
+      "order": 12,
+      "from": "W",
+      "to": "A",
+      "y": 429,
+      "label": "回传日报结果",
+      "reply": false
+    },
+    {
+      "scenario": "join",
+      "order": 13,
+      "from": "A",
+      "to": "P",
+      "y": 453,
+      "label": "续接原 Run",
+      "reply": false
+    },
+    {
+      "scenario": "join",
+      "order": 14,
+      "from": "A",
+      "to": "G",
+      "y": 477,
+      "label": "SSE 推送日报",
+      "reply": true
+    },
+    {
+      "scenario": "join",
+      "order": 15,
+      "from": "G",
+      "to": "U",
+      "y": 501,
+      "label": "显示日报结果",
+      "reply": true
+    },
+    {
+      "scenario": "detach",
+      "order": 16,
+      "from": "U",
+      "to": "G",
+      "y": 605,
+      "label": "导出日报并稍后通知",
+      "reply": false
+    },
+    {
+      "scenario": "detach",
+      "order": 17,
+      "from": "G",
+      "to": "A",
+      "y": 629,
+      "label": "提交日报 Run",
+      "reply": false
+    },
+    {
+      "scenario": "detach",
+      "order": 18,
+      "from": "A",
+      "to": "W",
+      "y": 653,
+      "label": "提交异步任务（DETACH）",
+      "reply": false
+    },
+    {
+      "scenario": "detach",
+      "order": 19,
+      "from": "W",
+      "to": "P",
+      "y": 677,
+      "label": "持久化任务受理",
+      "reply": false
+    },
+    {
+      "scenario": "detach",
+      "order": 20,
+      "from": "W",
+      "to": "B",
+      "y": 701,
+      "label": "调用平台接口取业务数据",
+      "reply": false
+    },
+    {
+      "scenario": "detach",
+      "order": 21,
+      "from": "B",
+      "to": "W",
+      "y": 725,
+      "label": "返回业务数据",
+      "reply": true
+    },
+    {
+      "scenario": "detach",
+      "order": 22,
+      "from": "W",
+      "to": "M",
+      "y": 749,
+      "label": "请求模型生成摘要",
+      "reply": false
+    },
+    {
+      "scenario": "detach",
+      "order": 23,
+      "from": "M",
+      "to": "W",
+      "y": 773,
+      "label": "返回摘要",
+      "reply": true
+    },
+    {
+      "scenario": "detach",
+      "order": 24,
+      "from": "W",
+      "to": "P",
+      "y": 797,
+      "label": "保存终态与日报",
+      "reply": false
+    },
+    {
+      "scenario": "detach",
+      "order": 25,
+      "from": "W",
+      "to": "G",
+      "y": 821,
+      "label": "按入口能力投递日报",
+      "reply": false
+    },
+    {
+      "scenario": "detach",
+      "order": 26,
+      "from": "G",
+      "to": "U",
+      "y": 845,
+      "label": "推送日报通知",
+      "reply": true
+    }
+  ]
+}

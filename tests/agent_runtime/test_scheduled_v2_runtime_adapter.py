@@ -34,7 +34,7 @@ from muad_agent_core.agent import (
 from muad_agent_core.agent.continuation import RunnerCheckpoint
 from muad_agent_core.hooks import HookEvent, HookPipeline
 from muad_agent_core.model import ModelMessage, ModelRole, ModelToolCall
-from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
+from muad_agent_core.tools import ToolCall, ToolDefinition, ToolEffect, ToolRegistry, ToolResult
 from muad_agent_core.tools.pipeline import ToolExecutionPipeline
 from muad_agent_runtime.application import executor as executor_module
 from muad_agent_runtime.application.async_tools.continuation_service import ExecutionIdentity
@@ -138,16 +138,16 @@ class RuntimeAdapterHarness:
         self._suspension.checkpoints = observation.checkpoints
         self._suspension.order = observation.order
 
-        async def remember(arguments: dict[str, Any], *, call_id: str) -> str:
-            observation.executed.append(call_id)
+        async def remember(arguments: dict[str, Any], *, call: ToolCall) -> ToolResult:
+            observation.executed.append(call.call_id)
             receipt = await memory.propose(
-                RememberMemoryInput.model_validate(arguments), call_id=call_id
+                RememberMemoryInput.model_validate(arguments), call_id=call.call_id
             )
-            return receipt.model_dump_json()
+            return ToolResult(receipt.model_dump_json())
 
-        async def echo(arguments: dict[str, Any], *, call_id: str) -> str:
-            observation.executed.append(call_id)
-            return "ok"
+        async def echo(arguments: dict[str, Any], *, call: ToolCall) -> ToolResult:
+            observation.executed.append(call.call_id)
+            return ToolResult("ok")
 
         registry = ToolRegistry()
         registry.register(
@@ -219,19 +219,19 @@ class RuntimeAdapterHarness:
         hooks.register(HookEvent.ON_INTERRUPT, on_interrupt)
         assistant, completed = round_callbacks(self._factory, self._run)
 
-        async def on_assistant(message: ModelMessage) -> None:
+        async def on_assistant(turn) -> None:
             observation.order.append("assistant")
-            await assistant(message)
+            await assistant(turn)
 
-        async def on_tool_started(call_id: str, name: str) -> None:
+        async def on_tool_prepared(prepared) -> None:
             observation.order.append("tool_started")
 
-        async def on_tool_completed(
-            call_id: str, name: str, status: str, artifact_id: str | None, text: str | None
-        ) -> None:
+        async def on_tool_completed(event) -> None:
             observation.order.append("tool_completed")
-            observation.tool_results.append((call_id, name, status, text or ""))
-            await completed(call_id, name, status, artifact_id, text)
+            observation.tool_results.append(
+                (event.tool_call_id, event.tool_name, event.status, event.content)
+            )
+            await completed(event)
 
         runner = AgentRunner(
             provider=provider,
@@ -258,7 +258,7 @@ class RuntimeAdapterHarness:
                 ),
                 is_cancelled=(lambda: True) if plan.cancel else None,
                 on_assistant_turn=on_assistant,
-                on_tool_started=on_tool_started,
+                on_tool_prepared=on_tool_prepared,
                 on_tool_completed=on_tool_completed,
                 checkpoint=checkpoint,
             )

@@ -1,0 +1,35 @@
+sequenceDiagram
+  participant U as 用户
+  participant G as Gateway
+  participant A as Runtime 甲
+  participant B as Runtime 乙
+  participant P as 共享存储
+  participant M as 外部模型网关
+  rect rgb(251, 252, 254)
+    Note over U,M: 第一轮｜解释告警含义（纯模型对话）
+    U->>G: 1 问这条告警是什么意思
+    G->>A: 2 校验身份后提交 Run
+    A->>P: 3 保存会话与快照
+    A->>P: 4 领取执行权
+    P-->>A: 5 返回会话历史
+    A->>M: 6 请求模型解释
+    M-->>A: 7 返回解释
+    A->>P: 8 写入回答事件
+    A-->>G: 9 SSE 推送解释
+    G-->>U: 10 显示解释
+    U->>G: 11 断网后重连
+    G->>P: 12 读取确认序号之后
+    P-->>G: 13 返回持久事件
+    G-->>U: 14 继续显示解释
+    Note over U,M: 本流程只调用模型，不调用 Skill、MCP 或工具；工具类请求见同步 Skill 执行。
+  end
+  rect rgb(251, 252, 254)
+    Note over U,M: 第二轮｜断网重连后追问 80 端口
+    U->>G: 15 追问 80 端口
+    G->>B: 16 校验后提交新 Run
+    B->>M: 17 请求模型回答追问
+    M-->>B: 18 返回追问回答
+    B-->>G: 19 SSE 推送追问结果
+    G-->>U: 20 显示追问结果
+    Note over U,M: 断线不取消 Run；重连按持久序号回放，不重建 Run；下一轮可以落到另一实例。
+  end

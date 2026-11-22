@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.runtime import CanonicalEvent, RunRecord
 
-SKILL_TOOLS = frozenset({"execute", "execute_skill", "run_skill_script"})
+SKILL_TOOLS = frozenset({"execute"})
 ASSISTANT_TURN = "ASSISTANT_TURN"
 TOOL_CALL = "TOOL_CALL"
 SUCCESS_STATUS = "OK"

@@ -26,7 +26,17 @@ import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any
 
-from muad_agent_core.tools import ToolConcurrency, ToolDefinition, ToolEffect, ToolHandler, ToolRegistry
+from muad_agent_core.tools import (
+    ToolCall,
+    ToolCapability,
+    ToolConcurrency,
+    ToolDefinition,
+    ToolEffect,
+    ToolError,
+    ToolHandler,
+    ToolRegistry,
+    ToolResult,
+)
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import (
@@ -267,14 +277,34 @@ _PROMOTE_ARGS: Mapping[str, Any] = {
 }
 
 
-class TaskToolError(RuntimeError):
+class TaskToolError(ToolError):
     """工具面的稳定失败：`code` 进模型上下文，`data` 只放可公开的结构化提示。"""
 
-    def __init__(self, code: str, message: str, data: dict[str, Any] | None = None) -> None:
-        self.code = code
-        self.message = message
+    #: 带结构化字段但属于环境/内部失败：不可纠正，模型重试也不会成功。
+    _NON_RETRYABLE_DATA_CODES = frozenset(
+        {
+            ErrorCode.COMMON_INTERNAL_ERROR.value,
+            ErrorCode.PLATFORM_SETTINGS_UNAVAILABLE.value,
+        }
+    )
+
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        data: dict[str, Any] | None = None,
+        *,
+        retryable: bool | None = None,
+    ) -> None:
+        if retryable is None and data:
+            retryable = code not in self._NON_RETRYABLE_DATA_CODES
+        super().__init__(
+            code,
+            message,
+            detail=data,
+            retryable=retryable,
+        )
         self.data = data
-        super().__init__(message)
 
 
 def _schema(properties: Mapping[str, Any], required: Sequence[str]) -> dict[str, Any]:
@@ -284,13 +314,6 @@ def _schema(properties: Mapping[str, Any], required: Sequence[str]) -> dict[str,
         "required": list(required),
         "additionalProperties": False,
     }
-
-
-def _error(code: str, message: str, data: Mapping[str, Any] | None = None) -> str:
-    body: dict[str, Any] = {"code": code, "message": message}
-    if data:
-        body["data"] = dict(data)
-    return json.dumps({"error": body}, ensure_ascii=False)
 
 
 def _uuid_arg(arguments: Mapping[str, Any], key: str) -> uuid.UUID:
@@ -433,13 +456,14 @@ class BackgroundTaskToolSet:
             registry.register(definition)
 
     def _wrap(self, handler: Handler) -> ToolHandler:
-        async def run(arguments: Mapping[str, Any], *, call_id: str) -> str:
+        async def run(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
             try:
-                return json.dumps(await handler(arguments, call_id=call_id), ensure_ascii=False, default=str)
-            except TaskToolError as exc:
-                return _error(exc.code, exc.message, exc.data)
+                payload = await handler(arguments, call_id=call.call_id)
+            except TaskToolError:
+                raise
             except AppError as exc:
-                return _error(str(exc.code), str(exc.code))
+                raise ToolError(str(exc.code), str(exc.code)) from exc
+            return ToolResult(json.dumps(payload, ensure_ascii=False, default=str))
 
         return run
 
@@ -451,6 +475,7 @@ class BackgroundTaskToolSet:
                 input_schema=schema,
                 effect=effect,
                 handler=self._wrap(handler),
+                capabilities=frozenset({ToolCapability.TASK_QUERY}),
                 concurrency=concurrency,
                 resource_key=resource_key,
             )

@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import sqlalchemy as sa
 from muad_agent_core.model import ModelMessage, ModelRole, ModelToolCall
+from muad_agent_core.tools import AssistantTurn, ToolCall, ToolCompleted, not_applicable_outcome
 from muad_agent_runtime.application.context_settings import frozen_learning_payload, learning_of
 from muad_agent_runtime.application.executor import _ExecutorEventEmitter, skill_family_from_tool_calls
 from muad_agent_runtime.application.memory_cache import MemoryCandidateCache
@@ -24,11 +25,15 @@ AGENT_ID = uuid.uuid4()
 
 
 def test_skill_family_from_tool_calls() -> None:
-    call = ModelToolCall(id="c1", name="execute_skill", arguments={"skill_key": "demo", "input": {}})
-    script = ModelToolCall(id="c2", name="run_skill_script", arguments={"skill_key": "demo"})
-    unrelated = ModelToolCall(id="c3", name="load_skill", arguments={"skill_key": "demo"})
+    call = ModelToolCall(
+        id="c1",
+        name="execute",
+        arguments={"target": "skill", "skill_key": "demo", "input": {}},
+    )
+    alias = ModelToolCall(id="c2", name="run_skill_script", arguments={"skill_key": "demo"})
+    unrelated = ModelToolCall(id="c3", name="load_skill", arguments={"target": "skill", "skill_key": "demo"})
     assert skill_family_from_tool_calls([call]) == "skill:demo"
-    assert skill_family_from_tool_calls([unrelated, script]) == "skill:demo"
+    assert skill_family_from_tool_calls([unrelated, alias]) is None
     assert skill_family_from_tool_calls([unrelated]) is None
     assert skill_family_from_tool_calls([]) is None
 
@@ -149,21 +154,47 @@ async def test_emitter_switches_task_family_only_after_successful_skill_turn() -
 
     emitter.emit = _noop  # type: ignore[method-assign]
     await emitter.on_assistant_turn(
-        ModelMessage(
-            role=ModelRole.ASSISTANT,
-            content="",
-            tool_calls=[ModelToolCall(id="c1", name="execute_skill", arguments={"skill_key": "demo"})],
+        AssistantTurn(
+            ModelMessage(
+                role=ModelRole.ASSISTANT,
+                content="",
+                tool_calls=[
+                    ModelToolCall(
+                        id="c1",
+                        name="execute",
+                        arguments={"target": "skill", "skill_key": "demo"},
+                    )
+                ],
+            ),
+            (
+                ToolCall(
+                    "c1", "execute", "execute", {"target": "skill", "skill_key": "demo"}
+                ),
+            ),
         )
     )
     assert calls == []
-    await emitter.on_tool_completed("c1", "execute_skill", "ERROR", None, None)
+    await emitter.on_tool_completed(
+        ToolCompleted("c1", "execute", "ERROR", not_applicable_outcome(), "")
+    )
     assert calls == []
     await emitter.on_assistant_turn(
-        ModelMessage(
-            role=ModelRole.ASSISTANT,
-            content="",
-            tool_calls=[ModelToolCall(id="c2", name="execute_skill", arguments={"skill_key": "demo"})],
+        AssistantTurn(
+            ModelMessage(
+                role=ModelRole.ASSISTANT,
+                content="",
+                tool_calls=[
+                    ModelToolCall(
+                        id="c2",
+                        name="execute",
+                        arguments={"target": "skill", "skill_key": "demo"},
+                    )
+                ],
+            ),
+            (ToolCall("c2", "execute", "execute", {"target": "skill", "skill_key": "demo"}),),
         )
     )
-    await emitter.on_tool_completed("c2", "execute_skill", "OK", None, None)
+    await emitter.on_tool_completed(
+        ToolCompleted("c2", "execute", "OK", not_applicable_outcome(), "")
+    )
     assert calls == ["skill:demo"]

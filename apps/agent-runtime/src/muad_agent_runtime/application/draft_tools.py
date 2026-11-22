@@ -18,10 +18,10 @@ from __future__ import annotations
 
 import json
 from collections.abc import Awaitable, Callable, Mapping
-from typing import Any
+from typing import Any, NoReturn
 
 from muad_agent_core.skill.draft_shell import DraftShellChange, DraftShellError
-from muad_agent_core.tools import ToolDefinition, ToolEffect
+from muad_agent_core.tools import ToolCall, ToolDefinition, ToolEffect, ToolError, ToolResult
 
 from .draft_import import ArtifactPackageReader, PackageImportError, extract_package_members
 from .skill_draft_client import ConsoleSkillDraftClient
@@ -109,11 +109,8 @@ def _optional_int(arguments: Mapping[str, Any], key: str) -> int | None:
 
 def _error_result(
     code: str, message: str, data: Mapping[str, Any] | None = None
-) -> str:
-    error: dict[str, Any] = {"code": code, "message": message}
-    if data:
-        error["data"] = dict(data)
-    return json.dumps({"error": error}, ensure_ascii=False)
+) -> NoReturn:
+    raise ToolError(code, message, detail=data)
 
 
 class SkillDraftTools:
@@ -160,16 +157,16 @@ class SkillDraftTools:
             ),
         )
 
-    async def dispatch(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+    async def dispatch(self, arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
         action = arguments.get("action")
         if action not in DRAFT_ACTIONS:
-            return _error_result(
+            raise ToolError(
                 "COMMON_VALIDATION_ERROR", f"unsupported draft action: {action!r}"
             )
         handler: Callable[..., Awaitable[str]] = getattr(
             self, _ACTION_METHODS.get(str(action), str(action))
         )
-        return await handler(arguments, call_id=call_id)
+        return ToolResult(await handler(arguments, call_id=call.call_id))
 
     async def _resolve_draft(self, arguments: Mapping[str, Any]) -> tuple[str, int | None]:
         """draft_id 或 key 二选一；key 走幂等 create 解析成 draft_id 与当前 revision。

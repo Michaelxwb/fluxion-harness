@@ -330,6 +330,7 @@ def check_plan_materials(
         check_skill_plan(payload)
         return (f"SKILL:{skill.skill_id}:{skill.key}",)
     if isinstance(payload, AgentTurnPayload):
+        follows_owner = not payload.tools_allow or payload.tools_allow == ["*"]
         entries = payload.allowlist_entries()
         missing = [
             allowlist_key(entry)
@@ -345,8 +346,16 @@ def check_plan_materials(
                     "dependencies": missing,
                 },
             )
+        if follows_owner:
+            return tuple(_material_key(tool) for tool in materials.tools)
         return tuple(allowlist_key(entry) for entry in entries)
     return ()
+
+
+def _material_key(tool: ScheduleToolMaterials) -> str:
+    if tool.source == "MCP" and tool.server_key:
+        return f"MCP:{tool.server_key}:{tool.tool_name}"
+    return f"SKILL:{tool.skill_id}:{tool.tool_name}"
 
 
 def materials_error(exc: ScheduleMaterialsError) -> AppError:

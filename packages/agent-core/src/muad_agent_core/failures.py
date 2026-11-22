@@ -35,7 +35,7 @@ class _Hint:
 def failure_hint(
     code: str | None,
     *,
-    locale: str = "zh-CN",
+    locale: str | None = "zh-CN",
     tool: str | None = None,
 ) -> FailureHint:
     """Return a localized hint for ``code``; unknown codes get a generic one.

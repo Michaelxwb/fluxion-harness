@@ -1,0 +1,23 @@
+sequenceDiagram
+  participant U as 用户
+  participant G as Gateway
+  participant A as Runtime
+  participant W as Worker
+  participant P as 共享存储
+  rect rgb(251, 252, 254)
+    Note over U,P: 取消当前请求｜分析中停止并补充条件
+    U->>G: 1 点击停止 / 发送 /stop
+    G->>A: 2 转发停止请求
+    A->>P: 3 记录取消意图
+    A->>W: 4 取消未受理的异步提交
+    A->>P: 5 取消未结束的等待
+    A->>G: 6 返回已取消
+    G-->>U: 7 确认当前请求已停止
+    U->>G: 8 补充：只看最近 7 天
+    G->>A: 9 请求恢复
+    A->>P: 10 重新排队并领取
+    P-->>A: 11 返回原快照
+    A-->>G: 12 SSE 推送新结果
+    G-->>U: 13 显示最近 7 天结果
+    Note over U,P: 这是 Run 级取消，入口可以是 WebChat 停止按钮或 IM /stop；不是定时任务取消。
+  end

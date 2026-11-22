@@ -5,6 +5,9 @@
 范围：用户自建 Skill 的草稿、审查、上传、审批、执行沙箱、通用 workspace_shell，以及 macOS Dev / 本地 K8s / 内网 Linux K8s 三端运行方式。
 手动测试证据：[`evidence/sandbox-2026-11-06/`](evidence/sandbox-2026-11-06/)
 
+> 2026-11-21 更新：模型可见入口已统一为 `execute(target="skill"|"draft"|"workspace", ...)`；
+> 文中 `workspace_shell` / `skill_draft_shell` / `execute_skill` 仅指历史内部实现名。
+
 ---
 
 ## 0. 结论

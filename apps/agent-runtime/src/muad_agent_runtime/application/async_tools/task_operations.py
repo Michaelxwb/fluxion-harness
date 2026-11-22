@@ -13,6 +13,7 @@ from muad_contracts import (
     TaskToolOperationCancelRequest,
     TaskToolOperationCancelResponse,
     TaskToolOperationOwner,
+    TaskToolOperationRecoveryView,
     TaskToolOperationResult,
     TaskToolOperationSubmitRequest,
     TaskToolOperationView,
@@ -314,6 +315,45 @@ async def list_operations(
         )
     )
     return [await view(session, operation) for operation in operations], total
+
+
+async def get_recovery(
+    session: AsyncSession,
+    *,
+    tenant_id: str,
+    actor_user_id: UUID,
+    task_execution_id: UUID,
+    call_id: str,
+) -> TaskToolOperationRecoveryView:
+    """Owner 恢复视图：只返回该执行该调用的冻结参数与身份。"""
+    await require_task_execution(
+        session,
+        tenant_id=tenant_id,
+        task_execution_id=task_execution_id,
+        actor_user_id=actor_user_id,
+    )
+    operation = await _find_by_call(
+        session,
+        tenant_id=tenant_id,
+        task_execution_id=task_execution_id,
+        source_tool_call_id=call_id,
+        for_update=False,
+    )
+    if operation is None:
+        raise AppError(ErrorCode.COMMON_NOT_FOUND)
+    submission = operation.submission_json or {}
+    raw_arguments = submission.get("arguments") if isinstance(submission, dict) else None
+    arguments = dict(raw_arguments) if isinstance(raw_arguments, dict) else {}
+    raw_tool_name = submission.get("tool_name") if isinstance(submission, dict) else None
+    tool_name = raw_tool_name if isinstance(raw_tool_name, str) else None
+    return TaskToolOperationRecoveryView(
+        operation_id=operation.id,
+        status=operation.status,
+        task_id=operation.task_id,
+        tool_name=tool_name,
+        arguments=arguments,
+        input_hash=operation.input_hash,
+    )
 
 
 async def get_operation(

@@ -37,6 +37,7 @@ async def record_summary(
     transcript_artifact_id: str | None,
     bytes_before: int,
     bytes_after: int,
+    protected_event_ids: Sequence[str] = (),
     submission_id: uuid.UUID | None = None,
 ) -> int:
     """摘要事件：`covers_up_to_seq` 表示"seq ≤ 该值的原始事件已被这份摘要覆盖"。"""
@@ -51,6 +52,7 @@ async def record_summary(
             "transcript_artifact_id": transcript_artifact_id,
             "bytes_before": bytes_before,
             "bytes_after": bytes_after,
+            "protected_event_ids": list(protected_event_ids),
         },
         submission_id=submission_id,
     )
@@ -118,6 +120,13 @@ async def summary_through(
         await rows.close()
 
 
+def protected_event_ids(payload: Mapping[str, Any] | None) -> tuple[str, ...]:
+    raw = (payload or {}).get("protected_event_ids")
+    if not isinstance(raw, list):
+        return ()
+    return tuple(item for item in raw if isinstance(item, str) and item)
+
+
 def covered_up_to(payload: Mapping[str, Any] | None) -> int:
     """摘要事件覆盖到的 seq；形状不对时返回 0（等于"什么都没覆盖"），不抛。"""
     value = (payload or {}).get("covers_up_to_seq")
@@ -128,6 +137,7 @@ __all__ = [
     "CONTEXT_COMPACTED_EVENT",
     "CONTEXT_SUMMARY_EVENT",
     "covered_up_to",
+    "protected_event_ids",
     "latest_summary",
     "record_compaction",
     "record_summary",

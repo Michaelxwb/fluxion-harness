@@ -26,7 +26,7 @@ from typing import Any, cast
 import httpx
 import pytest
 import sqlalchemy as sa
-from muad_agent_core.tools import ToolRegistry
+from muad_agent_core.tools import ToolCall, ToolError, ToolRegistry
 from muad_agent_runtime.application.schedule_promotion import (
     bind_dates,
     date_bindings,
@@ -339,8 +339,16 @@ async def _invoke(
 ) -> dict[str, Any]:
     definition = registry.get(name)
     assert definition is not None and definition.handler is not None
-    payload = await definition.handler(arguments, call_id=f"call-{uuid.uuid4()}")
-    return cast(dict[str, Any], json.loads(payload))
+    call = ToolCall(
+        call_id=f"call-{uuid.uuid4()}",
+        name=name,
+        arguments=arguments,
+    )
+    try:
+        result = await definition.handler(arguments, call=call)
+    except ToolError as exc:
+        return cast(dict[str, Any], json.loads(exc.content()))
+    return cast(dict[str, Any], json.loads(result.content))
 
 
 def _promote_args(run_id: uuid.UUID) -> dict[str, Any]:

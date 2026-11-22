@@ -163,18 +163,20 @@ async def model_endpoint(tool_calls, *, on_request=None, fail_first=False):
 
 def runner_round(factory, run, memory, provider):
     from muad_agent_core.agent import AgentRunner
-    from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
+    from muad_agent_core.tools import ToolCall, ToolDefinition, ToolEffect, ToolRegistry, ToolResult
     from muad_agent_core.tools.pipeline import ToolExecutionPipeline
     from muad_contracts.memory import RememberMemoryInput
 
-    async def remember(arguments, *, call_id):
-        receipt = await memory.propose(RememberMemoryInput.model_validate(arguments), call_id=call_id)
-        return receipt.model_dump_json()
+    async def remember(arguments, *, call: ToolCall):
+        receipt = await memory.propose(
+            RememberMemoryInput.model_validate(arguments), call_id=call.call_id
+        )
+        return ToolResult(receipt.model_dump_json())
 
-    async def echo(arguments, *, call_id):
+    async def echo(arguments, *, call: ToolCall):
         current, interrupts, saved, _ = await state(factory, run)
         assert current.status == "RUNNING" and interrupts == [] and saved is None
-        return "echo finished before pause"
+        return ToolResult("echo finished before pause")
 
     registry = ToolRegistry()
     registry.register(
@@ -230,7 +232,9 @@ def round_recorder(factory, run):
 def round_callbacks(factory, run):
     from muad_agent_core.model import text_of
 
-    async def assistant(message):
+    async def assistant(turn):
+        message = turn.message
+        names = {call.call_id: call.name for call in turn.calls}
         async with factory.begin() as session:
             await EventWriter(session).append(
                 tenant_id=run.tenant_id,
@@ -239,11 +243,18 @@ def round_callbacks(factory, run):
                 event_type="ASSISTANT_TURN",
                 payload={
                     "text": text_of(message.content),
-                    "tool_calls": [{"id": call.id, "name": call.name} for call in message.tool_calls],
+                    "tool_calls": [
+                        {
+                            "id": call.id,
+                            "name": call.name,
+                            "registry_name": names.get(call.id),
+                        }
+                        for call in message.tool_calls
+                    ],
                 },
             )
 
-    async def completed(call_id, name, status, artifact_id, result_text):
+    async def completed(event):
         async with factory.begin() as session:
             await EventWriter(session).append(
                 tenant_id=run.tenant_id,
@@ -251,10 +262,10 @@ def round_callbacks(factory, run):
                 run_id=run.id,
                 event_type="TOOL_CALL",
                 payload={
-                    "tool_call_id": call_id,
-                    "tool_name": name,
-                    "preview": result_text,
-                    "status": status,
+                    "tool_call_id": event.tool_call_id,
+                    "tool_name": event.tool_name,
+                    "preview": event.content,
+                    "status": event.status,
                 },
             )
 

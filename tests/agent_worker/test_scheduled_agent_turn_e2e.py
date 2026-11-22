@@ -360,7 +360,7 @@ async def test_confirmed_agent_turn_runs_with_frozen_prompt_tools_budget_and_sil
             provider_factory=factory,
             clock=lambda: NOW,
         )
-        executor = AgenticTaskExecutor(deps=deps, skill_runner=lambda task, suspension: None)
+        executor = AgenticTaskExecutor(deps=deps, skill_runner=lambda task, suspension, egress: None)
         factory.script = [
             tool_call_reply(ModelToolCall("call-1", "current_time", {})),
             tool_call_reply(ModelToolCall("call-2", "list_tasks", {"limit": 5})),

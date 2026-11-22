@@ -1,0 +1,38 @@
+sequenceDiagram
+  participant U as 用户/管理员
+  participant A as Runtime
+  participant W as Worker
+  participant P as 共享存储
+  participant B as 平台接入
+  participant M as 模型网关
+  participant G as Gateway
+  rect rgb(251, 252, 254)
+    Note over U,G: 定时任务｜每天 9 点导出日报
+    U->>A: 1 设置每天 9 点导出日报
+    A->>P: 2 保存定时计划
+    W->>P: 3 到点领取日报计划
+    W->>P: 4 复核授权与 Skill 版本
+    W->>P: 5 创建日报任务
+    W->>B: 6 调用平台接口取业务数据
+    B-->>W: 7 返回业务数据
+    W->>M: 8 请求模型生成摘要
+    M-->>W: 9 返回摘要
+    W->>P: 10 保存日报终态
+    W->>G: 11 入口支持 PUSH 时投递
+    G-->>U: 12 到点后推送日报
+    Note over U,G: Worker 执行 Skill 时先经平台接入取业务数据，再经模型网关生成摘要；入口支持 PUSH 时才投递。
+  end
+  rect rgb(251, 252, 254)
+    Note over U,G: 批量任务｜同时检查客户 A/B/C
+    U->>A: 13 同时检查客户 A/B/C
+    A->>W: 14 创建三个子任务
+    W->>P: 15 持久化任务树
+    W->>B: 16 并行调用平台接口
+    B-->>W: 17 返回三家业务数据
+    W->>M: 18 请求模型汇总
+    M-->>W: 19 返回汇总摘要
+    W->>P: 20 汇总三份结果
+    W->>G: 21 入口支持 PUSH 时投递
+    G-->>U: 22 显示三份结果
+    Note over U,G: 批量用父子任务扇出与汇总；子任务同样经平台接入和模型网关。
+  end

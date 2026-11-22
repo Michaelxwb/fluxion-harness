@@ -11,10 +11,10 @@ description: 验证 smoke_platform 登录态与业务请求链路的示例 Skill
 
 ## 执行方式
 
-模型只调用 `execute_skill`：
+模型只调用统一的 `execute`（`target="skill"`）：
 
 ```text
-execute_skill(skill_key="smoke-platform-sample")
+execute(target="skill", skill_key="smoke-platform-sample")
 ```
 
 脚本会：

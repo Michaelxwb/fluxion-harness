@@ -31,7 +31,7 @@ from muad_agent_core.agent import AgentRunner
 from muad_agent_core.hooks import HookPipeline
 from muad_agent_core.memory.render import EXPERIENCE_NOTICE
 from muad_agent_core.model import ModelProvider, OpenAICompatibleProvider
-from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
+from muad_agent_core.tools import ToolCall, ToolDefinition, ToolEffect, ToolRegistry, ToolResult
 from muad_agent_runtime.api.deps import (
     get_credentials_client,
     get_executor_factory,
@@ -146,8 +146,8 @@ async def _seed(tenant: TenantContext) -> None:
 def _registry() -> ToolRegistry:
     registry = ToolRegistry()
 
-    async def handler(arguments: Mapping[str, Any], *, call_id: str) -> str:
-        return RESULT_TEXT
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        return ToolResult(RESULT_TEXT)
 
     registry.register(
         ToolDefinition(
@@ -373,7 +373,10 @@ async def test_e06_injected_memory_is_verbatim_while_micro_degrades_tools(
         await _script_tool_round(probe)
         await _send(client, tenant, "第一轮：帮我 dump 一份内容")
         first_tool = _tool_texts(await _last_request(probe))
-        assert first_tool and first_tool[-1].startswith('{"artifact"'), "前置条件：结果确实被外置了"
+        assert first_tool and (
+            first_tool[-1].startswith('{"artifact"')
+            or "read_attachment" in first_tool[-1]
+        ), "前置条件：结果确实被外置了（原文或 micro 占位都可证）"
 
         await _send(client, tenant, "第二轮：接着聊")
         body = await _last_request(probe)

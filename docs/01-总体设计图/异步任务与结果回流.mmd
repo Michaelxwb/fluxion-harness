@@ -1,0 +1,42 @@
+sequenceDiagram
+  participant U as 用户
+  participant G as Gateway
+  participant A as Runtime
+  participant W as Worker
+  participant P as 共享存储
+  participant B as 平台接入
+  participant M as 模型网关
+  rect rgb(251, 252, 254)
+    Note over U,M: JOIN｜结果回流当前 Run
+    U->>G: 1 导出客户 A 近 30 天日报
+    G->>A: 2 提交日报导出 Run
+    A->>P: 3 保存 Run 与快照
+    A->>W: 4 提交异步任务（JOIN）
+    W->>P: 5 持久化任务受理
+    W->>P: 6 领取日报任务
+    W->>B: 7 调用平台接口取业务数据
+    B-->>W: 8 返回业务数据
+    W->>M: 9 请求模型生成摘要
+    M-->>W: 10 返回摘要
+    W->>P: 11 保存终态与日报
+    W->>A: 12 回传日报结果
+    A->>P: 13 续接原 Run
+    A-->>G: 14 SSE 推送日报
+    G-->>U: 15 显示日报结果
+    Note over U,M: Worker 先经平台接入取业务数据，再经模型网关生成摘要；结果回传 Runtime 续接原 Run。
+  end
+  rect rgb(251, 252, 254)
+    Note over U,M: DETACH｜独立执行并推送
+    U->>G: 16 导出日报并稍后通知
+    G->>A: 17 提交日报 Run
+    A->>W: 18 提交异步任务（DETACH）
+    W->>P: 19 持久化任务受理
+    W->>B: 20 调用平台接口取业务数据
+    B-->>W: 21 返回业务数据
+    W->>M: 22 请求模型生成摘要
+    M-->>W: 23 返回摘要
+    W->>P: 24 保存终态与日报
+    W->>G: 25 按入口能力投递日报
+    G-->>U: 26 推送日报通知
+    Note over U,M: DETACH 独立完成；只有入口支持 PUSH 时才投递，WebChat 结果留在会话或任务中心。
+  end
