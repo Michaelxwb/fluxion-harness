@@ -72,27 +72,48 @@ Skill
 
 ## 4. 文档结构
 
-- `00-详细设计索引与设计基线.md`
-- `01-总体设计说明书.md`（总体设计 V1.5）
-- `01-总体设计图/`（总体设计配图与生成脚本）
-- `02-核心领域与数据库详细设计.md`
-- `03-Console-Platform详细设计.md`
-- `04-Agent-Runtime详细设计.md`
-- `05-IM-Gateway详细设计.md`
-- `06-Skill-SDK与Egress-Boundary详细设计.md`
-- `07-跨模块接口与协议详细设计.md`
-- `08-关键流程时序与状态机详细设计.md`
-- `09-DFX安全可靠性测试验收详细设计.md`
-- `10-Agent-Worker与异步任务详细设计.md`
-- `11-V1.2评审修订说明.md`（历史）
-- `12-项目平台适配与Session详细设计.md`
-- `13-V1.3评审修订说明.md`
-- `14-用户范围与能力授权模型详细说明.md`
-- `15-Console字段词典与一致性规范.md`
-- `16-数据库接口与Artifact-Store复审修订说明.md`
-- `17-V1.4评审修订说明.md`
+完整分类、目标目录与迁移状态见 `00-详细设计索引与设计基线.md`。
 
+能力 → 代码落点与 owner 见 `operations/engineering-map.md`（研发导航，非设计基线）。
+
+### 项目基础文档
+
+- `00-详细设计索引与设计基线.md`
+- `01-总体设计说明书.md`
+- `01-总体设计图/`
+- `基础文档/02-核心领域与数据库.md`
+- `基础文档/07-跨模块接口与协议.md`
+- `基础文档/08-关键流程时序与状态机.md`
+- `基础文档/09-DFX安全可靠性与测试.md`
+- `基础文档/14-授权模型.md`
+- `基础文档/15-Console字段词典.md`
+- `configuration-inventory.md`
+
+### 基础模块文档（框架层）
+
+- `基础模块/03-Console-Platform.md`
+- `基础模块/04-Agent-Runtime.md`
+- `基础模块/05-IM-Gateway与Connector.md`
+- `基础模块/06-执行内核与Skill运行时.md`
+- `基础模块/10-Agent-Worker与异步任务.md`
+- `基础模块/12-平台接入与Session.md`
+
+### 核心功能文档（业务层）
+
+- 20 Agent、授权与 Skill（待建）
+- 21 MCP 与模型能力（待建）
+- 22 对话、Run、任务与调度（待建）
+- 23 结果与附件投递（待建）
+- 24 记忆、经验、审计与可观测（待建）
+
+### 历史与规划
+
+- `历史/11-V1.2评审修订说明.md`
+- `历史/13-V1.3评审修订说明.md`
+- `历史/16-数据库接口与Artifact-Store复审修订说明.md`
+- `历史/17-V1.4评审修订说明.md`
+- `规划/18-浏览器引擎方案.md`
 
 ## V1.3 字段一致性复核
 
-已完成 Agent / Skill / MCP / Model / User / ProjectPlatform / Task / Schedule / Audit 全模块字段收敛，统一词典见 `15-Console字段词典与一致性规范.md`。
+已完成 Agent / Skill / MCP / Model / User / ProjectPlatform / Task / Schedule / Audit 全模块字段收敛，统一词典见 `基础文档/15-Console字段词典.md`。

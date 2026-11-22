@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """校验总体设计中的图片引用、图题、读图说明与 SVG 基本边界。"""
 from __future__ import annotations
 
@@ -52,7 +53,7 @@ def main() -> None:
 
     for name, relative in images:
         path = DOC.parent / relative
-        root = check_svg(path)
+        check_svg(path)
         caption = f"**图：{name}**"
         if caption not in text:
             fail(f"缺少图题: {name}")

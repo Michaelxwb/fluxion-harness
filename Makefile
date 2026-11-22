@@ -1,4 +1,4 @@
-.PHONY: check compile test acceptance cluster-acceptance acceptance-clean acceptance-e2e smoke capacity-smoke capacity-load capacity-soak capacity-wecom e2e-changed e2e-changed-plan i18n-check error-message-check lint typecheck base-images export-requirements verify-build-assets
+.PHONY: check compile test acceptance cluster-acceptance acceptance-clean acceptance-e2e smoke capacity-smoke capacity-load capacity-soak capacity-wecom e2e-changed e2e-changed-plan i18n-check error-message-check lint typecheck base-images export-requirements verify-build-assets docs-check
 
 # 内网底座镜像（Python 3.12.13 / Python 3.12.13 + Node 24）；发布需显式 PUSH=1。
 base-images:
@@ -91,3 +91,9 @@ typecheck:
 	uv run mypy apps packages
 
 check: compile test i18n-check error-message-check lint typecheck
+
+
+# 文档体系检查：结构/链接/旧路径/模块模板章节/总设配图。
+docs-check:
+	uv run python scripts/check_docs_consistency.py
+	cd docs/01-总体设计图 && python3 tools/校验配图.py

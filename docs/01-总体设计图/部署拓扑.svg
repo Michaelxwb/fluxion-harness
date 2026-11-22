@@ -1,8 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="750" viewBox="0 0 1200 750" role="img" aria-labelledby="title">
 <title id="title">部署拓扑</title>
 <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"/></marker></defs>
 <style>text{font-family:PingFang SC,Microsoft YaHei,Arial,sans-serif;fill:#20344B}path,polyline{stroke-linejoin:round;stroke-linecap:round}</style>
-<rect width="1200" height="620" fill="#FFFFFF"/>
+<rect width="1200" height="750" fill="#FFFFFF"/>
 <rect x="245" y="35" width="925" height="435" rx="12" fill="#FBFCFE" stroke="#DCE4EC" stroke-width="1.4"/>
 <text x="261" y="62" font-size="16" font-weight="600" text-anchor="start" style="fill:#4B637C">Kubernetes 集群 · 入口代理与业务工作负载</text>
 <g data-node="browser"><rect x="30" y="130" width="180" height="70" rx="8" fill="#F4F6F9" stroke="#CBD3DE" stroke-width="1.5"/>
@@ -37,19 +37,6 @@
 <text x="585.0" y="302" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">IM Connector</text>
 <text x="585.0" y="324" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">可选 / 多副本</text>
 </g>
-<g data-node="artifact-pvc"><rect x="750" y="335" width="180" height="120" rx="8" fill="#F2F7F6" stroke="#BAD6CE" stroke-width="1.5"/>
-<text x="840.0" y="362" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">制品文件存储</text>
-<text x="840.0" y="384" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">Skill 包 / 附件 / 结果</text>
-<text x="840.0" y="403" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">Console / Gateway</text>
-<text x="840.0" y="422" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">Runtime / Worker</text>
-<text x="840.0" y="441" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">Connector</text>
-</g>
-<g data-node="workspace-pvc"><rect x="970" y="345" width="180" height="100" rx="8" fill="#F2F7F6" stroke="#BAD6CE" stroke-width="1.5"/>
-<text x="1060.0" y="372" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">工作区文件存储</text>
-<text x="1060.0" y="394" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">草稿 / 执行输出</text>
-<text x="1060.0" y="413" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">Console / Runtime</text>
-<text x="1060.0" y="432" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">Worker</text>
-</g>
 <polyline points="210,165 280,165" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
 <rect x="218.0" y="138" width="54.00000000000001" height="20" rx="4" fill="#FFFFFF"/>
 <text x="245" y="153" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">HTTPS</text>
@@ -77,14 +64,24 @@
 <polyline points="555,275 555,200" fill="none" stroke="#7A8798" stroke-width="1.8" marker-end="url(#arrow)" marker-start="url(#arrow)" stroke-dasharray="5 4"/>
 <rect x="581.5" y="225" width="57.0" height="20" rx="4" fill="#FFFFFF"/>
 <text x="610" y="240" font-size="15" font-weight="500" text-anchor="middle" style="fill:#7A8798">事件流</text>
-<rect x="245" y="490" width="925" height="110" rx="12" fill="#FBFCFE" stroke="#DCE4EC" stroke-width="1.4"/>
-<text x="261" y="517" font-size="16" font-weight="600" text-anchor="start" style="fill:#4B637C">由环境提供的数据服务</text>
-<g data-node="postgres"><rect x="280" y="530" width="400" height="56" rx="8" fill="#F2F7F6" stroke="#BAD6CE" stroke-width="1.5"/>
-<text x="480.0" y="557" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">PostgreSQL</text>
-<text x="480.0" y="579" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">Console / Runtime / Worker</text>
+<rect x="245" y="480" width="925" height="250" rx="12" fill="#FBFCFE" stroke="#DCE4EC" stroke-width="1.4"/>
+<text x="261" y="507" font-size="16" font-weight="600" text-anchor="start" style="fill:#4B637C">由环境提供的存储与数据服务</text>
+<g data-node="artifact-pvc"><rect x="280" y="520" width="400" height="70" rx="8" fill="#F2F7F6" stroke="#BAD6CE" stroke-width="1.5"/>
+<text x="480.0" y="547" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">制品文件存储</text>
+<text x="480.0" y="569" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">Skill 包 / 附件 / 结果</text>
+<text x="480.0" y="588" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">挂载：Console / Gateway / Runtime / Worker / Connector</text>
 </g>
-<g data-node="redis"><rect x="710" y="530" width="440" height="56" rx="8" fill="#F2F7F6" stroke="#BAD6CE" stroke-width="1.5"/>
-<text x="930.0" y="557" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Redis</text>
-<text x="930.0" y="579" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">各运行角色的缓存、会话和通道流</text>
+<g data-node="workspace-pvc"><rect x="710" y="520" width="440" height="70" rx="8" fill="#F2F7F6" stroke="#BAD6CE" stroke-width="1.5"/>
+<text x="930.0" y="547" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">工作区文件存储</text>
+<text x="930.0" y="569" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">草稿 / 执行输出</text>
+<text x="930.0" y="588" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">挂载：Console / Runtime / Worker</text>
+</g>
+<g data-node="postgres"><rect x="280" y="610" width="400" height="70" rx="8" fill="#F2F7F6" stroke="#BAD6CE" stroke-width="1.5"/>
+<text x="480.0" y="637" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">PostgreSQL</text>
+<text x="480.0" y="659" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">Console / Runtime / Worker</text>
+</g>
+<g data-node="redis"><rect x="710" y="610" width="440" height="70" rx="8" fill="#F2F7F6" stroke="#BAD6CE" stroke-width="1.5"/>
+<text x="930.0" y="637" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Redis</text>
+<text x="930.0" y="659" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">各运行角色的缓存、会话和通道流</text>
 </g>
 </svg>

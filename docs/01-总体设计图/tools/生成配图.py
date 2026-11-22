@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """生成总体设计配图：统一画布、统一字号，输出 SVG、Mermaid 结构对照与布局数据。"""
 from __future__ import annotations
 
@@ -205,17 +206,17 @@ def draw_sequence(name: str, participants: list[tuple[str, str, str, str]], scen
     heights = [60 + len(messages) * 24 for _, _, messages, _ in scenarios]
     y = 110
     scenario_layout: list[tuple[str, int, str, list[tuple[int, str, str, str, bool]], str, int]] = []
-    for (key, title, messages, note), height in zip(scenarios, heights):
+    for (key, title, messages, note), height in zip(scenarios, heights, strict=True):
         scenario_layout.append((key, y, title, messages, note, height))
         y += height + 20
     total_height = y + 20
     c = SequenceCanvas(name, 1200, total_height)
-    for key, top, title, messages, note, height in scenario_layout:
+    for key, top, title, _messages, _note, height in scenario_layout:
         c.scenario(key, top, title, height)
-    for (key, title, detail, *_), x in zip(participants, positions):
+    for (key, title, detail, *_), x in zip(participants, positions, strict=True):
         tone = "external" if key in ("U", "W", "A") and title in ("管理员", "服务经理", "用户", "企业微信") else "active"
         c.participant(key, x, 30, total_height - 30, title, detail, tone)
-    for key, top, title, messages, note, height in scenario_layout:
+    for key, top, _title, messages, note, _height in scenario_layout:
         c.scenario_title(key)
         for index, message in enumerate(messages):
             order, origin, target, label, *rest = message
@@ -335,7 +336,7 @@ def module_dependency() -> None:
     c.finish()
 
 def deployment() -> None:
-    c = Canvas("部署拓扑")
+    c = Canvas("部署拓扑", 1200, 750)
     c.panel("cluster", 245, 35, 925, 435, "Kubernetes 集群 · 入口代理与业务工作负载")
     c.node("browser", 30, 130, 180, 70, "浏览器", ("Console / WebChat",), "external")
     c.node("wecom", 30, 335, 180, 74, "企业微信", ("官方长连接协议",), "external")
@@ -345,8 +346,6 @@ def deployment() -> None:
     c.node("worker", 1000, 130, 150, 70, "Agent Worker", ("多副本 / 任务领取",))
     c.node("console", 280, 275, 170, 70, "Console Platform", ("API + 页面资源",))
     c.node("connector", 500, 275, 170, 70, "IM Connector", ("可选 / 多副本",))
-    c.node("artifact-pvc", 750, 335, 180, 120, "制品文件存储", ("Skill 包 / 附件 / 结果", "Console / Gateway", "Runtime / Worker", "Connector"), "store")
-    c.node("workspace-pvc", 970, 345, 180, 100, "工作区文件存储", ("草稿 / 执行输出", "Console / Runtime", "Worker"), "store")
     c.edge("browser", "nginx", [(210, 165), (280, 165)], "HTTPS", (245, 153))
     c.edge("nginx", "gateway", [(450, 165), (500, 165)], "聊天", (475, 153))
     c.edge("nginx", "console", [(365, 200), (365, 275)], "管理 / 认证", (422, 242))
@@ -356,11 +355,12 @@ def deployment() -> None:
     c.edge("worker", "gateway", [(1075, 130), (1075, 88), (585, 88), (585, 130)], "独立投递", (830, 77), "async")
     c.edge("wecom", "connector", [(210, 372), (585, 372), (585, 345)], "WSS", (350, 360), both=True)
     c.edge("connector", "gateway", [(555, 275), (555, 200)], "事件流", (610, 240), "async", True)
-    c.panel("data-services", 245, 490, 925, 110, "由环境提供的数据服务")
-    c.node("postgres", 280, 530, 400, 56, "PostgreSQL", ("Console / Runtime / Worker",), "store")
-    c.node("redis", 710, 530, 440, 56, "Redis", ("各运行角色的缓存、会话和通道流",), "store")
+    c.panel("data-services", 245, 480, 925, 250, "由环境提供的存储与数据服务")
+    c.node("artifact-pvc", 280, 520, 400, 70, "制品文件存储", ("Skill 包 / 附件 / 结果", "挂载：Console / Gateway / Runtime / Worker / Connector"), "store")
+    c.node("workspace-pvc", 710, 520, 440, 70, "工作区文件存储", ("草稿 / 执行输出", "挂载：Console / Runtime / Worker"), "store")
+    c.node("postgres", 280, 610, 400, 70, "PostgreSQL", ("Console / Runtime / Worker",), "store")
+    c.node("redis", 710, 610, 440, 70, "Redis", ("各运行角色的缓存、会话和通道流",), "store")
     c.finish()
-
 
 def network_capacity() -> None:
     c = Canvas("网络拓扑与容量规划")
@@ -381,7 +381,6 @@ def network_capacity() -> None:
     c.node("storage", 460, 520, 160, 55, "共享存储", ("制品与工作区",), "store")
     c.node("models", 660, 520, 160, 55, "外部模型网关", ("模型接口",), "external")
     c.node("platforms", 860, 520, 160, 55, "业务平台", ("平台接口",), "external")
-    c.node("mcp", 1040, 520, 140, 55, "MCP 服务", ("工具接口",), "external")
     c.edge("browser", "nginx", [(245, 335), (285, 335), (285, 200), (325, 200)], "HTTPS / SSE", (295, 190))
     c.edge("nginx", "gateway", [(505, 185), (585, 135)], "聊天 / 事件", (545, 145))
     c.edge("nginx", "console", [(505, 225), (585, 265)], "管理 / 认证", (545, 260))
@@ -391,7 +390,7 @@ def network_capacity() -> None:
     c.edge("runtime", "worker", [(970, 265), (1010, 265)], "任务", (990, 253))
     c.edge("runtime", "models", [(885, 300), (885, 455), (740, 455), (740, 520)], "模型调用", (810, 443), "control")
     c.edge("worker", "platforms", [(1080, 300), (1080, 472), (940, 472), (940, 520)], "平台调用", (1010, 460), "control")
-    c.text(46, 612, "Nginx 只服务浏览器入口；企业微信 WSS 直连 Connector；数据服务访问关系见正文表。", 14, color="#536B81")
+    c.text(46, 612, "Nginx 只服务浏览器入口；企业微信 WSS 直连 Connector；MCP 等工具服务经平台接入出站，不单列网络节点。", 14, color="#536B81")
     c.finish()
 
 

@@ -295,8 +295,8 @@ async def test_removed_metrics_route_has_no_compatibility_layer(client: AsyncCli
 
 
 def test_b201_docs_07_registers_current_overview_contract() -> None:
-    text = (Path(__file__).resolve().parents[2] / "docs/07-跨模块接口与协议详细设计.md").read_text()
-    section = text.split("### 10.12 Overview", 1)[1].split("\n## ", 1)[0]
+    text = (Path(__file__).resolve().parents[2] / "docs/基础文档/07-跨模块接口与协议.md").read_text()
+    section = text.split("### 8.1 Overview", 1)[1].split("\n## ", 1)[0]
     for key in (
         "GET /api/v1/overview",
         "days",

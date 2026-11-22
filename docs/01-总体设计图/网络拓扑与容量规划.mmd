@@ -20,7 +20,6 @@ flowchart LR
     models["外部模型网关"]
     platforms["业务平台"]
   end
-  mcp["MCP 服务"]
   browser -->|"HTTPS / SSE"| nginx
   nginx -->|"聊天 / 事件"| gateway
   nginx -->|"管理 / 认证"| console

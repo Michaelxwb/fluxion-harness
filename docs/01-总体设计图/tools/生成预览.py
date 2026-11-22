@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """从总体设计 Markdown 生成配图预览页。"""
 from __future__ import annotations
 

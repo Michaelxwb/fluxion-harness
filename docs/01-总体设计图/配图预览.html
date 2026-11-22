@@ -18,5 +18,5 @@
 <section id="取消当前请求与恢复"><h2>取消当前请求与恢复</h2><img src="取消当前请求与恢复.svg" alt="取消当前请求与恢复"><p>这是 Run 级取消：入口可以是 WebChat 停止按钮或企业微信 /stop。取消先记录意图，再传播到未受理提交和未结束等待；用户补充输入后恢复，沿用原快照和剩余预算。它不是取消定时任务。</p></section>
 <section id="Skill导入与自建"><h2>Skill 导入与自建</h2><img src="Skill导入与自建.svg" alt="Skill 导入与自建"><p>图分三个子流程：服务经理自建并提交、管理员审批、管理员直接导入。审批人就是管理员，不是独立节点；管理员直接导入默认生效。制品不可变，新版本只影响后续执行。</p></section>
 <section id="部署拓扑"><h2>部署拓扑</h2><img src="部署拓扑.svg" alt="部署拓扑"><p>Nginx 与业务工作负载都在 Kubernetes 集群内；浏览器经 Nginx 进入，企业微信通过 WSS 直连 Connector。Runtime 与 Worker 多副本、无状态；Console 单 Pod；Connector 可选并按 Bot 租约分片。PostgreSQL、Redis 和两类共享文件存储由环境提供；数据库由运维脚本提前部署和升级，不作为集群工作负载。两类文件存储不是镜像仓库。</p></section>
-<section id="网络拓扑与容量规划"><h2>网络拓扑与容量规划</h2><img src="网络拓扑与容量规划.svg" alt="网络拓扑与容量规划"><p>浏览器经 Nginx 进入，按路径把管理、认证、聊天和事件流分流到 Console 或 Gateway；企业微信通过 WSS 直连 Connector，不经过 Nginx。集群内 Runtime 与 Worker 横向扩展；数据库、缓存、模型、业务平台和 MCP 是外部依赖。容量规划同时受副本数、连接预算、模型额度和共享存储吞吐约束。</p></section>
+<section id="网络拓扑与容量规划"><h2>网络拓扑与容量规划</h2><img src="网络拓扑与容量规划.svg" alt="网络拓扑与容量规划"><p>浏览器经 Nginx 进入，按路径把管理、认证、聊天和事件流分流到 Console 或 Gateway；企业微信通过 WSS 直连 Connector，不经过 Nginx。集群内 Runtime 与 Worker 横向扩展；数据库、缓存、外部模型网关和业务平台是外部依赖；MCP 等工具服务经平台接入出站，不单列网络节点。容量规划同时受副本数、连接预算、模型额度和共享存储吞吐约束。</p></section>
 </main></html>

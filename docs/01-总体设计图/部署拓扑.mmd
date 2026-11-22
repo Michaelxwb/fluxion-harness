@@ -6,10 +6,10 @@ flowchart LR
     worker["Agent Worker"]
     console["Console Platform"]
     connector["IM Connector"]
+  end
+  subgraph data-services["由环境提供的存储与数据服务"]
     artifact-pvc["制品文件存储"]
     workspace-pvc["工作区文件存储"]
-  end
-  subgraph data-services["由环境提供的数据服务"]
     postgres["PostgreSQL"]
     redis["Redis"]
   end

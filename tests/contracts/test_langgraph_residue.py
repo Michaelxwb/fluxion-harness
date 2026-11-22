@@ -9,7 +9,7 @@ SCANNED_ROOTS = ("docs", ".code-flow/specs", "packages", "apps", "tests")
 SCANNED_SUFFIXES = (".py", ".md", ".toml", ".txt", ".yaml", ".yml")
 ADR = ROOT / "docs/issues/2026-10-31-execution-core-deframework-adr.md"
 EXCLUDED = {
-    "docs/17-V1.4评审修订说明.md",
+    "docs/历史/17-V1.4评审修订说明.md",
     "docs/issues/2026-10-31-execution-core-deframework-adr.md",
     "tests/contracts/test_dependency_surface.py",
     "tests/contracts/test_langgraph_residue.py",

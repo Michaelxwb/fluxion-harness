@@ -167,7 +167,7 @@ kubectl -n muad set image deploy/muad-im-gateway app=ghcr.io/michaelxwb/muad-im-
 | Snapshot 膨胀 | `task_snapshot_bytes` | 接近 `ScheduleSettings.max_snapshot_bytes` | P2 | 查 Agent 工具/MCP 定义规模 |
 | ASYNC 提交 | `task_async_operation_total{status}` | `SUBMIT_FAILED` 突增 | P1 | 查 Runtime 内部 API 与服务身份 |
 | 产物下载 | `task_artifact_download_total{outcome}`（Runtime 目录） | `REJECTED` 突增 | P2 | 查 owner/agent 核属与版本/checksum |
-| 压缩降级 | `context_compaction_total{layer="*",status="FAILED"}` | 出现 | P2 | 明确降级为不压缩；查摘要/外置失败原因 |
+| 压缩降级 | `context_compaction_total{status="FAILED"}` / `context_summary_total{status="FAILED"}` | 出现 | P2 | 摘要失败作废摘要层并由 micro/snip/trim 兜底；外层失败保留原历史；查摘要/外置/存储原因 |
 
 保留清理按平台设置执行（`schedule.max_fire_history_days` / `schedule.max_execution_history_days`
 与批量参数的所有者是平台设置/`ScheduleRetentionLoop`），不要在部署清单或脚本里写死天数。

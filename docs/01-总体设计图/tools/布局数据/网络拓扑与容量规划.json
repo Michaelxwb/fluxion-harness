@@ -201,20 +201,6 @@
       "state": false,
       "tone": "external",
       "group": "external"
-    },
-    "mcp": {
-      "rect": [
-        1040,
-        520,
-        140,
-        55
-      ],
-      "label": "MCP 服务",
-      "lines": [
-        "工具接口"
-      ],
-      "state": false,
-      "tone": "external"
     }
   },
   "groups": {

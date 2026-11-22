@@ -32,4 +32,4 @@
 
 - 正面：依赖面减少约 10 个包；每 Run 的图编译开销归零；当前文档与 specs 与代码事实一致。
 - 代价：无行为变化；`langgraph` schema 直接删除（无数据），回滚依赖代码 revert 与迁移 downgrade。
-- 历史记录：`docs/17-V1.4评审修订说明.md`、`scripts/capacity/ANALYSIS.md` 的 1.8% 实测、归档任务文档保留原文，仅作历史证据；本 ADR 取代「checkpointer 遗留缺口」的待办含义。
+- 历史记录：`docs/历史/17-V1.4评审修订说明.md`、`scripts/capacity/ANALYSIS.md` 的 1.8% 实测、归档任务文档保留原文，仅作历史证据；本 ADR 取代「checkpointer 遗留缺口」的待办含义。

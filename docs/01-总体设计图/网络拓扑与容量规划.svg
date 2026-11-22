@@ -65,10 +65,6 @@
 <text x="940.0" y="547" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">业务平台</text>
 <text x="940.0" y="569" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">平台接口</text>
 </g>
-<g data-node="mcp"><rect x="1040" y="520" width="140" height="55" rx="8" fill="#F4F6F9" stroke="#CBD3DE" stroke-width="1.5"/>
-<text x="1110.0" y="547" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">MCP 服务</text>
-<text x="1110.0" y="569" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">工具接口</text>
-</g>
 <polyline points="245,335 285,335 285,200 325,200" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
 <rect x="242.79999999999998" y="175" width="104.40000000000003" height="20" rx="4" fill="#FFFFFF"/>
 <text x="295" y="190" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">HTTPS / SSE</text>
@@ -96,5 +92,5 @@
 <polyline points="1080,300 1080,472 940,472 940,520" fill="none" stroke="#91A0AF" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
 <rect x="974.0" y="445" width="72.0" height="20" rx="4" fill="#FFFFFF"/>
 <text x="1010" y="460" font-size="15" font-weight="500" text-anchor="middle" style="fill:#91A0AF">平台调用</text>
-<text x="46" y="612" font-size="14" font-weight="400" text-anchor="start" style="fill:#536B81">Nginx 只服务浏览器入口；企业微信 WSS 直连 Connector；数据服务访问关系见正文表。</text>
+<text x="46" y="612" font-size="14" font-weight="400" text-anchor="start" style="fill:#536B81">Nginx 只服务浏览器入口；企业微信 WSS 直连 Connector；MCP 等工具服务经平台接入出站，不单列网络节点。</text>
 </svg>

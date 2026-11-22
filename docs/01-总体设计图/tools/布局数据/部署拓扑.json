@@ -2,7 +2,7 @@
   "name": "部署拓扑",
   "size": [
     1200,
-    620
+    750
   ],
   "nodes": {
     "browser": {
@@ -125,45 +125,42 @@
     },
     "artifact-pvc": {
       "rect": [
-        750,
-        335,
-        180,
-        120
+        280,
+        520,
+        400,
+        70
       ],
       "label": "制品文件存储",
       "lines": [
         "Skill 包 / 附件 / 结果",
-        "Console / Gateway",
-        "Runtime / Worker",
-        "Connector"
+        "挂载：Console / Gateway / Runtime / Worker / Connector"
       ],
       "state": false,
       "tone": "store",
-      "group": "cluster"
+      "group": "data-services"
     },
     "workspace-pvc": {
       "rect": [
-        970,
-        345,
-        180,
-        100
+        710,
+        520,
+        440,
+        70
       ],
       "label": "工作区文件存储",
       "lines": [
         "草稿 / 执行输出",
-        "Console / Runtime",
-        "Worker"
+        "挂载：Console / Runtime / Worker"
       ],
       "state": false,
       "tone": "store",
-      "group": "cluster"
+      "group": "data-services"
     },
     "postgres": {
       "rect": [
         280,
-        530,
+        610,
         400,
-        56
+        70
       ],
       "label": "PostgreSQL",
       "lines": [
@@ -176,9 +173,9 @@
     "redis": {
       "rect": [
         710,
-        530,
+        610,
         440,
-        56
+        70
       ],
       "label": "Redis",
       "lines": [
@@ -202,11 +199,11 @@
     "data-services": {
       "rect": [
         245,
-        490,
+        480,
         925,
-        110
+        250
       ],
-      "title": "由环境提供的数据服务"
+      "title": "由环境提供的存储与数据服务"
     }
   },
   "edges": [
