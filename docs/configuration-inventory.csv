@@ -182,7 +182,7 @@ apps/agent-runtime/src/muad_agent_runtime/application/checkpoint.py,37,INTERRUPT
 apps/agent-runtime/src/muad_agent_runtime/application/checkpoint.py,38,INTERRUPT_RESOLVED,'RESOLVED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py,27,HISTORY_EVENT_TYPES,"('USER_MESSAGE', 'ASSISTANT_MESSAGE', 'MEMORY_CONFIRMATION_RESOLVED', 'TOOL_CALL', 'ASSISTANT_TURN', 'TOOL_TASK_ACCEPTED', 'BACKGROUND_RESULT', 'TOOL_SUBMISSION_FAILED')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py,44,max_messages,default_compaction_settings().history_budget_messages,policy-field,business,与 compaction.history_budget_messages 收敛为同一平台设置（收敛项 1）
-apps/agent-runtime/src/muad_agent_runtime/application/context_compaction.py,73,SUMMARY_INSTRUCTION,'请把上面的对话压缩成 JSON 对象，**恰好**包含这五个键：user_goal（字符串）、constraints、progress、open_items（字符串数组）、artifacts（数组，每项恰好含 artifact_id/tool/note 三个字符串键）。只输出这个 JSON，不要任何解释、不要调用工具。',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/context_compaction.py,50,SUMMARY_INSTRUCTION,'请把上面的对话压缩成 JSON 对象，**恰好**包含这五个键：user_goal（字符串）；constraints（字符串数组）；progress（字符串数组）；open_items（字符串数组）；artifacts（数组，每项恰好含 artifact_id/tool/note 三个字符串键）。只输出这个 JSON，不要任何解释、不要调用工具。',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/context_events.py,25,CONTEXT_SUMMARY_EVENT,'CONTEXT_SUMMARY',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/context_events.py,26,CONTEXT_COMPACTED_EVENT,'CONTEXT_COMPACTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/context_settings.py,34,MODEL_POOL_POLICY_KEY,'model_pool',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -653,9 +653,9 @@ apps/agent-worker/src/muad_agent_worker/application/agentic/artifacts.py,22,ARTI
 apps/agent-worker/src/muad_agent_worker/application/agentic/artifacts.py,23,ARTIFACT_MEDIA_TYPE,'text/plain',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/application/agentic/cancellation.py,24,DEFAULT_POLL_INTERVAL_SEC,2.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/application/agentic/checkpoints.py,30,CHECKPOINT_SCHEMA_VERSION,1,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/agentic/compaction.py,55,SUMMARY_ARTIFACT_FILENAME,'context-summary-{index}.txt',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/agentic/compaction.py,56,SUMMARY_ARTIFACT_MEDIA_TYPE,'text/plain',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/agentic/compaction.py,58,SUMMARY_INSTRUCTION,'把下面的对话压缩成一份权威摘要，严格只输出一个 JSON 对象，字段恰好是：user_goal(字符串)、constraints(字符串数组)、progress(字符串数组)、open_items(字符串数组)、artifacts(数组，元素含 artifact_id/tool/note 三个字符串)。不要输出任何解释、不要调用工具。',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/agentic/compaction.py,49,SUMMARY_ARTIFACT_FILENAME,'context-summary-{index}.txt',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/agentic/compaction.py,50,SUMMARY_ARTIFACT_MEDIA_TYPE,'text/plain',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/agentic/compaction.py,52,SUMMARY_INSTRUCTION,'把下面的对话压缩成一份权威摘要，严格只输出一个 JSON 对象，字段恰好是：user_goal(字符串)、constraints(字符串数组)、progress(字符串数组)、open_items(字符串数组)、artifacts(数组，元素含 artifact_id/tool/note 三个字符串)。不要输出任何解释、不要调用工具。',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/application/agentic/mcp.py,23,JSON_RPC_VERSION,'2.0',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/application/agentic/mcp.py,24,MCP_PROTOCOL_VERSION,'2025-03-26',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/application/agentic/mcp.py,25,MCP_ACCEPT,"'application/json, text/event-stream'",python-constant,code,协议标识、枚举、schema、文本或实现常量

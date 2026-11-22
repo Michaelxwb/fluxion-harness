@@ -36,10 +36,10 @@ WAIT_SEC = 150.0
 #: 收到目标文本后再静默这么久。用来确认"只有一条"，也用来给 Run 落终态留时间。
 SETTLE_SEC = 2.0
 
-#: 分页指引里的下一个 offset（`read_attachment` 的片段标注文案）。**从模型实际收到的
-#: 工具结果里取**而不是在测试里算：算出来的偏移量只能证明我算得对，取出来才能证明
+#: 分页指引里的续读 cursor（`read_attachment` 的片段标注文案）。**从模型实际收到的
+#: 工具结果里取**而不是在测试里算：算出来的位置只能证明我算得对，取出来才能证明
 #: "工具真的把翻页指引交给了模型、模型真的照着读了下一段"。
-NEXT_OFFSET_RE = re.compile(r"offset=(\d+)")
+NEXT_CURSOR_RE = re.compile(r"cursor=(v1:\d+:\d+)")
 
 #: S-03 的长文档：前 20 000 字符**不含任何事实**（正好是 `read_attachment` 的单次默认上限），
 #: 末尾才是要答的那个事实。于是"只读了开头"和"读到了末尾"在这个夹具上是**互斥**的——
@@ -188,7 +188,7 @@ async def test_s03_long_document_is_read_past_the_first_segment(
     夹具把"只读开头"做成**拿不到答案**：前 20 000 字符（正好一次默认读取的上限）里没有任何
     事实，事实只在末尾。于是最终回答里出现末尾事实，只能来自**第二段真的进了模型上下文**。
 
-    第一轮用默认参数读（拿翻页指引），第二轮用**指引里给的 offset** 读末尾——而不是测试自己
+    第一轮用默认参数读（拿翻页指引），第二轮用**指引里给的 cursor** 读末尾——而不是测试自己
     算一个偏移量塞进去。后者只能证明"我算得对"，证明不了"工具把指引交给了模型、模型照做了"。
     """
     await _wait_connected(gateway_stack)
@@ -224,17 +224,19 @@ async def test_s03_long_document_is_read_past_the_first_segment(
     )
     assert TAIL_FACT not in first_context, "第一轮不该看见末尾事实——否则这条用例证明不了「不是只读了开头」"
 
-    match = NEXT_OFFSET_RE.search(first_context)
-    assert match is not None, "工具结果里必须带翻页指引（下一段 offset），否则模型无从续读"
-    next_offset = int(match.group(1))
-    assert next_offset == FIRST_SEGMENT_CHARS, f"翻页指引给的 offset 不对：{next_offset}"
+    match = NEXT_CURSOR_RE.search(first_context)
+    assert match is not None, "工具结果里必须带翻页指引（下一段 cursor），否则模型无从续读"
+    next_cursor = match.group(1)
+    assert next_cursor.split(":")[2] == str(FIRST_SEGMENT_CHARS), (
+        f"翻页指引给的 cursor 位置不对：{next_cursor}"
+    )
 
     # 第二轮：**照着指引**读末尾
     message_id, reply_id = _new_message("s03b")
     await _set_script(
         gateway_stack,
         tool_name="read_attachment",
-        tool_arguments=f'{{"artifact_id": "$last_artifact_id", "offset": {next_offset}}}',
+        tool_arguments=f'{{"artifact_id": "$last_artifact_id", "cursor": "{next_cursor}"}}',
         final_text=TAIL_FACT,
     )
     await _push(
