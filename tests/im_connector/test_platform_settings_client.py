@@ -7,12 +7,11 @@ from typing import Any
 import pytest
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_im_gateway.application.ports import PlatformSettingsSnapshot
-
 from muad_im_connector.platform_settings import (
     ConnectorPlatformSettings,
     default_batch_settings,
 )
+from muad_im_gateway.application.ports import PlatformSettingsSnapshot
 
 
 class _FakeClient:

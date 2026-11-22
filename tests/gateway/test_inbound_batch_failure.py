@@ -10,8 +10,8 @@ from muad_contracts import AttachmentFailure, AttachmentRef, ChannelEnvelope
 
 from tests.gateway.test_inbound_attachment_flow import (
     BOT_ID,
-    _NullDedupe,
     _build_pipeline,
+    _NullDedupe,
 )
 
 pytestmark = pytest.mark.integration

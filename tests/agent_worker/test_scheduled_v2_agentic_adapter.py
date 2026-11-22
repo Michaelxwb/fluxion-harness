@@ -1202,10 +1202,10 @@ async def test_compaction_applies_the_free_layers_and_degrades_summary(
     history = _long_history()
     plan = plan_context(
         history,
-        run_input=RunInput(message_id="q-0", content="问题 0"),
+        run_input=RunInput(message_id="current", content="当前问题"),
     )
     outbound = render_context(await compactor.compact_plan(plan))
-    assert failing.calls == 0, "当前输入之后才是 working，older 为空时不应触发摘要"
+    assert failing.calls == 1, "摘要失败要走 older 的 fallback，而不是跳过压缩"
     assert len(outbound) < len(history)
     assert outbound[0].content.startswith("你是助手")
 

@@ -1,12 +1,12 @@
 """Agentic 执行的上下文压缩（`ContextCompactor` 的 Worker 实现）。
 
-四层与 Runtime **同一套纯逻辑**（`agent-core` 的 `compact_history` + 摘要 schema）：
+四层与 Runtime **同一套执行顺序**（`agent-core` 的 `compact_plan_layered` + 摘要 schema）：
 
 1. 工具结果整轮外置（`agentic/artifacts.py`，发生在回合末，不在本模块）；
 2. micro：旧的外置结果降级成引用占位；
 3. snip：按消息组省掉中段历史（当前回合永远保留）；
 4. 条数兜底；摘要层在阈值之上才跑，且**先存档再放行**——存档（Task 产物）写不成就作废这次摘要，
-   历史原样。
+   对原始 older 走 micro/snip/trim 的可见兜底。
 
 降级口径（RULE-04）：任一层失败 ⇒ 本次返回原历史（或前三层的产物），并发 warning + 指标
 `context_compaction_total{layer,status}`；绝不因为压缩失败让执行失败。摘要失败只作废摘要层。
@@ -21,16 +21,10 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
-from muad_agent_core.context.compactor import (
-    LayerOutcome,
-    history_bytes,
-    trim_older_history,
-)
-from muad_agent_core.context.compactor import (
-    compact_plan as compact_context_plan,
-)
-from muad_agent_core.context.plan import ContextPlan, render_context, with_summary
-from muad_agent_core.context.summary import SummaryFields, summary_message, try_parse_summary
+from muad_agent_core.context.compactor import LayerOutcome
+from muad_agent_core.context.layers import SummaryAttempt, compact_plan_layered
+from muad_agent_core.context.plan import ContextPlan
+from muad_agent_core.context.summary import SummaryFields, try_parse_summary
 from muad_agent_core.model import (
     ModelMessage,
     ModelProvider,
@@ -204,24 +198,28 @@ class TaskContextCompactor:
 
     async def compact_plan(self, plan: ContextPlan) -> ContextPlan:
         try:
-            compacted, layers = compact_context_plan(
+            async def summarize(material: Sequence[ModelMessage]) -> SummaryFields | None:
+                assert self._summary is not None
+                fields = await self._summary(material)
+                if fields is None:
+                    record_outcome(CONTEXT_COMPACTION_METRIC, "REJECTED", {"layer": "summary"})
+                return fields
+
+            async def persist_summary(
+                attempt: SummaryAttempt, _layers: Sequence[LayerOutcome]
+            ) -> bool:
+                return await self._archive(attempt.material)
+
+            async def persist_layers(_layers: Sequence[LayerOutcome]) -> None:
+                return None
+
+            compacted, layers = await compact_plan_layered(
                 plan,
-                snip_settings=self._settings.snip,
-                micro_settings=self._settings.micro,
-                history_budget_messages=self._settings.history_budget_messages,
-                trim_older=False,
+                settings=self._settings,
+                summarize=summarize if self._summary is not None else None,
+                persist_summary=persist_summary,
+                persist_layers=persist_layers,
             )
-            compacted, summary = await self._summarize_plan(compacted)
-            if summary is not None:
-                layers = (*layers, summary)
-            else:
-                # Summary did not land: the tail trim is the visible fallback, never a
-                # pre-summary boundary that could hide messages from the coverage watermark.
-                compacted, budget = trim_older_history(
-                    compacted, self._settings.history_budget_messages
-                )
-                if budget is not None:
-                    layers = (*layers, budget)
             for layer in layers:
                 if layer.fired:
                     record_outcome(CONTEXT_COMPACTION_METRIC, "FIRED", {"layer": layer.layer})
@@ -233,29 +231,6 @@ class TaskContextCompactor:
                 extra={"execution_id": str(self._execution_id), "error_type": type(exc).__name__},
             )
             return plan
-
-    async def _summarize_plan(
-        self, plan: ContextPlan
-    ) -> tuple[ContextPlan, LayerOutcome | None]:
-        """摘要只替换 older；pinned/prefix/working 原样保留。"""
-        settings = self._settings.summary
-        if not settings.enabled or self._summary is None or not plan.older:
-            return plan, None
-        messages = render_context(plan)
-        before = history_bytes(messages)
-        if before <= settings.threshold_bytes:
-            return plan, None
-        fields = await self._summary(messages)
-        if fields is None:
-            record_outcome(CONTEXT_COMPACTION_METRIC, "REJECTED", {"layer": "summary"})
-            return plan, None
-        if not await self._archive(messages):
-            return plan, None
-        compacted = with_summary(plan, summary_message(fields))
-        after = history_bytes(render_context(compacted))
-        return compacted, LayerOutcome(
-            "summary", True, len(plan.older), before, after, render_context(compacted)
-        )
 
     async def _archive(self, summarized: Sequence[ModelMessage]) -> bool:
         """逐字存档被摘要取代的历史；没有产物端口就不放行摘要层。"""

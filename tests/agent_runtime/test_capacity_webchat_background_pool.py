@@ -799,7 +799,7 @@ async def test_e06_summary_failure_keeps_original_history_and_visible_degradatio
     conversation_id = await _conversation_of(tenant.tenant_id, first)
     probe.expect(SUMMARY_MODEL_NAME, "500")
     before_metric = _metric_value(
-        render_metrics(), "context_compaction_total", {"layer": "*", "status": "FAILED"}
+        render_metrics(), "context_compaction_total", {"layer": "summary", "status": "FAILED"}
     )
     with caplog.at_level(logging.WARNING):
         second = await _start_run(
@@ -819,9 +819,9 @@ async def test_e06_summary_failure_keeps_original_history_and_visible_degradatio
     assert (await _event_types(tenant.tenant_id, second)).count("CONTEXT_SUMMARY") == 0
 
     # 退化可见：warning + metric（不是悄悄吞掉）
-    assert any(record.msg == "context_compaction_failed" for record in caplog.records)
+    assert any(record.msg == "context_summary_call_failed" for record in caplog.records)
     after_metric = _metric_value(
-        render_metrics(), "context_compaction_total", {"layer": "*", "status": "FAILED"}
+        render_metrics(), "context_compaction_total", {"layer": "summary", "status": "FAILED"}
     )
     assert after_metric > before_metric
 

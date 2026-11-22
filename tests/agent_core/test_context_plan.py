@@ -104,7 +104,7 @@ def test_pinned_budget_omits_skill_visibly() -> None:
     )
 
 
-def test_compaction_only_touches_working_and_older_budget() -> None:
+def test_compaction_only_touches_older_never_pinned_or_working() -> None:
     older = tuple(
         ModelMessage(role=ModelRole.USER, content=f"old-{index}") for index in range(4)
     )
@@ -142,8 +142,10 @@ def test_compaction_only_touches_working_and_older_budget() -> None:
 
     assert compacted.prefix == plan.prefix
     assert compacted.pinned == plan.pinned
-    assert len(compacted.older) == 1
-    assert sum(layer.fired for layer in layers) >= 2
+    assert compacted.working == plan.working
+    assert len(compacted.older) <= 2
+    assert any(layer.layer == "snip" and layer.fired for layer in layers)
+    assert any("[历史省略]" in str(message.content) for group in compacted.older for message in group)
 
 
 def test_render_context_keeps_prefix_older_pinned_working_order() -> None:

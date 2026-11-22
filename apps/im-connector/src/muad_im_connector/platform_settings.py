@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import logging
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -20,8 +19,9 @@ from muad_contracts.platform_settings import (
     parse_platform_settings,
 )
 from muad_im_gateway.application.ports import PlatformSettingsClient
+from muad_logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 PLATFORM_SETTINGS_CACHE_TTL_SEC = 60.0
 

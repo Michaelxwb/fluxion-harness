@@ -382,30 +382,21 @@ def compact_plan(
     snip_settings: SnipSettings,
     micro_settings: MicroSettings,
     history_budget_messages: int | None = None,
-    trim_older: bool = True,
 ) -> tuple[ContextPlan, tuple[LayerOutcome, ...]]:
-    """Apply snip/micro to working; optionally trim older as a visible fallback.
+    """对 **older** 做 micro → snip → 条数兜底；`working`（当前回合）不在这里处理。
 
-    Hosts that run the summary layer must pass `trim_older=False`: the summary must see (and
-    archive) the full older interval, otherwise its coverage watermark can point past messages
-    that were never summarized. `trim_older_history` is then applied only when the summary did
-    not land.
+    摘要层由 `muad_agent_core.context.layers.compact_plan_layered` 统一编排：摘要成功时
+    这段函数根本不跑；摘要未触发/拒绝/失败时，它才是对**原始 older** 的可见兜底。
+    `working` 只做 micro（旧工具结果降级），因为 snip 会把模型正在推理的结果换掉。
     """
-    layers: list[LayerOutcome] = []
-    working_messages = tuple(message for group in plan.working for message in group)
-    current = working_messages
-    micro_outcome = micro(current, micro_settings)
-    layers.append(micro_outcome)
+    older_messages = tuple(message for group in plan.older for message in group)
+    micro_outcome = micro(older_messages, micro_settings)
     snip_outcome = snip(micro_outcome.messages, snip_settings)
-    layers.append(snip_outcome)
-    current = snip_outcome.messages
-    working = split_groups(current)
-
-    plan = replace(plan, working=working)
-    if trim_older:
-        plan, budget = trim_older_history(plan, history_budget_messages)
-        if budget is not None:
-            layers.append(budget)
+    layers: list[LayerOutcome] = [micro_outcome, snip_outcome]
+    plan = replace(plan, older=split_groups(snip_outcome.messages))
+    plan, budget = trim_older_history(plan, history_budget_messages)
+    if budget is not None:
+        layers.append(budget)
     return plan, tuple(layers)
 
 

@@ -409,11 +409,12 @@ async def _terminal_locale(
     try:
         snapshot = await settings_client.fetch_snapshot(tenant_id=tenant_id)
         return resolve_platform_settings(snapshot).locale.default_locale
-    except AppError as exc:
+    except Exception as exc:  # noqa: BLE001 —— 文案保底不得因设置面失败阻断投递
+        code = getattr(exc, "code", type(exc).__name__)
         logger.warning(
             "delivery_terminal_locale_unavailable tenant=%s code=%s",
             tenant_id,
-            exc.code,
+            code,
         )
         return catalog.default_locale
 
