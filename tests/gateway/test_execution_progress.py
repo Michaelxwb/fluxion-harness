@@ -336,7 +336,7 @@ class SlowReplySession:
         finally:
             self.writing -= 1
 
-    async def update_status(self, text: str) -> None:
+    async def update_status(self, text: str, *, force: bool = False) -> None:
         self.statuses.append(text)
         await self._write()
 

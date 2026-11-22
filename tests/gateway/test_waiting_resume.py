@@ -54,7 +54,7 @@ class RecordingSession:
     def bind_run(self, run_id: str) -> None:
         self.bound_run = run_id
 
-    async def update_status(self, text: str) -> None:
+    async def update_status(self, text: str, *, force: bool = False) -> None:
         self.statuses.append(text)
 
     async def stream(self, text: str) -> None:

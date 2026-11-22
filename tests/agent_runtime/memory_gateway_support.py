@@ -25,7 +25,7 @@ class Reply:
     def bind_run(self, run_id):
         self.run_id = run_id
 
-    async def update_status(self, text):
+    async def update_status(self, text, *, force: bool = False):
         pass
 
     async def stream(self, text):

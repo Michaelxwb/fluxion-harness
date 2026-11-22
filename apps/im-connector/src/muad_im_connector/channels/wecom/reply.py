@@ -89,7 +89,7 @@ class ReplySession:
         if self._on_run_bound is not None:
             self._on_run_bound(run_id)
 
-    async def update_status(self, text: str) -> None:
+    async def update_status(self, text: str, *, force: bool = False) -> None:
         if self._closed or self._closing:
             return
         # 企微的思考区不刷新（只渲染第一帧），阶段与计时走可见正文才能跟着变。
@@ -98,7 +98,7 @@ class ReplySession:
             # 一字不差的重复帧 = 客户端白重排一次、白滚动一次（实测 run.created 会紧跟着
             # 起始帧再发一遍同样的「准备中」）。额度也不该为它花掉。
             return
-        if self._budget is not None and not self._budget.take():
+        if not force and self._budget is not None and not self._budget.take():
             return
         try:
             async with asyncio.timeout(self._status_timeout_sec):

@@ -1710,7 +1710,7 @@ class InboundPipeline:
             return
         if force:
             await self._drain_status(state)
-            await self._send_status(route, state)
+            await self._send_status(route, state, force=True)
             state.last_progress_at = time.monotonic()
             return
         # 读取循环的醒来节拍（0.5s，为了及时冲正文）**不等于**计时节拍（5s）：正文要快，
@@ -1722,13 +1722,15 @@ class InboundPipeline:
             state.status_task = asyncio.create_task(self._send_status(route, state))
             state.last_progress_at = now
 
-    async def _send_status(self, route: DeliveryRouteInput, state: _RunStreamState) -> None:
+    async def _send_status(
+        self, route: DeliveryRouteInput, state: _RunStreamState, *, force: bool = False
+    ) -> None:
         reply = state.reply
         activity_messages = state.activity_messages
         if reply is None or activity_messages is None:  # 会话在任务起跑前被回收（收尾/停机）
             return
         try:
-            await reply.update_status(activity_messages.render(state.progress))
+            await reply.update_status(activity_messages.render(state.progress), force=force)
         except ChannelAdapterUnavailable:
             logger.warning("channel_status_update_failed channel=%s", route.channel, exc_info=True)
 
@@ -1807,7 +1809,13 @@ class InboundPipeline:
             # WebChat 等无出站意图的通道仍走原有流式收尾（没有第二条发送路径）。
             state.terminal = True
             return
-        await self._run_actions(adapter, route, state, state.renderer.apply(event))
+        force = event.type == "message.delta" and bool((event.data or {}).get("proposal_id"))
+        actions = state.renderer.apply(event)
+        if force:
+            # 记忆确认结果是**事实型正文**，不是可合并的 token 流：立即冲出，避免被 2s 窗口
+            # 留在 renderer 缓冲里，随后被旧终态正文覆盖。
+            actions = (*actions, *state.renderer.flush())
+        await self._run_actions(adapter, route, state, actions, force=force)
         if event.type in (INTERRUPT_REQUIRED_EVENT, "memory.confirmation_required"):
             state.awaiting_input = True
         if event.type == TASK_ACCEPTED_EVENT:
@@ -1820,6 +1828,8 @@ class InboundPipeline:
         route: DeliveryRouteInput,
         state: _RunStreamState,
         actions: Sequence[RenderAction],
+        *,
+        force: bool = False,
     ) -> None:
         if state.reply is not None and not state.reply_lost:
             actions = tuple(action for action in actions if action.kind != FINALIZE_KIND) + tuple(
@@ -1849,7 +1859,11 @@ class InboundPipeline:
                     )
                 if state.reply is not None and not state.reply_lost:
                     try:
-                        await state.reply.stream(action.text)
+                        stream = getattr(state.reply, "stream_priority", None) if force else None
+                        if stream is not None:
+                            await stream(action.text)
+                        else:
+                            await state.reply.stream(action.text)
                     except ChannelAdapterUnavailable:
                         state.reply_lost = True
                         logger.warning(

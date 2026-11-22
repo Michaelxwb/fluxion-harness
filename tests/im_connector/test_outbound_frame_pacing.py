@@ -203,3 +203,41 @@ async def test_pacing_can_be_disabled_for_other_deployments() -> None:
     await executor.execute(_command(DeliveryKind.DELTA, text="一"))
     await executor.execute(_command(DeliveryKind.DELTA, text="二"))
     assert [text for text, _ in channel.frames] == ["一", "一二"]
+
+
+async def test_priority_status_bypasses_the_shared_frame_budget() -> None:
+    """阶段变化（准备中→思考中→执行中）是少量事实，不能被 2s 节拍吞掉。"""
+    now = [100.0]
+    executor, channel, _ = _executor(now)
+
+    await executor.execute(
+        _command(DeliveryKind.DELTA, payload={"status": True}, text="🔵 准备中")
+    )
+    now[0] += 0.5
+    await executor.execute(
+        _command(
+            DeliveryKind.DELTA,
+            payload={"status": True, "priority": True},
+            text="🔵 思考中",
+        )
+    )
+    assert [status for status, _ in channel.statuses] == ["🔵 准备中", "🔵 思考中"]
+
+
+async def test_delivery_terminal_keeps_newer_buffer_text() -> None:
+    """持久链终态若带旧正文，但缓冲区已含更新的确认结果，不能把新结果覆盖掉。"""
+    now = [100.0]
+    executor, channel, _ = _executor(now)
+
+    await executor.execute(
+        _command(DeliveryKind.DELTA, text="记忆已保存。请确认是否保存这条偏好。")
+    )
+    now[0] += 2.1
+    await executor.execute(
+        _command(
+            DeliveryKind.TERMINAL,
+            text="请确认是否保存这条偏好。",
+            delivery_key="run:x:terminal",
+        )
+    )
+    assert channel.frames[-1] == ("记忆已保存。请确认是否保存这条偏好。", True)

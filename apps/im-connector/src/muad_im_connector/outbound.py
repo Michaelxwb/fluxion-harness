@@ -199,7 +199,7 @@ class CommandExecutor:
         self._clock = clock
         self._last_frame_at: dict[tuple[str, str, str], float] = {}
 
-    def _paced(self, command: DeliveryCommand) -> bool:
+    def _paced(self, command: DeliveryCommand, *, force: bool = False) -> bool:
         """本帧是否可以立刻发送；`False` = 离上一帧太近，合并进下一帧（内容不丢）。
 
         只约束「同一会话的流式刷新」：状态帧与正文帧共享一个最小时距，因为企微对同一会话
@@ -214,7 +214,11 @@ class CommandExecutor:
         )
         now = self._clock()
         last = self._last_frame_at.get(key)
-        if last is not None and now - last < self._frame_min_interval_sec - FRAME_PACING_TOLERANCE_SEC:
+        if (
+            not force
+            and last is not None
+            and now - last < self._frame_min_interval_sec - FRAME_PACING_TOLERANCE_SEC
+        ):
             return False
         self._last_frame_at[key] = now
         if len(self._last_frame_at) > PACING_ENTRIES_SOFT_CAP:
@@ -368,7 +372,7 @@ class CommandExecutor:
             return self._result(
                 command, CommandStatus.ACCEPTED, detail="stream already finished", epoch=lease.epoch
             )
-        if not self._paced(command):
+        if not self._paced(command, force=bool(command.payload.get("priority"))):
             return self._result(
                 command, CommandStatus.DELIVERED, detail="status coalesced", epoch=lease.epoch
             )
@@ -445,7 +449,7 @@ class CommandExecutor:
         # 同口径；只发最后一段会把前文从客户端抹掉。
         self._buffers.setdefault(key, []).append(command.text)
         if reply_ref is not None:
-            if not self._paced(command):
+            if not self._paced(command, force=bool(command.payload.get("priority"))):
                 return self._result(
                     command, CommandStatus.DELIVERED, detail="delta coalesced", epoch=lease.epoch
                 )
@@ -495,7 +499,14 @@ class CommandExecutor:
         # 持久投递链的终态是**完整替换**（不能把 final_text 追加到已流出的增量后面，
         # 否则正文会重复）；空正文时用已流出的增量收尾。Gateway 自己的收尾命令仍沿用
         # “缓冲 + 命令正文”的既有口径（等待输入等非终态场景）。
-        text = (command.text or buffered) if command.delivery_key else buffered + command.text
+        if command.delivery_key:
+            text = (
+                buffered
+                if buffered and command.text and command.text in buffered
+                else (command.text or buffered)
+            )
+        else:
+            text = buffered + command.text
         stream_id = command.stream_id or (
             message_stream_id(command.bot_id, command.message_id)
             if command.message_id
