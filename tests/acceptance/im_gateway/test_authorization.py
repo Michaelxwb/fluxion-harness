@@ -78,12 +78,15 @@ async def _wait_for(predicate: Any, *, what: str, timeout: float = WAIT_TIMEOUT_
     raise AssertionError(what)
 
 
-def _replies(stack: GatewayStack) -> list[str]:
+def _replies(stack: GatewayStack, reply_id: str) -> list[str]:
     probe = stack.ws_probe
     assert probe is not None
     texts: list[str] = []
     for item in probe.received:  # type: ignore[attr-defined]
-        if item.frame.get("cmd") in ("aibot_respond_msg", "aibot_send_msg"):
+        if (
+            item.frame.get("cmd") == "aibot_respond_msg"
+            and (item.frame.get("headers") or {}).get("req_id") == reply_id
+        ):
             texts.append(frame_text(item.frame))
     return texts
 
@@ -94,15 +97,16 @@ async def _push(
     probe = stack.ws_probe
     assert probe is not None
     message_id = f"authz-{uuid.uuid4().hex[:8]}"
+    reply_id = f"req-{message_id}"
     await probe.push_message(  # type: ignore[attr-defined]
         bot_id=BOT_ID,
         message_id=message_id,
         external_user_id=external_user_id,
         text=text,
-        reply_id=f"req-{message_id}",
+        reply_id=reply_id,
         chat_id=CHAT_ID,
     )
-    return message_id
+    return reply_id
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -210,12 +214,11 @@ def _agent_skill_binding(agent_id: uuid.UUID, skill_id: uuid.UUID) -> Any:
 async def test_b124_skills_command_shows_only_authorized_catalog(
     gateway_stack: GatewayStack, authz_env: dict[str, Any]
 ) -> None:
-    before = len(_replies(gateway_stack))
-    await _push(gateway_stack, text=SKILLS_COMMAND)
+    reply_id = await _push(gateway_stack, text=SKILLS_COMMAND)
     await _wait_for(
-        lambda: len(_replies(gateway_stack)) > before, what="/skills 未得到回复", timeout=REPLY_TIMEOUT_SEC
+        lambda: _replies(gateway_stack, reply_id), what="/skills 未得到回复", timeout=REPLY_TIMEOUT_SEC
     )
-    reply = "".join(_replies(gateway_stack)[before:])
+    reply = "".join(_replies(gateway_stack, reply_id))
 
     for key in authz_env["visible"]:
         assert key in reply, f"授权技能 {key} 未出现在 /skills 回复中：{reply}"
@@ -228,11 +231,10 @@ async def test_b124_skills_command_shows_only_authorized_catalog(
 async def test_b124_authorized_run_snapshot_contains_only_effective_skills(
     gateway_stack: GatewayStack, authz_env: dict[str, Any]
 ) -> None:
-    before = len(_replies(gateway_stack))
     before_run = await latest_run_id()
-    await _push(gateway_stack, text="授权用户发起一次运行")
+    reply_id = await _push(gateway_stack, text="授权用户发起一次运行")
     await _wait_for(
-        lambda: len(_replies(gateway_stack)) > before,
+        lambda: _replies(gateway_stack, reply_id),
         what="授权用户的运行未得到回复",
         timeout=REPLY_TIMEOUT_SEC,
     )
@@ -255,14 +257,13 @@ async def test_b124_authorized_run_snapshot_contains_only_effective_skills(
 async def test_b124_ungranted_user_gets_no_run_and_no_catalog(
     gateway_stack: GatewayStack, authz_env: dict[str, Any]
 ) -> None:
-    before = len(_replies(gateway_stack))
-    await _push(gateway_stack, text="未授权用户的消息", external_user_id=UNGANTEED_EXTERNAL_USER)
+    reply_id = await _push(gateway_stack, text="未授权用户的消息", external_user_id=UNGANTEED_EXTERNAL_USER)
     await _wait_for(
-        lambda: len(_replies(gateway_stack)) > before,
+        lambda: _replies(gateway_stack, reply_id),
         what="未授权用户的消息未得到回复",
         timeout=REPLY_TIMEOUT_SEC,
     )
-    reply = "".join(_replies(gateway_stack)[before:])
+    reply = "".join(_replies(gateway_stack, reply_id))
     assert PERMISSION_TEXT in reply, reply
 
     # 不是 RUN_BUSY 之类的其它错误冒充授权校验：该用户不得产生任何 Run
@@ -287,10 +288,9 @@ async def test_b124_new_command_does_not_change_binding_or_grant(
         "SELECT count(*) FROM control.agent_access_grant WHERE agent_id = :a",
         {"a": gateway_stack.agent_id},
     )
-    before = len(_replies(gateway_stack))
-    await _push(gateway_stack, text="/new")
+    reply_id = await _push(gateway_stack, text="/new")
     await _wait_for(
-        lambda: len(_replies(gateway_stack)) > before, what="/new 未得到回复", timeout=REPLY_TIMEOUT_SEC
+        lambda: _replies(gateway_stack, reply_id), what="/new 未得到回复", timeout=REPLY_TIMEOUT_SEC
     )
 
     identity_after = await _rows(
