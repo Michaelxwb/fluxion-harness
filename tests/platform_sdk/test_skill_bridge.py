@@ -15,6 +15,7 @@ import socket
 import subprocess
 import sys
 import uuid
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -164,6 +165,26 @@ async def _run_cli(env: dict[str, str], skill_name: str = "probe-skill") -> subp
     )
 
 
+async def _run_cli_platform(
+    env: dict[str, str], platform: str
+) -> subprocess.CompletedProcess[str]:
+    process = await asyncio.create_subprocess_exec(
+        sys.executable,
+        str(SESSION_CLI),
+        "get-state",
+        "--platform",
+        platform,
+        cwd=str(ROOT),
+        env={**os.environ, **env},
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=30)
+    return subprocess.CompletedProcess(
+        args=[str(SESSION_CLI)], returncode=process.returncode, stdout=stdout, stderr=stderr
+    )
+
+
 async def _run_cli_refresh(env: dict[str, str]) -> subprocess.CompletedProcess[str]:
     process = await asyncio.create_subprocess_exec(
         sys.executable,
@@ -199,18 +220,9 @@ async def _run_cli_list(env: dict[str, str]) -> subprocess.CompletedProcess[str]
 
 
 class _RejectingManager:
-    """首次（access.start 的 TTL 续期）成功，第二次（CLI 取 state）才暴露平台失败。"""
-
-    def __init__(self) -> None:
-        self.calls = 0
+    """取 state 时暴露平台失败，用于验证原因透传。"""
 
     async def acquire(self, request: SessionRequest) -> PlatformSession:
-        self.calls += 1
-        if self.calls == 1:
-            return PlatformSession(
-                cookie=json.dumps([{"name": "csrf_token", "value": COOKIE}]),
-                expires_at=datetime.now(UTC) + timedelta(hours=2),
-            )
         raise PlatformAuthError(
             "PLATFORM_AUTH_REJECTED",
             detail={"http_status": 200, "business_code": 9348, "message": "签名校验失败"},
@@ -257,19 +269,37 @@ async def test_failed_session_carries_the_platform_reason_to_the_skill(
     assert sessions[0]["error"]["code"] == "PLATFORM_AUTH_REJECTED"
 
 
-async def test_prelogin_reports_missing_credentials(
+async def test_declared_platforms_are_resolved_lazily(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _patch_resolver(monkeypatch, missing=frozenset({"mssw"}))
-    with pytest.raises(PlatformAuthError) as captured:
-        async with skill_platform_environment(_context(("mssp", "mssw")), "probe-skill"):
-            pass
+    """A declared platform the script never asks for must not fail the run."""
+    _patch_resolver(monkeypatch, failing=frozenset({"mssw"}))
+    async with skill_platform_environment(
+        _context(("mssp", "mssw")), "probe-skill"
+    ) as session:
+        used = await _run_cli_platform(dict(session.env), "mssp")
+        assert used.returncode == 0, used.stderr
+        assert json.loads(used.stdout)["platform"] == "mssp"
 
-    report = captured.value.platform_sessions
-    assert isinstance(report, dict)
-    assert report["platforms"][0]["available"] is True
-    assert report["platforms"][1]["available"] is False
-    assert report["platforms"][1]["error"]["code"] == "CREDENTIAL_MISSING"
+        unused = await _run_cli_platform(dict(session.env), "mssw")
+        assert unused.returncode == 1
+        payload = json.loads(unused.stderr)
+        assert payload["error"]["code"] == "PLATFORM_AUTH_REJECTED"
+        assert [item["key"] for item in payload["platform_sessions"]["platforms"]] == [
+            "mssw"
+        ]
+
+
+async def test_unused_declared_platform_denial_does_not_block(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`get-state --platform` must not resolve the rest of the declared set."""
+    _patch_resolver(monkeypatch, denied=frozenset({"mssw"}))
+    async with skill_platform_environment(
+        _context(("mssp", "mssw")), "probe-skill"
+    ) as session:
+        completed = await _run_cli_platform(dict(session.env), "mssp")
+    assert completed.returncode == 0, completed.stderr
 
 
 async def test_get_state_partial_reports_without_writing_state(
@@ -344,6 +374,8 @@ async def test_platform_environment_exposes_the_last_report(
     _patch_resolver(monkeypatch)
     async with skill_platform_environment(_context(), "probe-skill") as session:
         assert session.report is not None
+        assert session.report.payload()["platforms"] == []
+        assert (await _run_cli(dict(session.env))).returncode == 0
         assert session.report.payload()["platforms"][0]["available"] is True
 
 
@@ -469,20 +501,35 @@ async def test_sandbox_root_maps_socket_state_and_readonly_mounts(
         assert state_dir.is_dir()
 
 
-async def test_prelogin_reports_allowed_and_denied_platforms(
+async def test_explicit_workspace_selection_checks_authorization(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """An explicitly selected but unauthorized platform is rejected before the command."""
     _patch_resolver(monkeypatch, denied=frozenset({"mssw"}))
+    context = replace(_context(("mssw",)), authorize_selection=True)
     with pytest.raises(PlatformAuthError) as captured:
-        async with skill_platform_environment(_context(("mssp", "mssw")), "probe-skill"):
+        async with skill_platform_environment(context, "workspace"):
             pass
+    assert captured.value.code == "PLATFORM_SESSION_REQUIRED"
 
-    report = captured.value.platform_sessions
-    assert isinstance(report, dict)
-    assert [item["key"] for item in report["platforms"]] == ["mssp", "mssw"]
-    assert report["platforms"][0]["available"] is True
-    assert report["platforms"][1]["available"] is False
-    assert report["platforms"][1]["error"]["code"] == "PLATFORM_ACCESS_DENIED"
+
+async def test_explicit_workspace_selection_resolves_sessions_lazily(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A selected platform's failed login must not block a command that never uses it."""
+    _patch_resolver(monkeypatch, failing=frozenset({"mssw"}))
+    context = replace(_context(("mssp", "mssw")), authorize_selection=True)
+    async with skill_platform_environment(context, "workspace") as session:
+        used = await _run_cli_platform(dict(session.env), "mssp")
+        assert used.returncode == 0, used.stderr
+
+        unused = await _run_cli_platform(dict(session.env), "mssw")
+        assert unused.returncode == 1
+        payload = json.loads(unused.stderr)
+        assert payload["error"]["code"] == "PLATFORM_AUTH_REJECTED"
+        assert [item["key"] for item in payload["platform_sessions"]["platforms"]] == [
+            "mssw"
+        ]
 
 
 async def test_unauthorized_platform_fails_with_platform_session_required(

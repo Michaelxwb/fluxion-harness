@@ -85,14 +85,14 @@ async def test_s_02_budget_context_reaches_real_skill_executor(tmp_path, executi
     record_requests(platform_server[0])
     budget = controller({"execution": {"max_requests": 2}})
     context = replace(execution_context, budget_scope=PlatformBudgetScope(budget))
+    # The script actually asks for the session; the budget is consumed by use.
     root = skill_script(tmp_path)
-    (root / "scripts/main.py").write_text('print("{}")')
     result = await ScriptSkillExecutor().execute(
         SkillExecutionRequest(ready_dir=root, input={}, timeout_sec=10, platform_context=context)
     )
     assert result.exit_code == 0
     assert budget.used == 2
-    assert len(platform_server[0].requests) == 2
+    assert len(platform_server[0].requests) == 3
 
 
 async def test_s_02_legacy_direct_requests_are_explicitly_outside_sdk(
