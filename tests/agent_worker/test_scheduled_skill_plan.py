@@ -16,13 +16,14 @@ import uuid
 import zipfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 import sqlalchemy as sa
 from muad_agent_worker.infrastructure.models.task import TaskExecution, TaskScheduleRevision
 from muad_agent_worker.worker.execution_outcomes import OutcomeKind, interpret_execution
-from muad_agent_worker.worker.executor import SkillTaskExecutor
+from muad_agent_worker.worker.executor import SkillTaskExecutor, task_platform_context
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_contracts import ScheduleMode, SkillExecutionMode
 from muad_contracts.snapshot import (
@@ -431,3 +432,27 @@ async def test_skill_failure_reuses_the_execution_outcome_contract(
     assert outcome.exit_code == 3
     assert outcome.retryable is False
     assert "report generated successfully" not in outcome.evidence_preview
+
+
+def test_scheduled_snapshot_reads_platforms_from_frontmatter(
+    tenant: TenantContext,
+) -> None:
+    """Schedule snapshots freeze platforms under `frontmatter`, not top-level."""
+    task = SimpleNamespace(
+        tenant_id=tenant.tenant_id,
+        actor_user_id=uuid.uuid4(),
+        id=uuid.uuid4(),
+    )
+    context = task_platform_context(
+        task,
+        {"frontmatter": {"platforms": ["mssp"]}},
+        settings=tenant.settings,
+    )
+    assert context.platform_keys == ("mssp",)
+
+    explicit = task_platform_context(
+        task,
+        {"platforms": ["mssp"], "frontmatter": {"platforms": ["mssw"]}},
+        settings=tenant.settings,
+    )
+    assert explicit.platform_keys == ("mssp",)
