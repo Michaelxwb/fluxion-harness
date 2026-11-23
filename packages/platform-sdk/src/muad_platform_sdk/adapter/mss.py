@@ -272,7 +272,8 @@ class MSSAdapter:
             if config.auth_mode == "hmac":
                 signing = signing_credentials(secret)
                 headers["authorization"] = login_authorization(
-                    url, signing.ak.get_secret_value(), signing.sk.get_secret_value(), int(time.time()), body
+                    url, signing.ak.get_secret_value(), signing.sk.get_secret_value(), int(time.time()), body,
+                    branch_tag=config.branch_tag,
                 )
             response = await self._send(platform, client, "POST", url, headers, body)
             _checked(
