@@ -20,6 +20,7 @@ from pathlib import Path
 
 from muad_logging import get_logger
 from muad_platform_sdk.adapter.mss_config import PlatformAuthError
+from muad_platform_sdk.egress_ipc_protocol import WINDOW_LIMIT_EXIT, WINDOW_LIMIT_MARKER
 from muad_platform_sdk.skill_bridge import PlatformSessionEnvironment, skill_platform_environment
 from muad_platform_sdk.skill_egress import ScriptEgressEnvironment, skill_egress_environment
 from muad_skill_sdk.skill_package import SkillPackage, SkillPackageError, locate_package_root
@@ -182,9 +183,20 @@ def _sandbox_spec(request: SkillExecutionRequest, source: str, package_root: Pat
     )
 
 
+def _confirmed_window_limit(sandbox_result: SandboxResult, request: SkillExecutionRequest) -> bool:
+    broker = request.egress_broker
+    if broker is None or sandbox_result.output_truncated or sandbox_result.exit_code != WINDOW_LIMIT_EXIT:
+        return False
+    last_line = sandbox_result.stderr.rstrip("\n").rpartition("\n")[2]
+    return last_line.startswith(WINDOW_LIMIT_MARKER) and broker.confirms_window_denial(
+        last_line.removeprefix(WINDOW_LIMIT_MARKER),
+    )
+
+
 async def _sandbox_outcome(
     runner: SandboxRunner, spec: SandboxSpec, request: SkillExecutionRequest, egress: ScriptEgressEnvironment,
-) -> tuple[SandboxResult, SkillExecutionStatus, str | None]:
+) -> tuple[SandboxResult, SkillExecutionStatus, str | None, bool]:
+    limited = False
     try:
         sandbox_result = await _run_controlled(runner, spec, request, egress)
         status = (
@@ -193,6 +205,10 @@ async def _sandbox_outcome(
             else SkillExecutionStatus.FAILED
         )
         output_notice = None
+        limited = _confirmed_window_limit(sandbox_result, request)
+        if limited:
+            stderr = sandbox_result.stderr.rstrip("\n").rpartition("\n")[0]
+            sandbox_result = replace(sandbox_result, stderr=stderr.removesuffix("\n"))
     except SandboxOutputLimit as exc:
         sandbox_result = exc.result or SandboxResult(
             exit_code=None, stdout="", stderr="", duration_ms=0, output_truncated=True
@@ -216,7 +232,7 @@ async def _sandbox_outcome(
         status = SkillExecutionStatus.FAILED
         output_notice = None
 
-    return sandbox_result, status, output_notice
+    return sandbox_result, status, output_notice, limited
 
 
 class SandboxedSkillExecutor:
@@ -336,7 +352,9 @@ class SandboxedSkillExecutor:
                              stdout_limit_bytes=self._stdout_limit_bytes)
         started = time.monotonic()
         try:
-            sandbox_result, status, output_notice = await _sandbox_outcome(runner, spec, request, egress)
+            sandbox_result, status, output_notice, limited = await _sandbox_outcome(
+                runner, spec, request, egress,
+            )
         except SandboxUnavailable as exc:
             self._emit_failure(source, started)
             raise SkillExecutionError(str(exc), code="SANDBOX_UNAVAILABLE") from exc
@@ -359,6 +377,7 @@ class SandboxedSkillExecutor:
             output_notice=output_notice,
             output_truncated=sandbox_result.output_truncated,
             workspace_dir=workspace,
+            platform_window_limited=limited,
         )
         self._emit_result(source, result)
         return result

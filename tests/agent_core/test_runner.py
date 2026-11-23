@@ -1093,3 +1093,59 @@ async def test_runner_builds_a_context_plan_and_pins_current_input_and_active_sk
         message.role is ModelRole.USER and text_of(message.content) == "current goal A-42"
         for message in provider.requests[0].messages
     )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("other_failure", [False, True])
+async def test_window_limit_appends_notice_after_a_tool_free_answer(other_failure: bool) -> None:
+    from muad_agent_core.tools.outcome import BusinessStatus, ExecutionOutcome, FailureLayer
+
+    async def limited(_arguments, *, call):
+        return ToolResult("limited", outcome=ExecutionOutcome(
+            business_status=BusinessStatus.RATE_LIMITED,
+            failure_layer=FailureLayer.CONTENT,
+            error_code="LOCAL_RATE_LIMITED",
+        ))
+
+    async def read(_arguments, *, call):
+        if other_failure:
+            raise ToolError("PLATFORM_AUTH_REJECTED", "Authentication failed", retryable=False)
+        return ToolResult("ok")
+
+    registry = ToolRegistry()
+    for name, handler in (("query", limited), ("read", read)):
+        registry.register(ToolDefinition(
+            name, name, {"type": "object"}, ToolEffect.READ, handler,
+            concurrency=ToolConcurrency.PARALLEL_READ,
+            resource_key=lambda arguments, name=name: name,
+        ))
+    skipped = []
+    _echo_tool(registry, skipped)
+    response = replace(
+        _multi_tool_call(("limited", "query"), ("other", "read"), ("next", "echo")),
+        content="I found a result.",
+    )
+    provider = ScriptedModelProvider([response, _text("The available result is 42.")])
+    completed = []
+
+    async def on_completed(item):
+        completed.append(item)
+
+    result = await AgentRunner(
+        provider=provider, registry=registry, window_limit_reply=lambda _: "try again later",
+    ).run(_request(), on_tool_completed=on_completed)
+
+    assert len(provider.requests) == (1 if other_failure else 2)
+    assert not skipped
+    assert [item.tool_call_id for item in completed] == ["limited", "other", "next"]
+    assert completed[0].outcome.business_status is BusinessStatus.RATE_LIMITED
+    assert completed[2].outcome.error_code == "TOOL_NOT_EXECUTED"
+    if other_failure:
+        assert result.status is AgentRunStatus.NO_PROGRESS
+        assert result.termination.failure_state.last_failure.code == "PLATFORM_AUTH_REJECTED"
+    else:
+        assert result.status is AgentRunStatus.COMPLETED
+        assert not provider.requests[-1].tools
+        assert any(message.content == "ok" for message in provider.requests[-1].messages)
+        assert result.final_text == "I found a result.\n\nThe available result is 42.\n\ntry again later"
+        assert result.reply_append == "\n\nThe available result is 42.\n\ntry again later"

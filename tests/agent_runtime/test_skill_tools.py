@@ -1039,3 +1039,42 @@ async def test_retryable_skill_failure_carries_the_flag(skill_env: SkillEnv, tmp
     )
 
     assert payload["error"]["retryable"] is True
+
+
+@pytest.mark.unit
+async def test_chat_skill_projects_only_registered_outputs_on_confirmed_window_limit(skill_env, tmp_path):
+    from unittest.mock import AsyncMock
+
+    from muad_agent_core.skill import OutputFile, SkillExecutionResult, SkillExecutionStatus
+    from muad_agent_core.tools import ArtifactRole
+    from muad_agent_core.tools.outcome import BusinessStatus
+
+    saved = tmp_path / "partial.json"
+    saved.write_text('{"available": true}')
+    partial = OutputFile(relative_path=saved.name, path=saved, size=saved.stat().st_size, checksum="checksum")
+    rejected = OutputFile(relative_path="rejected.json", path=saved, size=0, checksum="rejected")
+    executor = AsyncMock()
+    executor.execute.return_value = SkillExecutionResult(
+        status=SkillExecutionStatus.FAILED, exit_code=79, stderr="internal diagnostic",
+        outputs=(partial, rejected), platform_window_limited=True,
+    )
+    output_id = str(uuid.uuid4())
+    registrar = AsyncMock()
+    registrar.register.side_effect = [output_id, OSError("could not register output")]
+    registry = build_skill_registry(
+        cache=skill_env.cache, skills=(skill_env.skill,), policy=AgentPolicy(),
+        executor=executor, output_registrar=registrar,
+    )
+    handler = registry.get(EXECUTE_TOOL).handler
+    arguments = {"target": "skill", "skill_key": SKILL_KEY, "input": {"question": "hi"}}
+    call = ToolCall(call_id="window-limited", name=EXECUTE_TOOL, model_name=EXECUTE_TOOL, arguments=arguments)
+
+    result = await handler(arguments, call=call)
+
+    assert result.outcome.business_status is BusinessStatus.RATE_LIMITED
+    assert json.loads(result.content) == {
+        "status": "RATE_LIMITED", "error_code": "LOCAL_RATE_LIMITED", "output_artifact_ids": [output_id],
+    }
+    assert [(item.artifact_id, item.role) for item in result.artifacts] == [
+        (output_id, ArtifactRole.ATTACHMENT),
+    ]

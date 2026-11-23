@@ -153,3 +153,65 @@ async def test_oversize_and_query_bearing_metadata_is_rejected_without_metering(
             result = await exchange(broker.socket_path, {**base, "path": path})
             assert result == {"ok": False, "code": "IPC_INVALID_REQUEST"}
         assert await redis.get(meter._bucket("assets", "total")) == "0"
+
+
+@pytest.mark.parametrize("capture_window_denials", [True, False])
+async def test_window_denial_is_correlated_and_never_reaches_upstream(ipc_meter, capture_window_denials):
+    import requests
+    from muad_platform_sdk.requests_egress_hook import RequestsEgressHook
+
+    _, meter, _ = ipc_meter
+    api = broker_api()
+    await meter.publish(SharedEgressPolicy.model_validate({"revision": 2, "rules": [{
+        "id": "assets", "target_instance_id": "platform", "route_id": "GET /assets",
+        "window_requests": 1, "window_seconds": 60,
+    }]}))
+    received = []
+    audited = []
+
+    async def upstream(reader, writer):
+        received.append(await reader.readuntil(b"\r\n\r\n"))
+        writer.write(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+        await writer.drain()
+        writer.close()
+        await writer.wait_closed()
+
+    async def observe(event):
+        audited.append(event)
+
+    server = await asyncio.start_server(upstream, "127.0.0.1", 0)
+    async with server:
+        origin = f"http://127.0.0.1:{server.sockets[0].getsockname()[1]}"
+
+        async def bases():
+            return (origin,)
+
+        broker = api.InvocationEgressBroker(
+            meter=meter, invocation=TrustedInvocation("execution", "script", "segment"),
+            resolve=lambda _: api.EgressTarget("platform", "GET /assets"),
+            deadline_seconds=5, cleanup_seconds=0.5, observe=observe, load_platform_base_urls=bases,
+            capture_window_denials=capture_window_denials,
+        )
+
+        def request_twice():
+            client = api.IPCAdmissionClient(broker.socket_path, timeout_seconds=2)
+            with RequestsEgressHook(client):
+                assert requests.get(origin + "/assets", timeout=2).status_code == 200
+                with pytest.raises(api.IPCAdmissionError, match="IPC_LIMIT_WINDOW") as denied:
+                    requests.get(origin + "/assets", timeout=2)
+            return denied.value.attempt_id
+
+        async with broker:
+            attempt_id = await asyncio.to_thread(request_twice)
+            if capture_window_denials:
+                assert attempt_id and broker.confirms_window_denial(attempt_id)
+            else:
+                assert attempt_id is None
+            assert not broker.confirms_window_denial(uuid.uuid4().hex)
+        if attempt_id:
+            assert not broker.confirms_window_denial(attempt_id)
+
+    assert len(received) == 1
+    assert [(event.sent, event.error_code) for event in audited] == [(True, None), (False, "LIMIT_WINDOW")]
+    if attempt_id:
+        assert audited[1].attempt_id == attempt_id

@@ -13,6 +13,7 @@ import math
 import os
 import sys
 import tempfile
+from collections import deque
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -30,6 +31,7 @@ from .egress_ipc_client import IPCAdmissionError as IPCAdmissionError
 from .egress_ipc_protocol import (
     MAX_FRAME_BYTES,
     PROTOCOL_VERSION,
+    WINDOW_LIMIT_CODE,
     BeginRequest,
     CompletionRequest,
     ControlRequest,
@@ -39,6 +41,7 @@ from .egress_ipc_protocol import AttemptMetadata as AttemptMetadata
 from .shared_redis import LimitScope, MeteringUnavailable, SharedLimitExceeded, SharedPermit, SharedRedisMeter
 
 logger = get_logger(__name__)
+MAX_WINDOW_DENIALS = 64
 PlatformBaseURLLoader = Callable[[], Awaitable[tuple[str, ...]]]
 
 
@@ -70,6 +73,7 @@ class InvocationEgressBroker:
         renewal_interval_seconds: float = 1.0,
         observe: AttemptObserver | None = None,
         load_platform_base_urls: PlatformBaseURLLoader | None = None,
+        capture_window_denials: bool = False,
     ) -> None:
         lifetimes = (deadline_seconds, cleanup_seconds, renewal_interval_seconds)
         if (
@@ -96,6 +100,8 @@ class InvocationEgressBroker:
         self._closing = False
         self._child_started = False
         self._ever_admitted = False
+        self._capture_window_denials = capture_window_denials
+        self._window_denials: deque[str] = deque(maxlen=MAX_WINDOW_DENIALS)
 
     @classmethod
     def for_tracing(
@@ -148,6 +154,7 @@ class InvocationEgressBroker:
         self, exc_type: type[BaseException] | None, exc: BaseException | None, traceback: TracebackType | None
     ) -> None:
         await self.stop_admissions()
+        self._window_denials.clear()
         self.socket_path.unlink(missing_ok=True)
         self.socket_path.parent.rmdir()
 
@@ -177,6 +184,9 @@ class InvocationEgressBroker:
             else:
                 self._pending.pop(permit.attempt_id, None)
         self.clients_closed.set()
+
+    def confirms_window_denial(self, attempt_id: str) -> bool:
+        return attempt_id in self._window_denials
 
     def note_limit(self, error: SharedLimitExceeded) -> None:
         if error.kind == "TOTAL" and error.scope in {"execution", "invocation"}:
@@ -217,6 +227,12 @@ class InvocationEgressBroker:
         platform_request = any(url == base or url.startswith(base + "/") for base in self._platform_base_urls)
         try:
             await self._controlled_begin(reader, writer, target, audit, platform_request=platform_request)
+        except SharedLimitExceeded as exc:
+            if not self._capture_window_denials or not platform_request or audit.sent or exc.kind != "WINDOW":
+                raise
+            await audit.finish(exc)
+            self._window_denials.append(audit.attempt_id)
+            await self._error_reply(writer, WINDOW_LIMIT_CODE, scope=exc.scope, attempt_id=audit.attempt_id)
         finally:
             await audit.finish(sys.exception())
 
@@ -326,11 +342,14 @@ class InvocationEgressBroker:
                 logger.warning("egress_ipc_connection_close_unconfirmed")
 
     async def _error_reply(
-        self, writer: asyncio.StreamWriter, code: str, *, scope: LimitScope | None = None
+        self, writer: asyncio.StreamWriter, code: str, *, scope: LimitScope | None = None,
+        attempt_id: str | None = None,
     ) -> None:
         payload: dict[str, object] = {"ok": False, "code": code}
         if scope is not None:
             payload["scope"] = scope
+        if attempt_id is not None:
+            payload["attempt_id"] = attempt_id
         try:
             await self._reply(writer, payload)
         except OSError:

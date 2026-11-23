@@ -152,6 +152,7 @@ class SkillExecutionResult:
     workspace_dir: Path | None = None
     #: 有平台失败时附带的逐平台报告；正常成功为空。
     platform_sessions: dict[str, object] | None = None
+    platform_window_limited: bool = False
 
 
 @dataclass(frozen=True, slots=True)
