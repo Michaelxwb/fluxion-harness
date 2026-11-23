@@ -257,9 +257,10 @@ async def test_b124_ungranted_user_gets_no_run_and_no_catalog(
 ) -> None:
     before = len(_replies(gateway_stack))
     await _push(gateway_stack, text="未授权用户的消息", external_user_id=UNGANTEED_EXTERNAL_USER)
+    # 上一条 Run 的最终回复可能晚于 Run 终态到达；不能把任何新帧都当成本次拒绝回复。
     await _wait_for(
-        lambda: len(_replies(gateway_stack)) > before,
-        what="未授权用户的消息未得到回复",
+        lambda: PERMISSION_TEXT in "".join(_replies(gateway_stack)[before:]),
+        what="未授权用户未收到权限拒绝回复",
         timeout=REPLY_TIMEOUT_SEC,
     )
     reply = "".join(_replies(gateway_stack)[before:])
