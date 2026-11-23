@@ -31,6 +31,27 @@ EXAMPLE_PATH = "/api/v1/example"
 # -----------------------------------------------------------------------------
 
 
+def _failed_platforms(stderr: str) -> list[str]:
+    """Read the CLI's platform_sessions report; never guess a platform name."""
+    for line in reversed(stderr.splitlines()):
+        try:
+            payload = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        report = payload.get("platform_sessions")
+        platforms = report.get("platforms") if isinstance(report, dict) else None
+        if not isinstance(platforms, list):
+            continue
+        return [
+            str(item.get("key"))
+            for item in platforms
+            if isinstance(item, dict) and item.get("available") is False and item.get("key")
+        ]
+    return []
+
+
 def resolve_state_file() -> str:
     local = os.environ.get("MUAD_LOCAL_SESSION_STATE", "").strip()
     if not os.environ.get("MUAD_SESSION_SOCKET") and local and Path(local).is_file():
@@ -47,6 +68,13 @@ def resolve_state_file() -> str:
         raise RuntimeError(f"session-manager could not run: {error}") from error
     if completed.returncode != 0:
         detail = (completed.stderr or "").strip()
+        failed = _failed_platforms(detail)
+        if failed:
+            raise RuntimeError(
+                "平台登录态获取失败："
+                + ", ".join(failed)
+                + "；请在 Console 检查对应平台凭据后重试"
+            )
         raise RuntimeError(
             "session-manager get-state failed: "
             + (detail[:1000] if detail else f"exit {completed.returncode}")
@@ -126,6 +154,19 @@ if __name__ == "__main__":
     try:
         sys.exit(main())
     except Exception as error:  # noqa: BLE001 - fail loud: stderr + non-zero exit
-        print(json.dumps({"ok": False, "error": "处理失败，请稍后重试"}, ensure_ascii=False), file=sys.stderr)
-        print(f"{type(error).__name__}: {error}", file=sys.stderr)
+        message = str(error) or "处理失败，请稍后重试"
+        print(
+            json.dumps(
+                {
+                    "ok": False,
+                    "error": {
+                        "code": "SKILL_EXECUTION_FAILED",
+                        "message": message,
+                        "retryable": False,
+                    },
+                },
+                ensure_ascii=False,
+            ),
+            file=sys.stderr,
+        )
         sys.exit(1)

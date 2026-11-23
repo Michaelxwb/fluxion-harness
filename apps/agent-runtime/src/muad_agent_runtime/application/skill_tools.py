@@ -621,7 +621,7 @@ class SkillToolSet:
                     ErrorCode.COMMON_VALIDATION_ERROR.value, "platforms must be a non-empty list"
                 )
             selected = tuple(dict.fromkeys(key.strip() for key in keys))
-            platform = replace(platform, platform_keys=selected, require_all_platforms=True)
+            platform = replace(platform, platform_keys=selected, authorize_selection=True)
             timeout_sec = _optional_timeout(arguments, limit=self._timeout_sec)
             platform, broker = await self._workspace_platform_scope(platform, call_id, timeout_sec)
             cwd = arguments.get("cwd", WORKSPACE_MOUNT)
@@ -639,9 +639,13 @@ class SkillToolSet:
         except (WorkspaceError, SandboxError, SkillExecutionError) as exc:
             raise ToolError(exc.code, exc.message) from exc
         except PlatformAuthError as exc:
+            failed = _failed_platform_keys(exc.platform_sessions)
+            message = "platform session unavailable"
+            if failed:
+                message = f"{message}: {', '.join(failed)}"
             raise ToolError(
                 exc.code,
-                "platform session unavailable",
+                message,
                 platform_sessions=exc.platform_sessions,
             ) from exc
         except SkillToolError:
@@ -1441,6 +1445,23 @@ def _workspace_result(result: Any) -> ToolResult:
             output_truncated=result.output_truncated,
         ),
     )
+
+
+def _failed_platform_keys(report: Mapping[str, object] | None) -> tuple[str, ...]:
+    """Point the model at the platform(s) that actually failed, not the first key."""
+    if not isinstance(report, Mapping):
+        return ()
+    platforms = report.get("platforms")
+    if not isinstance(platforms, list):
+        return ()
+    keys: list[str] = []
+    for item in platforms:
+        if not isinstance(item, Mapping) or item.get("available") is not False:
+            continue
+        key = item.get("key")
+        if isinstance(key, str) and key:
+            keys.append(key)
+    return tuple(dict.fromkeys(keys))
 
 
 def skill_platform_keys(frontmatter: Mapping[str, Any]) -> tuple[str, ...]:

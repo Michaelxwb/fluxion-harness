@@ -2,7 +2,7 @@
 
 自建 Skill 访问受保护业务平台时统一使用 `requests`。Skill 只做两件事：
 
-1. 调 `session-manager get-state --skill-name <skill>` 取登录态文件；
+1. 调 `session-manager get-state --skill-name <skill>` 取登录态文件（单平台/多平台都用这一种；`--platform` 是 agent 工具，不用于 Skill 脚本）；
 2. 从 `platforms.<平台名>` 读 `cookies` 与 `requestProfile`，拼请求头。
 
 平台只校验这些请求头**存在**，不校验取值（实测 CSRF / TraceId 用随机 UUID 同样可用）。
@@ -24,7 +24,11 @@ def resolve_state_file():
         check=False, capture_output=True, text=True, timeout=30,
     )
     if completed.returncode != 0:
-        raise RuntimeError("session-manager get-state failed")
+        detail = (completed.stderr or "").strip()
+        raise RuntimeError(
+            "session-manager get-state failed: "
+            + (detail[:1000] if detail else f"exit {completed.returncode}")
+        )
     return json.loads(completed.stdout)["sessionStateFile"]
 
 

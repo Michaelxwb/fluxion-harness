@@ -208,8 +208,13 @@ async def _write_state(
         }
     requested: tuple[str, ...]
     if platform_key is not None:
-        allowed = await access.allowed_keys()
-        if platform_key not in allowed:
+        # Resolve only the platform the script names. Declared keys are an
+        # allowlist; scanning the whole set here would let an unused platform's
+        # authorization or config error block an unrelated request.
+        if (
+            access.context.scope is PlatformScope.SELECTED
+            and platform_key not in access.context.platform_keys
+        ):
             raise PlatformAuthError("PLATFORM_ACCESS_DENIED")
         requested = (platform_key,)
     elif access.context.scope is PlatformScope.SELECTED:
@@ -313,10 +318,11 @@ async def skill_platform_environment(
     active: set[asyncio.Task[None]] = set()
     root = Path(tempfile.mkdtemp(prefix="fx-session-", dir="/tmp"))
     try:
-        if context.require_all_platforms:
-            # Explicit workspace selection is an execution constraint: reject an
-            # unauthorized selection before running an unrelated shell command.
-            # Skill declarations are not a gate; they collect a per-platform report.
+        if context.authorize_selection:
+            # Explicit workspace selection is authorized before running: a key
+            # outside the granted set cannot become usable later. Session login
+            # stays lazy for every scope -- only `get-state`/`refresh` resolves
+            # the platform the script actually names.
             await access.allowed_keys()
         run_dir, state_dir, command_dir, state_prefix, mounts = _prepare_layout(root, sandbox_root)
 
@@ -372,7 +378,6 @@ async def skill_platform_environment(
                     if task:
                         active.discard(task)
 
-        await access.start()
         socket_path = str(run_dir / "session.sock")
         server = await asyncio.start_unix_server(handle, socket_path, limit=65536)
         os.chmod(socket_path, 0o600)

@@ -90,10 +90,13 @@ def _concurrent_cli_script(root: Path) -> Path:
         "import json, os, pathlib, subprocess, sys, time\n"
         "args = json.load(sys.stdin)\n"
         "cmd = ['session-manager', 'get-state', '--skill-name', 'platform_server']\n"
-        "pending = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)\n"
-        "pathlib.Path(args['pids']).write_text(json.dumps([os.getpid(), pending.pid]))\n"
+        "first = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)\n"
+        "first.wait()\n"
+        "second = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)\n"
+        "pathlib.Path(args['pids']).write_text(json.dumps([os.getpid(), first.pid, second.pid]))\n"
         "while not pathlib.Path(args['marker']).exists(): time.sleep(.01)\n"
-        "subprocess.run(cmd, capture_output=True)\n"
+        "third = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)\n"
+        "third.wait()\n"
         "time.sleep(30)\n", encoding="utf-8",
     )
     return root

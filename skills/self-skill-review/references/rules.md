@@ -8,7 +8,7 @@
 | SS-R002 | error | `muad.skill.json` 存在、JSON 合法；`name` 非空；`runtime` 只能是 `script`；`version` 为 semver；`platforms` 为字符串数组 |
 | SS-R003 | error | `SKILL.md` frontmatter 的 `name`、manifest `name`、目录名三者一致 |
 | SS-R004 | error | `entrypoint` 声明时必须指向存在的 `.py` 文件 |
-| SS-R005 | error | 声明了 `platforms` 的 Skill 必须 import 并使用 `requests`，且通过 `session-manager get-state` 获取登录态 |
+| SS-R005 | error | 声明了 `platforms` 的 Skill 必须 import 并使用 `requests`，且通过 `session-manager get-state --skill-name <skill>` 获取登录态；Skill 脚本不得使用 `--platform`（那是 agent 工作区/排查工具的入口） |
 | SS-R006 | error | 业务请求统一使用 `requests`；禁止 `httpx` / `aiohttp` / `urllib.request` / `http.client` |
 | SS-R007 | warning | 禁止手工拼装 CSRF / `TraceId` 等敏感头（仅检查 headers/cookies 容器；普通响应字段如 `{"traceId": ...}` 不告警）；Runtime Guard 对业务主机统一构造 |
 | SS-R008 | error | 禁止用 `subprocess` / `os.system` 调用 `curl`、`wget`、`http` 或 `requests` 发业务请求 |

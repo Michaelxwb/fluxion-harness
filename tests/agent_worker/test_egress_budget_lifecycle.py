@@ -150,6 +150,9 @@ def _frozen_artifact(tmp_path: Path) -> tuple[SkillArtifactCache, uuid.UUID, dic
             "scripts/main.py",
             "import subprocess,time\n"
             "subprocess.run(['session-manager','get-state','--skill-name','platform_server'],capture_output=True)\n"
+            # 第一次取登录态会消耗 CSRF + login；第二次才会触发已缓存会话的校验请求，
+            # 在 max_requests=2 下被 DENY。只调一次时不会触发预算耗尽，只会跑到超时。
+            "subprocess.run(['session-manager','get-state','--skill-name','platform_server'],capture_output=True)\n"
             "time.sleep(30)\n",
         )
     artifact_id = uuid.uuid4()

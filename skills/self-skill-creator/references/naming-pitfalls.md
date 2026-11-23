@@ -39,7 +39,7 @@ skill 名描述功能，平台名是 Console 里的标识，两者语义不同�
 
 ## 脚本里怎么写
 
-状态文件里的平台 key 必须与 `muad.skill.json` 的 `platforms` 一致；skill 名只用于 manifest、SKILL.md、目录名和 `session-manager get-state --skill-name`。
+状态文件里的平台 key 必须与 `muad.skill.json` 的 `platforms` 一致；skill 名只用于 manifest、SKILL.md、目录名和 `session-manager get-state --skill-name`。`--platform` 是 agent 工具，不用于 Skill 脚本。
 
 ```python
 # ✅ 对：平台名与 manifest platforms 一致

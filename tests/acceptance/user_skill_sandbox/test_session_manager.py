@@ -28,7 +28,6 @@ from muad_agent_core.sandbox import (
 )
 from muad_agent_core.skill import (
     ScriptSkillExecutor,
-    SkillExecutionError,
     SkillExecutionRequest,
 )
 
@@ -108,7 +107,7 @@ async def test_session_manager_state_is_bound_to_execution_and_deleted(
 
 
 async def test_unauthorized_platform_yields_platform_access_denied(tmp_path: Path) -> None:
-    """受信上下文之外的平台 key：Console 拒绝 → PLATFORM_ACCESS_DENIED。"""
+    """受信上下文之外的平台 key：Console 拒绝 → 脚本取 state 时失败。"""
     async with open_session_chain() as chain:
         root = write_skill_package(
             tmp_path / "skill",
@@ -117,16 +116,16 @@ async def test_unauthorized_platform_yields_platform_access_denied(tmp_path: Pat
             main=legacy_probe_script(SKILL_NAME, "mssw"),
         )
         context = replace(chain.context, platform_keys=("mssw",))
-        with pytest.raises(SkillExecutionError) as captured:
-            await ScriptSkillExecutor().execute(
-                SkillExecutionRequest(
-                    ready_dir=root,
-                    input={},
-                    timeout_sec=30.0,
-                    platform_context=context,
-                )
+        result = await ScriptSkillExecutor().execute(
+            SkillExecutionRequest(
+                ready_dir=root,
+                input={},
+                timeout_sec=30.0,
+                platform_context=context,
             )
-    assert captured.value.code == "PLATFORM_ACCESS_DENIED"
+        )
+    assert result.exit_code != 0
+    assert "PLATFORM_ACCESS_DENIED" in result.stderr
 
 
 async def test_workspace_shell_never_receives_session_manager(tmp_path: Path) -> None:

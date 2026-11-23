@@ -157,7 +157,7 @@ class SkillPlatformContext:
     service_token: str | None = field(repr=False)
     redis_mode: str = "standalone"
     redis_cluster_seeds: str = ""
-    require_all_platforms: bool = False
+    authorize_selection: bool = False
     budget_scope: PlatformBudgetScope | None = field(default=None, repr=False)
     transport_factory: Callable[[ssl.SSLContext], httpx.AsyncBaseTransport] | None = field(
         default=None, repr=False,
@@ -238,7 +238,7 @@ class SkillPlatformAccess:
                 await self.resolve_platform(key)
             except PlatformAuthError as exc:
                 if exc.code in _AUTHORIZATION_DENIALS:
-                    if self.context.require_all_platforms:
+                    if self.context.authorize_selection:
                         raise PlatformAuthError("PLATFORM_SESSION_REQUIRED") from None
                     continue
                 raise
@@ -474,22 +474,3 @@ class SkillPlatformAccess:
             self.redis, self.registry, tenant_id=ctx.tenant_id, platform_id=data["platform"]["id"]
         )
         return platform, request, manager
-
-    async def start(self) -> PlatformSessionReport:
-        # Explicit declarations collect the requested set and report per-platform
-        # failures before the script starts; AUTO remains fully lazy.
-        if self.context.scope is not PlatformScope.SELECTED:
-            return self.report
-        requested = tuple(dict.fromkeys(self.context.platform_keys))
-        await self.collect_batch(requested)
-        if self.report.hard_error is not None:
-            raise self.batch_error(requested)
-        first = self.report.first_failure()
-        if first is not None:
-            raise PlatformAuthError(
-                first.code or "PLATFORM_SESSION_REQUIRED",
-                retryable=first.retryable,
-                detail=first.detail,
-                platform_sessions=self.report.payload(requested),
-            )
-        return self.report

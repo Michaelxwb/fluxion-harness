@@ -15,7 +15,7 @@ description: Python 业务 Skill 模板：session-manager 取登录态，request
 execute(target="skill", skill_key="business-skill-python-template", argv=["--company-id", "123"])
 ```
 
-脚本从 `session-manager get-state --skill-name <skill>` 读取登录态：
+脚本从 `session-manager get-state --skill-name <skill>` 读取登录态（单平台/多平台都用这一种；平台集合由 Console 中该 Skill 关联的 `platforms` 决定）。`--platform` 是 agent 工作区/排查工具的单平台入口，不用于 Skill 脚本。
 
 - `platforms.<PLATFORM>.cookies` → `Cookie` 请求头；
 - `platforms.<PLATFORM>.requestProfile.baseUrl` → 业务地址；
@@ -34,7 +34,7 @@ execute(target="skill", skill_key="business-skill-python-template", argv=["--com
 
 ## 失败语义
 
-失败写 stderr 并返回非零退出码（fail loud）；成功时 stdout 只输出一个机器可读的 JSON。
+失败写 stderr 并返回非零退出码（fail loud），stderr 最后一行输出结构化 `error` 信封（`code` / `message` / `retryable`）；成功时 stdout 只输出一个机器可读的 JSON。取登录态失败时，CLI 的 stderr 里有 `platform_sessions`；失败文案要从这里读实际失败的平台，不要写死平台名。
 
 ## 本地调试
 

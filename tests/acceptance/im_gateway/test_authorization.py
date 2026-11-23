@@ -259,12 +259,10 @@ async def test_b124_ungranted_user_gets_no_run_and_no_catalog(
 ) -> None:
     reply_id = await _push(gateway_stack, text="未授权用户的消息", external_user_id=UNGANTEED_EXTERNAL_USER)
     await _wait_for(
-        lambda: _replies(gateway_stack, reply_id),
-        what="未授权用户的消息未得到回复",
+        lambda: PERMISSION_TEXT in "".join(_replies(gateway_stack, reply_id)),
+        what="未授权用户未收到权限拒绝回复",
         timeout=REPLY_TIMEOUT_SEC,
     )
-    reply = "".join(_replies(gateway_stack, reply_id))
-    assert PERMISSION_TEXT in reply, reply
 
     # 不是 RUN_BUSY 之类的其它错误冒充授权校验：该用户不得产生任何 Run
     runs = await _scalar(

@@ -558,8 +558,10 @@ def _check_platform_usage(target: Path, manifest, parsed) -> list[Finding]:
     has_requests_import = False
     has_requests_call = False
     has_get_state = False
+    has_platform_flag = False
     first_python = None
     call_location = None
+    state_location = None
     for path, _source, tree in parsed:
         if first_python is None:
             first_python = path
@@ -577,15 +579,26 @@ def _check_platform_usage(target: Path, manifest, parsed) -> list[Finding]:
             elif isinstance(node, ast.Call) and _dotted_name(node.func) in SUBPROCESS_FUNCS:
                 strings = _string_constants(node)
                 has_state = any("get-state" in item for item in strings)
-                has_skill_name = any("--skill-name" in item for item in strings)
-                if has_state and has_skill_name:
+                if not has_state:
+                    continue
+                if any("--skill-name" in item for item in strings):
                     has_get_state = True
+                elif any("--platform" in item for item in strings):
+                    has_platform_flag = True
+                    if state_location is None:
+                        state_location = (path, node.lineno)
     if not has_requests_import or not has_requests_call:
         location = call_location[0] if call_location else (first_python or (target / "muad.skill.json"))
         line = call_location[1] if call_location else 1
         return [_finding(
             "SS-R005", location, target, line,
             "platforms declared but requests is not used",
+        )]
+    if has_platform_flag:
+        location, line = state_location or (first_python or (target / "muad.skill.json"), 1)
+        return [_finding(
+            "SS-R005", location, target, line,
+            "Skill scripts must not use get-state --platform; use --skill-name instead",
         )]
     if not has_get_state:
         location = call_location[0]
