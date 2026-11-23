@@ -35,6 +35,8 @@ class ImagePart:
 
     media_type: str
     data_base64: str
+    #: 产出该图片的 artifact 身份；只用于恢复引用，不参与 provider 序列化。
+    artifact_id: str | None = None
 
     def data_url(self) -> str:
         return f"data:{self.media_type};base64,{self.data_base64}"
@@ -65,6 +67,11 @@ class ModelMessage:
     # 拒绝（实测 deepseek-flash：`reasoning_content ... must be passed back`；纯文本
     # assistant 消息则不需要）。不带 tool_calls 的回合无需保留。
     reasoning_content: str | None = None
+    #: 重建来源（protected reload / coverage 计算）；provider 序列化忽略这些字段。
+    message_id: str | None = None
+    source_event_id: str | None = None
+    source_event_seq: int | None = None
+    origin: str = "UNKNOWN"
 
 
 @dataclass(frozen=True, slots=True)

@@ -9,14 +9,14 @@ from __future__ import annotations
 
 import base64
 import json
-import logging
 from dataclasses import dataclass, field
 from functools import lru_cache
 
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from cryptography.hazmat.primitives.serialization import load_der_public_key, load_pem_public_key
+from muad_logging import get_logger
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = get_logger(__name__)
 
 #: 平台元数据键名。``identity_keys`` 决定身份指纹；``identity_field_labels`` 只用于
 #: Console 展示，缺失时前端回退显示 claim 名；``issue_time_keys`` / ``issue_time_unit``

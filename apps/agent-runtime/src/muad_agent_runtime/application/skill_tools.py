@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
@@ -32,15 +31,23 @@ from muad_agent_core.skill import (
     SkillExecutionResult,
     SkillExecutionStatus,
     SkillExecutor,
+    SkillInvocationError,
     build_sandboxed_skill_executor,
+    validate_skill_invocation,
 )
 from muad_agent_core.skill.selection import select_entry_script
 from muad_agent_core.tools import (
+    ToolAssembly,
+    ToolCall,
+    ToolCapability,
     ToolConcurrency,
     ToolDefinition,
     ToolEffect,
+    ToolError,
     ToolRegistry,
-    skill_execution_outcome,
+    ToolResult,
+    shell_outcome,
+    skill_result_outcome,
 )
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
@@ -52,6 +59,7 @@ from muad_contracts import (
     DeliveryRouteInput,
     ResolvedSkill,
     SkillExecutionMode,
+    SkillInvocationContract,
     ToolRetrySafety,
 )
 from muad_contracts.egress_identity import egress_operation_key
@@ -60,8 +68,10 @@ from muad_contracts.skill_invocation import (
     MAX_SKILL_ARGV_ITEMS,
     validate_skill_argv,
 )
+from muad_logging import get_logger
 from muad_platform_sdk.adapter.mss_config import PlatformAuthError
-from muad_platform_sdk.egress_ipc import InvocationEgressBroker
+from muad_platform_sdk.egress_attempt_audit import AttemptObserver
+from muad_platform_sdk.egress_ipc import InvocationEgressBroker, PlatformBaseURLLoader
 from muad_platform_sdk.host_egress_execution import HostEgressExecution
 from muad_platform_sdk.shared_redis import MeteringUnavailable, SharedLimitExceeded
 from muad_platform_sdk.skill_access import SkillPlatformContext
@@ -79,6 +89,7 @@ from ..metrics import (
     SANDBOX_TIMEOUT_METRIC,
     SKILL_EXECUTION_DURATION_SECONDS,
     SKILL_EXECUTION_METRIC,
+    SKILL_INVOCATION_GUARD_METRIC,
     SKILL_LOAD_METRIC,
     record_latency,
     record_outcome,
@@ -96,12 +107,12 @@ LOAD_SKILL_DESCRIPTION = "Load a skill's manifest and full SKILL.md instructions
 READ_SKILL_RESOURCE_TOOL_DESCRIPTION = (
     "Read a file shipped inside a skill package (references/assets) by skill key and path."
 )
-# 工具描述里写清**何时用**：系统提示里的目录只列了靠前的一部分，其余技能只能从这里找到。
+# 工具描述写清何时用；省略 query 列出全部（2026-11-21：空 query 曾把 Run 首轮判死）。
 SEARCH_SKILLS_DESCRIPTION = (
-    "Search the available skills by keyword (matches key, name and description). "
-    "The system prompt lists only the leading part of the skill catalog; use this to find any "
-    "skill that is not listed there. Returns catalog entries, so a match can be passed straight "
-    "to load_skill or execute target=skill."
+    "Search the available skills by keyword (matches key, name and description); "
+    "omit query to list the catalog (bounded). The system prompt lists only the leading part "
+    "of the catalog; use this to find any skill that is not listed there. Returns catalog "
+    "entries, so a match can be passed straight to load_skill or execute target=skill."
 )
 
 MAX_RESOURCE_BYTES = 256 * 1024
@@ -120,7 +131,7 @@ _ARGV_SCHEMA: Mapping[str, Any] = {
 }
 _NUMBER_SCHEMA: Mapping[str, Any] = {"type": "number", "exclusiveMinimum": 0}
 _CATALOG_RESOURCE_KEY = "skills:catalog"
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,21 +175,22 @@ def _skill_resource_key(arguments: Mapping[str, Any]) -> str | None:
     return f"skill:{key}" if isinstance(key, str) and key else None
 
 
-class SkillToolError(RuntimeError):
+class SkillToolError(ToolError):
     def __init__(
         self,
         code: str,
         message: str,
         detail: dict[str, object] | None = None,
-        retryable: bool = False,
+        retryable: bool | None = None,
         platform_sessions: dict[str, object] | None = None,
     ) -> None:
-        self.code = code
-        self.message = message
-        self.detail = detail
-        self.retryable = retryable
-        self.platform_sessions = platform_sessions
-        super().__init__(message)
+        super().__init__(
+            code,
+            message,
+            detail=detail,
+            retryable=retryable,
+            platform_sessions=platform_sessions,
+        )
 
 
 def build_default_skill_cache(settings: SharedSettings | None = None) -> SkillArtifactCache:
@@ -233,6 +245,8 @@ def build_skill_registry(
     draft_tools: SkillDraftTools | None = None,
     enable_run_skill_script: bool = False,
     egress: HostEgressExecution | None = None,
+    trace_observer: AttemptObserver | None = None,
+    load_platform_base_urls: PlatformBaseURLLoader | None = None,
 ) -> ToolRegistry:
     tool_set = SkillToolSet(
         cache=cache,
@@ -254,6 +268,8 @@ def build_skill_registry(
         draft_tools=draft_tools,
         enable_run_skill_script=enable_run_skill_script,
         egress=egress,
+        trace_observer=trace_observer,
+        load_platform_base_urls=load_platform_base_urls,
     )
     return tool_set.registry()
 
@@ -281,9 +297,13 @@ class SkillToolSet:
         draft_tools: SkillDraftTools | None = None,
         enable_run_skill_script: bool = False,
         egress: HostEgressExecution | None = None,
+        trace_observer: AttemptObserver | None = None,
+        load_platform_base_urls: PlatformBaseURLLoader | None = None,
         async_retry_safety: ToolRetrySafety = DEFAULT_TOOL_RETRY_SAFETY,
     ) -> None:
         self._egress = egress
+        self._trace_observer = trace_observer
+        self._load_platform_base_urls = load_platform_base_urls
         if platform_context is not None and platform_context.budget_scope is not None:
             raise ValueError("Runtime local budget scopes are unsupported; configure shared egress")
         self._cache = cache
@@ -318,8 +338,6 @@ class SkillToolSet:
             self._draft_shell is not None and self._draft_shell_context is not None
         ) or self._skills:
             registry.register(self._execute_definition())
-        for definition in self._compatibility_definitions():
-            registry.register_compatibility(definition)
         # 草稿 Shell 同样与已生效技能无关：用户可以在还没有任何已批准 Skill 时调试草稿。
         # 草稿工具与已生效技能无关：用户可能在还没有任何已批准 Skill 时创建第一份草稿。
         if self._draft_tools is not None:
@@ -331,96 +349,20 @@ class SkillToolSet:
             return registry
         for definition in self._definitions():
             registry.register(definition)
+        assembly = ToolAssembly(registry)
+        assembly.require(
+            ToolCapability.SKILL_CATALOG,
+            ToolCapability.SKILL_INSTRUCTIONS,
+            ToolCapability.SKILL_RESOURCE,
+            ToolCapability.SKILL_EXECUTE,
+        )
+        if self._workspace_shell is not None:
+            assembly.require(ToolCapability.WORKSPACE)
+        if self._draft_tools is not None:
+            assembly.require(ToolCapability.DRAFT)
         return registry
 
-    def _compatibility_definitions(self) -> tuple[ToolDefinition, ...]:
-        """Keep persisted hooks and older acceptance fixtures callable.
-
-        These names are intentionally absent from ``model_tools()``; new model
-        calls use the unified ``execute`` definition.
-        """
-        definitions: list[ToolDefinition] = []
-        if self._skills:
-            definitions.extend(
-                (
-                    ToolDefinition(
-                        name=EXECUTE_SKILL_TOOL,
-                        description=(
-                            "Legacy alias for execute target=skill. ASYNC skills are submitted as "
-                            "background tasks; results appear in the task center and are delivered "
-                            "to the conversation."
-                        ),
-                        input_schema=_input_schema(
-                            {
-                                "skill_key": _STRING_SCHEMA,
-                                "input": _OBJECT_SCHEMA,
-                                "argv": _ARGV_SCHEMA,
-                            },
-                            ("skill_key",),
-                        ),
-                        effect=ToolEffect.EXTERNAL,
-                        handler=self.execute_skill,
-                        retry_safety=self._async_retry_safety,
-                        outcome_parser=skill_execution_outcome,
-                    ),
-                    ToolDefinition(
-                        name=RUN_SKILL_SCRIPT_TOOL,
-                        description="Legacy alias for execute target=skill with script.",
-                        input_schema=_input_schema(
-                            {
-                                "skill_key": _STRING_SCHEMA,
-                                "script": _STRING_SCHEMA,
-                                "input": _OBJECT_SCHEMA,
-                                "argv": _ARGV_SCHEMA,
-                            },
-                            ("skill_key", "script"),
-                        ),
-                        effect=ToolEffect.EXTERNAL,
-                        handler=self.run_skill_script,
-                        outcome_parser=skill_execution_outcome,
-                    ),
-                )
-            )
-        if self._workspace_shell is not None and self._workspace_shell_context is not None:
-            definitions.append(
-                ToolDefinition(
-                    name="workspace_shell",
-                    description="Legacy alias for execute target=workspace.",
-                    input_schema=_input_schema(
-                        {
-                            "command": _STRING_SCHEMA,
-                            "cwd": _STRING_SCHEMA,
-                            "timeout_sec": _NUMBER_SCHEMA,
-                            "platforms": {"type": "array", "items": _STRING_SCHEMA, "minItems": 1},
-                        },
-                        ("command",),
-                    ),
-                    effect=ToolEffect.EXTERNAL,
-                    handler=self.workspace_shell,
-                )
-            )
-        if self._draft_shell is not None and self._draft_shell_context is not None:
-            definitions.append(
-                ToolDefinition(
-                    name="skill_draft_shell",
-                    description="Legacy alias for execute target=draft.",
-                    input_schema=_input_schema(
-                        {
-                            "draft_id": _STRING_SCHEMA,
-                            "command": _STRING_SCHEMA,
-                            "cwd": _STRING_SCHEMA,
-                            "timeout_sec": _NUMBER_SCHEMA,
-                            "reset_data": {"type": "boolean"},
-                        },
-                        ("draft_id", "command"),
-                    ),
-                    effect=ToolEffect.EXTERNAL,
-                    handler=self.skill_draft_shell,
-                )
-            )
-        return tuple(definitions)
-
-    async def execute(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+    async def execute(self, arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
         target = arguments.get("target")
         allowed = {
             "skill": {"target", "skill_key", "input", "argv", "script", "timeout_sec"},
@@ -428,11 +370,11 @@ class SkillToolSet:
             "workspace": {"target", "command", "cwd", "timeout_sec", "platforms"},
         }
         if not isinstance(target, str) or target not in allowed:
-            return _error_result("COMMON_VALIDATION_ERROR", "target must be skill, draft or workspace")
+            raise ToolError("COMMON_VALIDATION_ERROR", "target must be skill, draft or workspace")
         unsupported = sorted(set(arguments) - allowed[target])
         if unsupported:
             # 键名必须回给模型：只说"不匹配"会让它挨个换形状重试，永远猜不到是多带了哪个键。
-            return _error_result(
+            raise ToolError(
                 "COMMON_VALIDATION_ERROR",
                 f"parameters do not match execution target: target={target} cannot use "
                 f"{', '.join(unsupported)}; accepted: {', '.join(sorted(allowed[target]))}",
@@ -441,12 +383,12 @@ class SkillToolSet:
         if target == "skill":
             if "script" in payload:
                 if not self._enable_run_skill_script:
-                    return _error_result("FORBIDDEN", "skill script debug execution is unavailable")
-                return await self.run_skill_script(payload, call_id=call_id)
-            return await self.execute_skill(payload, call_id=call_id)
+                    raise ToolError("FORBIDDEN", "skill script debug execution is unavailable")
+                return await self.run_skill_script(payload, call=call)
+            return await self.execute_skill(payload, call=call)
         if target == "draft":
-            return await self.skill_draft_shell(payload, call_id=call_id)
-        return await self.workspace_shell(payload, call_id=call_id)
+            return await self.skill_draft_shell(payload, call=call)
+        return await self.workspace_shell(payload, call=call)
 
     def _execute_definition(self) -> ToolDefinition:
         return ToolDefinition(
@@ -484,107 +426,128 @@ class SkillToolSet:
             }, ("target",)),
             effect=ToolEffect.EXTERNAL,
             handler=self.execute,
+            capabilities=frozenset(
+                {
+                    ToolCapability.SKILL_EXECUTE,
+                    *(
+                        {ToolCapability.WORKSPACE}
+                        if self._workspace_shell is not None
+                        else set()
+                    ),
+                    *(
+                        {ToolCapability.DRAFT}
+                        if self._draft_shell is not None
+                        else set()
+                    ),
+                }
+            ),
             retry_safety=self._async_retry_safety,
-            # draft/workspace 的退出码只是证据：解析器返回 None，pipeline 记 NOT_APPLICABLE。
-            outcome_parser=skill_execution_outcome,
         )
 
-    async def load_skill(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
-        try:
-            skill = self._require_skill(arguments)
-            package = await self._package(skill)
-            return json.dumps(
+    async def load_skill(self, arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        skill = self._require_skill(arguments)
+        package = await self._package(skill)
+        return ToolResult(
+            json.dumps(
                 {"manifest": _manifest_payload(package), "instructions": package.instructions},
                 ensure_ascii=False,
             )
-        except SkillToolError as exc:
-            return _error_result(exc.code, exc.message)
+        )
 
-    async def read_skill_resource(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+    async def read_skill_resource(
+        self, arguments: Mapping[str, Any], *, call: ToolCall
+    ) -> ToolResult:
+        skill = self._require_skill(arguments)
+        relative = _require_string(arguments, "path")
+        package = await self._package(skill)
+        target = _resolve_resource(package.root, relative)
         try:
-            skill = self._require_skill(arguments)
-            relative = _require_string(arguments, "path")
-            package = await self._package(skill)
-            target = _resolve_resource(package.root, relative)
-            try:
-                with target.open("rb") as stream:
-                    data = stream.read(MAX_RESOURCE_BYTES)
-            except OSError as exc:
+            with target.open("rb") as stream:
+                data = stream.read(MAX_RESOURCE_BYTES)
+        except OSError as exc:
+            raise SkillToolError(
+                SKILL_RESOURCE_NOT_FOUND, f"resource is not readable: {relative}"
+            ) from exc
+        content = data.decode("utf-8", errors="replace")
+        return ToolResult(json.dumps({"path": relative, "content": content}, ensure_ascii=False))
+
+    async def execute_skill(
+        self, arguments: Mapping[str, Any], *, call: ToolCall
+    ) -> ToolResult:
+        skill = self._require_skill(arguments)
+        input_data = _require_input(arguments)
+        argv = _require_argv(arguments)
+        _guard_invocation(skill, input_data=input_data, argv=argv)
+        if skill.execution_mode is SkillExecutionMode.ASYNC:
+            if "timeout_sec" in arguments:
                 raise SkillToolError(
-                    SKILL_RESOURCE_NOT_FOUND, f"resource is not readable: {relative}"
-                ) from exc
-            content = data.decode("utf-8", errors="replace")
-            return json.dumps({"path": relative, "content": content}, ensure_ascii=False)
-        except SkillToolError as exc:
-            return _error_result(exc.code, exc.message)
+                    ErrorCode.COMMON_VALIDATION_ERROR.value,
+                    "async Skill does not accept timeout_sec; the Task deadline governs",
+                )
+            return await self._submit_background(skill, input_data, call.call_id, argv=argv)
+        package = await self._package(skill)
+        return await self._execute(
+            package.root,
+            input_data,
+            script=None,
+            skill=skill,
+            argv=argv,
+            timeout_sec=self._call_timeout(arguments),
+            call_id=call.call_id,
+        )
 
-    async def execute_skill(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+    async def run_skill_script(
+        self, arguments: Mapping[str, Any], *, call: ToolCall
+    ) -> ToolResult:
+        skill = self._require_skill(arguments)
+        name = _require_string(arguments, "script")
+        input_data = _require_input(arguments)
+        argv = _require_argv(arguments)
+        package = await self._package(skill)
+        script = _select_script(package, name)
         try:
-            skill = self._require_skill(arguments)
-            input_data = _require_input(arguments)
-            argv = _require_argv(arguments)
-            if skill.execution_mode is SkillExecutionMode.ASYNC:
-                if "timeout_sec" in arguments:
-                    raise SkillToolError(
-                        ErrorCode.COMMON_VALIDATION_ERROR.value,
-                        "async Skill does not accept timeout_sec; the Task deadline governs",
-                    )
-                return await self._submit_background(skill, input_data, call_id, argv=argv)
-            package = await self._package(skill)
-            return await self._execute(
-                package.root,
-                input_data,
-                script=None,
-                skill=skill,
-                argv=argv,
-                timeout_sec=self._call_timeout(arguments),
-                call_id=call_id,
-            )
-        except SkillToolError as exc:
-            return _error_result(
-                exc.code,
-                exc.message,
-                exc.detail,
-                retryable=exc.retryable,
-                platform_sessions=exc.platform_sessions,
-            )
+            default_entrypoint = select_entry_script(package.root)
+        except SkillExecutionError:
+            default_entrypoint = None
+        if (
+            default_entrypoint is not None
+            and script.resolve() == default_entrypoint.resolve()
+        ):
+            _guard_invocation(skill, input_data=input_data, argv=argv)
+        if skill.execution_mode is SkillExecutionMode.ASYNC:
+            _reject_async_entrypoint_bypass(package, script)
+        return await self._execute(
+            package.root,
+            input_data,
+            script=script,
+            skill=skill,
+            argv=argv,
+            timeout_sec=self._call_timeout(arguments),
+            call_id=call.call_id,
+        )
 
-    async def run_skill_script(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
-        try:
-            skill = self._require_skill(arguments)
-            name = _require_string(arguments, "script")
-            input_data = _require_input(arguments)
-            argv = _require_argv(arguments)
-            package = await self._package(skill)
-            script = _select_script(package, name)
-            if skill.execution_mode is SkillExecutionMode.ASYNC:
-                _reject_async_entrypoint_bypass(package, script)
-            return await self._execute(
-                package.root,
-                input_data,
-                script=script,
-                skill=skill,
-                argv=argv,
-                timeout_sec=self._call_timeout(arguments),
-                call_id=call_id,
-            )
-        except SkillToolError as exc:
-            return _error_result(
-                exc.code,
-                exc.message,
-                exc.detail,
-                retryable=exc.retryable,
-                platform_sessions=exc.platform_sessions,
-            )
-
-    async def search_skills(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+    async def search_skills(
+        self, arguments: Mapping[str, Any], *, call: ToolCall
+    ) -> ToolResult:
         """按关键词检索**本次 Run 的全部生效技能**，返回目录条目。
 
         存在的理由：目录有上限（`MAX_CATALOG_BYTES` / `MAX_CATALOG_ENTRIES`），装不下的技能模型
         看不见 key 就等于不存在。数据本来就在手上（`self._skills` 是全量），所以这里只是一次
         本地过滤——不查库、不新增端点。
+
+        省略/空 `query` 等于列出全部（空词表的 AND 命中所有技能），同样受 `bounded_catalog`
+        收口。用户问「我有哪些技能」时模型没有任何关键词可用，拒绝空查询只会把一次正常提问变成
+        一次失败；非字符串查询则按可纠正的校验错误**返回**（不抛异常，避免被当成确定性失败）。
         """
-        query = _require_string(arguments, "query")
+        query = arguments.get("query")
+        if query is None:
+            query = ""
+        if not isinstance(query, str):
+            raise ToolError(
+                ErrorCode.COMMON_VALIDATION_ERROR.value,
+                "query must be a string",
+                retryable=True,
+            )
         terms = [term for term in query.casefold().split() if term]
         matches = tuple(skill for skill in self._catalog() if _matches(skill, terms))
         kept, dropped = bounded_catalog(matches)
@@ -596,12 +559,14 @@ class SkillToolSet:
             # 结果同样有上限：否则技能一多，"检索"只是把上下文膨胀从提示词搬进工具结果。
             result["truncated"] = True
             result["hint"] = "only the leading matches are shown; narrow the query"
-        return json.dumps(result, ensure_ascii=False)
+        return ToolResult(json.dumps(result, ensure_ascii=False))
 
-    async def workspace_shell(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+    async def workspace_shell(
+        self, arguments: Mapping[str, Any], *, call: ToolCall
+    ) -> ToolResult:
         """执行一次性 Shell；身份取自 Run 上下文，模型不能选择 tenant/user/agent。"""
         if "platforms" in arguments:
-            return await self._workspace_shell_with_platforms(arguments, call_id=call_id)
+            return await self._workspace_shell_with_platforms(arguments, call_id=call.call_id)
         runner = self._workspace_shell
         context = self._workspace_shell_context
         if runner is None or context is None:
@@ -619,7 +584,7 @@ class SkillToolSet:
                     tenant_id=context.tenant_id,
                     user_id=context.user_id,
                     agent_id=context.agent_id,
-                    execution_id=_workspace_execution_id(context.run_id, call_id),
+                    execution_id=_workspace_execution_id(context.run_id, call.call_id),
                     command=command,
                     cwd=cwd.strip(),
                     timeout_sec=timeout_sec,
@@ -628,20 +593,20 @@ class SkillToolSet:
                 )
             )
         except (WorkspaceError, SandboxError) as exc:
-            return _error_result(exc.code, exc.message)
-        except SkillToolError as exc:
-            return _error_result(exc.code, exc.message)
+            raise ToolError(exc.code, exc.message) from exc
         except ValueError as exc:
-            return _error_result(ErrorCode.COMMON_VALIDATION_ERROR.value, str(exc))
-        return _workspace_payload(result)
+            raise ToolError(ErrorCode.COMMON_VALIDATION_ERROR.value, str(exc)) from exc
+        return _workspace_result(result)
 
-    async def _workspace_shell_with_platforms(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+    async def _workspace_shell_with_platforms(
+        self, arguments: Mapping[str, Any], *, call_id: str
+    ) -> ToolResult:
         """Run a command in the same workspace with explicitly selected platform sessions."""
         runner = self._workspace_shell
         context = self._workspace_shell_context
         platform = self._platform_context
         if runner is None or context is None or platform is None:
-            return _error_result("WORKSPACE_UNAVAILABLE", "platform workspace is not configured")
+            raise ToolError("WORKSPACE_UNAVAILABLE", "platform workspace is not configured")
         try:
             keys = arguments.get("platforms")
             if not isinstance(keys, list) or not keys or any(
@@ -652,7 +617,8 @@ class SkillToolSet:
                 )
             selected = tuple(dict.fromkeys(key.strip() for key in keys))
             platform = replace(platform, platform_keys=selected, require_all_platforms=True)
-            platform, broker = await self._workspace_platform_scope(platform, call_id)
+            timeout_sec = _optional_timeout(arguments, limit=self._timeout_sec)
+            platform, broker = await self._workspace_platform_scope(platform, call_id, timeout_sec)
             cwd = arguments.get("cwd", WORKSPACE_MOUNT)
             if not isinstance(cwd, str) or not cwd.strip():
                 raise SkillToolError(
@@ -662,71 +628,93 @@ class SkillToolSet:
                 tenant_id=context.tenant_id, user_id=context.user_id, agent_id=context.agent_id,
                 execution_id=_workspace_execution_id(context.run_id, call_id), run_id=context.run_id,
                 command=_require_string(arguments, "command"), cwd=cwd.strip(),
-                timeout_sec=_optional_timeout(arguments, limit=self._timeout_sec),
+                timeout_sec=timeout_sec,
                 platform_context=platform, egress_broker=broker,
             ))
-        except (WorkspaceError, SandboxError, SkillToolError, SkillExecutionError) as exc:
-            return _error_result(exc.code, exc.message)
+        except (WorkspaceError, SandboxError, SkillExecutionError) as exc:
+            raise ToolError(exc.code, exc.message) from exc
         except PlatformAuthError as exc:
-            return _error_result(
+            raise ToolError(
                 exc.code,
                 "platform session unavailable",
                 platform_sessions=exc.platform_sessions,
-            )
-        except (RedisError, RedisClusterException):
-            return _error_result("PLATFORM_SESSION_STORE_UNAVAILABLE", "platform session store unavailable")
-        except MeteringUnavailable:
-            return _error_result("EGRESS_METERING_UNAVAILABLE", "shared metering unavailable")
+            ) from exc
+        except SkillToolError:
+            raise
+        except (RedisError, RedisClusterException) as exc:
+            raise ToolError(
+                "PLATFORM_SESSION_STORE_UNAVAILABLE", "platform session store unavailable"
+            ) from exc
+        except MeteringUnavailable as exc:
+            raise ToolError("EGRESS_METERING_UNAVAILABLE", "shared metering unavailable") from exc
         except SharedLimitExceeded as exc:
             code = "LOCAL_BUDGET_EXHAUSTED" if exc.kind == "TOTAL" else "LOCAL_RATE_LIMITED"
-            return _error_result(code, str(exc))
+            raise ToolError(code, str(exc)) from exc
         except ValueError as exc:
-            return _error_result(ErrorCode.COMMON_VALIDATION_ERROR.value, str(exc))
-        return _workspace_payload(result)
+            raise ToolError(ErrorCode.COMMON_VALIDATION_ERROR.value, str(exc)) from exc
+        return _workspace_result(result)
 
     async def _workspace_platform_scope(
-        self, platform: SkillPlatformContext, call_id: str,
+        self, platform: SkillPlatformContext, call_id: str, timeout_sec: float,
     ) -> tuple[SkillPlatformContext, InvocationEgressBroker | None]:
         host = self._egress
         if host is None:
-            return platform, None
+            return platform, self._trace_broker(timeout_sec)
         invocation = await host.host_invocation(
             operation_key=egress_operation_key("TOOL_CALL", call_id), skill_key="workspace_shell",
         )
-        broker = host.broker(invocation, deadline_seconds=self._timeout_sec)
+        broker = host.broker(
+            invocation, deadline_seconds=timeout_sec, load_platform_base_urls=self._load_platform_base_urls,
+        )
         return replace(platform, transport_factory=lambda verify: host.transport(
             invocation, verify=verify, on_limit=broker.note_limit,
         )), broker
 
-    async def skill_draft_shell(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+    def _trace_broker(self, timeout_sec: float) -> InvocationEgressBroker | None:
+        if self._trace_observer is None:
+            return None
+        return InvocationEgressBroker.for_tracing(
+            observe=self._trace_observer, deadline_seconds=timeout_sec,
+            cleanup_seconds=process_settings().egress_cleanup_sec,
+            load_platform_base_urls=self._load_platform_base_urls,
+        )
+
+    async def skill_draft_shell(
+        self, arguments: Mapping[str, Any], *, call: ToolCall
+    ) -> ToolResult:
         """在当前用户当前草稿的副本中执行一条命令；身份取自 Run 上下文。"""
         runner = self._draft_shell
         context = self._draft_shell_context
         if runner is None or context is None:
-            return _error_result("COMMON_INTERNAL_ERROR", "draft shell is not configured")
+            raise ToolError("COMMON_INTERNAL_ERROR", "draft shell is not configured")
         if "skill_key" in arguments:
-            return _error_result(
+            raise ToolError(
                 ErrorCode.COMMON_VALIDATION_ERROR.value,
                 "skill_key is not accepted by skill_draft_shell; pass draft_id",
             )
         try:
-            result = await runner.run(_draft_shell_request(arguments, context, call_id, self._timeout_sec))
+            result = await runner.run(
+                _draft_shell_request(arguments, context, call.call_id, self._timeout_sec)
+            )
         except DraftShellError as exc:
-            payload: dict[str, Any] = {"error": {"code": exc.code, "message": exc.message}}
+            error_payload: dict[str, Any] = {"error": {"code": exc.code, "message": exc.message}}
             if exc.retryable:
-                payload["error"]["retryable"] = True
+                error_payload["error"]["retryable"] = True
             if exc.result is not None:
-                payload["stdout"] = exc.result.stdout
-                payload["stderr"] = exc.result.stderr
-                payload["exit_code"] = exc.result.exit_code
-                payload["output_truncated"] = exc.result.output_truncated
+                error_payload["stdout"] = exc.result.stdout
+                error_payload["stderr"] = exc.result.stderr
+                error_payload["exit_code"] = exc.result.exit_code
+                error_payload["output_truncated"] = exc.result.output_truncated
             if exc.platform_sessions:
-                payload["platform_sessions"] = exc.platform_sessions
-            return json.dumps(payload, ensure_ascii=False)
-        except SkillToolError as exc:
-            return _error_result(exc.code, exc.message)
+                error_payload["platform_sessions"] = exc.platform_sessions
+            return ToolResult(
+                content=json.dumps(error_payload, ensure_ascii=False),
+                outcome=exc.outcome(),
+            )
+        except SkillToolError:
+            raise
         except ValueError as exc:
-            return _error_result(ErrorCode.COMMON_VALIDATION_ERROR.value, str(exc))
+            raise ToolError(ErrorCode.COMMON_VALIDATION_ERROR.value, str(exc)) from exc
         payload: dict[str, Any] = {
             "stdout": result.stdout,
             "stderr": result.stderr,
@@ -738,7 +726,15 @@ class SkillToolSet:
         }
         if result.platform_sessions:
             payload["platform_sessions"] = result.platform_sessions
-        return json.dumps(payload, ensure_ascii=False)
+        return ToolResult(
+            content=json.dumps(payload, ensure_ascii=False),
+            outcome=shell_outcome(
+                stdout=result.stdout,
+                stderr=result.stderr,
+                exit_code=result.exit_code,
+                output_truncated=result.output_truncated,
+            ),
+        )
 
     def _catalog(self) -> tuple[PromptSkill, ...]:
         """全部生效技能 → 目录条目，顺序与提示词目录一致（`sort_order, key`）。"""
@@ -749,9 +745,10 @@ class SkillToolSet:
             ToolDefinition(
                 name=SEARCH_SKILLS_TOOL,
                 description=SEARCH_SKILLS_DESCRIPTION,
-                input_schema=_input_schema({"query": _STRING_SCHEMA}, ("query",)),
+                input_schema=_input_schema({"query": _STRING_SCHEMA}, ()),
                 effect=ToolEffect.READ,
                 handler=self.search_skills,
+                capabilities=frozenset({ToolCapability.SKILL_CATALOG}),
                 # 内容投递：返回的目录条目就是要给模型读的，不得被大结果外置换成预览
                 externalizable_result=False,
                 # 只读过滤：目录来自不可变的 Run 内技能快照，同资源键的检索之间串行（同资源锁）。
@@ -764,6 +761,7 @@ class SkillToolSet:
                 input_schema=_input_schema({"skill_key": _STRING_SCHEMA}, ("skill_key",)),
                 effect=ToolEffect.READ,
                 handler=self.load_skill,
+                capabilities=frozenset({ToolCapability.SKILL_INSTRUCTIONS}),
                 # 内容投递：返回的 SKILL.md 正文**就是要给模型读的**，不得被大结果外置截成预览
                 externalizable_result=False,
             ),
@@ -776,6 +774,7 @@ class SkillToolSet:
                 ),
                 effect=ToolEffect.READ,
                 handler=self.read_skill_resource,
+                capabilities=frozenset({ToolCapability.SKILL_RESOURCE}),
                 # 同上：references 正文同样属于内容投递
                 externalizable_result=False,
                 # 只读文件读取：按 skill_key 隔离资源锁（会写本工具的包缓存，异技能才可重叠）。
@@ -807,7 +806,7 @@ class SkillToolSet:
         call_id: str,
         *,
         argv: tuple[str, ...] = (),
-    ) -> str:
+    ) -> ToolResult:
         """ASYNC Skill 的 ExecutionRouter：固定 DETACH，只创建 Parent Task，不本地执行。"""
         if self._task_client is None or self._task_context is None:
             raise SkillToolError(BACKGROUND_SUBMIT_FAILED, "durable task submitter is unavailable")
@@ -827,7 +826,7 @@ class SkillToolSet:
             )
         except AppError as exc:
             raise SkillToolError(BACKGROUND_SUBMIT_FAILED, str(exc.code)) from exc
-        return json.dumps(submitted, ensure_ascii=False)
+        return ToolResult(json.dumps(submitted, ensure_ascii=False))
 
     async def _default_background_route(
         self, context: TaskSubmissionContext
@@ -920,7 +919,7 @@ class SkillToolSet:
         call_id: str,
         argv: tuple[str, ...] = (),
         timeout_sec: float | None = None,
-    ) -> str:
+    ) -> ToolResult:
         try:
             invocation_id = egress_operation_key("TOOL_CALL", call_id)
         except ValueError as exc:
@@ -951,7 +950,17 @@ class SkillToolSet:
             )
             self._record_execution(skill, result)
             outputs = await self._register_outputs(result)
-            return _execution_payload(result, outputs)
+            return ToolResult(
+                content=_execution_payload(result, outputs),
+                outcome=skill_result_outcome(
+                    status=str(result.status),
+                    stdout=result.stdout,
+                    stderr=result.stderr,
+                    result=result.result,
+                    exit_code=result.exit_code,
+                    output_truncated=result.output_truncated,
+                ),
+            )
         finally:
             if lease is not None:
                 await self._release_execution_workspace(lease)
@@ -970,13 +979,14 @@ class SkillToolSet:
         timeout_sec: float | None = None,
     ) -> SkillExecutionResult:
         try:
-            broker, platform_context = await self._execution_egress(skill, invocation_id)
+            deadline = self._timeout_sec if timeout_sec is None else timeout_sec
+            broker, platform_context = await self._execution_egress(skill, invocation_id, deadline)
             return await self._executor.execute(
                 SkillExecutionRequest(
                     ready_dir=ready_dir,
                     input=input_data,
                     argv=argv,
-                    timeout_sec=timeout_sec if timeout_sec is not None else self._timeout_sec,
+                    timeout_sec=deadline,
                     source=str(skill.source),
                     workspace_dir=workspace_dir,
                     execution_id=execution_id,
@@ -1002,15 +1012,17 @@ class SkillToolSet:
             raise SkillToolError("EGRESS_METERING_UNAVAILABLE", "shared metering unavailable") from None
 
     async def _execution_egress(
-        self, skill: ResolvedSkill, operation_key: str
+        self, skill: ResolvedSkill, operation_key: str, timeout_sec: float,
     ) -> tuple[InvocationEgressBroker | None, SkillPlatformContext | None]:
         context, host = self._platform_context, self._egress
         if context is not None:
             context = replace(context, platform_keys=skill_platform_keys(skill.frontmatter))
         if host is None:
-            return None, context
+            return self._trace_broker(timeout_sec), context
         invocation = await host.host_invocation(operation_key=operation_key, skill_key=skill.key)
-        broker = host.broker(invocation, deadline_seconds=self._timeout_sec)
+        broker = host.broker(
+            invocation, deadline_seconds=timeout_sec, load_platform_base_urls=self._load_platform_base_urls,
+        )
         if context is not None:
             context = replace(
                 context,
@@ -1283,14 +1295,71 @@ def _select_script(package: SkillPackage, name: str) -> Path:
     return target
 
 
+def _guard_invocation(
+    skill: ResolvedSkill,
+    *,
+    input_data: Mapping[str, Any],
+    argv: Sequence[str],
+) -> None:
+    """Validate the default-entrypoint contract before starting a skill process."""
+    frontmatter = skill.frontmatter if isinstance(skill.frontmatter, Mapping) else {}
+    raw = frontmatter.get("invocation_contract")
+    if raw is None:
+        record_outcome(
+            SKILL_INVOCATION_GUARD_METRIC, "SKIPPED", {"code": "CONTRACT_MISSING"}
+        )
+        return
+    try:
+        contract = SkillInvocationContract.model_validate(raw)
+    except ValidationError as exc:
+        record_outcome(
+            SKILL_INVOCATION_GUARD_METRIC, "FAILED", {"code": "CONTRACT_INVALID"}
+        )
+        raise SkillToolError(
+            "SKILL_INVOCATION_INVALID",
+            "Skill invocation contract is invalid",
+            {"reason": "CONTRACT_INVALID", "repair": "REIMPORT_SKILL"},
+            retryable=False,
+        ) from exc
+    try:
+        validate_skill_invocation(
+            contract,
+            input_data=input_data,
+            argv=argv,
+            phase="rendered",
+        )
+    except SkillInvocationError as exc:
+        record_outcome(
+            SKILL_INVOCATION_GUARD_METRIC, "FAILED", {"code": exc.reason}
+        )
+        raise SkillToolError(
+            "SKILL_INVOCATION_INVALID",
+            f"{exc.field}: {exc.reason}",
+            exc.as_detail(),
+            retryable=True,
+        ) from exc
+    record_outcome(SKILL_INVOCATION_GUARD_METRIC, "PASSED", {"code": "OK"})
+
+
 def _manifest_payload(package: SkillPackage) -> dict[str, Any]:
     manifest = package.manifest
-    return {
+    payload: dict[str, Any] = {
         "name": manifest.name,
         "description": manifest.description,
         "execution": manifest.execution.value,
         "platform_label": manifest.platform_label,
     }
+    try:
+        entrypoint = select_entry_script(package.root)
+    except SkillExecutionError:
+        entrypoint = None
+    if entrypoint is not None:
+        payload["entrypoint"] = entrypoint.relative_to(package.root.resolve()).as_posix()
+    if manifest.invocation_contract is not None:
+        payload["invocation_contract"] = manifest.invocation_contract.model_dump(
+            mode="json", by_alias=True
+        )
+    return payload
 
 
 def _execution_payload(result: SkillExecutionResult, outputs: Sequence[Mapping[str, Any]] = ()) -> str:
@@ -1310,7 +1379,7 @@ def _execution_payload(result: SkillExecutionResult, outputs: Sequence[Mapping[s
     return json.dumps(payload, ensure_ascii=False)
 
 
-def _workspace_payload(result: Any) -> str:
+def _workspace_result(result: Any) -> ToolResult:
     payload: dict[str, Any] = {
         "stdout": result.stdout,
         "stderr": result.stderr,
@@ -1322,28 +1391,15 @@ def _workspace_payload(result: Any) -> str:
     platform_sessions = getattr(result, "platform_sessions", None)
     if platform_sessions:
         payload["platform_sessions"] = platform_sessions
-    return json.dumps(payload, ensure_ascii=False)
-
-
-def _error_result(
-    code: str,
-    message: str,
-    detail: dict[str, object] | None = None,
-    *,
-    retryable: bool = False,
-    platform_sessions: dict[str, object] | None = None,
-) -> str:
-    error: dict[str, object] = {"code": code, "message": message}
-    if detail:
-        # 平台非正常响应的可读原因（HTTP 非 2xx / 业务 code≠0）；成功与其它失败没有它。
-        error["detail"] = detail
-    if retryable:
-        # 只有可重试失败（网络/超时/5xx/429）才标注；缺省不写＝确定性失败，第一次即终止 Run。
-        error["retryable"] = True
-    payload: dict[str, object] = {"error": error}
-    if platform_sessions:
-        payload["platform_sessions"] = platform_sessions
-    return json.dumps(payload, ensure_ascii=False)
+    return ToolResult(
+        content=json.dumps(payload, ensure_ascii=False),
+        outcome=shell_outcome(
+            stdout=result.stdout,
+            stderr=result.stderr,
+            exit_code=result.exit_code,
+            output_truncated=result.output_truncated,
+        ),
+    )
 
 
 def skill_platform_keys(frontmatter: Mapping[str, Any]) -> tuple[str, ...]:

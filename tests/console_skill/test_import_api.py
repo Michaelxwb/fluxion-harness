@@ -233,6 +233,50 @@ async def test_import_creates_skill_and_artifact(
         assert stored.storage_key == artifact["storage_key"]
 
 
+async def test_import_persists_invocation_contract(
+    client: AsyncClient,
+    skill_env: SkillContext,
+) -> None:
+    package = zip_bytes(
+        {
+            "SKILL.md": "\n".join(
+                [
+                    "---",
+                    "name: contract-skill",
+                    "description: contract skill",
+                    "invocation_contract:",
+                    "  version: 1",
+                    "  invocation: argv",
+                    "  schema:",
+                    "    type: object",
+                    "    properties:",
+                    "      company-id: {type: string}",
+                    "    required: [company-id]",
+                    "    additionalProperties: false",
+                    "---",
+                    "",
+                ]
+            ),
+            "scripts/run.py": "print('run')\n",
+        }
+    )
+
+    response = await import_skill(client, skill_env, package, version="1.0.0")
+
+    assert response.status_code == 200
+    artifact = response.json()["data"]["current_artifact"]
+    assert artifact["frontmatter"]["invocation_contract"] == {
+        "version": 1,
+        "invocation": "argv",
+        "schema": {
+            "type": "object",
+            "properties": {"company-id": {"type": "string"}},
+            "required": ["company-id"],
+            "additionalProperties": False,
+        },
+    }
+
+
 async def test_import_derives_key_from_inner_directory(
     client: AsyncClient,
     skill_env: SkillContext,

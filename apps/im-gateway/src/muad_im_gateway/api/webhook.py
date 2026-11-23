@@ -9,19 +9,19 @@ XADD **之前**被拒，不落库、不建 Run。重复 `event_id` 由入站发�
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 import redis.asyncio
 from fastapi import APIRouter, Request
 from muad_api import ApiResponse, AppError, ErrorCode, ok
+from muad_logging import get_logger
 from pydantic import ValidationError
 
 from ..channels.base import ChannelRegistry, UnknownChannelAdapterError
 from ..channels.webhook import MAX_EVENT_BODY_BYTES, WebhookAuthError, WebhookChannelAdapter
 from .deps import GatewayTenantDep, InboundPublisherDep, RegistryDep
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/channels", tags=["webhook"])
 

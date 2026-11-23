@@ -1,19 +1,17 @@
-"""`ExecutionOutcome` 分类矩阵（design §4.2 / §8 单元）。"""
+"""`ExecutionOutcome` classification matrix (design §4.2 / §8 unit)."""
 
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
 from typing import Any
 
 from muad_agent_core.tools import (
     BusinessStatus,
     FailureLayer,
-    ToolDefinition,
-    ToolEffect,
-    ToolExecutionPipeline,
-    ToolRegistry,
+    ToolError,
+    shell_outcome,
     skill_execution_outcome,
+    skill_result_outcome,
 )
 
 
@@ -26,7 +24,7 @@ def _skill_payload(
     exit_code: int | None = 0,
     output_truncated: bool = False,
 ) -> dict[str, Any]:
-    """与 `skill_tools._execution_payload` 同形的 Skill 执行载荷。"""
+    """The structured executor envelope consumed by the Worker task path."""
     return {
         "status": status,
         "stdout": stdout,
@@ -114,165 +112,62 @@ def test_skill_cancelled_is_not_a_failure() -> None:
 
 
 def test_workspace_and_draft_payloads_are_not_business_executions() -> None:
-    """退出码只是结果证据：没有 Skill 执行载荷就没有 CONTENT 失败。"""
     workspace = {"stdout": "", "stderr": "grep: no match", "exit_code": 1, "changed_files": []}
     draft = {"stdout": "", "stderr": "boom", "exit_code": 1, "revision": 2}
     assert skill_execution_outcome(workspace) is None
     assert skill_execution_outcome(draft) is None
 
 
-def test_tool_failure_envelope_keeps_output_truncated() -> None:
-    from muad_agent_core.tools import tool_failure_outcome
-
-    outcome = tool_failure_outcome(
-        json.dumps(
-            {
-                "error": {"code": "SANDBOX_OUTPUT_LIMIT", "message": "output limit exceeded"},
-                "output_truncated": True,
-            }
-        )
+def test_shell_outcome_keeps_exit_code_and_evidence_without_business_failure() -> None:
+    outcome = shell_outcome(
+        stdout="",
+        stderr="grep: no match",
+        exit_code=1,
+        output_truncated=True,
     )
-    assert outcome is not None
-    assert outcome.failure_layer is FailureLayer.TOOL
+    assert outcome.business_status is BusinessStatus.NOT_APPLICABLE
+    assert outcome.failure_layer is FailureLayer.NONE
+    assert outcome.exit_code == 1
+    assert "grep: no match" in outcome.evidence.preview
     assert outcome.evidence.output_truncated is True
+    assert outcome.is_failure is False
 
 
-def test_tool_failure_envelope_previews_platform_sessions() -> None:
-    from muad_agent_core.tools import tool_failure_outcome
-
-    outcome = tool_failure_outcome(
-        json.dumps(
-            {
-                "error": {
-                    "code": "PLATFORM_AUTH_REJECTED",
-                    "message": "platform session unavailable",
+def test_typed_error_outcome_keeps_declared_retryable_and_redacts_evidence() -> None:
+    error = ToolError(
+        "PLATFORM_AUTH_REJECTED",
+        "token=super-secret-value",
+        retryable=True,
+        platform_sessions={
+            "platforms": [
+                {"key": "smoke_platform", "available": True},
+                {
+                    "key": "mssw_bad",
+                    "available": False,
+                    "error": {
+                        "code": "PLATFORM_AUTH_REJECTED",
+                        "detail": {"http_status": 401, "message": "signature invalid"},
+                    },
                 },
-                "platform_sessions": {
-                    "platforms": [
-                        {"key": "smoke_platform", "available": True},
-                        {
-                            "key": "mssw_bad",
-                            "available": False,
-                            "error": {
-                                "code": "PLATFORM_AUTH_REJECTED",
-                                "detail": {
-                                    "http_status": 401,
-                                    "message": "signature invalid",
-                                },
-                            },
-                        },
-                    ]
-                },
-            }
-        )
+            ]
+        },
     )
-
-    assert outcome is not None
+    outcome = error.outcome()
+    assert outcome.business_status is BusinessStatus.FAILED
     assert outcome.failure_layer is FailureLayer.TOOL
+    assert outcome.retryable is True
+    assert "super-secret-value" not in outcome.evidence.preview
     assert (
         "platform_sessions: smoke_platform=ok; "
         "mssw_bad=PLATFORM_AUTH_REJECTED(http=401) signature invalid"
     ) in outcome.evidence.preview
 
 
-def test_evidence_preview_is_redacted_and_truncation_is_visible() -> None:
-    secret = "token=super-secret-value"
-    outcome = skill_execution_outcome(
-        _skill_payload(
-            "FAILED",
-            stderr=f"request failed {secret}",
-            exit_code=1,
-            output_truncated=True,
-        )
+def test_skill_result_outcome_accepts_typed_facts_without_json_parsing() -> None:
+    outcome = skill_result_outcome(
+        status="SUCCEEDED",
+        result={"answer": 42},
+        exit_code=0,
     )
-    assert outcome is not None
-    assert "super-secret-value" not in outcome.evidence.preview
-    assert "***" in outcome.evidence.preview
-    assert outcome.evidence.output_truncated is True
-
-
-async def _run_pipeline(definition: ToolDefinition) -> Any:
-    registry = ToolRegistry()
-    registry.register(definition)
-    pipeline = ToolExecutionPipeline(registry=registry)
-    prepared = pipeline.prepare(call_id="c1", tool_name=definition.name, arguments={})
-    return await pipeline.execute(prepared)
-
-
-async def test_pipeline_calls_outcome_parser_once() -> None:
-    calls: list[str] = []
-
-    def parser(content: str) -> Any:
-        calls.append(content)
-        return skill_execution_outcome(json.loads(content))
-
-    async def handler(arguments: Mapping[str, Any], *, call_id: str) -> str:
-        return json.dumps(_skill_payload("FAILED", stderr="boom", exit_code=1))
-
-    result = await _run_pipeline(
-        ToolDefinition(
-            name="execute",
-            description="skill",
-            input_schema={"type": "object"},
-            effect=ToolEffect.EXTERNAL,
-            handler=handler,
-            outcome_parser=parser,
-        )
-    )
-
-    assert len(calls) == 1
-    assert result.status == "SUCCEEDED", "transport OK；业务失败在 outcome 上"
-    assert result.outcome is not None
-    assert result.outcome.business_status is BusinessStatus.FAILED
-    assert result.outcome.failure_layer is FailureLayer.CONTENT
-    assert result.outcome.call_id == "c1"
-    assert result.outcome.tool_name == "execute"
-
-
-async def test_pipeline_parser_returning_none_marks_not_applicable() -> None:
-    async def handler(arguments: Mapping[str, Any], *, call_id: str) -> str:
-        return json.dumps({"stderr": "grep: no match", "exit_code": 1, "output_truncated": True})
-
-    result = await _run_pipeline(
-        ToolDefinition(
-            name="execute",
-            description="workspace shell",
-            input_schema={"type": "object"},
-            effect=ToolEffect.EXTERNAL,
-            handler=handler,
-            outcome_parser=skill_execution_outcome,
-        )
-    )
-
-    assert result.status == "SUCCEEDED"
-    assert result.outcome is not None
-    assert result.outcome.business_status is BusinessStatus.NOT_APPLICABLE
-    assert result.outcome.exit_code == 1
-    assert "grep: no match" in result.outcome.evidence.preview
-    assert result.outcome.evidence.output_truncated is True
-    assert result.outcome.is_failure is False
-
-
-async def test_pipeline_parser_crash_is_a_tool_failure_not_a_run_crash() -> None:
-    def parser(content: str) -> Any:
-        raise ValueError("broken parser")
-
-    async def handler(arguments: Mapping[str, Any], *, call_id: str) -> str:
-        return "{}"
-
-    result = await _run_pipeline(
-        ToolDefinition(
-            name="execute",
-            description="skill",
-            input_schema={"type": "object"},
-            effect=ToolEffect.EXTERNAL,
-            handler=handler,
-            outcome_parser=parser,
-        )
-    )
-
-    assert result.status == "FAILED"
-    assert result.outcome is not None
-    assert result.outcome.business_status is BusinessStatus.FAILED
-    assert result.outcome.failure_layer is FailureLayer.TOOL
-    assert result.outcome.error_code == "COMMON_INTERNAL_ERROR"
+    assert outcome.business_status is BusinessStatus.SUCCEEDED
+    assert outcome.is_failure is False

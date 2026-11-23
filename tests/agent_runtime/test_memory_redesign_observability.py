@@ -7,7 +7,7 @@ from uuid import uuid4
 import pytest
 import sqlalchemy as sa
 from fastapi import FastAPI
-from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
+from muad_agent_core.tools import ToolCall, ToolDefinition, ToolEffect, ToolRegistry, ToolResult
 from muad_agent_core.tools.pipeline import ToolExecutionPipeline
 from muad_agent_runtime.infrastructure.models.runtime import ToolCallAudit, UserMemory
 from muad_agent_runtime.metrics import install_runtime_metrics
@@ -73,7 +73,6 @@ def test_memory_observability_rejects_unbounded_labels_before_registering_a_samp
 async def test_remember_audit_is_redacted_before_handler_even_for_invalid_schema(
     async_tool_database, monkeypatch, valid,
 ):
-    from muad_agent_core.model import ModelMessage, ModelRole
 
     factory, run, _, _ = await source(async_tool_database)
     recorder, registry = round_recorder(factory, run), ToolRegistry()
@@ -82,9 +81,9 @@ async def test_remember_audit_is_redacted_before_handler_even_for_invalid_schema
     if not valid:
         arguments["extra"] = CANARY
 
-    async def handler(arguments, *, call_id):
+    async def handler(arguments, *, call: ToolCall):
         assert projections and all(CANARY not in json.dumps(item) for item in projections)
-        return '{"saved":false}'
+        return ToolResult('{"saved":false}')
 
     registry.register(
         ToolDefinition(
@@ -105,14 +104,12 @@ async def test_remember_audit_is_redacted_before_handler_even_for_invalid_schema
     result = await pipeline.execute(
         pipeline.prepare(call_id="audit-case", tool_name="remember", arguments=arguments)
     )
-    await recorder.finish_round(
-        [ModelMessage(role=ModelRole.TOOL, content=result.content, tool_call_id="audit-case")]
-    )
+    await recorder.finish_round([ToolResult(content=result.result.content, call_id="audit-case")])
     async with factory() as session:
         audit = await session.scalar(sa.select(ToolCallAudit).where(ToolCallAudit.run_id == run.id))
     assert audit is not None and CANARY not in json.dumps(audit.args_preview_json, ensure_ascii=False)
     assert set(audit.args_preview_json) <= {"memory_key", "category", "args_hash", "status"}
-    assert CANARY not in result.content
+    assert CANARY not in result.result.content
     assert audit.status == ("OK" if valid else "ERROR")
 
 

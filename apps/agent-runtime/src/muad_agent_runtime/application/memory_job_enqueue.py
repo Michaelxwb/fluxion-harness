@@ -1,10 +1,9 @@
 """A failed optional enqueue rolls back its savepoint, never a completed Run."""
 
-import logging
-
 from muad_common import process_settings
 from muad_contracts import ResolvedAgent
 from muad_contracts.memory import MemoryResumeRef
+from muad_logging import get_logger
 from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
@@ -23,7 +22,7 @@ from .memory_resume_queries import _decision
 from .memory_tools import memory_write_enabled
 from .run_service import execution_defaults_of
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 async def enqueue_completed(session: AsyncSession, run: RunRecord, *, through_seq: int) -> bool:

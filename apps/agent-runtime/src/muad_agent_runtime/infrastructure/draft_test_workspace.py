@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -15,12 +14,13 @@ from muad_common.draft_testing import (
     draft_test_lock_key,
     prepare_draft_test_data,
 )
+from muad_logging import get_logger
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 
 from .workspace_store import SessionFactoryProvider
 
-logger = logging.getLogger("muad_agent_runtime.draft_test_workspace")
+logger = get_logger("muad_agent_runtime.draft_test_workspace")
 
 
 class SqlDraftTestWorkspaceStore:

@@ -15,17 +15,17 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import uuid
 from collections.abc import AsyncIterator
 from typing import Any, Protocol
 
 from muad_contracts import ChannelEnvelope, DeliveryMessage, DeliveryRouteInput
 from muad_contracts.im import DeliveryKind, message_stream_id
+from muad_logging import get_logger
 
 from .base import ChannelAdapterUnavailable
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 状态帧的有界等待（与旧 WS 会话同口径：状态可丢，正文/收尾必须确认）。
 STATUS_WAIT_SEC = 5.0
@@ -51,6 +51,7 @@ class ConnectorCommandSink(Protocol):
         run_id: str | None = None,
         stream_id: str | None = None,
         status: bool = False,
+        priority: bool = False,
     ) -> uuid.UUID: ...
 
     async def await_result(
@@ -101,7 +102,7 @@ class OutboundReplySession:
     def bind_run(self, run_id: str) -> None:
         self._run_id = run_id
 
-    async def update_status(self, text: str) -> None:
+    async def update_status(self, text: str, *, force: bool = False) -> None:
         """状态刷新是**可丢的**：通道慢或等待超时时不能把正文顶在后面。"""
         if self._closed or self._closing:
             return
@@ -115,6 +116,7 @@ class OutboundReplySession:
                 run_id=self._run_id,
                 stream_id=self._stream_id,
                 status=True,
+                priority=force,
             )
         except Exception as exc:  # noqa: BLE001 - 状态帧失败不改变回复生命周期
             logger.warning("routed_status_enqueue_failed channel=%s error=%s",
@@ -130,6 +132,13 @@ class OutboundReplySession:
         if self._closed or self._closing or not text:
             return
         await self._enqueue_body(text)
+        self._sent = True
+
+    async def stream_priority(self, text: str) -> None:
+        """事实型正文（如记忆确认结果）不受流式节拍合并；普通增量仍走 `stream`。"""
+        if self._closed or self._closing or not text:
+            return
+        await self._enqueue_body(text, priority=True)
         self._sent = True
 
     async def send(self, text: str) -> None:
@@ -215,7 +224,7 @@ class OutboundReplySession:
         finally:
             self._closing = False
 
-    async def _enqueue_body(self, text: str) -> None:
+    async def _enqueue_body(self, text: str, *, priority: bool = False) -> None:
         try:
             await self._sink.enqueue(
                 channel=self._route.channel,
@@ -225,6 +234,7 @@ class OutboundReplySession:
                 message_id=self._message_id,
                 run_id=self._run_id,
                 stream_id=self._stream_id,
+                priority=priority,
             )
         except Exception as exc:  # noqa: BLE001 - 统一翻译成渠道不可用（调用方据此降级）
             raise ChannelAdapterUnavailable("connector delta enqueue failed") from exc

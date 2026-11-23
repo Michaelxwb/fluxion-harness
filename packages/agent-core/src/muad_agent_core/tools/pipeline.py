@@ -1,11 +1,14 @@
 """The single tool boundary: validate, hook, revalidate, authorize, execute, audit."""
 
-from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import dataclass
+from __future__ import annotations
+
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from hashlib import sha256
 from time import monotonic
 from typing import Protocol
+from uuid import UUID
 
 import jsonschema
 from muad_contracts import canonical_json
@@ -14,16 +17,15 @@ from muad_logging.redaction import redact_value
 from pydantic import JsonValue, TypeAdapter
 
 from ..hooks.pipeline import HookEvent, HookPipeline
+from .identity import PreparedCall, ToolCall
 from .outcome import (
-    BusinessStatus,
     ExecutionOutcome,
-    FailureLayer,
-    diagnostic_evidence_outcome,
+    bounded_preview,
     policy_denied_outcome,
     tool_exception_outcome,
-    tool_failure_outcome,
 )
 from .registry import ToolDefinition, ToolNotFoundError, ToolRegistry
+from .result import ToolError, ToolExecutionResult, ToolResult, failure_result
 
 JSON_OBJECT = TypeAdapter(dict[str, JsonValue])
 REDACTED_KEYS = frozenset({"api_key", "secret", "token", "password"})
@@ -89,6 +91,7 @@ class PreparedToolCall:
     tool_name: str
     arguments: dict[str, JsonValue]
     args_hash: str
+    model_name: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,18 +99,6 @@ class ToolPolicyDecision:
     allowed: bool
     reason: str = ""
     error_code: str | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class ToolExecutionResult:
-    call_id: str
-    tool_name: str
-    status: str
-    content: str
-    args_hash: str
-    error_code: str | None = None
-    #: 业务执行判定（design §4.2）；非业务执行工具为 `NOT_APPLICABLE`。
-    outcome: ExecutionOutcome | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,6 +126,72 @@ class RunnableToolCall:
     definition: ToolDefinition
 
 
+def build_prepared_call(
+    prepared: PreparedToolCall, definition: ToolDefinition
+) -> PreparedCall:
+    """把校验后的调用冻结成外部执行前的持久事实（参数只保留脱敏/有界预览）。"""
+    source, skill_id, skill_key, tool_name = _call_source(
+        prepared.tool_name, prepared.arguments
+    )
+    return PreparedCall(
+        call=ToolCall(
+            call_id=prepared.call_id,
+            name=prepared.tool_name,
+            model_name=prepared.model_name or prepared.tool_name,
+            arguments=prepared.arguments,
+        ),
+        args_hash=prepared.args_hash,
+        args_preview=_bounded_args_preview(prepared.arguments),
+        source=source,
+        skill_id=skill_id,
+        skill_key=skill_key,
+        tool_name=tool_name,
+        execution_mode=definition.execution_mode,
+        retry_safety=definition.retry_safety,
+    )
+
+
+def _bounded_args_preview(
+    arguments: Mapping[str, object], *, limit_bytes: int = 2048
+) -> Mapping[str, object]:
+    redacted = redact_value(dict(arguments))
+    encoded = canonical_json(redacted)
+    if len(encoded.encode("utf-8")) <= limit_bytes:
+        return redacted if isinstance(redacted, Mapping) else {}
+    return {
+        "_truncated": True,
+        "preview": bounded_preview(encoded, limit_bytes=limit_bytes),
+    }
+
+
+def _call_source(
+    name: str, arguments: Mapping[str, object]
+) -> tuple[str, UUID | None, str | None, str | None]:
+    """从已冻结的工具名/参数投影来源；恢复只读这些事实，不重新解析当前配置。"""
+    if name.startswith("mcp::"):
+        parts = name.split("::", 2)
+        return "MCP", None, None, parts[2] if len(parts) == 3 else None
+    if name.startswith("skill::"):
+        parts = name.split("::", 2)
+        skill_id = None
+        if len(parts) == 3:
+            try:
+                skill_id = UUID(parts[1])
+            except ValueError:
+                skill_id = None
+        return "SKILL", skill_id, None, parts[2] if len(parts) == 3 else None
+    if name == "execute" and arguments.get("target") == "skill":
+        skill_key = arguments.get("skill_key")
+        tool = arguments.get("tool")
+        return (
+            "SKILL",
+            None,
+            skill_key if isinstance(skill_key, str) else None,
+            tool if isinstance(tool, str) else None,
+        )
+    return "PLATFORM", None, None, None
+
+
 class ToolExecutionPipeline:
     def __init__(
         self,
@@ -147,19 +204,27 @@ class ToolExecutionPipeline:
         self._registry, self._audit, self._policy = registry, audit, policy
         self._hooks = hooks or HookPipeline()
 
-    def prepare(self, *, call_id: str, tool_name: str, arguments: Mapping[str, object]) -> PreparedToolCall:
+    def prepare(
+        self, *, call_id: str, tool_name: str, arguments: Mapping[str, object]
+    ) -> PreparedToolCall:
         data = JSON_OBJECT.validate_python(ensure_strict_json(dict(arguments)))
-        return PreparedToolCall(call_id, tool_name, data, compute_args_hash(data))
+        return PreparedToolCall(
+            call_id=call_id,
+            tool_name=tool_name,
+            arguments=data,
+            args_hash=compute_args_hash(data),
+            model_name=self._registry.model_name_for(tool_name),
+        )
 
-    async def execute(
-        self, prepared: PreparedToolCall, *, on_started: Callable[[str, str], Awaitable[None]] | None = None
-    ) -> ToolExecutionResult:
+    async def execute(self, prepared: PreparedToolCall) -> ToolExecutionResult:
         outcome = await self.prepare_execution(prepared)
         if isinstance(outcome, ToolExecutionResult):
             return outcome
-        return await self.run_prepared(outcome, on_started=on_started)
+        return await self.run_prepared(outcome)
 
-    async def prepare_execution(self, prepared: PreparedToolCall) -> RunnableToolCall | ToolExecutionResult:
+    async def prepare_execution(
+        self, prepared: PreparedToolCall
+    ) -> RunnableToolCall | ToolExecutionResult:
         """校验/授权（不含 handler IO）；未通过时返回终态结果并写审计。
 
         并发编排用：按原调用序先跑完这一段，TaskGroup 里只放 `run_prepared` 的 handler IO。
@@ -168,6 +233,7 @@ class ToolExecutionPipeline:
         if self._audit is not None:
             self._audit.prepare(prepared)
         definition: ToolDefinition | None = None
+        execution: ToolExecutionResult | None = None
         try:
             definition = self._registry.get(prepared.tool_name)
             jsonschema.validate(instance=prepared.arguments, schema=definition.input_schema)
@@ -175,65 +241,102 @@ class ToolExecutionPipeline:
             if self._audit is not None:
                 self._audit.prepare(prepared)
             jsonschema.validate(instance=prepared.arguments, schema=definition.input_schema)
-            result = self._blocked(prepared, definition)
+            execution = self._blocked(prepared, definition)
         except ToolNotFoundError:
-            result = self._result(
-                prepared, "NOT_FOUND", f"unknown tool: {prepared.tool_name}", "TOOL_NOT_FOUND"
+            execution = self._failure(
+                prepared,
+                ToolError(
+                    "TOOL_NOT_FOUND",
+                    f"unknown tool: {prepared.tool_name}",
+                    retryable=True,
+                ),
+                status="NOT_FOUND",
             )
         except jsonschema.ValidationError as exc:
             # 实例可能含私有输入：只回字段与期望，不回显任何值。
-            result = self._result(prepared, "FAILED", schema_problem(exc), "SCHEMA_INVALID")
+            execution = self._failure(
+                prepared, ToolError("SCHEMA_INVALID", schema_problem(exc), retryable=True)
+            )
+        except ToolError as exc:
+            execution = failure_result(self._call(prepared), exc)
         except ValueError:
-            result = self._result(prepared, "FAILED", "invalid tool arguments", "SCHEMA_INVALID")
+            execution = self._failure(
+                prepared,
+                ToolError("SCHEMA_INVALID", "invalid tool arguments", retryable=True),
+            )
         except Exception as exc:
             error = str(getattr(exc, "code", "COMMON_INTERNAL_ERROR"))
-            await self._record_audit(prepared, definition, "FAILED", error, started_at, started, None)
-            raise
-        if result is not None:
             await self._record_audit(
                 prepared,
                 definition,
-                result.status,
-                result.error_code,
-                started_at,
-                started,
-                result.outcome,
-            )
-            return result
-        assert definition is not None  # 校验通过 ⇒ registry.get 已成功
-        return RunnableToolCall(prepared, definition)
-
-    async def run_prepared(
-        self,
-        runnable: RunnableToolCall,
-        *,
-        on_started: Callable[[str, str], Awaitable[None]] | None = None,
-    ) -> ToolExecutionResult:
-        """handler IO + POST hook（可并发调用）；审计在本方法内完成。"""
-        started_at, started = datetime.now(UTC), monotonic()
-        status, error, outcome = "FAILED", None, None
-        try:
-            result = await self._invoke(runnable.prepared, runnable.definition, on_started)
-            status, error, outcome = result.status, result.error_code, result.outcome
-            return result
-        except Exception as exc:
-            error = str(getattr(exc, "code", "COMMON_INTERNAL_ERROR"))
-            outcome = tool_exception_outcome(
-                code=error,
-                message=str(exc),
-                retryable=getattr(exc, "retryable", None),
-            )
-            raise
-        finally:
-            await self._record_audit(
-                runnable.prepared,
-                runnable.definition,
-                status,
+                "FAILED",
                 error,
                 started_at,
                 started,
-                outcome,
+                tool_exception_outcome(
+                    code=error,
+                    message=str(exc),
+                    retryable=getattr(exc, "retryable", None),
+                ),
             )
+            raise
+        if execution is not None:
+            await self._record_audit(
+                prepared,
+                definition,
+                execution.status,
+                execution.result.outcome.error_code,
+                started_at,
+                started,
+                execution.result.outcome,
+            )
+            return execution
+        assert definition is not None  # 校验通过 ⇒ registry.get 已成功
+        return RunnableToolCall(prepared, definition)
+
+    async def run_prepared(self, runnable: RunnableToolCall) -> ToolExecutionResult:
+        """handler IO + POST hook（可并发调用）；审计在本方法内完成。"""
+        started_at, started = datetime.now(UTC), monotonic()
+        try:
+            execution = await self._invoke(runnable.prepared, runnable.definition)
+        except ToolError as exc:
+            execution = failure_result(self._call(runnable.prepared), exc)
+            await self._record_audit(
+                runnable.prepared,
+                runnable.definition,
+                execution.status,
+                exc.code,
+                started_at,
+                started,
+                execution.result.outcome,
+            )
+            return execution
+        except Exception as exc:
+            error = str(getattr(exc, "code", "COMMON_INTERNAL_ERROR"))
+            await self._record_audit(
+                runnable.prepared,
+                runnable.definition,
+                "FAILED",
+                error,
+                started_at,
+                started,
+                tool_exception_outcome(
+                    code=error,
+                    message=str(exc),
+                    retryable=getattr(exc, "retryable", None),
+                ),
+            )
+            raise
+        await self._record_audit(
+            runnable.prepared,
+            runnable.definition,
+            execution.status,
+            execution.result.outcome.error_code,
+            started_at,
+            started,
+            execution.result.outcome,
+        )
+        return execution
 
     async def _record_audit(
         self,
@@ -259,70 +362,49 @@ class ToolExecutionPipeline:
             )
         )
 
-    def _blocked(self, call: PreparedToolCall, definition: ToolDefinition) -> ToolExecutionResult | None:
+    def _blocked(
+        self, call: PreparedToolCall, definition: ToolDefinition
+    ) -> ToolExecutionResult | None:
         if self._policy is not None:
             decision = self._policy(call)
             if not decision.allowed:
                 error = decision.error_code or "FORBIDDEN"
-                content = canonical_json({"error": {"code": error, "message": decision.reason}})
-                return self._result(call, "POLICY_DENIED", content, error)
+                identity = self._call(call)
+                result = ToolResult(
+                    content=ToolError(error, decision.reason).content(),
+                    outcome=policy_denied_outcome(error, decision.reason),
+                ).with_identity(identity)
+                return ToolExecutionResult(identity, result, "POLICY_DENIED")
         if definition.handler is None:
-            return self._result(call, "FAILED", "no handler registered", "NO_HANDLER")
+            return self._failure(call, ToolError("NO_HANDLER", "no handler registered"))
         return None
 
     async def _invoke(
         self,
         call: PreparedToolCall,
         definition: ToolDefinition,
-        on_started: Callable[[str, str], Awaitable[None]] | None,
     ) -> ToolExecutionResult:
         assert definition.handler is not None
-        if on_started is not None:
-            await on_started(call.call_id, call.tool_name)
-        content = await definition.handler(call.arguments, call_id=call.call_id)
+        identity = self._call(call)
+        result = await definition.handler(identity.arguments, call=identity)
+        if not isinstance(result, ToolResult):
+            raise TypeError(
+                f"tool {definition.name!r} returned {type(result).__name__}, expected ToolResult"
+            )
         context = await self._hooks.run(
             HookEvent.POST_TOOL_USE,
             {
                 "call_id": call.call_id,
                 "tool": call.tool_name,
                 "arguments": call.arguments,
-                "result": content,
+                "result": result.content,
             },
         )
-        result = context.payload.get("result", content)
-        content = result if isinstance(result, str) else content
-        outcome = self._outcome(definition, content)
-        error = (
-            outcome.error_code
-            if outcome is not None
-            and outcome.is_failure
-            and outcome.failure_layer is FailureLayer.TOOL
-            else None
-        )
-        return self._result(
-            call,
-            "FAILED" if error else "SUCCEEDED",
-            content,
-            error,
-            outcome,
-        )
-
-    @staticmethod
-    def _outcome(definition: ToolDefinition, content: str) -> ExecutionOutcome:
-        """判定一次业务执行（只调用一次解析器）；解析器异常降级成 TOOL 失败。"""
-        tool_error = tool_failure_outcome(content)
-        if definition.outcome_parser is None:
-            return tool_error or diagnostic_evidence_outcome(content)
-        try:
-            parsed = definition.outcome_parser(content)
-        except Exception as exc:  # noqa: BLE001 —— 解析器不得让 Run 崩在判定上
-            return tool_exception_outcome(
-                code="COMMON_INTERNAL_ERROR",
-                message=f"outcome parser failed: {type(exc).__name__}",
-            )
-        if parsed is None:
-            return tool_error or diagnostic_evidence_outcome(content)
-        return parsed
+        updated = context.payload.get("result", result.content)
+        if isinstance(updated, str) and updated != result.content:
+            result = replace(result, content=updated)
+        result = replace(result, externalizable=definition.externalizable_result)
+        return ToolExecutionResult(identity, result.with_identity(identity), "SUCCEEDED")
 
     async def _validate_and_hook(
         self, call: PreparedToolCall, definition: ToolDefinition
@@ -337,63 +419,20 @@ class ToolExecutionPipeline:
         )
         payload = context.payload.get("arguments", call.arguments)
         if not isinstance(payload, Mapping):
-            raise ValueError("PRE_TOOL_USE returned invalid arguments")
+            raise ToolError("SCHEMA_INVALID", "PRE_TOOL_USE returned invalid arguments")
         final = self.prepare(call_id=call.call_id, tool_name=call.tool_name, arguments=payload)
-        return final
+        return replace(final, model_name=call.model_name)
 
     @staticmethod
-    def _result(
-        call: PreparedToolCall,
-        status: str,
-        content: str,
-        error: str | None,
-        outcome: ExecutionOutcome | None = None,
+    def _call(prepared: PreparedToolCall) -> ToolCall:
+        return ToolCall(
+            call_id=prepared.call_id,
+            name=prepared.tool_name,
+            model_name=prepared.model_name or prepared.tool_name,
+            arguments=prepared.arguments,
+        )
+
+    def _failure(
+        self, prepared: PreparedToolCall, error: ToolError, *, status: str = "FAILED"
     ) -> ToolExecutionResult:
-        if outcome is None:
-            if status == "POLICY_DENIED":
-                outcome = policy_denied_outcome(
-                    error or "FORBIDDEN", _error_message(content) or content
-                )
-            elif status in ("FAILED", "NOT_FOUND"):
-                outcome = tool_exception_outcome(
-                    code=error,
-                    message=_error_message(content) or content,
-                )
-                outcome = ExecutionOutcome(
-                    transport_status="ERROR",
-                    business_status=outcome.business_status,
-                    failure_layer=outcome.failure_layer,
-                    error_code=outcome.error_code,
-                    error_message=outcome.error_message,
-                    retryable=outcome.retryable,
-                    evidence=outcome.evidence,
-                )
-            else:
-                outcome = ExecutionOutcome(business_status=BusinessStatus.NOT_APPLICABLE)
-        resolved = outcome.with_identity(
-            call_id=call.call_id,
-            tool_name=call.tool_name,
-            transport_status={
-                "POLICY_DENIED": "BLOCKED",
-                "NOT_FOUND": "NOT_FOUND",
-                "FAILED": "ERROR",
-                "SUCCEEDED": "OK",
-            }.get(status, outcome.transport_status),
-        )
-        return ToolExecutionResult(
-            call.call_id, call.tool_name, status, content, call.args_hash, error, resolved
-        )
-
-
-def _error_message(content: str) -> str:
-    import json
-
-    try:
-        payload = json.loads(content)
-    except ValueError:
-        return ""
-    error = payload.get("error") if isinstance(payload, dict) else None
-    if isinstance(error, dict):
-        message = error.get("message")
-        return message if isinstance(message, str) else ""
-    return error if isinstance(error, str) else ""
+        return failure_result(self._call(prepared), error, status=status)

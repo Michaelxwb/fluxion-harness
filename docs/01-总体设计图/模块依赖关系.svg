@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720" role="img" aria-labelledby="title">
+<title id="title">模块依赖关系</title>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"/></marker></defs>
+<style>text{font-family:PingFang SC,Microsoft YaHei,Arial,sans-serif;fill:#20344B}path,polyline{stroke-linejoin:round;stroke-linecap:round}</style>
+<rect width="1200" height="720" fill="#FFFFFF"/>
+<rect x="30" y="30" width="1140" height="80" rx="12" fill="#FBFCFE" stroke="#DCE4EC" stroke-width="1.4"/>
+<text x="46" y="57" font-size="16" font-weight="600" text-anchor="start" style="fill:#4B637C">用户入口</text>
+<g data-node="admin"><rect x="130" y="45" width="160" height="55" rx="8" fill="#F4F6F9" stroke="#CBD3DE" stroke-width="1.5"/>
+<text x="210.0" y="72" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">管理员</text>
+<text x="210.0" y="94" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">Console 浏览器</text>
+</g>
+<g data-node="wecom"><rect x="480" y="45" width="180" height="55" rx="8" fill="#F4F6F9" stroke="#CBD3DE" stroke-width="1.5"/>
+<text x="570.0" y="72" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">企业微信</text>
+<text x="570.0" y="94" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">IM 入口</text>
+</g>
+<g data-node="webchat"><rect x="880" y="45" width="180" height="55" rx="8" fill="#F4F6F9" stroke="#CBD3DE" stroke-width="1.5"/>
+<text x="970.0" y="72" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">WebChat</text>
+<text x="970.0" y="94" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">浏览器入口</text>
+</g>
+<rect x="30" y="140" width="240" height="300" rx="12" fill="#FBFCFE" stroke="#DCE4EC" stroke-width="1.4"/>
+<text x="46" y="167" font-size="16" font-weight="600" text-anchor="start" style="fill:#4B637C">管理面</text>
+<g data-node="console"><rect x="55" y="230" width="190" height="90" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="150.0" y="257" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Console Platform</text>
+<text x="150.0" y="279" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">定义、授权、发布</text>
+<text x="150.0" y="298" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">运行与审计查询</text>
+</g>
+<rect x="300" y="140" width="260" height="300" rx="12" fill="#FBFCFE" stroke="#DCE4EC" stroke-width="1.4"/>
+<text x="316" y="167" font-size="16" font-weight="600" text-anchor="start" style="fill:#4B637C">接入面</text>
+<g data-node="gateway"><rect x="325" y="190" width="210" height="65" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="430.0" y="217" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">IM Gateway</text>
+<text x="430.0" y="239" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">无状态请求面</text>
+</g>
+<g data-node="connector"><rect x="325" y="310" width="210" height="65" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="430.0" y="337" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">IM Connector</text>
+<text x="430.0" y="359" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">有状态连接角色</text>
+</g>
+<rect x="590" y="140" width="300" height="300" rx="12" fill="#FBFCFE" stroke="#DCE4EC" stroke-width="1.4"/>
+<text x="606" y="167" font-size="16" font-weight="600" text-anchor="start" style="fill:#4B637C">执行面</text>
+<g data-node="runtime"><rect x="615" y="190" width="250" height="65" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="740.0" y="217" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Agent Runtime</text>
+<text x="740.0" y="239" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">实时执行与接续</text>
+</g>
+<g data-node="worker"><rect x="615" y="310" width="250" height="65" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="740.0" y="337" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Agent Worker</text>
+<text x="740.0" y="359" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">异步任务与投递</text>
+</g>
+<rect x="920" y="140" width="250" height="300" rx="12" fill="#FBFCFE" stroke="#DCE4EC" stroke-width="1.4"/>
+<text x="936" y="167" font-size="16" font-weight="600" text-anchor="start" style="fill:#4B637C">共享能力层</text>
+<g data-node="shared_core"><rect x="945" y="170" width="200" height="55" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="1045.0" y="197" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">执行内核</text>
+<text x="1045.0" y="219" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">运行循环与上下文</text>
+</g>
+<g data-node="shared_tools"><rect x="945" y="240" width="200" height="55" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="1045.0" y="267" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">工具、MCP 与 Skill</text>
+<text x="1045.0" y="289" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">统一注册与执行</text>
+</g>
+<g data-node="shared_contracts"><rect x="945" y="310" width="200" height="55" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="1045.0" y="337" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">契约与公共支撑</text>
+<text x="1045.0" y="359" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">接口、错误码、公共库</text>
+</g>
+<g data-node="modelpool"><rect x="945" y="380" width="200" height="55" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="1045.0" y="407" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">模型池</text>
+<text x="1045.0" y="429" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">成员、凭据与容量</text>
+</g>
+<rect x="30" y="460" width="1140" height="120" rx="12" fill="#FBFCFE" stroke="#DCE4EC" stroke-width="1.4"/>
+<text x="46" y="487" font-size="16" font-weight="600" text-anchor="start" style="fill:#4B637C">数据与外部依赖</text>
+<g data-node="postgres"><rect x="60" y="500" width="200" height="55" rx="8" fill="#F2F7F6" stroke="#BAD6CE" stroke-width="1.5"/>
+<text x="160.0" y="527" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">PostgreSQL</text>
+<text x="160.0" y="549" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">权威状态</text>
+</g>
+<g data-node="redis"><rect x="300" y="500" width="200" height="55" rx="8" fill="#F2F7F6" stroke="#BAD6CE" stroke-width="1.5"/>
+<text x="400.0" y="527" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Redis</text>
+<text x="400.0" y="549" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">缓存、流、短租约</text>
+</g>
+<g data-node="storage"><rect x="540" y="500" width="200" height="55" rx="8" fill="#F2F7F6" stroke="#BAD6CE" stroke-width="1.5"/>
+<text x="640.0" y="527" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">共享存储</text>
+<text x="640.0" y="549" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">制品与工作区</text>
+</g>
+<g data-node="external"><rect x="780" y="500" width="300" height="55" rx="8" fill="#F4F6F9" stroke="#CBD3DE" stroke-width="1.5"/>
+<text x="930.0" y="527" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">外部模型网关</text>
+<text x="930.0" y="549" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">统一模型接入、脱敏与屏蔽</text>
+</g>
+<polyline points="210,100 150,230" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="214.0" y="150" width="42.0" height="20" rx="4" fill="#FFFFFF"/>
+<text x="235" y="165" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">管理</text>
+<polyline points="570,100 570,125 290,125 290,342 325,342" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="409.0" y="98" width="42.0" height="20" rx="4" fill="#FFFFFF"/>
+<text x="430" y="113" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">消息</text>
+<polyline points="970,100 970,135 535,135 535,190" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="729.0" y="108" width="42.0" height="20" rx="4" fill="#FFFFFF"/>
+<text x="750" y="123" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">消息</text>
+<polyline points="430,310 430,255" fill="none" stroke="#7A8798" stroke-width="1.8" marker-end="url(#arrow)" marker-start="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="459.0" y="268" width="42.0" height="20" rx="4" fill="#FFFFFF"/>
+<text x="480" y="283" font-size="15" font-weight="500" text-anchor="middle" style="fill:#7A8798">事件</text>
+<polyline points="535,222 615,222" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="537.2" y="195" width="75.6" height="20" rx="4" fill="#FFFFFF"/>
+<text x="575" y="210" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">提交 Run</text>
+<polyline points="740,255 740,310" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+<rect x="754.8" y="268" width="80.4" height="20" rx="4" fill="#FFFFFF"/>
+<text x="795" y="283" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">任务/结果</text>
+<polyline points="865,210 945,197" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="849.0" y="173" width="102.0" height="20" rx="4" fill="#FFFFFF"/>
+<text x="900" y="188" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">调用执行内核</text>
+<polyline points="865,342 945,267" fill="none" stroke="#91A0AF" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="838.8" y="285" width="122.40000000000005" height="20" rx="4" fill="#FFFFFF"/>
+<text x="900" y="300" font-size="15" font-weight="500" text-anchor="middle" style="fill:#91A0AF">调用工具/Skill</text>
+<polyline points="1045,435 1045,500" fill="none" stroke="#91A0AF" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="1054.0" y="455" width="72.0" height="20" rx="4" fill="#FFFFFF"/>
+<text x="1090" y="470" font-size="15" font-weight="500" text-anchor="middle" style="fill:#91A0AF">模型调用</text>
+<polyline points="150,320 150,500" fill="none" stroke="#91A0AF" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="166.5" y="395" width="87.0" height="20" rx="4" fill="#FFFFFF"/>
+<text x="210" y="410" font-size="15" font-weight="500" text-anchor="middle" style="fill:#91A0AF">配置与审计</text>
+</svg>

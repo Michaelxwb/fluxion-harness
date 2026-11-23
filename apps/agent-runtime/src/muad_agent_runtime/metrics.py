@@ -49,6 +49,8 @@ WORKSPACE_QUOTA_REJECTED_METRIC: Final = "workspace_quota_rejected_total"
 # 被目录上限丢掉的技能条数记在 **amount**（同 memory 注入/摘要 token 的口径：条数进 label 会
 # 裂出无界时间序列）。它不是"某条技能失败"，而是"这一轮有多少技能没能进提示词"。
 SKILL_CATALOG_TRUNCATED_METRIC: Final = "skill_catalog_truncated_total"
+#: 对话直接调用的默认入口契约守卫结局（status=PASSED/FAILED/SKIPPED，code=原因码）。
+SKILL_INVOCATION_GUARD_METRIC: Final = "skill_invocation_guard_total"
 EGRESS_CALLS_METRIC: Final = "egress_calls_total"
 ARTIFACT_BYTES_METRIC: Final = "artifact_bytes_total"
 RUN_RECLAIM_METRIC: Final = "run_reclaim_total"
@@ -72,6 +74,8 @@ CONTEXT_COMPACTION_METRIC: Final = "context_compaction_total"
 CONTEXT_COMPACTION_BYTES_SAVED_METRIC: Final = "context_compaction_bytes_saved_total"
 CONTEXT_SUMMARY_METRIC: Final = "context_summary_total"
 CONTEXT_SUMMARY_TOKENS_METRIC: Final = "context_summary_tokens_total"
+#: 失败文案遇到未登记的码族：通用描述仍会输出，但这条降级必须可见。
+FINALIZATION_FAILURE_HINT_MISSING_METRIC: Final = "finalization_failure_hint_missing_total"
 # 取平台设置快照的失败计数在**调用方**侧（Console 端点不可达时 Console 收不到请求）。
 PLATFORM_SETTINGS_FETCH_METRIC: Final = "platform_settings_fetch_total"
 
@@ -373,6 +377,12 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
         (),
         "Skills dropped from the prompt catalog by the catalog budget",
     ),
+    (
+        SKILL_INVOCATION_GUARD_METRIC,
+        COUNTER,
+        ("status", "code"),
+        "Direct skill invocation contract guard outcomes",
+    ),
     (EGRESS_CALLS_METRIC, COUNTER, ("platform", "status"), "Egress calls by platform and status"),
     (ARTIFACT_BYTES_METRIC, COUNTER, ("type",), "Artifact bytes written by artifact type"),
     (RUN_RECLAIM_METRIC, COUNTER, (), "Abandoned runs reaped back by the run reaper"),
@@ -417,6 +427,12 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
         COUNTER,
         ("layer", "status"),
         "Context compaction layers by layer and status",
+    ),
+    (
+        FINALIZATION_FAILURE_HINT_MISSING_METRIC,
+        COUNTER,
+        (),
+        "Finalization rendered a generic hint for an unregistered failure code",
     ),
     (
         CONTEXT_COMPACTION_BYTES_SAVED_METRIC,

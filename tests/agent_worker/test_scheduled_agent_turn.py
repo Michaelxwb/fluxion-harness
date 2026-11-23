@@ -13,6 +13,7 @@ import httpx
 import pytest
 import sqlalchemy as sa
 from muad_agent_core.model import ModelRole, ModelToolCall
+from muad_agent_core.tools import ToolCall
 from muad_agent_worker.application.agentic.errors import AgenticError
 from muad_agent_worker.application.agentic.run import AgenticDependencies
 from muad_agent_worker.application.agentic.scheduled_turn import (
@@ -36,7 +37,6 @@ from muad_agent_worker.infrastructure.models.task import (
     TaskExecution,
     TaskMessageOutbox,
     TaskSchedule,
-    TaskScheduleDraft,
     TaskScheduleRevision,
 )
 from muad_agent_worker.worker.agentic_executor import AgenticTaskExecutor
@@ -224,55 +224,6 @@ async def test_scheduled_prompt_uses_frozen_time_window_and_recorded_state(
     assert "Window: 2026-03-07T00:00:00+08:00 ~ 2026-03-08T00:00:00+08:00" in inferred_turn.prompt
 
 
-async def test_trial_agent_turn_uses_the_same_unattended_prompt(
-    tenant: TenantContext,
-) -> None:
-    draft_id = uuid.uuid4()
-    async with tenant.session_factory() as session, session.begin():
-        session.add(
-            TaskScheduleDraft(
-                id=draft_id,
-                tenant_id=tenant.tenant_id,
-                owner_user_id=ACTOR_ID,
-                agent_id=AGENT_ID,
-                kind="CREATE",
-                draft_hash="sha256:" + "d" * 64,
-                payload_json={
-                    "name": "日报试跑",
-                    "payload": {
-                        "kind": "AGENT_TURN",
-                        "prompt": "汇总 {{previous_day}} 的定时任务执行",
-                    },
-                    "session_target": "isolated",
-                    "recurrence": {"kind": "CRON", "cron": "0 9 * * *", "timezone": SHANGHAI},
-                },
-                preview_json={},
-                status="PENDING",
-                expires_at=NOW + timedelta(hours=1),
-                idempotency_key=f"trial-{uuid.uuid4()}",
-            )
-        )
-    task = await insert_task(
-        tenant,
-        agentic_snapshot(),
-        trigger_type="IMMEDIATE",
-        scheduled_at=NOW,
-        input_json={
-            **_input(),
-            "trial_draft_id": str(draft_id),
-        },
-    )
-
-    turn = await load_scheduled_turn(
-        tenant.session_factory, load_frozen_execution(task), None
-    )
-
-    assert turn is not None
-    assert turn.prompt.startswith(f"[schedule:{draft_id} 日报试跑]")
-    assert "Current time: 2026-03-08T10:30:00+08:00 (Asia/Shanghai)" in turn.prompt
-    assert "Window: 2026-03-07T00:00:00+08:00 ~ 2026-03-08T00:00:00+08:00" in turn.prompt
-
-
 async def test_scheduled_platform_tools_use_the_schedule_timezone(tenant: TenantContext) -> None:
     seeded = await _seed_schedule(tenant)
     task = await _scheduled_task(tenant, seeded)
@@ -285,16 +236,24 @@ async def test_scheduled_platform_tools_use_the_schedule_timezone(tenant: Tenant
     registry = build_registry(frozen, mcp=None, skills=None, platform=platform)
     current = registry.registry.get("current_time")
     assert current.handler is not None
-    assert await current.handler({}, call_id="call-1") == "2026-03-08T10:30:00+08:00 (Asia/Shanghai)"
+    assert (await current.handler(
+        {}, call=ToolCall(call_id="call-1", name="current_time")
+    )).content == "2026-03-08T10:30:00+08:00 (Asia/Shanghai)"
 
     recorded = registry.registry.get("record_result")
     assert recorded.handler is not None
-    assert json.loads(await recorded.handler({"status": "no_change"}, call_id="call-2")) == {
+    assert json.loads((await recorded.handler(
+        {"status": "no_change"},
+        call=ToolCall(call_id="call-2", name="record_result"),
+    )).content) == {
         "status": "RECORDED",
         "result_status": "no_change",
     }
     assert recorder.status == "no_change"
-    invalid = json.loads(await recorded.handler({"status": "oops"}, call_id="call-3"))
+    invalid = json.loads((await recorded.handler(
+        {"status": "oops"},
+        call=ToolCall(call_id="call-3", name="record_result"),
+    )).content)
     assert invalid["status"] == "INVALID"
     assert recorder.status == "no_change"
 
@@ -516,7 +475,7 @@ def _agentic_harness(tenant: TenantContext, http: httpx.AsyncClient) -> _Agentic
     )
     return _AgenticHarness(
         tenant=tenant,
-        executor=AgenticTaskExecutor(deps=deps, skill_runner=lambda task, suspension: None),
+        executor=AgenticTaskExecutor(deps=deps, skill_runner=lambda task, suspension, egress: None),
         factory=factory,
         http=http,
     )
@@ -721,7 +680,7 @@ async def test_archived_session_fails_through_the_execution_funnel(
             mcp_http=http,
             session_context=_MissingReader(),  # type: ignore[arg-type]
         )
-        executor = AgenticTaskExecutor(deps=deps, skill_runner=lambda task, suspension: None)
+        executor = AgenticTaskExecutor(deps=deps, skill_runner=lambda task, suspension, egress: None)
         with pytest.raises(TaskExecutionError) as caught:
             await executor.execute(task)
     finally:

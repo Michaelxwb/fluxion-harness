@@ -1,7 +1,7 @@
 ---
 {
   "description": "测试分层、验收隔离与 CI",
-  "next_rule": 3
+  "next_rule": 4
 }
 ---
 
@@ -14,6 +14,8 @@
 - [RULE-001] 验收耗时优化必须由 `pytest --durations` 归因驱动，分别看 `setup` 与 `call`；禁止按主观猜测优化慢点。
 
 - [RULE-002] 被测组件分两步写共享状态时，测试必须对第二步做有界等待后才断言；不得在第一步事实出现时立即断言第二步。
+
+- [RULE-003] 调度可调用性验收必须覆盖 Draft 预检零执行/零投递、Confirm 重跑预检、Fire 版本漂移显式失败、契约导入 round-trip 与 REMINDER 兼容；不得用真实业务 Skill 的试跑替代预检。
 
 ## Conventions
 
@@ -85,3 +87,5 @@
 - {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-011","op":"add","rule":"RULE-001","payload_sha256":"55ca476ebe26dc31f8cf10269b43e5b120223a0ccde66f9311324c5ba76a7ec2","at":"2026-11-18T14:06:44.262Z"}
 
 - {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-012","op":"add","rule":"RULE-002","payload_sha256":"f37c5a83c25dc7eae5fe5a8853a7971f013e0f005b9a50b8509f0e3e0259a6db","at":"2026-11-18T14:06:44.262Z"}
+
+- {"source":"2026-11-20/scheduled-skill-invocation/scheduled-skill-invocation.md#TASK-007#DELTA-007","op":"add","rule":"RULE-003","payload_sha256":"1e80c9f22dd2e2e9dd19d833fe99527b859b359325d869ef7a0c3e05fa69afb7","at":"2026-11-20T13:18:06.408Z"}

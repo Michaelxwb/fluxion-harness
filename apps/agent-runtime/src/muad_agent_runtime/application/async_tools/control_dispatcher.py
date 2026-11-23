@@ -1,7 +1,6 @@
 """Leased, bounded control delivery. No business lock spans an HTTP request."""
 
 import asyncio
-import logging
 import random
 from datetime import UTC, datetime, timedelta
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
@@ -10,12 +9,14 @@ import httpx
 from muad_api.context import TRACE_CORRELATION_FIELDS, context_scope, current_trace_id
 from muad_common import SharedSettings
 from muad_contracts import (
+    CompletionMode,
     ControlCommand,
     ControlOutboxStatus,
     OperationErrorPhase,
     OperationStatus,
     TaskStatus,
 )
+from muad_logging import get_logger
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter
 from sqlalchemy import or_, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -27,7 +28,7 @@ from ..run_events import EventWriter
 from ..tool_result_receipts import OP_TERMINAL, RUN_TERMINAL, lock_run_source
 from .operations import add_cancel_command
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 METRIC = "tool_control_dispatch_total"
 JSON_OBJECT = TypeAdapter(dict[str, JsonValue])
 
@@ -349,6 +350,17 @@ class ControlDispatcher:
         record_outcome(METRIC, "ADMISSION_PENDING")
 
 
+def admission_stream_type(*, late: bool, completion_mode: CompletionMode) -> str:
+    """Canonical stream type for an admitted async operation.
+
+    Only ``DETACH`` hands the turn to the background task and therefore uses
+    the IM ``task.accepted`` fixed receipt.  ``JOIN`` keeps streaming.
+    """
+    if late:
+        return "tool.result.late"
+    return "task.accepted" if completion_mode is CompletionMode.DETACH else "tool.submitted"
+
+
 async def _admit(
     session: AsyncSession, run: RunRecord, operation: ToolOperation, data: dict[str, JsonValue], now: datetime
 ) -> None:
@@ -372,7 +384,11 @@ async def _admit(
         conversation_id=run.conversation_id,
         run_id=run.id,
         event_type="BACKGROUND_RESULT_LATE" if late else "TOOL_TASK_ACCEPTED",
-        stream_type="tool.result.late" if late else "tool.submitted",
+        # DETACH 是本轮把任务交出去：IM 用固定回执收尾，终态由持久投递链发送。
+        # JOIN 仍在等待结果，继续走 tool.submitted，不能被提前 finalize。
+        stream_type=admission_stream_type(
+            late=late, completion_mode=operation.completion_mode
+        ),
         source_event_id=uuid5(NAMESPACE_URL, f"muad:tool-operation:{operation.id}:admission"),
         payload={
             "event_version": 1,

@@ -233,10 +233,13 @@ async def test_e10_batch_io_failure_rolls_back_all_artifacts_and_summary_keeps_h
         session_factory=lambda: factory,
     )
     with caplog.at_level(logging.WARNING):
-        summary_before = _failed_counter(render_metrics(), "*")
-        assert await compactor.compact(messages) == messages
-    assert "context_compaction_failed" in caplog.text
-    assert _failed_counter(render_metrics(), "*") == summary_before + 1
+        summary_before = _failed_counter(render_metrics(), "summary")
+        from muad_agent_core.context.plan import plan_context, render_context
+
+        plan = plan_context(messages, run_input=None, active_skills=())
+        assert render_context(await compactor.compact_plan(plan)) == messages
+    assert "context_summary_call_failed" in caplog.text
+    assert _failed_counter(render_metrics(), "summary") == summary_before + 1
 
 
 async def test_e10_real_artifact_transaction_failure_rolls_back_whole_batch(

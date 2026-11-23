@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="522" viewBox="0 0 1200 522" role="img" aria-labelledby="title">
+<title id="title">取消当前请求与恢复</title>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"/></marker></defs>
+<style>text{font-family:PingFang SC,Microsoft YaHei,Arial,sans-serif;fill:#20344B}path,polyline{stroke-linejoin:round;stroke-linecap:round}</style>
+<rect width="1200" height="522" fill="#FFFFFF"/>
+<rect x="30" y="110" width="1140" height="372" rx="12" fill="#FBFCFE" stroke="#DCE4EC" stroke-width="1.4"/>
+<g data-node="U"><rect x="60" y="30" width="160" height="60" rx="8" fill="#F4F6F9" stroke="#CBD3DE" stroke-width="1.5"/>
+<text x="140.0" y="57" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">用户</text>
+<text x="140.0" y="79" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">发起停止或补充</text>
+</g>
+<line data-lifeline="U" x1="140" y1="90" x2="140" y2="492" stroke="#6B8199" stroke-width="1.5"/>
+<circle cx="140" cy="492" r="3" fill="#8FA3B6"/>
+<g data-node="G"><rect x="280" y="30" width="160" height="60" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="360.0" y="57" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Gateway</text>
+<text x="360.0" y="79" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">接入与回复</text>
+</g>
+<line data-lifeline="G" x1="360" y1="90" x2="360" y2="492" stroke="#6B8199" stroke-width="1.5"/>
+<circle cx="360" cy="492" r="3" fill="#8FA3B6"/>
+<g data-node="A"><rect x="500" y="30" width="160" height="60" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="580.0" y="57" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Runtime</text>
+<text x="580.0" y="79" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">取消与恢复</text>
+</g>
+<line data-lifeline="A" x1="580" y1="90" x2="580" y2="492" stroke="#6B8199" stroke-width="1.5"/>
+<circle cx="580" cy="492" r="3" fill="#8FA3B6"/>
+<g data-node="W"><rect x="720" y="30" width="160" height="60" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="800.0" y="57" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Worker</text>
+<text x="800.0" y="79" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">任务执行</text>
+</g>
+<line data-lifeline="W" x1="800" y1="90" x2="800" y2="492" stroke="#6B8199" stroke-width="1.5"/>
+<circle cx="800" cy="492" r="3" fill="#8FA3B6"/>
+<g data-node="P"><rect x="940" y="30" width="160" height="60" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="1020.0" y="57" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">共享存储</text>
+<text x="1020.0" y="79" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">状态、快照与结果</text>
+</g>
+<line data-lifeline="P" x1="1020" y1="90" x2="1020" y2="492" stroke="#6B8199" stroke-width="1.5"/>
+<circle cx="1020" cy="492" r="3" fill="#8FA3B6"/>
+<rect x="41" y="118" width="296.0" height="26" fill="#FBFCFE"/>
+<text x="46" y="137" font-size="16" font-weight="600" text-anchor="start" style="fill:#4B637C">取消当前请求｜分析中停止并补充条件</text>
+<line x1="40" y1="165" x2="1160" y2="165" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="140" cy="165" r="2.6" fill="#447DA5"/>
+<polyline points="140,165 360,165" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="152.79999999999995" y="141" width="194.40000000000006" height="20" rx="4" fill="#FFFFFF"/>
+<text x="250" y="156" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">1 点击停止 / 发送 /stop</text>
+<line x1="40" y1="189" x2="1160" y2="189" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="360" cy="189" r="2.6" fill="#447DA5"/>
+<polyline points="360,189 580,189" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="410.6" y="165" width="118.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="470" y="180" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">2 转发停止请求</text>
+<line x1="40" y1="213" x2="1160" y2="213" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="580" cy="213" r="2.6" fill="#447DA5"/>
+<polyline points="580,213 1020,213" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="740.6" y="189" width="118.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="800" y="204" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">3 记录取消意图</text>
+<line x1="40" y1="237" x2="1160" y2="237" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="580" cy="237" r="2.6" fill="#447DA5"/>
+<polyline points="580,237 800,237" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="600.6" y="213" width="178.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="690" y="228" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">4 取消未受理的异步提交</text>
+<line x1="40" y1="261" x2="1160" y2="261" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="580" cy="261" r="2.6" fill="#447DA5"/>
+<polyline points="580,261 1020,261" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="725.6" y="237" width="148.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="800" y="252" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">5 取消未结束的等待</text>
+<line x1="40" y1="285" x2="1160" y2="285" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="580" cy="285" r="2.6" fill="#447DA5"/>
+<polyline points="580,285 360,285" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="418.1" y="261" width="103.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="470" y="276" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">6 返回已取消</text>
+<line x1="40" y1="309" x2="1160" y2="309" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="360" cy="309" r="2.6" fill="#3D8585"/>
+<polyline points="360,309 140,309" fill="none" stroke="#3D8585" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="168.1" y="285" width="163.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="250" y="300" font-size="15" font-weight="500" text-anchor="middle" style="fill:#3D8585">7 确认当前请求已停止</text>
+<line x1="40" y1="333" x2="1160" y2="333" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="140" cy="333" r="2.6" fill="#447DA5"/>
+<polyline points="140,333 360,333" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="163.0" y="309" width="174.00000000000003" height="20" rx="4" fill="#FFFFFF"/>
+<text x="250" y="324" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">8 补充：只看最近 7 天</text>
+<line x1="40" y1="357" x2="1160" y2="357" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="360" cy="357" r="2.6" fill="#447DA5"/>
+<polyline points="360,357 580,357" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="425.6" y="333" width="88.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="470" y="348" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">9 请求恢复</text>
+<line x1="40" y1="381" x2="1160" y2="381" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="580" cy="381" r="2.6" fill="#447DA5"/>
+<polyline points="580,381 1020,381" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="728.9" y="357" width="142.2" height="20" rx="4" fill="#FFFFFF"/>
+<text x="800" y="372" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">10 重新排队并领取</text>
+<line x1="40" y1="405" x2="1160" y2="405" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="1020" cy="405" r="2.6" fill="#3D8585"/>
+<polyline points="1020,405 580,405" fill="none" stroke="#3D8585" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="743.9" y="381" width="112.19999999999999" height="20" rx="4" fill="#FFFFFF"/>
+<text x="800" y="396" font-size="15" font-weight="500" text-anchor="middle" style="fill:#3D8585">11 返回原快照</text>
+<line x1="40" y1="429" x2="1160" y2="429" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="580" cy="429" r="2.6" fill="#3D8585"/>
+<polyline points="580,429 360,429" fill="none" stroke="#3D8585" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="397.1" y="405" width="145.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="470" y="420" font-size="15" font-weight="500" text-anchor="middle" style="fill:#3D8585">12 SSE 推送新结果</text>
+<line x1="40" y1="453" x2="1160" y2="453" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="360" cy="453" r="2.6" fill="#3D8585"/>
+<polyline points="360,453 140,453" fill="none" stroke="#3D8585" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="166.3" y="429" width="167.4" height="20" rx="4" fill="#FFFFFF"/>
+<text x="250" y="444" font-size="15" font-weight="500" text-anchor="middle" style="fill:#3D8585">13 显示最近 7 天结果</text>
+<text x="46" y="480" font-size="14" font-weight="400" text-anchor="start" style="fill:#536B81">已受理的独立任务继续执行；外部动作能否撤回由外部系统决定；恢复沿用原快照和剩余预算。</text>
+</svg>

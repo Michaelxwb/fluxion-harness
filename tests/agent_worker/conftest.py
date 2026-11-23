@@ -1,12 +1,20 @@
 import uuid
 from collections.abc import AsyncIterator
+from contextlib import suppress
 from dataclasses import dataclass
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from muad_agent_worker.application.ports import PlatformSettingsSnapshot
 from muad_agent_worker.infrastructure.db import get_session_factory
 from muad_agent_worker.main import app
 from muad_common import SharedSettings
+from muad_contracts import (
+    ResolvedAgent,
+    ScheduleAdmissionMaterials,
+    ScheduleGrantMaterials,
+    ScheduleModelMaterials,
+)
 from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -102,6 +110,57 @@ TEST_INTERNAL_SERVICE_TOKEN = "test-internal-service-token"
 def internal_service_token(monkeypatch: pytest.MonkeyPatch) -> str:
     monkeypatch.setenv("INTERNAL_SERVICE_TOKEN", TEST_INTERNAL_SERVICE_TOKEN)
     return TEST_INTERNAL_SERVICE_TOKEN
+
+
+@pytest.fixture
+def schedule_boundaries():
+    """默认只读依赖源/设置源；用例需要时可再 monkeypatch 覆盖。"""
+
+    class _Materials:
+        async def resolve_schedule_materials(self, tenant_id, payload):
+            return ScheduleAdmissionMaterials(
+                mode=payload.mode,
+                agent=ResolvedAgent(
+                    id=payload.agent_id,
+                    key="agent",
+                    revision=1,
+                    instructions="be brief",
+                ),
+                model=ScheduleModelMaterials(
+                    id=uuid.uuid4(),
+                    revision=1,
+                    model_id="gpt-4o-mini",
+                    protocol="OPENAI",
+                ),
+                grants=ScheduleGrantMaterials(agent_access=True),
+                settings_revision=1,
+            )
+
+    class _Settings:
+        revision = 1
+
+        async def fetch_snapshot(self, *, tenant_id: str, trace_id: str = ""):
+            return PlatformSettingsSnapshot(revision=1, settings={})
+
+    had_materials = hasattr(app.state, "schedule_materials_client")
+    previous_materials = getattr(app.state, "schedule_materials_client", None)
+    had_settings = hasattr(app.state, "platform_settings_client")
+    previous_settings = getattr(app.state, "platform_settings_client", None)
+    app.state.schedule_materials_client = _Materials()
+    app.state.platform_settings_client = _Settings()
+    try:
+        yield
+    finally:
+        if had_materials:
+            app.state.schedule_materials_client = previous_materials
+        else:
+            with suppress(AttributeError, KeyError):
+                del app.state.schedule_materials_client
+        if had_settings:
+            app.state.platform_settings_client = previous_settings
+        else:
+            with suppress(AttributeError, KeyError):
+                del app.state.platform_settings_client
 
 
 @pytest.fixture(autouse=True)

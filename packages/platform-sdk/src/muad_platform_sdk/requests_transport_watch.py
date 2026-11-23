@@ -6,7 +6,6 @@ without waiting for a Python buffered reader lock.
 """
 from __future__ import annotations
 
-import logging
 import socket
 import threading
 import weakref
@@ -14,12 +13,13 @@ from collections.abc import Callable
 from contextvars import ContextVar
 from typing import Protocol, cast
 
+from muad_logging import get_logger
 from urllib3.connection import HTTPConnection, HTTPSConnection
 from urllib3.connectionpool import HTTPConnectionPool
 
 from .egress_ipc_client import IPCLease
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 _CURRENT: ContextVar[PhysicalAttempt | None] = ContextVar("egress_physical_attempt", default=None)
 _OWNERS: weakref.WeakKeyDictionary[HTTPConnection, PhysicalAttempt] = weakref.WeakKeyDictionary()
 _LOCK = threading.RLock()

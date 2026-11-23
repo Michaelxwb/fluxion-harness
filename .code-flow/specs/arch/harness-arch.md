@@ -1,7 +1,7 @@
 ---
 {
   "description": "部署单元、边界与容量",
-  "next_rule": 3
+  "next_rule": 4
 }
 ---
 
@@ -14,6 +14,8 @@
 - [RULE-001] `packages/*` 不依赖任何 app 模块；runtime/worker 不得 import `muad_console_platform`，跨部署单元只走 HTTP 契约；`skill-sdk` 不依赖 runtime/console/worker/connector。机检 `tests/architecture/test_import_direction.py`。
 
 - [RULE-002] IM Gateway web 角色不持库（不得 import `sqlalchemy`）；渠道 SDK 只允许出现在 Connector 的 `channels/` 适配器；`iter_events()` 是 IM 入站规范化唯一入口，Connector 只发 `im.inbound`/`im.outbound`，不直接调 Runtime。机检 `tests/architecture/test_im_gateway_boundaries.py`。
+
+- [RULE-003] 失败收尾由 Runtime 确定性渲染，不新增模型调用；用户可见正文先给直白原因与下一步，终止码、工具/平台码、Run ID 与脱敏平台原文只进技术信息；首次确定性失败不得渲染成「重复失败」。本条覆盖 Conventions 中「收尾再发一次模型调用」的旧口径。
 
 ## Conventions
 
@@ -77,3 +79,5 @@
 - {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-001","op":"add","rule":"RULE-001","payload_sha256":"6ef0723d530ab01930dfc045910e4d3bae8ab77e860ad175cb5513682a8710b0","at":"2026-11-18T14:06:44.260Z"}
 
 - {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-002","op":"add","rule":"RULE-002","payload_sha256":"a496ba6a6dd49ef5a92bf62b41ff1de102aaba69a75aacee262b83a772d3b8cc","at":"2026-11-18T14:06:44.261Z"}
+
+- {"source":"2026-11-21/agent-output-and-platform-defaults/agent-output-and-platform-defaults.md#TASK-007#DELTA-002","op":"add","rule":"RULE-003","payload_sha256":"07379992368498a66463980b88dbc3014e3215ebfcdc0117cc04cb7dbb84fa45","at":"2026-11-21T07:54:54.594Z"}

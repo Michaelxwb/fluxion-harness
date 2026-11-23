@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import time
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
@@ -31,9 +30,13 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, TypedDict, cast
 
+from muad_logging import get_logger
+
 from ..context.compactor import ContextCompactor
+from ..context.plan import RunInput, plan_context, render_context
 from ..hooks.pipeline import HookEvent, HookPipeline
-from ..memory.components import ModelContextLoader
+from ..memory.components import MemoryComponent, ModelContextLoader
+from ..memory.language import resolve_reply_locale
 from ..model.budget import (
     DEFAULT_DEADLINE_MS,
     DEFAULT_MAX_IDENTICAL_FAILURES,
@@ -56,15 +59,11 @@ from ..model.provider import (
     ModelRole,
     ModelToolCall,
     ModelUsage,
-    text_of,
 )
 from ..prompt.builder import DefaultPromptBuilder, PromptBuilder, PromptSkill
-from ..tools.outcome import (
-    BusinessStatus,
-    ExecutionOutcome,
-    tool_exception_outcome,
-)
-from ..tools.pipeline import RunnableToolCall, ToolExecutionPipeline, ToolExecutionResult
+from ..tools.identity import AssistantTurn, PreparedCall, ToolCall
+from ..tools.outcome import ExecutionOutcome, tool_exception_outcome
+from ..tools.pipeline import RunnableToolCall, ToolExecutionPipeline, build_prepared_call
 from ..tools.planner import (
     DEFAULT_PARALLEL_LIMIT,
     PlannedToolCall,
@@ -73,8 +72,15 @@ from ..tools.planner import (
     validate_parallel_limit,
 )
 from ..tools.registry import ToolNotFoundError, ToolRegistry
+from ..tools.result import (
+    ToolCompleted,
+    ToolExecutionResult,
+    ToolResult,
+    completed_from_result,
+)
 from ..tools.round_results import ToolResultRoundPort
 from .continuation import ExecutionEventPort, RunnerCheckpoint, WaitDecision
+from .failure import FailureSignal, update_failure_state
 from .suspension import SuspensionKind, SuspensionRequest, ToolSuspensionPort
 from .termination import (
     BudgetKind,
@@ -85,7 +91,7 @@ from .termination import (
     now_iso,
 )
 
-logger = logging.getLogger("muad_agent_core.agent.runner")
+logger = get_logger("muad_agent_core.agent.runner")
 
 NODE_PREPARE_CONTEXT = "prepare_context"
 NODE_MODEL = "model"
@@ -93,6 +99,8 @@ NODE_TOOLS = "tools"
 NODE_FINALIZE = "finalize"
 NODE_DECIDE = "decide"
 TOOL_BUDGET_EXHAUSTED = "tool call budget exhausted"
+TOOL_NOT_EXECUTED_CODE = "TOOL_NOT_EXECUTED"
+TOOL_NOT_EXECUTED = "tool call not executed after a deterministic failure"
 UNKNOWN_TOOL_TEMPLATE = "unknown tool: {name}"
 #: 空回复的补答指令：只陈述"没有正文"这个事实，不猜原因——模型在这一步没有可解释的事实。
 EMPTY_REPLY_NUDGE = (
@@ -211,6 +219,14 @@ class AgentRunRequest:
     messages: tuple[ModelMessage, ...] = ()
     skills: tuple[PromptSkill, ...] = ()
     policy: AgentPolicy = AgentPolicy()
+    #: 平台默认回复语言；None = 旧 Run/直构路径不追加语言段。
+    reply_locale: str | None = None
+    #: 定时任务冻结的用户 `PREFERENCE/language`；Runner 与平台默认统一裁决。
+    memory_language: str | None = None
+    #: 当前 Run 的显式输入；缺失时由宿主消息边界推导一次（不在 ContextPlan 内推断）。
+    run_input: RunInput | None = None
+    #: 已成功 load_skill 的 key；恢复时由宿主重建后注入。
+    active_skills: tuple[str, ...] = ()
     temperature: float | None = None
     max_tokens: int | None = None
     params: Mapping[str, Any] = field(default_factory=dict)
@@ -234,11 +250,11 @@ class AgentRunResult:
 class RunnerCallbacks:
     is_cancelled: Callable[[], bool] | None = None
     on_delta: DeltaCallback | None = None
-    on_tool_started: Callable[[str, str], Awaitable[None]] | None = None
+    on_tool_prepared: Callable[[PreparedCall], Awaitable[None]] | None = None
     on_model_started: Callable[[], Awaitable[None]] | None = None
     on_model_completed: Callable[[], Awaitable[None]] | None = None
-    on_assistant_turn: Callable[[ModelMessage], Awaitable[None]] | None = None
-    on_tool_completed: Callable[[str, str, str, str | None, str | None], Awaitable[None]] | None = None
+    on_assistant_turn: Callable[[AssistantTurn], Awaitable[None]] | None = None
+    on_tool_completed: Callable[[ToolCompleted], Awaitable[None]] | None = None
 
 
 class AgentRunState(TypedDict):
@@ -250,7 +266,9 @@ class AgentRunState(TypedDict):
     max_tokens: int | None
     params: dict[str, Any]
     messages: list[ModelMessage]
-    pending_tool_calls: list[ModelToolCall]
+    pending_tool_calls: list[ToolCall]
+    run_input: RunInput | None
+    active_skills: set[str]
     final_text: str
     turns: int
     tool_calls_used: int
@@ -269,15 +287,14 @@ class AgentRunState(TypedDict):
     started_at: float
     is_cancelled: Callable[[], bool] | None
     on_delta: DeltaCallback | None
-    on_tool_started: Callable[[str, str], Awaitable[None]] | None
+    on_tool_prepared: Callable[[PreparedCall], Awaitable[None]] | None
     on_model_started: Callable[[], Awaitable[None]] | None
     on_model_completed: Callable[[], Awaitable[None]] | None
-    # 每次模型响应触发一次，带完整 assistant 消息（含 tool_calls 与 reasoning_content）：
+    # 每次模型响应触发一次，带原始 assistant 消息与内部调用身份：
     # 调用方据此把「一个 assistant 回合」原样持久化，供后续 Run 重建**合法**历史。
-    on_assistant_turn: Callable[[ModelMessage], Awaitable[None]] | None
-    #: `(call_id, 工具名, 状态, 产物 id, 未外置时的那条结果正文)`。最后一个参数只在结果
-    #: **没有被外置**时给出——那种结果没有产物可指，正文是它唯一能被后续 Run 找回来的载体。
-    on_tool_completed: Callable[[str, str, str, str | None, str | None], Awaitable[None]] | None
+    on_assistant_turn: Callable[[AssistantTurn], Awaitable[None]] | None
+    #: typed 完成事实：正文、outcome、产物 role 与 follow-up 引用一起交给宿主。
+    on_tool_completed: Callable[[ToolCompleted], Awaitable[None]] | None
     last_response: dict[str, Any] | None
     post_model_pending: bool
     deadline_at: datetime | None
@@ -321,9 +338,21 @@ _TOOL_STATUSES = {
 class _CallOutcome:
     """一次调用在原始调用序上的最终形态（失败也只是一条失败 ToolResult）。"""
 
+    call: ToolCall
     status: str
-    content: str
-    outcome: ExecutionOutcome | None = None
+    result: ToolResult
+
+    @property
+    def content(self) -> str:
+        return self.result.content
+
+    @property
+    def outcome(self) -> ExecutionOutcome:
+        return self.result.outcome
+
+    @property
+    def follow_ups(self) -> tuple[ModelMessage, ...]:
+        return self.result.follow_ups
 
 
 def _exception_outcome(exc: BaseException) -> ExecutionOutcome:
@@ -388,6 +417,10 @@ class AgentRunner:
         self._runtime_events = runtime_events
         self._tool_suspension = tool_suspension
         self._context_loader = context_loader
+        #: 启动时预取的记忆块：同一份既决定提示词默认语言，也注入首个模型请求，
+        #: 避免为了语言偏好重复读取/重复归因。
+        self._startup_component: MemoryComponent | None = None
+        self._startup_component_pending = False
         self._event_batch_size = event_batch_size
         self._parallel_limit = validate_parallel_limit(parallel_limit)
         self._stop_emitted = False
@@ -399,24 +432,31 @@ class AgentRunner:
         *,
         is_cancelled: Callable[[], bool] | None = None,
         on_delta: DeltaCallback | None = None,
-        on_tool_started: Callable[[str, str], Awaitable[None]] | None = None,
+        on_tool_prepared: Callable[[PreparedCall], Awaitable[None]] | None = None,
         on_model_started: Callable[[], Awaitable[None]] | None = None,
         on_model_completed: Callable[[], Awaitable[None]] | None = None,
-        on_assistant_turn: Callable[[ModelMessage], Awaitable[None]] | None = None,
-        on_tool_completed: Callable[[str, str, str, str | None, str | None], Awaitable[None]] | None = None,
+        on_assistant_turn: Callable[[AssistantTurn], Awaitable[None]] | None = None,
+        on_tool_completed: Callable[[ToolCompleted], Awaitable[None]] | None = None,
         checkpoint: RunnerCheckpoint | None = None,
         context_cursor: int | None = None,
     ) -> AgentRunResult:
         callbacks = RunnerCallbacks(
             is_cancelled,
             on_delta,
-            on_tool_started,
+            on_tool_prepared,
             on_model_started,
             on_model_completed,
             on_assistant_turn,
             on_tool_completed,
         )
-        initial = self._initial_state(request, checkpoint or RunnerCheckpoint(), callbacks, context_cursor)
+        startup_component = await self._load_startup_component()
+        initial = self._initial_state(
+            request,
+            checkpoint or RunnerCheckpoint(),
+            callbacks,
+            context_cursor,
+            startup_component=startup_component,
+        )
         self._latest_state = initial
         try:
             final = await self._execute(initial)
@@ -450,14 +490,39 @@ class AgentRunner:
             payload["error"] = True
         await self._hooks.run(HookEvent.STOP, payload)
 
+    async def _load_startup_component(self) -> MemoryComponent | None:
+        """Load memory once before the prompt is built.
+
+        The prompt's default language must be resolved from the same frozen
+        memory block that will be injected into the first model request; doing
+        it later would let the prompt and the memory message disagree.
+        """
+        if self._context_loader is None:
+            return None
+        component = await self._context_loader.refresh()
+        self._startup_component = component
+        self._startup_component_pending = True
+        return component
+
     def _initial_state(
         self,
         request: AgentRunRequest,
         progress: RunnerCheckpoint,
         callbacks: RunnerCallbacks,
         context_cursor: int | None,
+        *,
+        startup_component: MemoryComponent | None = None,
     ) -> AgentRunState:
-        system = self._prompt_builder.build(instructions=request.instructions, skills=request.skills)
+        memory_locale = request.memory_language
+        if memory_locale is None and startup_component is not None:
+            memory_locale = startup_component.language
+        effective_locale = resolve_reply_locale(request.reply_locale, memory_locale)
+        system = self._prompt_builder.build(
+            instructions=request.instructions,
+            skills=request.skills,
+            reply_locale=effective_locale,
+        )
+        run_input = request.run_input
         restored = FailureState.from_payload(progress.failure_state)
         return AgentRunState(
             model_id=request.model_id,
@@ -469,6 +534,8 @@ class AgentRunner:
             params=dict(request.params),
             messages=[ModelMessage(role=ModelRole.SYSTEM, content=system), *request.messages],
             pending_tool_calls=[],
+            run_input=run_input,
+            active_skills=set(request.active_skills),
             final_text="",
             turns=progress.turns,
             tool_calls_used=progress.tool_calls,
@@ -483,7 +550,7 @@ class AgentRunner:
             started_at=time.monotonic(),
             is_cancelled=callbacks.is_cancelled,
             on_delta=callbacks.on_delta,
-            on_tool_started=callbacks.on_tool_started,
+            on_tool_prepared=callbacks.on_tool_prepared,
             on_model_started=callbacks.on_model_started,
             on_model_completed=callbacks.on_model_completed,
             on_assistant_turn=callbacks.on_assistant_turn,
@@ -618,6 +685,7 @@ class AgentRunner:
             )
 
     async def _accept_response(self, state: AgentRunState, response: ModelResponse) -> AgentRunState:
+        calls = self._resolve_tool_calls(response.tool_calls)
         assistant = ModelMessage(
             role=ModelRole.ASSISTANT,
             content=response.content,
@@ -626,11 +694,11 @@ class AgentRunner:
         )
         notify_assistant = state["on_assistant_turn"]
         if notify_assistant is not None:
-            await notify_assistant(assistant)
+            await notify_assistant(AssistantTurn(assistant, calls))
         return {
             **state,
             "messages": [*state["messages"], assistant],
-            "pending_tool_calls": list(response.tool_calls),
+            "pending_tool_calls": list(calls),
             "final_text": response.content,
             "turns": state["turns"] + 1,
             "input_tokens": _usage_sum(state["input_tokens"], response.input_tokens),
@@ -648,35 +716,53 @@ class AgentRunner:
     async def _execute_tools(self, state: AgentRunState) -> AgentRunState:
         self._ensure_runnable(state)
         messages = list(state["messages"])
-        state = {
-            **state,
-            "pending_tool_calls": self._resolve_model_calls(state["pending_tool_calls"]),
-        }
         runnable, exhausted_calls, used = self._reserve_tool_calls(state)
-        # 本回合真正执行过的调用：(消息下标, 调用 id, 工具名, 状态)。整批判定与完成事件都在
-        # 回合末一次性收口（ADR-04）——不在循环里逐条报，否则产物 id 赶不上那条事件。
-        executed: list[tuple[int, str, str, str]] = []
-        unexecuted = [PendingToolCall(call_id=call.id, tool_name=call.name) for call in exhausted_calls]
+        # 本回合真正执行过的调用：(消息下标, 调用 id, 工具名, 状态, outcome)。整批判定与
+        # 完成事件都在回合末一次性收口（ADR-04）——不在循环里逐条报，否则产物 id 赶不上。
+        executed: list[tuple[int, str, str, _CallOutcome]] = []
+        unexecuted = [
+            PendingToolCall(call_id=call.call_id, tool_name=call.name)
+            for call in exhausted_calls
+        ]
         for call in exhausted_calls:
             # 未执行不是失败：消息必须回给模型（合法的 tool 应答），但不进失败计数/完成事件。
-            messages.append(_tool_message(call.id, TOOL_BUDGET_EXHAUSTED))
-        # 补消息（`ToolDefinition.follow_up_messages`）**攒到回合末再落**，理由见 finally 里的注释。
+            messages.append(_tool_message(call.call_id, TOOL_BUDGET_EXHAUSTED))
+        # 补消息（`ToolResult.follow_ups`）**攒到回合末再落**，理由见 finally 里的注释。
         followed: list[ModelMessage] = []
         try:
             batches = plan_tool_batches(
-                tuple(PlannedToolCall(call.id, call.name, call.arguments) for call in runnable),
+                tuple(
+                    PlannedToolCall(call.call_id, call.name, call.arguments)
+                    for call in runnable
+                ),
                 registry=self._registry,
                 parallel_limit=self._parallel_limit,
             )
             for batch in batches:
                 # 取消/失约取消整批（TaskGroup 传播）；批内单调用失败只变成对应失败 ToolResult。
                 self._ensure_runnable(state)
+                if state["no_progress"]:
+                    self._append_not_executed(messages, executed, batch)
+                    continue
                 outcomes = await self._run_batch(state, batch)
                 for planned, outcome in zip(batch.calls, outcomes, strict=True):
                     messages.append(_tool_message(planned.call_id, outcome.content))
-                    executed.append((len(messages) - 1, planned.call_id, planned.tool_name, outcome.status))
+                    executed.append(
+                        (
+                            len(messages) - 1,
+                            planned.call_id,
+                            planned.tool_name,
+                            outcome,
+                        )
+                    )
+                    if (
+                        outcome.status == "OK"
+                        and planned.tool_name == "load_skill"
+                        and isinstance(planned.arguments.get("skill_key"), str)
+                    ):
+                        state["active_skills"].add(str(planned.arguments["skill_key"]))
                     self._track_failure(state, planned.tool_name, outcome)
-                    followed.extend(await self._follow_up_messages(planned.tool_name, outcome.content))
+                    followed.extend(outcome.follow_ups)
         finally:
             # 补消息**必须先于回合收口、且落在整回合之后**：它是 `user` 角色，若插在两条 tool
             # 结果之间，后面那条结果就与声明它的 assistant 隔开了 —— 压缩器的 `split_groups`
@@ -721,24 +807,32 @@ class AgentRunner:
             await self._runtime_events.checkpoint(self._checkpoint(state))
         return state
 
-    def _resolve_model_calls(self, calls: list[ModelToolCall]) -> list[ModelToolCall]:
+    def _resolve_tool_calls(self, calls: Sequence[ModelToolCall]) -> tuple[ToolCall, ...]:
         """Map provider-safe names back to registry names before planning/execution."""
-        resolved: list[ModelToolCall] = []
+        resolved: list[ToolCall] = []
         for call in calls:
             try:
                 definition = self._registry.get_by_model_name(call.name)
             except ToolNotFoundError:
-                resolved.append(call)
+                name = call.name
             else:
-                resolved.append(replace(call, name=definition.name))
-        return resolved
+                name = definition.name
+            resolved.append(
+                ToolCall(
+                    call_id=call.id,
+                    name=name,
+                    model_name=call.name,
+                    arguments=call.arguments,
+                )
+            )
+        return tuple(resolved)
 
     def _reserve_tool_calls(
         self, state: AgentRunState
-    ) -> tuple[list[ModelToolCall], list[ModelToolCall], int]:
+    ) -> tuple[list[ToolCall], list[ToolCall], int]:
         """按原调用序预留 tool-call 预算；超出预算的调用转成明确失败消息、不再执行。"""
-        runnable: list[ModelToolCall] = []
-        exhausted: list[ModelToolCall] = []
+        runnable: list[ToolCall] = []
+        exhausted: list[ToolCall] = []
         used = state["tool_calls_used"]
         for call in state["pending_tool_calls"]:
             if used >= state["policy"].max_tool_calls:
@@ -778,10 +872,20 @@ class AgentRunner:
             )
             outcome = await self._tool_pipeline.prepare_execution(prepared)
         except Exception as exc:
-            return _CallOutcome("ERROR", tool_failure_content(exc), _exception_outcome(exc))
+            return self._exception_outcome(
+                ToolCall(
+                    call_id=call.call_id,
+                    name=call.tool_name,
+                    model_name=call.tool_name,
+                    arguments=call.arguments,
+                ),
+                exc,
+            )
         if isinstance(outcome, ToolExecutionResult):
             return _CallOutcome(
-                _TOOL_STATUSES.get(outcome.status, "ERROR"), outcome.content, outcome.outcome
+                outcome.call,
+                _TOOL_STATUSES.get(outcome.status, "ERROR"),
+                outcome.result,
             )
         return outcome
 
@@ -790,82 +894,127 @@ class AgentRunner:
     ) -> _CallOutcome:
         if isinstance(item, _CallOutcome):
             return item
+        prepared = build_prepared_call(item.prepared, item.definition)
+        notify_prepared = state["on_tool_prepared"]
+        if notify_prepared is not None:
+            try:
+                await notify_prepared(prepared)
+            except Exception as exc:
+                # 没有持久 prepared 事实就不得发生外部执行。
+                return self._exception_outcome(prepared.call, exc)
         try:
-            result = await self._tool_pipeline.run_prepared(item, on_started=state["on_tool_started"])
+            result = await self._tool_pipeline.run_prepared(item)
         except Exception as exc:
-            return _CallOutcome("ERROR", tool_failure_content(exc), _exception_outcome(exc))
+            return self._exception_outcome(
+                ToolCall(
+                    call_id=item.prepared.call_id,
+                    name=item.prepared.tool_name,
+                    model_name=item.prepared.model_name or item.prepared.tool_name,
+                    arguments=item.prepared.arguments,
+                ),
+                exc,
+            )
         return _CallOutcome(
-            _TOOL_STATUSES.get(result.status, "ERROR"), result.content, result.outcome
+            result.call,
+            _TOOL_STATUSES.get(result.status, "ERROR"),
+            result.result,
         )
 
-    async def _follow_up_messages(self, tool_name: str, content: str) -> tuple[ModelMessage, ...]:
-        try:
-            definition = self._registry.get(tool_name)
-        except LookupError:
-            return ()
-        if definition.follow_up_messages is None:
-            return ()
-        return tuple(await definition.follow_up_messages(content))
+    def _exception_outcome(self, call: ToolCall, exc: BaseException) -> _CallOutcome:
+        outcome = _exception_outcome(exc)
+        return _CallOutcome(
+            call,
+            "ERROR",
+            ToolResult(
+                content=tool_failure_content(exc),
+                outcome=outcome,
+                call_id=call.call_id,
+            ),
+        )
+
+    def _append_not_executed(
+        self,
+        messages: list[ModelMessage],
+        executed: list[tuple[int, str, str, _CallOutcome]],
+        batch: ToolBatch,
+    ) -> None:
+        """确定性失败后的批次止损：后续调用零执行，但每个声明都得到显式结果。"""
+        for planned in batch.calls:
+            call = ToolCall(
+                call_id=planned.call_id,
+                name=planned.tool_name,
+                model_name=planned.tool_name,
+                arguments=planned.arguments,
+            )
+            outcome = tool_exception_outcome(
+                code=TOOL_NOT_EXECUTED_CODE,
+                message=TOOL_NOT_EXECUTED,
+                retryable=False,
+            )
+            result = ToolResult(
+                content=json.dumps(
+                    {
+                        "error": {
+                            "code": TOOL_NOT_EXECUTED_CODE,
+                            "message": TOOL_NOT_EXECUTED,
+                        }
+                    },
+                    ensure_ascii=False,
+                ),
+                outcome=outcome,
+                call_id=call.call_id,
+            )
+            messages.append(_tool_message(planned.call_id, result.content))
+            executed.append(
+                (len(messages) - 1, planned.call_id, planned.tool_name, _CallOutcome(call, "ERROR", result))
+            )
 
     def _track_failure(self, state: AgentRunState, tool_name: str, outcome: _CallOutcome) -> None:
-        """失败跟进：确定性失败第一次就停；可重试失败按 (工具, 错误码, 层) 计数到阈值。
-
-        判定只消费 `ToolDefinition.outcome_parser` 给出的结构化 `ExecutionOutcome`：
-        `SUCCEEDED/NOT_APPLICABLE/UNKNOWN` 代表"没有确认失败"（清零计数、保留历史证据）；
-        `FAILED/TIMED_OUT/DENIED` 且 `failure_layer != NONE` 才进入失败跟踪。
-        """
+        """Apply the shared failure transition; live execution and recovery must agree."""
         execution = outcome.outcome
         if execution is None:
-            # 没有业务判定（例如执行器之外的意外）：沿用 transport 状态，不猜业务失败。
             if outcome.status == "ERROR":
                 execution = _exception_outcome(RuntimeError(outcome.content))
             else:
-                state["identical_failures"].clear()
+                self._apply_failure(state, None)
                 return
-        if execution.business_status in (
-            BusinessStatus.SUCCEEDED,
-            BusinessStatus.NOT_APPLICABLE,
-            BusinessStatus.UNKNOWN,
-        ):
-            state["identical_failures"].clear()
-            return
-        if execution.business_status == BusinessStatus.CANCELLED:
-            return
-        if not execution.is_failure:
-            state["identical_failures"].clear()
-            return
-        evidence = FailureEvidence(
+        signal = FailureSignal(
             tool=execution.tool_name or tool_name,
             tool_call_id=execution.call_id,
-            status=str(execution.business_status),
-            code=execution.error_code or "TOOL_FAILED",
-            message=execution.error_message,
+            business_status=str(execution.business_status),
             failure_layer=str(execution.failure_layer),
+            error_code=execution.error_code,
+            message=execution.error_message,
             exit_code=execution.exit_code,
             retryable=execution.retryable,
             evidence_preview=execution.evidence.preview,
             occurred_at=now_iso(),
         )
-        state["last_failure"] = evidence
-        if not execution.retryable:
-            state["no_progress"] = True
-            self._latest_state = state
-            return
-        counts = state["identical_failures"]
-        key = f"{evidence.tool}:{evidence.code}:{evidence.failure_layer}"
-        counts[key] = counts.get(key, 0) + 1
-        if counts[key] >= max(1, state["policy"].max_identical_failures):
-            state["no_progress"] = True
+        self._apply_failure(state, signal)
+
+    def _apply_failure(self, state: AgentRunState, signal: FailureSignal | None) -> None:
+        updated = update_failure_state(
+            FailureState(
+                last_failure=state["last_failure"],
+                identical_failures=dict(state["identical_failures"]),
+                no_progress=state["no_progress"],
+            ),
+            signal,
+            max_identical_failures=state["policy"].max_identical_failures,
+        )
+        state["last_failure"] = updated.last_failure
+        state["identical_failures"] = dict(updated.identical_failures)
+        state["no_progress"] = updated.no_progress
         self._latest_state = state
 
     async def _finish_tool_round(
         self,
         state: AgentRunState,
         messages: list[ModelMessage],
-        executed: Sequence[tuple[int, str, str, str]],
+        executed: Sequence[tuple[int, str, str, _CallOutcome]],
         unexecuted: Sequence[PendingToolCall],
     ) -> None:
-        """回合末收口：先让端口按**整轮**决定谁要外置（可改写消息内容），再逐条报完成。
+        """回合末收口：先让端口按**整轮**决定谁要外置（可改写结果），再逐条报完成。
 
         顺序是硬约束：`tool.completed` 上挂着产物 id，它进了 canonical 行、历史重建靠它把产物
         找回来，所以必须等整批判定落定之后再发。预算截断的调用也要报一条 `TOOL_BUDGET_EXHAUSTED`
@@ -875,36 +1024,54 @@ class AgentRunner:
         if not executed:
             for call in unexecuted:
                 await self._notify_tool_completed(
-                    state, call.call_id, call.tool_name, "ERROR", None, TOOL_BUDGET_EXHAUSTED
+                    state,
+                    call.call_id,
+                    call.tool_name,
+                    "ERROR",
+                    TOOL_BUDGET_EXHAUSTED,
+                    tool_exception_outcome(
+                        code="TOOL_BUDGET_EXHAUSTED",
+                        message=TOOL_BUDGET_EXHAUSTED,
+                        retryable=False,
+                    ),
                 )
             return
+        results = [item[3].result for item in executed]
         if self._round_results is not None:
-            indexes = [index for index, *_ in executed]
-            replaced = await self._round_results_or_inline(tuple(messages[index] for index in indexes))
+            replaced = await self._round_results_or_inline(tuple(results))
             if replaced is not None:
-                for index, message in zip(indexes, replaced, strict=True):
-                    messages[index] = message
-        for index, call_id, name, status in executed:
-            content = text_of(messages[index].content)
-            artifact_id = _artifact_ref(content)
+                results = list(replaced)
+        for (index, call_id, name, outcome), result in zip(
+            executed, results, strict=True
+        ):
+            messages[index] = replace(messages[index], content=result.content)
+            completed = completed_from_result(outcome.call, result, outcome.status)
             await self._notify_tool_completed(
                 state,
                 call_id,
                 name,
-                status,
-                artifact_id,
-                # 没外置 ⇒ 正文必须随事件带走：库里那条 canonical 行若只留工具名，下一 Run 重建
-                # 历史时这条结果就**净丢了**（任务 id、查询结论、短正文都找不回来）。
-                None if artifact_id is not None else content,
+                completed.status,
+                completed.content,
+                completed.outcome,
+                completed=completed,
             )
         for call in unexecuted:
             await self._notify_tool_completed(
-                state, call.call_id, call.tool_name, "ERROR", None, TOOL_BUDGET_EXHAUSTED
+                state,
+                call.call_id,
+                call.tool_name,
+                "ERROR",
+                TOOL_BUDGET_EXHAUSTED,
+                tool_exception_outcome(
+                    code="TOOL_BUDGET_EXHAUSTED",
+                    message=TOOL_BUDGET_EXHAUSTED,
+                    retryable=False,
+                ),
             )
 
     async def _round_results_or_inline(
-        self, results: Sequence[ModelMessage]
-    ) -> Sequence[ModelMessage] | None:
+        self, results: Sequence[ToolResult]
+    ) -> Sequence[ToolResult] | None:
         """整轮外置失败 ⇒ 返回 `None`，调用方**保留内联结果**（整轮回滚，不得让 Run 失败）。
 
         Kernel 是这条保证的唯一落点：换第二个适配器时不必各自记得吞异常。降级必须可见
@@ -934,12 +1101,24 @@ class AgentRunner:
         call_id: str,
         name: str,
         status: str,
-        artifact_id: str | None,
-        result_text: str | None,
+        content: str,
+        outcome: ExecutionOutcome,
+        *,
+        completed: ToolCompleted | None = None,
     ) -> None:
         callback = state["on_tool_completed"]
-        if callback is not None:
-            await callback(call_id, name, status, artifact_id, result_text)
+        if callback is None:
+            return
+        await callback(
+            completed
+            or ToolCompleted(
+                tool_call_id=call_id,
+                tool_name=name,
+                status=status,
+                outcome=outcome,
+                content=content,
+            )
+        )
 
     async def _finalize(self, state: AgentRunState) -> AgentRunState:
         await self._emit_post_model(state)
@@ -981,9 +1160,11 @@ class AgentRunner:
         pending = list(state["unexecuted_tool_calls"])
         seen = {call.call_id for call in pending}
         for call in state["pending_tool_calls"]:
-            if call.id not in seen:
-                pending.append(PendingToolCall(call_id=call.id, tool_name=call.name))
-                seen.add(call.id)
+            if call.call_id not in seen:
+                pending.append(
+                    PendingToolCall(call_id=call.call_id, tool_name=call.name)
+                )
+                seen.add(call.call_id)
         return TerminationSnapshot(
             status=state["status"],
             budget_kind=budget_kind,
@@ -1128,7 +1309,11 @@ class AgentRunner:
     async def _prepare_model_request(self, state: AgentRunState, request: ModelRequest) -> ModelRequest:
         messages = request.messages
         if self._context_loader is not None:
-            component = await self._context_loader.refresh()
+            if self._startup_component_pending:
+                component = self._startup_component
+                self._startup_component_pending = False
+            else:
+                component = await self._context_loader.refresh()
             message = component.message if component is not None else None
             if message is not None:
                 messages = (*messages[:1], message, *messages[1:])
@@ -1146,7 +1331,13 @@ class AgentRunner:
         """
         assert self._context_compactor is not None
         try:
-            return await self._context_compactor.compact(messages)
+            plan = plan_context(
+                messages,
+                run_input=state["run_input"],
+                active_skills=tuple(state["active_skills"]),
+            )
+            compacted = await self._context_compactor.compact_plan(plan)
+            return render_context(compacted)
         except Exception as exc:  # noqa: BLE001 —— 压缩是优化，失败不得改变主执行
             logger.warning(
                 "context_compaction_failed",

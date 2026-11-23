@@ -11,10 +11,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
-import logging
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -52,24 +53,28 @@ from muad_contracts import (
     build_task_snapshot,
     snapshot_hash,
 )
+from muad_contracts.egress_identity import egress_operation_key
+from muad_contracts.skill_invocation import validate_skill_argv
+from muad_logging import get_logger
+from muad_platform_sdk.host_egress_execution import HostEgressExecution
 from muad_platform_sdk.shared_redis import MeteringUnavailable, SharedLimitExceeded
 from muad_platform_sdk.skill_access import SkillPlatformContext
 from sqlalchemy import false, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from ..application.agentic.suspension import AgenticSuspension, settled_status
+from ..application.agentic.async_dispatch import AsyncCallDispatcher
+from ..application.agentic.suspension import AgenticSuspension
 from ..application.task_events import EntityType, TaskEventType, append_event
 from ..infrastructure.models.task import TaskExecution
 from ..infrastructure.task_operation_client import (
     TaskOperationClient,
     TaskOperationError,
-    operation_result_content,
 )
 from .egress_execution import execute_task_skill_with_egress
 from .executor import TaskExecutionError, task_env
 
-logger = logging.getLogger("muad_agent_worker.worker.agentic_skills")
+logger = get_logger("muad_agent_worker.worker.agentic_skills")
 
 VALID_SKILL_SOURCES = frozenset({"SYSTEM", "ADMIN", "USER"})
 ASYNC_RECEIPT_KEY = "async_operation"
@@ -91,6 +96,8 @@ class AgenticSkillTools:
         operations: TaskOperationClient | None,
         workspace_store: WorkspaceStore | None = None,
         create_async_child: bool = True,
+        skills: Mapping[UUID, SnapshotSkill] | None = None,
+        egress: HostEgressExecution | None = None,
     ) -> None:
         self._task = task
         self._resolver = resolver
@@ -101,6 +108,13 @@ class AgenticSkillTools:
         self._operations = operations
         self._workspace_store = workspace_store
         self._create_async_child = create_async_child
+        self._skills = dict(skills or {})
+        self._egress = egress
+        self._dispatcher = (
+            AsyncCallDispatcher(operations, ensure_child=self._ensure_child_from_recovery)
+            if operations is not None
+            else None
+        )
 
     async def call(
         self,
@@ -110,13 +124,14 @@ class AgenticSkillTools:
         argv: Sequence[str],
         *,
         call_id: str,
+        args_hash: str | None = None,
     ) -> str:
         if skill.execution_mode == "ASYNC":
-            return await self._submit(skill, tool_name, input, argv, call_id)
-        return await self._execute(skill, input, argv)
+            return await self._submit(skill, tool_name, input, argv, call_id, args_hash=args_hash)
+        return await self._execute(skill, input, argv, call_id)
 
     async def _execute(
-        self, skill: SnapshotSkill, input: Mapping[str, Any], argv: Sequence[str]
+        self, skill: SnapshotSkill, input: Mapping[str, Any], argv: Sequence[str], call_id: str
     ) -> str:
         source = skill.source.strip().upper()
         if source not in VALID_SKILL_SOURCES:
@@ -143,6 +158,8 @@ class AgenticSkillTools:
                 skill_key=self._skill_key(skill),
                 settings=self._settings,
                 sessions=self._sessions,
+                operation_key=egress_operation_key("TOOL_CALL", call_id),
+                egress=self._egress,
             )
         except SkillExecutionError as exc:
             message = exc.message
@@ -172,13 +189,15 @@ class AgenticSkillTools:
         input: Mapping[str, Any],
         argv: Sequence[str],
         call_id: str,
+        *,
+        args_hash: str | None = None,
     ) -> str:
-        if self._operations is None:
+        if self._dispatcher is None:
             raise TaskExecutionError(
                 "ASYNC_OPERATION_UNAVAILABLE", "async operations are not configured", retryable=False
             )
         try:
-            view = await self._operations.submit(
+            state = await self._dispatcher.ensure(
                 tenant_id=self._task.tenant_id,
                 actor_user_id=self._task.actor_user_id,
                 execution_id=self._task.id,
@@ -186,35 +205,118 @@ class AgenticSkillTools:
                 tool_name=tool_name,
                 arguments={"input": dict(input), "argv": list(argv)},
                 completion_mode=CompletionMode.JOIN,
+                recovered=False,
+                input_hash=args_hash,
             )
         except TaskOperationError as exc:
             raise TaskExecutionError(exc.code, str(exc)) from exc
-        if view.result is not None and settled_status(view.result.terminal_status):
+        if state.ready:
             # ready-check：结果早到就别进入等待（避免"结果先到、等待后到"丢唤醒）。
             self._suspension.clear_operation(call_id)
-            return operation_result_content(view.result)
-        if self._create_async_child:
-            await self._ensure_child_task(
-                skill, input, argv, call_id=call_id, operation_id=view.operation_id
-            )
+            return state.content or ""
         self._suspension.stage_operation(
             OperationWatermark(
-                operation_id=view.operation_id,
+                operation_id=state.operation_id,
                 call_id=call_id,
-                status=view.status,
-                receipt_seq=view.result.task_event_seq if view.result is not None else 0,
-                consumed_event_id=view.result.event_id if view.result is not None else None,
+                status=state.status,
             )
         )
         return json.dumps(
             {
                 ASYNC_RECEIPT_KEY: {
-                    "operation_id": str(view.operation_id),
-                    "status": view.status.value,
+                    "operation_id": str(state.operation_id),
+                    "status": state.status.value,
                     "tool_name": tool_name,
                 }
             },
             ensure_ascii=False,
+        )
+
+    async def load_skill(self, skill_key: str) -> str:
+        skill = next((item for item in self._skills.values() if item.key == skill_key), None)
+        if skill is None:
+            raise TaskExecutionError("SKILL_NOT_EFFECTIVE", f"skill is not effective: {skill_key}")
+        root = await self._ready(skill)
+        instructions = str(
+            await asyncio.to_thread(
+                (Path(root) / "SKILL.md").read_text,
+                encoding="utf-8",
+                errors="replace",
+            )
+        )
+        return json.dumps(
+            {"manifest": {"key": skill.key, "name": skill.frontmatter.get("name", skill.key)},
+             "instructions": instructions},
+            ensure_ascii=False,
+        )
+
+    async def read_skill_resource(self, skill_key: str, relative: str) -> str:
+        skill = next((item for item in self._skills.values() if item.key == skill_key), None)
+        if skill is None:
+            raise TaskExecutionError("SKILL_NOT_EFFECTIVE", f"skill is not effective: {skill_key}")
+        root = Path(await self._ready(skill)).resolve()
+        target = (root / relative).resolve()
+        if root not in target.parents and target != root:
+            raise TaskExecutionError("SKILL_RESOURCE_NOT_FOUND", f"resource is not readable: {relative}")
+        try:
+            return str(
+                await asyncio.to_thread(
+                    target.read_text, encoding="utf-8", errors="replace"
+                )
+            )
+        except OSError as exc:
+            raise TaskExecutionError(
+                "SKILL_RESOURCE_NOT_FOUND", f"resource is not readable: {relative}"
+            ) from exc
+
+    async def search_skills(self, query: str) -> str:
+        term = query.casefold().strip()
+        matches = [
+            {"key": skill.key, "name": skill.frontmatter.get("name", skill.key)}
+            for skill in self._skills.values()
+            if not term or term in skill.key.casefold()
+            or term in str(skill.frontmatter.get("name", "")).casefold()
+        ]
+        return json.dumps({"total_matches": len(matches), "skills": matches}, ensure_ascii=False)
+
+    async def ensure_child(
+        self,
+        *,
+        call_id: str,
+        operation_id: UUID,
+        tool_name: str,
+        arguments: Mapping[str, Any],
+    ) -> UUID | None:
+        return await self._ensure_child_from_recovery(
+            call_id, operation_id, tool_name, arguments
+        )
+
+    async def _ensure_child_from_recovery(
+        self,
+        call_id: str,
+        operation_id: UUID,
+        tool_name: str,
+        arguments: Mapping[str, Any],
+    ) -> UUID | None:
+        if not self._create_async_child:
+            return None
+        skill_id = _skill_id_from_tool_name(tool_name)
+        skill = self._skills.get(skill_id) if skill_id is not None else None
+        if skill is None:
+            raise TaskExecutionError(
+                "ASYNC_OPERATION_UNAVAILABLE",
+                f"frozen skill is not available for recovery: {tool_name}",
+            )
+        raw_input = arguments.get("input")
+        input_data = dict(raw_input) if isinstance(raw_input, Mapping) else {}
+        raw_argv = arguments.get("argv")
+        argv = validate_skill_argv(raw_argv) if raw_argv is not None else ()
+        return await self._ensure_child_task(
+            skill,
+            input_data,
+            argv,
+            call_id=call_id,
+            operation_id=operation_id,
         )
 
     async def _ensure_child_task(
@@ -357,10 +459,7 @@ class AgenticSkillTools:
         return max(MIN_TOOL_TIMEOUT_SEC, remaining)
 
     def _skill_key(self, skill: SnapshotSkill) -> str | None:
-        key = skill.frontmatter.get("key")
-        if isinstance(key, str) and key.strip():
-            return key.strip()
-        return str(skill.skill_id)
+        return skill.key or str(skill.skill_id)
 
     def _platform_context(self, skill: SnapshotSkill) -> SkillPlatformContext:
         keys = skill.frontmatter.get("platforms", [])
@@ -412,6 +511,16 @@ def _mapping(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
 
+def _skill_id_from_tool_name(name: str) -> UUID | None:
+    parts = name.split("::")
+    if len(parts) != 3 or parts[0] != "skill":
+        return None
+    try:
+        return UUID(parts[1])
+    except ValueError:
+        return None
+
+
 def _child_task_snapshot(
     task: TaskExecution, skill: SnapshotSkill, argv: Sequence[str]
 ) -> dict[str, Any]:
@@ -435,7 +544,7 @@ def _child_task_snapshot(
         base_url=str(model_json.get("base_url") or ""),
         params=dict(_mapping(model_json.get("params"))),
     )
-    key = str(skill.frontmatter.get("key") or skill.skill_id)
+    key = skill.key or str(skill.skill_id)
     resolved = ResolvedSkill(
         skill_id=skill.skill_id,
         artifact_id=skill.artifact_id,

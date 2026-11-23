@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -10,6 +9,7 @@ from typing import Any
 
 import pytest
 from muad_agent_core.skill import SkillExecutionRequest, SkillExecutionResult, SkillExecutionStatus
+from muad_agent_core.tools import ToolCall, ToolError
 from muad_agent_worker.application.agentic.snapshot import load_frozen_execution
 from muad_agent_worker.application.agentic.suspension import AgenticSuspension
 from muad_agent_worker.application.agentic.tools import build_registry
@@ -19,6 +19,7 @@ from muad_contracts import (
     OperationStatus,
     SnapshotSkill,
     TaskToolOperationOwner,
+    TaskToolOperationRecoveryView,
     TaskToolOperationView,
 )
 
@@ -38,6 +39,7 @@ pytestmark = pytest.mark.integration
 def _skill(*, execution_mode: str = "SYNC") -> SnapshotSkill:
     return SnapshotSkill(
         skill_id=SKILL_ID,
+        key="report",
         artifact_id=ARTIFACT_ID,
         version="1.0.0",
         checksum=CHECKSUM,
@@ -60,6 +62,7 @@ class _RecordingRunner:
         argv: tuple[str, ...],
         *,
         call_id: str,
+        args_hash: str | None = None,
     ) -> str:
         self.calls.append((tool_name, dict(input), tuple(argv), call_id))
         return "ok"
@@ -74,19 +77,28 @@ async def test_skill_tool_schema_separates_input_from_argv(tenant: TenantContext
     runner = _RecordingRunner()
 
     registry = build_registry(frozen, mcp=None, skills=runner)  # type: ignore[arg-type]
-    definition = registry.registry.get(STAGING_TOOL)
+    definition = registry.registry.get("execute")
     schema = dict(definition.input_schema)
 
     assert schema["additionalProperties"] is False
-    assert schema["properties"]["input"]["properties"] == {"q": {"type": "string"}}
+    assert schema["properties"]["input"] == {"type": "object"}
     assert schema["properties"]["argv"]["items"] == {"type": "string"}
     assert definition.handler is not None
     result = await definition.handler(
-        {"input": {"q": "本周"}, "argv": ["--date", "2026-03-07"]}, call_id="call-1"
+        {
+            "target": "skill",
+            "skill_key": "deliver",
+            "tool": "deliver_report",
+            "input": {"q": "本周"},
+            "argv": ["--date", "2026-03-07"],
+        },
+        call=ToolCall(call_id="call-1", name=definition.name),
     )
 
-    assert result == "ok"
-    assert runner.calls == [("deliver_report", {"q": "本周"}, ("--date", "2026-03-07"), "call-1")]
+    assert result.content == "ok"
+    assert runner.calls == [
+        (STAGING_TOOL, {"q": "本周"}, ("--date", "2026-03-07"), "call-1")
+    ]
 
 
 async def test_invalid_argv_or_input_never_reaches_the_skill(tenant: TenantContext) -> None:
@@ -96,13 +108,21 @@ async def test_invalid_argv_or_input_never_reaches_the_skill(tenant: TenantConte
     task = await insert_task(tenant, snapshot)
     frozen = load_frozen_execution(task)
     runner = _RecordingRunner()
-    definition = build_registry(frozen, mcp=None, skills=runner).registry.get(STAGING_TOOL)  # type: ignore[arg-type]
+    definition = build_registry(frozen, mcp=None, skills=runner).registry.get("execute")  # type: ignore[arg-type]
     assert definition.handler is not None
 
-    bad_argv = json.loads(await definition.handler({"input": {}, "argv": [1]}, call_id="call-1"))
-    assert bad_argv["status"] == "INVALID"
-    bad_input = json.loads(await definition.handler({"input": "not-an-object"}, call_id="call-2"))
-    assert bad_input["status"] == "INVALID"
+    with pytest.raises(ToolError) as bad_argv:
+        await definition.handler(
+            {"target": "skill", "skill_key": "deliver", "tool": "deliver_report", "input": {}, "argv": [1]},
+            call=ToolCall(call_id="call-1", name=definition.name),
+        )
+    assert bad_argv.value.code == "SKILL_ARGUMENTS_INVALID"
+    with pytest.raises(ToolError) as bad_input:
+        await definition.handler(
+            {"target": "skill", "skill_key": "deliver", "tool": "deliver_report", "input": "not-an-object"},
+            call=ToolCall(call_id="call-2", name=definition.name),
+        )
+    assert bad_input.value.code == "SKILL_ARGUMENTS_INVALID"
     assert runner.calls == []
 
 
@@ -161,14 +181,33 @@ async def test_sync_skill_request_passes_input_and_argv_separately(
 class _RecordingOperations:
     submits: list[dict[str, Any]] = field(default_factory=list)
     operation_id: uuid.UUID = field(default_factory=uuid.uuid4)
+    _last: dict[str, Any] = field(default_factory=dict)
 
     async def submit(self, **kwargs: Any) -> TaskToolOperationView:
         self.submits.append(kwargs)
+        self._last = kwargs
+        return self._view()
+
+    async def get(self, **_: Any) -> TaskToolOperationView:
+        return self._view()
+
+    async def get_recovery(self, **_: Any) -> TaskToolOperationRecoveryView:
+        view = self._view()
+        return TaskToolOperationRecoveryView(
+            operation_id=view.operation_id,
+            status=view.status,
+            task_id=view.task_id,
+            tool_name=view.tool_name,
+            arguments=dict(self._last.get("arguments") or {}),
+            input_hash="sha256:test",
+        )
+
+    def _view(self) -> TaskToolOperationView:
         return TaskToolOperationView(
             operation_id=self.operation_id,
-            owner=TaskToolOperationOwner(task_execution_id=kwargs["execution_id"]),
-            source_tool_call_id=kwargs["call_id"],
-            tool_name=kwargs["tool_name"],
+            owner=TaskToolOperationOwner(task_execution_id=self._last["execution_id"]),
+            source_tool_call_id=self._last["call_id"],
+            tool_name=self._last["tool_name"],
             completion_mode=CompletionMode.JOIN,
             status=OperationStatus.SUBMITTED,
             cancel_requested=False,
@@ -184,6 +223,7 @@ async def test_async_child_task_keeps_input_in_stdin_and_argv_in_snapshot(
 
     task = await insert_task(tenant, agentic_snapshot())
     operations = _RecordingOperations()
+    skill = _skill(execution_mode="ASYNC")
     tools = AgenticSkillTools(
         task=task,
         resolver=_Resolver(tmp_path),  # type: ignore[arg-type]
@@ -194,11 +234,12 @@ async def test_async_child_task_keeps_input_in_stdin_and_argv_in_snapshot(
         operations=operations,  # type: ignore[arg-type]
         workspace_store=None,
         create_async_child=True,
+        skills={skill.skill_id: skill},
     )
 
     await tools.call(
-        _skill(execution_mode="ASYNC"),
-        "run",
+        skill,
+        f"skill::{skill.skill_id}::run",
         {"company_id": "22921947"},
         ("--date", "2026-03-07"),
         call_id="call-1",

@@ -8,14 +8,14 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 import httpx
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 TASKS_PATH = "/internal/admin/tasks"
 ADMIN_SCHEDULES_PATH = "/internal/admin/schedules"

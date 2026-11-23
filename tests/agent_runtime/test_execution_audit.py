@@ -13,15 +13,12 @@ import sqlalchemy as sa
 from httpx import AsyncClient
 from muad_agent_core.agent import AgentRunner
 from muad_agent_core.model import (
-    ModelMessage,
     ModelRateLimitedError,
     ModelRequest,
     ModelRequestError,
     ModelResponse,
-    ModelRole,
-    text_of,
 )
-from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
+from muad_agent_core.tools import ToolCall, ToolDefinition, ToolEffect, ToolRegistry, ToolResult
 from muad_agent_runtime.api.deps import get_executor_factory
 from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
 from muad_agent_runtime.application.executor import (
@@ -86,10 +83,10 @@ async def _close_round(recorder: ToolCallRecorder, *, call_id: str, content: str
     逐条调用只做缓冲，所以直连 recorder 的用例必须自己收口 —— 生产里这一步由 `AgentRunner`
     在回合末调用（`finish_round`），不收口等于在测一个永远等不到回合结束的中间态。
     """
-    messages = await recorder.finish_round(
-        (ModelMessage(role=ModelRole.TOOL, content=content, tool_call_id=call_id),)
+    results = await recorder.finish_round(
+        (ToolResult(content=content, call_id=call_id),)
     )
-    return text_of(messages[0].content)
+    return results[0].content
 
 
 async def test_tool_recorder_audits_and_externalizes_large_result(tmp_path) -> None:
@@ -109,11 +106,16 @@ async def test_tool_recorder_audits_and_externalizes_large_result(tmp_path) -> N
     )
     large = "x" * (9 * 1024)
 
-    async def handler(arguments: Any, *, call_id: str) -> str:
-        return large
+    async def handler(arguments: Any, *, call: ToolCall) -> ToolResult:
+        return ToolResult(large)
 
-    content = await recorder(definition, {"q": "x"}, handler=handler, call_id="call-demo-1")
-    content = await _close_round(recorder, call_id="call-demo-1", content=content)
+    result = await recorder(
+        definition,
+        {"q": "x"},
+        handler=handler,
+        call=ToolCall(call_id="call-demo-1", name=definition.name),
+    )
+    content = await _close_round(recorder, call_id="call-demo-1", content=result.content)
     payload = json.loads(content)
     assert payload["artifact"]["size"] == len(large)
     assert payload["artifact"]["preview"].startswith("x")
@@ -166,11 +168,16 @@ async def test_content_delivery_tool_result_is_not_externalized(tmp_path) -> Non
     )
     large = "x" * (TOOL_RESULT_ARTIFACT_BYTES + 256)  # 前置条件：确实超过通用外置阈值
 
-    async def handler(arguments: Any, *, call_id: str) -> str:
-        return large
+    async def handler(arguments: Any, *, call: ToolCall) -> ToolResult:
+        return ToolResult(large)
 
-    content = await recorder(definition, {"q": "x"}, handler=handler, call_id="call-inline-1")
-    content = await _close_round(recorder, call_id="call-inline-1", content=content)
+    result = await recorder(
+        definition,
+        {"q": "x"},
+        handler=handler,
+        call=ToolCall(call_id="call-inline-1", name=definition.name),
+    )
+    content = await _close_round(recorder, call_id="call-inline-1", content=result.content)
 
     assert content == large
     assert "artifact" not in content
@@ -210,11 +217,16 @@ async def test_content_delivery_tool_result_is_externalized_above_inline_cap(tmp
     )
     huge = "x" * (MAX_INLINE_RESULT_BYTES + 1)
 
-    async def handler(arguments: Any, *, call_id: str) -> str:
-        return huge
+    async def handler(arguments: Any, *, call: ToolCall) -> ToolResult:
+        return ToolResult(huge)
 
-    content = await recorder(definition, {"q": "x"}, handler=handler, call_id="call-inline-2")
-    content = await _close_round(recorder, call_id="call-inline-2", content=content)
+    result = await recorder(
+        definition,
+        {"q": "x"},
+        handler=handler,
+        call=ToolCall(call_id="call-inline-2", name=definition.name),
+    )
+    content = await _close_round(recorder, call_id="call-inline-2", content=result.content)
 
     payload = json.loads(content)
     assert payload["artifact"]["size"] == len(huge)
@@ -235,11 +247,16 @@ async def test_tool_recorder_audits_failure_status() -> None:
         effect=ToolEffect.READ,
     )
 
-    async def handler(arguments: Any, *, call_id: str) -> str:
+    async def handler(arguments: Any, *, call: ToolCall) -> ToolResult:
         raise RuntimeError("boom")
 
     with pytest.raises(RuntimeError):
-        await recorder(definition, {"q": "x"}, handler=handler, call_id="call-demo-2")
+        await recorder(
+        definition,
+        {"q": "x"},
+        handler=handler,
+        call=ToolCall(call_id="call-demo-2", name=definition.name),
+    )
     # 生产里失败会被 runner 转成一条 tool 消息继续走回合（`tool_failure_content`），
     # 所以收口时拿到的就是这个形态的工具消息。
     await _close_round(recorder, call_id="call-demo-2", content="tool failed: RuntimeError: boom")
@@ -283,11 +300,16 @@ async def test_coded_tool_error_is_recorded_with_its_own_code(tenant: TenantCont
         effect=ToolEffect.READ,
     )
 
-    async def handler(arguments: Any, *, call_id: str) -> str:
+    async def handler(arguments: Any, *, call: ToolCall) -> ToolResult:
         raise CodedToolError("ATTACHMENT_NOT_FOUND", "附件不存在或不可访问")
 
     with pytest.raises(CodedToolError):
-        await recorder(definition, {"artifact_id": "x"}, handler=handler, call_id="call-coded")
+        await recorder(
+        definition,
+        {"artifact_id": "x"},
+        handler=handler,
+        call=ToolCall(call_id="call-coded", name=definition.name),
+    )
     await _close_round(
         recorder, call_id="call-coded", content="tool failed: CodedToolError"
     )
@@ -506,20 +528,30 @@ async def test_tool_recorder_keeps_repeated_same_tool_calls_distinct() -> None:
         effect=ToolEffect.READ,
     )
 
-    async def handler(arguments: Any, *, call_id: str) -> str:
-        return f"ok:{arguments['skill_key']}"
+    async def handler(arguments: Any, *, call: ToolCall) -> ToolResult:
+        return ToolResult(f"ok:{arguments['skill_key']}")
 
-    first = await recorder(definition, {"skill_key": "a"}, handler=handler, call_id="call-a")
-    second = await recorder(definition, {"skill_key": "b"}, handler=handler, call_id="call-b")
-    assert (first, second) == ("ok:a", "ok:b")
+    first = await recorder(
+        definition,
+        {"skill_key": "a"},
+        handler=handler,
+        call=ToolCall(call_id="call-a", name=definition.name),
+    )
+    second = await recorder(
+        definition,
+        {"skill_key": "b"},
+        handler=handler,
+        call=ToolCall(call_id="call-b", name=definition.name),
+    )
+    assert (first.content, second.content) == ("ok:a", "ok:b")
     # 同一个回合里的两次调用**一起**收口：整批判定看的就是"本轮全部结果"
-    messages = await recorder.finish_round(
+    results = await recorder.finish_round(
         (
-            ModelMessage(role=ModelRole.TOOL, content=first, tool_call_id="call-a"),
-            ModelMessage(role=ModelRole.TOOL, content=second, tool_call_id="call-b"),
+            ToolResult(content=first.content, call_id="call-a"),
+            ToolResult(content=second.content, call_id="call-b"),
         )
     )
-    assert [text_of(message.content) for message in messages] == ["ok:a", "ok:b"]
+    assert [result.content for result in results] == ["ok:a", "ok:b"]
 
     async with get_session_factory()() as session:
         rows = (

@@ -1,7 +1,7 @@
 ---
 {
   "description": "Skill 产物、缓存与子进程",
-  "next_rule": 4
+  "next_rule": 6
 }
 ---
 
@@ -17,6 +17,10 @@
 
 - [RULE-003] `NfsArtifactStore.resolve` 必须校验解析路径落在 `root` 内且不等于 `root`，否则抛 `ValueError(invalid storage_key)`；禁止用 `root / storage_key` 直接拼接。
 
+- [RULE-004] 可执行 Skill 可在 SKILL.md frontmatter 声明 invocation_contract（version、invocation=argv|stdin、参数 schema）；定时任务新 Draft 必须声明，对话直接调用有声明时校验；契约随不可变 artifact 版本冻结，导入链路必须保留，缺失或非法时不得进入调度。
+
+- [RULE-005] 对话直接调用 Skill 时，若默认入口声明 invocation_contract，必须在启动子进程或提交异步操作前按同一通道/参数 schema 校验；失败返回 SKILL_INVOCATION_INVALID（retryable=true）且不启动执行；辅助脚本不套用主入口契约；load_skill.manifest 返回 entrypoint 与 invocation_contract；无契约时保持现有行为。
+
 ## Conventions
 
 **Skill 包、目录与发现**：
@@ -24,7 +28,7 @@
 - **SKILL.md 里进目录的字段必须单行且有界**：`name` / `description` / `platform_label` 会被逐字插进系统提示目录行，多行等于让上传者往受保护前缀里写段落。长度按 UTF-8 字节、边界严格大于；具体边界由 `MAX_*` 常量定义（`muad_skill_sdk.skill_package._catalog_field`，导入与加载共用）。✅ `_catalog_field(description, "description", MAX_DESCRIPTION_BYTES)`；❌ 只判非空。机检：`tests/agent_core/test_skill_package.py`。
 - **目录是索引，不是清单**：目录项只有 key/name/description（+ `platform_label`），正文只在 `load_skill` 后进上下文。`description` 是**路由条件**（`Use when` 正例 + `Don't use for` 反例），不是功能简介；反例缺失是误触发主因。❌ 目录里出现正文/checksum/storage_key。机检：`test_prompt_builder.py`。
 - **目录有界，且丢了要说出来**：`DefaultPromptBuilder.build` 按 `MAX_CATALOG_ENTRIES` / `MAX_CATALOG_BYTES` 取前缀，**超限整条丢弃并停止**（不挑小的凑、不截半行），丢弃顺序即 `sort_order`。被丢弃的技能模型看不见 key，因此必须：① 投影点留痕（warning + 目录截断指标）；② 目录尾部补 `CATALOG_TRUNCATED_NOTE`，**只在真的丢了条目时出现**。✅ `bounded_catalog(skills) -> (kept, dropped)`；❌ 无上限或静默丢弃。
-- **被预算挡在目录外的技能要有第二条发现路径**：`search_skills(query)` 在本次 Run 的全部生效技能上按 key/name/description 做空白切词 **AND** 子串匹配，返回与目录同一行格式的条目，结果用**同一个 `bounded_catalog`** 收口；不查库、不加端点。✅ 命中数 + 条目 + 截断时才带 `truncated`/`hint`，`externalizable_result=False`；❌ 返回自由格式文本、结果无上限、用 OR 匹配。
+- **被预算挡在目录外的技能要有第二条发现路径**：`search_skills(query)` 在本次 Run 的全部生效技能上按 key/name/description 做空白切词 **AND** 子串匹配，返回与目录同一行格式的条目，结果用**同一个 `bounded_catalog`** 收口；不查库、不加端点。**省略/空 `query` 时列出同一预算内的全部技能**（用户问「我有哪些技能」时没有关键词可给）；参数非法时**返回** `COMMON_VALIDATION_ERROR` 错误体（可纠正），不得抛异常把 Run 判成确定性失败。✅ 命中数 + 条目 + 截断时才带 `truncated`/`hint`，`externalizable_result=False`；❌ 返回自由格式文本、结果无上限、用 OR 匹配、拒绝空查询。机检：`tests/agent_runtime/test_skill_tools.py`。
 - **一个生效技能都没有时，技能工具一个都不注册**（`SkillToolSet.registry` 早返回）：key 从哪来？注册只会让模型猜 key、白跑一轮换回 `SKILL_NOT_EFFECTIVE`。机检：`test_skill_tools.py::test_skill_tools_are_not_registered_without_effective_skills`。
 - **导入拒绝必须给出可定位的原因，不能只回 generic 文案**：`SKILL_PACKAGE_INVALID` 的 `data` 携带稳定 `reason`（缺 SKILL.md / 非法路径 / 不支持的文件类型 / 嵌套压缩包 / 命中密钥扫描 / 超大小或文件数 / manifest 不合法），并尽量带出 `path`、`limit`、`detail`；Console 在导入 Modal 内以常驻 Banner 展示本地化原因。✅ `{"reason":"FILE_TYPE_UNSUPPORTED","path":"run.sh"}` + 前端映射；❌ 只回「Skill 包结构或文件类型不合法」。机检：`tests/console_skill/test_import_api.py`、`tests/frontend/test_skill_module_contract.py`。
 - **Skill 删除是软删除，且不得静默破坏已绑定 Agent**：仍有活跃 `AgentSkillBinding` 时返回 `SKILL_IN_USE`（带 key 与绑定数），要求先解绑；删除保留 `skill_artifact` 行与文件供审计/版本追溯，partial unique 允许同 key 重新导入。机检：`tests/console_skill/test_skill_delete.py`。
@@ -69,3 +73,7 @@
 - {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-004","op":"add","rule":"RULE-002","payload_sha256":"9e706d1fbd1842dad69a605d1d1904f54c571fd5a2fc28b9c3037a6266fd16dc","at":"2026-11-18T14:06:44.261Z"}
 
 - {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-005","op":"add","rule":"RULE-003","payload_sha256":"36cc951d588e314846b1cc5f21426ac786f18935f1a6ec46471da1d51a66a322","at":"2026-11-18T14:06:44.261Z"}
+
+- {"source":"2026-11-20/scheduled-skill-invocation/scheduled-skill-invocation.md#TASK-001#DELTA-001","op":"add","rule":"RULE-004","payload_sha256":"6b4dcbe5db91886efd30ba011070d13461ca198c362761212e37c041e69b0aba","at":"2026-11-20T13:18:06.406Z"}
+
+- {"source":"2026-11-20/scheduled-skill-invocation/scheduled-skill-invocation.md#TASK-008#DELTA-008","op":"add","rule":"RULE-005","payload_sha256":"a9d34e87b9b7b63a8a8b049a252acc36a1bd71dd7b4a0f3e5efa3f0d8a21c264","at":"2026-11-20T13:18:06.408Z"}

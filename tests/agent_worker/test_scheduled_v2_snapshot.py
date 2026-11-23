@@ -82,7 +82,25 @@ def _skill(skill_id: uuid.UUID) -> ResolvedSkill:
         checksum=SKILL_CHECKSUM,
         storage_key="skills/report.tar.gz",
         execution_mode=SkillExecutionMode.ASYNC,
-        frontmatter={"retry_safety": "IDEMPOTENT"},
+        frontmatter={
+            "retry_safety": "IDEMPOTENT",
+            "invocation_contract": {
+                "version": 1,
+                "invocation": "stdin",
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "report_day": {"type": "string", "format": "date"},
+                        "company_id": {"type": "string"},
+                        "date": {"type": "string", "format": "date"},
+                        "fire_date": {"type": "string", "format": "date"},
+                        "nested": {"type": "array", "items": {"type": "string"}},
+                    },
+                    "required": [],
+                    "additionalProperties": False,
+                },
+            },
+        },
         source=SkillSource.ADMIN,
     )
 
@@ -178,10 +196,10 @@ def _memory_materials(*, degraded: bool = False) -> ScheduleMemoryMaterials:
             ScheduleMemoryCandidate(
                 memory_key="preference.reply_language",
                 memory_kind="PREFERENCE",
-                predicate="reply_language",
+                predicate="language",
                 scope_state="ABSENT",
                 scope={},
-                content={"value": "中文"},
+                content={"value": "zh-CN"},
                 title="输出用中文",
                 summary="用户要求中文回复",
                 tags=[],
@@ -246,6 +264,22 @@ class FakeMaterialsClient:
         return self.materials
 
 
+def test_follow_owner_freezes_all_material_tools_in_the_allowlist() -> None:
+    skill_id = uuid.uuid4()
+    materials = make_materials(
+        mode=ScheduleMode.AGENTIC, skill_id=skill_id, memory=_memory_materials()
+    )
+    request = replace(_agentic_request(skill_id), tool_allowlist=())
+    outcome = build_snapshot(materials, request, default_platform_settings())
+    assert outcome.accepted, outcome.error
+    snapshot = outcome.snapshot
+    assert snapshot is not None
+    assert snapshot["allowlist"] == [
+        "MCP:crm:customer.report",
+        f"SKILL:{skill_id}:run_report",
+    ]
+
+
 def test_agentic_snapshot_freezes_dependencies_and_readonly_memory() -> None:
     skill_id = uuid.uuid4()
     materials = make_materials(
@@ -287,6 +321,7 @@ def test_agentic_snapshot_freezes_dependencies_and_readonly_memory() -> None:
     assert memory["degraded"] is False
     assert memory["block"]["entries"][0]["memory_key"] == "preference.reply_language"
     assert "中文" in memory["block"]["rendered_text"]
+    assert memory["block"]["language"] == "zh-CN"
     assert memory["payload_hash"].startswith("sha256:")
 
     expected = default_platform_settings().agent
@@ -512,6 +547,8 @@ async def test_snapshot_is_reconstructable_from_the_persisted_json_alone(
         rebuilt = load_schedule_snapshot(stored.execution_snapshot_json)
         assert rebuilt.model_dump(mode="json")["snapshot_bytes"] == stored.snapshot_bytes
         assert schedule_snapshot_hash(rebuilt.model_dump(mode="json")) == stored.snapshot_hash
+        assert rebuilt.skills[0].key == "report"
+        assert "key" not in rebuilt.skills[0].frontmatter
 
     # v3 文档不能冒充 v4：拒绝而不是猜字段。
     with pytest.raises(ValueError):
@@ -628,6 +665,7 @@ async def test_revision_spec_is_parsed_or_rejected(tenant: TenantContext) -> Non
     seeded = await _seed_fire(tenant)
     assert seeded.request.mode is ScheduleMode.AGENTIC
     assert seeded.request.budget == {}, "预算数值只在 admission 时从平台设置解析"
+    assert seeded.request.tool_allowlist == ()
     assert seeded.request.context["prompt_hash"].startswith("sha256:")
 
     async with tenant.session_factory() as session, session.begin():

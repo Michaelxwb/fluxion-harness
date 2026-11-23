@@ -43,6 +43,12 @@ from agent_worker.test_scheduled_v2_snapshot import FakeMaterialsClient, make_ma
 
 pytestmark = pytest.mark.integration
 
+
+@pytest.fixture(autouse=True)
+def _schedule_boundaries(schedule_boundaries: None) -> None:
+    """Confirm 重跑预检：这些用例只种 REMINDER，默认依赖源即可。"""
+
+
 TZ = "Asia/Shanghai"
 OWNER = uuid.UUID("5a1d0c1e-0000-4000-8000-00000000b013")
 AGENT = uuid.UUID("5a1d0c1e-0000-4000-8000-0000000a9013")

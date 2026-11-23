@@ -44,6 +44,8 @@ from tests.acceptance.im_gateway.environment import (
 
 #: 会话开头的诉求——被 snip 省略掉中间历史之后，它必须还在（"保头"）。
 OPENING = "开头诉求：这份清单很长，请逐条核对后告诉我结论"
+#: 第二个来回：只用来把工具回合沉淀成 older 历史（当前回合不参与 snip）。
+MIDDLE = "第二段诉求：先按顺序把每一条都过一遍"
 #: 第二个来回的追问。**不能写成"继续…"**：那是记忆续接通道的完整请求形式
 #: （design §3.5.2，`muad_agent_core.memory.resume.parse_resume_intent`），零候选 TASK_STATE
 #: 时 Runtime 会直接投"没有可用线索"的 MEMORY_RESUME_NOTICE 并以此收尾、**不再调模型**
@@ -229,12 +231,16 @@ async def test_s01_compaction_composes_on_the_real_chain(gateway_stack: GatewayS
     _clear_script(stack)
     assert await _send_until_terminal(stack, OPENING) == "COMPLETED"
 
-    # 第二个来回：四个工具回合 —— 对话区组数越过阈值，snip 必须在请求缝真的触发。
+    # 第二个来回：四个工具回合 —— 它们**全部落成 older 历史**（当前回合永不压缩，
+    # 否则模型会看不到自己刚产出的工具结果，表现为重复调用同一工具直到预算耗尽）。
     _script_tool_rounds(stack, TOOL_ROUNDS)
     try:
-        assert await _send_until_terminal(stack, FOLLOW_UP) == "COMPLETED"
+        assert await _send_until_terminal(stack, MIDDLE) == "COMPLETED"
     finally:
         _clear_script(stack)
+
+    # 第三个来回：older 组数已越过阈值，snip 必须在**本次请求缝**真的触发。
+    assert await _send_until_terminal(stack, FOLLOW_UP) == "COMPLETED"
 
     requests = _probe_requests(stack)
     compacted = [

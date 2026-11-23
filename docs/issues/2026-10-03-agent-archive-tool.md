@@ -168,8 +168,8 @@ SKILL_E2E_API_PORT=8861 SKILL_E2E_WEB_PORT=8862 npm test -- --config=playwright.
 
 | 文件 | 改动 |
 |---|---|
-| `docs/04-Agent-Runtime详细设计.md` | 记录附件功能子包布局、依赖方向、ZIP 工具契约及共享输出服务。 |
-| `docs/06-Skill-SDK与Egress-Boundary详细设计.md` | 更新 Python / JavaScript 执行说明、可选 JSON 清单、入口优先级、Node 镜像和 Worker stdout 兼容行为。 |
+| `docs/基础模块/04-Agent-Runtime.md` | 记录附件功能子包布局、依赖方向、ZIP 工具契约及共享输出服务。 |
+| `docs/基础模块/06-执行内核与Skill运行时.md` | 更新 Python / JavaScript 执行说明、可选 JSON 清单、入口优先级、Node 镜像和 Worker stdout 兼容行为。 |
 | `.code-flow/specs/arch/harness-arch.md` | 补充 application 可按功能划分子包的规范与正反例，保留原技术分层和依赖方向。 |
 | `.code-flow/specs/artifact/harness-skill.md` | 大结果保存模块的规范引用从旧路径更新至 `attachments/tool_results.py`，没有改变外置阈值或存储规则。 |
 | `docs/issues/2026-10-03-agent-archive-tool.md` | 本问题实现、限制、验收及当前完整 Review 说明。 |
@@ -203,8 +203,8 @@ AM apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py
  M apps/agent-worker/Dockerfile
  M apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py
  M apps/console-platform/backend/src/muad_console_platform/infrastructure/skill_validator.py
- M docs/04-Agent-Runtime详细设计.md
- M docs/06-Skill-SDK与Egress-Boundary详细设计.md
+ M docs/基础模块/04-Agent-Runtime.md
+ M docs/基础模块/06-执行内核与Skill运行时.md
 AM docs/issues/2026-10-03-agent-archive-tool.md
 A  docs/issues/2026-10-03-audit-run-link.md
 A  docs/issues/2026-10-03-schedule-custom-message.md

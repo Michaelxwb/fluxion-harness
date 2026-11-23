@@ -263,6 +263,7 @@ def test_business_headers_reject_credentials():
 
 
 async def test_runtime_skill_tool_path_uses_platform_context(tmp_path, execution_context):
+    from muad_agent_core.tools import ToolCall
     from muad_agent_runtime.application.skill_tools import SkillToolSet
     from muad_contracts import ResolvedSkill
 
@@ -297,7 +298,15 @@ async def test_runtime_skill_tool_path_uses_platform_context(tmp_path, execution
         workspace_dir=tmp_path.parent / (tmp_path.name + "-workspace"),
         execution_id="runtime-platform",
     )
-    result = json.loads(await tools.execute_skill({"skill_key": skill.key, "input": {}}, call_id="test"))
+    arguments = {"skill_key": skill.key, "input": {}}
+    result = json.loads(
+        (
+            await tools.execute_skill(
+                arguments,
+                call=ToolCall(call_id="test", name="execute_skill", arguments=arguments),
+            )
+        ).content
+    )
     assert result["result"] == {"code": 0}
 
 

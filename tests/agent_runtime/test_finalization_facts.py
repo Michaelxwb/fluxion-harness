@@ -221,3 +221,35 @@ def test_payload_has_the_documented_shape() -> None:
     assert payload["business_failure_evidence"]["decisive_failure"]["tool"] == "execute"
     assert payload["evidence_status"] == "CONFIRMED_FAILURE"
     assert payload["completion"] == {"status": "UNKNOWN", "source": None}
+
+
+def test_retryable_failure_flag_comes_from_the_frozen_failure_state() -> None:
+    """审计行没有 retryable 列；同一失败以 Runner 冻结事实为准，避免误渲染为不可重试。"""
+    facts = build_finalization_facts(
+        error_code="RUN_NO_PROGRESS",
+        snapshot=_snapshot(
+            "NO_PROGRESS",
+            failure_state=FailureState(
+                last_failure=FailureEvidence(
+                    tool="draft_schedule",
+                    code="SCHEDULE_DRAFT_INVALID",
+                    failure_layer="TOOL",
+                    status="FAILED",
+                    retryable=True,
+                ),
+                no_progress=True,
+            ),
+        ),
+        tool_calls=[
+            _record(
+                tool="draft_schedule",
+                business_status="FAILED",
+                failure_layer="TOOL",
+                error_code="SCHEDULE_DRAFT_INVALID",
+                evidence_preview="TOOL_NOT_OWNED",
+            )
+        ],
+    )
+
+    last = facts.business_failure_evidence.last_failure
+    assert last is not None and last.retryable is True

@@ -1,0 +1,22 @@
+sequenceDiagram
+  participant A as 管理员
+  participant C as Console
+  participant U as 服务经理
+  participant W as 企业微信
+  participant N as Connector
+  participant G as Gateway
+  rect rgb(251, 252, 254)
+    Note over A,G: 绑定流程｜管理员为服务经理生成绑定码
+    A->>C: 1 为服务经理生成绑定码
+    C-->>A: 2 返回绑定码 7F3K9Q
+    A->>U: 3 私下发送绑定码
+    U->>W: 4 发送 /bind 7F3K9Q
+    W->>N: 5 转发绑定消息
+    N->>G: 6 提交绑定事件
+    G->>C: 7 校验绑定码与租户
+    C-->>G: 8 登记服务经理身份
+    G->>N: 9 返回绑定成功
+    N->>W: 10 发送绑定成功
+    W-->>U: 11 显示绑定成功
+    Note over A,G: 绑定码由管理员线下发给服务经理；绑定不经模型，Console 负责校验与登记。
+  end

@@ -7,18 +7,19 @@ No app lease acquisition, policy initialization or business retries happen here.
 from __future__ import annotations
 
 import asyncio
-import logging
 import math
 import time
 import uuid
 from collections.abc import Awaitable, Callable
+
+from muad_logging import get_logger
 
 from .egress_identity_registry import IdentityUnavailable
 from .egress_segments import FencedRedisMeter
 from .egress_source_authority import PGSegmentAuthority, SourceClaim, SourceReader
 from .shared_redis import MeteringUnavailable
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SourceSegmentSupervisor:

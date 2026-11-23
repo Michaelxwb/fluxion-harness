@@ -158,10 +158,10 @@ async def _diagnose(stack: GatewayStack, message_id: str) -> str:
     S-01 是「CI 红过两次（2026-10-06/07）、只留下 0 行现象」的用例；2026-10-11 本地全量
     与单文件复现时，诊断第一次给出了证据：`runtime.run_record` **有**该 Run 行（CREATED，
     提交于状态帧后约 24ms），`run_submission` 是 create-run 200 —— 0 行的真因是**断言
-    查询早于建 Run 事务的提交**，而提前返回"回复"的是网关先发的附件回执 / `<think>…</think>`
+    查询早于建 Run 事务的提交**，而提前返回"回复"的是网关先发的附件回执 / 计时状态帧
     状态帧（`_wait_reply` 已改为等 Run 自己回复流的终帧）。
 
-    真·Run 创建失败时网关回的是**错误文案**（无 `<think>`），`_wait_reply` 会原样返回它、
+    真·Run 创建失败时网关回的是**错误文案**（无状态帧），`_wait_reply` 会原样返回它、
     `assert reply` 照样过 —— 这个断言因此仍是那条路径的探测器。**不要把这条断言改成
     "等一会儿再查"**：真失败时那只把它变成「慢一点仍红」，或更糟——假绿。
     诊断本身**永不抛错**（查询失败就返回那句话），否则会把真正的失败盖掉。
@@ -192,9 +192,9 @@ async def _diagnose(stack: GatewayStack, message_id: str) -> str:
     )
 
 
-#: 网关的计时状态帧形如 `<think>🔵 准备中 · 已执行 00:00</think>`（`reply.update_status`），
-#: 后面可能还跟着已生成的正文。
-_STATUS_FRAME = re.compile(r"<think>.*?</think>", re.DOTALL)
+#: 网关的计时状态帧形如 `🔵 准备中 · 已执行 00:00`（`reply.update_status`）。
+#: 状态走可见正文：企微「思考中」区域只渲染第一帧、不刷新，计时只有正文区能跟着走。
+_STATUS_FRAME = re.compile(r"^(?:🔵|⚙️|⏳|⏸|📥|✅|❌|⏹)[^\n]*", re.MULTILINE)
 
 
 def _stream_of(frame: dict[str, Any]) -> dict[str, Any]:
@@ -202,14 +202,14 @@ def _stream_of(frame: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_stream_id(frames: list[dict[str, Any]]) -> str:
-    """本 Run 的回复流 id：发出 `<think>` 状态帧的那条流。
+    """本 Run 的回复流 id：发出状态帧（阶段 emoji 开头）的那条流。
 
     网关先发**附件回执**（一次性 `finish=True` 帧，`ReplySession.reply_once` 给它一个
-    随机 stream id），再在 Run **自己的**流上发 `<think>…</think>` 状态帧 —— 回执与
-    正文不是同一条流。认错会让随后的落库断言与建 Run 事务赛跑（见 `_wait_reply`）。
+    随机 stream id），再在 Run **自己的**流上发计时状态帧 —— 回执与正文不是同一条流。
+    认错会让随后的落库断言与建 Run 事务赛跑（见 `_wait_reply`）。
     """
     for frame in frames:
-        if frame_text(frame).startswith("<think>"):
+        if _STATUS_FRAME.match(frame_text(frame)):
             return str(_stream_of(frame).get("id") or "")
     return ""
 

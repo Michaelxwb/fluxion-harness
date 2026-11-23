@@ -1,7 +1,7 @@
 ---
 {
   "description": "任务、调度与投递",
-  "next_rule": 6
+  "next_rule": 7
 }
 ---
 
@@ -20,6 +20,8 @@
 - [RULE-004] 扇出前必须在父任务行锁内同时确认 `status=RUNNING`、`cancel_requested=false`、`lease_until > now`、`lease_owner` 与本执行一致；已取消或已失约的父任务不得创建可执行 Child（`_require_live_owner`）。
 
 - [RULE-005] fan-in 只对 BATCH 父执行生效；请求取消的父任务必须由取消路径收尾为 `CANCELLED`，不得被扇入改写成成功或失败；Agentic ASYNC Skill 子 Task 不是 BATCH 子任务，父 Execution 必须继续等待 operation 结果。
+
+- [RULE-006] 每次 Fire 必须用当前 Skill artifact 的 invocation_contract 重新校验渲染后的参数；契约缺失、参数不兼容或工具通配必须作为永久 admission 失败处理，不得创建 Execution，CRON 进入 NEEDS_ATTENTION、ONCE 进入 ENDED。
 
 ## Conventions
 
@@ -66,3 +68,5 @@
 - {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-010","op":"add","rule":"RULE-005","payload_sha256":"5cb69af33b6568e148ffea44c7b095941e5888c8b7b0d3def0948b29cb58c2eb","at":"2026-11-18T14:06:44.262Z"}
 
 - {"source":"2026-11-18/execution-and-delivery/execution-and-delivery.md#TASK-005#DELTA-001","op":"update","rule":"RULE-003","payload_sha256":"8b70684ff985a3fef4b4c70bee41c50bf0fa9fd47dd2478951db0e0631b62ff4","at":"2026-11-19T14:00:41.766Z"}
+
+- {"source":"2026-11-20/scheduled-skill-invocation/scheduled-skill-invocation.md#TASK-005#DELTA-005","op":"add","rule":"RULE-006","payload_sha256":"bab36447c2a8a66f430bbb55e0d2395800f7c023762b2015a9e5df3e28bda669","at":"2026-11-20T13:18:06.407Z"}

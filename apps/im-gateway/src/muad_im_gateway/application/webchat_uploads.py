@@ -23,7 +23,6 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 import os
 import re
 import uuid
@@ -38,6 +37,7 @@ from muad_artifact_store import NfsArtifactStore
 from muad_contracts import ALLOWED_ATTACHMENT_MEDIA_TYPES
 from muad_contracts.channel import AttachmentKind
 from muad_contracts.webchat import WebchatUpload, WebchatUploadRegistration
+from muad_logging import get_logger
 from pydantic import ValidationError
 
 from .chat_principal import ChatIdentity
@@ -47,7 +47,7 @@ from .ports import PlatformSettingsClient, PlatformSettingsSnapshot
 from .webchat_core import WEBCHAT_CHANNEL, ChatSurface
 from .webchat_service import WebchatEntrySource, resolve_authorized_entry
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 上传部件的字段名（前端 `WEBCHAT_UPLOAD_FIELD` 同源）：请求里只有这一个文件部件。
 UPLOAD_FIELD_NAME = "file"

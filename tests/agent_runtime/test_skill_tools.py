@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 from muad_agent_core.agent import AgentPolicy, AgentRunner
 from muad_agent_core.hooks import HookPipeline
 from muad_agent_core.model import (
@@ -20,7 +21,13 @@ from muad_agent_core.model import (
 from muad_agent_core.prompt import MAX_CATALOG_ENTRIES
 from muad_agent_core.sandbox import DevUnsafeRunner
 from muad_agent_core.skill import SandboxedSkillExecutor, SkillExecutionError
-from muad_agent_core.tools import ToolEffect, ToolRegistry
+from muad_agent_core.tools import (
+    FailureLayer,
+    ToolCall,
+    ToolEffect,
+    ToolError,
+    ToolRegistry,
+)
 from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
 from muad_agent_runtime.application.executor import (
     AgentRunnerExecutor,
@@ -70,6 +77,19 @@ MAIN_SCRIPT = (
     "print(json.dumps({'echo': payload, 'script': 'main'}))\n"
 )
 OTHER_SCRIPT = "import json\nprint(json.dumps({'script': 'other'}))\n"
+ARGV_CONTRACT = {
+    "version": 1,
+    "invocation": "argv",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "company-id": {"type": "string", "pattern": "^[0-9]+$"},
+            "no-wecom-push": {"type": "boolean"},
+        },
+        "required": ["company-id"],
+        "additionalProperties": False,
+    },
+}
 
 
 def _skill_md_with_body(body: str) -> str:
@@ -78,6 +98,20 @@ def _skill_md_with_body(body: str) -> str:
         "---\nname: demo-skill\ndescription: demo skill for runtime tests\n"
         "execution: sync\nplatform_label: Demo\n---\n\n" + body + "\n"
     )
+
+
+def _skill_md_with_contract(contract: Mapping[str, Any]) -> str:
+    frontmatter = yaml.safe_dump(
+        {
+            "name": "demo-skill",
+            "description": "demo skill for runtime tests",
+            "execution": "sync",
+            "platform_label": "Demo",
+            "invocation_contract": dict(contract),
+        },
+        sort_keys=False,
+    )
+    return f"---\n{frontmatter}---\n\n# Demo Skill\n\nRun scripts/main.py when the user asks.\n"
 
 
 @dataclass(frozen=True)
@@ -96,8 +130,14 @@ def _zip_bytes(files: Mapping[str, str]) -> bytes:
 
 
 def _env_for(
-    tmp_path: Path, files: Mapping[str, str], *, execution_mode: str = "SYNC"
+    tmp_path: Path,
+    files: Mapping[str, str],
+    *,
+    execution_mode: str = "SYNC",
+    contract: dict[str, Any] | None = None,
 ) -> SkillEnv:
+    if contract is not None:
+        files = {**files, "SKILL.md": _skill_md_with_contract(contract)}
     data = _zip_bytes(files)
     artifact_root = tmp_path / "artifacts"
     artifact_path = artifact_root / STORAGE_KEY
@@ -113,6 +153,9 @@ def _env_for(
         checksum="sha256:" + hashlib.sha256(data).hexdigest(),
         storage_key=STORAGE_KEY,
         execution_mode=execution_mode,
+        frontmatter=(
+            {"invocation_contract": contract} if contract is not None else {}
+        ),
         source="ADMIN",
     )
     cache = SkillArtifactCache(NfsArtifactStore(artifact_root), tmp_path / "cache")
@@ -155,7 +198,12 @@ async def _call(
         name = "execute"
     definition = registry.get(name)
     assert definition.handler is not None
-    return json.loads(await definition.handler(arguments, call_id=f"call-{uuid.uuid4()}"))
+    call = ToolCall(call_id=f"call-{uuid.uuid4()}", name=name, arguments=arguments)
+    try:
+        result = await definition.handler(arguments, call=call)
+    except ToolError as exc:
+        return json.loads(exc.content())
+    return json.loads(result.content)
 
 
 def _error_code(payload: Mapping[str, Any]) -> str:
@@ -174,6 +222,7 @@ async def test_load_skill_returns_manifest_and_instructions(skill_env: SkillEnv)
         "description": "demo skill for runtime tests",
         "execution": "SYNC",
         "platform_label": "Demo",
+        "entrypoint": "scripts/main.py",
     }
     assert payload["instructions"].startswith("# Demo Skill")
     assert "Run scripts/main.py" in payload["instructions"]
@@ -197,8 +246,11 @@ async def test_load_skill_full_body_survives_tool_result_wrapper(tmp_path: Path)
     handler = definition.handler
     assert handler is not None
 
-    raw = await handler({"skill_key": SKILL_KEY}, call_id="call-skill-1")
-    assert len(raw.encode("utf-8")) > TOOL_RESULT_ARTIFACT_BYTES  # 前置条件：确实超过外置阈值
+    raw = await handler(
+        {"skill_key": SKILL_KEY},
+        call=ToolCall(call_id="call-skill-1", name=LOAD_SKILL_TOOL),
+    )
+    assert len(raw.content.encode("utf-8")) > TOOL_RESULT_ARTIFACT_BYTES  # 前置条件：确实超过外置阈值
 
     recorder = ToolCallRecorder(
         context=ExecutorRunContext(
@@ -210,7 +262,13 @@ async def test_load_skill_full_body_survives_tool_result_wrapper(tmp_path: Path)
         audit_writer=None,
         artifact_writer=ArtifactResultWriter(tmp_path / "artifacts"),
     )
-    content = await recorder(definition, {"skill_key": SKILL_KEY}, handler=handler, call_id="call-skill-1")
+    result = await recorder(
+        definition,
+        {"skill_key": SKILL_KEY},
+        handler=handler,
+        call=ToolCall(call_id="call-skill-1", name=definition.name),
+    )
+    content = result.content
 
     assert "artifact" not in content
     payload = json.loads(content)
@@ -490,6 +548,84 @@ async def test_run_skill_script_allows_async_auxiliary_script(tmp_path: Path) ->
     assert payload["result"] == {"ok": True}
 
 
+async def test_execute_skill_guard_rejects_input_only_for_argv_contract(
+    tmp_path: Path,
+) -> None:
+    env = _env_for(
+        tmp_path,
+        {"SKILL.md": SKILL_MD, "scripts/main.py": MAIN_SCRIPT},
+        contract=ARGV_CONTRACT,
+    )
+
+    payload = await _call(
+        env.registry,
+        EXECUTE_SKILL_TOOL,
+        {"skill_key": SKILL_KEY, "input": {"company_id": "1"}},
+    )
+
+    assert _error_code(payload) == "SKILL_INVOCATION_INVALID"
+    error = payload["error"]
+    assert error["retryable"] is True
+    assert error["detail"]["reason"] == "CHANNEL_MISMATCH"
+    assert error["detail"]["field"] == "payload.input"
+
+
+async def test_execute_skill_guard_accepts_declared_argv(tmp_path: Path) -> None:
+    env = _env_for(
+        tmp_path,
+        {"SKILL.md": SKILL_MD, "scripts/main.py": MAIN_SCRIPT},
+        contract=ARGV_CONTRACT,
+    )
+
+    payload = await _call(
+        env.registry,
+        EXECUTE_SKILL_TOOL,
+        {"skill_key": SKILL_KEY, "argv": ["--company-id", "1"]},
+    )
+
+    assert payload["status"] == "SUCCEEDED"
+
+
+async def test_run_skill_script_auxiliary_skips_main_contract(tmp_path: Path) -> None:
+    env = _env_for(
+        tmp_path,
+        {
+            "SKILL.md": SKILL_MD,
+            "scripts/main.py": MAIN_SCRIPT,
+            "scripts/check_status.py": "import json\nprint(json.dumps({'ok': True}))\n",
+        },
+        contract=ARGV_CONTRACT,
+    )
+
+    auxiliary = await _call(
+        env.registry,
+        RUN_SKILL_SCRIPT_TOOL,
+        {"skill_key": SKILL_KEY, "script": "scripts/check_status.py"},
+    )
+    assert auxiliary["status"] == "SUCCEEDED"
+    assert auxiliary["result"] == {"ok": True}
+
+    entrypoint = await _call(
+        env.registry,
+        RUN_SKILL_SCRIPT_TOOL,
+        {"skill_key": SKILL_KEY, "script": "scripts/main.py"},
+    )
+    assert _error_code(entrypoint) == "SKILL_INVOCATION_INVALID"
+
+
+async def test_load_skill_manifest_exposes_entrypoint_and_contract(tmp_path: Path) -> None:
+    env = _env_for(
+        tmp_path,
+        {"SKILL.md": SKILL_MD, "scripts/main.py": MAIN_SCRIPT},
+        contract=ARGV_CONTRACT,
+    )
+
+    payload = await _call(env.registry, LOAD_SKILL_TOOL, {"skill_key": SKILL_KEY})
+
+    assert payload["manifest"]["entrypoint"] == "scripts/main.py"
+    assert payload["manifest"]["invocation_contract"] == ARGV_CONTRACT
+
+
 def test_skill_tool_schemas_expose_bounded_argv(skill_env: SkillEnv) -> None:
     for tool in ("execute",):
         properties = skill_env.registry.get(tool).input_schema["properties"]
@@ -517,14 +653,15 @@ async def test_unsupported_parameter_names_the_keys_and_the_target(skill_env: Sk
     definition = skill_env.registry.get("execute")
     assert definition.handler is not None
 
-    payload = json.loads(
-        await definition.handler(
-            {"target": "skill", "skill_key": SKILL_KEY, "command": "echo hi"},
-            call_id="call-unsupported",
-        )
+    call = ToolCall(
+        call_id="call-unsupported",
+        name="execute",
+        arguments={"target": "skill", "skill_key": SKILL_KEY, "command": "echo hi"},
     )
+    with pytest.raises(ToolError) as caught:
+        await definition.handler(call.arguments, call=call)
 
-    error = payload["error"]
+    error = json.loads(caught.value.content())["error"]
     assert error["code"] == "COMMON_VALIDATION_ERROR"
     assert error["message"].startswith("parameters do not match execution target")
     assert "target=skill cannot use command" in error["message"]
@@ -689,8 +826,12 @@ async def test_unified_execute_rejects_mixed_target_parameters(skill_env: SkillE
         {"target": "skill", "skill_key": SKILL_KEY, "command": "true"},
         {"target": "draft", "draft_id": "draft", "command": "true", "platforms": ["mssp"]},
     ):
-        result = json.loads(await handler(args, call_id="mixed"))
-        assert result["error"]["code"] == "COMMON_VALIDATION_ERROR"
+        with pytest.raises(ToolError) as caught:
+            await handler(
+                args,
+                call=ToolCall(call_id="mixed", name="execute", arguments=args),
+            )
+        assert caught.value.code == "COMMON_VALIDATION_ERROR"
 
 
 def test_unified_skill_uses_frozen_authorization(skill_env: SkillEnv) -> None:
@@ -768,14 +909,44 @@ async def test_search_skills_bounds_its_own_result(tmp_path: Path) -> None:
     assert payload["truncated"] is True
 
 
+async def test_search_skills_without_a_query_lists_the_catalog(tmp_path: Path) -> None:
+    """问「我有哪些技能」时模型没有关键词：省略/空 query 就是列全部，不是校验失败。"""
+    registry = _registry_with_keys(tmp_path, "weather-query", "policy-check")
+
+    omitted = await _call(registry, SEARCH_SKILLS_TOOL, {})
+    blank = await _call(registry, SEARCH_SKILLS_TOOL, {"query": "   "})
+
+    expected = [
+        "- weather-query: Name weather-query - description for weather-query",
+        "- policy-check: Name policy-check - description for policy-check",
+    ]
+    assert omitted["total_matches"] == 2
+    assert omitted["skills"] == expected
+    assert blank == omitted
+
+
+async def test_search_skills_validation_error_is_returned_as_correctable(tmp_path: Path) -> None:
+    """非字符串 query 必须**返回**错误体：抛出去的 SkillToolError 会被判成确定性失败、首轮即停。"""
+    definition = _registry_with_keys(tmp_path, "policy-check").get(SEARCH_SKILLS_TOOL)
+    assert definition.handler is not None
+
+    call = ToolCall(call_id="call-invalid-query", name=SEARCH_SKILLS_TOOL)
+    with pytest.raises(ToolError) as caught:
+        await definition.handler({"query": 1}, call=call)
+
+    assert caught.value.code == "COMMON_VALIDATION_ERROR"
+    assert caught.value.outcome().failure_layer is FailureLayer.TOOL
+    assert caught.value.outcome().retryable is True
+
+
 def test_search_skills_is_content_delivery_over_a_strict_schema(tmp_path: Path) -> None:
-    """内容投递（不得被大结果外置换成预览）＋ 严格入参（多一个字段整体拒绝）。"""
+    """内容投递（不得被大结果外置换成预览）＋ 严格入参（多一个字段整体拒绝；query 可省略）。"""
     definition = _registry_with_keys(tmp_path, "policy-check").get(SEARCH_SKILLS_TOOL)
 
     assert definition.effect is ToolEffect.READ
     assert definition.externalizable_result is False
     assert definition.input_schema["additionalProperties"] is False
-    assert definition.input_schema["required"] == ["query"]
+    assert definition.input_schema["required"] == []
 
 
 def test_skill_tools_are_not_registered_without_effective_skills(tmp_path: Path) -> None:

@@ -27,6 +27,7 @@ from pydantic import (
 )
 
 from .canonical import ensure_strict_json
+from .egress_budget import EffectiveEgressBudget
 from .enums import (
     CancelScope,
     CompletionMode,
@@ -458,24 +459,18 @@ class TaskArtifactRef(ContractModel):
     deliveries: list[TaskArtifactDeliveryRef] = Field(default_factory=list)
 
 
-class ScheduleTrialFact(ContractModel):
-    """一次真实试跑的执行事实（卡片/Console 展示）。
+class ScheduleDispatchCheck(ContractModel):
+    """确认前的调度可调用性事实（卡片展示；不是执行结果）。"""
 
-    它不是配置：不进入 `ScheduleJob`，也不进入不可变 Revision；Draft 的 `payload`/`hash`
-    不受试跑影响。
-    """
-
-    execution_id: UUID
-    status: TaskStatus
-    #: 失败时的稳定错误码与修复动作；成功时为空。
-    error_code: str | None = Field(default=None, max_length=64)
-    repair: str | None = Field(default=None, max_length=128)
-    repair_hint: str | None = Field(default=None, max_length=500)
-    #: 结果摘要（真实执行结果的文本视图）与真实产物引用。
-    result_summary: str | None = Field(default=None, max_length=4000)
-    artifacts: list[TaskArtifactRef] = Field(default_factory=list)
-    started_at: AwareDatetime | None = None
-    finished_at: AwareDatetime | None = None
+    status: Literal["PASSED"] = "PASSED"
+    checked_at: AwareDatetime
+    occurrence_at: AwareDatetime
+    invocation: Literal["argv", "stdin"] | None = None
+    contract_version: int | None = Field(default=None, ge=1)
+    dependencies: list[str] = Field(default_factory=list)
+    rendered: dict[str, Any] = Field(default_factory=dict)
+    snapshot_hash: str | None = Field(default=None, pattern=SNAPSHOT_HASH_PATTERN)
+    snapshot_bytes: int = Field(default=0, ge=0)
 
 
 class SchedulePreview(ContractModel):
@@ -502,8 +497,8 @@ class SchedulePreview(ContractModel):
     budget: dict[str, Any] = Field(default_factory=dict)
     #: 只有 UPDATE Draft 才有：CREATE 没有「之前」，空列表就是「没有旧配置可比」。
     diff: list[ScheduleDiffEntry] = Field(default_factory=list)
-    #: 试跑事实（只有真的跑过一次才有）：真实执行 id/状态/结果/产物，不是渲染预览。
-    trial: ScheduleTrialFact | None = None
+    #: 调度预检事实；预检失败不会落 Draft，因此成功卡片只会看到 PASSED。
+    dispatch_check: ScheduleDispatchCheck | None = None
 
 
 class ScheduleDraftResponse(ContractModel):
@@ -996,6 +991,22 @@ class TaskToolOperationView(ContractModel):
     result: TaskToolOperationResult | None = None
 
 
+class TaskToolOperationRecoveryView(ContractModel):
+    """Owner 恢复视图：冻结的调用参数与身份，只服务受信内部调用方。"""
+
+    operation_id: UUID
+    status: OperationStatus
+    task_id: UUID | None = None
+    tool_name: str | None = None
+    arguments: dict[str, Any] = Field(default_factory=dict)
+    input_hash: str
+
+    @field_validator("arguments", mode="before")
+    @classmethod
+    def _strict_arguments(cls, value: object) -> object:
+        return ensure_strict_json(value)
+
+
 class TaskToolOperationList(ContractModel):
     """统一列表封套（RULE-api-001）：`page>=1`、`1<=page_size<=MAX_PAGE_SIZE`。"""
 
@@ -1081,6 +1092,8 @@ class SnapshotModel(ContractModel):
 
 class SnapshotSkill(ContractModel):
     skill_id: UUID
+    #: 正式冻结 key（来自 ResolvedSkill.key）；目录/提示词/执行路由共用，不从 frontmatter 推断。
+    key: str = Field(min_length=1, max_length=128)
     artifact_id: UUID
     version: str = Field(min_length=1, max_length=64)
     checksum: str = Field(pattern=SNAPSHOT_HASH_PATTERN)
@@ -1144,6 +1157,7 @@ class SnapshotBudget(ContractModel):
     execution_timeout_sec: int | None = Field(default=None, ge=1)
     deadline_at: AwareDatetime | None = None
     retry_safety: str | None = Field(default=None, max_length=16)
+    egress_budget: EffectiveEgressBudget = Field(default_factory=EffectiveEgressBudget)
 
 
 class SnapshotGrants(ContractModel):
@@ -1247,6 +1261,7 @@ __all__ = [
     "ReminderPayload",
     "ScheduleActionRequest",
     "ScheduleDetail",
+    "ScheduleDispatchCheck",
     "ScheduleDraftConfirmRequest",
     "ScheduleDraftConfirmResponse",
     "ScheduleDraftRequest",
@@ -1258,7 +1273,7 @@ __all__ = [
     "SchedulePlan",
     "SchedulePolicy",
     "SchedulePreview",
-    "ScheduleTrialFact",
+    "ScheduleDispatchCheck",
     "ScheduleWindow",
     "SessionTarget",
     "SkillPlanPayload",

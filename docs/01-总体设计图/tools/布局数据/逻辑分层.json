@@ -1,0 +1,435 @@
+{
+  "name": "逻辑分层",
+  "size": [
+    1200,
+    680
+  ],
+  "nodes": {
+    "wecom": {
+      "rect": [
+        220,
+        50,
+        190,
+        60
+      ],
+      "label": "企业微信",
+      "lines": [],
+      "state": false,
+      "tone": "external",
+      "group": "entry"
+    },
+    "webchat": {
+      "rect": [
+        500,
+        50,
+        200,
+        60
+      ],
+      "label": "WebChat",
+      "lines": [],
+      "state": false,
+      "tone": "external",
+      "group": "entry"
+    },
+    "connector": {
+      "rect": [
+        220,
+        170,
+        190,
+        65
+      ],
+      "label": "IM Connector",
+      "lines": [
+        "维护企微长连接"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "access"
+    },
+    "gateway": {
+      "rect": [
+        500,
+        170,
+        200,
+        65
+      ],
+      "label": "IM Gateway",
+      "lines": [
+        "识别用户、转交请求"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "access"
+    },
+    "runtime": {
+      "rect": [
+        500,
+        305,
+        200,
+        65
+      ],
+      "label": "Agent Runtime",
+      "lines": [
+        "处理本轮对话"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "execution"
+    },
+    "worker": {
+      "rect": [
+        790,
+        305,
+        155,
+        65
+      ],
+      "label": "Agent Worker",
+      "lines": [
+        "后台、定时、批量"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "execution"
+    },
+    "tools": {
+      "rect": [
+        220,
+        445,
+        215,
+        65
+      ],
+      "label": "Skill / MCP 工具",
+      "lines": [
+        "完成具体业务操作"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "capabilities"
+    },
+    "models": {
+      "rect": [
+        500,
+        445,
+        200,
+        65
+      ],
+      "label": "模型网关（外部）",
+      "lines": [
+        "统一接入、脱敏与还原"
+      ],
+      "state": false,
+      "tone": "external",
+      "group": "capabilities"
+    },
+    "platforms": {
+      "rect": [
+        750,
+        445,
+        195,
+        65
+      ],
+      "label": "平台接入与登录",
+      "lines": [
+        "凭据复用、Session 管理"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "capabilities"
+    },
+    "postgres": {
+      "rect": [
+        220,
+        580,
+        215,
+        60
+      ],
+      "label": "PostgreSQL",
+      "lines": [
+        "配置、会话、执行记录"
+      ],
+      "state": false,
+      "tone": "store",
+      "group": "data"
+    },
+    "redis": {
+      "rect": [
+        500,
+        580,
+        200,
+        60
+      ],
+      "label": "Redis",
+      "lines": [
+        "缓存、消息流、短租约"
+      ],
+      "state": false,
+      "tone": "store",
+      "group": "data"
+    },
+    "files": {
+      "rect": [
+        750,
+        580,
+        195,
+        60
+      ],
+      "label": "共享文件",
+      "lines": [
+        "技能包、附件、工作区"
+      ],
+      "state": false,
+      "tone": "store",
+      "group": "data"
+    },
+    "admin": {
+      "rect": [
+        995,
+        50,
+        160,
+        60
+      ],
+      "label": "管理员",
+      "lines": [],
+      "state": false,
+      "tone": "external"
+    },
+    "console": {
+      "rect": [
+        995,
+        185,
+        160,
+        90
+      ],
+      "label": "Console",
+      "lines": [
+        "Agent / 授权 / 模型",
+        "凭据 / 运行记录"
+      ],
+      "state": false,
+      "tone": "active",
+      "group": "management"
+    }
+  },
+  "groups": {
+    "entry": {
+      "rect": [
+        30,
+        30,
+        920,
+        90
+      ],
+      "title": "1 用户入口"
+    },
+    "access": {
+      "rect": [
+        30,
+        140,
+        920,
+        110
+      ],
+      "title": "2 接入层"
+    },
+    "execution": {
+      "rect": [
+        30,
+        275,
+        920,
+        110
+      ],
+      "title": "3 执行层"
+    },
+    "capabilities": {
+      "rect": [
+        30,
+        410,
+        920,
+        110
+      ],
+      "title": "4 能力层"
+    },
+    "data": {
+      "rect": [
+        30,
+        545,
+        920,
+        110
+      ],
+      "title": "5 数据层"
+    },
+    "management": {
+      "rect": [
+        975,
+        140,
+        195,
+        515
+      ],
+      "title": "管理与配置"
+    }
+  },
+  "edges": [
+    {
+      "from": "wecom",
+      "to": "connector",
+      "points": [
+        [
+          315,
+          110
+        ],
+        [
+          315,
+          170
+        ]
+      ],
+      "label": "",
+      "both": false
+    },
+    {
+      "from": "webchat",
+      "to": "gateway",
+      "points": [
+        [
+          600,
+          110
+        ],
+        [
+          600,
+          170
+        ]
+      ],
+      "label": "",
+      "both": false
+    },
+    {
+      "from": "connector",
+      "to": "gateway",
+      "points": [
+        [
+          410,
+          202
+        ],
+        [
+          500,
+          202
+        ]
+      ],
+      "label": "消息",
+      "both": false
+    },
+    {
+      "from": "gateway",
+      "to": "runtime",
+      "points": [
+        [
+          600,
+          235
+        ],
+        [
+          600,
+          305
+        ]
+      ],
+      "label": "发起请求",
+      "both": false
+    },
+    {
+      "from": "runtime",
+      "to": "worker",
+      "points": [
+        [
+          700,
+          325
+        ],
+        [
+          790,
+          325
+        ]
+      ],
+      "label": "后台任务",
+      "both": false
+    },
+    {
+      "from": "worker",
+      "to": "runtime",
+      "points": [
+        [
+          790,
+          350
+        ],
+        [
+          700,
+          350
+        ]
+      ],
+      "label": "结果回流",
+      "both": false
+    },
+    {
+      "from": "worker",
+      "to": "gateway",
+      "points": [
+        [
+          867,
+          305
+        ],
+        [
+          867,
+          202
+        ],
+        [
+          700,
+          202
+        ]
+      ],
+      "label": "独立通知",
+      "both": false
+    },
+    {
+      "from": "runtime",
+      "to": "capabilities",
+      "points": [
+        [
+          600,
+          370
+        ],
+        [
+          600,
+          410
+        ]
+      ],
+      "label": "按需调用",
+      "both": false
+    },
+    {
+      "from": "worker",
+      "to": "capabilities",
+      "points": [
+        [
+          867,
+          370
+        ],
+        [
+          867,
+          410
+        ]
+      ],
+      "label": "",
+      "both": false
+    },
+    {
+      "from": "admin",
+      "to": "console",
+      "points": [
+        [
+          1075,
+          110
+        ],
+        [
+          1075,
+          185
+        ]
+      ],
+      "label": "",
+      "both": false
+    }
+  ]
+}

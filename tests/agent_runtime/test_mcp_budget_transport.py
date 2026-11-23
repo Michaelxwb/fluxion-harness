@@ -67,14 +67,15 @@ async def test_mcp_budget_counts_initialize_notification_and_tool_and_preserves_
     )
     try:
         with pytest.raises(Exception) as failure:
-            await adapter.execute_tool(
+            await adapter.execute_tool_result(
                 server=server_def,
                 tool=server_def.tools[0],
                 arguments={},
                 policy_decision="ALLOW",
             )
-        assert getattr(failure.value, "reason", None) == "upstream_http"
+        assert getattr(failure.value, "code", None) == "MCP_TRANSPORT_FAILED"
         assert getattr(failure.value, "status_code", None) == 429
+        assert getattr(failure.value, "retryable", None) is False
         assert getattr(failure.value, "retry_after", None) == "7"
         assert calls == ["initialize", "notifications/initialized", "tools/call"]
         assert budget is not None and budget.used == 3

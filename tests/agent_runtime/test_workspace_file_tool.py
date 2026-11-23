@@ -65,5 +65,5 @@ def test_deliver_artifact_accepts_either_artifact_id_or_path() -> None:
     ).register(registry)
 
     schema = registry.get(DELIVER_ARTIFACT_TOOL).input_schema
-    assert set(schema["properties"]) == {"artifact_id", "path"}
+    assert set(schema["properties"]) == {"artifact_id", "path", "allow_internal"}
     assert "required" not in schema

@@ -1,7 +1,6 @@
 """Explicit platform HTTP budget scope; the session broker never proxies business HTTP."""
 from __future__ import annotations
 
-import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -9,6 +8,7 @@ from typing import Protocol
 from urllib.parse import SplitResult, urlsplit
 
 import httpx
+from muad_logging import get_logger
 
 from .adapter.mss_config import PlatformAuthError
 from .request_budget import (
@@ -20,7 +20,7 @@ from .request_budget import (
 )
 from .types import PlatformConfig, PreparedRequest
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class PlatformBudgetAudit(Protocol):

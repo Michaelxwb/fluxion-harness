@@ -1,10 +1,10 @@
 """业务执行的结果契约（design §4.2）。
 
-一次业务执行只在这里判定一次：适配器通过 `ToolDefinition.outcome_parser` 给出
-`ExecutionOutcome`，pipeline 只消费、不解析任意文本。**只有 `target=skill` 的业务执行**
-会产生 `CONTENT` 失败；`workspace_shell` / `skill_draft_shell` 的退出码只是结果证据。
+一次业务执行只在这里判定一次：适配器把结构化执行事实映射成 `ExecutionOutcome`，pipeline
+只消费、不解析任意文本。**只有 `target=skill` 的业务执行**会产生 `CONTENT` 失败；
+`workspace_shell` / `skill_draft_shell` 的退出码只是结果证据。
 
-模块保持纯函数、无 IO：解析器异常由 pipeline 兜底成 `TOOL` 失败，不得让 Run 崩在解析器上。
+模块保持纯函数、无 IO。
 """
 
 from __future__ import annotations
@@ -179,69 +179,17 @@ def platform_sessions_summary(payload: object) -> str:
     return ("platform_sessions: " + "; ".join(parts))[:PLATFORM_SUMMARY_LIMIT]
 
 
-def tool_failure_outcome(
-    content: str,
-    *,
-    transport_status: str = "OK",
-) -> ExecutionOutcome | None:
-    """工具层错误信封（`{"error": {...}}`）→ outcome；不是错误体返回 None。
-
-    这是 pipeline 唯一保留的结构化 `error` 识别：业务执行失败是 `status=FAILED` 的执行
-    载荷，不会走这里。
-    """
-    try:
-        payload = json.loads(content)
-    except (TypeError, ValueError):
-        return None
-    error = payload.get("error") if isinstance(payload, Mapping) else None
-    output_truncated = payload.get("output_truncated") is True
-    if isinstance(error, Mapping):
-        raw_code = error.get("code")
-        code = raw_code if isinstance(raw_code, str) and raw_code else TOOL_FAILED_CODE
-        message = error.get("message")
-        explicit_retryable = error.get("retryable") is True
-        deterministic = isinstance(error.get("detail"), Mapping) or code.startswith(
-            ENVIRONMENT_CODE_PREFIXES
-        )
-        retryable = explicit_retryable or not deterministic
-        message_text = message if isinstance(message, str) else ""
-        summary = platform_sessions_summary(payload.get("platform_sessions"))
-        preview = "; ".join(part for part in (message_text, summary) if part)
-        return ExecutionOutcome(
-            transport_status=transport_status,
-            business_status=BusinessStatus.FAILED,
-            failure_layer=FailureLayer.TOOL,
-            error_code=code,
-            error_message=message_text,
-            retryable=retryable,
-            evidence=evidence_for(
-                preview,
-                content,
-                output_truncated=output_truncated or error.get("output_truncated") is True,
-            ),
-        )
-    if isinstance(error, str) and error:
-        return ExecutionOutcome(
-            transport_status=transport_status,
-            business_status=BusinessStatus.FAILED,
-            failure_layer=FailureLayer.TOOL,
-            error_code=error,
-            error_message=error,
-            retryable=not error.startswith(ENVIRONMENT_CODE_PREFIXES),
-            evidence=evidence_for(error, content, output_truncated=output_truncated),
-        )
-    return None
-
-
 def tool_exception_outcome(
     *,
     code: str | None,
     message: str,
     retryable: bool | None = None,
+    evidence_text: str | None = None,
 ) -> ExecutionOutcome:
-    """处理器抛异常 → TOOL 失败；错误码沿用异常自带的 `.code`（缺失为内部错误）。
+    """处理器宣告的失败 → TOOL 失败；错误码沿用异常自带的 `.code`（缺失为内部错误）。
 
     `retryable=None` 表示异常未声明：按既有策略（平台/环境前缀确定性、其余可纠正）。
+    `evidence_text` 允许宿主把已脱敏的附加事实（如逐平台报告）并入证据预览。
     """
     resolved = code or "COMMON_INTERNAL_ERROR"
     return ExecutionOutcome(
@@ -251,7 +199,7 @@ def tool_exception_outcome(
         error_code=resolved,
         error_message=message,
         retryable=_retryable_for(resolved, retryable),
-        evidence=evidence_for(message),
+        evidence=evidence_for(evidence_text or message),
     )
 
 
@@ -274,30 +222,25 @@ def not_applicable_outcome(*, transport_status: str = "OK") -> ExecutionOutcome:
     )
 
 
-def diagnostic_evidence_outcome(content: str) -> ExecutionOutcome:
+def shell_outcome(
+    *,
+    stdout: str = "",
+    stderr: str = "",
+    exit_code: int | None = None,
+    output_truncated: bool = False,
+) -> ExecutionOutcome:
     """非业务执行（workspace/draft/诊断）只记录退出码与证据，不判定业务成败。
 
-    结构化载荷里的 `exit_code/stdout/stderr/output_truncated` 是结果内容，不是 Run 止损
-    条件；`business_status` 恒为 `NOT_APPLICABLE`，`failure_layer` 恒为 `NONE`。
+    入参是宿主持有的**类型化执行事实**，不是模型可见正文；不得再从 JSON 文本反推。
     """
-    try:
-        payload = json.loads(content)
-    except (TypeError, ValueError):
-        return not_applicable_outcome()
-    if not isinstance(payload, Mapping):
-        return not_applicable_outcome()
-    exit_code = payload.get("exit_code")
-    exit_code = exit_code if isinstance(exit_code, int) and not isinstance(exit_code, bool) else None
-    stdout = payload.get("stdout")
-    stderr = payload.get("stderr")
     return ExecutionOutcome(
         business_status=BusinessStatus.NOT_APPLICABLE,
         failure_layer=FailureLayer.NONE,
         exit_code=exit_code,
         evidence=evidence_for(
-            stderr if isinstance(stderr, str) else "",
-            stdout if isinstance(stdout, str) else "",
-            output_truncated=payload.get("output_truncated") is True,
+            stderr,
+            stdout,
+            output_truncated=output_truncated,
         ),
     )
 
@@ -337,68 +280,53 @@ def _failure_envelope(stderr: str) -> tuple[str | None, str, bool | None]:
     )
 
 
-def skill_execution_outcome(payload: Mapping[str, Any] | str) -> ExecutionOutcome | None:
-    """`execute(target=skill)` 的执行载荷 → `ExecutionOutcome`。
+def skill_result_outcome(
+    *,
+    status: str,
+    stdout: str = "",
+    stderr: str = "",
+    result: object = None,
+    exit_code: int | None = None,
+    output_truncated: bool = False,
+) -> ExecutionOutcome:
+    """`execute(target=skill)` 的**类型化执行事实** → `ExecutionOutcome`。
 
-    输入是 pipeline 传下来的**最终工具结果文本**（也接受已解析的 Mapping，Worker 路径直接传
-    执行信封）。只认带 Skill 状态词的执行载荷；draft/workspace 载荷返回 `None`，由 pipeline
-    记为 `NOT_APPLICABLE`。判定只消费 `status/exit_code/结构化失败信封`，stdout 只作证据。
+    只消费执行器已经给出的 `status/exit_code/result` 与脚本协议要求的 stderr 失败信封；
+    stdout 只作证据。
     """
-    if isinstance(payload, str):
-        try:
-            payload = json.loads(payload)
-        except ValueError:
-            return None
-    if not isinstance(payload, Mapping):
-        return None
-    status = payload.get("status")
-    if not isinstance(status, str) or status not in _SKILL_STATUSES:
-        return None
-    stdout = payload.get("stdout")
-    stderr = payload.get("stderr")
-    stdout_text = stdout if isinstance(stdout, str) else ""
-    stderr_text = stderr if isinstance(stderr, str) else ""
-    exit_code = payload.get("exit_code")
-    exit_code = exit_code if isinstance(exit_code, int) and not isinstance(exit_code, bool) else None
-    output_truncated = payload.get("output_truncated") is True
-
     if status == "CANCELLED":
         return ExecutionOutcome(
             business_status=BusinessStatus.CANCELLED,
             failure_layer=FailureLayer.NONE,
             exit_code=exit_code,
-            evidence=evidence_for(stderr_text, stdout_text, output_truncated=output_truncated),
+            evidence=evidence_for(stderr, stdout, output_truncated=output_truncated),
         )
     if status in ("FAILED", "TIMED_OUT"):
-        code, message, envelope_retryable = _failure_envelope(stderr_text)
-        if status == "TIMED_OUT":
-            retryable = True
-        else:
-            retryable = envelope_retryable is True
+        code, message, envelope_retryable = _failure_envelope(stderr)
+        retryable = True if status == "TIMED_OUT" else envelope_retryable is True
         return ExecutionOutcome(
             business_status=(
                 BusinessStatus.TIMED_OUT if status == "TIMED_OUT" else BusinessStatus.FAILED
             ),
             failure_layer=FailureLayer.CONTENT,
             error_code=code or SKILL_FAILED_CODE,
-            error_message=message or (stderr_text.strip()[:500] if stderr_text.strip() else ""),
+            error_message=message or (stderr.strip()[:500] if stderr.strip() else ""),
             exit_code=exit_code,
             retryable=retryable,
             evidence=evidence_for(
-                stderr_text,
-                stdout_text,
+                stderr,
+                stdout,
                 output_truncated=output_truncated,
             ),
         )
 
     # SUCCEEDED：只有结构化结果才能确认业务成功；纯文本/缺失按 UNKNOWN（只作证据）。
-    result = payload.get("result")
     if not isinstance(result, Mapping) or result.get("ok") is False or "error" in result:
         return ExecutionOutcome(
             business_status=BusinessStatus.UNKNOWN,
             failure_layer=FailureLayer.NONE,
             exit_code=exit_code,
-            evidence=evidence_for(stdout_text, output_truncated=output_truncated),
+            evidence=evidence_for(stdout, output_truncated=output_truncated),
         )
     return ExecutionOutcome(
         business_status=BusinessStatus.SUCCEEDED,
@@ -406,4 +334,28 @@ def skill_execution_outcome(payload: Mapping[str, Any] | str) -> ExecutionOutcom
         exit_code=exit_code,
         # 成功调用不落正文预览：证据只服务失败/诊断（design §4.7）。
         evidence=ExecutionEvidence(output_truncated=output_truncated),
+    )
+
+
+def skill_execution_outcome(payload: Mapping[str, Any]) -> ExecutionOutcome | None:
+    """Worker 执行信封（已解析的 Mapping）→ `ExecutionOutcome`。
+
+    只认带 Skill 状态词的执行载荷；draft/workspace 载荷返回 `None`。这是 Worker 任务路径
+    消费执行器结构的事实，不是对模型可见正文的推断。
+    """
+    if not isinstance(payload, Mapping):
+        return None
+    status = payload.get("status")
+    if not isinstance(status, str) or status not in _SKILL_STATUSES:
+        return None
+    stdout = payload.get("stdout")
+    stderr = payload.get("stderr")
+    exit_code = payload.get("exit_code")
+    return skill_result_outcome(
+        status=status,
+        stdout=stdout if isinstance(stdout, str) else "",
+        stderr=stderr if isinstance(stderr, str) else "",
+        result=payload.get("result"),
+        exit_code=exit_code if isinstance(exit_code, int) and not isinstance(exit_code, bool) else None,
+        output_truncated=payload.get("output_truncated") is True,
     )

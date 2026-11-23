@@ -29,6 +29,7 @@ from typing import Any
 
 import pytest
 import sqlalchemy as sa
+from muad_agent_core.tools import ToolCall, ToolError
 from muad_agent_runtime.application.async_tools.supervisor import ExecutionSupervisor
 from muad_agent_runtime.application.attachments.archive_tools import (
     CREATE_ARCHIVE_TOOL,
@@ -47,6 +48,8 @@ from muad_agent_runtime.application.memory_tools import RECALL_TOOL, REMEMBER_TO
 from muad_agent_runtime.application.ports import PlatformSettingsSnapshot
 from muad_agent_runtime.application.run_service import (
     RunService,
+    execution_defaults_of,
+    snapshot_policy,
 )
 from muad_agent_runtime.application.time_tools import CURRENT_TIME_TOOL
 from muad_agent_runtime.infrastructure.db import get_session_factory
@@ -58,7 +61,6 @@ from muad_agent_runtime.infrastructure.models.runtime import (
     RuntimeSnapshot,
     UserMemory,
 )
-from muad_api import AppError
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_console_platform.application.audit_service import AuditActor
 from muad_console_platform.application.platform_settings_service import PlatformSettingsService
@@ -91,7 +93,7 @@ MEMORY_OVERRIDE = MemoryPolicySettings(
     consolidation_enabled=False,
 )
 ARTIFACT_OVERRIDE = ArtifactSettings(retention_days=5, max_archive_files=2, cleanup_batch_size=1)
-LOCALE_OVERRIDE = LocaleSettings(default_timezone="America/New_York")
+LOCALE_OVERRIDE = LocaleSettings(default_locale="en-US", default_timezone="America/New_York")
 TASK_OVERRIDE = TaskSettings(execution_timeout_sec=1800)
 RECALL_SCENARIO = MemoryPolicySettings(
     write_enabled=True,
@@ -214,7 +216,10 @@ async def test_e20_new_run_freezes_nine_execution_leaves(
     assert policy["max_model_retries"] == AGENT_OVERRIDE.max_model_retries
     assert policy["memory"] == asdict(MEMORY_OVERRIDE)
     assert policy["artifact"] == {"max_archive_files": ARTIFACT_OVERRIDE.max_archive_files}
-    assert policy["locale"] == {"default_timezone": LOCALE_OVERRIDE.default_timezone}
+    assert policy["locale"] == {
+        "default_locale": LOCALE_OVERRIDE.default_locale,
+        "default_timezone": LOCALE_OVERRIDE.default_timezone,
+    }
     assert policy["task"] == {"execution_timeout_sec": TASK_OVERRIDE.execution_timeout_sec}
     # `retention_days` / `cleanup_batch_size` 属 Console 清理，**不进 Run 快照**。
     assert "retention_days" not in policy["artifact"]
@@ -281,12 +286,13 @@ async def test_e20_registry_uses_frozen_artifact_memory_and_locale(
     archive = registry.get(CREATE_ARCHIVE_TOOL)
     assert archive.input_schema["properties"]["files"]["maxItems"] == ARTIFACT_OVERRIDE.max_archive_files
     with pytest.raises(ArchiveToolError) as error:
+        arguments = {
+            "filename": "x.zip",
+            "files": [{"path": f"f{i}.txt", "content": "x"} for i in range(3)],
+        }
         await archive.handler(
-            {
-                "filename": "x.zip",
-                "files": [{"path": f"f{i}.txt", "content": "x"} for i in range(3)],
-            },
-            call_id="c",
+            arguments,
+            call=ToolCall(call_id="c", name=CREATE_ARCHIVE_TOOL, arguments=arguments),
         )
     assert error.value.code == "ARCHIVE_FILES_INVALID"
 
@@ -296,7 +302,11 @@ async def test_e20_registry_uses_frozen_artifact_memory_and_locale(
     assert RECALL_TOOL in names
 
     # locale.default_timezone ⇒ `current_time` 工具真的按新 IANA 时区换算。
-    current_time = await registry.get(CURRENT_TIME_TOOL).handler({}, call_id="c")
+    current_time = (
+        await registry.get(CURRENT_TIME_TOOL).handler(
+            {}, call=ToolCall(call_id="c", name=CURRENT_TIME_TOOL)
+        )
+    ).content
     assert f"({LOCALE_OVERRIDE.default_timezone})" in current_time
 
 
@@ -316,7 +326,8 @@ async def test_e20_recall_uses_frozen_limit_and_byte_cap(
     recall = build_registry(
         request=capture.requests[0], cache=_cache(tmp_path), audit_writer=None, mcp_adapter=None
     ).get(RECALL_TOOL)
-    assert len(json.loads(await recall.handler({}, call_id="c"))["items"]) == 2
+    recalled = await recall.handler({}, call=ToolCall(call_id="c", name=RECALL_TOOL))
+    assert len(json.loads(recalled.content)["items"]) == 2
 
     # 最终 JSON 含来源/版本/TTL；装不下的条目被跳过并标 `truncated`（不静默超预算）。
     capped = replace(RECALL_SCENARIO, recall_default_limit=10, max_recall_bytes=600)
@@ -326,7 +337,7 @@ async def test_e20_recall_uses_frozen_limit_and_byte_cap(
     recall2 = build_registry(
         request=capture2.requests[0], cache=_cache(tmp_path), audit_writer=None, mcp_adapter=None
     ).get(RECALL_TOOL)
-    body = json.loads(await recall2.handler({}, call_id="c"))
+    body = json.loads((await recall2.handler({}, call=ToolCall(call_id="c", name=RECALL_TOOL))).content)
     assert body["truncated"] is True
     assert 0 < len(body["items"]) < 6
     assert len(json.dumps(body, ensure_ascii=False).encode("utf-8")) <= 600
@@ -339,8 +350,8 @@ async def test_e20_recall_uses_frozen_limit_and_byte_cap(
     recall3 = build_registry(
         request=capture3.requests[0], cache=_cache(tmp_path), audit_writer=None, mcp_adapter=None
     ).get(RECALL_TOOL)
-    with pytest.raises(AppError) as caught:
-        await recall3.handler({}, call_id="c")
+    with pytest.raises(ToolError) as caught:
+        await recall3.handler({}, call=ToolCall(call_id="c", name=RECALL_TOOL))
     assert caught.value.code == "MEMORY_RESULT_BUDGET_EXCEEDED"
 
 
@@ -579,3 +590,14 @@ async def _purge_tenant(tenant: str, conversation_id: uuid.UUID) -> None:
             await session.execute(model.__table__.delete().where(model.tenant_id == tenant))
         await session.commit()
     assert conversation_id  # 会话随之删除；参数保留以表明清理范围
+
+
+def test_old_policy_without_default_locale_returns_none() -> None:
+    """旧 policy 只冻结了 timezone：不臆造语言，留给调用方省略语言段。"""
+    policy = snapshot_policy()
+    policy["locale"] = {"default_timezone": "America/New_York"}
+
+    defaults = execution_defaults_of(policy)
+
+    assert defaults.locale is None
+    assert defaults.timezone == "America/New_York"

@@ -1,0 +1,37 @@
+flowchart LR
+  subgraph entry["1 用户入口"]
+    wecom["企业微信"]
+    webchat["WebChat"]
+  end
+  subgraph access["2 接入层"]
+    connector["IM Connector"]
+    gateway["IM Gateway"]
+  end
+  subgraph execution["3 执行层"]
+    runtime["Agent Runtime"]
+    worker["Agent Worker"]
+  end
+  subgraph capabilities["4 能力层"]
+    tools["Skill / MCP 工具"]
+    models["模型网关（外部）"]
+    platforms["平台接入与登录"]
+  end
+  subgraph data["5 数据层"]
+    postgres["PostgreSQL"]
+    redis["Redis"]
+    files["共享文件"]
+  end
+  subgraph management["管理与配置"]
+    console["Console"]
+  end
+  admin["管理员"]
+  wecom --> connector
+  webchat --> gateway
+  connector -->|"消息"| gateway
+  gateway -->|"发起请求"| runtime
+  runtime -->|"后台任务"| worker
+  worker -->|"结果回流"| runtime
+  worker -->|"独立通知"| gateway
+  runtime -->|"按需调用"| capabilities
+  worker --> capabilities
+  admin --> console

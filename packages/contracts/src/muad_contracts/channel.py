@@ -97,6 +97,8 @@ class ChannelEnvelope(ContractModel):
     #: **已由 Connector 落盘但没取到**的附件（连接失败/超限/类型不支持…）：上游据此
     #: 给用户同一条回执/拒绝说明并写审计，与"本地取件失败"走完全相同的出口。
     attachment_failures: list[AttachmentFailure] = Field(default_factory=list)
+    #: 批次合并消息：任一附件失败时整批不执行业务；默认 false 保持单帧/旧生产者语义。
+    require_complete_attachments: bool = False
 
 
 class InboundAuditRequest(ContractModel):

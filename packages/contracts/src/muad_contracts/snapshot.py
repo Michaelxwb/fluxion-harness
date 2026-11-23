@@ -269,7 +269,9 @@ def _validate_schedule_snapshot(
             tools=list(tools),
             mcp=list(mcp),
             memory=memory,
-            budget=budget or SnapshotBudget(),
+            budget=(budget or SnapshotBudget()).model_copy(update={
+                "egress_budget": resolve_egress_budget(agent.runtime_config.get("egress_budget", {})),
+            }),
             allowlist=list(allowlist),
             prompt_template=dict(prompt_template or {}),
             context=dict(context or {}),

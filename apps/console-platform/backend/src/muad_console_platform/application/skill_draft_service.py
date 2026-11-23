@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -15,6 +14,7 @@ from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_common.draft_testing import draft_test_lock_key
 from muad_contracts import SkillReviewStatus, SkillSource
+from muad_logging import get_logger
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -60,7 +60,7 @@ DRAFT_NOT_FOUND_REPAIR = (
     "check draft_id for this tenant, owner and agent; create the draft again with action=create key=<key> "
     "if it was deleted"
 )
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def draft_view(draft: SkillDraft) -> dict[str, Any]:

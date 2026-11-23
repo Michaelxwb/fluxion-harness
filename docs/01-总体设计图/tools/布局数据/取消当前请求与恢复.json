@@ -1,0 +1,492 @@
+{
+  "name": "取消当前请求与恢复",
+  "size": [
+    1200,
+    522
+  ],
+  "nodes": {
+    "U": {
+      "rect": [
+        60,
+        30,
+        160,
+        60
+      ],
+      "label": "用户",
+      "lines": [
+        "发起停止或补充"
+      ],
+      "state": false,
+      "tone": "external"
+    },
+    "G": {
+      "rect": [
+        280,
+        30,
+        160,
+        60
+      ],
+      "label": "Gateway",
+      "lines": [
+        "接入与回复"
+      ],
+      "state": false,
+      "tone": "active"
+    },
+    "A": {
+      "rect": [
+        500,
+        30,
+        160,
+        60
+      ],
+      "label": "Runtime",
+      "lines": [
+        "取消与恢复"
+      ],
+      "state": false,
+      "tone": "active"
+    },
+    "W": {
+      "rect": [
+        720,
+        30,
+        160,
+        60
+      ],
+      "label": "Worker",
+      "lines": [
+        "任务执行"
+      ],
+      "state": false,
+      "tone": "active"
+    },
+    "P": {
+      "rect": [
+        940,
+        30,
+        160,
+        60
+      ],
+      "label": "共享存储",
+      "lines": [
+        "状态、快照与结果"
+      ],
+      "state": false,
+      "tone": "active"
+    }
+  },
+  "groups": {
+    "cancel": {
+      "rect": [
+        30,
+        110,
+        1140,
+        372
+      ],
+      "title": "取消当前请求｜分析中停止并补充条件"
+    }
+  },
+  "edges": [
+    {
+      "from": "U",
+      "to": "G",
+      "points": [
+        [
+          140,
+          165
+        ],
+        [
+          360,
+          165
+        ]
+      ],
+      "label": "1 点击停止 / 发送 /stop",
+      "both": false
+    },
+    {
+      "from": "G",
+      "to": "A",
+      "points": [
+        [
+          360,
+          189
+        ],
+        [
+          580,
+          189
+        ]
+      ],
+      "label": "2 转发停止请求",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "P",
+      "points": [
+        [
+          580,
+          213
+        ],
+        [
+          1020,
+          213
+        ]
+      ],
+      "label": "3 记录取消意图",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "W",
+      "points": [
+        [
+          580,
+          237
+        ],
+        [
+          800,
+          237
+        ]
+      ],
+      "label": "4 取消未受理的异步提交",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "P",
+      "points": [
+        [
+          580,
+          261
+        ],
+        [
+          1020,
+          261
+        ]
+      ],
+      "label": "5 取消未结束的等待",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "G",
+      "points": [
+        [
+          580,
+          285
+        ],
+        [
+          360,
+          285
+        ]
+      ],
+      "label": "6 返回已取消",
+      "both": false
+    },
+    {
+      "from": "G",
+      "to": "U",
+      "points": [
+        [
+          360,
+          309
+        ],
+        [
+          140,
+          309
+        ]
+      ],
+      "label": "7 确认当前请求已停止",
+      "both": false
+    },
+    {
+      "from": "U",
+      "to": "G",
+      "points": [
+        [
+          140,
+          333
+        ],
+        [
+          360,
+          333
+        ]
+      ],
+      "label": "8 补充：只看最近 7 天",
+      "both": false
+    },
+    {
+      "from": "G",
+      "to": "A",
+      "points": [
+        [
+          360,
+          357
+        ],
+        [
+          580,
+          357
+        ]
+      ],
+      "label": "9 请求恢复",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "P",
+      "points": [
+        [
+          580,
+          381
+        ],
+        [
+          1020,
+          381
+        ]
+      ],
+      "label": "10 重新排队并领取",
+      "both": false
+    },
+    {
+      "from": "P",
+      "to": "A",
+      "points": [
+        [
+          1020,
+          405
+        ],
+        [
+          580,
+          405
+        ]
+      ],
+      "label": "11 返回原快照",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "G",
+      "points": [
+        [
+          580,
+          429
+        ],
+        [
+          360,
+          429
+        ]
+      ],
+      "label": "12 SSE 推送新结果",
+      "both": false
+    },
+    {
+      "from": "G",
+      "to": "U",
+      "points": [
+        [
+          360,
+          453
+        ],
+        [
+          140,
+          453
+        ]
+      ],
+      "label": "13 显示最近 7 天结果",
+      "both": false
+    }
+  ],
+  "diagram_type": "sequence",
+  "lifelines": [
+    {
+      "participant": "U",
+      "node": "U",
+      "points": [
+        [
+          140,
+          90
+        ],
+        [
+          140,
+          492
+        ]
+      ]
+    },
+    {
+      "participant": "G",
+      "node": "G",
+      "points": [
+        [
+          360,
+          90
+        ],
+        [
+          360,
+          492
+        ]
+      ]
+    },
+    {
+      "participant": "A",
+      "node": "A",
+      "points": [
+        [
+          580,
+          90
+        ],
+        [
+          580,
+          492
+        ]
+      ]
+    },
+    {
+      "participant": "W",
+      "node": "W",
+      "points": [
+        [
+          800,
+          90
+        ],
+        [
+          800,
+          492
+        ]
+      ]
+    },
+    {
+      "participant": "P",
+      "node": "P",
+      "points": [
+        [
+          1020,
+          90
+        ],
+        [
+          1020,
+          492
+        ]
+      ]
+    }
+  ],
+  "messages": [
+    {
+      "scenario": "cancel",
+      "order": 1,
+      "from": "U",
+      "to": "G",
+      "y": 165,
+      "label": "点击停止 / 发送 /stop",
+      "reply": false
+    },
+    {
+      "scenario": "cancel",
+      "order": 2,
+      "from": "G",
+      "to": "A",
+      "y": 189,
+      "label": "转发停止请求",
+      "reply": false
+    },
+    {
+      "scenario": "cancel",
+      "order": 3,
+      "from": "A",
+      "to": "P",
+      "y": 213,
+      "label": "记录取消意图",
+      "reply": false
+    },
+    {
+      "scenario": "cancel",
+      "order": 4,
+      "from": "A",
+      "to": "W",
+      "y": 237,
+      "label": "取消未受理的异步提交",
+      "reply": false
+    },
+    {
+      "scenario": "cancel",
+      "order": 5,
+      "from": "A",
+      "to": "P",
+      "y": 261,
+      "label": "取消未结束的等待",
+      "reply": false
+    },
+    {
+      "scenario": "cancel",
+      "order": 6,
+      "from": "A",
+      "to": "G",
+      "y": 285,
+      "label": "返回已取消",
+      "reply": false
+    },
+    {
+      "scenario": "cancel",
+      "order": 7,
+      "from": "G",
+      "to": "U",
+      "y": 309,
+      "label": "确认当前请求已停止",
+      "reply": true
+    },
+    {
+      "scenario": "cancel",
+      "order": 8,
+      "from": "U",
+      "to": "G",
+      "y": 333,
+      "label": "补充：只看最近 7 天",
+      "reply": false
+    },
+    {
+      "scenario": "cancel",
+      "order": 9,
+      "from": "G",
+      "to": "A",
+      "y": 357,
+      "label": "请求恢复",
+      "reply": false
+    },
+    {
+      "scenario": "cancel",
+      "order": 10,
+      "from": "A",
+      "to": "P",
+      "y": 381,
+      "label": "重新排队并领取",
+      "reply": false
+    },
+    {
+      "scenario": "cancel",
+      "order": 11,
+      "from": "P",
+      "to": "A",
+      "y": 405,
+      "label": "返回原快照",
+      "reply": true
+    },
+    {
+      "scenario": "cancel",
+      "order": 12,
+      "from": "A",
+      "to": "G",
+      "y": 429,
+      "label": "SSE 推送新结果",
+      "reply": true
+    },
+    {
+      "scenario": "cancel",
+      "order": 13,
+      "from": "G",
+      "to": "U",
+      "y": 453,
+      "label": "显示最近 7 天结果",
+      "reply": true
+    }
+  ]
+}

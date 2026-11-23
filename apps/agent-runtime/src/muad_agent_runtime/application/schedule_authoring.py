@@ -26,6 +26,7 @@ from datetime import datetime
 from pathlib import PurePosixPath
 from typing import Any
 
+from muad_agent_core.skill import SkillInvocationError, validate_skill_invocation
 from muad_api.error_codes import ErrorCode
 from muad_contracts import (
     AgentTurnPayload,
@@ -38,6 +39,7 @@ from muad_contracts import (
     SchedulePlan,
     ScheduleWindow,
     SessionTarget,
+    SkillInvocationContract,
     SkillPlanPayload,
 )
 from muad_contracts.enums import (
@@ -70,8 +72,6 @@ _platform_tools = frozenset(
         "create_archive",
         "load_skill",
         "read_skill_resource",
-        "execute_skill",
-        "run_skill_script",
         "search_skills",
         "execute",
         "get_task",
@@ -113,6 +113,7 @@ class ScheduleFieldError:
     reason: str
     repair: str
     allowed_values: tuple[str, ...] = ()
+    required: tuple[str, ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
         data: dict[str, Any] = {
@@ -122,6 +123,8 @@ class ScheduleFieldError:
         }
         if self.allowed_values:
             data["allowed_values"] = list(self.allowed_values)
+        if self.required:
+            data["required"] = list(self.required)
         return data
 
 
@@ -153,6 +156,8 @@ class ScheduleAuthoringContext:
     delivery_route: DeliveryRouteInput | None = None
     delivery_targets: Sequence[DeliveryTargetOption] = ()
     conversation_id: uuid.UUID | None = None
+    #: 当前平台默认时区；仅在调用方未提供 timezone 时作为 authoring 默认值。
+    default_timezone: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,7 +203,7 @@ def compile_schedule_plan(
     """Compile tool arguments into `SchedulePlan`, a clarification, or field errors."""
     errors: list[ScheduleFieldError] = []
     confidence = _confidence(arguments, errors)
-    timezone = _timezone(arguments, errors)
+    timezone = _timezone(arguments, errors, default=context.default_timezone)
     recurrence = _recurrence(arguments, timezone, errors)
     raw = arguments.get("payload")
     payload: Mapping[str, Any] | None
@@ -268,8 +273,15 @@ def _confidence(arguments: Mapping[str, Any], errors: list[ScheduleFieldError]) 
     return float(value)
 
 
-def _timezone(arguments: Mapping[str, Any], errors: list[ScheduleFieldError]) -> str | None:
+def _timezone(
+    arguments: Mapping[str, Any],
+    errors: list[ScheduleFieldError],
+    *,
+    default: str | None = None,
+) -> str | None:
     raw = arguments.get("timezone")
+    if not isinstance(raw, str) or not raw.strip():
+        raw = default
     if not isinstance(raw, str) or not raw.strip():
         errors.append(
             _field("timezone", "TIMEZONE_MISSING", "ASK_USER_TIMEZONE")
@@ -398,6 +410,26 @@ def _skill_plan(
         _reject_unknown_variables(prompt_input, "payload.input", errors)
     if argv is not None:
         _reject_unknown_variables(argv, "payload.argv", errors)
+    if skill is not None and prompt_input is not None and argv is not None:
+        contract = _invocation_contract(skill, errors)
+        if contract is not None:
+            try:
+                validate_skill_invocation(
+                    contract,
+                    input_data=prompt_input,
+                    argv=argv,
+                    phase="shape",
+                )
+            except SkillInvocationError as exc:
+                errors.append(
+                    ScheduleFieldError(
+                        field=exc.field,
+                        reason=exc.reason,
+                        repair=exc.repair,
+                        allowed_values=exc.allowed_values,
+                        required=exc.required,
+                    )
+                )
     if skill is None or prompt_input is None or argv is None or window is None:
         return None
     try:
@@ -422,6 +454,24 @@ def _resolve_skill(
         return None
     _check_declared_entrypoint(skill, errors)
     return skill
+
+
+def _invocation_contract(
+    skill: ResolvedSkill, errors: list[ScheduleFieldError]
+) -> SkillInvocationContract | None:
+    frontmatter = skill.frontmatter if isinstance(skill.frontmatter, Mapping) else {}
+    raw = frontmatter.get("invocation_contract")
+    if raw is None:
+        # Missing contract is rejected by Draft preflight; authoring stays permissive
+        # so existing callers can still describe the plan.
+        return None
+    try:
+        return SkillInvocationContract.model_validate(raw)
+    except ValidationError:
+        errors.append(
+            _field("payload.skill_key", "CONTRACT_INVALID", "REIMPORT_SKILL")
+        )
+        return None
 
 
 def _match_skill(
@@ -646,6 +696,17 @@ def _skill_tool_entry(
             )
         )
         return None
+    if parts[2] == "*":
+        names = _declared_skill_tools(skill) or {"execute"}
+        errors.append(
+            _field(
+                "payload.tools_allow",
+                "TOOL_WILDCARD_UNSUPPORTED",
+                "PROVIDE_TOOL_NAME",
+                tuple(f"SKILL:{skill.skill_id}:{name}" for name in sorted(names)),
+            )
+        )
+        return None
     names = _declared_skill_tools(skill)
     if names and parts[2] not in names:
         errors.append(
@@ -653,7 +714,7 @@ def _skill_tool_entry(
                 "payload.tools_allow",
                 "TOOL_NOT_OWNED",
                 "CHOOSE_DECLARED_SKILL_TOOL",
-                tuple(sorted(names)),
+                tuple(f"SKILL:{skill.skill_id}:{name}" for name in sorted(names)),
             )
         )
         return None
@@ -691,7 +752,7 @@ def _mcp_tool_entry(
                 "payload.tools_allow",
                 "TOOL_NOT_OWNED",
                 "CHOOSE_DECLARED_MCP_TOOL",
-                tuple(sorted(names)),
+                tuple(f"MCP:{server.key}:{name}" for name in sorted(names)),
             )
         )
         return None

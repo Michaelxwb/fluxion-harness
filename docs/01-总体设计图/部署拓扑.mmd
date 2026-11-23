@@ -1,0 +1,26 @@
+flowchart LR
+  subgraph cluster["Kubernetes 集群 · 入口代理与业务工作负载"]
+    nginx["Nginx"]
+    gateway["IM Gateway"]
+    runtime["Agent Runtime"]
+    worker["Agent Worker"]
+    console["Console Platform"]
+    connector["IM Connector"]
+  end
+  subgraph data-services["由环境提供的存储与数据服务"]
+    artifact-pvc["制品文件存储"]
+    workspace-pvc["工作区文件存储"]
+    postgres["PostgreSQL"]
+    redis["Redis"]
+  end
+  browser["浏览器"]
+  wecom["企业微信"]
+  browser -->|"HTTPS"| nginx
+  nginx -->|"聊天"| gateway
+  nginx -->|"管理 / 认证"| console
+  gateway -->|"Run"| runtime
+  runtime -->|"Task"| worker
+  worker -->|"结果"| runtime
+  worker -->|"独立投递"| gateway
+  wecom <-->|"WSS"| connector
+  connector <-->|"事件流"| gateway

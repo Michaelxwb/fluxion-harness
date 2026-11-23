@@ -13,7 +13,6 @@
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from typing import Protocol
 from uuid import UUID
@@ -29,10 +28,11 @@ from muad_im_core import (
     SyncAdmission,
     SyncPrincipal,
 )
+from muad_logging import get_logger
 
 from .runtime_client import RunAdmission
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: WEBCHAT 通道名常量；其余同构通道（如 MSSWWEB）由 `WebchatSurface.channel` 携带，
 #: 本模块不再新增通道字面量——把通道名参数化，才能同一套 SYNC 逻辑按通道多挂载。

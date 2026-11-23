@@ -16,7 +16,7 @@ from typing import Any
 
 import pytest
 import sqlalchemy as sa
-from muad_agent_core.tools import ToolRegistry
+from muad_agent_core.tools import ToolCall, ToolRegistry
 from muad_agent_runtime.application.attachments.tools import (
     AGENT_OUTPUT_ARTIFACT_TYPE,
     APPEND_ARTIFACT_TOOL,
@@ -155,7 +155,11 @@ async def _call(tool_set: AttachmentToolSet, name: str, arguments: dict) -> str:
     tool_set.register(registry)
     definition = registry.get(name)
     assert definition.handler is not None
-    return await definition.handler(arguments, call_id="call-1")
+    result = await definition.handler(
+        arguments,
+        call=ToolCall(call_id="call-1", name=name, arguments=arguments),
+    )
+    return result.content
 
 
 async def test_reads_text_from_a_real_pdf(tenant: TenantContext, artifact_root) -> None:
@@ -293,12 +297,15 @@ async def test_view_image_follow_up_carries_the_image_part(
     tool_set.register(registry)
     definition = registry.get(VIEW_IMAGE_TOOL)
 
-    result = await _call(tool_set, VIEW_IMAGE_TOOL, {"artifact_id": str(artifact_id)})
-    assert definition.follow_up_messages is not None
-
-    follow_up = await definition.follow_up_messages(result)
-    assert len(follow_up) == 1
-    message = follow_up[0]
+    tool_call = ToolCall(
+        call_id="call-1",
+        name=VIEW_IMAGE_TOOL,
+        arguments={"artifact_id": str(artifact_id)},
+    )
+    assert definition.handler is not None
+    result = await definition.handler(tool_call.arguments, call=tool_call)
+    assert len(result.follow_ups) == 1
+    message = result.follow_ups[0]
     assert str(message.role) == "user", "tool 角色不能携带图像块，只能补 user 消息"
     parts = message.content
     assert isinstance(parts, tuple)
@@ -492,6 +499,43 @@ async def test_s01_long_document_carries_a_paging_hint(
     assert "offset=" not in last, "读到最后一段就不该再提示翻页"
 
 
+async def test_plain_text_cursor_continues_without_rescanning_from_the_start(
+    tenant: TenantContext, artifact_root
+) -> None:
+    text = "".join(chr(0x4E00 + (index % 200)) for index in range(6000))
+    artifact_id = await _seed_artifact(
+        tenant,
+        artifact_root,
+        data=text.encode(),
+        kind="DOCUMENT",
+        media_type="text/plain",
+        filename="长文本.txt",
+    )
+    tool_set = _tool_set(tenant, artifact_root)
+
+    first = await _call(
+        tool_set,
+        READ_ATTACHMENT_TOOL,
+        {"artifact_id": str(artifact_id), "limit": 2000},
+    )
+    matched = re.search(r"cursor=([^；\s]+)", first)
+    assert matched is not None, "full page must return a continuation cursor"
+    second = await _call(
+        tool_set,
+        READ_ATTACHMENT_TOOL,
+        {"artifact_id": str(artifact_id), "limit": 2000, "cursor": matched.group(1)},
+    )
+
+    assert "字符 2000..4000" in second
+    assert _segment_of(second) == text[2000:4000]
+    with pytest.raises(AttachmentToolError):
+        await _call(
+            tool_set,
+            READ_ATTACHMENT_TOOL,
+            {"artifact_id": str(artifact_id), "cursor": "v1:oops:1"},
+        )
+
+
 async def test_e01_rejection_paths_are_explicit_and_labelled(
     tenant: TenantContext, artifact_root
 ) -> None:
@@ -668,6 +712,36 @@ async def test_s02_lists_inbound_and_self_produced_attachments(
     # 列出来的 id 要真的可寻址（闭环）：直接拿去读，能读回内容
     read_back = await _call(tool_set, READ_ATTACHMENT_TOOL, {"artifact_id": inbound.group(1)})
     assert "来件.pdf" in read_back
+
+
+async def test_tool_result_is_labeled_internal_and_filterable(tenant, artifact_root) -> None:
+    """`TOOL_RESULT` 是工具结果，不是入站；显式读取仍可用。"""
+    run_id, conversation_id = await _seed_run(tenant)
+    tool_result = await _seed_artifact(
+        tenant, artifact_root, data=b"internal", kind="OTHER",
+        media_type="text/plain", filename="tool-result.txt",
+        into=(run_id, conversation_id), artifact_type="TOOL_RESULT",
+    )
+    tool_set = _writer_tool_set(tenant, artifact_root, run_id, conversation_id)
+
+    listed = await _call(tool_set, LIST_ATTACHMENTS_TOOL, {})
+    assert "工具结果" in listed
+    assert "入站" not in listed
+    assert str(tool_result) in listed
+
+    internal = await _call(
+        tool_set, LIST_ATTACHMENTS_TOOL, {"direction": "internal"}
+    )
+    assert str(tool_result) in internal
+    inbound_only = await _call(
+        tool_set, LIST_ATTACHMENTS_TOOL, {"direction": "inbound"}
+    )
+    assert str(tool_result) not in inbound_only
+
+    read_back = await _call(
+        tool_set, READ_ATTACHMENT_TOOL, {"artifact_id": str(tool_result)}
+    )
+    assert "internal" in read_back
 
 
 # ---------------------------------------------------------------------------
@@ -1068,27 +1142,33 @@ async def test_deliver_artifact_allows_historical_agent_output(
     assert client.requests
 
 
-async def test_deliver_artifact_refuses_tool_result_artifacts(tenant, artifact_root) -> None:
-    """**工具结果外置产物**（`TOOL_RESULT`）不能交付 —— 那是中间产物，发给用户等于泄漏上下文。
-
-    放开转发时必须把它挡在外面：它的 `conversation_id` 与当前会话相同，光靠会话判定拦不住。
-    """
+async def test_deliver_artifact_requires_explicit_internal_flag(tenant, artifact_root) -> None:
+    """`TOOL_RESULT` 默认不交付；用户明确要求时由模型置 `allow_internal=true`。"""
     run_id, conversation_id = await _seed_run(tenant)
     tool_result = await _seed_artifact(
         tenant, artifact_root, data=b"internal", kind="OTHER",
         media_type="text/plain", filename="tool-result.txt",
         into=(run_id, conversation_id), artifact_type="TOOL_RESULT",
     )
-    client = _FakeDeliveryClient()
+    client = _FakeDeliveryClient(
+        DeliveryResponse(accepted=True, delivered=True, deduplicated=False, outcome="DELIVERED")
+    )
     tool_set = _delivery_tool_set(
         tenant, artifact_root, run_id=run_id, conversation_id=conversation_id, client=client
     )
 
     with pytest.raises(AttachmentToolError) as exc:
         await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"artifact_id": str(tool_result)})
-
-    assert "不能交付给用户" in exc.value.message
+    assert "allow_internal=true" in exc.value.message
     assert not client.requests
+
+    delivered = await _call(
+        tool_set,
+        DELIVER_ARTIFACT_TOOL,
+        {"artifact_id": str(tool_result), "allow_internal": True},
+    )
+    assert "已交付产物" in delivered
+    assert client.requests
 
 
 def test_historical_agent_output_is_deliverable_but_tool_results_are_not() -> None:
@@ -1119,6 +1199,9 @@ def test_historical_agent_output_is_deliverable_but_tool_results_are_not() -> No
     assert tools._delivery_refusal(
         row("TOOL_RESULT", conversation_id=tools._conversation_id)
     ) is not None
+    assert tools._delivery_refusal(
+        row("TOOL_RESULT", conversation_id=tools._conversation_id), allow_internal=True
+    ) is None
     assert tools._delivery_refusal(
         row("INBOUND_DOCUMENT", conversation_id=uuid.uuid4())
     ) is not None

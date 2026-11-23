@@ -26,6 +26,7 @@ class ReplySettings:
 
     locale: str
     progress_interval_sec: float
+    inbound_batch_max_attachments: int
 
 
 def resolve_platform_settings(
@@ -54,4 +55,5 @@ def resolve_reply_settings(
     return ReplySettings(
         locale=settings.locale.default_locale,
         progress_interval_sec=settings.im.progress_interval_sec,
+        inbound_batch_max_attachments=settings.im.inbound_batch_max_attachments,
     )

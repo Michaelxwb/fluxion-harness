@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import type { AgentSkillItem, AuditItem } from '../../apps/console-platform/frontend/src/modules/agent-management/services/agents';
 import { expectTableSurfaces } from '../support/table-surface';
 import { expectActionColors } from '../support/action-colors';
+import type { ModelItem } from '../../apps/console-platform/frontend/src/modules/model-management/services/models';
 import type { SkillArtifactDetail, SkillDetail } from '../../apps/console-platform/frontend/src/modules/skill-management/services/skills';
 
 // Frontend browser/layout tests using local API fixtures, without backend services.
@@ -21,11 +22,14 @@ const artifact = {
   reviewed_by: 'layout', reviewed_at: time, submitted_by_user_id: null,
   submitted_agent_id: null, submitted_channel: null, source: 'ADMIN'
 } satisfies SkillArtifactDetail;
+const model: ModelItem = {
+  id: base.id, key: base.key, name: base.name, protocol: 'OPENAI', model_id: 'gpt-4o-mini',
+  provider_key: 'layout-provider', params: { max_tokens: 1024 }, revision: base.revision,
+  enabled: base.enabled, last_test_status: 'AVAILABLE', last_test_at: time,
+  create_time: time, update_time: time
+};
 const cases = [
-  { path: 'models', api: 'models', link: 'model-link-layout', data: {
-    ...base, protocol: 'OPENAI', model_id: 'gpt-4o-mini', base_url: 'https://example.com/' + 'path/'.repeat(25),
-    api_key_configured: true, params: {}, last_test_status: 'AVAILABLE', last_test_at: time
-  } },
+  { path: 'models', api: 'models', link: 'model-link-layout', data: model },
   { path: 'users', api: 'users', link: 'user-link-layout', data: {
     ...base, tenant_id: 'tenant', status: 'ACTIVE', metadata: {}, agent_grant_count: 0,
     credential_count: 0, identity_count: 0, memory_count: 0, experience_count: 0
@@ -139,7 +143,12 @@ async function prepare(page: Page, index: number, mode: string, options: {
     if (path === '/api/v1/external-platforms' || path.endsWith('/external-identities')) data = [];
     return route.fulfill({ json: { code: '0', msg: '', data } });
   });
-  await page.goto(`/${entry.path}`);
+  const listLoaded = page.waitForResponse((response) =>
+    new URL(response.url()).pathname === `/api/v1/${entry.api}` &&
+    response.request().method() === 'GET'
+  );
+  const [, listResponse] = await Promise.all([page.goto(`/${entry.path}`), listLoaded]);
+  expect(listResponse.ok()).toBe(true);
   await page.getByTestId(entry.link).click();
 }
 
@@ -163,14 +172,21 @@ for (const [index, entry] of cases.entries()) {
     test(`${entry.path} details share compact layout in ${mode}`, async ({ page }, testInfo) => {
       await prepare(page, index, mode);
       const sheet = page.getByRole('dialog');
-      await expect(sheet.locator('.detail-grid').first()).toBeVisible();
-      await expect(sheet.locator('.detail-section-title').first()).toHaveText('基本信息');
+      const task = entry.path === 'tasks';
+      const gridSelector = task ? '.task-detail-section:last-of-type .task-detail-fields' : '.detail-grid';
+      await expect(sheet.locator(gridSelector).first()).toBeVisible();
+      if (task) {
+        await expect(sheet.getByRole('heading', { name: '任务来源' })).toBeVisible();
+        await expect(sheet.getByTestId('task-detail-error')).toContainText('ERROR');
+      } else {
+        await expect(sheet.locator('.detail-section-title').first()).toHaveText('基本信息');
+      }
       await expectDetailHeadingTypography(sheet, mode);
       await expect.poll(() => sheet.evaluate((node) => Math.round(node.getBoundingClientRect().right))).toBe(mode === 'mobile' ? 390 : 1280);
-      const layout = await sheet.evaluate((node) => {
+      const layout = await sheet.evaluate((node, selector) => {
         const rect = node.getBoundingClientRect();
         const body = node.querySelector('.semi-sidesheet-body')!;
-        const grid = node.querySelector('.detail-grid')!;
+        const grid = node.querySelector(selector)!;
         const header = node.querySelector('.semi-sidesheet-header')!;
         return {
           width: rect.width, left: rect.left, right: rect.right,
@@ -178,12 +194,12 @@ for (const [index, entry] of cases.entries()) {
           columns: getComputedStyle(grid).gridTemplateColumns.split(' ').length,
           padding: getComputedStyle(header).paddingTop
         };
-      });
+      }, gridSelector);
       expect(layout.width).toBeCloseTo(mode === 'mobile' ? 390 : 920, 0);
       expect(layout.left).toBeGreaterThanOrEqual(-1);
       expect(layout.right).toBeLessThanOrEqual((mode === 'mobile' ? 390 : 1280) + 1);
       expect(layout.overflow).toBe(false);
-      expect(layout.columns).toBe(mode === 'mobile' ? 1 : 2);
+      expect(layout.columns).toBe(mode === 'mobile' ? 1 : task ? 3 : 2);
       expect(layout.padding).toBe(mode === 'mobile' ? '12px' : '16px');
       await expect(sheet.locator('.semi-sidesheet-close')).toBeInViewport({ ratio: 1 });
       await expect(sheet.locator('.detail-actions')).toHaveCount(0);

@@ -86,7 +86,7 @@ async def test_tool_call_only_on_first_model_call() -> None:
     probe: AsyncModelProbe = app.probe  # type: ignore[attr-defined]
     probe.set_behavior(
         ModelProbeBehavior(
-            tool_call={"name": "execute_skill", "arguments": {"skill_key": "s-1"}}
+            tool_call={"name": "execute", "arguments": {"target": "skill", "skill_key": "s-1"}}
         )
     )
     async with _client(app) as client:
@@ -107,8 +107,8 @@ async def test_tool_call_only_on_first_model_call() -> None:
     assert isinstance(first_payloads[0], dict)
     tool_calls = first_payloads[0]["choices"][0]["delta"]["tool_calls"]
     assert tool_calls[0]["function"] == {
-        "name": "execute_skill",
-        "arguments": '{"skill_key": "s-1"}',
+        "name": "execute",
+        "arguments": '{"target": "skill", "skill_key": "s-1"}',
     }
     assert first_payloads[-2]["choices"][0]["finish_reason"] == "tool_calls"
     second_payloads = _sse_payloads(second.text)

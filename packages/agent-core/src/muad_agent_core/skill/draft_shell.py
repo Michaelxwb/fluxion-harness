@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import hashlib
 import io
-import logging
 import os
 import shutil
 import tempfile
@@ -31,9 +30,9 @@ from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 from typing import Any, Protocol
 
+from muad_logging import get_logger
 from muad_platform_sdk.adapter.mss_config import PlatformAuthError
-from muad_platform_sdk.skill_access import SkillPlatformContext
-from muad_platform_sdk.skill_access import PlatformSessionReport
+from muad_platform_sdk.skill_access import PlatformSessionReport, SkillPlatformContext
 from muad_platform_sdk.skill_bridge import SessionMount, skill_platform_environment
 from muad_skill_sdk.skill_package import SkillPackage, SkillPackageError, locate_package_root
 from redis.exceptions import RedisClusterException, RedisError
@@ -52,9 +51,10 @@ from ..sandbox import (
     SandboxTimeout,
     SandboxUnavailable,
 )
+from ..tools.result import ToolError
 from .sandboxed import SESSION_SANDBOX_ROOT
 
-logger = logging.getLogger("muad_agent_core.skill.draft_shell")
+logger = get_logger("muad_agent_core.skill.draft_shell")
 
 DRAFT_SHELL_ALLOWED_EXTENSIONS = frozenset(
     {
@@ -87,24 +87,30 @@ DRAFT_SHELL_DEFAULT_TIMEOUT_SEC = 60.0
 ZIP_SYMLINK_MODE = 0o120000
 
 
-class DraftShellError(RuntimeError):
+class DraftShellError(ToolError):
     """草稿 Shell 的封闭错误码；``result`` 保留超时/输出超限前的有界输出。"""
 
     def __init__(
         self, code: str, message: str, *,
         result: SandboxResult | None = None,
-        retryable: bool = False,
+        retryable: bool | None = None,
         data: Mapping[str, Any] | None = None,
         platform_sessions: dict[str, object] | None = None,
     ) -> None:
-        self.code = code
-        self.message = message
+        if retryable is None and data:
+            retryable = not code.startswith(
+                ("PLATFORM_", "CREDENTIAL_", "CONTROL_", "SANDBOX_", "MODEL_")
+            )
+        super().__init__(
+            code,
+            message,
+            detail=dict(data) if data else None,
+            retryable=retryable,
+            platform_sessions=platform_sessions,
+        )
         self.result = result
-        self.retryable = retryable
         #: Console 错误体里的可执行诊断（path/draft_id/repair 等），原样交给模型。
         self.data = dict(data) if data else {}
-        self.platform_sessions = platform_sessions
-        super().__init__(message)
 
 
 @dataclass(frozen=True, slots=True)

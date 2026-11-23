@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import logging
 import uuid
 from dataclasses import dataclass
 from typing import Any
@@ -35,6 +34,7 @@ from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_artifact_store import NfsArtifactStore
 from muad_contracts import AttachmentRef, TaskArtifactWriteRequest, TaskArtifactWriteResponse
+from muad_logging import get_logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...infrastructure.models.runtime import Artifact
@@ -42,7 +42,7 @@ from ...metrics import TASK_ARTIFACT_DOWNLOAD_METRIC, record_outcome
 from .output_service import MAX_OUTPUT_BYTES
 from .reference import attachment_ref
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 用户可下载的任务产物类型：与 Run 产物统一为 OUTPUT。
 TASK_OUTPUT_ARTIFACT_TYPE = "OUTPUT"
@@ -57,6 +57,47 @@ _TASK_OWNER_SQL = sa.text(
     "SELECT tenant_id, actor_user_id, agent_id, attempt FROM task.task_execution"
     " WHERE id = :execution_id AND tenant_id = :tenant_id AND is_deleted = false"
 )
+
+#: 轻量反射表：只用于在 `runtime.artifact` 查询里做 EXISTS 核属，不引入跨 schema ORM 模型。
+_TASK_EXECUTION_TABLE = sa.table(
+    "task_execution",
+    sa.column("id", sa.Uuid()),
+    sa.column("tenant_id", sa.String()),
+    sa.column("actor_user_id", sa.Uuid()),
+    sa.column("agent_id", sa.Uuid()),
+    sa.column("is_deleted", sa.Boolean()),
+    schema="task",
+)
+
+
+def task_owner_predicate(
+    *,
+    tenant_id: str,
+    user_id: uuid.UUID,
+    agent_id: uuid.UUID | None,
+    artifact: type[Artifact] = Artifact,
+) -> sa.ColumnElement[bool]:
+    """任务产物的唯一归属谓词：task_id + 精确 user/agent + live task_execution。
+
+    读与列必须复用这一份，避免“列得出、读不到”。`agent_id` 为空时返回恒假，绝不放宽。
+    """
+    if agent_id is None:
+        return sa.false()
+    live_task = sa.exists(
+        sa.select(sa.literal(1)).select_from(_TASK_EXECUTION_TABLE).where(
+            _TASK_EXECUTION_TABLE.c.id == artifact.task_id,
+            _TASK_EXECUTION_TABLE.c.tenant_id == tenant_id,
+            _TASK_EXECUTION_TABLE.c.actor_user_id == user_id,
+            _TASK_EXECUTION_TABLE.c.agent_id == agent_id,
+            _TASK_EXECUTION_TABLE.c.is_deleted.is_(False),
+        )
+    )
+    return sa.and_(
+        artifact.task_id.is_not(None),
+        artifact.user_id == user_id,
+        artifact.agent_id == agent_id,
+        live_task,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -262,17 +303,17 @@ async def _lock_artifact_identity(
     )
 
 
-async def _load_owner(
+async def load_task_owner(
     session: AsyncSession, *, tenant_id: str, execution_id: uuid.UUID
-) -> TaskArtifactOwner:
-    """只读 Worker 拥有的 Execution 当前事实；跨租户/不存在/软删都视同不存在。"""
+) -> TaskArtifactOwner | None:
+    """只读 Worker 拥有的 Execution 当前事实；跨租户/不存在/软删返回 None。"""
     row = (
         await session.execute(
             _TASK_OWNER_SQL, {"tenant_id": tenant_id, "execution_id": execution_id}
         )
     ).mappings().first()
     if row is None:
-        raise AppError(ErrorCode.TASK_ARTIFACT_NOT_FOUND)
+        return None
     return TaskArtifactOwner(
         execution_id=execution_id,
         tenant_id=row["tenant_id"],
@@ -280,6 +321,17 @@ async def _load_owner(
         agent_id=row["agent_id"],
         attempt=int(row["attempt"]),
     )
+
+
+async def _load_owner(
+    session: AsyncSession, *, tenant_id: str, execution_id: uuid.UUID
+) -> TaskArtifactOwner:
+    owner = await load_task_owner(
+        session, tenant_id=tenant_id, execution_id=execution_id
+    )
+    if owner is None:
+        raise AppError(ErrorCode.TASK_ARTIFACT_NOT_FOUND)
+    return owner
 
 
 async def _load_current(
@@ -401,8 +453,10 @@ __all__ = [
     "TASK_OUTPUT_ARTIFACT_TYPE",
     "CurrentVersion",
     "TaskArtifactOwner",
+    "load_task_owner",
     "plan_task_artifact_version",
     "resolve_task_artifact_version",
     "task_artifact_storage_key",
+    "task_owner_predicate",
     "write_task_artifact",
 ]

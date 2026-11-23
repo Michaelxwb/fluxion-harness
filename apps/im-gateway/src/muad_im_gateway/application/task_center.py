@@ -21,7 +21,6 @@ Worker 侧按 `tenant + actor` 核属；Agent 维度在列表/详情/Fire/待处
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from typing import Any, Protocol
 from uuid import UUID
@@ -50,12 +49,13 @@ from muad_contracts import (
     TaskCenterTaskPage,
     TaskStatus,
 )
+from muad_logging import get_logger
 from pydantic import BaseModel, ValidationError
 
 from .chat_principal import ChatIdentity
 from .webchat_artifacts import ArtifactDownload, open_download_reference
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)

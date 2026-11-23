@@ -232,12 +232,15 @@ class ScheduleConfirmService:
         identity: ConfirmIdentity,
         idempotency_key: str,
         fingerprint: str,
+        dispatch_check: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         surface, ref = self._confirmation_scope(identity)
         draft = await self._locked_draft(draft_id, identity)
         self._check_hash(draft, request)
         self._check_state(draft)
         await self._check_reference(draft, identity.tenant_id, surface, ref)
+        if dispatch_check is not None:
+            draft.preview_json = {**draft.preview_json, "dispatch_check": dispatch_check}
         body = payload_request(draft)
         ensure_delivery_supported(body)
         delivery_route_id = await self._delivery_route_id(draft, body)

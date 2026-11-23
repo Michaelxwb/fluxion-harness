@@ -74,7 +74,7 @@ def test_run_and_task_details_mount_the_export_button() -> None:
     # Task 详情属于列表对象：全局 UI 契约禁止在侧滑 actions 放对象操作；
     # 导出是诊断动作，放在基本信息区标题行内。
     assert "actions={" not in task
-    assert "detail-section-title" in task
+    assert "exportAction={<ExportExecutionButton" in task
 
 
 def test_both_locales_have_export_labels() -> None:

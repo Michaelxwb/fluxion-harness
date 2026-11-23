@@ -101,7 +101,12 @@ def test_other_groups_keep_designed_defaults() -> None:
         "zh-CN",
         "Asia/Shanghai",
     )
-    assert settings.im.progress_interval_sec == 5.0
+    assert settings.im.progress_interval_sec == 2.0
+    assert (
+        settings.im.inbound_batch_quiet_ms,
+        settings.im.inbound_batch_max_wait_ms,
+        settings.im.inbound_batch_max_attachments,
+    ) == (300, 5000, 5)
     assert settings.mcp.max_tools_per_server == 200
 
 
@@ -148,6 +153,12 @@ _ACCEPT: list[tuple[str, Any]] = [
     ("auth.lock_duration_minutes", 1),
     ("auth.session_ttl_hours", 1),
     ("im.progress_interval_sec", 1.0),
+    ("im.inbound_batch_quiet_ms", 100),
+    ("im.inbound_batch_quiet_ms", 2000),
+    ("im.inbound_batch_max_wait_ms", 500),
+    ("im.inbound_batch_max_wait_ms", 30000),
+    ("im.inbound_batch_max_attachments", 1),
+    ("im.inbound_batch_max_attachments", 20),
     ("mcp.max_tools_per_server", 1),
     ("locale.default_locale", "en-US"),
     ("locale.default_timezone", "UTC"),
@@ -195,6 +206,13 @@ _REJECT: list[tuple[str, Any]] = [
     ("auth.lock_duration_minutes", 0),
     ("auth.session_ttl_hours", 0),
     ("im.progress_interval_sec", 0.5),
+    ("im.inbound_batch_quiet_ms", 99),
+    ("im.inbound_batch_quiet_ms", 2001),
+    ("im.inbound_batch_quiet_ms", True),
+    ("im.inbound_batch_max_wait_ms", 499),
+    ("im.inbound_batch_max_wait_ms", 30001),
+    ("im.inbound_batch_max_attachments", 0),
+    ("im.inbound_batch_max_attachments", 21),
     ("mcp.max_tools_per_server", 0),
     ("locale.default_locale", "fr-FR"),
     ("locale.default_locale", "zh_CN"),
@@ -234,6 +252,27 @@ def test_leaf_boundaries_outside_are_rejected(path: str, value: Any) -> None:
 
 
 # ---- 跨字段联动 ----
+
+def test_im_batch_quiet_window_must_be_less_than_max_wait() -> None:
+    with pytest.raises(PlatformSettingsError, match="inbound_batch_quiet_ms"):
+        parse_platform_settings(
+            {
+                "im": {
+                    "inbound_batch_quiet_ms": 5000,
+                    "inbound_batch_max_wait_ms": 5000,
+                }
+            }
+        )
+    accepted = parse_platform_settings(
+        {
+            "im": {
+                "inbound_batch_quiet_ms": 1999,
+                "inbound_batch_max_wait_ms": 2000,
+            }
+        }
+    )
+    assert accepted.im.inbound_batch_quiet_ms == 1999
+
 
 def test_snip_max_groups_must_exceed_kept_head_and_tail() -> None:
     boundary = _with("compaction.snip.keep_head_groups", 2)

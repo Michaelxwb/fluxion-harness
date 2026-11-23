@@ -6,19 +6,20 @@ import json
 from typing import Any
 
 import pytest
-from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
+from muad_agent_core.tools import ToolCall, ToolDefinition, ToolEffect, ToolRegistry, ToolResult
 from muad_agent_core.tools.pipeline import (
     PreparedToolCall,
     ToolExecutionPipeline,
     ToolPolicyDecision,
+    compute_args_hash,
 )
 
 CALLS: list[dict[str, Any]] = []
 
 
-async def _echo_handler(arguments: dict[str, Any], *, call_id: str) -> str:
+async def _echo_handler(arguments: dict[str, Any], *, call: ToolCall) -> ToolResult:
     CALLS.append(dict(arguments))
-    return json.dumps({"echo": arguments.get("text")})
+    return ToolResult(json.dumps({"echo": arguments.get("text")}))
 
 
 @pytest.fixture(autouse=True)
@@ -125,7 +126,7 @@ async def test_b113_args_hash_stable_and_redacted() -> None:
 async def test_b113_handler_failure_audits_and_reraises() -> None:
     """[B-113] handler 异常：审计失败终态后异常向上传播（不吞）。"""
 
-    async def bad_handler(arguments: dict[str, Any], *, call_id: str) -> str:
+    async def bad_handler(arguments: dict[str, Any], *, call: ToolCall) -> ToolResult:
         raise RuntimeError("boom")
 
     registry = ToolRegistry()
@@ -169,7 +170,31 @@ async def test_final_hook_parameters_are_revalidated_before_authorization(rewrit
     if isinstance(rewritten["text"], str):
         assert authorized == [rewritten] and result.status == "POLICY_DENIED"
     else:
-        assert authorized == [] and result.error_code == "SCHEMA_INVALID"
+        assert authorized == [] and result.result.outcome.error_code == "SCHEMA_INVALID"
+
+
+async def test_prepared_hash_comes_from_the_hook_rewritten_arguments() -> None:
+    """执行参数指纹只由 prepare 归一化后的 B 决定，恢复不再重算 assistant 的 A。"""
+    from muad_agent_core.hooks import HookContext, HookEvent, HookPipeline
+
+    hooks = HookPipeline()
+
+    async def rewrite(context):
+        return HookContext(context.event, {**context.payload, "arguments": {"text": "changed"}})
+
+    hooks.register(HookEvent.PRE_TOOL_USE, rewrite)
+    audit = RecordingAudit()
+    pipeline = ToolExecutionPipeline(registry=_registry(), audit=audit, hooks=hooks)
+    prepared = pipeline.prepare(
+        call_id="rewritten-ok", tool_name="echo", arguments={"text": "original"}
+    )
+
+    result = await pipeline.execute(prepared)
+
+    assert result.status == "SUCCEEDED"
+    assert CALLS == [{"text": "changed"}]
+    assert audit.events[0]["prepared_args_hash"] == compute_args_hash({"text": "changed"})
+    assert audit.events[0]["prepared_args_hash"] != compute_args_hash({"text": "original"})
 
 
 async def test_invalid_original_arguments_never_reach_hook():
@@ -183,7 +208,7 @@ async def test_invalid_original_arguments_never_reach_hook():
     hooks.register(HookEvent.PRE_TOOL_USE, hook)
     pipeline = ToolExecutionPipeline(registry=_registry(), hooks=hooks)
     result = await pipeline.execute(pipeline.prepare(call_id="bad", tool_name="echo", arguments={"text": 4}))
-    assert result.error_code == "SCHEMA_INVALID" and calls == [] and CALLS == []
+    assert result.result.outcome.error_code == "SCHEMA_INVALID" and calls == [] and CALLS == []
 
 
 def _strict_registry() -> ToolRegistry:
@@ -214,9 +239,9 @@ async def _schema_failure(arguments: dict[str, Any]) -> str:
     result = await pipeline.execute(
         pipeline.prepare(call_id="schema", tool_name="run", arguments=arguments)
     )
-    assert result.error_code == "SCHEMA_INVALID"
+    assert result.result.outcome.error_code == "SCHEMA_INVALID"
     assert CALLS == []
-    return result.content
+    return result.result.content
 
 
 async def test_schema_error_names_unexpected_field_without_echoing_values() -> None:

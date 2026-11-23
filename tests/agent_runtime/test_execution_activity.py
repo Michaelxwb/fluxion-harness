@@ -69,7 +69,7 @@ async def test_s402_model_and_tool_lifecycle_wrap_real_calls():
     async def completed():
         events.append("model.completed")
 
-    async def tool_started(call_id, name):
+    async def tool_started(prepared):
         events.append("tool.started")
 
     async def tool_completed(*args):
@@ -79,7 +79,7 @@ async def test_s402_model_and_tool_lifecycle_wrap_real_calls():
         AgentRunRequest(model_id="test", instructions=""),
         on_model_started=started,
         on_model_completed=completed,
-        on_tool_started=tool_started,
+        on_tool_prepared=tool_started,
         on_tool_completed=tool_completed,
     )
     assert result.final_text == "done"

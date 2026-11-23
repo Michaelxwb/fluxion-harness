@@ -12,12 +12,12 @@
 from __future__ import annotations
 
 import json
-import logging
 from collections.abc import Awaitable, Callable, Sequence
 from decimal import Decimal
 
 from muad_common import SharedSettings
 from muad_contracts import DEFAULT_EXTERNAL_CHANNEL, BotSnapshotItem
+from muad_logging import get_logger
 
 from .base import (
     ChannelAdapter,
@@ -33,7 +33,7 @@ from .routed import (
 from .webchat import WebchatChannelAdapter
 from .webhook import WebhookChannelAdapter, parse_webhook_channels
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 快照回调签名（`muad_im_core.BotSnapshotCache` 的 `SnapshotChangeCallback` 同形；
 #: 这里刻意不反向 import 应用层 —— channels 是装配根的下游，依赖方向单向）。

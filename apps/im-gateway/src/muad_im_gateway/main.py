@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
@@ -27,7 +26,7 @@ from muad_common.redis_client import (
 )
 from muad_common.session_store import RedisSessionStore
 from muad_im_core import BotSnapshotCache, InboundPublisher
-from muad_logging import configure_logging
+from muad_logging import configure_logging, get_logger
 from redis.crc import key_slot
 from redis.exceptions import ConnectionError as RedisConnectionError
 from redis.exceptions import RedisError as RedisErrorType
@@ -71,7 +70,7 @@ WEBCHAT_API_PREFIX = "/api/v1/webchat"
 #: 使「通道名 → 路由前缀」在所有平台上一致、可推导。
 MSSWWEB_API_PREFIX = "/api/v1/msswweb"
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 SERVICE_NAME = "muad-im-gateway"
 

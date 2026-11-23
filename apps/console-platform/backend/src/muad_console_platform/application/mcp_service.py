@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
 import time
 import uuid
 from datetime import UTC, datetime
@@ -13,6 +12,7 @@ from urllib.parse import urlparse
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_logging import get_logger
 from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -45,7 +45,7 @@ USER_SCOPE_SELECTED = "SELECTED"
 VALID_TRANSPORT = "streamable-http"
 _FORBIDDEN_AUTH_SECRET_CHARS = ("\r", "\n", "\x00")
 
-_logger = logging.getLogger(__name__)
+_logger = get_logger(__name__)
 
 
 def _invalid_config() -> AppError:

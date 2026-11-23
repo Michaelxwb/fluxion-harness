@@ -15,12 +15,13 @@
 from __future__ import annotations
 
 import hashlib
-import logging
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+from muad_agent_core.memory.language import memory_language
 from muad_agent_core.memory.memory_render import render_memory
 from muad_agent_core.memory.selection import (
     MemoryRecord,
@@ -28,6 +29,7 @@ from muad_agent_core.memory.selection import (
     QueryScopeState,
     select_memory,
 )
+from muad_agent_core.skill import SkillInvocationError, validate_skill_invocation
 from muad_api import AppError
 from muad_contracts import (
     SCHEDULE_SNAPSHOT_SCHEMA_VERSION,
@@ -39,6 +41,7 @@ from muad_contracts import (
     ScheduleMode,
     ScheduleSnapshotInvalid,
     ScheduleSnapshotTooLarge,
+    SkillInvocationContract,
     SkillPlanPayload,
     SnapshotAgent,
     SnapshotBudget,
@@ -59,6 +62,7 @@ from muad_contracts import (
 from muad_contracts.enums import OUTBOUND_CHANNELS
 from muad_contracts.memory import MemoryCardinality, MemoryPriority, ScopeState
 from muad_contracts.platform_settings import PlatformSettings
+from muad_logging import get_logger
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -67,7 +71,7 @@ from ..metrics import TASK_SNAPSHOT_BYTES_METRIC, record_gauge
 from ..scheduler.client import ScheduleMaterialsError, ScheduleMaterialsProtocol
 from ..scheduler.templates import render_argv, render_input_template, validate_input_template
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 永久错误：同一依赖不修复就永远不会再成功。
 PERMANENT_ADMISSION_CODES = frozenset(
@@ -86,6 +90,8 @@ PERMANENT_ADMISSION_CODES = frozenset(
         "SCHEMA_INCOMPATIBLE",
         "ASYNC_OPERATION_UNAVAILABLE",
         "SNAPSHOT_TOO_LARGE",
+        "SKILL_CONTRACT_MISSING",
+        "SKILL_ARGS_INVALID",
     }
 )
 
@@ -105,6 +111,8 @@ REPAIR_ACTIONS: dict[str, str] = {
     "CREDENTIAL_MISSING": "RESTORE_MODEL_CREDENTIAL",
     "TOOL_MISSING": "RESTORE_TOOL_GRANT",
     "TOOL_REVOKED": "RESTORE_TOOL_GRANT",
+    "SKILL_CONTRACT_MISSING": "REIMPORT_SKILL",
+    "SKILL_ARGS_INVALID": "FIX_SCHEDULE_ARGV",
     "SCHEMA_INCOMPATIBLE": "UPDATE_SCHEDULE_DEPENDENCY",
     "ASYNC_OPERATION_UNAVAILABLE": "REIMPORT_SKILL",
     "SNAPSHOT_TOO_LARGE": "REDUCE_SCHEDULE_DEPENDENCIES",
@@ -165,6 +173,9 @@ class AdmissionRequest:
     plan_input: dict[str, Any] = field(default_factory=dict)
     argv: tuple[str, ...] = ()
     window: dict[str, Any] | None = None
+    #: 只在 occurrence 准入（Fire/Draft preflight）校验渲染后的契约参数；
+    #: 生命周期准入没有 occurrence，不拿模板值做值校验。
+    validate_skill_args: bool = False
 
 
 def classify_failure(code: str, data: dict[str, Any] | None = None) -> AdmissionError:
@@ -240,6 +251,7 @@ def admission_request_from_revision(
         "schedule_revision_id": revision.id,
         "deadline_at": deadline_at,
         "delivery_intent": revision.delivery_intent,
+        "validate_skill_args": scheduled_at is not None,
     }
     if isinstance(payload, ReminderPayload):
         return AdmissionRequest(**base)
@@ -338,7 +350,12 @@ def build_memory_snapshot(
         taxonomy_version=memory.taxonomy_version,
         revision=memory.revision,
         payload_hash=_canonical_hash([[item["memory_key"], item["version"]] for item in entries]),
-        block={"entries": entries, "rendered_text": rendered.text},
+        block={
+            "entries": entries,
+            "rendered_text": rendered.text,
+            # Runner 用它裁决默认回复语言；与 entries 同源，不解析 rendered_text。
+            "language": memory_language(item.record for item in selected),
+        },
         degraded=False,
     )
 
@@ -349,6 +366,7 @@ def _snapshot_skills(
     return [
         SnapshotSkill(
             skill_id=skill.skill_id,
+            key=skill.key,
             artifact_id=skill.artifact_id,
             version=skill.version,
             checksum=skill.checksum,
@@ -378,6 +396,17 @@ def _snapshot_tools(materials: ScheduleAdmissionMaterials) -> list[SnapshotTool]
         )
         for tool in materials.tools
     ]
+
+
+def _material_allowlist(materials: ScheduleAdmissionMaterials) -> list[str]:
+    """`follow owner`：快照允许清单取 Console 展开后的全部工具材料。"""
+    keys: list[str] = []
+    for tool in materials.tools:
+        if tool.source == "MCP" and tool.server_key:
+            keys.append(f"MCP:{tool.server_key}:{tool.tool_name}")
+        elif tool.source == "SKILL" and tool.skill_id is not None:
+            keys.append(f"SKILL:{tool.skill_id}:{tool.tool_name}")
+    return keys
 
 
 def _snapshot_mcp(materials: ScheduleAdmissionMaterials) -> list[SnapshotMcpServer]:
@@ -421,10 +450,60 @@ def _snapshot_budget(
     )
 
 
+def _skill_contract_error(
+    materials: ScheduleAdmissionMaterials, request: AdmissionRequest
+) -> AdmissionError | None:
+    """Occurrence admission validates the current default-entrypoint contract."""
+    if (
+        not request.validate_skill_args
+        or request.mode is not ScheduleMode.SKILL
+        or request.skill_id is None
+    ):
+        return None
+    skill = next(
+        (item for item in materials.skills if item.skill_id == request.skill_id), None
+    )
+    if skill is None:
+        return AdmissionError("SKILL_MISSING", True, REPAIR_ACTIONS["SKILL_MISSING"])
+    frontmatter = skill.frontmatter if isinstance(skill.frontmatter, Mapping) else {}
+    raw = frontmatter.get("invocation_contract")
+    if raw is None:
+        return AdmissionError(
+            "SKILL_CONTRACT_MISSING",
+            True,
+            REPAIR_ACTIONS["SKILL_CONTRACT_MISSING"],
+        )
+    try:
+        contract = SkillInvocationContract.model_validate(raw)
+    except ValidationError:
+        return AdmissionError(
+            "SKILL_CONTRACT_MISSING",
+            True,
+            REPAIR_ACTIONS["SKILL_CONTRACT_MISSING"],
+        )
+    try:
+        validate_skill_invocation(
+            contract,
+            input_data=request.plan_input,
+            argv=request.argv,
+            phase="rendered",
+        )
+    except SkillInvocationError:
+        return AdmissionError(
+            "SKILL_ARGS_INVALID",
+            True,
+            REPAIR_ACTIONS["SKILL_ARGS_INVALID"],
+        )
+    return None
+
+
 def build_snapshot(
     materials: ScheduleAdmissionMaterials, request: AdmissionRequest, settings: PlatformSettings
 ) -> AdmissionOutcome:
     """组装 Snapshot v4：模式形状、无密钥、字节上限一次校验（纯函数）。"""
+    contract_error = _skill_contract_error(materials, request)
+    if contract_error is not None:
+        return AdmissionOutcome(error=contract_error)
     model = materials.model
     policy = dict(materials.policy)
     memory = build_memory_snapshot(materials, settings) if request.mode is ScheduleMode.AGENTIC else None
@@ -466,7 +545,11 @@ def build_snapshot(
             mcp=_snapshot_mcp(materials),
             memory=memory,
             budget=_snapshot_budget(materials, request, settings),
-            allowlist=[allowlist_key(entry) for entry in request.tool_allowlist],
+            allowlist=(
+                _material_allowlist(materials)
+                if request.mode is ScheduleMode.AGENTIC and not request.tool_allowlist
+                else [allowlist_key(entry) for entry in request.tool_allowlist]
+            ),
             prompt_template={
                 "version": TASK_PROMPT_TEMPLATE_VERSION,
                 "source": "agent.instructions",

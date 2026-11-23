@@ -13,18 +13,13 @@ from muad_api.catalog import MessageCatalog
 from muad_api.error_codes import ErrorCode
 from muad_contracts import ChannelResolveRequest, ChannelResolveResponse, DeliveryMessage, DeliveryRouteInput
 from muad_im_gateway.application.inbound import (
-    BIND_USAGE_TEXT,
-    BROKEN_STREAM_TEXT,
     DELTA_FLUSH_INTERVAL_SEC,
-    NEW_CONVERSATION_TEXT,
-    NO_PERMISSION_TEXT,
-    NO_SKILLS_TEXT,
-    SKILLS_UNAVAILABLE_TEXT,
-    STOP_ACCEPTED_TEXT,
-    UNBOUND_TEXT,
     InboundPipeline,
 )
-from muad_im_gateway.application.ports import NullPlatformSettingsClient
+from muad_im_gateway.application.ports import (
+    NullPlatformSettingsClient,
+    PlatformSettingsSnapshot,
+)
 from muad_im_gateway.application.runtime_client import SseEvent
 from muad_im_gateway.channels.base import ChannelAdapterUnavailable
 from muad_im_gateway.channels.fake import FakeChannelAdapter
@@ -35,6 +30,8 @@ from muad_im_gateway.infrastructure.dedupe import (
     InMemoryDedupeStore,
     NullDedupeStore,
 )
+
+BROKEN_STREAM_TEXT = "服务暂时中断，请重发消息"
 
 
 class _BrokenSendAdapter(FakeChannelAdapter):
@@ -123,6 +120,16 @@ def _pipeline(
     )
 
 
+class _LocaleSettingsClient:
+    def __init__(self, locale: str) -> None:
+        self._locale = locale
+
+    async def fetch_snapshot(self, **kwargs: Any) -> PlatformSettingsSnapshot:
+        return PlatformSettingsSnapshot(
+            revision=1, settings={"locale": {"default_locale": self._locale}}
+        )
+
+
 def _sent_texts(adapter: FakeChannelAdapter) -> list[str]:
     return [message.text for _route, message in adapter.sent]
 
@@ -140,7 +147,7 @@ async def test_unbound_message_prompts_bind(catalog: MessageCatalog) -> None:
 
     await pipeline.handle(adapter, make_envelope())
 
-    assert _sent_texts(adapter) == [UNBOUND_TEXT]
+    assert _sent_texts(adapter) == ["请先使用 /bind <绑定码> 完成身份绑定"]
     assert runtime.run_requests == []
 
 
@@ -153,7 +160,7 @@ async def test_unauthorized_message_replies_denied(catalog: MessageCatalog) -> N
 
     await pipeline.handle(adapter, make_envelope())
 
-    assert _sent_texts(adapter) == [NO_PERMISSION_TEXT]
+    assert _sent_texts(adapter) == ["当前账号未获得该智能体使用权限"]
     assert runtime.run_requests == []
 
 
@@ -489,7 +496,7 @@ async def test_bind_without_code_shows_usage(catalog: MessageCatalog) -> None:
 
     await pipeline.handle(adapter, make_envelope(text="/bind"))
 
-    assert _sent_texts(adapter) == [BIND_USAGE_TEXT]
+    assert _sent_texts(adapter) == ["用法：/bind <绑定码>"]
     assert console.bind_calls == []
 
 
@@ -502,9 +509,32 @@ async def test_stop_with_active_run_accepted(catalog: MessageCatalog) -> None:
 
     await pipeline.handle(adapter, make_envelope(text="/stop"))
 
-    assert _sent_texts(adapter) == [STOP_ACCEPTED_TEXT]
+    assert _sent_texts(adapter) == ["正在停止当前任务…"]
     assert runtime.cancel_calls == [
         (console.resolve_response.agent_id, console.resolve_response.platform_user_id)
+    ]
+
+
+async def test_command_receipts_follow_the_tenant_locale(catalog: MessageCatalog) -> None:
+    console = FakeConsoleClient()
+    console.resolve_response = resolved_response()
+    runtime = FakeRuntimeClient()
+    adapter = FakeChannelAdapter()
+    pipeline = _pipeline(
+        console,
+        runtime,
+        catalog=catalog,
+        settings_client=_LocaleSettingsClient("en-US"),
+    )
+
+    await pipeline.handle(adapter, make_envelope(text="/bind", message_id="en-bind"))
+    await pipeline.handle(adapter, make_envelope(text="/stop", message_id="en-stop"))
+    await pipeline.handle(adapter, make_envelope(text="/skills", message_id="en-skills"))
+
+    assert _sent_texts(adapter) == [
+        "Usage: /bind <binding-code>",
+        "Stopping the current task…",
+        "No skills are available.",
     ]
 
 
@@ -530,7 +560,7 @@ async def test_new_command_creates_conversation(catalog: MessageCatalog) -> None
 
     await pipeline.handle(adapter, make_envelope(text="/new"))
 
-    assert _sent_texts(adapter) == [NEW_CONVERSATION_TEXT]
+    assert _sent_texts(adapter) == ["已创建新会话"]
     assert runtime.conversations == [
         (console.resolve_response.agent_id, console.resolve_response.platform_user_id)
     ]
@@ -546,7 +576,7 @@ async def test_skills_failure_replies_unavailable(catalog: MessageCatalog) -> No
 
     await pipeline.handle(adapter, make_envelope(text="/skills"))
 
-    assert _sent_texts(adapter) == [SKILLS_UNAVAILABLE_TEXT]
+    assert _sent_texts(adapter) == ["技能列表暂不可用"]
 
 
 async def test_skills_success_lists_effective_catalog(catalog: MessageCatalog) -> None:
@@ -583,7 +613,7 @@ async def test_skills_empty_catalog_reply(catalog: MessageCatalog) -> None:
 
     await pipeline.handle(adapter, make_envelope(text="/skills"))
 
-    assert _sent_texts(adapter) == [NO_SKILLS_TEXT]
+    assert _sent_texts(adapter) == ["暂无可用技能"]
 
 
 async def test_channel_adapter_failure_does_not_crash(catalog: MessageCatalog) -> None:

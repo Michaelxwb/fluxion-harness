@@ -1,0 +1,136 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="802" viewBox="0 0 1200 802" role="img" aria-labelledby="title">
+<title id="title">Skill导入与自建</title>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"/></marker></defs>
+<style>text{font-family:PingFang SC,Microsoft YaHei,Arial,sans-serif;fill:#20344B}path,polyline{stroke-linejoin:round;stroke-linecap:round}</style>
+<rect width="1200" height="802" fill="#FFFFFF"/>
+<rect x="30" y="110" width="1140" height="228" rx="12" fill="#FBFCFE" stroke="#DCE4EC" stroke-width="1.4"/>
+<rect x="30" y="358" width="1140" height="180" rx="12" fill="#FBFCFE" stroke="#DCE4EC" stroke-width="1.4"/>
+<rect x="30" y="558" width="1140" height="204" rx="12" fill="#FBFCFE" stroke="#DCE4EC" stroke-width="1.4"/>
+<g data-node="U"><rect x="60" y="30" width="160" height="60" rx="8" fill="#F4F6F9" stroke="#CBD3DE" stroke-width="1.5"/>
+<text x="140.0" y="57" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">服务经理</text>
+<text x="140.0" y="79" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">自建与提交</text>
+</g>
+<line data-lifeline="U" x1="140" y1="90" x2="140" y2="772" stroke="#6B8199" stroke-width="1.5"/>
+<circle cx="140" cy="772" r="3" fill="#8FA3B6"/>
+<g data-node="A"><rect x="280" y="30" width="160" height="60" rx="8" fill="#F4F6F9" stroke="#CBD3DE" stroke-width="1.5"/>
+<text x="360.0" y="57" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">管理员</text>
+<text x="360.0" y="79" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">审批与导入</text>
+</g>
+<line data-lifeline="A" x1="360" y1="90" x2="360" y2="772" stroke="#6B8199" stroke-width="1.5"/>
+<circle cx="360" cy="772" r="3" fill="#8FA3B6"/>
+<g data-node="C"><rect x="500" y="30" width="160" height="60" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="580.0" y="57" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Console</text>
+<text x="580.0" y="79" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">校验、发布与审批</text>
+</g>
+<line data-lifeline="C" x1="580" y1="90" x2="580" y2="772" stroke="#6B8199" stroke-width="1.5"/>
+<circle cx="580" cy="772" r="3" fill="#8FA3B6"/>
+<g data-node="P"><rect x="720" y="30" width="160" height="60" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="800.0" y="57" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">共享存储</text>
+<text x="800.0" y="79" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">不可变制品</text>
+</g>
+<line data-lifeline="P" x1="800" y1="90" x2="800" y2="772" stroke="#6B8199" stroke-width="1.5"/>
+<circle cx="800" cy="772" r="3" fill="#8FA3B6"/>
+<g data-node="R"><rect x="940" y="30" width="160" height="60" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="1020.0" y="57" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Runtime/Worker</text>
+<text x="1020.0" y="79" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">后续执行</text>
+</g>
+<line data-lifeline="R" x1="1020" y1="90" x2="1020" y2="772" stroke="#6B8199" stroke-width="1.5"/>
+<circle cx="1020" cy="772" r="3" fill="#8FA3B6"/>
+<rect x="41" y="118" width="168.0" height="26" fill="#FBFCFE"/>
+<text x="46" y="137" font-size="16" font-weight="600" text-anchor="start" style="fill:#4B637C">服务经理自建并提交</text>
+<line x1="40" y1="165" x2="1160" y2="165" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="140" cy="165" r="2.6" fill="#447DA5"/>
+<polyline points="140,165 580,165" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="263.7" y="141" width="192.60000000000005" height="20" rx="4" fill="#FFFFFF"/>
+<text x="360" y="156" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">1 写端口检查 Skill 草稿</text>
+<line x1="40" y1="189" x2="1160" y2="189" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="580" cy="189" r="2.6" fill="#447DA5"/>
+<polyline points="580,189 800,189" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="645.6" y="165" width="88.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="690" y="180" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">2 保存草稿</text>
+<line x1="40" y1="213" x2="1160" y2="213" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="140" cy="213" r="2.6" fill="#447DA5"/>
+<polyline points="140,213 580,213" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="293.1" y="189" width="133.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="360" y="204" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">3 在草稿沙箱测试</text>
+<line x1="40" y1="237" x2="1160" y2="237" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="580" cy="237" r="2.6" fill="#3D8585"/>
+<polyline points="580,237 140,237" fill="none" stroke="#3D8585" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="300.6" y="213" width="118.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="360" y="228" font-size="15" font-weight="500" text-anchor="middle" style="fill:#3D8585">4 返回测试结果</text>
+<line x1="40" y1="261" x2="1160" y2="261" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="140" cy="261" r="2.6" fill="#447DA5"/>
+<polyline points="140,261 580,261" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="293.1" y="237" width="133.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="360" y="252" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">5 上传草稿并提交</text>
+<line x1="40" y1="285" x2="1160" y2="285" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="580" cy="285" r="2.6" fill="#447DA5"/>
+<polyline points="580,285 800,285" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="615.6" y="261" width="148.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="690" y="276" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">6 校验并写待审制品</text>
+<line x1="40" y1="309" x2="1160" y2="309" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="580" cy="309" r="2.6" fill="#3D8585"/>
+<polyline points="580,309 140,309" fill="none" stroke="#3D8585" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="308.1" y="285" width="103.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="360" y="300" font-size="15" font-weight="500" text-anchor="middle" style="fill:#3D8585">7 返回待审批</text>
+<rect x="41" y="366" width="104.0" height="26" fill="#FBFCFE"/>
+<text x="46" y="385" font-size="16" font-weight="600" text-anchor="start" style="fill:#4B637C">管理员审批</text>
+<line x1="40" y1="413" x2="1160" y2="413" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="360" cy="413" r="2.6" fill="#447DA5"/>
+<polyline points="360,413 580,413" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="392.9" y="389" width="154.20000000000005" height="20" rx="4" fill="#FFFFFF"/>
+<text x="470" y="404" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">8 打开待审批 Skill</text>
+<line x1="40" y1="437" x2="1160" y2="437" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="580" cy="437" r="2.6" fill="#447DA5"/>
+<polyline points="580,437 800,437" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="630.6" y="413" width="118.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="690" y="428" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">9 读取待审制品</text>
+<line x1="40" y1="461" x2="1160" y2="461" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="360" cy="461" r="2.6" fill="#447DA5"/>
+<polyline points="360,461 580,461" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="421.4" y="437" width="97.19999999999999" height="20" rx="4" fill="#FFFFFF"/>
+<text x="470" y="452" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">10 审批通过</text>
+<line x1="40" y1="485" x2="1160" y2="485" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="580" cy="485" r="2.6" fill="#447DA5"/>
+<polyline points="580,485 800,485" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="626.4" y="461" width="127.19999999999999" height="20" rx="4" fill="#FFFFFF"/>
+<text x="690" y="476" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">11 更新当前版本</text>
+<line x1="40" y1="509" x2="1160" y2="509" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="580" cy="509" r="2.6" fill="#3D8585"/>
+<polyline points="580,509 360,509" fill="none" stroke="#3D8585" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="413.9" y="485" width="112.19999999999999" height="20" rx="4" fill="#FFFFFF"/>
+<text x="470" y="500" font-size="15" font-weight="500" text-anchor="middle" style="fill:#3D8585">12 返回已生效</text>
+<rect x="41" y="566" width="232.0" height="26" fill="#FBFCFE"/>
+<text x="46" y="585" font-size="16" font-weight="600" text-anchor="start" style="fill:#4B637C">管理员直接导入（默认生效）</text>
+<line x1="40" y1="613" x2="1160" y2="613" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="360" cy="613" r="2.6" fill="#447DA5"/>
+<polyline points="360,613 580,613" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="381.2" y="589" width="177.60000000000005" height="20" rx="4" fill="#FFFFFF"/>
+<text x="470" y="604" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">13 上传端口检查 Skill</text>
+<line x1="40" y1="637" x2="1160" y2="637" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="580" cy="637" r="2.6" fill="#447DA5"/>
+<polyline points="580,637 800,637" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="626.4" y="613" width="127.19999999999999" height="20" rx="4" fill="#FFFFFF"/>
+<text x="690" y="628" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">14 校验并写制品</text>
+<line x1="40" y1="661" x2="1160" y2="661" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="580" cy="661" r="2.6" fill="#447DA5"/>
+<polyline points="580,661 800,661" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="611.4" y="637" width="157.2" height="20" rx="4" fill="#FFFFFF"/>
+<text x="690" y="652" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">15 直接发布当前版本</text>
+<line x1="40" y1="685" x2="1160" y2="685" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="580" cy="685" r="2.6" fill="#3D8585"/>
+<polyline points="580,685 360,685" fill="none" stroke="#3D8585" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="368.9" y="661" width="202.2" height="20" rx="4" fill="#FFFFFF"/>
+<text x="470" y="676" font-size="15" font-weight="500" text-anchor="middle" style="fill:#3D8585">16 返回已生效（默认生效）</text>
+<line x1="40" y1="709" x2="1160" y2="709" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="1020" cy="709" r="2.6" fill="#447DA5"/>
+<polyline points="1020,709 800,709" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="853.9" y="685" width="112.19999999999999" height="20" rx="4" fill="#FFFFFF"/>
+<text x="910" y="700" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">17 加载新版本</text>
+<line x1="40" y1="733" x2="1160" y2="733" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="800" cy="733" r="2.6" fill="#3D8585"/>
+<polyline points="800,733 1020,733" fill="none" stroke="#3D8585" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="861.4" y="709" width="97.19999999999999" height="20" rx="4" fill="#FFFFFF"/>
+<text x="910" y="724" font-size="15" font-weight="500" text-anchor="middle" style="fill:#3D8585">18 返回制品</text>
+<text x="46" y="760" font-size="14" font-weight="400" text-anchor="start" style="fill:#536B81">制品不可变；服务经理自建需审批；管理员直接导入默认生效；新版本只影响后续执行。</text>
+</svg>

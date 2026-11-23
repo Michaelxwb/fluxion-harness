@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title">
+<title id="title">系统组成与边界</title>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"/></marker></defs>
+<style>text{font-family:PingFang SC,Microsoft YaHei,Arial,sans-serif;fill:#20344B}path,polyline{stroke-linejoin:round;stroke-linecap:round}</style>
+<rect width="1200" height="620" fill="#FFFFFF"/>
+<rect x="30" y="30" width="190" height="390" rx="12" fill="#FBFCFE" stroke="#DCE4EC" stroke-width="1.4"/>
+<text x="46" y="57" font-size="16" font-weight="600" text-anchor="start" style="fill:#4B637C">使用方与入口</text>
+<rect x="250" y="30" width="700" height="390" rx="12" fill="#FBFCFE" stroke="#DCE4EC" stroke-width="1.4"/>
+<text x="266" y="57" font-size="16" font-weight="600" text-anchor="start" style="fill:#4B637C">Fluxion Harness · 平台组件</text>
+<rect x="980" y="30" width="190" height="390" rx="12" fill="#FBFCFE" stroke="#DCE4EC" stroke-width="1.4"/>
+<text x="996" y="57" font-size="16" font-weight="600" text-anchor="start" style="fill:#4B637C">外部服务</text>
+<g data-node="admin"><rect x="45" y="135" width="160" height="88" rx="8" fill="#F4F6F9" stroke="#CBD3DE" stroke-width="1.5"/>
+<text x="125.0" y="162" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">管理员</text>
+<text x="125.0" y="184" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">Console 浏览器</text>
+</g>
+<g data-node="users"><rect x="45" y="265" width="160" height="88" rx="8" fill="#F4F6F9" stroke="#CBD3DE" stroke-width="1.5"/>
+<text x="125.0" y="292" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">服务经理</text>
+<text x="125.0" y="314" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">企微 / WebChat</text>
+</g>
+<g data-node="console"><rect x="280" y="100" width="280" height="74" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="420.0" y="127" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Console Platform</text>
+<text x="420.0" y="149" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">定义、授权、资源与审计</text>
+</g>
+<g data-node="gateway"><rect x="610" y="100" width="310" height="74" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="765.0" y="127" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">IM Gateway</text>
+<text x="765.0" y="149" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">身份解析、路由与事件订阅</text>
+</g>
+<g data-node="runtime"><rect x="280" y="210" width="280" height="74" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="420.0" y="237" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Agent Runtime</text>
+<text x="420.0" y="259" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">无状态对话执行与接续</text>
+</g>
+<g data-node="worker"><rect x="610" y="210" width="310" height="74" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="765.0" y="237" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Agent Worker</text>
+<text x="765.0" y="259" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">持久任务、定时、批量与交付</text>
+</g>
+<g data-node="connector"><rect x="280" y="320" width="280" height="74" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="420.0" y="347" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">IM Connector（可选）</text>
+<text x="420.0" y="369" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">企微长连接与连接租约</text>
+</g>
+<g data-node="capability"><rect x="610" y="320" width="310" height="74" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="765.0" y="347" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">共享能力层</text>
+<text x="765.0" y="369" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">执行内核、Skill 与平台接入</text>
+</g>
+<g data-node="models"><rect x="995" y="100" width="160" height="74" rx="8" fill="#F4F6F9" stroke="#CBD3DE" stroke-width="1.5"/>
+<text x="1075.0" y="127" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">模型网关</text>
+<text x="1075.0" y="149" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">统一模型接入与脱敏</text>
+<text x="1075.0" y="168" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">屏蔽源头供应商</text>
+</g>
+<g data-node="mcp"><rect x="995" y="210" width="160" height="74" rx="8" fill="#F4F6F9" stroke="#CBD3DE" stroke-width="1.5"/>
+<text x="1075.0" y="237" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">MCP 服务</text>
+<text x="1075.0" y="259" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">外部工具接口</text>
+</g>
+<g data-node="business"><rect x="995" y="320" width="160" height="74" rx="8" fill="#F4F6F9" stroke="#CBD3DE" stroke-width="1.5"/>
+<text x="1075.0" y="347" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">业务平台</text>
+<text x="1075.0" y="369" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">业务数据与操作</text>
+</g>
+<rect x="30" y="450" width="690" height="140" rx="12" fill="#FBFCFE" stroke="#DCE4EC" stroke-width="1.4"/>
+<text x="46" y="477" font-size="16" font-weight="600" text-anchor="start" style="fill:#4B637C">共享数据与文件</text>
+<g data-node="postgres"><rect x="50" y="505" width="200" height="62" rx="8" fill="#F2F7F6" stroke="#BAD6CE" stroke-width="1.5"/>
+<text x="150.0" y="532" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">PostgreSQL</text>
+<text x="150.0" y="554" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">权威状态</text>
+</g>
+<g data-node="redis"><rect x="270" y="505" width="200" height="62" rx="8" fill="#F2F7F6" stroke="#BAD6CE" stroke-width="1.5"/>
+<text x="370.0" y="532" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Redis</text>
+<text x="370.0" y="554" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">缓存、通道流与短租约</text>
+</g>
+<g data-node="pvc"><rect x="490" y="505" width="210" height="62" rx="8" fill="#F2F7F6" stroke="#BAD6CE" stroke-width="1.5"/>
+<text x="595.0" y="532" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">共享存储</text>
+<text x="595.0" y="554" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">Skill 制品 / 工作区</text>
+</g>
+</svg>

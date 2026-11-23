@@ -81,7 +81,7 @@ TASK_TIMEOUT_SEC = 90.0
 SCHEDULER_POLL_SEC = SCHEDULER_POLL_INTERVAL_SEC
 POLL_INTERVAL_SEC = 0.2
 
-EXECUTE_SKILL_TOOL = "execute_skill"
+EXECUTE_SKILL_TOOL = "execute"
 PARKED_NOT_BEFORE = datetime(9999, 12, 31, 23, 59, 59, tzinfo=UTC)
 
 # 真实副作用脚本（与 `environment.SKILL_SCRIPT` 同口径）：把 `side_effect_path` 追加一行。
@@ -555,7 +555,11 @@ def test_s07_async_skill_call_submits_immediate_task_and_run_completes(
     """[S-07] ASYNC Skill：Run 只提交后台 Task，Run 自身正常终态。"""
     llm_probe.tool_call = {
         "name": EXECUTE_SKILL_TOOL,
-        "arguments": {"skill_key": live_stack.skill_key, "input": {"case": "s07-async"}},
+        "arguments": {
+            "target": "skill",
+            "skill_key": live_stack.skill_key,
+            "input": {"case": "s07-async"},
+        },
     }
 
     run_id, _ = _start_run(live_stack, http, "s07 async routing")
@@ -599,6 +603,7 @@ def test_s07_sync_skill_call_executes_inline_without_task_row(
     llm_probe.tool_call = {
         "name": EXECUTE_SKILL_TOOL,
         "arguments": {
+            "target": "skill",
             "skill_key": sync_skill_key,
             "input": {"side_effect_path": str(side_effect)},
         },

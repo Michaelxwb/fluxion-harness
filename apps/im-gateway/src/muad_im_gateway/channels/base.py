@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
@@ -14,8 +13,9 @@ from muad_contracts import (
     DeliveryMessage,
     DeliveryRouteInput,
 )
+from muad_logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ChannelAdapterUnavailable(Exception):
@@ -71,7 +71,7 @@ class ChannelReplySession(Protocol):
         适配器据此找回**本条消息**的回调，而不是本路由最新那条。"""
         ...
 
-    async def update_status(self, text: str) -> None: ...
+    async def update_status(self, text: str, *, force: bool = False) -> None: ...
 
     async def stream(self, text: str) -> None: ...
 

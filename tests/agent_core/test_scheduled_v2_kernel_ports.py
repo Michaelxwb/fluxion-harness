@@ -42,7 +42,7 @@ from muad_agent_core.model import (
     ModelRole,
     ModelToolCall,
 )
-from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
+from muad_agent_core.tools import ToolCall, ToolDefinition, ToolEffect, ToolRegistry, ToolResult
 from muad_agent_core.tools.round_results import ToolResultRoundPort
 from muad_contracts import OperationStatus, OperationWatermark
 
@@ -78,9 +78,9 @@ def _tool_call(*calls: tuple[str, str]) -> ModelResponse:
 def _registry(calls: list[str]) -> ToolRegistry:
     registry = ToolRegistry()
 
-    async def handler(arguments: Mapping[str, Any], *, call_id: str) -> str:
-        calls.append(call_id)
-        return json.dumps({"echo": call_id})
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        calls.append(call.call_id)
+        return ToolResult(json.dumps({"echo": call.call_id}))
 
     registry.register(
         ToolDefinition(
@@ -209,18 +209,16 @@ async def _observe_suspension(harness: AdapterHarness) -> Observation:
     async def assistant(message: ModelMessage) -> None:
         order.append("assistant")
 
-    async def started(call_id: str, name: str) -> None:
+    async def started(prepared) -> None:
         order.append("tool_started")
 
-    async def completed(
-        call_id: str, name: str, status: str, artifact_id: str | None, text: str | None
-    ) -> None:
+    async def completed(event) -> None:
         order.append("tool_completed")
 
     result = await runner.run(
         AgentRunRequest(model_id="m", instructions="i"),
         on_assistant_turn=assistant,
-        on_tool_started=started,
+        on_tool_prepared=started,
         on_tool_completed=completed,
     )
     return Observation(
@@ -361,10 +359,8 @@ async def test_unauthorized_tool_is_reported_without_execution(harness: AdapterH
     )
     reported: list[str | None] = []
 
-    async def on_tool_completed(
-        call_id: str, name: str, status: str, artifact_id: str | None, text: str | None
-    ) -> None:
-        reported.append(text)
+    async def on_tool_completed(event) -> None:
+        reported.append(event.content)
 
     result = await runner.run(
         AgentRunRequest(model_id="m", instructions="i"), on_tool_completed=on_tool_completed
@@ -455,12 +451,12 @@ async def test_resume_reuses_the_same_loop_and_does_not_replay_tools(harness: Ad
 
 
 class _BrokenCompactor(ContextCompactor):
-    async def compact(self, messages: Sequence[ModelMessage]) -> tuple[ModelMessage, ...]:
+    async def compact_plan(self, plan: Any) -> Any:
         raise RuntimeError("summary backend down")
 
 
 class _BrokenRoundResults(ToolResultRoundPort):
-    async def finish_round(self, results: Sequence[ModelMessage]) -> Sequence[ModelMessage]:
+    async def finish_round(self, results: Sequence[ToolResult]) -> Sequence[ToolResult]:
         raise RuntimeError("artifact store down")
 
 
@@ -486,10 +482,8 @@ async def test_failed_round_results_keep_inline_results(caplog: pytest.LogCaptur
     provider = ScriptedModelProvider([_tool_call(("call-1", "echo")), _text("done")])
     completed: list[tuple[str, str | None]] = []
 
-    async def on_tool_completed(
-        call_id: str, name: str, status: str, artifact_id: str | None, text: str | None
-    ) -> None:
-        completed.append((artifact_id or "", text))
+    async def on_tool_completed(event) -> None:
+        completed.append((event.content, event.status))
 
     runner = AgentRunner(
         provider=provider,
@@ -501,7 +495,7 @@ async def test_failed_round_results_keep_inline_results(caplog: pytest.LogCaptur
             AgentRunRequest(model_id="m", instructions="i"), on_tool_completed=on_tool_completed
         )
     assert result.status is AgentRunStatus.COMPLETED
-    assert completed == [("", '{"echo": "call-1"}')]
+    assert completed == [('{"echo": "call-1"}', "OK")]
     assert any(record.message == "tool_round_results_failed" for record in caplog.records)
 
 

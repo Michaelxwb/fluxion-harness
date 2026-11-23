@@ -17,12 +17,13 @@ from typing import Any, cast
 
 import httpx
 import pytest
-from muad_agent_core.tools import ToolRegistry
+from muad_agent_core.tools import ToolCall, ToolError, ToolRegistry
 from muad_agent_runtime.application.run_service import delivery_route_of
 from muad_agent_runtime.application.skill_tools import EXECUTE_SKILL_TOOL, EXECUTE_TOOL, SkillToolSet
 from muad_agent_runtime.application.task_client import TaskSubmissionContext, WorkerTaskClient
 from muad_agent_runtime.application.task_tools import (
     DRAFT_SCHEDULE_TOOL,
+    GET_TASK_TOOL,
     LIST_SCHEDULES_TOOL,
     PAUSE_SCHEDULE_TOOL,
     BackgroundTaskToolSet,
@@ -111,7 +112,22 @@ def _async_skill() -> ResolvedSkill:
         checksum="sha256:" + "c" * 64,
         storage_key="skills/policy_check.zip",
         execution_mode=SkillExecutionMode.ASYNC,
-        frontmatter={},
+        frontmatter={
+            "invocation_contract": {
+                "version": 1,
+                "invocation": "stdin",
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "day": {"type": "string", "format": "date"},
+                        "customers": {"type": "array", "items": {"type": "string"}},
+                        "actor_user_id": {"type": "string"},
+                    },
+                    "required": [],
+                    "additionalProperties": False,
+                },
+            }
+        },
         source="ADMIN",
     )
 
@@ -200,10 +216,16 @@ async def _call_tool(
         arguments = {"target": "skill", **arguments}
     definition = tool_set.registry().get(name)
     assert definition.handler is not None
-    return cast(
-        dict[str, Any],
-        json.loads(await definition.handler(arguments, call_id=call_id or f"call-{uuid.uuid4()}")),
+    call = ToolCall(
+        call_id=call_id or f"call-{uuid.uuid4()}",
+        name=name,
+        arguments=arguments,
     )
+    try:
+        result = await definition.handler(arguments, call=call)
+    except ToolError as exc:
+        return cast(dict[str, Any], json.loads(exc.content()))
+    return cast(dict[str, Any], json.loads(result.content))
 
 
 async def _task_row(task_id: uuid.UUID) -> TaskExecution:
@@ -436,6 +458,19 @@ async def test_b123_runtime_task_client_does_not_touch_task_schema() -> None:
     assert "infrastructure.models" not in source
 
 
+def test_b125_get_task_contract_relays_result_verbatim() -> None:
+    """转发任务结果默认全文：这条提示是模型行为契约，不能被后续改描述时悄悄删掉。"""
+    registry = ToolRegistry()
+    BackgroundTaskToolSet(
+        client=cast(Any, object()), context=cast(Any, object()), skills=[]
+    ).register(registry)
+
+    description = registry.get(GET_TASK_TOOL).description
+    assert "verbatim" in description
+    assert "do not summarize" in description
+    assert "list_attachments(scope=task" in description
+
+
 ROUTE = DeliveryRouteInput(channel="WECOM", bot_id="bot-1", external_user_id="wotv-1")
 
 
@@ -450,7 +485,12 @@ def _task_tools(
 async def _invoke(registry: ToolRegistry, name: str, arguments: dict[str, object]) -> dict[str, Any]:
     handler = registry.get(name).handler
     assert handler is not None
-    return cast(dict[str, Any], json.loads(await handler(arguments, call_id=f"call-{uuid.uuid4()}")))
+    call = ToolCall(call_id=f"call-{uuid.uuid4()}", name=name, arguments=arguments)
+    try:
+        result = await handler(arguments, call=call)
+    except ToolError as exc:
+        return cast(dict[str, Any], json.loads(exc.content()))
+    return cast(dict[str, Any], json.loads(result.content))
 
 
 async def test_b123_draft_tool_uses_run_actor_and_never_creates_a_schedule(
@@ -490,8 +530,8 @@ async def test_b123_draft_tool_uses_run_actor_and_never_creates_a_schedule(
     assert draft.owner_user_id == actor
     assert draft.agent_id == context.agent.id
     assert draft.payload_json["payload"]["skill_id"] == str(skill.skill_id)
-async def test_b123_draft_tool_asks_for_the_user_timezone() -> None:
-    """缺少用户 IANA 时区就问用户，绝不回退服务端默认时区。"""
+async def test_b123_draft_tool_asks_for_the_user_timezone_when_no_default_exists() -> None:
+    """直构路径没有平台设置源/冻结值时仍问用户，不自造服务端本地时区。"""
     skill = _async_skill()
     client = _client()
     context = _submission_context(actor_user_id=uuid.uuid4(), skill=skill, delivery_route=None)

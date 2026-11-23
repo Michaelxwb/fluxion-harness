@@ -26,7 +26,6 @@
 
 from __future__ import annotations
 
-import logging
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
@@ -51,6 +50,7 @@ from muad_contracts import (
     parse_schedule_payload,
 )
 from muad_contracts.platform_settings import TaskSettings
+from muad_logging import get_logger
 from sqlalchemy import false, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -73,7 +73,7 @@ from ..metrics import SCHEDULE_FIRE_DUPLICATE_METRIC, increment
 from .recurrence import OccurrencePlan, PlanAction, execution_key, to_utc
 from .templates import render_argv, render_input_template
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 阻断集（`SKIP_IF_RUNNING` 的 Fire 创建）：**全部非终态根执行，含 QUEUED**。占槽集在 claim
 #: 侧不含 QUEUED（避免候选自己挡自己），两套集合不同，不能合并成一个常量。

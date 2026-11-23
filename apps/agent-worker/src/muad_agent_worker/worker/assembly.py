@@ -10,13 +10,17 @@ import httpx
 from muad_agent_core.sandbox import WorkspaceQuotaPolicy, WorkspaceStore, workspace_layout_from_settings
 from muad_agent_core.skill import build_sandboxed_skill_executor
 from muad_common import SharedSettings
+from muad_platform_sdk.host_egress_execution import HostEgressExecution
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..application.agentic.run import AgenticDependencies
 from ..application.agentic.session_context import DbSessionContextReader
+from ..application.agentic.snapshot import load_frozen_execution
+from ..application.agentic.suspension import AgenticSuspension
 from ..application.ports import PlatformSettingsClient
 from ..infrastructure.console_credentials import ConsoleCredentialClient
 from ..infrastructure.http_clients import WorkerHttpPools
+from ..infrastructure.models.task import TaskExecution
 from ..infrastructure.task_artifact_client import TaskArtifactClient
 from ..infrastructure.task_capacity_client import TaskCapacityClient
 from ..infrastructure.task_operation_client import TaskOperationClient
@@ -51,10 +55,9 @@ def build_agentic_executor(
 ) -> AgenticTaskExecutor:
     """AGENTIC 执行器：模型容量/异步操作/产物走 Runtime，凭据解析走 Console。
 
-    `settings_client` 只为装配一致性保留（当前 Agentic 路径不读平台设置：预算与压缩策略都在
-    Snapshot 里冻结）。
+    `settings_client` 只用于执行开始时读取一次平台默认回复语言；预算、压缩与记忆仍在
+    Snapshot 里冻结，不由本路径重新解析。
     """
-    del settings_client
     # 延迟导入：bootstrap 在导入时创建 artifact/cache 目录，只做装配的浏览器/单测不该有
     # 文件系统副作用（`main` 也因此只在启动装配时才引入本模块）。
     from ..bootstrap.artifacts import skill_artifact_cache
@@ -86,6 +89,7 @@ def build_agentic_executor(
         sessions=sessions,
         artifact_resolver=skill_artifact_cache,
         skill_executor=skill_executor,
+        settings_client=settings_client,
         capacity=capacity,
         credentials=credentials,
         operations=operations,
@@ -95,7 +99,10 @@ def build_agentic_executor(
         session_context=DbSessionContextReader(sessions),
     )
 
-    def skill_runner(task, suspension):  # type: ignore[no-untyped-def]
+    def skill_runner(
+        task: TaskExecution, suspension: AgenticSuspension, egress: HostEgressExecution | None,
+    ) -> AgenticSkillTools:
+        frozen = load_frozen_execution(task)
         return AgenticSkillTools(
             task=task,
             resolver=skill_artifact_cache,
@@ -105,6 +112,8 @@ def build_agentic_executor(
             suspension=suspension,
             operations=operations,
             workspace_store=workspace_store,
+            skills={entry.skill_id: entry for entry in frozen.snapshot.skills},
+            egress=egress,
         )
 
     return AgenticTaskExecutor(deps=deps, skill_runner=skill_runner)

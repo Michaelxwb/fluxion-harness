@@ -13,27 +13,27 @@ from muad_contracts.memory import FactContent, MemoryAuthor, MemoryCategory
 
 
 def _call(call_id: str, name: str, key: str | None) -> dict:
-    return {"id": call_id, "name": name, "arguments": {"skill_key": key} if key else {}}
+    return {"id": call_id, "name": name, "arguments": {"target": "skill", "skill_key": key} if key else {}}
 
 
 def test_b01_first_successful_skill_wins_and_failed_calls_do_not_switch() -> None:
     events = [
         {"event_type": "ASSISTANT_TURN", "payload": {"tool_calls": [
-            _call("c1", "execute_skill", "first"),
-            _call("c2", "execute_skill", "second"),
+            _call("c1", "execute", "first"),
+            _call("c2", "execute", "second"),
         ]}},
         {
             "event_type": "TOOL_CALL",
-            "payload": {"tool_call_id": "c1", "tool_name": "execute_skill", "status": "ERROR"},
+            "payload": {"tool_call_id": "c1", "tool_name": "execute", "status": "ERROR"},
         },
         {
             "event_type": "TOOL_CALL",
-            "payload": {"tool_call_id": "c2", "tool_name": "execute_skill", "status": "OK"},
+            "payload": {"tool_call_id": "c2", "tool_name": "execute", "status": "OK"},
         },
     ]
     assert derive_task_family(events, agent_id="a1") == "skill:second"
-    assert skill_key_for_call("execute_skill", {"skill_key": " x "}) == "x"
-    assert skill_key_for_call("run_skill_script", {"skill_key": "y"}) == "y"
+    assert skill_key_for_call("execute", {"target": "skill", "skill_key": " x "}) == "x"
+    assert skill_key_for_call("run_skill_script", {"skill_key": "y"}) is None
     assert skill_key_for_call("other", {"skill_key": "z"}) is None
     assert skill_key_for_call("execute", {"target": "skill", "skill_key": "demo"}) == "demo"
     assert skill_key_for_call("execute", {"target": "workspace", "skill_key": "demo"}) is None
@@ -43,11 +43,11 @@ def test_b01_no_successful_skill_falls_back_to_agent() -> None:
     events = [
         {
             "event_type": "ASSISTANT_TURN",
-            "payload": {"tool_calls": [_call("c1", "execute_skill", "demo")]},
+            "payload": {"tool_calls": [_call("c1", "execute", "demo")]},
         },
         {
             "event_type": "TOOL_CALL",
-            "payload": {"tool_call_id": "c1", "tool_name": "execute_skill", "status": "ERROR"},
+            "payload": {"tool_call_id": "c1", "tool_name": "execute", "status": "ERROR"},
         },
     ]
     assert derive_task_family(events, agent_id="agent-1") == "agent:agent-1"

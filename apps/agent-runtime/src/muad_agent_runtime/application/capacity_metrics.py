@@ -16,11 +16,11 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from dataclasses import dataclass
 from typing import Final
 
 from muad_common.db_counters import db_stage_scope
+from muad_logging import get_logger
 from sqlalchemy import func, select
 
 from ..infrastructure.db import SessionFactory
@@ -37,7 +37,7 @@ from ..metrics import (
 )
 from .run_service import admission_gate_stats
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 QUEUE_STAGES: Final = ("WAITING_RUNTIME", "WAITING_MODEL")
 ACTIVE_RUN_STATUSES: Final = ("CREATED", "RUNNING", "WAITING_TOOL", "WAITING_INPUT")

@@ -9,7 +9,7 @@ import pytest
 from muad_agent_core.agent.continuation import RunnerCheckpoint, WaitDecision
 from muad_agent_core.agent.runner import AgentPolicy, AgentRunner, AgentRunRequest, AgentRunStatus
 from muad_agent_core.model import ModelMessage, ModelResponse, ModelRole
-from muad_agent_core.tools import ToolRegistry
+from muad_agent_core.tools import ToolCall, ToolRegistry, ToolResult
 from muad_agent_runtime.application.async_tools.continuation_service import (
     ExecutionLeaseLost,
     checkpoint_execution,
@@ -330,10 +330,18 @@ async def test_b04_real_runner_waits_then_reconstructs_without_duplicate_tool_re
     factory, context, skill, source, identity = await running_source(async_tool_database)
     monkeypatch.setattr(run_service, "get_session_factory", lambda: factory)
     submitted, requests = [], []
-    async def submit(arguments, *, call_id):
-        op = await operation(factory, context, skill, call=call_id)
+    async def submit(arguments, *, call: ToolCall):
+        op = await operation(factory, context, skill, call=call.call_id)
         submitted.append(op)
-        return json.dumps({"operation_id": str(op.id), "submission_status": "PENDING", "task_id": None})
+        return ToolResult(
+            json.dumps(
+                {
+                    "operation_id": str(op.id),
+                    "submission_status": "PENDING",
+                    "task_id": None,
+                }
+            )
+        )
     registry = ToolRegistry()
     registry.register(
         ToolDefinition(

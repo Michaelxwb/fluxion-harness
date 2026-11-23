@@ -22,12 +22,21 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
 import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any
 
-from muad_agent_core.tools import ToolConcurrency, ToolDefinition, ToolEffect, ToolHandler, ToolRegistry
+from muad_agent_core.tools import (
+    ToolCall,
+    ToolCapability,
+    ToolConcurrency,
+    ToolDefinition,
+    ToolEffect,
+    ToolError,
+    ToolHandler,
+    ToolRegistry,
+    ToolResult,
+)
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import (
@@ -38,10 +47,13 @@ from muad_contracts import (
     SchedulePreview,
 )
 from muad_contracts.enums import OUTBOUND_CHANNELS, ScheduleStatus
+from muad_contracts.platform_settings import PlatformSettingsError, parse_platform_settings
 from muad_contracts.webchat import WebchatScheduleDraftReady
+from muad_logging import get_logger
 from pydantic import ValidationError
 
 from ..infrastructure.db import SessionFactoryProvider
+from .ports import PlatformSettingsClient
 from .schedule_authoring import (
     DeliveryTargetOption,
     ScheduleAuthoringContext,
@@ -62,7 +74,7 @@ from .task_client import (
     submission_idempotency_key,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 DRAFT_SCHEDULE_TOOL = "draft_schedule"
 DRAFT_SCHEDULE_UPDATE_TOOL = "draft_schedule_update"
@@ -265,14 +277,34 @@ _PROMOTE_ARGS: Mapping[str, Any] = {
 }
 
 
-class TaskToolError(RuntimeError):
+class TaskToolError(ToolError):
     """工具面的稳定失败：`code` 进模型上下文，`data` 只放可公开的结构化提示。"""
 
-    def __init__(self, code: str, message: str, data: dict[str, Any] | None = None) -> None:
-        self.code = code
-        self.message = message
+    #: 带结构化字段但属于环境/内部失败：不可纠正，模型重试也不会成功。
+    _NON_RETRYABLE_DATA_CODES = frozenset(
+        {
+            ErrorCode.COMMON_INTERNAL_ERROR.value,
+            ErrorCode.PLATFORM_SETTINGS_UNAVAILABLE.value,
+        }
+    )
+
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        data: dict[str, Any] | None = None,
+        *,
+        retryable: bool | None = None,
+    ) -> None:
+        if retryable is None and data:
+            retryable = code not in self._NON_RETRYABLE_DATA_CODES
+        super().__init__(
+            code,
+            message,
+            detail=data,
+            retryable=retryable,
+        )
         self.data = data
-        super().__init__(message)
 
 
 def _schema(properties: Mapping[str, Any], required: Sequence[str]) -> dict[str, Any]:
@@ -282,13 +314,6 @@ def _schema(properties: Mapping[str, Any], required: Sequence[str]) -> dict[str,
         "required": list(required),
         "additionalProperties": False,
     }
-
-
-def _error(code: str, message: str, data: Mapping[str, Any] | None = None) -> str:
-    body: dict[str, Any] = {"code": code, "message": message}
-    if data:
-        body["data"] = dict(data)
-    return json.dumps({"error": body}, ensure_ascii=False)
 
 
 def _uuid_arg(arguments: Mapping[str, Any], key: str) -> uuid.UUID:
@@ -393,6 +418,7 @@ def _multi_target_guard(parameters: Mapping[str, Any]) -> dict[str, Any]:
 def _authoring_context(
     context: TaskSubmissionContext,
     targets: Sequence[DeliveryTargetOption] = (),
+    default_timezone: str | None = None,
 ) -> ScheduleAuthoringContext:
     return ScheduleAuthoringContext(
         skills={skill.key: skill for skill in context.skills},
@@ -401,6 +427,7 @@ def _authoring_context(
         delivery_route=context.delivery_route,
         delivery_targets=targets,
         conversation_id=context.conversation_id,
+        default_timezone=default_timezone,
     )
 
 
@@ -414,24 +441,29 @@ class BackgroundTaskToolSet:
         context: TaskSubmissionContext,
         skills: Sequence[ResolvedSkill],
         session_factory: SessionFactoryProvider | None = None,
+        settings_client: PlatformSettingsClient | None = None,
+        fallback_timezone: str | None = None,
     ) -> None:
         self._client = client
         self._context = context
         self._skills = {skill.key: skill for skill in skills}
         self._session_factory = session_factory
+        self._settings_client = settings_client
+        self._fallback_timezone = fallback_timezone
 
     def register(self, registry: ToolRegistry) -> None:
         for definition in self._definitions():
             registry.register(definition)
 
     def _wrap(self, handler: Handler) -> ToolHandler:
-        async def run(arguments: Mapping[str, Any], *, call_id: str) -> str:
+        async def run(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
             try:
-                return json.dumps(await handler(arguments, call_id=call_id), ensure_ascii=False, default=str)
-            except TaskToolError as exc:
-                return _error(exc.code, exc.message, exc.data)
+                payload = await handler(arguments, call_id=call.call_id)
+            except TaskToolError:
+                raise
             except AppError as exc:
-                return _error(str(exc.code), str(exc.code))
+                raise ToolError(str(exc.code), str(exc.code)) from exc
+            return ToolResult(json.dumps(payload, ensure_ascii=False, default=str))
 
         return run
 
@@ -443,6 +475,7 @@ class BackgroundTaskToolSet:
                 input_schema=schema,
                 effect=effect,
                 handler=self._wrap(handler),
+                capabilities=frozenset({ToolCapability.TASK_QUERY}),
                 concurrency=concurrency,
                 resource_key=resource_key,
             )
@@ -453,7 +486,7 @@ class BackgroundTaskToolSet:
         )
 
     def _schedule_specs(self) -> tuple[ToolSpec, ...]:
-        draft_schema = _schema(_DRAFT_ARGS, ("instruction", "payload", "timezone", "recurrence"))
+        draft_schema = _schema(_DRAFT_ARGS, ("instruction", "payload", "recurrence"))
         update_schema = _schema(
             {**_DRAFT_ARGS, "schedule_id": _STRING, "query": _STRING},
             (
@@ -488,8 +521,9 @@ class BackgroundTaskToolSet:
                 "ambiguous, ask ONE business question (for example whether the customer/scope "
                 "is fixed) instead of guessing or offering an internal option menu. Delivery is "
                 "a platform default, not a user choice: never ask about channels/targets and "
-                "normally omit delivery. Call it once per independent customer/target. Ask the "
-                "user for their IANA time zone when unknown.",
+                "normally omit delivery. Call it once per independent customer/target. Omit "
+                "timezone to use the platform default; ask only when the user's intent depends "
+                "on a different IANA timezone.",
                 draft_schema,
                 ToolEffect.WRITE,
                 self._draft_schedule,
@@ -515,9 +549,10 @@ class BackgroundTaskToolSet:
                 "execute(target=skill) call in that run, binds date values to scheduler "
                 "variables such as {{previous_day}}, and only creates a draft: nothing runs and "
                 "nothing is saved until the user confirms the card. Use this instead of asking "
-                "the user to restate parameters. Provide the schedule time, timezone and the "
-                "user's instruction; never invent skill parameters from prose.",
-                _schema(_PROMOTE_ARGS, ("run_id", "instruction", "timezone", "recurrence")),
+                "the user to restate parameters. Provide the schedule time and the user's "
+                "instruction; omit timezone to use the platform default. Never invent skill "
+                "parameters from prose.",
+                _schema(_PROMOTE_ARGS, ("run_id", "instruction", "recurrence")),
                 ToolEffect.WRITE,
                 self._promote_run,
                 ToolConcurrency.SERIAL,
@@ -596,7 +631,11 @@ class BackgroundTaskToolSet:
         return (
             (
                 GET_TASK_TOOL,
-                "Get status and result of one of the user's background tasks.",
+                "Get status and result of one of the user's background tasks. When the user "
+                "asks to relay a completed task's result, copy result.text verbatim into your "
+                "reply: do not summarize, condense, or paraphrase it unless the user explicitly "
+                "asks for a summary. Its output files can be listed with "
+                "list_attachments(scope=task, task_id=...).",
                 _schema({"task_id": _STRING}, ("task_id",)),
                 ToolEffect.READ,
                 self._get_task,
@@ -678,11 +717,14 @@ class BackgroundTaskToolSet:
         except PromotionError as exc:
             raise TaskToolError(exc.code, exc.message, exc.data) from exc
         timezone = arguments.get("timezone")
-        proposal = promotion_proposal(
-            facts,
-            arguments,
-            timezone=timezone if isinstance(timezone, str) else "UTC",
-        )
+        if not isinstance(timezone, str) or not timezone.strip():
+            timezone = await self._default_timezone(arguments)
+        if not isinstance(timezone, str) or not timezone.strip():
+            raise TaskToolError(
+                ErrorCode.SCHEDULE_TIMEZONE_REQUIRED.value,
+                "the platform default timezone is unavailable; ask the user for an IANA timezone",
+            )
+        proposal = promotion_proposal(facts, arguments, timezone=timezone)
         authoring = await self._authoring(proposal.arguments)
         if authoring.clarification is not None:
             return self._clarification(authoring)
@@ -787,12 +829,32 @@ class BackgroundTaskToolSet:
 
     async def _authoring(self, arguments: Mapping[str, Any]) -> ScheduleAuthoringResult:
         targets = await self._delivery_targets()
+        default_timezone = await self._default_timezone(arguments)
         try:
             return compile_schedule_plan(
-                arguments, context=_authoring_context(self._context, targets)
+                arguments,
+                context=_authoring_context(self._context, targets, default_timezone),
             )
         except ScheduleAuthoringError as exc:
             raise TaskToolError(exc.code, exc.message, exc.data) from exc
+
+    async def _default_timezone(self, arguments: Mapping[str, Any]) -> str | None:
+        """Read the current platform timezone only when the caller did not provide one."""
+        raw = arguments.get("timezone")
+        if isinstance(raw, str) and raw.strip():
+            return None
+        if self._settings_client is None:
+            return self._fallback_timezone
+        try:
+            snapshot = await self._settings_client.fetch_snapshot(
+                tenant_id=self._context.tenant_id
+            )
+            return parse_platform_settings(snapshot.settings).locale.default_timezone
+        except (AppError, PlatformSettingsError) as exc:
+            raise TaskToolError(
+                ErrorCode.PLATFORM_SETTINGS_UNAVAILABLE.value,
+                "platform settings are unavailable; cannot resolve the default timezone",
+            ) from exc
 
     async def _delivery_targets(self) -> tuple[DeliveryTargetOption, ...]:
         """Read the owner's outbound targets; an unavailable list is an empty list, not a guess."""

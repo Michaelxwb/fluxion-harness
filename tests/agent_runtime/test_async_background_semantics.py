@@ -8,6 +8,7 @@ from uuid import uuid4
 
 import pytest
 from muad_agent_core.agent.continuation import RunnerCheckpoint, WaitDecision
+from muad_agent_core.tools import ToolCall, ToolError
 from muad_agent_runtime.application.async_tools.continuation_service import (
     claim_continuation,
     has_ready,
@@ -150,25 +151,11 @@ def test_run_side_tools_do_not_expose_completion_mode(tmp_path) -> None:
     tool_set = _tool_set(tmp_path, skill, _RecordingSubmitter())
     registry = tool_set.registry()
     execute = registry.get(EXECUTE_TOOL)
-    legacy = registry.get(EXECUTE_SKILL_TOOL)
 
     assert "completion_mode" not in execute.input_schema["properties"]
-    assert "completion_mode" not in legacy.input_schema["properties"]
     assert "background" in execute.description.lower()
     assert "task center" in execute.description.lower()
-
-
-async def test_legacy_execute_skill_submits_detach(tmp_path) -> None:
-    skill = _async_skill()
-    submitter = _RecordingSubmitter()
-    legacy = _tool_set(tmp_path, skill, submitter).registry().get(EXECUTE_SKILL_TOOL)
-
-    payload = json.loads(
-        await legacy.handler({"skill_key": skill.key, "input": {}}, call_id="legacy-call")
-    )
-
-    assert payload["status"] == "SUBMITTED"
-    assert submitter.modes == [CompletionMode.DETACH]
+    assert EXECUTE_SKILL_TOOL not in {definition.name for definition in registry.list()}
 
 
 async def test_unified_execute_rejects_completion_mode(tmp_path) -> None:
@@ -176,17 +163,21 @@ async def test_unified_execute_rejects_completion_mode(tmp_path) -> None:
     submitter = _RecordingSubmitter()
     execute = _tool_set(tmp_path, skill, submitter).registry().get(EXECUTE_TOOL)
 
-    payload = json.loads(
-        await execute.handler(
-            {
-                "target": "skill",
-                "skill_key": skill.key,
-                "input": {},
-                "completion_mode": "JOIN",
-            },
-            call_id="mixed-mode",
+    arguments = {
+        "target": "skill",
+        "skill_key": skill.key,
+        "input": {},
+        "completion_mode": "JOIN",
+    }
+    try:
+        result = await execute.handler(
+            arguments,
+            call=ToolCall(call_id="mixed-mode", name=EXECUTE_TOOL, arguments=arguments),
         )
-    )
+    except ToolError as exc:
+        payload = json.loads(exc.content())
+    else:
+        payload = json.loads(result.content)
 
     assert payload["error"]["code"] == "COMMON_VALIDATION_ERROR"
     assert submitter.modes == [], "被拒绝的调用不得产生后台任务"
@@ -196,11 +187,16 @@ async def test_unaccepted_submission_is_an_explicit_failure(tmp_path) -> None:
     skill = _async_skill()
     execute = _tool_set(tmp_path, skill, _RejectingSubmitter()).registry().get(EXECUTE_TOOL)
 
-    payload = json.loads(
-        await execute.handler(
-            {"target": "skill", "skill_key": skill.key, "input": {}}, call_id="rejected"
+    arguments = {"target": "skill", "skill_key": skill.key, "input": {}}
+    try:
+        result = await execute.handler(
+            arguments,
+            call=ToolCall(call_id="rejected", name=EXECUTE_TOOL, arguments=arguments),
         )
-    )
+    except ToolError as exc:
+        payload = json.loads(exc.content())
+    else:
+        payload = json.loads(result.content)
 
     assert payload["error"]["code"] == "BACKGROUND_SUBMIT_FAILED"
     assert "TOOL_OPERATION_CAPACITY_EXCEEDED" in payload["error"]["message"]

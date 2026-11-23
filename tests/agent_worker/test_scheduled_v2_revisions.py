@@ -40,6 +40,12 @@ from agent_worker.helpers import internal_service_headers
 
 pytestmark = pytest.mark.integration
 
+
+@pytest.fixture(autouse=True)
+def _schedule_boundaries(schedule_boundaries: None) -> None:
+    """Confirm 重跑预检：这些用例只种 REMINDER，默认依赖源即可。"""
+
+
 TZ = "Asia/Shanghai"
 INSTRUCTION = "每周一 9 点提醒我发周报"
 

@@ -1,0 +1,31 @@
+flowchart LR
+  subgraph users["用户与入口"]
+    wecom["企业微信"]
+    browser["浏览器"]
+  end
+  subgraph edge["入口代理"]
+    nginx["Nginx"]
+  end
+  subgraph cluster["Kubernetes 集群"]
+    gateway["IM Gateway"]
+    connector["IM Connector"]
+    console["Console"]
+    runtime["Agent Runtime"]
+    worker["Agent Worker"]
+  end
+  subgraph external["外部依赖与数据服务"]
+    pg["PostgreSQL"]
+    redis["Redis"]
+    storage["共享存储"]
+    models["外部模型网关"]
+    platforms["业务平台"]
+  end
+  browser -->|"HTTPS / SSE"| nginx
+  nginx -->|"聊天 / 事件"| gateway
+  nginx -->|"管理 / 认证"| console
+  wecom -->|"WSS 直连 Connector"| connector
+  connector <-->|"事件流"| gateway
+  gateway -->|"内网 HTTP"| runtime
+  runtime -->|"任务"| worker
+  runtime -->|"模型调用"| models
+  worker -->|"平台调用"| platforms

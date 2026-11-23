@@ -75,8 +75,8 @@ def _run(stack, client, arguments, *, routed=False):
     client.post(
         stack.llm_url + "/script",
         json={
-            "tool_name": "execute_skill",
-            "tool_arguments": json.dumps(arguments),
+            "tool_name": "execute",
+            "tool_arguments": json.dumps({"target": "skill", **arguments}),
             "final_text": "submitted",
         },
     ).raise_for_status()
@@ -260,15 +260,16 @@ def test_e01_hook_final_parameters_are_revalidated_and_reauthorized(live_stack, 
         )
         result = await pipeline.execute(
             pipeline.prepare(
-                call_id="hook-deny", tool_name="execute_skill", arguments={"skill_key": skill.key}
+                call_id="hook-deny",
+                tool_name="execute",
+                arguments={"target": "skill", "skill_key": skill.key},
             )
         )
         assert result.status in ("FAILED", "POLICY_DENIED")
-        from muad_agent_core.model import ModelMessage, ModelRole
 
-        await recorder.finish_round(
-            [ModelMessage(role=ModelRole.TOOL, content=result.content, tool_call_id="hook-deny")]
-        )
+        from muad_agent_core.tools import ToolResult
+
+        await recorder.finish_round([ToolResult(content=result.result.content, call_id="hook-deny")])
         async with factory() as session:
             assert (
                 await session.scalar(
@@ -285,7 +286,7 @@ def test_e01_hook_final_parameters_are_revalidated_and_reauthorized(live_stack, 
                 == 0
             )
             audit = (await session.scalars(select(ToolCallAudit).where(ToolCallAudit.run_id == run.id))).one()
-            assert audit.status in ("DENY", "ERROR") and audit.prepared_args_hash == result.args_hash
+            assert audit.status in ("DENY", "ERROR") and audit.prepared_args_hash.startswith("sha256:")
 
     _db(exercise)
 
@@ -349,8 +350,8 @@ async def _fault_submission(stack, client, *, exhaust):
             client.post(
                 stack.llm_url + "/script",
                 json={
-                    "tool_name": "execute_skill",
-                    "tool_arguments": json.dumps(arguments),
+                    "tool_name": "execute",
+                    "tool_arguments": json.dumps({"target": "skill", **arguments}),
                     "final_text": "admission still pending",
                 },
             ).raise_for_status()

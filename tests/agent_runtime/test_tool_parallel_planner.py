@@ -22,7 +22,14 @@ from muad_agent_core.model import (
     ModelToolCall,
     text_of,
 )
-from muad_agent_core.tools import ToolConcurrency, ToolDefinition, ToolEffect, ToolRegistry
+from muad_agent_core.tools import (
+    ToolCall,
+    ToolConcurrency,
+    ToolDefinition,
+    ToolEffect,
+    ToolRegistry,
+    ToolResult,
+)
 from muad_agent_core.tools.planner import PlannedToolCall, plan_tool_batches
 
 
@@ -89,8 +96,8 @@ def _define(
     concurrency: ToolConcurrency | None = None,
     resource_key: Callable[[Mapping[str, Any]], str | None] | None = None,
 ) -> ToolDefinition:
-    async def handler(arguments: Mapping[str, Any], *, call_id: str) -> str:
-        return await probe.run(call_id)
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        return ToolResult(await probe.run(call.call_id))
 
     kwargs: dict[str, Any] = {}
     if concurrency is not None:
@@ -329,8 +336,8 @@ async def test_b06_parallel_limit_rejects_invalid_values(async_tool_database, va
 def test_b06_tool_definition_defaults_to_serial() -> None:
     """[B-06] 并发声明不可由模型设置：默认 SERIAL，声明缺失时不并发。"""
 
-    async def handler(arguments: Mapping[str, Any], *, call_id: str) -> str:
-        return "ok"
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        return ToolResult("ok")
 
     definition = ToolDefinition(
         name="plain",
@@ -347,8 +354,8 @@ def test_b06_tool_definition_defaults_to_serial() -> None:
 def test_b06_planner_splits_consecutive_batches_by_declaration_and_order() -> None:
     """[B-06] 规划器保持原调用序：同键冲突/写屏障/未知依赖把连续 READ 拆成连续批。"""
 
-    async def handler(arguments: Mapping[str, Any], *, call_id: str) -> str:
-        return "ok"
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        return ToolResult("ok")
 
     registry = ToolRegistry()
     registry.register(

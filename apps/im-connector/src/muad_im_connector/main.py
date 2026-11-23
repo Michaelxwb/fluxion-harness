@@ -6,7 +6,6 @@ Redis Stream。探针/指标端口是运维面，不是业务面（design §4.1�
 
 from __future__ import annotations
 
-import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -21,10 +20,10 @@ from muad_common.redis_client import (
     create_redis_client,
     verify_redis_topology,
 )
-from muad_im_core import BotSnapshotCache, InboundPublisher
+from muad_im_core import BotSnapshotCache, InboundPublisher, RedisBatchJournal
 from muad_im_gateway.application.inbound_attachments import InboundAttachmentStore
 from muad_im_gateway.channels.base import ArtifactLinkIssuer
-from muad_logging import configure_logging
+from muad_logging import configure_logging, get_logger
 from redis.exceptions import RedisError as RedisErrorType
 
 from .channels.probe import HttpProbeChannelAdapter
@@ -32,11 +31,12 @@ from .channels.wecom.adapter import WeComAdapter
 from .lease import RedisLeaseManager
 from .metrics import install_connector_metrics
 from .outbound import CommandExecutor, OutboundRunner
+from .platform_settings import ConnectorPlatformSettings
 from .reply_store import ReplyStore
 from .runtime import ConnectorAdapterPort, ConnectorRuntime
 from .settings import connector_settings
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 SERVICE_NAME = "muad-im-connector"
 
@@ -45,6 +45,7 @@ SERVICE_NAME = "muad-im-connector"
 class ConnectorResources:
     redis: RedisClient
     console: object
+    platform_settings: ConnectorPlatformSettings
     adapter: ConnectorAdapterPort
     runtime: ConnectorRuntime
 
@@ -81,6 +82,9 @@ def _build_adapter(
 
 def _build_resources(settings: SharedSettings) -> ConnectorResources:
     from muad_im_gateway.application.console_client import ConsoleClient
+    from muad_im_gateway.infrastructure.platform_settings_client import (
+        ConsolePlatformSettingsClient,
+    )
 
     connector = connector_settings()
     redis = create_redis_client(
@@ -98,6 +102,13 @@ def _build_resources(settings: SharedSettings) -> ConnectorResources:
     console = ConsoleClient(
         _require(settings.console_platform_url, "CONSOLE_PLATFORM_URL"),
         service_token=settings.internal_service_token,
+    )
+    platform_settings = ConnectorPlatformSettings(
+        ConsolePlatformSettingsClient(
+            _require(settings.console_platform_url, "CONSOLE_PLATFORM_URL"),
+            service_token=settings.internal_service_token,
+            caller="connector",
+        )
     )
     artifact_store = NfsArtifactStore(settings.artifact_root)
     adapter = _build_adapter(settings, artifact_store=artifact_store, fetch_links=console)
@@ -142,6 +153,9 @@ def _build_resources(settings: SharedSettings) -> ConnectorResources:
         outbound=outbound,
         snapshot=snapshot,
         renew_sec=connector.connector_lease_renew_sec,
+        platform_settings=platform_settings,
+        batch_journal=RedisBatchJournal(redis),
+        attachment_concurrency=connector.connector_attachment_concurrency,
         # 入站附件：字节只在本进程取（渠道凭据不出适配器），落共享存储后上行只给引用。
         attachment_store=InboundAttachmentStore(artifact_store),
     )
@@ -149,7 +163,11 @@ def _build_resources(settings: SharedSettings) -> ConnectorResources:
     # 适配器的原始消息回调必须在 runtime 建好之后绑定（runtime 持有有界队列）。
     adapter.set_raw_sink(runtime.raw_sink)
     return ConnectorResources(
-        redis=redis, console=console, adapter=adapter, runtime=runtime
+        redis=redis,
+        console=console,
+        platform_settings=platform_settings,
+        adapter=adapter,
+        runtime=runtime,
     )
 
 
@@ -175,6 +193,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         yield
     finally:
         await resources.runtime.stop()
+        await resources.platform_settings.aclose()
         await resources.console.aclose()  # type: ignore[attr-defined]
         await resources.redis.aclose()
 

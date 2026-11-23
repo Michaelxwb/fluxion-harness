@@ -81,7 +81,7 @@ async def test_new_process_segment_starts_a_new_local_counter() -> None:
         assert first["segment"] != second["segment"]
         for result in (first, second):
             assert result["used"] == 3
-            assert result["origin"] == "upstream_http"
+            assert result["origin"] == "MCP_TRANSPORT_FAILED"
             assert result["status"] == 429 and result["retry_after"] == "7"
             assert result["second_origin"] == "LOCAL_BUDGET"
         assert calls == ["initialize", "notifications/initialized", "tools/call"] * 2

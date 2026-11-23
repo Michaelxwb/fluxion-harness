@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import os
 import shlex
 import shutil
@@ -21,6 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from muad_logging import get_logger
 from redis.exceptions import RedisClusterException, RedisError
 
 from .adapter.mss_config import PlatformAuthError, settings
@@ -40,7 +40,7 @@ MAX_BROKER_REQUESTS = 32
 MAX_BROKER_STATE_FILES = 8
 STATE_FILE_MODE = 0o600
 _DIRECTORY_MODE = 0o700
-logger = logging.getLogger("muad_platform_sdk.skill_bridge")
+logger = get_logger("muad_platform_sdk.skill_bridge")
 
 
 @dataclass(frozen=True, slots=True)
@@ -206,6 +206,7 @@ async def _write_state(
             "version": 2,
             "platforms": access.report.payload(keys)["platforms"],
         }
+    requested: tuple[str, ...]
     if platform_key is not None:
         allowed = await access.allowed_keys()
         if platform_key not in allowed:

@@ -99,6 +99,7 @@ from .enums import (
     web_surface_channels,
     web_surface_channels_from_settings,
 )
+from .i18n import DEFAULT_LOCALE, SUPPORTED_LOCALES, normalize_locale
 from .im import (
     ChannelCapabilities,
     ConnectorLease,
@@ -174,6 +175,7 @@ from .scheduling import (
     ReminderPayload,
     ScheduleActionRequest,
     ScheduleDetail,
+    ScheduleDispatchCheck,
     ScheduleDraftConfirmRequest,
     ScheduleDraftConfirmResponse,
     ScheduleDraftRequest,
@@ -184,7 +186,6 @@ from .scheduling import (
     SchedulePlan,
     SchedulePolicy,
     SchedulePreview,
-    ScheduleTrialFact,
     ScheduleWindow,
     SessionTarget,
     SkillPlanPayload,
@@ -217,6 +218,7 @@ from .scheduling import (
     TaskToolOperationCancelResponse,
     TaskToolOperationList,
     TaskToolOperationOwner,
+    TaskToolOperationRecoveryView,
     TaskToolOperationResult,
     TaskToolOperationSubmitRequest,
     TaskToolOperationView,
@@ -225,6 +227,7 @@ from .scheduling import (
     derive_schedule_mode,
     parse_schedule_payload,
 )
+from .skill_invocation import SkillInvocationContract
 from .snapshot import (
     REQUIRED_SNAPSHOT_KEYS,
     TASK_PROMPT_TEMPLATE_VERSION,
@@ -249,6 +252,16 @@ from .tasks import (
     TaskListQuery,
     UpdateScheduleRequest,
 )
+from .tool_events import (
+    TOOL_EVENT_SCHEMA_VERSION,
+    AssistantToolCallEvent,
+    AssistantTurnEvent,
+    PreparedCallEvent,
+    ToolCompletedEvent,
+    ToolEventArtifact,
+    ToolEventFollowUp,
+    ToolEventOutcome,
+)
 from .tool_runtime import (
     DEFAULT_TOOL_RETRY_SAFETY,
     MAX_TOOL_ERROR_MESSAGE_CHARS,
@@ -271,6 +284,9 @@ from .tool_runtime import (
 )
 
 __all__ = [
+    "DEFAULT_LOCALE",
+    "SUPPORTED_LOCALES",
+    "normalize_locale",
     "AdmissionMaterialsRequest",
     "AsyncToolPolicy",
     "CancelOperationRequest",
@@ -403,6 +419,7 @@ __all__ = [
     "ScheduleStatus",
     "ScheduleToolMaterials",
     "SkillExecutionMode",
+    "SkillInvocationContract",
     "SkillReviewStatus",
     "SkillSource",
     "TaskListQuery",
@@ -469,6 +486,7 @@ __all__ = [
     "SNAPSHOT_HASH_PATTERN",
     "ScheduleActionRequest",
     "ScheduleDetail",
+    "ScheduleDispatchCheck",
     "ScheduleDraftConfirmRequest",
     "ScheduleDraftConfirmResponse",
     "ScheduleDraftRequest",
@@ -481,7 +499,7 @@ __all__ = [
     "SchedulePlan",
     "SchedulePolicy",
     "SchedulePreview",
-    "ScheduleTrialFact",
+    "ScheduleDispatchCheck",
     "ScheduleWindow",
     "SessionTarget",
     "SkipReason",
@@ -504,6 +522,7 @@ __all__ = [
     "TaskResultCounts",
     "TaskLeaseRenewal",
     "TaskToolOperationOwner",
+    "TaskToolOperationRecoveryView",
     "TaskToolOperationSubmitRequest",
     "FORBIDDEN_SNAPSHOT_KEYS",
     "SCHEDULE_CONFIRM_COMMAND",
@@ -516,6 +535,14 @@ __all__ = [
     "SnapshotModel",
     "SnapshotSkill",
     "SnapshotTool",
+    "TOOL_EVENT_SCHEMA_VERSION",
+    "AssistantToolCallEvent",
+    "AssistantTurnEvent",
+    "PreparedCallEvent",
+    "ToolCompletedEvent",
+    "ToolEventArtifact",
+    "ToolEventFollowUp",
+    "ToolEventOutcome",
     "ToolAllowlistEntry",
     "ToolPolicy",
     "WaitKind",

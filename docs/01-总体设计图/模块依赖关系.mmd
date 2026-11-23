@@ -1,0 +1,39 @@
+flowchart LR
+  subgraph entry["用户入口"]
+    admin["管理员"]
+    wecom["企业微信"]
+    webchat["WebChat"]
+  end
+  subgraph management["管理面"]
+    console["Console Platform"]
+  end
+  subgraph access["接入面"]
+    gateway["IM Gateway"]
+    connector["IM Connector"]
+  end
+  subgraph execution["执行面"]
+    runtime["Agent Runtime"]
+    worker["Agent Worker"]
+  end
+  subgraph shared["共享能力层"]
+    shared_core["执行内核"]
+    shared_tools["工具、MCP 与 Skill"]
+    shared_contracts["契约与公共支撑"]
+    modelpool["模型池"]
+  end
+  subgraph data["数据与外部依赖"]
+    postgres["PostgreSQL"]
+    redis["Redis"]
+    storage["共享存储"]
+    external["外部模型网关"]
+  end
+  admin -->|"管理"| console
+  wecom -->|"消息"| connector
+  webchat -->|"消息"| gateway
+  connector <-->|"事件"| gateway
+  gateway -->|"提交 Run"| runtime
+  runtime <-->|"任务/结果"| worker
+  runtime -->|"调用执行内核"| shared_core
+  worker -->|"调用工具/Skill"| shared_tools
+  modelpool -->|"模型调用"| external
+  console -->|"配置与审计"| postgres

@@ -442,6 +442,8 @@ _STACK_REDIS_PATTERNS = (
     "muad:connector:bot:*",
     "muad:connector:cmd:*",
     "muad:connector:inbound:*",
+    "muad:connector:inbound-batch:*",
+    "muad:connector:inbound-batch-member:*",
     "muad:connector:outbound-cursor:*",
 )
 

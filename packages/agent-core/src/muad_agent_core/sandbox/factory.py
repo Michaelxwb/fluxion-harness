@@ -7,11 +7,13 @@ import sys
 from enum import StrEnum
 from typing import Protocol
 
+from muad_logging import get_logger
+
 from .bwrap import MIN_BWRAP_VERSION, BwrapRunner, probe_bwrap
 from .runner import DevUnsafeRunner, DisabledRunner, SandboxEvent, SandboxRunner
 from .spec import SandboxUnavailable
 
-logger = logging.getLogger("muad_agent_core.sandbox")
+logger = get_logger("muad_agent_core.sandbox")
 
 
 class SandboxMode(StrEnum):

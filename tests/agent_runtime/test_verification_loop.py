@@ -43,8 +43,8 @@ async def test_s04_only_verified_candidate_reaches_the_answer() -> None:
     provider = ScriptedProvider([_text("draft wrong"), _text("final right")])
     turns: list[str] = []
 
-    async def on_assistant_turn(message) -> None:
-        turns.append(message.content)
+    async def on_assistant_turn(turn) -> None:
+        turns.append(turn.message.content)
 
     runner = AgentRunner(
         provider=provider,
@@ -77,8 +77,8 @@ async def test_s04_exhaustion_is_explicit_and_bounded() -> None:
     provider = ScriptedProvider([_text("wrong one"), _text("wrong two"), _text("never used")])
     turns: list[str] = []
 
-    async def on_assistant_turn(message) -> None:
-        turns.append(message.content)
+    async def on_assistant_turn(turn) -> None:
+        turns.append(turn.message.content)
 
     runner = AgentRunner(
         provider=provider,

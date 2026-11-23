@@ -8,6 +8,7 @@ import pytest
 import sqlalchemy as sa
 from muad_agent_core.memory.render import render_experience_block
 from muad_agent_core.model import ModelMessage, ModelRole
+from muad_agent_core.tools import ToolCall, ToolError
 from muad_api import render_metrics
 from muad_contracts.memory import (
     ExperienceCandidate,
@@ -157,8 +158,10 @@ async def test_b07_aux_memory_redesign_forget_removes_next_request_even_when_wri
     tool_set = tools(async_tool_database, ctx, memory=memory)
     memory_id = await _memory_id(async_tool_database, ctx)
 
-    async def forget(arguments, *, call_id):
-        return await tool_set.forget({"memory_id": str(memory_id), "expected_version": 1}, call_id=call_id)
+    async def forget(arguments, *, call: ToolCall):
+        return await tool_set.forget(
+            {"memory_id": str(memory_id), "expected_version": 1}, call=call
+        )
 
     _, captured = await request_round(
         async_tool_database,
@@ -347,7 +350,6 @@ async def test_b08_memory_redesign_http_retry_refreshes_facts_again_before_resen
 
 
 async def test_b07_aux_memory_redesign_failed_forget_suppresses_the_rest_of_this_run(async_tool_database):
-    from muad_api import AppError
 
     ctx, service = context(), writer(async_tool_database)
     await service.execute(ctx, command(upsert(), upsert("keep", "untargeted")))
@@ -357,11 +359,16 @@ async def test_b07_aux_memory_redesign_failed_forget_suppresses_the_rest_of_this
     memory_id = await _memory_id(async_tool_database, ctx)
     tool_set = tools(async_tool_database, ctx, memory=memory)
     arguments = {"memory_id": str(memory_id), "expected_version": 1}
-    with pytest.raises(AppError):
-        await tool_set.forget(arguments, call_id="failed")
+    with pytest.raises(ToolError):
+        await tool_set.forget(
+            arguments, call=ToolCall(call_id="failed", name="forget")
+        )
     async with async_tool_database.begin() as connection:
         await connection.execute(sa.text("DROP TRIGGER memory_test_failure ON runtime.user_memory_history"))
-    assert json.loads(await tool_set.forget(arguments, call_id="successful"))["deleted"] is True
+    result = await tool_set.forget(
+        arguments, call=ToolCall(call_id="successful", name="forget")
+    )
+    assert json.loads(result.content)["deleted"] is True
     assert await memory.refresh() is None
     assert (await queries(async_tool_database).read_experience_snapshot(memory.cache.scope)).records[
         0

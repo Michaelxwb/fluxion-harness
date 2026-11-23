@@ -39,6 +39,37 @@ def test_builder_includes_instructions_and_skill_catalog() -> None:
     assert "- device-audit: Device Audit [example-platform] - audits devices" in prompt
 
 
+def test_reply_language_is_optional() -> None:
+    prompt = DefaultPromptBuilder().build(instructions="be helpful", skills=_skills())
+
+    assert "## Reply language" not in prompt
+
+
+def test_reply_language_section_sits_between_instructions_and_skills() -> None:
+    prompt = DefaultPromptBuilder().build(
+        instructions="be helpful", skills=_skills(), reply_locale="en-US"
+    )
+
+    assert "## Reply language" in prompt
+    assert "- Reply in English (en-US) by default" in prompt
+    assert "explicit request" in prompt
+    assert "memory" not in prompt
+    assert "Do not infer a language preference" in prompt
+    assert (
+        prompt.index("be helpful")
+        < prompt.index("## Reply language")
+        < prompt.index("## Available skills")
+    ), prompt
+
+
+def test_unknown_reply_locale_falls_back_to_chinese() -> None:
+    prompt = DefaultPromptBuilder().build(
+        instructions="be helpful", skills=(), reply_locale="fr-FR"
+    )
+
+    assert "- Reply in Chinese (zh-CN) by default" in prompt
+
+
 def test_version_marker_is_optional() -> None:
     without = DefaultPromptBuilder().build(instructions="x", skills=())
     with_version = DefaultPromptBuilder(prompt_template_version="1").build(instructions="x", skills=())

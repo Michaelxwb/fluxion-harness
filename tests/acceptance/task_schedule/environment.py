@@ -34,6 +34,23 @@ TENANT = "e2e-task-schedule"
 INTERNAL_TOKEN = "e2e-internal-service-token"
 MODEL_API_KEY = "e2e-model-key"
 SKILL_KEY = "e2e_policy_check"
+SKILL_FRONTMATTER = {
+    "invocation_contract": {
+        "version": 1,
+        "invocation": "stdin",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "case": {"type": "string"},
+                "customer": {"type": "string"},
+                "index": {"type": "integer"},
+                "gate": {"type": "string"},
+            },
+            "required": [],
+            "additionalProperties": False,
+        },
+    }
+}
 BOT_ID = "e2e-bot"
 BOT_SECRET = "e2e-bot-secret"
 # Console 管理员账号（S-02）：让栈内能走**真实 Console API** 保存平台设置（真实登录会话 + CSRF）。
@@ -513,6 +530,7 @@ def seed_control(
                 instructions="",
                 package_size=(artifact_root / storage_key).stat().st_size,
                 validation_status="READY",
+                frontmatter_json=SKILL_FRONTMATTER,
                 created_by=user.id,
             )
             session.add(artifact)
@@ -531,6 +549,7 @@ def seed_control(
                 instructions="",
                 package_size=(artifact_root / batch_storage_key).stat().st_size,
                 validation_status="READY",
+                frontmatter_json=SKILL_FRONTMATTER,
                 created_by=user.id,
             )
             session.add(batch_artifact)

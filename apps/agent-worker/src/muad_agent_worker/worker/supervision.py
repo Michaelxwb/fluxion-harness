@@ -15,13 +15,13 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import time
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
 from typing import Any
 
 from muad_api import inc_counter
+from muad_logging import get_logger
 
 from ..metrics import (
     WORKER_LOOP_RESTART_METRIC,
@@ -30,7 +30,7 @@ from ..metrics import (
     mark_loop_started,
 )
 
-logger = logging.getLogger("muad_agent_worker.worker.supervision")
+logger = get_logger("muad_agent_worker.worker.supervision")
 
 LoopBody = Callable[[], Coroutine[Any, Any, None]]
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import mimetypes
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -28,9 +27,11 @@ from muad_agent_core.skill import (
 )
 from muad_artifact_store import SkillArtifactCacheError
 from muad_common import SharedSettings, process_settings
-from muad_contracts import PayloadKind, ScheduleMode, TriggerType, WaitKind
+from muad_contracts import TriggerType, WaitKind
+from muad_contracts.egress_identity import egress_operation_key
 from muad_contracts.skill_invocation import validate_skill_argv
 from muad_contracts.snapshot import task_execution_timeout
+from muad_logging import get_logger
 from muad_platform_sdk.platform_transport import PlatformBudgetScope
 from muad_platform_sdk.shared_redis import MeteringUnavailable, SharedLimitExceeded
 from muad_platform_sdk.skill_access import SkillPlatformContext
@@ -57,7 +58,7 @@ from ..metrics import (
 )
 from .egress_execution import execute_task_skill_with_egress
 
-logger = logging.getLogger("muad_agent_worker.worker.executor")
+logger = get_logger("muad_agent_worker.worker.executor")
 
 #: 剩余时间已经不够一秒时不再把它夹成 0：给子进程一个能正常启动/收尾的下限。
 MIN_EXECUTION_TIMEOUT_SEC = 1.0
@@ -155,18 +156,11 @@ def frozen_skill_input(task: TaskExecution) -> dict[str, Any]:
     """本次执行只把**业务 input** 交给 stdin（design §10.6）。
 
     Fire 写下的 SKILL_PLAN 信封（`kind/mode/skill_id/context/window`）是控制字段，业务
-    payload 在 `input`；立即任务的 `input_json` 本身就是业务 payload。试跑与 Fire 共用同一
-    份信封形状（`trigger_type=IMMEDIATE`），因此除触发类型外还要按 `kind` 识别。旧 Scheduled
-    任务的 `input` 缺省按空对象处理，不回退成整个信封。
+    payload 在 `input`；立即任务的 `input_json` 本身就是业务 payload，原样交给 stdin。
+    旧 Scheduled 任务的 `input` 缺省按空对象处理，不回退成整个信封。
     """
     payload = task.input_json if isinstance(task.input_json, Mapping) else {}
-    kind = payload.get("kind")
-    envelope = (
-        task.trigger_type == str(TriggerType.SCHEDULED)
-        or kind == str(PayloadKind.SKILL_PLAN)
-        or (payload.get("mode") == str(ScheduleMode.SKILL) and "input" in payload)
-    )
-    if not envelope:
+    if task.trigger_type != str(TriggerType.SCHEDULED):
         return dict(payload)
     business = payload.get("input")
     if business is None:
@@ -334,6 +328,7 @@ class SkillTaskExecutor:
             result = await execute_task_skill_with_egress(
                 self._executor, request, task=task, skill_key=skill_key, settings=self._settings,
                 sessions=self._sessions,
+                operation_key=egress_operation_key("TASK_SKILL", str(task.id)),
             )
         except SkillExecutionError as exc:
             if exc.code in {"LOCAL_BUDGET_EXHAUSTED", "EGRESS_CLIENT_UNSUPPORTED",

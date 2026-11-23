@@ -5,10 +5,9 @@ from dataclasses import replace
 
 import pytest
 import sqlalchemy as sa
-from muad_agent_core.tools import ToolRegistry
+from muad_agent_core.tools import ToolCall, ToolError, ToolRegistry
 from muad_agent_runtime.application.memory_tools import memory_write_enabled
 from muad_agent_runtime.infrastructure.models.runtime import ToolCallAudit
-from muad_api import AppError
 from muad_contracts.platform_settings import MemoryPolicySettings
 
 from tests.agent_runtime.memory_confirmation_support import source, state
@@ -91,7 +90,7 @@ async def test_e01_cross_user_arguments_are_rejected_and_reads_are_scoped(async_
     mine, other = context(), context()
     await writer(async_tool_database).execute(other, command(upsert(value="private-other")))
     assert (await recall(tools(async_tool_database, mine), {}))["items"] == []
-    with pytest.raises(AppError) as caught:
+    with pytest.raises(ToolError) as caught:
         await tools(async_tool_database, mine).remember(
             {
                 "memory_kind": "PREFERENCE",
@@ -100,7 +99,7 @@ async def test_e01_cross_user_arguments_are_rejected_and_reads_are_scoped(async_
                 "title": "输出风格",
                 "user_id": str(other.user_id),
             },
-            call_id="forged",
+            call=ToolCall(call_id="forged", name="remember"),
         )
     assert caught.value.code == "MEMORY_CONFIRMATION_INVALID"
 
@@ -161,11 +160,13 @@ async def test_recall_byte_budget_can_return_fewer_items_than_requested(async_to
     budget = 1024
     ctx = context(settings=MemoryPolicySettings(max_recall_bytes=budget))
     await seed_v2_notes(async_tool_database, ctx, 21, value="small")
-    result = await tools(async_tool_database, ctx).recall({"limit": 20}, call_id="byte-cap")
-    payload = json.loads(result)
+    result = await tools(async_tool_database, ctx).recall(
+        {"limit": 20}, call=ToolCall(call_id="byte-cap", name="recall")
+    )
+    payload = json.loads(result.content)
     assert 0 < len(payload["items"]) < 20
     assert payload["truncated"] is True
-    assert len(result.encode("utf-8")) <= budget
+    assert len(result.content.encode("utf-8")) <= budget
 
 
 async def test_tool_schema_effects_and_write_switch(async_tool_database):
@@ -191,11 +192,11 @@ async def test_tool_schema_effects_and_write_switch(async_tool_database):
 async def test_recall_rejects_invalid_arguments(async_tool_database):
     ctx = context()
     tool_set = tools(async_tool_database, ctx)
-    with pytest.raises(AppError) as exc:
-        await tool_set.recall({"limit": 99}, call_id="limit")
+    with pytest.raises(ToolError) as exc:
+        await tool_set.recall({"limit": 99}, call=ToolCall(call_id="limit", name="recall"))
     assert exc.value.code == "MEMORY_LIMIT_INVALID"
-    with pytest.raises(AppError) as exc:
-        await tool_set.recall({"memory_key": "color"}, call_id="legacy-key")
+    with pytest.raises(ToolError) as exc:
+        await tool_set.recall({"memory_key": "color"}, call=ToolCall(call_id="legacy-key", name="recall"))
     assert exc.value.code == "MEMORY_KEY_INVALID"
 
 
@@ -208,8 +209,8 @@ async def test_recall_read_failure_is_error_not_miss(async_tool_database, monkey
     monkeypatch.setattr(MemoryQueries, "read_snapshot", boom)
     tool_set = tools(async_tool_database, context())
     before = metric("memory_recall_total", mode="SEARCH", outcome="ERROR")
-    with pytest.raises(AppError) as exc:
-        await tool_set.recall({"query": "anything"}, call_id="read-failure")
+    with pytest.raises(ToolError) as exc:
+        await tool_set.recall({"query": "anything"}, call=ToolCall(call_id="read-failure", name="recall"))
     assert exc.value.code == "MEMORY_READ_FAILED"
     assert metric("memory_recall_total", mode="SEARCH", outcome="ERROR") == before + 1
 
@@ -219,8 +220,10 @@ async def test_recall_impossible_budget_fails_explicitly(async_tool_database):
 
     ctx = context(settings=MemoryPolicySettings(max_recall_bytes=1))
     await seed_v2_notes(async_tool_database, ctx, 1, value="x")
-    with pytest.raises(AppError) as exc:
-        await tools(async_tool_database, ctx).recall({"limit": 5}, call_id="tiny-budget")
+    with pytest.raises(ToolError) as exc:
+        await tools(async_tool_database, ctx).recall(
+            {"limit": 5}, call=ToolCall(call_id="tiny-budget", name="recall")
+        )
     assert exc.value.code == "MEMORY_RESULT_BUDGET_EXCEEDED"
 
 
@@ -235,9 +238,11 @@ async def test_forget_works_when_writes_disabled(async_tool_database):
             )
         ).scalar_one()
     tool_set = tools(async_tool_database, ctx)
-    payload = json.loads(
-        await tool_set.forget({"memory_id": str(memory_id), "expected_version": 1}, call_id="wdis")
+    result = await tool_set.forget(
+        {"memory_id": str(memory_id), "expected_version": 1},
+        call=ToolCall(call_id="wdis", name="forget"),
     )
+    payload = json.loads(result.content)
     assert payload["deleted"] is True and payload["version"] == 2
 
 
@@ -255,7 +260,7 @@ async def test_remember_rejects_invented_predicate_with_taxonomy_code(async_tool
     """An invented predicate must fail as a taxonomy error the model can retry."""
 
     tool_set = tools(async_tool_database, context(), confirmation=object())
-    with pytest.raises(AppError) as exc:
+    with pytest.raises(ToolError) as exc:
         await tool_set.remember(
             {
                 "memory_kind": "FACT",
@@ -263,6 +268,6 @@ async def test_remember_rejects_invented_predicate_with_taxonomy_code(async_tool
                 "content": {"name": "Bingo"},
                 "title": "用户的名字是 Bingo",
             },
-            call_id="invented-predicate",
+            call=ToolCall(call_id="invented-predicate", name="remember"),
         )
     assert exc.value.code == "MEMORY_TAXONOMY_INVALID"

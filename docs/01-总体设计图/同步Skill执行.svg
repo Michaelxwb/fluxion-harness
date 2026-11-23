@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="570" viewBox="0 0 1200 570" role="img" aria-labelledby="title">
+<title id="title">同步Skill执行</title>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"/></marker></defs>
+<style>text{font-family:PingFang SC,Microsoft YaHei,Arial,sans-serif;fill:#20344B}path,polyline{stroke-linejoin:round;stroke-linecap:round}</style>
+<rect width="1200" height="570" fill="#FFFFFF"/>
+<rect x="30" y="110" width="1140" height="420" rx="12" fill="#FBFCFE" stroke="#DCE4EC" stroke-width="1.4"/>
+<g data-node="U"><rect x="20" y="30" width="160" height="60" rx="8" fill="#F4F6F9" stroke="#CBD3DE" stroke-width="1.5"/>
+<text x="100.0" y="57" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">用户</text>
+<text x="100.0" y="79" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">发起请求</text>
+</g>
+<line data-lifeline="U" x1="100" y1="90" x2="100" y2="540" stroke="#6B8199" stroke-width="1.5"/>
+<circle cx="100" cy="540" r="3" fill="#8FA3B6"/>
+<g data-node="G"><rect x="180" y="30" width="160" height="60" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="260.0" y="57" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Gateway</text>
+<text x="260.0" y="79" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">接入与回复</text>
+</g>
+<line data-lifeline="G" x1="260" y1="90" x2="260" y2="540" stroke="#6B8199" stroke-width="1.5"/>
+<circle cx="260" cy="540" r="3" fill="#8FA3B6"/>
+<g data-node="A"><rect x="340" y="30" width="160" height="60" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="420.0" y="57" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Runtime</text>
+<text x="420.0" y="79" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">本轮执行</text>
+</g>
+<line data-lifeline="A" x1="420" y1="90" x2="420" y2="540" stroke="#6B8199" stroke-width="1.5"/>
+<circle cx="420" cy="540" r="3" fill="#8FA3B6"/>
+<g data-node="S"><rect x="500" y="30" width="160" height="60" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="580.0" y="57" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">沙箱</text>
+<text x="580.0" y="79" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">隔离执行</text>
+</g>
+<line data-lifeline="S" x1="580" y1="90" x2="580" y2="540" stroke="#6B8199" stroke-width="1.5"/>
+<circle cx="580" cy="540" r="3" fill="#8FA3B6"/>
+<g data-node="P"><rect x="660" y="30" width="160" height="60" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="740.0" y="57" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">制品存储</text>
+<text x="740.0" y="79" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">不可变 Skill 制品</text>
+</g>
+<line data-lifeline="P" x1="740" y1="90" x2="740" y2="540" stroke="#6B8199" stroke-width="1.5"/>
+<circle cx="740" cy="540" r="3" fill="#8FA3B6"/>
+<g data-node="M"><rect x="820" y="30" width="160" height="60" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="900.0" y="57" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">模型网关</text>
+<text x="900.0" y="79" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">模型选择与摘要</text>
+</g>
+<line data-lifeline="M" x1="900" y1="90" x2="900" y2="540" stroke="#6B8199" stroke-width="1.5"/>
+<circle cx="900" cy="540" r="3" fill="#8FA3B6"/>
+<g data-node="B"><rect x="980" y="30" width="160" height="60" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="1060.0" y="57" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">平台接入</text>
+<text x="1060.0" y="79" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">调用业务平台接口</text>
+</g>
+<line data-lifeline="B" x1="1060" y1="90" x2="1060" y2="540" stroke="#6B8199" stroke-width="1.5"/>
+<circle cx="1060" cy="540" r="3" fill="#8FA3B6"/>
+<rect x="41" y="118" width="337.6" height="26" fill="#FBFCFE"/>
+<text x="46" y="137" font-size="16" font-weight="600" text-anchor="start" style="fill:#4B637C">同步 Skill 执行｜查询客户 A 昨天的告警</text>
+<line x1="40" y1="165" x2="1160" y2="165" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="100" cy="165" r="2.6" fill="#447DA5"/>
+<polyline points="100,165 260,165" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="93.0" y="141" width="174.0" height="20" rx="4" fill="#FFFFFF"/>
+<text x="180" y="156" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">1 问客户 A 昨天的告警</text>
+<line x1="40" y1="189" x2="1160" y2="189" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="260" cy="189" r="2.6" fill="#447DA5"/>
+<polyline points="260,189 420,189" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="263.8" y="165" width="152.4" height="20" rx="4" fill="#FFFFFF"/>
+<text x="340" y="180" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">2 提交告警查询 Run</text>
+<line x1="40" y1="213" x2="1160" y2="213" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="420" cy="213" r="2.6" fill="#447DA5"/>
+<polyline points="420,213 900,213" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="575.4" y="189" width="169.20000000000005" height="20" rx="4" fill="#FFFFFF"/>
+<text x="660" y="204" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">3 请求模型选择 Skill</text>
+<line x1="40" y1="237" x2="1160" y2="237" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="900" cy="237" r="2.6" fill="#3D8585"/>
+<polyline points="900,237 420,237" fill="none" stroke="#3D8585" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="575.4" y="213" width="169.20000000000005" height="20" rx="4" fill="#FFFFFF"/>
+<text x="660" y="228" font-size="15" font-weight="500" text-anchor="middle" style="fill:#3D8585">4 选择告警查询 Skill</text>
+<line x1="40" y1="261" x2="1160" y2="261" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="420" cy="261" r="2.6" fill="#447DA5"/>
+<polyline points="420,261 740,261" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="495.4" y="237" width="169.20000000000005" height="20" rx="4" fill="#FFFFFF"/>
+<text x="580" y="252" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">5 加载告警查询 Skill</text>
+<line x1="40" y1="285" x2="1160" y2="285" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="740" cy="285" r="2.6" fill="#3D8585"/>
+<polyline points="740,285 420,285" fill="none" stroke="#3D8585" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="506.2" y="261" width="147.60000000000005" height="20" rx="4" fill="#FFFFFF"/>
+<text x="580" y="276" font-size="15" font-weight="500" text-anchor="middle" style="fill:#3D8585">6 返回 Skill 制品</text>
+<line x1="40" y1="309" x2="1160" y2="309" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="420" cy="309" r="2.6" fill="#447DA5"/>
+<polyline points="420,309 580,309" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="430.4" y="285" width="139.20000000000005" height="20" rx="4" fill="#FFFFFF"/>
+<text x="500" y="300" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">7 沙箱执行 Skill</text>
+<line x1="40" y1="333" x2="1160" y2="333" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="580" cy="333" r="2.6" fill="#447DA5"/>
+<polyline points="580,333 1060,333" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="745.6" y="309" width="148.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="820" y="324" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">8 调用外部平台接口</text>
+<line x1="40" y1="357" x2="1160" y2="357" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="1060" cy="357" r="2.6" fill="#3D8585"/>
+<polyline points="1060,357 580,357" fill="none" stroke="#3D8585" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="760.6" y="333" width="118.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="820" y="348" font-size="15" font-weight="500" text-anchor="middle" style="fill:#3D8585">9 返回业务数据</text>
+<line x1="40" y1="381" x2="1160" y2="381" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="580" cy="381" r="2.6" fill="#3D8585"/>
+<polyline points="580,381 420,381" fill="none" stroke="#3D8585" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="436.4" y="357" width="127.19999999999999" height="20" rx="4" fill="#FFFFFF"/>
+<text x="500" y="372" font-size="15" font-weight="500" text-anchor="middle" style="fill:#3D8585">10 返回告警结果</text>
+<line x1="40" y1="405" x2="1160" y2="405" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="420" cy="405" r="2.6" fill="#447DA5"/>
+<polyline points="420,405 740,405" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="516.4" y="381" width="127.19999999999999" height="20" rx="4" fill="#FFFFFF"/>
+<text x="580" y="396" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">11 保存告警结果</text>
+<line x1="40" y1="429" x2="1160" y2="429" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="420" cy="429" r="2.6" fill="#447DA5"/>
+<polyline points="420,429 900,429" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="581.4" y="405" width="157.2" height="20" rx="4" fill="#FFFFFF"/>
+<text x="660" y="420" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">12 请求模型生成摘要</text>
+<line x1="40" y1="453" x2="1160" y2="453" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="900" cy="453" r="2.6" fill="#3D8585"/>
+<polyline points="900,453 420,453" fill="none" stroke="#3D8585" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="611.4" y="429" width="97.19999999999999" height="20" rx="4" fill="#FFFFFF"/>
+<text x="660" y="444" font-size="15" font-weight="500" text-anchor="middle" style="fill:#3D8585">13 返回摘要</text>
+<line x1="40" y1="477" x2="1160" y2="477" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="420" cy="477" r="2.6" fill="#3D8585"/>
+<polyline points="420,477 260,477" fill="none" stroke="#3D8585" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="259.6" y="453" width="160.8" height="20" rx="4" fill="#FFFFFF"/>
+<text x="340" y="468" font-size="15" font-weight="500" text-anchor="middle" style="fill:#3D8585">14 SSE 推送告警摘要</text>
+<line x1="40" y1="501" x2="1160" y2="501" stroke="#EEF3F7" stroke-width="1"/>
+<circle cx="260" cy="501" r="2.6" fill="#3D8585"/>
+<polyline points="260,501 100,501" fill="none" stroke="#3D8585" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="116.4" y="477" width="127.19999999999999" height="20" rx="4" fill="#FFFFFF"/>
+<text x="180" y="492" font-size="15" font-weight="500" text-anchor="middle" style="fill:#3D8585">15 显示告警摘要</text>
+<text x="46" y="528" font-size="14" font-weight="400" text-anchor="start" style="fill:#536B81">Skill 在当前 Run 内执行；制品只读；工具结果持久化后再交给模型。</text>
+</svg>

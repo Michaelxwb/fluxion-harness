@@ -1,0 +1,598 @@
+{
+  "name": "同步Skill执行",
+  "size": [
+    1200,
+    570
+  ],
+  "nodes": {
+    "U": {
+      "rect": [
+        20,
+        30,
+        160,
+        60
+      ],
+      "label": "用户",
+      "lines": [
+        "发起请求"
+      ],
+      "state": false,
+      "tone": "external"
+    },
+    "G": {
+      "rect": [
+        180,
+        30,
+        160,
+        60
+      ],
+      "label": "Gateway",
+      "lines": [
+        "接入与回复"
+      ],
+      "state": false,
+      "tone": "active"
+    },
+    "A": {
+      "rect": [
+        340,
+        30,
+        160,
+        60
+      ],
+      "label": "Runtime",
+      "lines": [
+        "本轮执行"
+      ],
+      "state": false,
+      "tone": "active"
+    },
+    "S": {
+      "rect": [
+        500,
+        30,
+        160,
+        60
+      ],
+      "label": "沙箱",
+      "lines": [
+        "隔离执行"
+      ],
+      "state": false,
+      "tone": "active"
+    },
+    "P": {
+      "rect": [
+        660,
+        30,
+        160,
+        60
+      ],
+      "label": "制品存储",
+      "lines": [
+        "不可变 Skill 制品"
+      ],
+      "state": false,
+      "tone": "active"
+    },
+    "M": {
+      "rect": [
+        820,
+        30,
+        160,
+        60
+      ],
+      "label": "模型网关",
+      "lines": [
+        "模型选择与摘要"
+      ],
+      "state": false,
+      "tone": "active"
+    },
+    "B": {
+      "rect": [
+        980,
+        30,
+        160,
+        60
+      ],
+      "label": "平台接入",
+      "lines": [
+        "调用业务平台接口"
+      ],
+      "state": false,
+      "tone": "active"
+    }
+  },
+  "groups": {
+    "sync": {
+      "rect": [
+        30,
+        110,
+        1140,
+        420
+      ],
+      "title": "同步 Skill 执行｜查询客户 A 昨天的告警"
+    }
+  },
+  "edges": [
+    {
+      "from": "U",
+      "to": "G",
+      "points": [
+        [
+          100,
+          165
+        ],
+        [
+          260,
+          165
+        ]
+      ],
+      "label": "1 问客户 A 昨天的告警",
+      "both": false
+    },
+    {
+      "from": "G",
+      "to": "A",
+      "points": [
+        [
+          260,
+          189
+        ],
+        [
+          420,
+          189
+        ]
+      ],
+      "label": "2 提交告警查询 Run",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "M",
+      "points": [
+        [
+          420,
+          213
+        ],
+        [
+          900,
+          213
+        ]
+      ],
+      "label": "3 请求模型选择 Skill",
+      "both": false
+    },
+    {
+      "from": "M",
+      "to": "A",
+      "points": [
+        [
+          900,
+          237
+        ],
+        [
+          420,
+          237
+        ]
+      ],
+      "label": "4 选择告警查询 Skill",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "P",
+      "points": [
+        [
+          420,
+          261
+        ],
+        [
+          740,
+          261
+        ]
+      ],
+      "label": "5 加载告警查询 Skill",
+      "both": false
+    },
+    {
+      "from": "P",
+      "to": "A",
+      "points": [
+        [
+          740,
+          285
+        ],
+        [
+          420,
+          285
+        ]
+      ],
+      "label": "6 返回 Skill 制品",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "S",
+      "points": [
+        [
+          420,
+          309
+        ],
+        [
+          580,
+          309
+        ]
+      ],
+      "label": "7 沙箱执行 Skill",
+      "both": false
+    },
+    {
+      "from": "S",
+      "to": "B",
+      "points": [
+        [
+          580,
+          333
+        ],
+        [
+          1060,
+          333
+        ]
+      ],
+      "label": "8 调用外部平台接口",
+      "both": false
+    },
+    {
+      "from": "B",
+      "to": "S",
+      "points": [
+        [
+          1060,
+          357
+        ],
+        [
+          580,
+          357
+        ]
+      ],
+      "label": "9 返回业务数据",
+      "both": false
+    },
+    {
+      "from": "S",
+      "to": "A",
+      "points": [
+        [
+          580,
+          381
+        ],
+        [
+          420,
+          381
+        ]
+      ],
+      "label": "10 返回告警结果",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "P",
+      "points": [
+        [
+          420,
+          405
+        ],
+        [
+          740,
+          405
+        ]
+      ],
+      "label": "11 保存告警结果",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "M",
+      "points": [
+        [
+          420,
+          429
+        ],
+        [
+          900,
+          429
+        ]
+      ],
+      "label": "12 请求模型生成摘要",
+      "both": false
+    },
+    {
+      "from": "M",
+      "to": "A",
+      "points": [
+        [
+          900,
+          453
+        ],
+        [
+          420,
+          453
+        ]
+      ],
+      "label": "13 返回摘要",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "G",
+      "points": [
+        [
+          420,
+          477
+        ],
+        [
+          260,
+          477
+        ]
+      ],
+      "label": "14 SSE 推送告警摘要",
+      "both": false
+    },
+    {
+      "from": "G",
+      "to": "U",
+      "points": [
+        [
+          260,
+          501
+        ],
+        [
+          100,
+          501
+        ]
+      ],
+      "label": "15 显示告警摘要",
+      "both": false
+    }
+  ],
+  "diagram_type": "sequence",
+  "lifelines": [
+    {
+      "participant": "U",
+      "node": "U",
+      "points": [
+        [
+          100,
+          90
+        ],
+        [
+          100,
+          540
+        ]
+      ]
+    },
+    {
+      "participant": "G",
+      "node": "G",
+      "points": [
+        [
+          260,
+          90
+        ],
+        [
+          260,
+          540
+        ]
+      ]
+    },
+    {
+      "participant": "A",
+      "node": "A",
+      "points": [
+        [
+          420,
+          90
+        ],
+        [
+          420,
+          540
+        ]
+      ]
+    },
+    {
+      "participant": "S",
+      "node": "S",
+      "points": [
+        [
+          580,
+          90
+        ],
+        [
+          580,
+          540
+        ]
+      ]
+    },
+    {
+      "participant": "P",
+      "node": "P",
+      "points": [
+        [
+          740,
+          90
+        ],
+        [
+          740,
+          540
+        ]
+      ]
+    },
+    {
+      "participant": "M",
+      "node": "M",
+      "points": [
+        [
+          900,
+          90
+        ],
+        [
+          900,
+          540
+        ]
+      ]
+    },
+    {
+      "participant": "B",
+      "node": "B",
+      "points": [
+        [
+          1060,
+          90
+        ],
+        [
+          1060,
+          540
+        ]
+      ]
+    }
+  ],
+  "messages": [
+    {
+      "scenario": "sync",
+      "order": 1,
+      "from": "U",
+      "to": "G",
+      "y": 165,
+      "label": "问客户 A 昨天的告警",
+      "reply": false
+    },
+    {
+      "scenario": "sync",
+      "order": 2,
+      "from": "G",
+      "to": "A",
+      "y": 189,
+      "label": "提交告警查询 Run",
+      "reply": false
+    },
+    {
+      "scenario": "sync",
+      "order": 3,
+      "from": "A",
+      "to": "M",
+      "y": 213,
+      "label": "请求模型选择 Skill",
+      "reply": false
+    },
+    {
+      "scenario": "sync",
+      "order": 4,
+      "from": "M",
+      "to": "A",
+      "y": 237,
+      "label": "选择告警查询 Skill",
+      "reply": true
+    },
+    {
+      "scenario": "sync",
+      "order": 5,
+      "from": "A",
+      "to": "P",
+      "y": 261,
+      "label": "加载告警查询 Skill",
+      "reply": false
+    },
+    {
+      "scenario": "sync",
+      "order": 6,
+      "from": "P",
+      "to": "A",
+      "y": 285,
+      "label": "返回 Skill 制品",
+      "reply": true
+    },
+    {
+      "scenario": "sync",
+      "order": 7,
+      "from": "A",
+      "to": "S",
+      "y": 309,
+      "label": "沙箱执行 Skill",
+      "reply": false
+    },
+    {
+      "scenario": "sync",
+      "order": 8,
+      "from": "S",
+      "to": "B",
+      "y": 333,
+      "label": "调用外部平台接口",
+      "reply": false
+    },
+    {
+      "scenario": "sync",
+      "order": 9,
+      "from": "B",
+      "to": "S",
+      "y": 357,
+      "label": "返回业务数据",
+      "reply": true
+    },
+    {
+      "scenario": "sync",
+      "order": 10,
+      "from": "S",
+      "to": "A",
+      "y": 381,
+      "label": "返回告警结果",
+      "reply": true
+    },
+    {
+      "scenario": "sync",
+      "order": 11,
+      "from": "A",
+      "to": "P",
+      "y": 405,
+      "label": "保存告警结果",
+      "reply": false
+    },
+    {
+      "scenario": "sync",
+      "order": 12,
+      "from": "A",
+      "to": "M",
+      "y": 429,
+      "label": "请求模型生成摘要",
+      "reply": false
+    },
+    {
+      "scenario": "sync",
+      "order": 13,
+      "from": "M",
+      "to": "A",
+      "y": 453,
+      "label": "返回摘要",
+      "reply": true
+    },
+    {
+      "scenario": "sync",
+      "order": 14,
+      "from": "A",
+      "to": "G",
+      "y": 477,
+      "label": "SSE 推送告警摘要",
+      "reply": true
+    },
+    {
+      "scenario": "sync",
+      "order": 15,
+      "from": "G",
+      "to": "U",
+      "y": 501,
+      "label": "显示告警摘要",
+      "reply": true
+    }
+  ]
+}

@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
-import logging
 import ssl
 import time
 from collections.abc import AsyncIterator, Callable, Mapping, Sequence
@@ -42,6 +41,7 @@ from muad_im_gateway.channels.base import (
     ChannelBotNotFound,
     FetchedAttachment,
 )
+from muad_logging import get_logger
 
 from .media import (
     UPLOAD_CHUNK_CMD,
@@ -70,7 +70,7 @@ from .sdk_port import (
     WeComSdkPort,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 DEFAULT_BACKOFF_BASE_SEC = 1.0
 DEFAULT_BACKOFF_MAX_SEC = 30.0
@@ -944,10 +944,12 @@ class WeComAdapter:
     ) -> None:
         """状态帧（`<think>` 段）：**与正文同一条流**，但不进入正文累积。
 
-        这是企微的展示约定（旧 `ReplySession.update_status` 同形）；Gateway 侧只送中立的
-        `status=True` 标记，格式由适配器决定。
+        2026-11-21 手机端实测：企微的「思考中」区域**不刷新**——闭合与未闭合的 `<think>` 帧
+        都只按第一帧渲染（`准备中 00:00` 一直定格，尽管后续帧已发出并被服务端接收）。
+        会随刷新变化的只有正文区，所以阶段与计时作为**可见正文**发送；后续任何一帧
+        （正文/终态）都会整体覆盖它，不会污染最终回答。
         """
-        content = f"<think>{status}</think>" + (f"\n\n{body}" if body else "")
+        content = status + (f"\n\n{body}" if body else "")
         await self.send_reply_stream(route, reply_ref, stream_id, content, finish=False)
 
     async def deliver_artifact_with_target(

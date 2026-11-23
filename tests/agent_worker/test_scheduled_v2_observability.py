@@ -59,6 +59,8 @@ CLOSED_LABELS = frozenset(
         "component",
         "pool",
         "action",
+        "mode",
+        "code",
     }
 )
 SENSITIVE_LABEL_MARKERS = ("token", "secret", "password", "credential", "authorization", "cookie")

@@ -32,9 +32,9 @@ import type {
   ScheduleDraftConfirmInput,
   ScheduleDraftConfirmReceipt,
   ScheduleDraftStatus,
+  ScheduleDispatchCheck,
   ScheduleMode,
   SchedulePreview,
-  ScheduleTrialFact,
   WebchatScheduleDraftReady,
   WebchatWriteOptions
 } from '../types';
@@ -421,52 +421,37 @@ function DraftDiff(props: { entries: readonly ScheduleDiffEntry[] }) {
   );
 }
 
-function DraftTrial(props: { trial: ScheduleTrialFact }) {
+function DraftDispatchCheck(props: { check: ScheduleDispatchCheck }) {
   const { t } = useTranslation();
-  const { trial } = props;
-  const finished =
-    trial.status === 'COMPLETED' || trial.status === 'FAILED' || trial.status === 'CANCELLED';
+  const { check } = props;
   return (
     <div
-      className="chat-draft-trial"
-      data-testid="chat-draft-trial"
-      data-status={trial.status}
-      data-execution-id={trial.execution_id}
+      className="chat-draft-dispatch"
+      data-testid="chat-draft-dispatch"
+      data-status={check.status}
+      data-invocation={check.invocation ?? ''}
     >
-      <span className="chat-draft-section-label">{t('chat.draft.trial.title')}</span>
-      <p data-testid="chat-draft-trial-execution" data-execution-id={trial.execution_id}>
-        {t('chat.draft.trial.execution', { id: trial.execution_id })}
+      <span className="chat-draft-section-label">{t('chat.draft.dispatch.title')}</span>
+      <p data-testid="chat-draft-dispatch-status">
+        {t('chat.draft.dispatch.status', { status: check.status })}
       </p>
-      <p data-testid="chat-draft-trial-status">
-        {t('chat.draft.trial.status', { status: trial.status })}
+      <p data-testid="chat-draft-dispatch-invocation">
+        {t('chat.draft.dispatch.invocation', { invocation: check.invocation ?? '—' })}
       </p>
-      {trial.result_summary ? (
-        <p data-testid="chat-draft-trial-result">
-          {t('chat.draft.trial.result')}: {trial.result_summary}
-        </p>
+      {check.dependencies.length > 0 ? (
+        <div data-testid="chat-draft-dispatch-dependencies">
+          <span>{t('chat.draft.dispatch.dependencies')}</span>
+          <ul>
+            {check.dependencies.map((dependency) => (
+              <li key={dependency}>{dependency}</li>
+            ))}
+          </ul>
+        </div>
       ) : null}
-      {trial.artifacts.length === 0 ? null : (
-        <ul className="chat-draft-trial-artifacts" data-testid="chat-draft-trial-artifacts">
-          {trial.artifacts.map((artifact) => (
-            <li key={artifact.artifact_id} data-artifact-id={artifact.artifact_id}>
-              {t('chat.draft.trial.artifact', { name: artifact.name })}
-            </li>
-          ))}
-        </ul>
-      )}
-      {trial.error_code ? (
-        <p data-testid="chat-draft-trial-error" data-error-code={trial.error_code}>
-          {t('chat.draft.trial.failure', { code: trial.error_code })}
-        </p>
-      ) : null}
-      {trial.repair_hint ? (
-        <p data-testid="chat-draft-trial-repair">
-          {t('chat.draft.trial.repair', { hint: trial.repair_hint })}
-        </p>
-      ) : null}
-      {finished ? null : (
-        <p data-testid="chat-draft-trial-running">{t('chat.draft.trial.running')}</p>
-      )}
+      <p data-testid="chat-draft-dispatch-occurrence">
+        {t('chat.draft.dispatch.occurrence')}
+        <DateTimeText value={check.occurrence_at} />
+      </p>
     </div>
   );
 }
@@ -550,7 +535,9 @@ function DraftPreviewBody(props: { draft: WebchatScheduleDraftReady; preview: Sc
           </div>
         ) : null}
       </dl>
-      {preview.trial ? <DraftTrial trial={preview.trial} /> : null}
+      {preview.dispatch_check ? (
+        <DraftDispatchCheck check={preview.dispatch_check} />
+      ) : null}
       {draft.kind === 'UPDATE' ? <DraftDiff entries={preview.diff} /> : null}
     </div>
   );

@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
+from muad_agent_core.tools import ToolCall, ToolError
 from muad_agent_runtime.application.memory_context import MemoryContextLoader
 from muad_agent_runtime.application.memory_queries import MemoryCandidateRow, MemorySnapshot
 from muad_contracts.platform_settings import MemoryPolicySettings
@@ -136,7 +137,6 @@ async def test_explicit_save_with_unknown_scope_is_rejected(async_tool_database)
     from muad_agent_runtime.application.memory_queries import MemoryQueries, MemoryReadScope
     from muad_agent_runtime.application.memory_service import MemoryService
     from muad_agent_runtime.application.memory_tools import MemoryToolSet
-    from muad_api import AppError
     from muad_api.error_codes import ErrorCode
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
@@ -154,7 +154,7 @@ async def test_explicit_save_with_unknown_scope_is_rejected(async_tool_database)
         loader=loader,
         confirmation=None,
     )
-    with pytest.raises(AppError) as exc:
+    with pytest.raises(ToolError) as exc:
         await tool_set.remember(
             {
                 "memory_kind": "FACT",
@@ -163,6 +163,6 @@ async def test_explicit_save_with_unknown_scope_is_rejected(async_tool_database)
                 "content": {"value": "pm"},
                 "title": "角色",
             },
-            call_id="unknown-scope",
+            call=ToolCall(call_id="unknown-scope", name="remember"),
         )
     assert exc.value.code == ErrorCode.MEMORY_SCOPE_UNKNOWN

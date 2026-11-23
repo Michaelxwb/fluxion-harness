@@ -12,12 +12,15 @@
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Callable, Mapping
+from contextlib import AsyncExitStack
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from typing import Any, cast
+from uuid import UUID
 
+import httpx
 from muad_agent_core.agent import (
     RunnerCancelled,
     RunnerDeadlineExceeded,
@@ -31,6 +34,10 @@ from muad_agent_core.model import ModelMessage, ModelRole
 from muad_agent_core.skill import SkillExecutionStatus
 from muad_api.error_codes import ErrorCode
 from muad_contracts import WaitKind
+from muad_logging import get_logger
+from muad_platform_sdk.egress_identity_registry import IdentityUnavailable
+from muad_platform_sdk.host_egress_execution import HostEgressExecution
+from muad_platform_sdk.shared_redis import MeteringUnavailable
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..application.agentic.checkpoints import AgenticLeaseLost, ExecutionIdentity, checkpoint_state
@@ -45,12 +52,14 @@ from ..application.agentic.run import (
     execute_agentic,
     load_resume_state,
 )
-from ..application.agentic.snapshot import load_frozen_execution
+from ..application.agentic.snapshot import FrozenAgenticExecution, load_frozen_execution
 from ..application.agentic.suspension import AgenticSuspension, pending_payload
 from ..application.human_interactions import human_answer_content, load_human_answer
 from ..infrastructure.console_credentials import CredentialResolutionError
 from ..infrastructure.models.task import TaskExecution
 from ..infrastructure.task_operation_client import TaskOperationClient, TaskOperationError
+from .agentic_skills import AgenticSkillTools
+from .egress_execution import task_egress
 from .execution_outcomes import (
     AGENTIC_CHECKPOINT_KEY,
     AGENTIC_DEADLINE_KEY,
@@ -61,7 +70,7 @@ from .execution_outcomes import (
 )
 from .executor import TaskExecutionError
 
-logger = logging.getLogger("muad_agent_worker.worker.agentic_executor")
+logger = get_logger("muad_agent_worker.worker.agentic_executor")
 
 AGENTIC_EXECUTION_FAILED = "AGENTIC_EXECUTION_FAILED"
 #: `last_resume_reason` 的 Human 取值（claim 写入；与 answer 事务同一口径）。
@@ -72,7 +81,9 @@ TASK_DEADLINE_EXCEEDED = "TASK_DEADLINE_EXCEEDED"
 ASYNC_WAIT_SEC = 60
 HUMAN_INPUT_KIND = "HUMAN_INPUT"
 
-SkillRunnerFactory = Callable[[TaskExecution, AgenticSuspension], Any]
+SkillRunnerFactory = Callable[
+    [TaskExecution, AgenticSuspension, HostEgressExecution | None], AgenticSkillTools
+]
 
 
 class AgenticTaskExecutor:
@@ -96,13 +107,13 @@ class AgenticTaskExecutor:
         frozen = load_frozen_execution(task)
         identity = _identity(task)
         try:
-            # 恢复的唯一依据是 checkpoint：`load_resume_state` 在没有 checkpoint 时返回 None。
-            # 首跑、外部续接、Human 续接、崩后重试都走同一条读历史的路，不靠 resume_reason 猜。
+            # 已持久化事件是恢复事实；checkpoint 只提供可选的进度水位。
             resume = await load_resume_state(
                 self._deps.sessions,
                 task,
                 operations=self._deps.operations,
                 session_context=self._deps.session_context,
+                ensure_child=partial(self._ensure_child, task),
             )
             # Human 续接的答案不是持久事件：恢复后按 resolved_at 注入成本轮的一条 USER 消息。
             if resume is not None and task.last_resume_reason == HUMAN_RESUME_REASON:
@@ -111,14 +122,7 @@ class AgenticTaskExecutor:
                 # 崩后重建：还有调用没终态，历史里那些 tool 消息只是提交回执。补写等待，
                 # 不跑模型（否则会得到"声明了 tool_call 却没有结果"的非法回合）。
                 return _pending_envelope(resume)
-            outcome = await execute_agentic(
-                self._deps,
-                task,
-                frozen,
-                identity=identity,
-                skill_runner_factory=lambda suspension: self._skill_runner(task, suspension),
-                resume=resume,
-            )
+            outcome = await self._run_agentic(task, frozen, identity, resume)
         except RunnerCancelled as exc:
             return _cancelled(exc)
         except RunnerDeadlineExceeded as exc:
@@ -128,6 +132,8 @@ class AgenticTaskExecutor:
             raise TaskExecutionError(code, str(exc), retryable=False) from exc
         except AgenticError as exc:
             raise TaskExecutionError(exc.code, exc.message, retryable=exc.retryable) from exc
+        except (MeteringUnavailable, IdentityUnavailable) as exc:
+            raise TaskExecutionError("EGRESS_METERING_UNAVAILABLE", str(exc), retryable=False) from exc
         except TaskOperationError as exc:
             # 同一调用身份换了参数（`TOOL_OPERATION_INPUT_MISMATCH`）是确定性冲突：重试不会变好。
             raise TaskExecutionError(
@@ -136,6 +142,41 @@ class AgenticTaskExecutor:
         except (RunnerModelError, RunnerVerificationExhausted, RunnerEmptyReply, RunnerError) as exc:
             raise TaskExecutionError(AGENTIC_EXECUTION_FAILED, str(exc)) from exc
         return _envelope(outcome, task)
+
+    async def _ensure_child(
+        self, task: TaskExecution, call_id: str, operation_id: UUID,
+        tool_name: str, arguments: Mapping[str, Any],
+    ) -> UUID | None:
+        runner = self._skill_runner(task, AgenticSuspension(execution_id=task.id), None)
+        return await runner.ensure_child(
+            call_id=call_id, operation_id=operation_id, tool_name=tool_name, arguments=arguments,
+        )
+
+    async def _run_agentic(
+        self, task: TaskExecution, frozen: FrozenAgenticExecution,
+        identity: ExecutionIdentity, resume: ResumeState | None,
+    ) -> AgenticOutcome:
+        async with AsyncExitStack() as stack:
+            deps = self._deps
+            egress = await stack.enter_async_context(task_egress(
+                task, deps.settings, deps.sessions, tuple(skill.key for skill in frozen.snapshot.skills),
+            ))
+            if egress is not None and deps.mcp_http is not None:
+                invocation = await egress.host_invocation(
+                    operation_key="mcp:transport", skill_key="mcp:transport",
+                )
+                client = await stack.enter_async_context(httpx.AsyncClient(
+                    transport=egress.transport(invocation, client=deps.mcp_http),
+                ))
+                deps = replace(deps, mcp_http=client)
+
+            async def execute() -> AgenticOutcome:
+                return await execute_agentic(
+                    deps, task, frozen, identity=identity, resume=resume,
+                    skill_runner_factory=lambda suspension: self._skill_runner(task, suspension, egress),
+                )
+
+            return await execute() if egress is None else await egress.run(execute)
 
 
 async def _with_human_answer(

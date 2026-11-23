@@ -11,7 +11,6 @@ label 只含任务类型/状态、技能键、投递状态与维护节拍结局�
 
 from __future__ import annotations
 
-import logging
 import time
 from collections import Counter
 from collections.abc import Mapping
@@ -19,8 +18,9 @@ from typing import Final, Literal
 
 from fastapi import FastAPI
 from muad_api import declare_metric, inc_counter, install_metrics, set_gauge
+from muad_logging import get_logger
 
-logger = logging.getLogger("muad_agent_worker.metrics")
+logger = get_logger("muad_agent_worker.metrics")
 
 _counters: Counter[str] = Counter()
 
@@ -73,6 +73,10 @@ SCHEDULE_FIRE_DUPLICATE_METRIC: Final = "schedule_fire_duplicate_total"
 SCHEDULE_FIRE_SKIPPED_METRIC: Final = "schedule_fire_skipped_total"
 #: 准入失败数（counter，label `reason` 为目录错误码：SKILL_NOT_FOUND/…）。
 SCHEDULE_ADMISSION_FAILED_METRIC: Final = "schedule_admission_failed_total"
+#: Draft/Confirm 调度预检结局（counter，label `status`/`mode`/`code`）。
+SCHEDULE_PREFLIGHT_METRIC: Final = "schedule_preflight_total"
+#: Confirm 在创建 Schedule 前被拒绝（counter，label `code`）。
+SCHEDULE_CONFIRM_BLOCKED_METRIC: Final = "schedule_confirm_blocked_total"
 #: 时区/规则解析失败（counter）：坏 TZDB 输入必须可见，不能只在日志里。
 SCHEDULE_TIMEZONE_ERROR_METRIC: Final = "schedule_timezone_resolution_error_total"
 #: Execution 耗时（gauge，秒；label `type` 为 SKILL/BATCH）：api-kit 只有 counter/gauge，
@@ -137,6 +141,18 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
         COUNTER,
         ("reason",),
         "Fires rejected by admission by catalog error code",
+    ),
+    (
+        SCHEDULE_PREFLIGHT_METRIC,
+        COUNTER,
+        ("status", "mode", "code"),
+        "Draft and Confirm dispatch preflight outcomes",
+    ),
+    (
+        SCHEDULE_CONFIRM_BLOCKED_METRIC,
+        COUNTER,
+        ("code",),
+        "Confirm requests rejected before creating a Schedule",
     ),
     (
         SCHEDULE_TIMEZONE_ERROR_METRIC,

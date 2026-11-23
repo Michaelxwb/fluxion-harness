@@ -19,13 +19,15 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
-from typing import Any, Protocol, runtime_checkable
+from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from muad_contracts.platform_settings import MicroSettings, SnipSettings
 
 from ..model.provider import ModelMessage, ModelRole, text_of
-from .summary import SUMMARY_MESSAGE_PREFIX
+
+if TYPE_CHECKING:
+    from .plan import ContextPlan
 
 Group = tuple[ModelMessage, ...]
 
@@ -108,52 +110,6 @@ def split_protected_prefix(
     while index < len(messages) and messages[index].role is ModelRole.SYSTEM:
         index += 1
     return tuple(messages[:index]), tuple(messages[index:])
-
-
-@dataclass(frozen=True, slots=True)
-class SummaryScopes:
-    """摘要层的三段切分（`split_summary_scopes` 的返回）。"""
-
-    #: 受保护前缀（系统提示 / memory 注入），**已剔除旧摘要**。
-    prefix: tuple[ModelMessage, ...]
-    #: 可以被这次摘要取代的更早历史。
-    older: tuple[ModelMessage, ...]
-    #: 当前回合（最近一条 USER 起到末尾）：摘要不动它，原样进请求。
-    current_turn: tuple[ModelMessage, ...]
-
-
-def _is_summary_message(message: ModelMessage) -> bool:
-    return message.role is ModelRole.SYSTEM and text_of(message.content).startswith(
-        SUMMARY_MESSAGE_PREFIX
-    )
-
-
-def split_summary_scopes(messages: Sequence[ModelMessage]) -> SummaryScopes:
-    """按摘要层的需要切成三段：受保护前缀 / 可摘要的更早历史 / 当前回合。
-
-    摘要是唯一"把一整段历史换成一条消息"的层，所以边界必须由它自己划（其余会删消息的层只在
-    对话区工作，见 `split_protected_prefix`）：
-
-    - **受保护前缀**原样保留 —— 裁掉系统提示等于 agent 失忆（`harness-arch`）；
-    - **当前回合**原样保留（与 snip 的 `_current_turn_start` 同一口径）—— 否则模型不知道自己在
-      回答什么，带内联图片的当前消息也会一并消失；
-    - 前缀里若已有上一份摘要（`summary_message` 渲染出来的 SYSTEM，带固定标记），它**不留在
-      前缀**里：新摘要会连它一起重述，留着就是两份摘要在同一个请求里并存。调用方仍要把旧摘要
-      连同历史喂给摘要模型（传整段进去），否则它覆盖的那段事实没人记得。
-    """
-    sanitized = _sanitized(messages)
-    prefix, region = split_protected_prefix(sanitized)
-    head = tuple(message for message in prefix if not _is_summary_message(message))
-    groups = split_groups(region)
-    start = _current_turn_start(groups)
-    if start is None:
-        # 没有 user 消息：整段都是"更早历史"，没有当前回合要保
-        return SummaryScopes(head, tuple(message for group in groups for message in group), ())
-    return SummaryScopes(
-        head,
-        tuple(message for group in groups[:start] for message in group),
-        tuple(message for group in groups[start:] for message in group),
-    )
 
 
 def _artifact_id(content: Any) -> str | None:
@@ -376,9 +332,11 @@ def compact_history(
     """
     layers: list[LayerOutcome] = []
     current = _sanitized(messages)
-    for outcome in (micro(current, micro_settings), snip(current, snip_settings)):
-        layers.append(outcome)
-        current = outcome.messages
+    micro_outcome = micro(current, micro_settings)
+    layers.append(micro_outcome)
+    snip_outcome = snip(micro_outcome.messages, snip_settings)
+    layers.append(snip_outcome)
+    current = snip_outcome.messages
     if history_budget_messages is not None:
         bounded = trim_history(current, history_budget_messages)
         if bounded != current:
@@ -397,23 +355,64 @@ class ContextCompactor(Protocol):
     """请求构建缝上的压缩钩子（design §3.2 的第二条集成缝）。
 
     实现**必须自己吞掉所有异常**（RULE-04：压缩失败一律退化到不压缩，不得让 Run 失败），
-    所以这里的契约就一句：拿到一段历史，返回一段可以发给模型的历史。
+    所以这里的契约就一句：拿到一个显式 ContextPlan，返回可发给模型的 ContextPlan。
     """
 
-    async def compact(self, messages: Sequence[ModelMessage]) -> tuple[ModelMessage, ...]: ...
+    async def compact_plan(self, plan: ContextPlan) -> ContextPlan: ...
 
 
 __all__ = [
     "ContextCompactor",
     "LayerOutcome",
-    "SummaryScopes",
     "compact_history",
+    "compact_plan",
     "history_bytes",
     "message_bytes",
     "micro",
     "snip",
     "split_groups",
     "split_protected_prefix",
-    "split_summary_scopes",
     "trim_history",
+    "trim_older_history",
 ]
+
+def compact_plan(
+    plan: ContextPlan,
+    *,
+    snip_settings: SnipSettings,
+    micro_settings: MicroSettings,
+    history_budget_messages: int | None = None,
+) -> tuple[ContextPlan, tuple[LayerOutcome, ...]]:
+    """对 **older** 做 micro → snip → 条数兜底；`working`（当前回合）不在这里处理。
+
+    摘要层由 `muad_agent_core.context.layers.compact_plan_layered` 统一编排：摘要成功时
+    这段函数根本不跑；摘要未触发/拒绝/失败时，它才是对**原始 older** 的可见兜底。
+    `working` 只做 micro（旧工具结果降级），因为 snip 会把模型正在推理的结果换掉。
+    """
+    older_messages = tuple(message for group in plan.older for message in group)
+    micro_outcome = micro(older_messages, micro_settings)
+    snip_outcome = snip(micro_outcome.messages, snip_settings)
+    layers: list[LayerOutcome] = [micro_outcome, snip_outcome]
+    plan = replace(plan, older=split_groups(snip_outcome.messages))
+    plan, budget = trim_older_history(plan, history_budget_messages)
+    if budget is not None:
+        layers.append(budget)
+    return plan, tuple(layers)
+
+
+def trim_older_history(
+    plan: ContextPlan, keep_messages: int | None
+) -> tuple[ContextPlan, LayerOutcome | None]:
+    """Message-count fallback for older; only call it when no summary replaced the interval."""
+    if keep_messages is None:
+        return plan, None
+    older_messages = tuple(message for group in plan.older for message in group)
+    bounded = trim_history(older_messages, keep_messages)
+    if bounded == older_messages:
+        return plan, None
+    return (
+        replace(plan, older=split_groups(bounded)),
+        LayerOutcome(
+            "budget", True, 0, history_bytes(older_messages), history_bytes(bounded), bounded
+        ),
+    )

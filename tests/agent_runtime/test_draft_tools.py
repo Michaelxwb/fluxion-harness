@@ -10,6 +10,7 @@ from typing import Any
 import httpx
 import pytest
 from muad_agent_core.skill.draft_shell import DraftShellChange, DraftShellError
+from muad_agent_core.tools import ToolCall, ToolError
 from muad_agent_runtime.application.draft_tools import DRAFT_TOOL_NAMES, SkillDraftTools
 from muad_agent_runtime.application.skill_draft_client import ConsoleSkillDraftClient
 
@@ -93,12 +94,25 @@ def test_definitions_expose_one_action_tool() -> None:
     assert schema["additionalProperties"] is False
 
 
+async def _payload(coro):
+    """Parse action output, including typed ToolError bodies raised by the action."""
+    try:
+        value = await coro
+    except ToolError as exc:
+        return json.loads(exc.content())
+    return json.loads(value)
+
+
 async def test_dispatch_routes_actions_to_the_console_client() -> None:
     client = _FakeClient()
     tools = _tools(client)
-    await tools.dispatch({"action": "create", "key": "my-skill"}, call_id="c1")
     await tools.dispatch(
-        {"action": "read", "draft_id": "draft-1", "path": "SKILL.md"}, call_id="c2"
+        {"action": "create", "key": "my-skill"},
+        call=ToolCall(call_id="c1", name="skill_draft"),
+    )
+    await tools.dispatch(
+        {"action": "read", "draft_id": "draft-1", "path": "SKILL.md"},
+        call=ToolCall(call_id="c2", name="skill_draft"),
     )
     assert [call[0] for call in client.calls] == ["create", "read"]
 
@@ -181,8 +195,8 @@ async def test_create_and_get_expose_the_draft_id_alias() -> None:
 
 
 async def test_missing_draft_id_and_key_names_both_options() -> None:
-    payload = json.loads(
-        await _tools(_FakeClient()).status({"action": "status"}, call_id="c1")
+    payload = await _payload(
+        _tools(_FakeClient()).status({"action": "status"}, call_id="c1")
     )
     assert payload["error"]["code"] == "COMMON_VALIDATION_ERROR"
     assert "draft_id" in payload["error"]["message"] and "key" in payload["error"]["message"]
@@ -226,8 +240,8 @@ async def test_draft_id_and_key_must_identify_the_same_draft() -> None:
             return {"id": draft_id, "key": key, "revision": 3}
 
     client = _Keyed()
-    payload = json.loads(
-        await _tools(client).get(
+    payload = await _payload(
+        _tools(client).get(
             {"draft_id": "draft-2", "key": "weather-query"}, call_id="c1"
         )
     )
@@ -269,14 +283,14 @@ async def test_draft_errors_surface_as_stable_error_results() -> None:
                 data={"path": "SKILL.md", "draft_id": "d", "repair": "read the root"},
             )
 
-    payload = json.loads(
-        await _tools(_Conflict()).write(
+    payload = await _payload(
+        _tools(_Conflict()).write(
             {"draft_id": "d", "path": "SKILL.md", "content": "x", "expected_revision": 1},
             call_id="c1",
         )
     )
     assert payload["error"]["code"] == "DRAFT_FILE_NOT_FOUND"
-    assert payload["error"]["data"] == {
+    assert payload["error"]["detail"] == {
         "path": "SKILL.md",
         "draft_id": "d",
         "repair": "read the root",
@@ -284,8 +298,8 @@ async def test_draft_errors_surface_as_stable_error_results() -> None:
 
 
 async def test_write_requires_expected_revision() -> None:
-    payload = json.loads(
-        await _tools(_FakeClient()).write(
+    payload = await _payload(
+        _tools(_FakeClient()).write(
             {"draft_id": "d", "path": "SKILL.md", "content": "x"}, call_id="c1"
         )
     )
@@ -451,8 +465,8 @@ async def test_import_surfaces_reader_errors_without_writing() -> None:
         client,
         _FakePackages(PackageImportError("COMMON_VALIDATION_ERROR", "只有压缩包能导入草稿")),
     )
-    payload = json.loads(
-        await tools.import_package(
+    payload = await _payload(
+        tools.import_package(
             {"key": "weak-pwd-manager", "artifact_id": "artifact-1"}, call_id="c1"
         )
     )
@@ -464,8 +478,8 @@ async def test_import_surfaces_reader_errors_without_writing() -> None:
 async def test_import_rejects_an_illegal_member_before_any_write() -> None:
     client = _FakeClient()
     tools = _import_tools(client, _FakePackages(_zip_bytes([("../escape.py", b"x")])))
-    payload = json.loads(
-        await tools.import_package(
+    payload = await _payload(
+        tools.import_package(
             {"key": "weak-pwd-manager", "artifact_id": "artifact-1"}, call_id="c1"
         )
     )
@@ -474,8 +488,8 @@ async def test_import_rejects_an_illegal_member_before_any_write() -> None:
 
 
 async def test_import_without_reader_is_an_explicit_error() -> None:
-    payload = json.loads(
-        await _tools(_FakeClient()).import_package(
+    payload = await _payload(
+        _tools(_FakeClient()).import_package(
             {"key": "weak-pwd-manager", "artifact_id": "artifact-1"}, call_id="c1"
         )
     )

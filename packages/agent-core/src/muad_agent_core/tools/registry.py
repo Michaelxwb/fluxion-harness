@@ -2,17 +2,15 @@ from __future__ import annotations
 
 import hashlib
 import re
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import Any, Protocol
 
 from muad_contracts import DEFAULT_TOOL_RETRY_SAFETY, ToolRetrySafety
 
-from .outcome import ExecutionOutcome
-
-if TYPE_CHECKING:
-    from ..model.provider import ModelMessage
+from .identity import ToolCall
+from .result import ToolResult
 
 MCP_TOOL_NAMESPACE = "mcp"
 _MODEL_TOOL_NAME_MAX = 64
@@ -22,6 +20,21 @@ _MODEL_TOOL_INVALID = re.compile(r"[^A-Za-z0-9_-]")
 def _safe_model_tool_name(name: str) -> str:
     """OpenAI-compatible function names allow only letters, digits, `_` and `-`."""
     return _MODEL_TOOL_INVALID.sub("_", name)[:_MODEL_TOOL_NAME_MAX] or "tool"
+
+
+class ToolCapability(StrEnum):
+    SKILL_CATALOG = "skill.catalog"
+    SKILL_INSTRUCTIONS = "skill.instructions"
+    SKILL_RESOURCE = "skill.resource"
+    SKILL_EXECUTE = "skill.execute"
+    ATTACHMENT_READ = "attachment.read"
+    ATTACHMENT_WRITE = "attachment.write"
+    ATTACHMENT_DELIVER = "attachment.deliver"
+    MCP_CALL = "mcp.call"
+    WORKSPACE = "workspace"
+    DRAFT = "draft"
+    TASK_QUERY = "task.query"
+    MEMORY = "memory"
 
 
 class ToolEffect(StrEnum):
@@ -44,14 +57,11 @@ class ToolConcurrency(StrEnum):
 class ToolHandler(Protocol):
     """工具处理器协议。
 
-    `call_id` 是**模型本次调用**的 id（`ModelToolCall.id`），**必须**由调用方传入：
-    它是「一次 Run 内同一工具被调用多次」时区分各次调用的唯一标识。缺了它，下游只能拿
-    工具名兜底，而 `runtime.tool_call_audit` 上的唯一约束正是 `(run_id, tool_call_id)`
-    —— 于是同名工具第二次调用必定插入失败（历史缺陷，见 2026-10-01 排查）。
-    叶子处理器可以不使用它，但**必须**声明并透传，否则包装层拿不到。
+    `call` 携带稳定调用身份（`call_id`、内部名、模型名、归一化参数）。处理器返回 typed
+    `ToolResult`；失败要么抛 `ToolError`，要么在 `ToolResult.outcome` 上显式表达。
     """
 
-    async def __call__(self, arguments: Mapping[str, Any], *, call_id: str) -> str: ...
+    async def __call__(self, arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,10 +71,6 @@ class ToolDefinition:
     input_schema: Mapping[str, Any]
     effect: ToolEffect
     handler: ToolHandler | None = None
-    # 工具结果之后追加的消息（结果 → 追加消息）。**存在的唯一理由**是「工具调用后需要补一条
-    # 消息」而 tool 角色做不到：OpenAI 协议的 tool 消息**不能携带图像块**，于是"重看图片"
-    # 只能由运行时在工具结果之后补一条 user 消息。返回空元组即不追加。
-    follow_up_messages: Callable[[str], Awaitable[tuple[ModelMessage, ...]]] | None = None
     # 结果是否允许被「大结果外置」规则截成 Artifact 引用。
     # `True`（默认）保持既有行为——顺带的大块数据（一次大查询/脚本输出）不该撑爆上下文。
     # `False` 用于**内容投递**类工具：它们的返回**本身就是给模型读的正文**，外置等于把工具
@@ -85,10 +91,10 @@ class ToolDefinition:
     #: Provider-safe function name (OpenAI-compatible `[A-Za-z0-9_-]{1,64}`).
     #: Registry/audit still use `name`; `ToolRegistry.model_tools()` fills this.
     model_name: str = ""
-    #: 业务执行结果解析器（design §4.2）：**适配器拥有的纯函数**，只在业务执行工具上设置。
-    #: `workspace_shell` / `skill_draft_shell` 不设置——退出码是结果证据，不是业务失败。
-    #: 输入是 POST_TOOL_USE 之后的最终工具结果；返回 `None` 表示不是业务执行载荷。
-    outcome_parser: Callable[[str], ExecutionOutcome | None] | None = None
+    #: 冻结执行模式（SYNC/ASYNC）；仅对绑定单一 Skill 的工具声明，prepared 事件直接复制。
+    execution_mode: str | None = None
+    #: 装配期能力声明；提示词承诺必须能在已注册工具里找到对应能力。
+    capabilities: frozenset[ToolCapability] = frozenset()
 
 
 class ToolNotFoundError(LookupError):
@@ -106,9 +112,6 @@ class ToolAlreadyRegisteredError(ValueError):
 class ToolRegistry:
     def __init__(self) -> None:
         self._items: dict[str, ToolDefinition] = {}
-        # Internal compatibility aliases remain callable by older runtime hooks and
-        # persisted test fixtures, but are excluded from the model-facing catalog.
-        self._compatibility: dict[str, ToolDefinition] = {}
         self._model_names: dict[str, str] = {}
         self._model_name_for: dict[str, str] = {}
 
@@ -124,16 +127,7 @@ class ToolRegistry:
         try:
             return self._items[name]
         except KeyError as exc:
-            try:
-                return self._compatibility[name]
-            except KeyError:
-                raise ToolNotFoundError(name) from exc
-
-    def register_compatibility(self, definition: ToolDefinition) -> None:
-        """Register a callable legacy name without exposing it to the model."""
-        if definition.name in self._items or definition.name in self._compatibility:
-            raise ToolAlreadyRegisteredError(definition.name)
-        self._compatibility[definition.name] = definition
+            raise ToolNotFoundError(name) from exc
 
     def get_by_model_name(self, model_name: str) -> ToolDefinition:
         """Resolve the provider-safe name back to the registry definition."""
@@ -141,6 +135,10 @@ class ToolRegistry:
             return self._items[self._model_names[model_name]]
         except KeyError as exc:
             raise ToolNotFoundError(model_name) from exc
+
+    def model_name_for(self, name: str) -> str:
+        """Provider-facing name for a registry name; unknown names keep their own name."""
+        return self._model_name_for.get(name, name)
 
     def list(self) -> tuple[ToolDefinition, ...]:
         return tuple(self._items.values())

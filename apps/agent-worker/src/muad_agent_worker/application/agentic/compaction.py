@@ -1,12 +1,12 @@
 """Agentic 执行的上下文压缩（`ContextCompactor` 的 Worker 实现）。
 
-四层与 Runtime **同一套纯逻辑**（`agent-core` 的 `compact_history` + 摘要 schema）：
+四层与 Runtime **同一套执行顺序**（`agent-core` 的 `compact_plan_layered` + 摘要 schema）：
 
 1. 工具结果整轮外置（`agentic/artifacts.py`，发生在回合末，不在本模块）；
 2. micro：旧的外置结果降级成引用占位；
 3. snip：按消息组省掉中段历史（当前回合永远保留）；
 4. 条数兜底；摘要层在阈值之上才跑，且**先存档再放行**——存档（Task 产物）写不成就作废这次摘要，
-   历史原样。
+   对原始 older 走 micro/snip/trim 的可见兜底。
 
 降级口径（RULE-04）：任一层失败 ⇒ 本次返回原历史（或前三层的产物），并发 warning + 指标
 `context_compaction_total{layer,status}`；绝不因为压缩失败让执行失败。摘要失败只作废摘要层。
@@ -16,19 +16,15 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
-from muad_agent_core.context.compactor import (
-    LayerOutcome,
-    compact_history,
-    history_bytes,
-    split_summary_scopes,
-)
-from muad_agent_core.context.summary import SummaryFields, summary_message, try_parse_summary
+from muad_agent_core.context.compactor import LayerOutcome
+from muad_agent_core.context.layers import SummaryAttempt, compact_plan_layered
+from muad_agent_core.context.plan import ContextPlan
+from muad_agent_core.context.summary import SummaryFields, try_parse_summary
 from muad_agent_core.model import (
     ModelMessage,
     ModelProvider,
@@ -43,11 +39,12 @@ from muad_contracts.platform_settings import (
     SummarySettings,
     ToolResultSettings,
 )
+from muad_logging import get_logger
 
 from ...infrastructure.task_artifact_client import TaskArtifactClient, TaskArtifactError
 from ...metrics import CONTEXT_COMPACTION_METRIC, record_outcome
 
-logger = logging.getLogger("muad_agent_worker.application.agentic.compaction")
+logger = get_logger("muad_agent_worker.application.agentic.compaction")
 
 SUMMARY_ARTIFACT_FILENAME = "context-summary-{index}.txt"
 SUMMARY_ARTIFACT_MEDIA_TYPE = "text/plain"
@@ -199,51 +196,41 @@ class TaskContextCompactor:
         self._artifacts = artifacts
         self._summary_index = 0
 
-    async def compact(self, messages: Sequence[ModelMessage]) -> tuple[ModelMessage, ...]:
+    async def compact_plan(self, plan: ContextPlan) -> ContextPlan:
         try:
-            return await self._compact(messages)
-        except Exception as exc:  # noqa: BLE001 —— RULE-04：压缩失败必须退化，不得让执行失败
+            async def summarize(material: Sequence[ModelMessage]) -> SummaryFields | None:
+                assert self._summary is not None
+                fields = await self._summary(material)
+                if fields is None:
+                    record_outcome(CONTEXT_COMPACTION_METRIC, "REJECTED", {"layer": "summary"})
+                return fields
+
+            async def persist_summary(
+                attempt: SummaryAttempt, _layers: Sequence[LayerOutcome]
+            ) -> bool:
+                return await self._archive(attempt.material)
+
+            async def persist_layers(_layers: Sequence[LayerOutcome]) -> None:
+                return None
+
+            compacted, layers = await compact_plan_layered(
+                plan,
+                settings=self._settings,
+                summarize=summarize if self._summary is not None else None,
+                persist_summary=persist_summary,
+                persist_layers=persist_layers,
+            )
+            for layer in layers:
+                if layer.fired:
+                    record_outcome(CONTEXT_COMPACTION_METRIC, "FIRED", {"layer": layer.layer})
+            return compacted
+        except Exception as exc:  # noqa: BLE001 —— 压缩失败保留原计划
             record_outcome(CONTEXT_COMPACTION_METRIC, "FAILED", {"layer": "*"})
             logger.warning(
                 "agentic_context_compaction_failed",
                 extra={"execution_id": str(self._execution_id), "error_type": type(exc).__name__},
             )
-            return tuple(messages)
-
-    async def _compact(self, messages: Sequence[ModelMessage]) -> tuple[ModelMessage, ...]:
-        settings = self._settings
-        plain, layers = compact_history(
-            messages,
-            snip_settings=settings.snip,
-            micro_settings=settings.micro,
-            history_budget_messages=settings.history_budget_messages,
-        )
-        outbound, summary_fired = await self._maybe_summarize(plain)
-        fired = [layer for layer in layers if layer.fired]
-        if summary_fired:
-            fired.append(LayerOutcome("summary", True, 0, 0, 0, outbound))
-        for layer in fired:
-            record_outcome(CONTEXT_COMPACTION_METRIC, "FIRED", {"layer": layer.layer})
-        return outbound
-
-    async def _maybe_summarize(
-        self, messages: tuple[ModelMessage, ...]
-    ) -> tuple[tuple[ModelMessage, ...], bool]:
-        settings = self._settings.summary
-        if not settings.enabled or self._summary is None:
-            return messages, False
-        scopes = split_summary_scopes(messages)
-        if not scopes.older or history_bytes(messages) <= settings.threshold_bytes:
-            return messages, False
-        fields = await self._summary(messages)
-        if fields is None:
-            return messages, False
-        if not await self._archive(scopes.older):
-            # 摘要没有逐字存档 = 被覆盖的历史净丢失 ⇒ 这次摘要作废（RULE-05）。
-            record_outcome(CONTEXT_COMPACTION_METRIC, "FAILED", {"layer": "summary"})
-            return messages, False
-        outbound = (*scopes.prefix, summary_message(fields), *scopes.current_turn)
-        return outbound, True
+            return plan
 
     async def _archive(self, summarized: Sequence[ModelMessage]) -> bool:
         """逐字存档被摘要取代的历史；没有产物端口就不放行摘要层。"""

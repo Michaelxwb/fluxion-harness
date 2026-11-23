@@ -11,15 +11,15 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections.abc import Awaitable, Callable
 from math import ceil
 from typing import Protocol
 
 from muad_api import AppError
 from muad_contracts import DEFAULT_PAGE_SIZE, BotSnapshotItem, BotSnapshotResponse
+from muad_logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 BOT_SNAPSHOT_POLL_SEC = 30.0
 BOT_SNAPSHOT_PAGE_SIZE = DEFAULT_PAGE_SIZE

@@ -5,6 +5,10 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from muad_contracts import ResolvedSkill
+from muad_contracts.i18n import DEFAULT_LOCALE, normalize_locale
+from muad_logging import get_logger
+
+logger = get_logger(__name__)
 
 SKILL_CATALOG_HEADER = "## Available skills"
 # 目录的**路由提示**：目录只负责让模型知道"有哪些、各管什么"，何时去读正文是它自己的判断。
@@ -79,20 +83,38 @@ def bounded_catalog(
 
 
 class PromptBuilder(Protocol):
-    def build(self, *, instructions: str, skills: Sequence[PromptSkill]) -> str: ...
+    def build(
+        self,
+        *,
+        instructions: str,
+        skills: Sequence[PromptSkill],
+        reply_locale: str | None = None,
+    ) -> str: ...
 
 
 @dataclass(frozen=True, slots=True)
 class DefaultPromptBuilder:
     prompt_template_version: str | None = None
 
-    def build(self, *, instructions: str, skills: Sequence[PromptSkill]) -> str:
+    def build(
+        self,
+        *,
+        instructions: str,
+        skills: Sequence[PromptSkill],
+        reply_locale: str | None = None,
+    ) -> str:
         """装配系统提示。**目录在这里收口**：这是提示词唯一的装配点，上限放在这里才不会被绕过。
 
         `instructions` 不在这里截断——截断系统提示等于换了一个 Agent（`harness-arch`：
         降级必须语义等价，否则不许降级），它的上限在保存边界（Console 的 DTO）。
+
+        `reply_locale` 是**已经裁决过的有效默认语言**（memory > 平台默认）；
+        `None` 表示旧 Run/直构路径不追加语言段。当前消息的显式语言请求仍由提示词
+        的第二条规则覆盖。语言段放在 instructions 之后、技能目录之前。
         """
         sections = [instructions.strip()]
+        if reply_locale:
+            sections.append(_reply_language_section(reply_locale))
         if skills:
             kept, dropped = bounded_catalog(skills)
             lines = [SKILL_CATALOG_HEADER, SKILL_CATALOG_HINT]
@@ -103,3 +125,27 @@ class DefaultPromptBuilder:
         if self.prompt_template_version is not None:
             sections.append(f"<!-- prompt_template_version: {self.prompt_template_version} -->")
         return "\n\n".join(sections)
+
+
+_LANGUAGE_NAMES = {
+    "zh-CN": "Chinese (zh-CN)",
+    "en-US": "English (en-US)",
+}
+
+
+def _reply_language_section(reply_locale: str) -> str:
+    """Render the effective default language rule without inventing a locale."""
+    normalized = normalize_locale(reply_locale)
+    if normalized is None:
+        logger.warning("unknown_reply_locale locale=%s", reply_locale)
+        normalized = DEFAULT_LOCALE
+    return "\n".join(
+        [
+            "## Reply language",
+            f"- Reply in {_LANGUAGE_NAMES[normalized]} by default, regardless of the language "
+            "the user writes in.",
+            "- Only an explicit request in the current user message to use another language "
+            "overrides this default.",
+            "- Do not infer a language preference from the language of the user's message.",
+        ]
+    )

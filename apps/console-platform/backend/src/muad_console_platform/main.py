@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import os
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager, suppress
@@ -24,7 +23,7 @@ from muad_common.redis_client import (
     verify_redis_topology,
 )
 from muad_common.session_store import RedisSessionStore
-from muad_logging import configure_logging
+from muad_logging import configure_logging, get_logger
 from redis.exceptions import RedisError as RedisErrorType
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
@@ -51,7 +50,7 @@ from .spa import install_spa
 SERVICE_NAME = "muad-console-platform"
 
 configure_logging(SERVICE_NAME)
-logger = logging.getLogger(SERVICE_NAME)
+logger = get_logger(SERVICE_NAME)
 
 
 async def _warn_if_no_accounts() -> None:

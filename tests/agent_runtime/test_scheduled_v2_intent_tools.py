@@ -29,7 +29,7 @@ from typing import Any, cast
 import httpx
 import pytest
 import sqlalchemy as sa
-from muad_agent_core.tools import ToolRegistry
+from muad_agent_core.tools import ToolCall, ToolError, ToolRegistry
 from muad_agent_runtime.application.task_client import TaskSubmissionContext, WorkerTaskClient
 from muad_agent_runtime.application.task_tools import (
     DELETE_SCHEDULE_TOOL,
@@ -45,6 +45,7 @@ from muad_agent_runtime.infrastructure.models.runtime import CanonicalEvent, Con
 from muad_agent_worker.application.ports import PlatformSettingsSnapshot
 from muad_agent_worker.infrastructure.db import get_session_factory as worker_session_factory
 from muad_agent_worker.main import app as worker_app
+from muad_api import AppError
 from muad_contracts import (
     DeliveryRouteInput,
     ResolvedAgent,
@@ -84,6 +85,27 @@ class FakeSettingsClient:
         return PlatformSettingsSnapshot(revision=1, settings={})
 
 
+@dataclass(frozen=True, slots=True)
+class _DefaultTimezoneClient:
+    timezone: str
+
+    async def fetch_snapshot(
+        self, *, tenant_id: str, trace_id: str = ""
+    ) -> PlatformSettingsSnapshot:
+        return PlatformSettingsSnapshot(
+            revision=1,
+            settings={"locale": {"default_timezone": self.timezone}},
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class _FailingSettingsClient:
+    async def fetch_snapshot(
+        self, *, tenant_id: str, trace_id: str = ""
+    ) -> PlatformSettingsSnapshot:
+        raise AppError("COMMON_INTERNAL_ERROR")
+
+
 @dataclass(slots=True)
 class FakeMaterials:
     result: ScheduleAdmissionMaterials
@@ -115,6 +137,18 @@ def _skill() -> ResolvedSkill:
         checksum="sha256:" + "c" * 64,
         storage_key="skills/weekly-report.tar.gz",
         execution_mode=SkillExecutionMode.SYNC,
+        frontmatter={
+            "invocation_contract": {
+                "version": 1,
+                "invocation": "stdin",
+                "schema": {
+                    "type": "object",
+                    "properties": {"body": {"type": "string"}},
+                    "required": ["body"],
+                    "additionalProperties": False,
+                },
+            }
+        },
         source="ADMIN",
     )
 
@@ -141,6 +175,7 @@ def agentic_materials(*tools: ScheduleToolMaterials) -> ScheduleAdmissionMateria
         mode=ScheduleMode.AGENTIC,
         agent=_agent(),
         model=_model(),
+        skills=[_skill()],
         tools=list(tools),
         grants=ScheduleGrantMaterials(agent_access=True),
         settings_revision=1,
@@ -257,13 +292,21 @@ def _context(
     )
 
 
-def _registry(context: TaskSubmissionContext, client: WorkerTaskClient) -> ToolRegistry:
+def _registry(
+    context: TaskSubmissionContext,
+    client: WorkerTaskClient,
+    *,
+    settings_client: Any = None,
+    fallback_timezone: str | None = None,
+) -> ToolRegistry:
     registry = ToolRegistry()
     BackgroundTaskToolSet(
         client=client,
         context=context,
         skills=[_skill()],
         session_factory=runtime_session_factory,
+        settings_client=settings_client,
+        fallback_timezone=fallback_timezone,
     ).register(registry)
     return registry
 
@@ -273,8 +316,16 @@ async def _invoke(
 ) -> dict[str, Any]:
     definition = registry.get(name)
     assert definition is not None and definition.handler is not None, f"{name} is not registered"
-    payload = await definition.handler(arguments, call_id=call_id or f"call-{uuid.uuid4()}")
-    return cast(dict[str, Any], json.loads(payload))
+    call = ToolCall(
+        call_id=call_id or f"call-{uuid.uuid4()}",
+        name=name,
+        arguments=arguments,
+    )
+    try:
+        result = await definition.handler(arguments, call=call)
+    except ToolError as exc:
+        return cast(dict[str, Any], json.loads(exc.content()))
+    return cast(dict[str, Any], json.loads(result.content))
 
 
 def _internal_headers(tenant: TenantContext, **extra: str) -> dict[str, str]:
@@ -588,6 +639,63 @@ async def test_chat_entry_tells_the_model_the_confirm_command(
 # --------------------------------------------------------------------------------------
 
 
+async def test_draft_uses_current_platform_default_timezone(
+    tenant: TenantContext, conversation: uuid.UUID
+) -> None:
+    client = _client()
+    try:
+        registry = _registry(
+            _context(tenant, conversation),
+            client,
+            settings_client=_DefaultTimezoneClient("America/New_York"),
+        )
+        result = await _invoke(registry, DRAFT_SCHEDULE_TOOL, _draft_args(timezone=None))
+    finally:
+        await client.aclose()
+
+    assert "error" not in result, result
+    assert "America/New_York" in result["preview"]["when"]
+    assert await _count("task_schedule_draft", tenant.tenant_id) == 1
+
+
+async def test_explicit_timezone_wins_without_reading_settings(
+    tenant: TenantContext, conversation: uuid.UUID
+) -> None:
+    client = _client()
+    try:
+        registry = _registry(
+            _context(tenant, conversation),
+            client,
+            # If the tool reads settings despite an explicit timezone, this raises.
+            settings_client=_FailingSettingsClient(),
+        )
+        result = await _invoke(registry, DRAFT_SCHEDULE_TOOL, _draft_args(timezone="Asia/Tokyo"))
+    finally:
+        await client.aclose()
+
+    assert "error" not in result, result
+    assert "Asia/Tokyo" in result["preview"]["when"]
+
+
+async def test_settings_unavailable_fails_without_creating_a_draft(
+    tenant: TenantContext, conversation: uuid.UUID
+) -> None:
+    client = _client()
+    try:
+        registry = _registry(
+            _context(tenant, conversation),
+            client,
+            settings_client=_FailingSettingsClient(),
+        )
+        result = await _invoke(registry, DRAFT_SCHEDULE_TOOL, _draft_args(timezone=None))
+    finally:
+        await client.aclose()
+
+    assert result["error"]["code"] == "PLATFORM_SETTINGS_UNAVAILABLE"
+    assert await _count("task_schedule_draft", tenant.tenant_id) == 0
+    assert await _card_events(tenant.tenant_id) == []
+
+
 async def test_missing_timezone_asks_the_user_instead_of_defaulting(
     tenant: TenantContext, conversation: uuid.UUID
 ) -> None:
@@ -602,7 +710,8 @@ async def test_missing_timezone_asks_the_user_instead_of_defaulting(
     assert missing["error"]["code"] == "SCHEDULE_TIMEZONE_REQUIRED"
     assert "ask the user" in missing["error"]["message"]
     assert invalid["error"]["code"] == "SCHEDULE_DRAFT_INVALID"
-    assert invalid["error"]["data"]["reason"] == "INVALID_TIMEZONE"
+    assert invalid["error"]["retryable"] is True
+    assert invalid["error"]["detail"]["reason"] == "INVALID_TIMEZONE"
     assert await _count("task_schedule_draft", tenant.tenant_id) == 0
     assert await _card_events(tenant.tenant_id) == []
 
@@ -622,7 +731,8 @@ async def test_multi_customer_parameters_must_be_split_into_separate_drafts(
         await client.aclose()
 
     assert result["error"]["code"] == "SCHEDULE_DRAFT_INVALID"
-    assert result["error"]["data"] == {"reason": "MULTIPLE_TARGETS", "fields": ["customer"]}
+    assert result["error"]["retryable"] is True
+    assert result["error"]["detail"] == {"reason": "MULTIPLE_TARGETS", "fields": ["customer"]}
     assert "one schedule" in result["error"]["message"]
     assert await _count("task_schedule_draft", tenant.tenant_id) == 0
 
@@ -715,7 +825,7 @@ async def test_ambiguous_target_returns_candidates_instead_of_guessing(
         await client.aclose()
 
     assert ambiguous["error"]["code"] == "SCHEDULE_AMBIGUOUS"
-    candidate_ids = {item["schedule_id"] for item in ambiguous["error"]["data"]["candidates"]}
+    candidate_ids = {item["schedule_id"] for item in ambiguous["error"]["detail"]["candidates"]}
     assert candidate_ids == {first["schedule_id"], second["schedule_id"]}
     assert missing["error"]["code"] == "SCHEDULE_NOT_FOUND"
     assert exact["status"] == "PAUSED"
@@ -794,7 +904,7 @@ async def test_ended_or_cancelled_schedule_can_only_be_recreated(
 
     assert cancelled["status"] == "CANCELLED"
     assert update["error"]["code"] == "SCHEDULE_STATE_INVALID"
-    assert update["error"]["data"]["repair"] == "CREATE_NEW"
+    assert update["error"]["detail"]["repair"] == "CREATE_NEW"
     assert resume["error"]["code"] == "SCHEDULE_STATE_INVALID"
     assert await _count("task_schedule_draft", tenant.tenant_id) == 1, "终态目标不产生新 Draft"
 

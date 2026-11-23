@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="750" viewBox="0 0 1200 750" role="img" aria-labelledby="title">
+<title id="title">部署拓扑</title>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"/></marker></defs>
+<style>text{font-family:PingFang SC,Microsoft YaHei,Arial,sans-serif;fill:#20344B}path,polyline{stroke-linejoin:round;stroke-linecap:round}</style>
+<rect width="1200" height="750" fill="#FFFFFF"/>
+<rect x="245" y="35" width="925" height="435" rx="12" fill="#FBFCFE" stroke="#DCE4EC" stroke-width="1.4"/>
+<text x="261" y="62" font-size="16" font-weight="600" text-anchor="start" style="fill:#4B637C">Kubernetes 集群 · 入口代理与业务工作负载</text>
+<g data-node="browser"><rect x="30" y="130" width="180" height="70" rx="8" fill="#F4F6F9" stroke="#CBD3DE" stroke-width="1.5"/>
+<text x="120.0" y="157" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">浏览器</text>
+<text x="120.0" y="179" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">Console / WebChat</text>
+</g>
+<g data-node="wecom"><rect x="30" y="335" width="180" height="74" rx="8" fill="#F4F6F9" stroke="#CBD3DE" stroke-width="1.5"/>
+<text x="120.0" y="362" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">企业微信</text>
+<text x="120.0" y="384" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">官方长连接协议</text>
+</g>
+<g data-node="nginx"><rect x="280" y="130" width="170" height="70" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="365.0" y="157" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Nginx</text>
+<text x="365.0" y="179" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">Pod / Service · 入口</text>
+</g>
+<g data-node="gateway"><rect x="500" y="130" width="170" height="70" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="585.0" y="157" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">IM Gateway</text>
+<text x="585.0" y="179" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">无状态请求面</text>
+</g>
+<g data-node="runtime"><rect x="750" y="130" width="180" height="70" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="840.0" y="157" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Agent Runtime</text>
+<text x="840.0" y="179" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">多副本 / 无状态</text>
+</g>
+<g data-node="worker"><rect x="1000" y="130" width="150" height="70" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="1075.0" y="157" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Agent Worker</text>
+<text x="1075.0" y="179" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">多副本 / 任务领取</text>
+</g>
+<g data-node="console"><rect x="280" y="275" width="170" height="70" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="365.0" y="302" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Console Platform</text>
+<text x="365.0" y="324" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">API + 页面资源</text>
+</g>
+<g data-node="connector"><rect x="500" y="275" width="170" height="70" rx="8" fill="#EFF6FC" stroke="#B7D1E5" stroke-width="1.5"/>
+<text x="585.0" y="302" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">IM Connector</text>
+<text x="585.0" y="324" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">可选 / 多副本</text>
+</g>
+<polyline points="210,165 280,165" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="218.0" y="138" width="54.00000000000001" height="20" rx="4" fill="#FFFFFF"/>
+<text x="245" y="153" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">HTTPS</text>
+<polyline points="450,165 500,165" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="454.0" y="138" width="42.0" height="20" rx="4" fill="#FFFFFF"/>
+<text x="475" y="153" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">聊天</text>
+<polyline points="365,200 365,275" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="373.4" y="227" width="97.19999999999999" height="20" rx="4" fill="#FFFFFF"/>
+<text x="422" y="242" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">管理 / 认证</text>
+<polyline points="670,165 750,165" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="691.4" y="138" width="37.2" height="20" rx="4" fill="#FFFFFF"/>
+<text x="710" y="153" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">Run</text>
+<polyline points="930,150 1000,150" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="942.2" y="123" width="45.6" height="20" rx="4" fill="#FFFFFF"/>
+<text x="965" y="138" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">Task</text>
+<polyline points="1000,180 930,180" fill="none" stroke="#3D8585" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="944.0" y="184" width="42.0" height="20" rx="4" fill="#FFFFFF"/>
+<text x="965" y="199" font-size="15" font-weight="500" text-anchor="middle" style="fill:#3D8585">结果</text>
+<polyline points="1075,130 1075,88 585,88 585,130" fill="none" stroke="#7A8798" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="794.0" y="62" width="72.0" height="20" rx="4" fill="#FFFFFF"/>
+<text x="830" y="77" font-size="15" font-weight="500" text-anchor="middle" style="fill:#7A8798">独立投递</text>
+<polyline points="210,372 585,372 585,345" fill="none" stroke="#447DA5" stroke-width="1.8" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+<rect x="331.4" y="345" width="37.2" height="20" rx="4" fill="#FFFFFF"/>
+<text x="350" y="360" font-size="15" font-weight="500" text-anchor="middle" style="fill:#447DA5">WSS</text>
+<polyline points="555,275 555,200" fill="none" stroke="#7A8798" stroke-width="1.8" marker-end="url(#arrow)" marker-start="url(#arrow)" stroke-dasharray="5 4"/>
+<rect x="581.5" y="225" width="57.0" height="20" rx="4" fill="#FFFFFF"/>
+<text x="610" y="240" font-size="15" font-weight="500" text-anchor="middle" style="fill:#7A8798">事件流</text>
+<rect x="245" y="480" width="925" height="250" rx="12" fill="#FBFCFE" stroke="#DCE4EC" stroke-width="1.4"/>
+<text x="261" y="507" font-size="16" font-weight="600" text-anchor="start" style="fill:#4B637C">由环境提供的存储与数据服务</text>
+<g data-node="artifact-pvc"><rect x="280" y="520" width="400" height="70" rx="8" fill="#F2F7F6" stroke="#BAD6CE" stroke-width="1.5"/>
+<text x="480.0" y="547" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">制品文件存储</text>
+<text x="480.0" y="569" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">Skill 包 / 附件 / 结果</text>
+<text x="480.0" y="588" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">挂载：Console / Gateway / Runtime / Worker / Connector</text>
+</g>
+<g data-node="workspace-pvc"><rect x="710" y="520" width="440" height="70" rx="8" fill="#F2F7F6" stroke="#BAD6CE" stroke-width="1.5"/>
+<text x="930.0" y="547" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">工作区文件存储</text>
+<text x="930.0" y="569" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">草稿 / 执行输出</text>
+<text x="930.0" y="588" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">挂载：Console / Runtime / Worker</text>
+</g>
+<g data-node="postgres"><rect x="280" y="610" width="400" height="70" rx="8" fill="#F2F7F6" stroke="#BAD6CE" stroke-width="1.5"/>
+<text x="480.0" y="637" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">PostgreSQL</text>
+<text x="480.0" y="659" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">Console / Runtime / Worker</text>
+</g>
+<g data-node="redis"><rect x="710" y="610" width="440" height="70" rx="8" fill="#F2F7F6" stroke="#BAD6CE" stroke-width="1.5"/>
+<text x="930.0" y="637" font-size="19" font-weight="600" text-anchor="middle" style="fill:#20344B">Redis</text>
+<text x="930.0" y="659" font-size="14" font-weight="400" text-anchor="middle" style="fill:#536B81">各运行角色的缓存、会话和通道流</text>
+</g>
+</svg>

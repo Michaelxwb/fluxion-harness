@@ -11,13 +11,13 @@ import json
 from typing import Any
 
 from muad_agent_core.context.compactor import (
+    compact_history,
     history_bytes,
     message_bytes,
     micro,
     snip,
     split_groups,
     split_protected_prefix,
-    split_summary_scopes,
     trim_history,
 )
 from muad_agent_core.model import ModelMessage, ModelRole, ModelToolCall
@@ -463,40 +463,17 @@ def test_trim_history_is_identity_at_or_below_the_budget() -> None:
     assert trim_history(messages, 40) == tuple(messages)
 
 
-def test_rule01_summary_scopes_split_prefix_older_and_current_turn() -> None:
-    """[RULE-01] 摘要层只换"更早的历史"：受保护前缀与当前回合原样保留。
-
-    摘要层是唯一"把整段历史换成一条消息"的层，边界由它自己划。裁掉前缀＝agent 失忆；把当前
-    回合也换掉＝模型不知道自己在回答什么（带内联图片的当前消息一并消失，2026-10-06 review）。
-    前缀里的**旧摘要不留在前缀**里：新摘要会连它一起重述，留着就是两份摘要在请求里并存。
-    """
-    messages = (
-        ModelMessage(role=ModelRole.SYSTEM, content="be helpful"),
-        ModelMessage(role=ModelRole.SYSTEM, content="[记忆·用户明确要求] a = b"),
-        ModelMessage(role=ModelRole.SYSTEM, content="[历史摘要] 上一份摘要"),
-        _user("第一轮"),
-        _assistant("第一轮回答"),
-        _user("当前这一轮"),
+def test_micro_output_is_the_input_of_snip() -> None:
+    """micro 的降级必须进入 snip 的输入，不能被提前求值的元组覆盖回原文。"""
+    output, layers = compact_history(
+        _messages(),
+        micro_settings=MicroSettings(enabled=True, keep_recent_tool_groups=0),
+        snip_settings=SnipSettings(
+            enabled=True, max_groups=3, keep_head_groups=1, keep_tail_groups=1
+        ),
     )
-
-    scopes = split_summary_scopes(messages)
-
-    assert [message.content for message in scopes.prefix] == [
-        "be helpful",
-        "[记忆·用户明确要求] a = b",
-    ], "受保护前缀保留，旧摘要不进前缀"
-    assert [message.content for message in scopes.older] == ["第一轮", "第一轮回答"]
-    assert [message.content for message in scopes.current_turn] == ["当前这一轮"]
-
-
-def test_rule01_summary_scopes_without_a_current_turn() -> None:
-    """[RULE-01] 没有 user 消息时整段都是"更早历史"（当前回合为空，不误留整段）。"""
-    messages = (
-        ModelMessage(role=ModelRole.SYSTEM, content="sys"),
-        _assistant("工具跑完的结果"),
-    )
-
-    scopes = split_summary_scopes(messages)
-
-    assert [message.content for message in scopes.older] == ["工具跑完的结果"]
-    assert scopes.current_turn == ()
+    micro_layer = next(layer for layer in layers if layer.layer == "micro")
+    assert micro_layer.fired and micro_layer.bytes_saved > 0
+    rendered = "\n".join(str(message.content) for message in output)
+    assert '"artifact"' not in rendered, "micro 的占位必须留在最终历史里"
+    assert "read_attachment" in rendered

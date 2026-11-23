@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from typing import Any, cast
@@ -16,12 +15,13 @@ from uuid import UUID
 
 import sqlalchemy as sa
 from muad_contracts.canonical import canonical_json
+from muad_logging import get_logger
 
 from ..infrastructure.db import SessionFactory
 from ..infrastructure.models.runtime import EvalCase, EvalReport
 from ..metrics import EXPERIENCE_REPLAY_METRIC, LEARNING_PIPELINE_FAILURES_METRIC, record_counter
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 回放只允许在后台工作负载里执行（B-06 架构断言）。
 WORKLOAD = "BACKGROUND"

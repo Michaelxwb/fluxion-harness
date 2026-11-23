@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import cast
 
 from muad_agent_core.memory.components import MemoryComponent, MemoryReference
+from muad_agent_core.memory.language import memory_language
 from muad_agent_core.memory.memory_render import render_memory
 from muad_agent_core.memory.query_scope import QueryScope, scope_from_messages
 from muad_agent_core.memory.rank import ExperienceRecord, InjectionSelection, select_experience
@@ -371,6 +372,7 @@ class MemoryContextLoader:
             snapshot_revision=snapshot.revision,
             text=text or None,
             block=block,
+            language=memory_language(item.record for item in selected),
             references=tuple(
                 MemoryReference(item.record.memory_key, item.record.version, item.omitted)
                 for item in block.items

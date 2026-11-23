@@ -29,12 +29,13 @@ Agent 授权"变成"强制退出登录"。所以这里把事实拆成三层，�
 from __future__ import annotations
 
 import json
-import logging
 import uuid
 from dataclasses import dataclass
 from typing import Any, Final
 
-logger = logging.getLogger(__name__)
+from muad_logging import get_logger
+
+logger = get_logger(__name__)
 
 #: 认证缓存的独立命名空间：隔离服务不清空整个 Redis，定向失效也绝不 SCAN/KEYS。
 AUTH_CACHE_ROOT: Final = "muad:authcache"

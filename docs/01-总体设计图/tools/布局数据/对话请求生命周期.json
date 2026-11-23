@@ -1,0 +1,704 @@
+{
+  "name": "对话请求生命周期",
+  "size": [
+    1200,
+    770
+  ],
+  "nodes": {
+    "U": {
+      "rect": [
+        40,
+        30,
+        160,
+        60
+      ],
+      "label": "用户",
+      "lines": [
+        "企微 / WebChat"
+      ],
+      "state": false,
+      "tone": "external"
+    },
+    "G": {
+      "rect": [
+        230,
+        30,
+        160,
+        60
+      ],
+      "label": "Gateway",
+      "lines": [
+        "接入、去重与回复"
+      ],
+      "state": false,
+      "tone": "active"
+    },
+    "A": {
+      "rect": [
+        420,
+        30,
+        160,
+        60
+      ],
+      "label": "Runtime 甲",
+      "lines": [
+        "受理与执行"
+      ],
+      "state": false,
+      "tone": "active"
+    },
+    "B": {
+      "rect": [
+        610,
+        30,
+        160,
+        60
+      ],
+      "label": "Runtime 乙",
+      "lines": [
+        "下一轮受理与执行"
+      ],
+      "state": false,
+      "tone": "active"
+    },
+    "P": {
+      "rect": [
+        800,
+        30,
+        160,
+        60
+      ],
+      "label": "共享存储",
+      "lines": [
+        "Run、快照与事件"
+      ],
+      "state": false,
+      "tone": "active"
+    },
+    "M": {
+      "rect": [
+        990,
+        30,
+        160,
+        60
+      ],
+      "label": "外部模型网关",
+      "lines": [
+        "纯模型调用"
+      ],
+      "state": false,
+      "tone": "active"
+    }
+  },
+  "groups": {
+    "round_one": {
+      "rect": [
+        30,
+        110,
+        1140,
+        396
+      ],
+      "title": "第一轮｜解释告警含义（纯模型对话）"
+    },
+    "round_two": {
+      "rect": [
+        30,
+        526,
+        1140,
+        204
+      ],
+      "title": "第二轮｜断网重连后追问 80 端口"
+    }
+  },
+  "edges": [
+    {
+      "from": "U",
+      "to": "G",
+      "points": [
+        [
+          120,
+          165
+        ],
+        [
+          310,
+          165
+        ]
+      ],
+      "label": "1 问这条告警是什么意思",
+      "both": false
+    },
+    {
+      "from": "G",
+      "to": "A",
+      "points": [
+        [
+          310,
+          189
+        ],
+        [
+          500,
+          189
+        ]
+      ],
+      "label": "2 校验身份后提交 Run",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "P",
+      "points": [
+        [
+          500,
+          213
+        ],
+        [
+          880,
+          213
+        ]
+      ],
+      "label": "3 保存会话与快照",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "P",
+      "points": [
+        [
+          500,
+          237
+        ],
+        [
+          880,
+          237
+        ]
+      ],
+      "label": "4 领取执行权",
+      "both": false
+    },
+    {
+      "from": "P",
+      "to": "A",
+      "points": [
+        [
+          880,
+          261
+        ],
+        [
+          500,
+          261
+        ]
+      ],
+      "label": "5 返回会话历史",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "M",
+      "points": [
+        [
+          500,
+          285
+        ],
+        [
+          1070,
+          285
+        ]
+      ],
+      "label": "6 请求模型解释",
+      "both": false
+    },
+    {
+      "from": "M",
+      "to": "A",
+      "points": [
+        [
+          1070,
+          309
+        ],
+        [
+          500,
+          309
+        ]
+      ],
+      "label": "7 返回解释",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "P",
+      "points": [
+        [
+          500,
+          333
+        ],
+        [
+          880,
+          333
+        ]
+      ],
+      "label": "8 写入回答事件",
+      "both": false
+    },
+    {
+      "from": "A",
+      "to": "G",
+      "points": [
+        [
+          500,
+          357
+        ],
+        [
+          310,
+          357
+        ]
+      ],
+      "label": "9 SSE 推送解释",
+      "both": false
+    },
+    {
+      "from": "G",
+      "to": "U",
+      "points": [
+        [
+          310,
+          381
+        ],
+        [
+          120,
+          381
+        ]
+      ],
+      "label": "10 显示解释",
+      "both": false
+    },
+    {
+      "from": "U",
+      "to": "G",
+      "points": [
+        [
+          120,
+          405
+        ],
+        [
+          310,
+          405
+        ]
+      ],
+      "label": "11 断网后重连",
+      "both": false
+    },
+    {
+      "from": "G",
+      "to": "P",
+      "points": [
+        [
+          310,
+          429
+        ],
+        [
+          880,
+          429
+        ]
+      ],
+      "label": "12 读取确认序号之后",
+      "both": false
+    },
+    {
+      "from": "P",
+      "to": "G",
+      "points": [
+        [
+          880,
+          453
+        ],
+        [
+          310,
+          453
+        ]
+      ],
+      "label": "13 返回持久事件",
+      "both": false
+    },
+    {
+      "from": "G",
+      "to": "U",
+      "points": [
+        [
+          310,
+          477
+        ],
+        [
+          120,
+          477
+        ]
+      ],
+      "label": "14 继续显示解释",
+      "both": false
+    },
+    {
+      "from": "U",
+      "to": "G",
+      "points": [
+        [
+          120,
+          581
+        ],
+        [
+          310,
+          581
+        ]
+      ],
+      "label": "15 追问 80 端口",
+      "both": false
+    },
+    {
+      "from": "G",
+      "to": "B",
+      "points": [
+        [
+          310,
+          605
+        ],
+        [
+          690,
+          605
+        ]
+      ],
+      "label": "16 校验后提交新 Run",
+      "both": false
+    },
+    {
+      "from": "B",
+      "to": "M",
+      "points": [
+        [
+          690,
+          629
+        ],
+        [
+          1070,
+          629
+        ]
+      ],
+      "label": "17 请求模型回答追问",
+      "both": false
+    },
+    {
+      "from": "M",
+      "to": "B",
+      "points": [
+        [
+          1070,
+          653
+        ],
+        [
+          690,
+          653
+        ]
+      ],
+      "label": "18 返回追问回答",
+      "both": false
+    },
+    {
+      "from": "B",
+      "to": "G",
+      "points": [
+        [
+          690,
+          677
+        ],
+        [
+          310,
+          677
+        ]
+      ],
+      "label": "19 SSE 推送追问结果",
+      "both": false
+    },
+    {
+      "from": "G",
+      "to": "U",
+      "points": [
+        [
+          310,
+          701
+        ],
+        [
+          120,
+          701
+        ]
+      ],
+      "label": "20 显示追问结果",
+      "both": false
+    }
+  ],
+  "diagram_type": "sequence",
+  "lifelines": [
+    {
+      "participant": "U",
+      "node": "U",
+      "points": [
+        [
+          120,
+          90
+        ],
+        [
+          120,
+          740
+        ]
+      ]
+    },
+    {
+      "participant": "G",
+      "node": "G",
+      "points": [
+        [
+          310,
+          90
+        ],
+        [
+          310,
+          740
+        ]
+      ]
+    },
+    {
+      "participant": "A",
+      "node": "A",
+      "points": [
+        [
+          500,
+          90
+        ],
+        [
+          500,
+          740
+        ]
+      ]
+    },
+    {
+      "participant": "B",
+      "node": "B",
+      "points": [
+        [
+          690,
+          90
+        ],
+        [
+          690,
+          740
+        ]
+      ]
+    },
+    {
+      "participant": "P",
+      "node": "P",
+      "points": [
+        [
+          880,
+          90
+        ],
+        [
+          880,
+          740
+        ]
+      ]
+    },
+    {
+      "participant": "M",
+      "node": "M",
+      "points": [
+        [
+          1070,
+          90
+        ],
+        [
+          1070,
+          740
+        ]
+      ]
+    }
+  ],
+  "messages": [
+    {
+      "scenario": "round_one",
+      "order": 1,
+      "from": "U",
+      "to": "G",
+      "y": 165,
+      "label": "问这条告警是什么意思",
+      "reply": false
+    },
+    {
+      "scenario": "round_one",
+      "order": 2,
+      "from": "G",
+      "to": "A",
+      "y": 189,
+      "label": "校验身份后提交 Run",
+      "reply": false
+    },
+    {
+      "scenario": "round_one",
+      "order": 3,
+      "from": "A",
+      "to": "P",
+      "y": 213,
+      "label": "保存会话与快照",
+      "reply": false
+    },
+    {
+      "scenario": "round_one",
+      "order": 4,
+      "from": "A",
+      "to": "P",
+      "y": 237,
+      "label": "领取执行权",
+      "reply": false
+    },
+    {
+      "scenario": "round_one",
+      "order": 5,
+      "from": "P",
+      "to": "A",
+      "y": 261,
+      "label": "返回会话历史",
+      "reply": true
+    },
+    {
+      "scenario": "round_one",
+      "order": 6,
+      "from": "A",
+      "to": "M",
+      "y": 285,
+      "label": "请求模型解释",
+      "reply": false
+    },
+    {
+      "scenario": "round_one",
+      "order": 7,
+      "from": "M",
+      "to": "A",
+      "y": 309,
+      "label": "返回解释",
+      "reply": true
+    },
+    {
+      "scenario": "round_one",
+      "order": 8,
+      "from": "A",
+      "to": "P",
+      "y": 333,
+      "label": "写入回答事件",
+      "reply": false
+    },
+    {
+      "scenario": "round_one",
+      "order": 9,
+      "from": "A",
+      "to": "G",
+      "y": 357,
+      "label": "SSE 推送解释",
+      "reply": true
+    },
+    {
+      "scenario": "round_one",
+      "order": 10,
+      "from": "G",
+      "to": "U",
+      "y": 381,
+      "label": "显示解释",
+      "reply": true
+    },
+    {
+      "scenario": "round_one",
+      "order": 11,
+      "from": "U",
+      "to": "G",
+      "y": 405,
+      "label": "断网后重连",
+      "reply": false
+    },
+    {
+      "scenario": "round_one",
+      "order": 12,
+      "from": "G",
+      "to": "P",
+      "y": 429,
+      "label": "读取确认序号之后",
+      "reply": false
+    },
+    {
+      "scenario": "round_one",
+      "order": 13,
+      "from": "P",
+      "to": "G",
+      "y": 453,
+      "label": "返回持久事件",
+      "reply": true
+    },
+    {
+      "scenario": "round_one",
+      "order": 14,
+      "from": "G",
+      "to": "U",
+      "y": 477,
+      "label": "继续显示解释",
+      "reply": true
+    },
+    {
+      "scenario": "round_two",
+      "order": 15,
+      "from": "U",
+      "to": "G",
+      "y": 581,
+      "label": "追问 80 端口",
+      "reply": false
+    },
+    {
+      "scenario": "round_two",
+      "order": 16,
+      "from": "G",
+      "to": "B",
+      "y": 605,
+      "label": "校验后提交新 Run",
+      "reply": false
+    },
+    {
+      "scenario": "round_two",
+      "order": 17,
+      "from": "B",
+      "to": "M",
+      "y": 629,
+      "label": "请求模型回答追问",
+      "reply": false
+    },
+    {
+      "scenario": "round_two",
+      "order": 18,
+      "from": "M",
+      "to": "B",
+      "y": 653,
+      "label": "返回追问回答",
+      "reply": true
+    },
+    {
+      "scenario": "round_two",
+      "order": 19,
+      "from": "B",
+      "to": "G",
+      "y": 677,
+      "label": "SSE 推送追问结果",
+      "reply": true
+    },
+    {
+      "scenario": "round_two",
+      "order": 20,
+      "from": "G",
+      "to": "U",
+      "y": 701,
+      "label": "显示追问结果",
+      "reply": true
+    }
+  ]
+}

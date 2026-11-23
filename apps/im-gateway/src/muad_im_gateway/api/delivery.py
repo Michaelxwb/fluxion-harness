@@ -1,10 +1,11 @@
 import asyncio
 import hashlib
-import logging
 import time
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -21,9 +22,12 @@ from muad_contracts import (
 )
 from muad_contracts.enums import OUTBOUND_CHANNELS
 from muad_contracts.im import DeliveryCommand, DeliveryKind
+from muad_logging import get_logger
 
 from ..application.channel_delivery import ConsoleDeliveryPermission
-from ..application.stream_renderer import BROKEN_STREAM_TEXT, STOPPED_TEXT
+from ..application.platform_settings import resolve_platform_settings
+from ..application.ports import PlatformSettingsClient
+from ..application.progress import ActivityMessages
 from ..channels.base import (
     ArtifactDeliveryError,
     ArtifactDeliveryOutcome,
@@ -53,7 +57,7 @@ from .deps import (
     RegistryDep,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/internal/deliveries", tags=["delivery"])
 
@@ -115,6 +119,7 @@ async def deliver(
     """
     key = _dedupe_key(body)
     trace_id = current_trace_id() or ""
+    settings_client = getattr(request.app.state, "settings_client", None)
     _require_gateway_tenant(body, gateway_tenant)
     # 有主动投递能力（IM 绑定）的入口才做发送前复核：撤权/换人一律不发。
     # WebChat 等通道的授权走 CHAT 身份与持久入箱，不经 `ChannelIdentity`；
@@ -149,6 +154,7 @@ async def deliver(
             trace_id=trace_id,
             use_stream=use_stream,
             catalog=request.app.state.message_catalog,
+            settings_client=settings_client,
             stream_wait_sec=stream_wait_sec,
         )
         _count_delivery("accepted")
@@ -168,6 +174,7 @@ async def deliver(
             trace_id=trace_id,
             use_stream=use_stream,
             catalog=request.app.state.message_catalog,
+            settings_client=settings_client,
             stream_wait_sec=stream_wait_sec,
         )
     finally:
@@ -290,15 +297,17 @@ async def _dispatch(
     use_stream: bool,
     stream_wait_sec: float,
     catalog: MessageCatalog,
+    settings_client: PlatformSettingsClient | None,
 ) -> ArtifactDeliveryOutcome | None:
     if use_stream:
         return await _deliver_via_stream(
             streams, console, body, resolver=resolver, held=held,
             trace_id=trace_id, wait_sec=stream_wait_sec, catalog=catalog,
+            settings_client=settings_client,
         )
     return await _send_audited(
         registry, console, body, resolver=resolver, held=held, trace_id=trace_id,
-        catalog=catalog,
+        catalog=catalog, settings_client=settings_client,
     )
 
 
@@ -312,6 +321,7 @@ async def _deliver_via_stream(
     trace_id: str,
     wait_sec: float,
     catalog: MessageCatalog,
+    settings_client: PlatformSettingsClient | None,
 ) -> ArtifactDeliveryOutcome | None:
     """校验产物归属 → XADD `im.outbound` → **有界等待**结果；超时不宣称送达。"""
     try:
@@ -321,7 +331,7 @@ async def _deliver_via_stream(
         await _release(held, body.delivery_key)
         _count_delivery("failed")
         raise AppError(ErrorCode.COMMON_NOT_FOUND) from exc
-    command = _build_command(verified, catalog)
+    command = await _build_command(verified, catalog, settings_client)
     try:
         await streams.enqueue(command)
         result = await streams.await_result(command.command_id, timeout_sec=wait_sec)
@@ -364,24 +374,61 @@ async def _deliver_via_stream(
     return outcome
 
 
-def _render_message(message: Any, catalog: MessageCatalog) -> Any:
+async def _render_message(
+    message: Any,
+    catalog: MessageCatalog,
+    *,
+    settings_client: PlatformSettingsClient | None,
+    tenant_id: str,
+) -> Any:
     """终态空正文按 status/error_code 渲染（消息目录是 Gateway 的资产）。"""
     if message.type != "terminal" or str(message.text).strip():
         return message
+    locale = await _terminal_locale(settings_client, tenant_id, catalog)
     if message.status == "CANCELLED":
-        text = STOPPED_TEXT
+        text = _activity_messages(catalog.file_path, locale).fixed("stopped")
     elif message.error_code == "RUN_ABANDONED":
-        text = BROKEN_STREAM_TEXT
+        text = _activity_messages(catalog.file_path, locale).fixed("broken_stream")
     elif message.error_code:
-        text = catalog.message(message.error_code, catalog.default_locale)
+        text = catalog.message(message.error_code, locale)
     elif message.status == "FAILED":
-        text = catalog.message(str(ErrorCode.COMMON_INTERNAL_ERROR), catalog.default_locale)
+        text = catalog.message(str(ErrorCode.COMMON_INTERNAL_ERROR), locale)
     else:
         text = ""
     return message.model_copy(update={"text": text})
 
 
-def _build_command(body: DeliveryRequest, catalog: MessageCatalog) -> DeliveryCommand:
+async def _terminal_locale(
+    settings_client: PlatformSettingsClient | None,
+    tenant_id: str,
+    catalog: MessageCatalog,
+) -> str:
+    """Only the empty-terminal fallback needs the tenant locale; degrade to catalog default."""
+    if settings_client is None:
+        return catalog.default_locale
+    try:
+        snapshot = await settings_client.fetch_snapshot(tenant_id=tenant_id)
+        return resolve_platform_settings(snapshot).locale.default_locale
+    except Exception as exc:  # noqa: BLE001 —— 文案保底不得因设置面失败阻断投递
+        code = getattr(exc, "code", type(exc).__name__)
+        logger.warning(
+            "delivery_terminal_locale_unavailable tenant=%s code=%s",
+            tenant_id,
+            code,
+        )
+        return catalog.default_locale
+
+
+@lru_cache(maxsize=8)
+def _activity_messages(catalog_path: Path, locale: str) -> ActivityMessages:
+    return ActivityMessages(Path(catalog_path), locale)
+
+
+async def _build_command(
+    body: DeliveryRequest,
+    catalog: MessageCatalog,
+    settings_client: PlatformSettingsClient | None,
+) -> DeliveryCommand:
     """交付请求 → 出站命令（渠道中立；reply 目标由 Connector 按 message/route 解析）。
 
     终态（`type=terminal`）的空正文在这里按 `status`/`error_code` 渲染：消息目录是 Gateway
@@ -390,7 +437,12 @@ def _build_command(body: DeliveryRequest, catalog: MessageCatalog) -> DeliveryCo
     message = body.message
     artifact = message.artifact
     run_id = UUID(body.run_id) if body.run_id else None
-    message = _render_message(message, catalog)
+    message = await _render_message(
+        message,
+        catalog,
+        settings_client=settings_client,
+        tenant_id=body.tenant_id,
+    )
     if message.type == "terminal":
         kind = DeliveryKind.TERMINAL
     else:
@@ -453,6 +505,7 @@ async def _send_audited(
     held: _Held | None,
     trace_id: str,
     catalog: MessageCatalog,
+    settings_client: PlatformSettingsClient | None,
 ) -> ArtifactDeliveryOutcome | None:
     """发送 + 写交付审计（设计 §3.6 跳 5）。
 
@@ -460,7 +513,14 @@ async def _send_audited(
     是把事情做反了；但必须留 ERROR 痕迹（"交付过却查不到"比失败更难查）。
     """
     try:
-        outcome = await _send(registry, body, resolver=resolver, held=held, catalog=catalog)
+        outcome = await _send(
+            registry,
+            body,
+            resolver=resolver,
+            held=held,
+            catalog=catalog,
+            settings_client=settings_client,
+        )
     except AppError as exc:
         # 失败也要留痕：这正是 E-06 断言"审计记 FAILED"的来源
         await _audit_delivery(
@@ -616,6 +676,7 @@ async def _send(
     resolver: ArtifactResolverPort,
     held: _Held | None,
     catalog: MessageCatalog,
+    settings_client: PlatformSettingsClient | None,
 ) -> ArtifactDeliveryOutcome | None:
     """真实发送；失败时释放占位（若有）让调用方重试，未送达不宣称成功。
 
@@ -625,7 +686,9 @@ async def _send(
     try:
         verified = await _verified_body(body, resolver)
         adapter = registry.get(verified.route.channel)
-        outcome = await _deliver(adapter, verified, catalog=catalog)
+        outcome = await _deliver(
+            adapter, verified, catalog=catalog, settings_client=settings_client
+        )
     except ArtifactGoneError as exc:
         logger.warning("delivery_artifact_unresolved delivery_key=%s error=%s", body.delivery_key, exc)
         await _release(held, body.delivery_key)
@@ -717,7 +780,11 @@ async def _resolve_attachment(
 
 
 async def _deliver(
-    adapter: ChannelAdapter, body: DeliveryRequest, *, catalog: MessageCatalog
+    adapter: ChannelAdapter,
+    body: DeliveryRequest,
+    *,
+    catalog: MessageCatalog,
+    settings_client: PlatformSettingsClient | None,
 ) -> ArtifactDeliveryOutcome | None:
     """按载荷形态分发。**渠道差异只活在适配器里**（RULE-im-002）：这里只问"你能不能发"。
 
@@ -725,7 +792,12 @@ async def _deliver(
     换成一段文字（那会让用户以为文件发了）。降级成取件链接是**适配器内部**的决定（它会返回
     `DEGRADED` + `fallback_url`），不是这里的兜底。
     """
-    message = _render_message(body.message, catalog)
+    message = await _render_message(
+        body.message,
+        catalog,
+        settings_client=settings_client,
+        tenant_id=body.tenant_id,
+    )
     if message.attachments:
         return await _deliver_with_attachments(adapter, body, message)
     if message.type in ("text", "terminal"):

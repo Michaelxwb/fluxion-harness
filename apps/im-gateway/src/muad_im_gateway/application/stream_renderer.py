@@ -10,23 +10,24 @@
 
 from __future__ import annotations
 
-import logging
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from muad_api.error_codes import ErrorCode
+from muad_logging import get_logger
 
 from .sse import SseEvent
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
-DELTA_FLUSH_INTERVAL_SEC = 0.5
+#: 正文合并窗口：每帧携带的是**累积全文**，窗口只决定客户端多久看到一次增长。
+#: 企微限「同一会话 30 条/分钟」，窗口与状态节拍（`im.progress_interval_sec`）合起来不能超；
+#: 0.5s 的旧值等于 120 帧/分钟，实测会被服务端限流成「攒着一次刷」。
+DELTA_FLUSH_INTERVAL_SEC = 2.0
 CANCELLED_STATUS = "CANCELLED"
 RUN_ABANDONED_CODE = "RUN_ABANDONED"
-STOPPED_TEXT = "当前任务已停止"
-BROKEN_STREAM_TEXT = "服务暂时中断，请重发消息"
-TASK_ACCEPTED_TEXT = "任务已受理，完成后会通知你"
+
 
 STREAM_KIND = "stream"
 TEXT_KIND = "text"
@@ -50,10 +51,12 @@ class StreamRenderer:
         flush_interval_sec: float = DELTA_FLUSH_INTERVAL_SEC,
         clock: Callable[[], float] = time.monotonic,
         message_for: Callable[[str], str] | None = None,
+        system_text: Callable[[str], str] | None = None,
     ) -> None:
         self._flush_interval_sec = flush_interval_sec
         self._clock = clock
         self._message_for = message_for
+        self._system_text = system_text
         self._buffer: list[str] = []
         self._last_flush_at = 0.0
         self._has_output = False
@@ -127,7 +130,9 @@ class StreamRenderer:
         return tuple(actions)
 
     def _on_task_accepted(self, event: SseEvent) -> tuple[RenderAction, ...]:
-        message = str((event.data or {}).get("message") or "").strip() or TASK_ACCEPTED_TEXT
+        message = str((event.data or {}).get("message") or "").strip() or self._system(
+            "task_accepted"
+        )
         return (*self.finalize(), RenderAction(TEXT_KIND, message))
 
     def _on_artifact(self, event: SseEvent) -> tuple[RenderAction, ...]:
@@ -142,7 +147,7 @@ class StreamRenderer:
         data = event.data or {}
         status = str(data.get("status") or "")
         if status == CANCELLED_STATUS:
-            return (*self.finalize(), RenderAction(TEXT_KIND, STOPPED_TEXT))
+            return (*self.finalize(), RenderAction(TEXT_KIND, self._system("stopped")))
         final_text = str(data.get("final_text") or "").strip()
         actions = list(self.finalize())
         if final_text and not self._has_output:
@@ -152,7 +157,7 @@ class StreamRenderer:
     def _on_failed(self, event: SseEvent) -> tuple[RenderAction, ...]:
         code = str((event.data or {}).get("error_code") or "")
         if code == RUN_ABANDONED_CODE:
-            text = BROKEN_STREAM_TEXT
+            text = self._system("broken_stream")
         else:
             text = self._message_for(code) if self._message_for is not None else ""
             if not text:
@@ -164,6 +169,14 @@ class StreamRenderer:
         if self._message_for is not None:
             return self._message_for(default)
         return ""
+
+    def _system(self, key: str) -> str:
+        """Fixed user-visible text; production injects the reply-locale catalog."""
+        if self._system_text is not None:
+            return self._system_text(key)
+        # No catalog injected (direct unit construction): expose the missing wiring
+        # instead of silently falling back to a hardcoded language.
+        return key
 
 
 def _as_sequence(value: object) -> Sequence[object]:

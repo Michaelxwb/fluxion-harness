@@ -41,6 +41,7 @@ from muad_contracts import (
     SchedulePlan,
     SchedulePolicy,
     ScheduleStatus,
+    SkillInvocationContract,
     SkillPlanPayload,
     SnapshotAgent,
     SnapshotModel,
@@ -102,6 +103,7 @@ def _snapshot(**overrides: Any) -> dict[str, Any]:
 def _skill() -> dict[str, Any]:
     return {
         "skill_id": uuid.uuid4(),
+        "key": "skill-a",
         "artifact_id": uuid.uuid4(),
         "version": "1.2.0",
         "checksum": HASH,
@@ -612,6 +614,83 @@ class TestAsyncWaitWatermarks:
     def test_unknown_operation_status_is_rejected(self) -> None:
         with pytest.raises(ValidationError):
             OperationWatermark(operation_id=uuid.uuid4(), call_id="call-1", status="DONE")
+
+
+class TestSkillInvocationContract:
+    def _argv(self, **overrides: Any) -> dict[str, Any]:
+        contract: dict[str, Any] = {
+            "version": 1,
+            "invocation": "argv",
+            "schema": {
+                "type": "object",
+                "properties": {"company-id": {"type": "string"}},
+                "required": ["company-id"],
+                "additionalProperties": False,
+            },
+        }
+        contract.update(overrides)
+        return contract
+
+    def test_valid_argv_contract(self) -> None:
+        contract = SkillInvocationContract.model_validate(self._argv())
+
+        assert contract.invocation == "argv"
+        assert contract.contract_schema["properties"]["company-id"] == {"type": "string"}
+
+    def test_valid_stdin_contract_allows_empty_object(self) -> None:
+        contract = SkillInvocationContract.model_validate(
+            {
+                "invocation": "stdin",
+                "schema": {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": False,
+                },
+            }
+        )
+
+        assert contract.invocation == "stdin"
+        assert contract.contract_schema["properties"] == {}
+
+    @pytest.mark.parametrize(
+        "schema",
+        [
+            {"type": "array", "properties": {}, "additionalProperties": False},
+            {"type": "object", "properties": [], "additionalProperties": False},
+            {"type": "object", "properties": {}, "additionalProperties": True},
+            {
+                "type": "object",
+                "properties": {"company-id": {}},
+                "required": ["missing"],
+                "additionalProperties": False,
+            },
+        ],
+    )
+    def test_invalid_schema_is_rejected(self, schema: dict[str, Any]) -> None:
+        with pytest.raises(ValidationError):
+            SkillInvocationContract.model_validate(
+                {"invocation": "argv", "schema": schema}
+            )
+
+    @pytest.mark.parametrize("name", ["help", "version", "--company-id", "company id", ""])
+    def test_invalid_argv_option_name_is_rejected(self, name: str) -> None:
+        with pytest.raises(ValidationError):
+            SkillInvocationContract.model_validate(
+                {
+                    "invocation": "argv",
+                    "schema": {
+                        "type": "object",
+                        "properties": {name: {}},
+                        "additionalProperties": False,
+                    },
+                }
+            )
+
+    def test_unknown_version_and_field_are_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            SkillInvocationContract.model_validate(self._argv(version=2))
+        with pytest.raises(ValidationError):
+            SkillInvocationContract.model_validate(self._argv(unexpected=True))
 
 
 class TestVocabulary:

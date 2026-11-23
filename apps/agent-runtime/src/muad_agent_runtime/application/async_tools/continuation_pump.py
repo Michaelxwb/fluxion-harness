@@ -1,9 +1,10 @@
 """PostgreSQL wakeup facts feed process-owned supervised execution segments."""
 
 import asyncio
-import logging
 from collections.abc import Awaitable, Callable
 from uuid import UUID
+
+from muad_logging import get_logger
 
 from ...infrastructure.db import SessionFactory
 from ...infrastructure.models.runtime import RunRecord
@@ -11,7 +12,7 @@ from ...metrics import RUNTIME_MAINTENANCE_METRIC, record_outcome
 from .continuation_service import claim_continuation
 from .supervisor import ExecutionSupervisor
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ContinuationPump:

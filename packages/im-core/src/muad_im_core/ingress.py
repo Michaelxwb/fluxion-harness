@@ -14,16 +14,17 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 
 from muad_contracts.im import InboundEvent, inbound_dedupe_key, inbound_stream_key
+from muad_logging import get_logger
 from redis.asyncio import Redis
 from redis.asyncio.cluster import RedisCluster
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 STATE_RECEIVED = "RECEIVED"
 STATE_PUBLISHED = "PUBLISHED"
@@ -66,19 +67,29 @@ class InboundPublisher:
         self._pause = pause_before_xadd_sec
 
     async def publish(
-        self, event: InboundEvent, *, dedupe_id: str | None = None
+        self,
+        event: InboundEvent,
+        *,
+        dedupe_id: str | None = None,
+        dedupe_ids: Sequence[str] | None = None,
     ) -> PublishOutcome:
-        """发布一条入站事实；`dedupe_id` 覆盖去重身份（缺省 = `external_message_id`）。
+        """发布一条入站事实；支持一次标记多个成员身份。
 
         Webhook 提供方的重试身份是 **event_id**（同一条消息可能被不同 event 包装），
         Connector 的重试身份是平台 `message_id`：两者都在 **XADD 之前**收敛，Stream 里
-        因此不会出现同一次重试的第二条记录。
+        因此不会出现同一次重试的第二条记录。批次合并时传 `dedupe_ids`，任一成员重投
+        都会看到同一条 `PUBLISHED` 标记。
         """
-        identity = dedupe_id or event.external_message_id
-        key = inbound_dedupe_key(event.tenant_id, event.bot_id, identity)
-        state = await self._begin(key)
-        if state == PublishOutcome.DUPLICATE:
-            return state
+        identities = tuple(dict.fromkeys(dedupe_ids or ((dedupe_id or event.external_message_id),)))
+        keys = [
+            inbound_dedupe_key(event.tenant_id, event.bot_id, identity)
+            for identity in identities
+        ]
+        for key in keys:
+            published = await self._begin(key)
+            if published is not None:
+                await self._mark_published(keys, published)
+                return PublishOutcome.DUPLICATE
         if self._pause > 0:
             # 确定性故障注入：测试在标记写入后、XADD 前 kill 进程（生产默认 0）。
             await asyncio.sleep(self._pause)
@@ -96,14 +107,25 @@ class InboundPublisher:
             maxlen=self._maxlen,
             approximate=True,
         )
-        await self._redis.set(
-            key,
-            f"{STATE_PUBLISHED}:{_text(entry_id)}",
-            ex=DEDUPE_TTL_SEC,
-        )
+        published = f"{STATE_PUBLISHED}:{_text(entry_id)}"
+        await self._mark_published(keys, published)
         return PublishOutcome.PUBLISHED
 
-    async def _begin(self, key: str) -> PublishOutcome:
+    async def _mark_published(self, keys: Sequence[str], published: str) -> None:
+        if len(keys) == 1:
+            await self._redis.set(keys[0], published, ex=DEDUPE_TTL_SEC)
+        else:
+            pipe = self._redis.pipeline(transaction=False)
+            for key in keys:
+                pipe.set(key, published, ex=DEDUPE_TTL_SEC)
+            await pipe.execute()
+
+    async def is_published(self, *, tenant_id: str, bot_id: str, message_id: str) -> bool:
+        """只读判断某成员是否已经发布；Redis 故障沿用现有失败语义，由调用方降级。"""
+        key = inbound_dedupe_key(tenant_id, bot_id, message_id)
+        return _text(await self._redis.get(key)).startswith(f"{STATE_PUBLISHED}:")
+
+    async def _begin(self, key: str) -> str | None:
         """写/读入口标记；返回是否继续发布。
 
         - 已有 `PUBLISHED` ⇒ 重复回调，跳过；
@@ -114,12 +136,12 @@ class InboundPublisher:
         if await self._redis.set(
             key, f"{STATE_RECEIVED}:{now}", nx=True, ex=DEDUPE_TTL_SEC
         ):
-            return PublishOutcome.PUBLISHED
+            return None
         current = _text(await self._redis.get(key))
         if current.startswith(f"{STATE_PUBLISHED}:"):
-            return PublishOutcome.DUPLICATE
+            return current
         if current.startswith(STATE_RECEIVED) or current.startswith(STATE_LOST):
-            return PublishOutcome.PUBLISHED
+            return None
         # 值不可识别（损坏/被外部改写）：不静默覆盖，交给调用方显式失败。
         raise ValueError(f"inbound dedupe state is corrupt: {key}")
 

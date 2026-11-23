@@ -27,9 +27,7 @@ from muad_agent_worker.infrastructure.models.task import TaskExecution, TaskSche
 from muad_agent_worker.infrastructure.task_artifact_client import TaskArtifactClient
 from muad_agent_worker.main import app as worker_app
 from muad_agent_worker.scheduler.service import SchedulerLoop
-from muad_agent_worker.worker.dispatch import TaskTypeExecutor
 from muad_agent_worker.worker.executor import SkillTaskExecutor
-from muad_agent_worker.worker.reminder import ReminderExecutor
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_contracts import (
     ResolvedAgent,
@@ -48,7 +46,6 @@ from agent_worker.helpers import (
     FakePlatformSettingsClient,
     fetch_schedule,
     internal_service_headers,
-    run_worker_once,
     write_skill_archive,
 )
 from agent_worker.test_scheduled_v2_fire import (
@@ -84,6 +81,39 @@ SKILL_ROOT = Path(__file__).resolve().parents[2] / "skills/daily-duty-report-mss
 SETTINGS: dict[str, Any] = {"task": {"default_deadline_hours": 24 * 365 * 10}}
 
 
+def _contract_for(entrypoint: str) -> dict[str, Any]:
+    if entrypoint.endswith("cron_entry.py"):
+        return {
+            "version": 1,
+            "invocation": "stdin",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "company_id": {"type": "string", "pattern": "^[0-9]+$"},
+                    "date": {"type": "string", "format": "date"},
+                    "no_wecom_push": {"type": "boolean"},
+                },
+                "required": ["company_id"],
+                "additionalProperties": False,
+            },
+        }
+    return {
+        "version": 1,
+        "invocation": "argv",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "company-id": {"type": "string", "pattern": "^[0-9]+$"},
+                "date": {"type": "string", "format": "date"},
+                "no-wecom-push": {"type": "boolean"},
+                "now": {"type": "string", "format": "date-time"},
+            },
+            "required": ["company-id"],
+            "additionalProperties": False,
+        },
+    }
+
+
 def _materials(
     checksum: str,
     storage_key: str,
@@ -100,7 +130,10 @@ def _materials(
         checksum=checksum,
         storage_key=storage_key,
         execution_mode=SkillExecutionMode.SYNC,
-        frontmatter={"entrypoint": entrypoint},
+        frontmatter={
+            "entrypoint": entrypoint,
+            "invocation_contract": _contract_for(entrypoint),
+        },
         source=SkillSource.ADMIN,
     )
     return ScheduleAdmissionMaterials(
@@ -147,12 +180,7 @@ def _skill_body(
         "payload": {
             "kind": "SKILL_PLAN",
             "skill_id": str(SKILL_ID),
-            "input": input_template
-            or {
-                "company_id": "1001",
-                "date": "{{previous_day}}",
-                "no_wecom_push": True,
-            },
+            "input": input_template if input_template is not None else {},
             "argv": (
                 argv
                 if argv is not None
@@ -227,61 +255,6 @@ async def _confirm(
     )
     assert response.status_code == 200, response.text
     return response.json()["data"]
-
-
-async def _test_run(
-    client: httpx.AsyncClient,
-    tenant: TenantContext,
-    draft_id: str,
-    *,
-    actor: uuid.UUID,
-    agent: uuid.UUID,
-) -> dict[str, Any]:
-    response = await client.post(
-        f"/internal/schedule-drafts/{draft_id}/test-run",
-        headers=_headers(tenant, actor=actor, agent=agent),
-    )
-    assert response.status_code == 200, response.text
-    return response.json()["data"]
-
-
-async def _read_trial(
-    client: httpx.AsyncClient,
-    tenant: TenantContext,
-    draft_id: str,
-    *,
-    actor: uuid.UUID,
-    agent: uuid.UUID,
-) -> dict[str, Any]:
-    response = await client.get(
-        f"/internal/schedule-drafts/{draft_id}/test-run",
-        headers=_headers(tenant, actor=actor, agent=agent),
-    )
-    assert response.status_code == 200, response.text
-    return response.json()["data"]
-
-
-async def _run_trial(
-    client: httpx.AsyncClient,
-    tenant: TenantContext,
-    draft: dict[str, Any],
-    *,
-    actor: uuid.UUID,
-    agent: uuid.UUID,
-    cache: SkillArtifactCache,
-    artifacts: TaskArtifactClient,
-) -> dict[str, Any]:
-    receipt = await _test_run(client, tenant, draft["draft_id"], actor=actor, agent=agent)
-    assert receipt["status"] == "QUEUED"
-    await run_worker_once(
-        tenant,
-        TaskTypeExecutor(
-            reminder=ReminderExecutor(),
-            skill=SkillTaskExecutor(cache, artifacts=artifacts),
-        ),
-    )
-    data = await _read_trial(client, tenant, draft["draft_id"], actor=actor, agent=agent)
-    return data["preview"]["trial"]
 
 
 async def _count(tenant: TenantContext, table: str) -> int:
@@ -403,17 +376,8 @@ async def test_draft_trial_confirm_fire_and_retry_run_the_local_skill(
         assert preview["dependencies"] == [f"SKILL:{SKILL_ID}:{SKILL_KEY}"]
         first_fire = datetime.fromisoformat(preview["first_fire_at"]).astimezone(ZoneInfo(TZ))
         assert (first_fire.hour, first_fire.minute) == (9, 0)
-
-        trial = await _run_trial(
-            client, tenant, draft, actor=actor, agent=agent, cache=cache, artifacts=artifacts
-        )
-        assert trial["status"] == "COMPLETED", trial
-        assert trial["execution_id"]
-        assert trial["artifacts"], "a real trial must expose real artifacts"
-        trial_names = {item["name"] for item in trial["artifacts"]}
-        assert any(name.endswith("report.txt") for name in trial_names)
-        assert any("安全事件及威胁实体封堵列表-" in name for name in trial_names)
-        assert await _count(tenant, "task_schedule") == 0, "a trial must not create a Job"
+        assert preview["dispatch_check"]["status"] == "PASSED"
+        assert preview["dispatch_check"]["invocation"] == "argv"
 
         confirmed = await _confirm(
             client, tenant, draft, actor=actor, agent=agent, name=body["name"]
@@ -439,11 +403,7 @@ async def test_draft_trial_confirm_fire_and_retry_run_the_local_skill(
         assert execution_id is not None, "the 09:00 occurrence must be executed"
         execution = await _execution(tenant, execution_id)
 
-        expected_input = {
-            "company_id": "1001",
-            "date": REPORT_DATE,
-            "no_wecom_push": True,
-        }
+        expected_input = {}
         expected_argv = [
             "--company-id",
             "1001",
@@ -456,11 +416,6 @@ async def test_draft_trial_confirm_fire_and_retry_run_the_local_skill(
         assert execution.input_json["input"] == expected_input
         assert execution.input_json["argv"] == expected_argv
         assert execution.input_json["window"] == {"kind": "DAY", "offset": -1}
-        assert set(execution.input_json["input"]) == {
-            "company_id",
-            "date",
-            "no_wecom_push",
-        }, "stdin/payload carries only business input, never envelope control fields"
         snapshot = execution.execution_snapshot_json
         assert snapshot["input"] == expected_input
         assert snapshot["argv"] == expected_argv
@@ -544,7 +499,14 @@ async def test_cron_entrypoint_receives_only_business_input_on_stdin(
             "http://runtime", runtime_artifacts, service_token=TEST_INTERNAL_SERVICE_TOKEN
         )
 
-        body = _skill_body(argv=[])
+        body = _skill_body(
+            input_template={
+                "company_id": "1001",
+                "date": "{{previous_day}}",
+                "no_wecom_push": True,
+            },
+            argv=[],
+        )
         draft = await _create_draft(client, tenant, body, actor=actor, agent=agent)
         confirmed = await _confirm(
             client, tenant, draft, actor=actor, agent=agent, name=body["name"]
@@ -597,7 +559,8 @@ async def test_delayed_occurrence_fires_the_frozen_slot_and_missed_occurrence_is
     assert (fire.status, fire.scheduled_at) == ("EXECUTION_CREATED", SHANGHAI_SLOT)
     [execution] = await executions(tenant, seeded.schedule_id)
     assert execution.scheduled_at == SHANGHAI_SLOT
-    assert execution.input_json["input"]["date"] == REPORT_DATE
+    assert execution.input_json["input"] == {}
+    assert REPORT_DATE in execution.input_json["argv"]
     refreshed = await fetch_schedule(tenant, seeded.schedule_id)
     assert refreshed.next_fire_at == SHANGHAI_SLOT + timedelta(days=1)
 
@@ -638,11 +601,7 @@ async def test_dst_boundary_keeps_the_local_0900_slot(tenant: TenantContext) -> 
     assert await loop.run_once(now=NY_DST_SLOT + timedelta(seconds=1)) is not None
     [execution] = await executions(tenant, seeded.schedule_id)
     assert execution.scheduled_at == NY_DST_SLOT
-    assert execution.execution_snapshot_json["input"] == {
-        "company_id": "1001",
-        "date": "2026-03-07",
-        "no_wecom_push": True,
-    }
+    assert execution.execution_snapshot_json["input"] == {}
     assert execution.execution_snapshot_json["argv"] == [
         "--company-id",
         "1001",

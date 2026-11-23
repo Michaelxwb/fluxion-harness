@@ -11,7 +11,12 @@ import json
 from uuid import UUID
 
 import httpx
-from muad_contracts import ArtifactPurpose, TaskArtifactWriteRequest, TaskArtifactWriteResponse
+from muad_contracts import (
+    ArtifactPurpose,
+    AttachmentRef,
+    TaskArtifactWriteRequest,
+    TaskArtifactWriteResponse,
+)
 
 ARTIFACTS_PATH = "/internal/artifacts"
 DEFAULT_TIMEOUT_SEC = 10.0
@@ -38,6 +43,41 @@ class TaskArtifactClient:
         self._client = client
         self._service_token = service_token
         self._timeout_sec = timeout_sec
+
+    async def read(
+        self,
+        *,
+        tenant_id: str,
+        execution_id: UUID,
+        artifact_id: str,
+    ) -> AttachmentRef:
+        headers = {"X-Tenant-Id": tenant_id}
+        if self._service_token:
+            headers["X-Internal-Service"] = self._service_token
+        try:
+            response = await self._client.get(
+                f"{self._base_url}{ARTIFACTS_PATH}/{artifact_id}",
+                params={"task_execution_id": str(execution_id)},
+                headers=headers,
+                timeout=self._timeout_sec,
+            )
+        except httpx.HTTPError as exc:
+            raise TaskArtifactError(type(exc).__name__) from exc
+        try:
+            body = response.json()
+        except ValueError as exc:
+            raise TaskArtifactError(f"http_{response.status_code}") from exc
+        if not isinstance(body, dict):
+            raise TaskArtifactError(f"http_{response.status_code}")
+        if body.get("code") != "0":
+            raise TaskArtifactError(str(body.get("code")), code=str(body.get("code")))
+        data = body.get("data")
+        if not isinstance(data, dict):
+            raise TaskArtifactError("malformed_artifact_response")
+        try:
+            return AttachmentRef.model_validate(data)
+        except ValueError as exc:
+            raise TaskArtifactError("malformed_artifact_response") from exc
 
     async def write(
         self,

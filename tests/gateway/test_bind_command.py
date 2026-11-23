@@ -19,11 +19,7 @@ from muad_api.catalog import MessageCatalog
 from muad_console_platform.infrastructure.db import get_session_factory
 from muad_console_platform.infrastructure.models.channel import BindCode, ChannelIdentity
 from muad_im_gateway.application.console_client import ConsoleClient
-from muad_im_gateway.application.inbound import (
-    BIND_SUCCESS_TEXT,
-    BIND_USAGE_TEXT,
-    InboundPipeline,
-)
+from muad_im_gateway.application.inbound import InboundPipeline
 from muad_im_gateway.channels.fake import FakeChannelAdapter
 from muad_im_gateway.infrastructure.dedupe import NullDedupeStore
 from sqlalchemy import func, select
@@ -126,7 +122,7 @@ async def test_b110_bind_success_replies_and_persists_identity(
                 _envelope(channel, text=f"/bind {channel.valid_bind_code}", message_id=message_id),
             )
 
-        assert _sent_texts(adapter) == [BIND_SUCCESS_TEXT]
+        assert _sent_texts(adapter) == ["绑定成功"]
         # 绑定成功响应可能先于 identity 行可见；真实 Console + PostgreSQL 下轮询等落定。
         for _ in range(50):
             if await _count_identities(channel, channel.unbound_external_user_id) == 1:
@@ -169,7 +165,7 @@ async def test_b110_replayed_message_does_not_consume_twice(
             await asyncio.sleep(0.1)
         assert used_at_first is not None, "首次 /bind 必须已经消费绑定码"
         await pipeline.handle(adapter, envelope)  # 同 message_id 重投：幂等重放
-        assert _sent_texts(adapter) == [BIND_SUCCESS_TEXT, BIND_SUCCESS_TEXT]
+        assert _sent_texts(adapter) == ["绑定成功", "绑定成功"]
         assert await _count_identities(channel, channel.unbound_external_user_id) == 1
         code = await _fetch_code(channel)
         assert code is not None and code.used_at == used_at_first  # 未二次消费
@@ -193,7 +189,7 @@ async def test_b110_error_branches_use_catalog_texts(
             adapter,
             _envelope(channel, text="/bind", message_id=f"msg-usage-{time.time_ns()}"),
         )
-        assert _sent_texts(adapter) == [BIND_USAGE_TEXT]
+        assert _sent_texts(adapter) == ["用法：/bind <绑定码>"]
 
         # 未知码
         adapter2 = FakeChannelAdapter()

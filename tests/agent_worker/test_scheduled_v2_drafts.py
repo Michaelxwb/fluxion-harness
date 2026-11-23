@@ -110,6 +110,18 @@ def skill_materials(skill_id: uuid.UUID = SKILL_ID) -> ScheduleAdmissionMaterial
                 storage_key="skills/weekly-report.tar.gz",
                 execution_mode=SkillExecutionMode.SYNC,
                 source=SkillSource.ADMIN,
+                frontmatter={
+                    "invocation_contract": {
+                        "version": 1,
+                        "invocation": "stdin",
+                        "schema": {
+                            "type": "object",
+                            "properties": {"body": {"type": "string"}},
+                            "required": ["body"],
+                            "additionalProperties": False,
+                        },
+                    }
+                },
             )
         ],
         grants=ScheduleGrantMaterials(agent_access=True, skill_ids=[skill_id]),
@@ -559,6 +571,146 @@ async def test_skill_draft_previews_the_resolved_skill_dependency(
     await assert_no_schedule_side_effects(tenant)
 
 
+def _contract_materials(contract: dict[str, Any]) -> ScheduleAdmissionMaterials:
+    materials = skill_materials()
+    materials.skills[0] = materials.skills[0].model_copy(
+        update={"frontmatter": {"invocation_contract": contract}}
+    )
+    return materials
+
+
+def _argv_contract(*, properties: dict[str, Any], required: list[str]) -> dict[str, Any]:
+    return {
+        "version": 1,
+        "invocation": "argv",
+        "schema": {
+            "type": "object",
+            "properties": properties,
+            "required": required,
+            "additionalProperties": False,
+        },
+    }
+
+
+def _argv_skill_body(argv: list[str]) -> dict[str, Any]:
+    body = skill_body()
+    body["payload"] = {
+        "kind": "SKILL_PLAN",
+        "skill_id": str(SKILL_ID),
+        "argv": argv,
+    }
+    return body
+
+
+async def test_skill_draft_records_dispatch_check_without_side_effects(
+    client: AsyncClient, tenant: TenantContext, install: Any
+) -> None:
+    install(FakeMaterials(skill_materials()))
+
+    response = await client.post(
+        "/internal/schedule-drafts",
+        json=skill_body(),
+        headers=headers(tenant, actor=uuid.uuid4(), agent=uuid.uuid4()),
+    )
+
+    assert response.status_code == 200, response.text
+    check = response.json()["data"]["preview"]["dispatch_check"]
+    assert check["status"] == "PASSED"
+    assert check["invocation"] == "stdin"
+    assert check["contract_version"] == 1
+    assert check["rendered"]["input"]["body"].endswith("的客户简报")
+    assert check["snapshot_hash"].startswith("sha256:")
+    await assert_no_schedule_side_effects(tenant)
+
+
+async def test_skill_draft_rejects_missing_contract(
+    client: AsyncClient, tenant: TenantContext, install: Any
+) -> None:
+    materials = skill_materials()
+    materials.skills[0] = materials.skills[0].model_copy(update={"frontmatter": {}})
+    install(FakeMaterials(materials))
+
+    response = await client.post(
+        "/internal/schedule-drafts",
+        json=skill_body(),
+        headers=headers(tenant, actor=uuid.uuid4(), agent=uuid.uuid4()),
+    )
+
+    assert response.status_code == 422
+    payload = response.json()
+    assert payload["code"] == "SCHEDULE_INVOCATION_CONTRACT_MISSING"
+    assert payload["data"]["reason"] == "CONTRACT_MISSING"
+    assert await count_rows(tenant, "task_schedule_draft") == 0
+
+
+async def test_skill_draft_rejects_input_only_for_argv_contract(
+    client: AsyncClient, tenant: TenantContext, install: Any
+) -> None:
+    contract = _argv_contract(
+        properties={"company-id": {"type": "string"}},
+        required=["company-id"],
+    )
+    install(FakeMaterials(_contract_materials(contract)))
+
+    response = await client.post(
+        "/internal/schedule-drafts",
+        json=skill_body(),
+        headers=headers(tenant, actor=uuid.uuid4(), agent=uuid.uuid4()),
+    )
+
+    assert response.status_code == 422
+    payload = response.json()
+    assert payload["code"] == "SCHEDULE_ARGV_INVALID"
+    assert payload["data"]["reason"] == "CHANNEL_MISMATCH"
+    assert payload["data"]["field"] == "payload.input"
+    assert await count_rows(tenant, "task_schedule_draft") == 0
+
+
+async def test_skill_draft_rejects_boolean_value(
+    client: AsyncClient, tenant: TenantContext, install: Any
+) -> None:
+    contract = _argv_contract(
+        properties={
+            "company-id": {"type": "string"},
+            "no-wecom-push": {"type": "boolean"},
+        },
+        required=["company-id"],
+    )
+    install(FakeMaterials(_contract_materials(contract)))
+
+    response = await client.post(
+        "/internal/schedule-drafts",
+        json=_argv_skill_body(
+            ["--company-id", "22921947", "--no-wecom-push=true"]
+        ),
+        headers=headers(tenant, actor=uuid.uuid4(), agent=uuid.uuid4()),
+    )
+
+    assert response.status_code == 422
+    payload = response.json()
+    assert payload["code"] == "SCHEDULE_ARGV_INVALID"
+    assert payload["data"]["reason"] == "BOOLEAN_MUST_BE_FLAG"
+    assert await count_rows(tenant, "task_schedule_draft") == 0
+
+
+async def test_zero_argument_skill_draft_is_allowed(
+    client: AsyncClient, tenant: TenantContext, install: Any
+) -> None:
+    contract = _argv_contract(properties={}, required=[])
+    install(FakeMaterials(_contract_materials(contract)))
+
+    response = await client.post(
+        "/internal/schedule-drafts",
+        json=_argv_skill_body([]),
+        headers=headers(tenant, actor=uuid.uuid4(), agent=uuid.uuid4()),
+    )
+
+    assert response.status_code == 200, response.text
+    check = response.json()["data"]["preview"]["dispatch_check"]
+    assert check["rendered"]["argv"] == []
+    await assert_no_schedule_side_effects(tenant)
+
+
 async def test_missing_skill_is_reported_as_a_dependency_error(
     client: AsyncClient, tenant: TenantContext, install: Any
 ) -> None:
@@ -684,6 +836,22 @@ async def test_agent_turn_without_tools_follows_the_owner(
     assert response.json()["data"]["preview"]["tools_allow"] == ["*"]
     assert response.json()["data"]["preview"]["dependencies"] == []
     assert materials.calls[0][1].tool_allowlist == []
+    assert await count_rows(tenant, "task_schedule_draft") == 1
+
+
+async def test_agent_turn_follow_owner_freezes_all_material_tools(
+    client: AsyncClient, tenant: TenantContext, install: Any
+) -> None:
+    """空 allowlist 的预检也必须冻结 owner 的全部工具，不能预览成“无依赖”。"""
+    install(FakeMaterials(agentic_materials([MCP_TOOL])))
+    response = await client.post(
+        "/internal/schedule-drafts",
+        json=agentic_body(allowlist=[]),
+        headers=headers(tenant, actor=uuid.uuid4(), agent=uuid.uuid4()),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["preview"]["dependencies"] == ["MCP:crm:customer.report"]
     assert await count_rows(tenant, "task_schedule_draft") == 1
 
 

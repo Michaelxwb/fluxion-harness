@@ -11,10 +11,10 @@ description: 验证 smoke_platform 登录态与业务请求链路的示例 Skill
 
 ## 执行方式
 
-模型只调用 `execute_skill`：
+模型只调用统一的 `execute`（`target="skill"`）：
 
 ```text
-execute_skill(skill_key="smoke-platform-sample")
+execute(target="skill", skill_key="smoke-platform-sample")
 ```
 
 脚本会：
@@ -23,7 +23,7 @@ execute_skill(skill_key="smoke-platform-sample")
 2. 读取 `platforms.smoke_platform.cookies` 和 `requestProfile.baseUrl`；
 3. 按 `requestProfile.csrf` 的 cookie/header 映射带 CSRF 头；
 4. 依次请求 `/v1/rtt`（健康）、`/api/v1/ping`（CSRF 业务）、`/api/v1/targets`；
-5. 校验平台回显的 `Traceid`，把结果写到 `SKILL_OUTPUT_DIR/smoke-platform-result.json`。
+5. 分别校验 `ping` 和 `targets` 回显的 `TraceId` 与各自实际发出的请求头一致（Runtime 接管时会覆盖脚本提供的值），把结果写到 `SKILL_OUTPUT_DIR/smoke-platform-result.json`。
 
 ## 本地联调
 

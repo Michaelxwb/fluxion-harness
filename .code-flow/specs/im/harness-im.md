@@ -1,7 +1,7 @@
 ---
 {
   "description": "IM 网关、通道与 WebChat",
-  "next_rule": 10
+  "next_rule": 13
 }
 ---
 
@@ -28,6 +28,12 @@
 - [RULE-008] 入口身份必须显式传递 `ChannelContext.entry_id`（= `control.bot_account.id`），随消息、`/new`、`/stop` 全链保留；`bot_id` 只保存平台原值用于连接与路由；禁止用 `uuid.UUID(bot_id)` 或字符串形状推断入口。
 
 - [RULE-009] 绑定码状态映射固定：`USED`/`REVOKED` → `BIND_CODE_INVALID`，`EXPIRED`/过期 → `BIND_CODE_EXPIRED`；带 `Idempotency-Key` 的绑定请求使用共享幂等表 + `pg_advisory_xact_lock`；`identity_key=(channel,bot_id,external_user_id)` 每租户唯一，冲突返回 `IDENTITY_ALREADY_BOUND` 且不消费绑定码。
+
+- [RULE-010] 同一逻辑发送的文字与 1..N 个媒体帧必须在 Connector 按 route 有界聚合：下载前登记在途成员，全部附件成功物化后发布一个 InboundEvent；批次成员共享去重；窗口与上限由系统设置 im.inbound_batch_* 定义；批次失败整批不执行，不产生部分成功结果。
+
+- [RULE-011] 附件枚举必须按 artifact_type 标注来源：INBOUND_* 为入站、OUTPUT 为自产、TOOL_RESULT 为工具结果、其他为内部产物；TOOL_RESULT 不得标成入站。显式访问保留，内部产物默认不交付，用户明确要求时按 owner 校验交付。
+
+- [RULE-012] 所有用户可见固定文案（任务受理、停止、断流、附件回执等）必须按回复 locale 从 config/api-messages.yaml 的 activity_messages 模板取，不得硬编码中文；终态正文为空时才读取租户 locale 兜底，读取失败回落目录默认并留 warning。
 
 ## Conventions
 
@@ -109,3 +115,9 @@
 - {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-007","op":"add","rule":"RULE-008","payload_sha256":"45f65741f004802cca359dcab10fdef44758601a71a8303c68b1d184246fe7ee","at":"2026-11-18T14:06:44.261Z"}
 
 - {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-008","op":"add","rule":"RULE-009","payload_sha256":"a90b6daddabedfd0ec833cacef85581d56129bcc5371091701764872916d6a98","at":"2026-11-18T14:06:44.262Z"}
+
+- {"source":"2026-11-20/im-attachment-integrity/im-attachment-integrity.md#TASK-002#DELTA-001","op":"add","rule":"RULE-010","payload_sha256":"e09cffd4db7a6d3c8d1d4d677abc12bf57c0aa75e0b73d07272c37569644ecf3","at":"2026-11-21T01:12:04.046Z"}
+
+- {"source":"2026-11-20/im-attachment-integrity/im-attachment-integrity.md#TASK-005#DELTA-001","op":"add","rule":"RULE-011","payload_sha256":"40ddae60ee7969df184a9fd613bc8961e5f3a9b267ad73d07a976033c00d4279","at":"2026-11-21T01:12:04.047Z"}
+
+- {"source":"2026-11-21/agent-output-and-platform-defaults/agent-output-and-platform-defaults.md#TASK-007#DELTA-006","op":"add","rule":"RULE-012","payload_sha256":"c13c9d5a87dfdb2095bcc911ea401885e5ff7e9a2b460f0f21e84533943aab8d","at":"2026-11-21T07:54:54.594Z"}

@@ -22,7 +22,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import time
 import uuid
 import weakref
@@ -43,6 +42,7 @@ from muad_contracts.model_pool import (
     RunCallOwner,
     TaskCallOwner,
 )
+from muad_logging import get_logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.db import SessionFactoryProvider
@@ -467,7 +467,7 @@ def process_pool_lock_gate(limit: int = DEFAULT_POOL_LOCK_CONCURRENCY) -> PoolLo
     return gate
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ModelCapacityService:

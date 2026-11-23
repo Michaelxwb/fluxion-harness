@@ -27,13 +27,16 @@ import sqlalchemy as sa
 import uvicorn
 from fastapi import FastAPI
 from muad_agent_core.agent import AgentRunner
+from muad_agent_core.context.plan import RunInput, plan_context, render_context
 from muad_agent_core.hooks import HookPipeline
 from muad_agent_core.model import (
+    ImagePart,
     ModelMessage,
     ModelProvider,
     ModelRequest,
     ModelResponse,
     ModelRole,
+    ModelToolCall,
 )
 from muad_agent_core.tools import ToolRegistry
 from muad_agent_runtime.api.deps import (
@@ -224,7 +227,8 @@ def _snip_settings() -> CompactionSettings:
     取值必须满足 schema 的 `max_groups ≥ keep_head + keep_tail + 1`（`_validate` 会拒）。
     """
     return CompactionSettings(
-        snip=SnipSettings(max_groups=3, keep_head_groups=1, keep_tail_groups=1)
+        snip=SnipSettings(max_groups=3, keep_head_groups=1, keep_tail_groups=1),
+        history_budget_messages=2,
     )
 
 
@@ -282,7 +286,7 @@ async def test_e05_catalog_is_visible_without_any_traffic() -> None:
 async def test_e05_compaction_counters_increase_on_a_real_run(
     tenant: TenantContext, fake_resolve: FakeResolveClient, tmp_path: Path
 ) -> None:
-    """真实三连 Run 触发请求缝 snip ⇒ 计数与省下字节递增（Prometheus 文本可抓取）。"""
+    """真实三连 Run 触发请求缝条数兜底 ⇒ 计数与省下字节递增（Prometheus 文本可抓取）。"""
     async with _runtime_http(fake_resolve, _factory(_TwoTurnProvider(), tmp_path)) as client:
         before = _parse_samples(await _metrics(client))
         await _send(client, tenant, "第一轮：先打个招呼")
@@ -290,14 +294,23 @@ async def test_e05_compaction_counters_increase_on_a_real_run(
         await _send(client, tenant, "第三轮：说完了")
         after = _parse_samples(await _metrics(client))
 
-    fired = {"layer": "snip", "status": "FIRED"}
+    fired = {"layer": "budget", "status": "FIRED"}
     assert _value(after, "context_compaction_total", fired) == (
         _value(before, "context_compaction_total", fired) + 1
-    ), "snip 触发一次就该记一次"
-    assert _value(after, "context_compaction_bytes_saved_total", {"layer": "snip"}) > 0, (
+    ), "条数兜底触发一次就该记一次"
+    assert _value(after, "context_compaction_bytes_saved_total", {"layer": "budget"}) > 0, (
         "省下的字节必须为正（否则这条指标没有意义）"
     )
     _assert_label_hygiene(after)
+
+
+def test_summary_instruction_types_every_array_field_explicitly() -> None:
+    """摘要指令必须逐字段写明数组类型，不能依赖括号的作用范围（DeepSeek 会误读）。"""
+    instruction = context_compaction.SUMMARY_INSTRUCTION
+    for field in ("constraints", "progress", "open_items"):
+        assert f"{field}（字符串数组）" in instruction
+    assert "user_goal（字符串）" in instruction
+    assert "artifacts（数组" in instruction
 
 
 async def test_e05_summary_counters_increase_on_a_real_compactor(
@@ -336,12 +349,16 @@ async def test_e05_summary_counters_increase_on_a_real_compactor(
         ModelMessage(role=ModelRole.SYSTEM, content="be helpful"),
         ModelMessage(role=ModelRole.USER, content="更早那轮：很长的诉求" * 200),
         ModelMessage(role=ModelRole.ASSISTANT, content="更早那轮：很长的回答" * 200),
-        ModelMessage(role=ModelRole.USER, content="当前这一轮：接着聊"),
+        ModelMessage(role=ModelRole.USER, content="当前这一轮：接着聊", message_id="current"),
     )
 
     async with _serve_http(app) as client:
         before = _parse_samples(await _metrics(client))
-        compacted = await compactor.compact(history)
+        plan = plan_context(
+            history,
+            run_input=RunInput(message_id="current", content="当前这一轮：接着聊"),
+        )
+        compacted = render_context(await compactor.compact_plan(plan))
         after = _parse_samples(await _metrics(client))
 
     assert [message.role for message in compacted] == [
@@ -361,6 +378,189 @@ async def test_e05_summary_counters_increase_on_a_real_compactor(
         _value(before, "context_summary_tokens_total", {}) + SUMMARY_TOKENS
     ), "token 用量要按模型回报的 input+output 计"
     _assert_label_hygiene(after)
+
+
+async def test_summary_consumes_the_plan_boundary_with_a_tool_image_follow_up(
+    tenant: TenantContext, tmp_path: Path
+) -> None:
+    """摘要只消费 plan.older；工具图片 follow-up 不能把当前输入挤出保护范围。"""
+    conversation_id = uuid.uuid4()
+    async with get_session_factory()() as session:
+        session.add(
+            Conversation(
+                id=conversation_id,
+                tenant_id=tenant.tenant_id,
+                user_id=tenant.platform_user_id,
+                agent_id=tenant.agent_id,
+                last_seq=0,
+            )
+        )
+        await session.commit()
+
+    provider = _SummaryProvider()
+    compactor = RuntimeContextCompactor(
+        settings=CompactionSettings(
+            summary=SummarySettings(enabled=True, threshold_bytes=1, model_ref="probe-model"),
+            snip=SnipSettings(enabled=False),
+        ),
+        tenant_id=tenant.tenant_id,
+        run_id=uuid.uuid4(),
+        conversation_id=conversation_id,
+        artifact_root=tmp_path,
+        summary_runner=make_summary_runner(provider=provider, model_id="probe-model"),
+    )
+    tool_call = ModelToolCall("call-1", "read_attachment", {"artifact_id": "a1"})
+    history = (
+        ModelMessage(role=ModelRole.SYSTEM, content="be helpful"),
+        ModelMessage(
+            role=ModelRole.USER,
+            content="更早那轮：" + "很长的诉求" * 200,
+            source_event_id="e1",
+            source_event_seq=1,
+        ),
+        ModelMessage(
+            role=ModelRole.ASSISTANT,
+            content="更早那轮：" + "很长的回答" * 200,
+            source_event_id="e2",
+            source_event_seq=2,
+        ),
+        ModelMessage(
+            role=ModelRole.USER,
+            content="当前这一轮：接着聊",
+            message_id="current",
+            source_event_id="e3",
+            source_event_seq=3,
+        ),
+        ModelMessage(
+            role=ModelRole.ASSISTANT,
+            content="",
+            tool_calls=(tool_call,),
+            source_event_id="e4",
+            source_event_seq=4,
+        ),
+        ModelMessage(
+            role=ModelRole.TOOL,
+            content="tool result",
+            tool_call_id="call-1",
+            source_event_id="e5",
+            source_event_seq=5,
+        ),
+        ModelMessage(
+            role=ModelRole.USER,
+            content=(
+                "[重看附件] x.png",
+                ImagePart(media_type="image/png", data_base64="AAAA", artifact_id="a1"),
+            ),
+            source_event_id="e12",
+            source_event_seq=12,
+        ),
+    )
+
+    async with _serve_http(app) as client:
+        plan = plan_context(
+            history,
+            run_input=RunInput(message_id="current", content="当前这一轮：接着聊"),
+        )
+        assert len(plan.older) == 2, "plan 的覆盖边界只到当前输入之前"
+        outbound = render_context(await compactor.compact_plan(plan))
+        after = _parse_samples(await _metrics(client))
+
+    assert [message.role for message in outbound] == [
+        ModelRole.SYSTEM,
+        ModelRole.SYSTEM,
+        ModelRole.USER,
+        ModelRole.ASSISTANT,
+        ModelRole.TOOL,
+        ModelRole.USER,
+    ]
+    assert "当前这一轮" in str(outbound[2].content)
+    assert outbound[4].tool_call_id == "call-1"
+    assert "重看附件" in str(outbound[5].content)
+    assert provider.requests, "摘要模型确实被调了一次"
+    summary_input = provider.requests[0].messages
+    assert any("更早那轮" in str(message.content) for message in summary_input)
+    assert not any("当前这一轮" in str(message.content) for message in summary_input), (
+        "摘要材料只含旧摘要 + 原始 older；pinned 当前输入不重复发送"
+    )
+    async with get_session_factory()() as session:
+        row = await session.scalar(
+            sa.select(CanonicalEvent).where(
+                CanonicalEvent.conversation_id == conversation_id,
+                CanonicalEvent.event_type == "CONTEXT_SUMMARY",
+            )
+        )
+    assert row is not None
+    payload = row.payload_json or {}
+    assert payload["covers_up_to_seq"] == 2
+    assert "e3" in payload["protected_event_ids"]
+    assert "e1" not in payload["protected_event_ids"]
+    _assert_label_hygiene(after)
+
+
+async def test_summary_sees_the_full_older_interval_before_any_tail_trim(
+    tenant: TenantContext, tmp_path: Path
+) -> None:
+    """60 条 older 必须先全部进入摘要；coverage 不能被 40 条裁剪后的尾巴改写。"""
+    conversation_id = uuid.uuid4()
+    async with get_session_factory()() as session:
+        session.add(
+            Conversation(
+                id=conversation_id,
+                tenant_id=tenant.tenant_id,
+                user_id=tenant.platform_user_id,
+                agent_id=tenant.agent_id,
+                last_seq=0,
+            )
+        )
+        await session.commit()
+
+    provider = _SummaryProvider()
+    compactor = RuntimeContextCompactor(
+        settings=CompactionSettings(
+            summary=SummarySettings(enabled=True, threshold_bytes=1, model_ref="probe-model"),
+            snip=SnipSettings(enabled=False),
+            history_budget_messages=40,
+        ),
+        tenant_id=tenant.tenant_id,
+        run_id=uuid.uuid4(),
+        conversation_id=conversation_id,
+        artifact_root=tmp_path,
+        summary_runner=make_summary_runner(provider=provider, model_id="probe-model"),
+    )
+    older = tuple(
+        ModelMessage(
+            role=ModelRole.USER if index % 2 == 0 else ModelRole.ASSISTANT,
+            content=f"旧-{index}：" + "很长的历史" * 100,
+            source_event_id=f"e{index + 1}",
+            source_event_seq=index + 1,
+        )
+        for index in range(60)
+    )
+    history = (*older, ModelMessage(role=ModelRole.USER, content="当前问题", message_id="current"))
+
+    plan = plan_context(
+        history,
+        run_input=RunInput(message_id="current", content="当前问题"),
+    )
+    assert len(plan.older) == 60
+    outbound = render_context(await compactor.compact_plan(plan))
+
+    assert provider.requests, "摘要模型确实被调了一次"
+    summary_input = provider.requests[0].messages
+    assert sum(1 for message in summary_input if "旧-" in str(message.content)) == 60
+    assert not any("当前问题" in str(message.content) for message in summary_input), (
+        "当前输入属于 pinned，不属于摘要材料"
+    )
+    assert "当前问题" in str(outbound[-1].content)
+    async with get_session_factory()() as session:
+        row = await session.scalar(
+            sa.select(CanonicalEvent).where(
+                CanonicalEvent.conversation_id == conversation_id,
+                CanonicalEvent.event_type == "CONTEXT_SUMMARY",
+            )
+        )
+    assert row is not None
+    assert (row.payload_json or {})["covers_up_to_seq"] == 60
 
 
 async def test_compaction_audit_failure_rolls_the_summary_back_too(
@@ -401,7 +601,7 @@ async def test_compaction_audit_failure_rolls_the_summary_back_too(
     history = (
         ModelMessage(role=ModelRole.USER, content="更早那轮：很长的诉求" * 200),
         ModelMessage(role=ModelRole.ASSISTANT, content="更早那轮：很长的回答" * 200),
-        ModelMessage(role=ModelRole.USER, content="当前这一轮：接着聊"),
+        ModelMessage(role=ModelRole.USER, content="当前这一轮：接着聊", message_id="current"),
     )
 
     async def _boom(*args: Any, **kwargs: Any) -> None:
@@ -411,7 +611,11 @@ async def test_compaction_audit_failure_rolls_the_summary_back_too(
 
     async with _serve_http(app) as client:
         before = _parse_samples(await _metrics(client))
-        compacted = await compactor.compact(history)
+        plan = plan_context(
+            history,
+            run_input=RunInput(message_id="current", content="当前这一轮：接着聊"),
+        )
+        compacted = render_context(await compactor.compact_plan(plan))
         after = _parse_samples(await _metrics(client))
 
     assert compacted == history, "压缩失败一律退化成不压缩，且不得只退一半"
@@ -430,3 +634,84 @@ async def test_compaction_audit_failure_rolls_the_summary_back_too(
             )
         ).all()
     assert list(rows) == [], "摘要事件不得单独落库（下一次装配才不会以为那段历史已被覆盖）"
+
+
+async def test_summary_transcript_failure_falls_back_to_free_layers(
+    tenant: TenantContext, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """[RULE-04/RULE-05] 逐字存档失败 ⇒ 摘要作废，但对原始 older 的兜底照常生效。"""
+    conversation_id = uuid.uuid4()
+    async with get_session_factory()() as session:
+        session.add(
+            Conversation(
+                id=conversation_id,
+                tenant_id=tenant.tenant_id,
+                user_id=tenant.platform_user_id,
+                agent_id=tenant.agent_id,
+                last_seq=0,
+            )
+        )
+        await session.commit()
+
+    provider = _SummaryProvider()
+    compactor = RuntimeContextCompactor(
+        settings=CompactionSettings(
+            summary=SummarySettings(enabled=True, threshold_bytes=1, model_ref="probe-model"),
+            snip=SnipSettings(
+                enabled=True, max_groups=2, keep_head_groups=0, keep_tail_groups=1
+            ),
+            history_budget_messages=40,
+        ),
+        tenant_id=tenant.tenant_id,
+        run_id=uuid.uuid4(),
+        conversation_id=conversation_id,
+        artifact_root=tmp_path,
+        summary_runner=make_summary_runner(provider=provider, model_id="probe-model"),
+    )
+    history = (
+        ModelMessage(role=ModelRole.SYSTEM, content="be helpful"),
+        *tuple(
+            ModelMessage(
+                role=ModelRole.USER if index % 2 == 0 else ModelRole.ASSISTANT,
+                content=f"旧-{index}：" + "很长的历史" * 100,
+                source_event_seq=index + 1,
+            )
+            for index in range(6)
+        ),
+        ModelMessage(role=ModelRole.USER, content="当前问题", message_id="current"),
+    )
+
+    async def _no_transcript(*args: Any, **kwargs: Any) -> None:
+        return None
+
+    monkeypatch.setattr(
+        context_compaction.TranscriptWriter, "persist_with_session", _no_transcript
+    )
+
+    async with _serve_http(app) as client:
+        before = _parse_samples(await _metrics(client))
+        plan = plan_context(
+            history,
+            run_input=RunInput(message_id="current", content="当前问题"),
+        )
+        compacted = render_context(await compactor.compact_plan(plan))
+        after = _parse_samples(await _metrics(client))
+
+    assert provider.requests, "摘要模型确实被调过一次"
+    assert not any(str(message.content).startswith("[历史摘要]") for message in compacted)
+    assert len(compacted) < len(history), "摘要作废后仍要对原始 older 做可见兜底"
+    assert compacted[-1].content == "当前问题"
+    failed = {"status": "FAILED"}
+    assert _value(after, "context_summary_total", failed) == (
+        _value(before, "context_summary_total", failed) + 1
+    )
+    async with get_session_factory()() as session:
+        summary_rows = (
+            await session.scalars(
+                sa.select(CanonicalEvent).where(
+                    CanonicalEvent.conversation_id == conversation_id,
+                    CanonicalEvent.event_type == "CONTEXT_SUMMARY",
+                )
+            )
+        ).all()
+    assert list(summary_rows) == [], "存档失败时摘要事件不得落库"

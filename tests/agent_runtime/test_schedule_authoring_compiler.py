@@ -52,6 +52,28 @@ def _skill(*, key: str = "daily-report", frontmatter: dict[str, Any] | None = No
     )
 
 
+def _contract(
+    *, invocation: str = "argv", required: tuple[str, ...] = ("company-id",)
+) -> dict[str, Any]:
+    properties = (
+        {"company-id": {"type": "string"}, "no-wecom-push": {"type": "boolean"}}
+        if invocation == "argv"
+        else {"company_id": {"type": "string"}}
+    )
+    return {
+        "invocation_contract": {
+            "version": 1,
+            "invocation": invocation,
+            "schema": {
+                "type": "object",
+                "properties": properties,
+                "required": list(required),
+                "additionalProperties": False,
+            },
+        }
+    }
+
+
 def _mcp() -> ResolvedMcpServer:
     return ResolvedMcpServer(
         mcp_server_id=uuid.uuid4(),
@@ -249,6 +271,85 @@ class TestSkillContract:
             )
         assert _fields(caught.value)[0]["field"] == "payload.argv"
 
+    def test_argv_contract_accepts_declared_args(self) -> None:
+        skill = _skill(frontmatter=_contract())
+
+        result = compile_schedule_plan(
+            _args(
+                {
+                    "skill_key": "daily-report",
+                    "argv": ["--company-id", "22921947", "--no-wecom-push"],
+                }
+            ),
+            context=_context(skills=(skill,)),
+        )
+
+        assert isinstance(result.plan.payload, SkillPlanPayload)
+
+    def test_argv_contract_rejects_input_only(self) -> None:
+        skill = _skill(frontmatter=_contract())
+
+        with pytest.raises(ScheduleAuthoringError) as caught:
+            compile_schedule_plan(
+                _args({"skill_key": "daily-report", "input": {"company_id": "1"}}),
+                context=_context(skills=(skill,)),
+            )
+
+        error = _fields(caught.value)[0]
+        assert error["field"] == "payload.input"
+        assert error["reason"] == "CHANNEL_MISMATCH"
+        assert error["repair"] == "USE_DECLARED_CHANNEL"
+
+    def test_argv_contract_rejects_missing_required(self) -> None:
+        skill = _skill(frontmatter=_contract())
+
+        with pytest.raises(ScheduleAuthoringError) as caught:
+            compile_schedule_plan(
+                _args({"skill_key": "daily-report", "argv": []}),
+                context=_context(skills=(skill,)),
+            )
+
+        error = _fields(caught.value)[0]
+        assert error["field"] == "payload.argv"
+        assert error["reason"] == "MISSING_REQUIRED"
+        assert error["required"] == ["company-id"]
+
+    def test_argv_contract_rejects_boolean_value(self) -> None:
+        skill = _skill(frontmatter=_contract())
+
+        with pytest.raises(ScheduleAuthoringError) as caught:
+            compile_schedule_plan(
+                _args(
+                    {
+                        "skill_key": "daily-report",
+                        "argv": ["--company-id", "1", "--no-wecom-push=true"],
+                    }
+                ),
+                context=_context(skills=(skill,)),
+            )
+
+        assert _fields(caught.value)[0]["reason"] == "BOOLEAN_MUST_BE_FLAG"
+
+    def test_stdin_contract_accepts_input(self) -> None:
+        skill = _skill(frontmatter=_contract(invocation="stdin", required=("company_id",)))
+
+        result = compile_schedule_plan(
+            _args({"skill_key": "daily-report", "input": {"company_id": "22921947"}}),
+            context=_context(skills=(skill,)),
+        )
+
+        assert isinstance(result.plan.payload, SkillPlanPayload)
+
+    def test_zero_argument_contract_accepts_empty_payload(self) -> None:
+        skill = _skill(frontmatter=_contract(required=()))
+
+        result = compile_schedule_plan(
+            _args({"skill_key": "daily-report", "argv": []}),
+            context=_context(skills=(skill,)),
+        )
+
+        assert isinstance(result.plan.payload, SkillPlanPayload)
+
 
 class TestScheduleShape:
     def test_missing_timezone_asks_the_user(self) -> None:
@@ -260,6 +361,32 @@ class TestScheduleShape:
         assert _fields(caught.value)[0]["field"] == "timezone"
         assert _fields(caught.value)[0]["repair"] == "ASK_USER_TIMEZONE"
         assert "ask the user" in caught.value.message
+
+    def test_platform_default_fills_a_missing_timezone(self) -> None:
+        arguments = _args({"text": "开会"})
+        arguments.pop("timezone")
+
+        result = compile_schedule_plan(
+            arguments,
+            context=_context(default_timezone="America/New_York"),
+        )
+
+        assert result.timezone == "America/New_York"
+        assert result.recurrence == {
+            "kind": "CRON",
+            "cron": "0 9 * * *",
+            "timezone": "America/New_York",
+        }
+
+    def test_explicit_timezone_wins_over_the_platform_default(self) -> None:
+        result = compile_schedule_plan(
+            _args({"text": "开会"}, timezone="Asia/Tokyo"),
+            context=_context(default_timezone="America/New_York"),
+        )
+
+        assert result.timezone == "Asia/Tokyo"
+        assert result.recurrence is not None
+        assert result.recurrence["timezone"] == "Asia/Tokyo"
 
     def test_invalid_timezone_is_explicit(self) -> None:
         with pytest.raises(ScheduleAuthoringError) as caught:
@@ -442,7 +569,7 @@ class TestToolsPolicy:
             )
         error = _fields(caught.value)[0]
         assert error["reason"] == "TOOL_NOT_OWNED"
-        assert error["allowed_values"] == ["customer.report"]
+        assert error["allowed_values"] == ["MCP:crm:customer.report"]
 
     def test_unknown_platform_tool_is_rejected(self) -> None:
         with pytest.raises(ScheduleAuthoringError) as caught:
@@ -467,6 +594,23 @@ class TestToolsPolicy:
         )
         assert isinstance(result.plan.payload, AgentTurnPayload)
         assert result.plan.payload.tools_allow == [f"SKILL:{SKILL_ID}:report.render"]
+
+    def test_skill_wildcard_is_rejected_with_explicit_tools(self) -> None:
+        with pytest.raises(ScheduleAuthoringError) as caught:
+            compile_schedule_plan(
+                _args(
+                    {
+                        "prompt": "汇总",
+                        "tools_allow": [f"SKILL:{SKILL_ID}:*"],
+                    }
+                ),
+                context=_context(skills=(_skill(),)),
+            )
+
+        error = _fields(caught.value)[0]
+        assert error["field"] == "payload.tools_allow"
+        assert error["reason"] == "TOOL_WILDCARD_UNSUPPORTED"
+        assert error["allowed_values"] == [f"SKILL:{SKILL_ID}:execute"]
 
     def test_wildcard_cannot_be_mixed_with_explicit_tools(self) -> None:
         with pytest.raises(ScheduleAuthoringError) as caught:

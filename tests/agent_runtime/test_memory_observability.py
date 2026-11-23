@@ -5,8 +5,8 @@ import logging
 
 import pytest
 import sqlalchemy as sa
+from muad_agent_core.tools import ToolCall, ToolError
 from muad_agent_runtime.infrastructure.models.runtime import ToolCallAudit
-from muad_api import AppError
 
 from tests.agent_runtime.memory_confirmation_support import service, source
 from tests.agent_runtime.memory_context_support import loader
@@ -42,11 +42,13 @@ async def test_rule_log_001_memory_value_is_never_written_to_logs(async_tool_dat
                 "content": {"value": sentinel},
                 "title": "输出风格",
             },
-            call_id="proposal",
+            call=ToolCall(call_id="proposal", name="remember"),
         )
-        await tool_set.recall({"query": sentinel}, call_id="read")
+        await tool_set.recall(
+            {"query": sentinel}, call=ToolCall(call_id="read", name="recall")
+        )
         await memory.refresh()
-    assert json.loads(receipt)["saved"] is False
+    assert json.loads(receipt.content)["saved"] is False
     records = [record for record in caplog.records if record.name.startswith("muad_agent_runtime")]
     assert records
     assert all(sentinel not in str(record.__dict__) for record in records)
@@ -60,8 +62,8 @@ async def test_memory_metrics_cover_inject_and_recall_without_faking_a_write(asy
     before_inject = metric("memory_inject_total", outcome="OK")
     before_recall = metric("memory_recall_total", mode="LIST", outcome="OK")
     await memory.refresh()
-    receipt = await tool_set.recall({}, call_id="read")
-    assert json.loads(receipt)["items"]
+    receipt = await tool_set.recall({}, call=ToolCall(call_id="read", name="recall"))
+    assert json.loads(receipt.content)["items"]
     assert metric("memory_inject_total", outcome="OK") == before_inject + 1
     assert metric("memory_recall_total", mode="LIST", outcome="OK") == before_recall + 1
 
@@ -100,7 +102,7 @@ async def test_rule_07_delete_failure_is_visible_in_audit_metric_and_safe_receip
 
 
 async def test_invalid_source_is_a_rejection_not_a_saved_receipt(async_tool_database):
-    with pytest.raises(AppError) as caught:
+    with pytest.raises(ToolError) as caught:
         await tools(async_tool_database, context()).remember(
             {
                 "memory_kind": "PREFERENCE",
@@ -109,6 +111,6 @@ async def test_invalid_source_is_a_rejection_not_a_saved_receipt(async_tool_data
                 "title": "输出风格",
                 "source_type": "USER_EXPLICIT",
             },
-            call_id="forged",
+            call=ToolCall(call_id="forged", name="remember"),
         )
     assert caught.value.code == "MEMORY_CONFIRMATION_INVALID"

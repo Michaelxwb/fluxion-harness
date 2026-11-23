@@ -1,0 +1,274 @@
+"""WebChat/MSSWWEB：无会话任务产物的发布与下载授权。"""
+
+from __future__ import annotations
+
+import uuid
+from pathlib import Path
+
+import pytest
+import sqlalchemy as sa
+from muad_agent_core.tools import ToolCall, ToolRegistry
+from muad_agent_runtime.application.attachments.publication import (
+    PublicationError,
+    publish_artifact_to_conversation,
+)
+from muad_agent_runtime.application.attachments.task_artifacts import load_task_owner
+from muad_agent_runtime.application.attachments.tools import (
+    DELIVER_ARTIFACT_TOOL,
+    LIST_ATTACHMENTS_TOOL,
+    AttachmentToolSet,
+)
+from muad_agent_runtime.application.webchat_artifacts import resolve_webchat_artifact
+from muad_agent_runtime.infrastructure.db import get_session_factory
+from muad_agent_runtime.infrastructure.models.runtime import (
+    Artifact,
+    Conversation,
+    RunRecord,
+)
+from muad_api import AppError
+from muad_api.error_codes import ErrorCode
+from muad_contracts import DeliveryRouteInput
+
+from agent_runtime.conftest import TenantContext
+
+pytestmark = pytest.mark.integration
+
+
+def _checksum() -> str:
+    return "sha256:" + "a" * 64
+
+
+async def _seed_conversation(tenant: TenantContext) -> tuple[uuid.UUID, uuid.UUID]:
+    conversation = Conversation(
+        id=uuid.uuid4(),
+        tenant_id=tenant.tenant_id,
+        user_id=tenant.platform_user_id,
+        agent_id=tenant.agent_id,
+        status="ACTIVE",
+        last_seq=0,
+        channel_account_id=uuid.uuid4(),
+    )
+    run = RunRecord(
+        id=uuid.uuid4(),
+        tenant_id=tenant.tenant_id,
+        conversation_id=conversation.id,
+        user_id=tenant.platform_user_id,
+        agent_id=tenant.agent_id,
+        status="RUNNING",
+        input_text="x",
+        trace_id=uuid.uuid4().hex,
+        cancel_requested=False,
+    )
+    async with get_session_factory()() as session:
+        session.add(conversation)
+        session.add(run)
+        await session.commit()
+    return conversation.id, run.id
+
+
+async def _seed_task_execution(tenant: TenantContext) -> uuid.UUID:
+    execution_id = uuid.uuid4()
+    async with get_session_factory()() as session:
+        await session.execute(
+            sa.text(
+                "INSERT INTO task.task_execution"
+                " (id, tenant_id, agent_id, actor_user_id, trigger_type, status, input_json,"
+                "  execution_snapshot_json, snapshot_hash, idempotency_key)"
+                " VALUES (:id, :tenant_id, :agent_id, :actor_user_id, 'SCHEDULED', 'COMPLETED',"
+                "  '{}'::jsonb, '{}'::jsonb, :snapshot_hash, :idempotency_key)"
+            ),
+            {
+                "id": execution_id,
+                "tenant_id": tenant.tenant_id,
+                "agent_id": tenant.agent_id,
+                "actor_user_id": tenant.platform_user_id,
+                "snapshot_hash": "sha256:" + "e" * 64,
+                "idempotency_key": f"exec-{execution_id}",
+            },
+        )
+        await session.commit()
+    return execution_id
+
+
+async def _seed_task_artifact(
+    tenant: TenantContext, root: Path, execution_id: uuid.UUID, *, artifact_type: str = "OUTPUT"
+) -> tuple[uuid.UUID, str]:
+    artifact_id = uuid.uuid4()
+    checksum = _checksum()
+    storage_key = f"tasks/{tenant.tenant_id}/{execution_id}/{artifact_id}/v1"
+    (root / storage_key).parent.mkdir(parents=True, exist_ok=True)
+    (root / storage_key).write_bytes(b"report")
+    async with get_session_factory()() as session:
+        session.add(
+            Artifact(
+                id=artifact_id,
+                tenant_id=tenant.tenant_id,
+                run_id=None,
+                task_id=execution_id,
+                conversation_id=None,
+                agent_id=tenant.agent_id,
+                user_id=tenant.platform_user_id,
+                artifact_type=artifact_type,
+                storage_key=storage_key,
+                media_type="text/plain",
+                size=6,
+                checksum=checksum,
+                metadata_json={"kind": "DOCUMENT", "filename": "report.txt"},
+            )
+        )
+        await session.commit()
+    return artifact_id, checksum
+
+
+async def test_task_output_publishes_and_resolves_for_web_surface(
+    tenant: TenantContext, tmp_path: Path
+) -> None:
+    conversation_id, run_id = await _seed_conversation(tenant)
+    execution_id = await _seed_task_execution(tenant)
+    artifact_id, checksum = await _seed_task_artifact(tenant, tmp_path, execution_id)
+
+    seq = await publish_artifact_to_conversation(
+        get_session_factory,
+        tenant_id=tenant.tenant_id,
+        conversation_id=conversation_id,
+        run_id=run_id,
+        artifact_id=artifact_id,
+    )
+    assert seq > 0
+
+    async with get_session_factory()() as session:
+        download = await resolve_webchat_artifact(
+            session,
+            tenant_id=tenant.tenant_id,
+            user_id=tenant.platform_user_id,
+            artifact_id=artifact_id,
+            conversation_id=conversation_id,
+            checksum=checksum,
+        )
+    assert download.reference.artifact_id == artifact_id
+    assert download.reference.filename == "report.txt"
+
+
+async def test_task_output_without_publication_is_not_downloadable(
+    tenant: TenantContext, tmp_path: Path
+) -> None:
+    conversation_id, _run_id = await _seed_conversation(tenant)
+    execution_id = await _seed_task_execution(tenant)
+    artifact_id, checksum = await _seed_task_artifact(tenant, tmp_path, execution_id)
+
+    async with get_session_factory()() as session:
+        with pytest.raises(AppError) as exc:
+            await resolve_webchat_artifact(
+                session,
+                tenant_id=tenant.tenant_id,
+                user_id=tenant.platform_user_id,
+                artifact_id=artifact_id,
+                conversation_id=conversation_id,
+                checksum=checksum,
+            )
+    assert exc.value.code == ErrorCode.COMMON_NOT_FOUND
+
+
+async def test_tool_result_requires_explicit_internal_publication(
+    tenant: TenantContext, tmp_path: Path
+) -> None:
+    conversation_id, run_id = await _seed_conversation(tenant)
+    execution_id = await _seed_task_execution(tenant)
+    artifact_id, _checksum_value = await _seed_task_artifact(
+        tenant, tmp_path, execution_id, artifact_type="TOOL_RESULT"
+    )
+
+    with pytest.raises(PublicationError) as refused:
+        await publish_artifact_to_conversation(
+            get_session_factory,
+            tenant_id=tenant.tenant_id,
+            conversation_id=conversation_id,
+            run_id=run_id,
+            artifact_id=artifact_id,
+        )
+    assert refused.value.code == "ATTACHMENT_TYPE_UNSUPPORTED"
+
+    seq = await publish_artifact_to_conversation(
+        get_session_factory,
+        tenant_id=tenant.tenant_id,
+        conversation_id=conversation_id,
+        run_id=run_id,
+        artifact_id=artifact_id,
+        allow_internal=True,
+    )
+    assert seq > 0
+
+
+async def test_task_owner_helper_checks_live_execution(
+    tenant: TenantContext, tmp_path: Path
+) -> None:
+    execution_id = await _seed_task_execution(tenant)
+    async with get_session_factory()() as session:
+        owner = await load_task_owner(
+            session, tenant_id=tenant.tenant_id, execution_id=execution_id
+        )
+    assert owner is not None
+    assert owner.actor_user_id == tenant.platform_user_id
+    assert owner.agent_id == tenant.agent_id
+
+
+async def _call(tool_set: AttachmentToolSet, name: str, arguments: dict[str, object]) -> str:
+    registry = ToolRegistry()
+    tool_set.register(registry)
+    definition = registry.get(name)
+    assert definition.handler is not None
+    result = await definition.handler(
+        arguments,
+        call=ToolCall(call_id="call-1", name=name, arguments=arguments),
+    )
+    return result.content
+
+
+async def test_task_artifacts_are_listed_delivered_and_downloaded_in_webchat(
+    tenant: TenantContext, tmp_path: Path
+) -> None:
+    """用户点名某次执行时：按 task 列出 → 交付到当前会话 → 下载同一不可变版本。"""
+    conversation_id, run_id = await _seed_conversation(tenant)
+    execution_id = await _seed_task_execution(tenant)
+    artifact_id, checksum = await _seed_task_artifact(tenant, tmp_path, execution_id)
+    tool_set = AttachmentToolSet(
+        session_factory=get_session_factory,
+        artifact_root=str(tmp_path),
+        tenant_id=tenant.tenant_id,
+        run_id=run_id,
+        conversation_id=conversation_id,
+        user_id=tenant.platform_user_id,
+        agent_id=tenant.agent_id,
+        has_delivery_route=True,
+        delivery_route=DeliveryRouteInput(
+            channel="WEBCHAT",
+            bot_id="webchat-test",
+            external_user_id=str(tenant.platform_user_id),
+        ),
+    )
+
+    listed = await _call(
+        tool_set,
+        LIST_ATTACHMENTS_TOOL,
+        {"scope": "task", "task_id": str(execution_id), "direction": "outbound"},
+    )
+    assert str(artifact_id) in listed
+    assert "report.txt" in listed
+
+    delivered = await _call(
+        tool_set, DELIVER_ARTIFACT_TOOL, {"artifact_id": str(artifact_id)}
+    )
+    assert "已交付" in delivered
+
+    async with get_session_factory()() as session:
+        download = await resolve_webchat_artifact(
+            session,
+            tenant_id=tenant.tenant_id,
+            user_id=tenant.platform_user_id,
+            artifact_id=artifact_id,
+            conversation_id=conversation_id,
+            checksum=checksum,
+        )
+    assert download.reference.artifact_id == artifact_id
+    assert download.reference.filename == "report.txt"
+    assert download.reference.checksum == checksum

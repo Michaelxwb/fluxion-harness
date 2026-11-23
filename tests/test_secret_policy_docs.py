@@ -6,13 +6,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = [
     "docs/00-详细设计索引与设计基线.md",
-    "docs/01-总体架构与部署详细设计.md",
-    "docs/02-核心领域与数据库详细设计.md",
-    "docs/03-Console-Platform详细设计.md",
-    "docs/05-IM-Gateway详细设计.md",
-    "docs/07-跨模块接口与协议详细设计.md",
-    "docs/08-关键流程时序与状态机详细设计.md",
-    "docs/12-项目平台适配与Session详细设计.md",
+    "docs/01-总体设计说明书.md",
+    "docs/基础文档/02-核心领域与数据库.md",
+    "docs/基础模块/03-Console-Platform.md",
+    "docs/基础模块/05-IM-Gateway与Connector.md",
+    "docs/基础文档/07-跨模块接口与协议.md",
+    "docs/基础文档/08-关键流程时序与状态机.md",
+    "docs/基础模块/12-平台接入与Session.md",
 ]
 PATTERNS = (
     re.compile(r"secret://"),

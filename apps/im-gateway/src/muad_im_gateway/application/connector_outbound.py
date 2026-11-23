@@ -35,7 +35,11 @@ class ConnectorOutboundCommands:
         run_id: str | None = None,
         stream_id: str | None = None,
         status: bool = False,
+        priority: bool = False,
     ) -> uuid.UUID:
+        payload: dict[str, bool] = {"status": True} if status else {}
+        if priority:
+            payload["priority"] = True
         command = DeliveryCommand(
             command_id=uuid.uuid4(),
             channel=channel,
@@ -47,7 +51,7 @@ class ConnectorOutboundCommands:
             external_user_id=route.external_user_id,
             kind=kind,
             text=text,
-            payload={"status": True} if status else {},
+            payload=payload,
             stream_id=stream_id,
             created_at=datetime.now(UTC),
         )

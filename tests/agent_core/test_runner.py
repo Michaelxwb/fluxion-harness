@@ -2,6 +2,7 @@ import asyncio
 import json
 import time
 from collections.abc import Mapping
+from dataclasses import replace
 from typing import Any
 
 import pytest
@@ -15,8 +16,10 @@ from muad_agent_core.agent import (
     RunnerEmptyReply,
     RunnerModelError,
 )
-from muad_agent_core.context.compactor import split_groups
+from muad_agent_core.context.compactor import ContextCompactor, split_groups
+from muad_agent_core.context.plan import ContextPlan, RunInput, render_context
 from muad_agent_core.hooks import HookEvent, HookPipeline
+from muad_agent_core.memory.components import MemoryComponent
 from muad_agent_core.model import (
     DEFAULT_DEADLINE_MS,
     ModelMessage,
@@ -30,12 +33,30 @@ from muad_agent_core.model import (
     text_of,
 )
 from muad_agent_core.tools import (
+    ToolCall,
+    ToolConcurrency,
     ToolDefinition,
     ToolEffect,
+    ToolError,
     ToolExecutionPipeline,
     ToolPolicyDecision,
     ToolRegistry,
+    ToolResult,
 )
+
+
+class _MemoryLoader:
+    def __init__(self, language: str | None) -> None:
+        self.language = language
+        self.refreshes = 0
+
+    async def refresh(self) -> MemoryComponent:
+        self.refreshes += 1
+        return MemoryComponent(
+            snapshot_revision=1,
+            text="memory block",
+            language=self.language,
+        )
 
 
 class ScriptedModelProvider:
@@ -82,9 +103,9 @@ def _tool_call(
 
 
 def _echo_tool(registry: ToolRegistry, calls: list[dict[str, Any]]) -> None:
-    async def handler(arguments: Mapping[str, Any], *, call_id: str) -> str:
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
         calls.append(dict(arguments))
-        return json.dumps({"echo": arguments.get("text")})
+        return ToolResult(json.dumps({"echo": arguments.get("text")}))
 
     registry.register(
         ToolDefinition(
@@ -111,11 +132,13 @@ def _multi_tool_call(*calls: tuple[str, str]) -> ModelResponse:
 def _image_tool(registry: ToolRegistry) -> None:
     """带 `follow_up_messages` 的工具（`view_image` 的形态）：结果之后补一条 user 消息。"""
 
-    async def handler(arguments: Mapping[str, Any], *, call_id: str) -> str:
-        return f"IMG:{call_id}"
-
-    async def follow_up(result: str) -> tuple[ModelMessage, ...]:
-        return (ModelMessage(role=ModelRole.USER, content="[重看附件] pic.png"),)
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        return ToolResult(
+            f"IMG:{call.call_id}",
+            follow_ups=(
+                ModelMessage(role=ModelRole.USER, content="[重看附件] pic.png"),
+            ),
+        )
 
     registry.register(
         ToolDefinition(
@@ -124,7 +147,6 @@ def _image_tool(registry: ToolRegistry) -> None:
             input_schema={"type": "object"},
             effect=ToolEffect.READ,
             handler=handler,
-            follow_up_messages=follow_up,
         )
     )
 
@@ -143,9 +165,9 @@ async def test_mcp_model_tool_name_maps_back_to_registry_name() -> None:
     registry = ToolRegistry()
     calls: list[dict[str, Any]] = []
 
-    async def handler(arguments: Mapping[str, Any], *, call_id: str) -> str:
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
         calls.append(dict(arguments))
-        return "pong"
+        return ToolResult("pong")
 
     name = ToolRegistry.namespaced("fake-mcp-bearer", "platform.ping")
     registry.register(
@@ -292,7 +314,7 @@ async def test_tool_handler_failure_is_fed_back_to_model() -> None:
         message = "handler exploded"
         retryable = True
 
-    async def failing(arguments: Mapping[str, Any], *, call_id: str) -> str:
+    async def failing(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
         raise _Transient("handler exploded")
 
     registry = ToolRegistry()
@@ -331,7 +353,7 @@ async def test_coded_tool_failure_reaches_the_model_with_its_code() -> None:
     的自己人错误。此前后者只被拼成 `tool failed: AttachmentToolError: …` —— 同一件事两套
     说法，而且模型看不到错误码（2026-10-03 review）。
     """
-    async def failing(arguments: Mapping[str, Any], *, call_id: str) -> str:
+    async def failing(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
         raise _CodedToolError("ARTIFACT_WRITE_FAILED", "存储暂时不可用", retryable=True)
 
     registry = ToolRegistry()
@@ -462,10 +484,10 @@ async def test_external_cancellation_is_checked_between_steps() -> None:
     calls: list[dict[str, Any]] = []
     state = {"cancelled": False}
 
-    async def handler(arguments: Mapping[str, Any], *, call_id: str) -> str:
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
         calls.append(dict(arguments))
         state["cancelled"] = True
-        return "{}"
+        return ToolResult("{}")
 
     registry.register(
         ToolDefinition(
@@ -522,15 +544,20 @@ def test_model_provider_protocol_accepts_scripted_provider() -> None:
 
 
 class RecordingCompactor:
-    """可观察的压缩假件：记下每次收到的派生历史，并在末尾接一条省略标记。"""
+    """可观察的压缩假件：记下每次收到的派生历史，并在前缀后接一条省略标记。"""
 
     def __init__(self) -> None:
         self.seen: list[tuple[ModelMessage, ...]] = []
 
-    async def compact(self, messages: Any) -> tuple[ModelMessage, ...]:
-        received = tuple(messages)
-        self.seen.append(received)
-        return (*received, ModelMessage(role=ModelRole.SYSTEM, content="[历史省略] 中间已压缩"))
+    async def compact_plan(self, plan: ContextPlan) -> ContextPlan:
+        self.seen.append(render_context(plan))
+        return replace(
+            plan,
+            working=(
+                *plan.working,
+                (ModelMessage(role=ModelRole.SYSTEM, content="[历史省略] 中间已压缩"),),
+            ),
+        )
 
 
 async def test_compaction_rewrites_only_the_outbound_request() -> None:
@@ -675,8 +702,9 @@ class _CodedError(RuntimeError):
 
 
 def _failing_tool(registry: ToolRegistry) -> None:
-    async def handler(arguments: Mapping[str, Any], *, call_id: str) -> str:
-        raise _CodedError(
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        raise ToolError(
+            str(arguments.get("code", "FAIL")),
             str(arguments.get("code", "FAIL")),
             retryable=bool(arguments.get("retryable", False)),
         )
@@ -695,13 +723,35 @@ def _failing_tool(registry: ToolRegistry) -> None:
 def _error_returning_tool(registry: ToolRegistry) -> None:
     """工具**返回**错误体（状态 OK）——Skill/附件工具的真实形状。"""
 
-    async def handler(arguments: Mapping[str, Any], *, call_id: str) -> str:
-        return json.dumps({"error": {"code": "PLATFORM_AUTH_REJECTED", "message": "rejected"}})
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        raise ToolError("PLATFORM_AUTH_REJECTED", "rejected")
 
     registry.register(
         ToolDefinition(
             name="rejecting",
             description="returns an error body instead of raising",
+            input_schema={"type": "object"},
+            effect=ToolEffect.READ,
+            handler=handler,
+        )
+    )
+
+
+def _fixable_error_tool(registry: ToolRegistry) -> None:
+    """返回带 detail 的可修复错误；没有显式 retryable 时会被当成确定性失败。"""
+
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        raise ToolError(
+            "SKILL_INVOCATION_INVALID",
+            "payload.argv: MISSING_REQUIRED",
+            detail={"field": "payload.argv", "reason": "MISSING_REQUIRED"},
+            retryable=True,
+        )
+
+    registry.register(
+        ToolDefinition(
+            name="fixable",
+            description="returns a fixable error body",
             input_schema={"type": "object"},
             effect=ToolEffect.READ,
             handler=handler,
@@ -729,8 +779,8 @@ async def test_deterministic_failure_stops_the_run_immediately() -> None:
     assert result.termination.reason.value == "NO_PROGRESS"
 
 
-async def test_returned_error_body_counts_as_a_failure_too() -> None:
-    """工具返回的错误体（status=OK）同样是"环节失败"，不能当成功放过。"""
+async def test_typed_failure_body_counts_as_a_failure_too() -> None:
+    """typed 失败（ToolError）同样进入失败跟踪，不能当成功放过。"""
     provider = ScriptedModelProvider([_tool_call("c1", "rejecting")])
     registry = ToolRegistry()
     _error_returning_tool(registry)
@@ -741,6 +791,20 @@ async def test_returned_error_body_counts_as_a_failure_too() -> None:
     assert len(provider.requests) == 1
     assert result.last_failure is not None
     assert result.last_failure["code"] == "PLATFORM_AUTH_REJECTED"
+
+
+async def test_fixable_error_body_gets_another_model_turn() -> None:
+    """带 detail 的错误体默认是确定性失败；显式 retryable=true 才允许模型修复。"""
+    provider = ScriptedModelProvider(
+        [_tool_call("c1", "fixable"), _text("fixed")]
+    )
+    registry = ToolRegistry()
+    _fixable_error_tool(registry)
+
+    result = await AgentRunner(provider=provider, registry=registry).run(_request())
+
+    assert result.status is AgentRunStatus.COMPLETED
+    assert len(provider.requests) == 2
 
 
 async def test_retryable_failures_follow_the_configured_threshold() -> None:
@@ -817,6 +881,44 @@ async def test_threshold_comes_from_the_policy() -> None:
 
     assert result.status is AgentRunStatus.COMPLETED
     assert len(provider.requests) == 3
+
+
+@pytest.mark.parametrize("retryable", [False, True])
+async def test_parallel_success_cannot_reopen_a_stopped_run(retryable: bool) -> None:
+    calls: list[str] = []
+
+    async def fail(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        calls.append("fail")
+        raise ToolError("PLATFORM_REJECTED", "rejected", retryable=retryable)
+
+    async def succeed(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        calls.append(call.name)
+        return ToolResult("ok")
+
+    registry = ToolRegistry()
+    for name, handler in (("fail", fail), ("read", succeed)):
+        registry.register(ToolDefinition(
+            name, name, {"type": "object"}, ToolEffect.READ, handler,
+            concurrency=ToolConcurrency.PARALLEL_READ,
+            resource_key=lambda arguments, name=name: name,
+        ))
+    registry.register(ToolDefinition(
+        "write", "write", {"type": "object"}, ToolEffect.WRITE, succeed,
+    ))
+    script = [_tool_call("prior", "fail")] if retryable else []
+    script.extend([
+        _multi_tool_call(("c1", "fail"), ("c2", "read"), ("c3", "write")),
+        _text("must not run"),
+    ])
+    provider = ScriptedModelProvider(script)
+    result = await AgentRunner(provider=provider, registry=registry).run(
+        _request(AgentPolicy(max_identical_failures=2))
+    )
+
+    assert result.status is AgentRunStatus.NO_PROGRESS
+    assert "read" in calls, "the independent read in the same batch still completes"
+    assert "write" not in calls, "the later write batch must remain stopped"
+    assert len(provider.requests) == 1 + int(retryable)
 
 
 async def test_failure_does_not_append_a_model_finalization_turn() -> None:
@@ -899,3 +1001,95 @@ async def test_turn_budget_exhaustion_records_pending_calls_without_failures() -
     assert [call.tool_name for call in result.termination.pending_tool_calls] == ["echo"]
     assert result.termination.failure_state.last_failure is None
     assert result.termination.failure_state.identical_failures == {}
+
+
+async def test_memory_language_overrides_platform_default_before_prompt_is_built() -> None:
+    provider = ScriptedModelProvider([_text("好的")])
+    loader = _MemoryLoader("zh-CN")
+
+    result = await AgentRunner(
+        provider=provider, registry=ToolRegistry(), context_loader=loader
+    ).run(
+        AgentRunRequest(
+            model_id="probe",
+            instructions="base instructions",
+            messages=(ModelMessage(role=ModelRole.USER, content="hello"),),
+            reply_locale="en-US",
+        )
+    )
+
+    assert result.status is AgentRunStatus.COMPLETED
+    assert "- Reply in Chinese (zh-CN) by default" in provider.requests[0].messages[0].content
+    # The startup block is reused for the first request; language resolution does not reread it.
+    assert loader.refreshes == 1
+
+
+async def test_frozen_memory_language_is_used_when_no_context_loader_exists() -> None:
+    provider = ScriptedModelProvider([_text("好的")])
+
+    await AgentRunner(provider=provider, registry=ToolRegistry()).run(
+        AgentRunRequest(
+            model_id="probe",
+            instructions="base instructions",
+            messages=(ModelMessage(role=ModelRole.USER, content="hello"),),
+            reply_locale="en-US",
+            memory_language="zh-CN",
+        )
+    )
+
+    assert "- Reply in Chinese (zh-CN) by default" in provider.requests[0].messages[0].content
+
+
+class _RecordingPlanCompactor(ContextCompactor):
+    def __init__(self) -> None:
+        self.plans: list[ContextPlan] = []
+
+    async def compact_plan(self, plan: ContextPlan) -> ContextPlan:
+        self.plans.append(plan)
+        return plan
+
+
+async def test_runner_builds_a_context_plan_and_pins_current_input_and_active_skill() -> None:
+    history: list[ModelMessage] = [ModelMessage(role=ModelRole.SYSTEM, content="sys")]
+    history.append(ModelMessage(role=ModelRole.USER, content="load the skill"))
+    skill_call = ModelToolCall("skill-call", "load_skill", {"skill_key": "demo"})
+    history.append(ModelMessage(role=ModelRole.ASSISTANT, content="", tool_calls=(skill_call,)))
+    history.append(
+        ModelMessage(role=ModelRole.TOOL, content="SKILL.md body", tool_call_id="skill-call")
+    )
+    for index in range(20):
+        history.append(ModelMessage(role=ModelRole.USER, content=f"old {index}"))
+        history.append(ModelMessage(role=ModelRole.ASSISTANT, content=f"answer {index}"))
+    history.append(ModelMessage(role=ModelRole.USER, content="current goal A-42", message_id="current"))
+    assert len(history) >= 42
+
+    provider = ScriptedModelProvider([_text("done")])
+    compactor = _RecordingPlanCompactor()
+    runner = AgentRunner(provider=provider, registry=ToolRegistry(), context_compactor=compactor)
+    request = AgentRunRequest(
+        model_id="m",
+        instructions="i",
+        messages=tuple(history),
+        run_input=RunInput(message_id="current", content="current goal A-42"),
+        active_skills=("demo",),
+    )
+
+    result = await runner.run(request)
+
+    assert result.status is AgentRunStatus.COMPLETED
+    assert compactor.plans, "Runner 必须构建 ContextPlan"
+    plan = compactor.plans[-1]
+    assert plan.run_input == request.run_input
+    assert plan.active_skills == ("demo",)
+    pinned_text = [text_of(message.content) for group in plan.pinned for message in group]
+    assert "current goal A-42" in pinned_text
+    assert any(
+        call.name == "load_skill"
+        for group in plan.pinned
+        for message in group
+        for call in message.tool_calls
+    )
+    assert any(
+        message.role is ModelRole.USER and text_of(message.content) == "current goal A-42"
+        for message in provider.requests[0].messages
+    )

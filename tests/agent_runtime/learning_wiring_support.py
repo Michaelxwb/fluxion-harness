@@ -106,13 +106,13 @@ async def seed_runs(tenant: str, user: uuid.UUID, count: int = 3) -> list[uuid.U
                         "tool_calls": [
                             {
                                 "id": f"c{run_id}",
-                                "name": "execute_skill",
-                                "arguments": {"skill_key": "demo"},
+                                "name": "execute",
+                                "arguments": {"target": "skill", "skill_key": "demo"},
                             }
                         ]
                     },
                 ),
-                ("TOOL_CALL", {"tool_call_id": f"c{run_id}", "tool_name": "execute_skill", "status": "OK"}),
+                ("TOOL_CALL", {"tool_call_id": f"c{run_id}", "tool_name": "execute", "status": "OK"}),
                 ("ASSISTANT_MESSAGE", {"text": REFERENCE}),
             ]
             for event_type, payload in events:

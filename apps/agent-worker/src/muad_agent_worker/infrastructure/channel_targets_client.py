@@ -8,15 +8,15 @@ only extends the contract/adapters and needs no branch here.
 
 from __future__ import annotations
 
-import logging
 import uuid
 from typing import Any
 
 import httpx
 from muad_contracts import DeliveryRouteInput
 from muad_contracts.enums import OUTBOUND_CHANNELS
+from muad_logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 CHANNEL_TARGETS_PATH = "/internal/channel/targets"
 CHANNEL_TARGETS_TIMEOUT_SEC = 5.0

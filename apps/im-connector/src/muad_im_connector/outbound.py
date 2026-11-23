@@ -18,9 +18,8 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
-import logging
 import time
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -40,6 +39,7 @@ from muad_contracts.im import (
     outbound_dead_stream_key,
     outbound_stream_key_for,
 )
+from muad_logging import get_logger
 from redis.asyncio import Redis
 from redis.asyncio.cluster import RedisCluster
 
@@ -49,9 +49,19 @@ from .metrics import (
 )
 from .reply_store import ReplyStore
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 RESULT_TTL_SEC = 600
+#: 出站流式帧（状态 + 正文）的**最小时距**。企微限「同一会话回复+主动推送合计 30 条/分钟」，
+#: 每帧携带的都是累积全文，所以把窗口内的增量合并掉不丢内容，只少刷几次。
+#: 终态、独立文本、文件不受此限（它们各自是一次事实，不能被吞）。
+FRAME_MIN_INTERVAL_SEC = 2.0
+#: 与网关标称节拍同频时，投递抖动会让每一拍都「差一点不到 2s」而被判合并——实测会吞掉
+#: 一半的状态刷新（`00:00 → 00:04 → 00:08`）。窗口留一点容差，标称节拍永不自我吞没。
+FRAME_PACING_TOLERANCE_SEC = 0.25
+#: 节拍表超过该规模才回收：一条会话同时只有一两条活跃消息，正常不会走到这里。
+PACING_ENTRIES_SOFT_CAP = 1024
+PACING_STALE_SEC = 60.0
 COMMAND_MARKER_PREFIX = "muad:connector:cmd"
 STREAM_MAXLEN = 100_000
 RESULT_CODE_REPLY_EXPIRED = "REPLY_REF_EXPIRED"
@@ -177,12 +187,45 @@ class CommandExecutor:
         leases: RedisLeaseManager,
         replies: ReplyStore,
         owner_id: str,
+        frame_min_interval_sec: float = FRAME_MIN_INTERVAL_SEC,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._adapter = adapter
         self._leases = leases
         self._replies = replies
         self._owner_id = owner_id
         self._buffers: dict[str, list[str]] = {}
+        self._frame_min_interval_sec = frame_min_interval_sec
+        self._clock = clock
+        self._last_frame_at: dict[tuple[str, str, str], float] = {}
+
+    def _paced(self, command: DeliveryCommand, *, force: bool = False) -> bool:
+        """本帧是否可以立刻发送；`False` = 离上一帧太近，合并进下一帧（内容不丢）。
+
+        只约束「同一会话的流式刷新」：状态帧与正文帧共享一个最小时距，因为企微对同一会话
+        的回复与主动推送合计限 30 条/分钟。终态/文本/文件不走这里。
+        """
+        if self._frame_min_interval_sec <= 0:
+            return True
+        key = (
+            command.tenant_id,
+            command.bot_id,
+            command.message_id or command.stream_id or "",
+        )
+        now = self._clock()
+        last = self._last_frame_at.get(key)
+        if (
+            not force
+            and last is not None
+            and now - last < self._frame_min_interval_sec - FRAME_PACING_TOLERANCE_SEC
+        ):
+            return False
+        self._last_frame_at[key] = now
+        if len(self._last_frame_at) > PACING_ENTRIES_SOFT_CAP:
+            horizon = now - PACING_STALE_SEC
+            for stale in [item for item, at in self._last_frame_at.items() if at < horizon]:
+                del self._last_frame_at[stale]
+        return True
 
     async def execute(self, command: DeliveryCommand) -> CommandResult:
         # 逻辑投递键的持久仲裁：同一 (tenant, delivery_key) 的已送达/降级结果直接重放，
@@ -329,6 +372,10 @@ class CommandExecutor:
             return self._result(
                 command, CommandStatus.ACCEPTED, detail="stream already finished", epoch=lease.epoch
             )
+        if not self._paced(command, force=bool(command.payload.get("priority"))):
+            return self._result(
+                command, CommandStatus.DELIVERED, detail="status coalesced", epoch=lease.epoch
+            )
         key = self._buffer_key(command)
         body = "".join(self._buffers.get(key, ()))
         try:
@@ -402,6 +449,10 @@ class CommandExecutor:
         # 同口径；只发最后一段会把前文从客户端抹掉。
         self._buffers.setdefault(key, []).append(command.text)
         if reply_ref is not None:
+            if not self._paced(command, force=bool(command.payload.get("priority"))):
+                return self._result(
+                    command, CommandStatus.DELIVERED, detail="delta coalesced", epoch=lease.epoch
+                )
             try:
                 await self._adapter.send_reply_stream(
                     route,
@@ -448,7 +499,14 @@ class CommandExecutor:
         # 持久投递链的终态是**完整替换**（不能把 final_text 追加到已流出的增量后面，
         # 否则正文会重复）；空正文时用已流出的增量收尾。Gateway 自己的收尾命令仍沿用
         # “缓冲 + 命令正文”的既有口径（等待输入等非终态场景）。
-        text = (command.text or buffered) if command.delivery_key else buffered + command.text
+        if command.delivery_key:
+            text = (
+                buffered
+                if buffered and command.text and command.text in buffered
+                else (command.text or buffered)
+            )
+        else:
+            text = buffered + command.text
         stream_id = command.stream_id or (
             message_stream_id(command.bot_id, command.message_id)
             if command.message_id

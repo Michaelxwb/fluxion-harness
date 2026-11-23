@@ -29,7 +29,7 @@ from muad_agent_core.model import (
     ModelToolCall,
     text_of,
 )
-from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
+from muad_agent_core.tools import ToolCall, ToolDefinition, ToolEffect, ToolRegistry, ToolResult
 from muad_agent_runtime.api.deps import get_executor_factory
 from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
 from muad_agent_runtime.application.executor import (
@@ -89,8 +89,10 @@ def _wrapped_registry(recorder: ToolCallRecorder) -> ToolRegistry:
     registry = ToolRegistry()
     for name, size in SIZES.items():
 
-        async def handler(arguments: Mapping[str, Any], *, call_id: str, _size: int = size) -> str:
-            return "x" * _size
+        async def handler(
+            arguments: Mapping[str, Any], *, call: ToolCall, _size: int = size
+        ) -> ToolResult:
+            return ToolResult("x" * _size)
 
         registry.register(
             ToolDefinition(

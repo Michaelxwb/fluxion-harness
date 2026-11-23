@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -35,6 +34,7 @@ from muad_contracts.webchat import (
     WebchatExecutionStatus,
     WebchatUploadRegistration,
 )
+from muad_logging import get_logger
 
 from .envelope import (
     decode_error_payload,
@@ -51,7 +51,7 @@ from .sse import iter_sse_events as iter_sse_events
 if TYPE_CHECKING:  # 目录模块 import 了本模块：只在类型检查期导入，运行时按需导入（见 _transport_failure）
     from ..metrics import GatewayPool
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 RUNS_PATH = "/v1/runs"
 RUN_PATH = "/v1/runs/{run_id}"

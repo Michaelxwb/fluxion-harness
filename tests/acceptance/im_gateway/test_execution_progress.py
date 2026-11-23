@@ -49,8 +49,8 @@ async def test_s401_real_run_switches_model_tool_and_elapsed(gateway_stack: Gate
         finally:
             (await client.post(f"{stack.llm_url}/script", json={})).raise_for_status()
     contents = [frame_text(frame) for frame in frames]
-    assert any("<think>🔵 思考中" in content for content in contents)
-    assert any("<think>⚙️ 执行中" in content for content in contents)
+    assert any("🔵 思考中" in content for content in contents)
+    assert any("⚙️ 执行中" in content for content in contents)
     assert any("已执行 00:01" in content for content in contents)
     assert contents[-1] == marker
     assert len({frame["body"]["stream"]["id"] for frame in frames}) == 1

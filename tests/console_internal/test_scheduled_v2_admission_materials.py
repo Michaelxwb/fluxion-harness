@@ -367,6 +367,25 @@ async def test_skill_mode_resolves_exactly_the_target_skill(
     assert data["memory"] is None
 
 
+async def test_agentic_follow_owner_expands_all_effective_tools(
+    client: AsyncClient, tenant: TenantContext, materials: Materials
+) -> None:
+    """空 tools_allow / `*` = 跟随 owner：冻结全部生效 Skill 与 MCP 工具，而不是空目录。"""
+    response = await client.post(
+        URL,
+        json=_payload(tenant, mode="AGENTIC"),
+        headers=service_headers(tenant.tenant_id),
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+
+    assert [skill["skill_id"] for skill in data["skills"]] == [str(materials.skill_id)]
+    by_source = {tool["source"]: tool for tool in data["tools"]}
+    assert by_source["MCP"]["tool_name"] == MCP_TOOL_NAME
+    assert by_source["SKILL"]["skill_id"] == str(materials.skill_id)
+    assert data["grants"]["mcp_server_ids"] == [str(materials.mcp_server_id)]
+
+
 async def test_agentic_rejects_missing_and_revoked_tools(
     client: AsyncClient, tenant: TenantContext, materials: Materials
 ) -> None:
@@ -394,6 +413,28 @@ async def test_agentic_rejects_missing_and_revoked_tools(
     )
     assert revoked_server.status_code >= 400
     assert revoked_server.json()["data"]["admission_code"] == "TOOL_REVOKED"
+
+
+async def test_agentic_rejects_skill_tool_wildcard(
+    client: AsyncClient, tenant: TenantContext, materials: Materials
+) -> None:
+    response = await client.post(
+        URL,
+        json=_payload(
+            tenant,
+            mode="AGENTIC",
+            allowlist=[
+                {"source": "SKILL", "skill_id": str(materials.skill_id), "tool_name": "*"}
+            ],
+        ),
+        headers=service_headers(tenant.tenant_id),
+    )
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == "SCHEDULE_TOOL_WILDCARD_UNSUPPORTED"
+    assert body["data"]["admission_code"] == "WILDCARD_NOT_SUPPORTED"
+    assert body["data"]["allowed_values"] == [f"SKILL:{materials.skill_id}:execute"]
 
 
 async def test_service_identity_and_tenant_isolation(

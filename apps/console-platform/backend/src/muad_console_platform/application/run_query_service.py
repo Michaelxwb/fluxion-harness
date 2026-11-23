@@ -11,13 +11,13 @@ API-05/06：等待字段（含 `waiting_reason`，口径在 `muad_contracts.tool
 
 from __future__ import annotations
 
-import logging
 import uuid
 from typing import Any
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import RunStatus, tool_waiting_reason
+from muad_logging import get_logger
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -44,7 +44,7 @@ def _operation_view(row: RunOperationRow) -> dict[str, Any]:
     }
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class RunQueryService:

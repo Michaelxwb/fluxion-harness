@@ -1,0 +1,23 @@
+flowchart LR
+  subgraph people["使用方与入口"]
+    admin["管理员"]
+    users["服务经理"]
+  end
+  subgraph platform["Fluxion Harness · 平台组件"]
+    console["Console Platform"]
+    gateway["IM Gateway"]
+    runtime["Agent Runtime"]
+    worker["Agent Worker"]
+    connector["IM Connector（可选）"]
+    capability["共享能力层"]
+  end
+  subgraph external["外部服务"]
+    models["模型网关"]
+    mcp["MCP 服务"]
+    business["业务平台"]
+  end
+  subgraph data["共享数据与文件"]
+    postgres["PostgreSQL"]
+    redis["Redis"]
+    pvc["共享存储"]
+  end

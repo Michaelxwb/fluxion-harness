@@ -26,7 +26,7 @@ from typing import Any, cast
 import httpx
 import pytest
 import sqlalchemy as sa
-from muad_agent_core.tools import ToolRegistry
+from muad_agent_core.tools import ToolCall, ToolError, ToolRegistry
 from muad_agent_runtime.application.schedule_promotion import (
     bind_dates,
     date_bindings,
@@ -101,6 +101,21 @@ def _skill() -> ResolvedSkill:
         checksum="sha256:" + "c" * 64,
         storage_key="skills/weekly-report.tar.gz",
         execution_mode=SkillExecutionMode.SYNC,
+        frontmatter={
+            "invocation_contract": {
+                "version": 1,
+                "invocation": "stdin",
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "company_id": {"type": "string"},
+                        "date": {"type": "string", "format": "date"},
+                    },
+                    "required": [],
+                    "additionalProperties": False,
+                },
+            }
+        },
         source="ADMIN",
     )
 
@@ -188,7 +203,6 @@ async def _seed_run(
         "target": "skill",
         "skill_key": "weekly-report",
         "input": {"company_id": "22921947", "date": BUSINESS_DATE},
-        "argv": ["--company-id", "22921947", "--date", BUSINESS_DATE],
     }
     turn_payload: dict[str, Any] = {"text": "", "reasoning_content": None, "tool_calls": []}
     if include_arguments:
@@ -325,8 +339,16 @@ async def _invoke(
 ) -> dict[str, Any]:
     definition = registry.get(name)
     assert definition is not None and definition.handler is not None
-    payload = await definition.handler(arguments, call_id=f"call-{uuid.uuid4()}")
-    return cast(dict[str, Any], json.loads(payload))
+    call = ToolCall(
+        call_id=f"call-{uuid.uuid4()}",
+        name=name,
+        arguments=arguments,
+    )
+    try:
+        result = await definition.handler(arguments, call=call)
+    except ToolError as exc:
+        return cast(dict[str, Any], json.loads(exc.content()))
+    return cast(dict[str, Any], json.loads(result.content))
 
 
 def _promote_args(run_id: uuid.UUID) -> dict[str, Any]:
@@ -372,18 +394,13 @@ async def test_promotion_copies_the_recorded_skill_call_and_binds_dates(
     assert result["mode"] == "SKILL"
     assert result["promotion"]["run_id"] == str(run_id)
     assert result["promotion"]["tool_call_id"] == CALL_ID
-    assert result["promotion"]["bindings"] == {"previous_day": 2}
+    assert result["promotion"]["bindings"] == {"previous_day": 1}
     assert result["resolved_payload"]["skill_id"] == str(SKILL_ID)
     assert result["resolved_payload"]["input"] == {
         "company_id": "22921947",
         "date": "{{previous_day}}",
     }
-    assert result["resolved_payload"]["argv"] == [
-        "--company-id",
-        "22921947",
-        "--date",
-        "{{previous_day}}",
-    ]
+    assert result["resolved_payload"]["argv"] == []
     assert result["resolved_payload"]["window"] == {"kind": "DAY", "offset": -1}
 
     drafts = await _drafts(tenant.tenant_id)
@@ -392,7 +409,7 @@ async def test_promotion_copies_the_recorded_skill_call_and_binds_dates(
     assert payload["skill_id"] == str(SKILL_ID)
     assert payload["input"]["company_id"] == "22921947", "literal parameters stay exact"
     assert payload["input"]["date"] == "{{previous_day}}"
-    assert payload["argv"] == ["--company-id", "22921947", "--date", "{{previous_day}}"]
+    assert payload["argv"] == []
     assert (await _count(tenant.tenant_id, "task_schedule")) == 0
     assert (await _count(tenant.tenant_id, "task_schedule_revision")) == 0
     assert (await _count(tenant.tenant_id, "schedule_fire")) == 0
@@ -423,7 +440,6 @@ async def test_fire_date_is_bound_when_the_call_used_todays_date(
                                     "target": "skill",
                                     "skill_key": "weekly-report",
                                     "input": {"date": "2026-11-18"},
-                                    "argv": ["--date", "2026-11-18"],
                                 },
                             }
                         ],
@@ -434,7 +450,7 @@ async def test_fire_date_is_bound_when_the_call_used_todays_date(
     result = await _invoke(
         _registry(_context(tenant, conversation)), PROMOTE_RUN_TOOL, _promote_args(run_id)
     )
-    assert result["promotion"]["bindings"] == {"fire_date": 2}
+    assert result["promotion"]["bindings"] == {"fire_date": 1}
     assert result["resolved_payload"]["input"] == {"date": "{{fire_date}}"}
     assert result["resolved_payload"]["window"] == {"kind": "DAY", "offset": 0}
 

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime
@@ -21,6 +20,7 @@ from muad_contracts.memory import (
 from muad_contracts.platform_settings import MemoryPolicySettings
 from muad_contracts.tasks import ContractModel
 from muad_contracts.webchat import WebchatConfirmation, WebchatConfirmationOption
+from muad_logging import get_logger
 from pydantic import AwareDatetime, StrictBool, ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
@@ -39,7 +39,7 @@ from .memory_proposals import (
 from .memory_service import MemoryService
 from .run_events import EventWriter
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 #: 用户确认/拒绝的动词：文本解析（`_ANSWER`）与 API-15 的选项值（`confirmation_selection`）
 #: 共用 `memory_proposals` 的那一份——投影出来的选项就是 resume 能消费的文本，两处各拼一份就会漂移。
 _ANSWER = re.compile(

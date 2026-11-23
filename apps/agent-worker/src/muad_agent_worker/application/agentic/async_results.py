@@ -19,21 +19,21 @@
 
 from __future__ import annotations
 
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
 from uuid import UUID
 
 from muad_contracts import (
-    CompletionMode,
     OperationStatus,
     OperationWatermark,
     TaskToolOperationList,
+    TaskToolOperationRecoveryView,
     TaskToolOperationView,
     TerminalStatus,
 )
 
-from ...infrastructure.task_operation_client import PAGE_SIZE, operation_result_content
+from ...infrastructure.task_operation_client import PAGE_SIZE
 from .suspension import TERMINAL_OPERATION_VALUES, pending_payload
 
 
@@ -43,6 +43,15 @@ class OperationReader(Protocol):
     async def get(
         self, *, tenant_id: str, actor_user_id: UUID, operation_id: UUID
     ) -> TaskToolOperationView: ...
+
+    async def get_recovery(
+        self,
+        *,
+        tenant_id: str,
+        actor_user_id: UUID,
+        execution_id: UUID,
+        call_id: str,
+    ) -> TaskToolOperationRecoveryView: ...
 
     async def list_operations(
         self,
@@ -56,20 +65,18 @@ class OperationReader(Protocol):
     ) -> TaskToolOperationList: ...
 
 
-class OperationSubmitter(OperationReader, Protocol):
-    """提交面：崩溃恢复要按调用身份找回 operation 并让 Runtime 复检 `input_hash`。"""
-
-    async def submit(
-        self,
-        *,
-        tenant_id: str,
-        actor_user_id: UUID,
-        execution_id: UUID,
-        call_id: str,
-        tool_name: str,
-        arguments: Mapping[str, Any],
-        completion_mode: CompletionMode = CompletionMode.JOIN,
-    ) -> TaskToolOperationView: ...
+def operation_arguments(arguments: Mapping[str, Any]) -> dict[str, Any]:
+    """把模型 `execute` 参数收敛为操作执行参数：只保留 `input`/`argv`。"""
+    raw_input = arguments.get("input")
+    raw_argv = arguments.get("argv")
+    return {
+        "input": dict(raw_input) if isinstance(raw_input, Mapping) else {},
+        "argv": (
+            list(raw_argv)
+            if isinstance(raw_argv, Sequence) and not isinstance(raw_argv, (str, bytes))
+            else []
+        ),
+    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +92,8 @@ class DeclaredCall:
     tool_name: str
     arguments: Mapping[str, Any]
     completed: bool = False
+    prepared: bool = False
+    prepared_args_hash: str | None = None
 
 
 def watermarks_from_payload(payload: Mapping[str, Any] | None) -> tuple[OperationWatermark, ...]:
@@ -191,81 +200,13 @@ async def read_operations(
     return views_by_call(listing.items)
 
 
-@dataclass(frozen=True, slots=True)
-class ReconciledOperations:
-    """崩后重建的一次对账：还没终态的水位 + 已就绪结果（按 `call_id` 的模型可见正文）。"""
-
-    pending: tuple[OperationWatermark, ...]
-    ready: dict[str, str]
-
-
-async def reconcile_operations(
-    operations: OperationSubmitter,
-    *,
-    views: Mapping[str, TaskToolOperationView],
-    tenant_id: str,
-    actor_user_id: UUID,
-    execution_id: UUID,
-    declared: Sequence[DeclaredCall],
-    async_calls: Collection[str],
-    pending: Sequence[OperationWatermark],
-) -> ReconciledOperations:
-    """按调用身份把"声明过但结果没进历史"的调用找回来。
-
-    覆盖两个崩溃窗口：
-
-    - **提交后、回合收口前**崩溃：事件里只有 assistant 声明、没有 tool 结果 ⇒ 重提交同一
-      `call_id`（Runtime 幂等返回同一 operation，换参数报 `TOOL_OPERATION_INPUT_MISMATCH`），
-      不创建第二个业务调用；
-    - **回合收口后、checkpoint 前**崩溃：事件里的 tool 结果还是提交回执 ⇒ 按 `call_id` 命中
-      operation 后换成真实结果，不重复提交。
-
-    已终态的调用进 `ready`（由恢复方替换成 tool 消息），未终态的进 `pending`（补写等待）。
-    """
-
-    ready: dict[str, str] = {}
-    unsettled: dict[str, OperationWatermark] = {
-        watermark.call_id: watermark
-        for watermark in advance_watermarks(pending, views)
-        if not settled(watermark)
-    }
-    for call in declared:
-        view = views.get(call.call_id)
-        if not call.completed:
-            if call.tool_name not in async_calls or call.call_id in unsettled:
-                continue
-            # 崩溃窗口：round 收口前就断了，不知道提交是否已落库。重提交同一调用身份——
-            # Runtime 幂等返回同一 operation，换参数则显式 TOOL_OPERATION_INPUT_MISMATCH。
-            view = await operations.submit(
-                tenant_id=tenant_id,
-                actor_user_id=actor_user_id,
-                execution_id=execution_id,
-                call_id=call.call_id,
-                tool_name=call.tool_name,
-                arguments=dict(call.arguments),
-            )
-        if view is None:
-            continue
-        if view.result is not None:
-            unsettled.pop(call.call_id, None)
-            ready[call.call_id] = operation_result_content(view.result)
-            continue
-        unsettled[call.call_id] = watermark_of(view)
-    return ReconciledOperations(
-        pending=tuple(unsettled[key] for key in sorted(unsettled)), ready=ready
-    )
-
-
 __all__ = [
     "DeclaredCall",
     "OperationReader",
-    "OperationSubmitter",
-    "ReconciledOperations",
     "advance_watermarks",
     "all_settled",
     "payload_from_watermarks",
     "read_operations",
-    "reconcile_operations",
     "settled",
     "views_by_call",
     "watermark_of",

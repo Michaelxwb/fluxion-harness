@@ -234,8 +234,7 @@ async def test_b05_memory_redesign_consolidation_input_and_output_hide_the_canar
 
 
 async def test_b05_memory_redesign_tool_audit_preview_redacts_canary(async_tool_database):
-    from muad_agent_core.model import ModelMessage, ModelRole
-    from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
+    from muad_agent_core.tools import ToolCall, ToolDefinition, ToolEffect, ToolRegistry, ToolResult
     from muad_agent_core.tools.pipeline import ToolExecutionPipeline
     from muad_agent_runtime.application.executor import ExecutorRunContext, ToolCallRecorder
     from muad_agent_runtime.infrastructure.audit_writer import RuntimeAuditWriter
@@ -258,8 +257,8 @@ async def test_b05_memory_redesign_tool_audit_preview_redacts_canary(async_tool_
     )
     registry = ToolRegistry()
 
-    async def handler(arguments, *, call_id):
-        return '{"saved":false}'
+    async def handler(arguments, *, call: ToolCall):
+        return ToolResult('{"saved":false}')
 
     registry.register(
         ToolDefinition(
@@ -289,9 +288,7 @@ async def test_b05_memory_redesign_tool_audit_preview_redacts_canary(async_tool_
             },
         )
     )
-    await recorder.finish_round(
-        [ModelMessage(role=ModelRole.TOOL, content=result.content, tool_call_id="b05-audit")]
-    )
+    await recorder.finish_round([ToolResult(content=result.result.content, call_id="b05-audit")])
     async with factory() as session:
         audit = await session.scalar(sa.select(ToolCallAudit).where(ToolCallAudit.run_id == run.id))
     assert audit is not None and audit.args_preview_json["memory_key"] == "<redacted>"

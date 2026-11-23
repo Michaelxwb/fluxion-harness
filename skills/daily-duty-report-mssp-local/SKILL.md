@@ -1,6 +1,25 @@
 ---
 name: daily-duty-report-mssp-local
 description: "每日值守总结（Smoke 测试平台 MSSP 端点）。用户只需给出客户 ID 和日期；平台定时任务按已绑定企微身份默认投递，Skill 不自己发企微。输出正文和 xlsx 附件。"
+invocation_contract:
+  version: 1
+  invocation: argv
+  schema:
+    type: object
+    properties:
+      company-id:
+        type: string
+        pattern: "^[0-9]+$"
+        description: "客户 ID，例如 22921947"
+      date:
+        type: string
+        format: date
+        description: "报告日期 YYYY-MM-DD；缺省昨天"
+      no-wecom-push:
+        type: boolean
+        description: "存在时跳过企微群查询"
+    required: [company-id]
+    additionalProperties: false
 ---
 
 # 本地值守日报（Smoke 测试平台 MSSP 端点）

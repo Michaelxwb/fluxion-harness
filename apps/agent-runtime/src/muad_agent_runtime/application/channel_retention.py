@@ -41,7 +41,6 @@
 
 from __future__ import annotations
 
-import logging
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -52,6 +51,7 @@ from typing import Any
 import sqlalchemy as sa
 from muad_artifact_store import NfsArtifactStore
 from muad_contracts.platform_settings import parse_platform_settings
+from muad_logging import get_logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.db_clock import database_now
@@ -71,7 +71,7 @@ from ..metrics import (
 )
 from .context_events import CONTEXT_SUMMARY_EVENT
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 #: 单轮清理的候选上界：清理是破坏性维护动作，有界前进才可中断、可对账。
 RETENTION_BATCH_SIZE = 200
