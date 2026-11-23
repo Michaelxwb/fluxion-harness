@@ -258,6 +258,26 @@ ensure_local_egress_hook() {
 }
 
 # ------------------------------------------------------------------ 4. 启动后端服务
+#: Worker/Runtime 会监听 `.data/workspaces` 下的草稿写入；不排除 `.data/**` 时，
+#: Agent 一改草稿就会触发 `--reload` 重启，正在跑的 Run 会断流（浏览器表现为
+#: 「网络异常 / 会话暂时不可用」）。Gateway 的入口快照保持 1s 刷新。
+start_backend() {
+  local name="$1" module="$2" app_dir="$3" port="$4"
+  local args=(--app-dir "$app_dir" --reload)
+  if [ "$name" = "worker" ] || [ "$name" = "runtime" ]; then
+    args+=(--reload-exclude ".data/**")
+  fi
+  args+=(--port "$port")
+  if [ "$name" = "gateway" ]; then
+    BOT_SNAPSHOT_POLL_SEC="${BOT_SNAPSHOT_POLL_SEC:-1}" \
+      nohup uv run uvicorn "$module" "${args[@]}" \
+      >"$LOG_DIR/$name.log" 2>&1 &
+  else
+    nohup uv run uvicorn "$module" "${args[@]}" \
+      >"$LOG_DIR/$name.log" 2>&1 &
+  fi
+}
+
 ensure_local_dirs
 ensure_local_egress_hook || exit 1
 echo
@@ -273,18 +293,7 @@ for entry in "${SERVICES[@]}"; do
       continue
       ;;
   esac
-  # 本地开发把 Gateway 的入口快照刷快到 1s：新建 WEBCHAT 入口后不用等 30s
-  # （生产默认仍 30s；验收栈也注入 1s）。Connector 的企微长连接不需要这么快。
-  if [ "$name" = "gateway" ]; then
-    BOT_SNAPSHOT_POLL_SEC="${BOT_SNAPSHOT_POLL_SEC:-1}" \
-      nohup uv run uvicorn "$module" \
-      --app-dir "$app_dir" --reload --port "$port" \
-      >"$LOG_DIR/$name.log" 2>&1 &
-  else
-    nohup uv run uvicorn "$module" \
-      --app-dir "$app_dir" --reload --port "$port" \
-      >"$LOG_DIR/$name.log" 2>&1 &
-  fi
+  start_backend "$name" "$module" "$app_dir" "$port"
   echo "  启动 $name (:$port) pid=$!"
 done
 
