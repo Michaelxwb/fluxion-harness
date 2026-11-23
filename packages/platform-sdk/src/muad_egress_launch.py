@@ -9,6 +9,13 @@ from pathlib import Path
 
 def main() -> None:
     import muad_egress_site
+    if not os.environ.get(muad_egress_site.SOCKET_ENV) or not muad_egress_site.ready():
+        print("EGRESS_HOOK_NOT_READY", file=sys.stderr)
+        raise SystemExit(78)
+    if len(sys.argv) < 2:
+        print("EGRESS_SCRIPT_REQUIRED", file=sys.stderr)
+        raise SystemExit(64)
+
     from muad_platform_sdk.egress_ipc_client import IPCAdmissionError
     from muad_platform_sdk.egress_ipc_protocol import (
         WINDOW_LIMIT_CODE,
@@ -16,12 +23,6 @@ def main() -> None:
         WINDOW_LIMIT_MARKER,
     )
 
-    if not os.environ.get(muad_egress_site.SOCKET_ENV) or not muad_egress_site.ready():
-        print("EGRESS_HOOK_NOT_READY", file=sys.stderr)
-        raise SystemExit(78)
-    if len(sys.argv) < 2:
-        print("EGRESS_SCRIPT_REQUIRED", file=sys.stderr)
-        raise SystemExit(64)
     script = Path(sys.argv[1]).resolve()
     sys.argv = [str(script), *sys.argv[2:]]
     # Preserve ordinary Python script sibling imports under -E -s -B.
