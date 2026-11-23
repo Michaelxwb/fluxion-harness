@@ -1,7 +1,7 @@
 ---
 {
   "description": "表设计、迁移与索引",
-  "next_rule": 5
+  "next_rule": 6
 }
 ---
 
@@ -24,6 +24,8 @@
   - **不改旧表**：既有 `channel_identity`（`channel:bot_id:external_user_id` 主动绑定模型）保持不变，新模型与之并存。
   - **按 hash 定位不扫用户表**：查询必须带 `tenant_id`，禁止全局扫描。
   - ✅ 一次查询 `(tenant, platform_key, identity_hash)` 直接命中身份，再按身份查 grant；❌ 把身份与入口塞进同一张表、用 `channel:bot_id:user` 拼接当身份键。
+
+- [RULE-005] 系统设置回滚将目标版本的系统设置与当前版本的出站配置合成，按现有并发保护追加新版本并写入审计。成功回滚保留当前出站总开关及规则。
 
 ## Conventions
 
@@ -59,9 +61,9 @@
   - 与 `RULE-data-001`「同 Owner Schema 用物理 FK」的字面口径有张力：那条规则管的是**业务实体间**的归属关系（可级联、需一致性）；**操作者/审计引用**是显式例外，按「逻辑 UUID + 不建 FK」处理。
   - ✅ `actor_user_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())`（无 `ForeignKey`）
   - ❌ 给审计/版本表的 `actor_user_id` 加 `ForeignKey("control.console_account.id")` ⇒ 账号一旦被清理，历史行要么被级联删、要么外键报错，审计链断裂。
-- **平台设置版本表是 append-only**：`control.platform_setting` 每次保存**插入**一行新 `revision`（从 1 起），当前版本 = 该租户 `max(revision)`；租户无任何版本行时按 `revision=0` + schema 默认语义处理。`is_deleted` **恒为 `false`**（版本行不软删、不物理删）；**乐观并发不用行锁**——落败的 `INSERT (tenant_id, revision=expected+1)` 撞 partial unique `uq_platform_setting_tenant_revision`（`WHERE is_deleted = false`）即归一为版本冲突；**回滚也是插入新版本**（内容等于目标版本、写 RESTORE 审计），历史行全部保留（`apps/console-platform/backend/src/muad_console_platform/infrastructure/models/control.py` 的 `PlatformSetting`；`application/platform_settings_service.py`）。
-  - ✅ 保存/回滚都 `INSERT` 新 `revision`；读当前取 `max(revision)`；并发落败者靠 partial unique 报 `PLATFORM_SETTINGS_VERSION_CONFLICT`
-  - ❌ `UPDATE ... SET revision = revision + 1` 或 `UPDATE settings_json`（改写历史、丢 before/after）；把 `is_deleted` 置 `true`（使「当前 = `max(revision) WHERE is_deleted = false`」的谓词失去意义）
+- **平台设置版本表是 append-only**：`control.platform_setting` 每次保存**插入**一行新 `revision`（从 1 起），当前版本 = 该租户 `max(revision)`；租户无任何版本行时按 `revision=0` + schema 默认语义处理。`is_deleted` **恒为 `false`**（版本行不软删、不物理删）；**乐观并发不用行锁**——落败的 `INSERT (tenant_id, revision=expected+1)` 撞 partial unique `uq_platform_setting_tenant_revision`（`WHERE is_deleted = false`）即归一为版本冲突；**回滚也是插入新版本**（系统设置取目标版本，出站配置取当前版本，写 RESTORE 审计），历史行全部保留（`apps/console-platform/backend/src/muad_console_platform/infrastructure/models/control.py` 的 `PlatformSetting`；`application/platform_settings_service.py`）。
+  - ✅ 保存/回滚都 `INSERT` 新 `revision`；读当前取 `max(revision)`；并发落败者靠 partial unique 报 `PLATFORM_SETTINGS_VERSION_CONFLICT`。系统设置回滚保留当前出站总开关和规则
+  - ❌ `UPDATE ... SET revision = revision + 1` 或 `UPDATE settings_json`（改写历史、丢 before/after）；回滚时覆盖当前出站总开关或规则；把 `is_deleted` 置 `true`（使「当前 = `max(revision) WHERE is_deleted = false`」的谓词失去意义）
 
 ## Avoid
 
@@ -78,3 +80,5 @@
 - {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-002#DELTA-004","op":"add","rule":"RULE-003","payload_sha256":"ce154e3dcab3401bbdf189f9a75d433c8a17fbf77793e1e3ca830c34c73eff36","at":"2026-11-18T14:06:44.263Z"}
 
 - {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-002#DELTA-005","op":"add","rule":"RULE-004","payload_sha256":"ba02c3e8ef86aa917728eda81e6f9d8925886ab8ba13ef932df056ec9742e250","at":"2026-11-18T14:06:44.263Z"}
+
+- {"source":"2026-11-23/egress-management-ui/egress-management-ui.md#TASK-001#DELTA-001","op":"add","rule":"RULE-005","payload_sha256":"8d6383439a32ca8fc9c830fc7a671c74dc15adc7b9f560ea5ad87e5795acefab","at":"2026-11-23T07:47:21.008Z"}

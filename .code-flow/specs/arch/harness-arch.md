@@ -1,7 +1,7 @@
 ---
 {
   "description": "部署单元、边界与容量",
-  "next_rule": 4
+  "next_rule": 5
 }
 ---
 
@@ -17,7 +17,13 @@
 
 - [RULE-003] 失败收尾由 Runtime 确定性渲染，不新增模型调用；用户可见正文先给直白原因与下一步，终止码、工具/平台码、Run ID 与脱敏平台原文只进技术信息；首次确定性失败不得渲染成「重复失败」。本条覆盖 Conventions 中「收尾再发一次模型调用」的旧口径。
 
+- [RULE-004] 聊天 Skill 因本次调用中经出站准入确认的平台接口窗口限流而中断时，超限请求必须继续在外发前拦截并审计，工具结果明确记录查询受限。仅由该限流结束的聊天轮次保留已有正文，在正常助手回复末尾追加受限提示并停止派发后续工具；仅展示已验证可交付的部分结果。独立故障继续按其真实原因收尾。
+
 ## Conventions
+- **聊天窗口限流提示**（RULE-004）
+  - ✅ 查询确实被出站准入拦截，且本轮仅因该限流结束时，保留已有回复并在末尾提示。
+  - ❌ 用限流提示覆盖已输出正文，或将独立故障按限流处理。
+
 
 - **容量压测的副本基线由 profile 声明**：Console 固定 1 Pod；Gateway/Connector 的副本按目标 profile 的 `max_replica_counts`/`process_counts` 核算；Runtime/Worker 仍可横向扩展。✅ 每轮压测前执行 `check_agent_capacity_deployment.py --live-namespace`，核对期望/实际/就绪副本与 HPA，缩容结束再施压；❌ 清单写 1 却沿用多副本，或把非目标拓扑的完成率当目标容量。
   - **单 Pod 出站并发同样按目标并发定容**：Gateway 的 `EGRESS_HTTP_MAX_CONNECTIONS × max_replicas` ≥ `workload.users × active_runs_per_user`——每个用户建会话/提交消息各占一条 Gateway→Runtime 连接，池不够时请求排队到 `PoolTimeout`（实测池不足会批量 `PoolTimeout`）。发布预检机检 `outbound-concurrency`。
@@ -81,3 +87,5 @@
 - {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-001#DELTA-002","op":"add","rule":"RULE-002","payload_sha256":"a496ba6a6dd49ef5a92bf62b41ff1de102aaba69a75aacee262b83a772d3b8cc","at":"2026-11-18T14:06:44.261Z"}
 
 - {"source":"2026-11-21/agent-output-and-platform-defaults/agent-output-and-platform-defaults.md#TASK-007#DELTA-002","op":"add","rule":"RULE-003","payload_sha256":"07379992368498a66463980b88dbc3014e3215ebfcdc0117cc04cb7dbb84fa45","at":"2026-11-21T07:54:54.594Z"}
+
+- {"source":"2026-11-23/chat-egress-rate-limit-notice/chat-egress-rate-limit-notice.md#TASK-002#DELTA-001","op":"add","rule":"RULE-004","payload_sha256":"517fc9693939f052dffaf5e73df2f16bb8678618d52df1cd6701781815a29b1d","at":"2026-11-23T07:47:20.774Z"}
