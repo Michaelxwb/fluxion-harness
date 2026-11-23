@@ -229,8 +229,7 @@ test('出站规则只需选择平台和填写路径，自动预览平台前缀',
       resolver_type: 'BASE_URL', resolver_config: { base_url: 'https://assets.test/gateway/v1' } }],
       total: 1, page: 1, page_size: 100 }) });
   });
-  await openSettings(page);
-  await page.getByTestId('settings-nav-egress').click();
+  await page.goto('/egress?tab=rules');
   const editor = page.getByTestId('egress-rules-editor');
   await expect(editor.getByRole('button', { name: '编辑规则', exact: true })).toHaveCount(0);
   await page.getByTestId('egress-rule-add').click();

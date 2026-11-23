@@ -19,12 +19,24 @@ def test_page_has_one_header_and_shared_sections() -> None:
     assert "EgressSummary" not in page
 
 
-def test_egress_monitoring_has_a_dedicated_overview_view() -> None:
-    page = source("pages/EgressPage.tsx")
-    tabs = source("components/OverviewViewTabs.tsx")
-    assert 'data-testid="egress-monitoring-page"' in page
-    assert "<EgressSummary" in page and 'activeKey="egress"' in page
-    assert "'/overview/egress'" in tabs and "overview.views.egress" in tabs
+def test_egress_monitoring_has_a_dedicated_management_view() -> None:
+    overview = source("pages/OverviewPage.tsx")
+    monitor = source("pages/EgressPage.tsx")
+    page = (MODULE.parent / "egress-management/EgressManagementPage.tsx").read_text()
+    assert '<Link to="/egress">' in overview
+    assert 'data-testid="egress-monitoring-page"' in monitor and "<EgressSummary" in monitor
+    assert "<EgressMonitor" in page and "overview.views.egress" in page
+    assert "rulesOpen && !isAdmin" in page and '<Navigate to="/egress" replace' in page
+
+
+def test_rule_editor_scope_and_system_settings_use_separate_visible_fields() -> None:
+    page = (MODULE.parent / "settings/pages/SettingsPage.tsx").read_text()
+    scope = (MODULE.parent / "egress-management/EgressSettingsScope.tsx").read_text()
+    hook = (MODULE.parent / "settings/hooks/usePlatformSettings.ts").read_text()
+    assert "group.key !== 'egress'" in page
+    assert 'groups={groups}' in page
+    assert 'usePlatformSettings(rulesOpen)' in scope
+    assert 'buildDocument(snapshot.groups, values)' in hook
 
 
 def test_six_kpis_are_present_and_unknown_values_are_explicit() -> None:

@@ -18,7 +18,7 @@ import asyncio
 import json
 import uuid
 from collections.abc import AsyncIterator
-from dataclasses import replace
+from dataclasses import asdict, replace
 
 import pytest
 from muad_console_platform.application.audit_service import AuditActor
@@ -30,6 +30,7 @@ from muad_console_platform.application.platform_settings_service import (
 from muad_console_platform.infrastructure.db import get_session_factory
 from muad_console_platform.infrastructure.models.control import PlatformSetting
 from muad_contracts.platform_settings import (
+    EgressSettings,
     PlatformSettings,
     PlatformSettingsError,
     TaskSettings,
@@ -274,28 +275,48 @@ async def test_list_revisions_descending_with_changed_keys_and_read_revision(
 async def test_restore_appends_new_revision_and_keeps_history(
     settings_tenant: TenantContext,
 ) -> None:
-    """回滚生成**新** revision（内容等于目标版本）并写 RESTORE 审计；历史行全保留。"""
+    """回滚恢复其他设置并保留当前出站开关和规则，历史仍可读取。"""
     tenant_id = settings_tenant.tenant_id
     factory = get_session_factory()
     actor = _actor()
+    current_egress = EgressSettings(
+        enabled=True,
+        rules_json=json.dumps([{
+            "target_instance_id": "legacy-platform",
+            "method": "GET",
+            "path_template": "/current",
+            "route_id": "GET /current",
+            "window_requests": 2,
+            "window_seconds": 60,
+        }]),
+    )
 
     async with factory() as session:
         service = PlatformSettingsService(session)
         await service.save(tenant_id, actor, 0, _custom_settings())  # rev1: max_attempts=7
-        await service.save(tenant_id, actor, 1, default_platform_settings())  # rev2: 默认
+        # Simulate a stored rule whose target is no longer available for a new policy save.
+        session.add(PlatformSetting(
+            id=uuid.uuid4(), tenant_id=tenant_id, revision=2,
+            settings_json=asdict(replace(default_platform_settings(), egress=current_egress)),
+        ))
         await session.commit()
 
     async with factory() as session:
-        restored = await PlatformSettingsService(session).restore(tenant_id, actor, 1)
+        service = PlatformSettingsService(session)
+        restored = await service.restore(tenant_id, actor, 1)
+        historical = await service.read_revision(tenant_id, 1)
         await session.commit()
     assert restored.revision == 3
     assert restored.settings.task.max_attempts == 7
+    assert restored.settings.egress == current_egress
+    assert historical.settings.egress == default_platform_settings().egress
     assert await _revisions(tenant_id) == [1, 2, 3], "历史行不得被改写或删除"
 
     rows = await _audit_rows(tenant_id)
     assert rows[-1]["action"] == "RESTORE"
     assert rows[-1]["before_json"]["task"]["max_attempts"] == 3
     assert rows[-1]["after_json"]["task"]["max_attempts"] == 7
+    assert rows[-1]["before_json"]["egress"] == rows[-1]["after_json"]["egress"]
 
 
 async def test_restore_rejects_history_that_fails_current_schema(

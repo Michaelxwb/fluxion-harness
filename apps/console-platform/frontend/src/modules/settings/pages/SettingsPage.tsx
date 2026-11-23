@@ -74,6 +74,7 @@ export function SettingsPage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const state = usePlatformSettings();
+  const groups = state.groups.filter((group) => group.key !== 'egress');
 
   // 单面板布局下，保存失败的字段错误必须可见：按错误路径定位到控件所在分组并切过去。
   useEffect(() => {
@@ -82,13 +83,13 @@ export function SettingsPage() {
       return;
     }
     const owner = locateField(state.groups, firstPath);
-    if (owner) {
+    if (owner && owner.group.key !== 'egress') {
       setActiveKey(owner.group.key);
     }
   }, [state.errors, state.groups]);
 
   const activeGroup =
-    state.groups.find((group) => group.key === activeKey) ?? state.groups[0] ?? null;
+    groups.find((group) => group.key === activeKey) ?? groups[0] ?? null;
 
   // 「不在此页管理的设置」收进页头帮助气泡：常驻卡片太占纵向空间（loading/failed 时不渲染入口）。
   const readonlyHelp = (
@@ -147,7 +148,7 @@ export function SettingsPage() {
         <SettingsNotice />
         <div className="settings-layout">
           <SettingsGroupNav
-            groups={state.groups}
+            groups={groups}
             activeKey={activeGroup?.key ?? ''}
             onSelect={setActiveKey}
           />

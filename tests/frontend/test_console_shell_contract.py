@@ -14,6 +14,7 @@ EXPECTED_KEYS = [
     "nav.model",
     "nav.user",
     "nav.platform",
+    "nav.egress",
     "nav.task",
     "nav.schedule",
     "nav.audit",
@@ -26,11 +27,11 @@ def _menu_source() -> str:
     return (FRONTEND / "config/menu.ts").read_text(encoding="utf-8")
 
 
-def test_console_shell_menu_is_the_fixed_twelve_items() -> None:
+def test_console_shell_menu_is_the_fixed_thirteen_items() -> None:
     keys = re.findall(r"key:\s*'([^']+)'", _menu_source())
     assert keys == EXPECTED_KEYS
 
-    # adminOnly 语义：恰有三项（/users、/learning、/settings），所以 ADMIN 12 项、非 ADMIN 9 项
+    # adminOnly 语义：恰有三项（/users、/learning、/settings），所以 ADMIN 13 项、非 ADMIN 10 项
     source = _menu_source()
     assert source.count("adminOnly: true") == 3
     admin_only_paths = re.findall(
@@ -39,7 +40,7 @@ def test_console_shell_menu_is_the_fixed_twelve_items() -> None:
     assert admin_only_paths == ["/users", "/learning", "/settings"], (
         "三项 adminOnly：/users、/learning、/settings"
     )
-    assert len(keys) - source.count("adminOnly: true") == 9, "非 ADMIN 可见 9 项"
+    assert len(keys) - source.count("adminOnly: true") == 10, "非 ADMIN 可见 10 项"
 
 
 def test_console_shell_has_system_settings_entry() -> None:

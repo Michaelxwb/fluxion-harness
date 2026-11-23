@@ -10,6 +10,7 @@ import {
   IconLayers,
   IconPuzzle,
   IconSearch,
+  IconActivity,
   IconServer,
   IconSetting,
   IconUserGroup
@@ -25,6 +26,7 @@ import { RouteErrorBoundary } from '../components/common/RouteErrorBoundary';
 import { ThemeButton } from '../components/common/ThemeButton';
 import { menuItems } from '../config/menu';
 import { useThemeMode } from '../theme';
+import { EgressSettingsScope } from '../modules/egress-management/EgressSettingsScope';
 
 const { Sider, Header, Content } = Layout;
 
@@ -36,6 +38,7 @@ const MENU_ICONS: Record<string, JSX.Element> = {
   '/models': <IconLayers size="large" />,
   '/users': <IconUserGroup size="large" />,
   '/platforms': <IconBranch size="large" />,
+  '/egress': <IconActivity size="large" />,
   '/tasks': <IconClock size="large" />,
   '/schedules': <IconCalendar size="large" />,
   '/audits': <IconSearch size="large" />,
@@ -121,7 +124,7 @@ function Sidebar() {
   const [width, setWidth] = useState<number | null>(null);
   const sidebarWidth = width ?? (i18n.language.startsWith('en') ? 224 : 184);
   const visibleItems = menuItems.filter((item) => !item.adminOnly || account?.role === 'ADMIN');
-  const selectedPath = location.pathname.startsWith('/overview/') ? '/' : location.pathname;
+  const selectedPath = location.pathname;
   return (
     <Sider className={`app-sider${collapsed ? ' app-sider-collapsed' : ''}`}
       style={{ width: collapsed ? 64 : sidebarWidth }}>
@@ -154,13 +157,15 @@ export function AppLayout() {
           <LocaleSwitch />
         </Header>
         <Content className="app-content">
-          <RouteErrorBoundary key={location.pathname}>
-            <Suspense
-              fallback={<div className="app-route-loading" data-testid="admin-route-loading" />}
-            >
-              <Outlet />
-            </Suspense>
-          </RouteErrorBoundary>
+          <EgressSettingsScope>
+            <RouteErrorBoundary key={location.pathname}>
+              <Suspense
+                fallback={<div className="app-route-loading" data-testid="admin-route-loading" />}
+              >
+                <Outlet />
+              </Suspense>
+            </RouteErrorBoundary>
+          </EgressSettingsScope>
         </Content>
       </Layout>
     </Layout>

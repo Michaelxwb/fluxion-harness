@@ -8,10 +8,10 @@
 
 - **聊天首屏不加载 admin chunk**：11 个 admin 页面各出一个独立 chunk，`index.html` 只预加载入口，
   不含任何 admin chunk；入口对每个 admin chunk 都是动态 `import()`（不是静态 import）。
-- **深链可用**：`BrowserRouter` + 真实路由表覆盖菜单 11 项路径（`/` 为 index 路由），
+- **深链可用**：`BrowserRouter` + 真实路由表覆盖菜单路径路径（`/` 为 index 路由），
   直接打开 `/agents` 等深链会按路由动态加载对应 chunk；单入口 SPA 产物没有按路由拆分的 HTML。
 - **错误边界**：admin 路由的 Suspense/错误边界围绕 `Outlet` 生效，失败文案复用既有词条（不新增 key）。
-- **菜单 12 项不变**：`config/menu.ts` 的路径/键/顺序与既有 Shell 契约一致。
+- **菜单与控制台一致**：`config/menu.ts` 的路径/键/顺序与既有 Shell 契约一致。
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ MENU_TS = SRC / "config/menu.ts"
 VITE = FRONTEND / "node_modules/.bin/vite"
 NODE = shutil.which("node")
 
-#: 菜单 11 项（与 harness-ui RULE-ui-001 及 Shell 契约一致）。
+#: 菜单路径（与 harness-ui RULE-ui-001 及 Shell 契约一致）。
 MENU_PATHS = [
     "/",
     "/agents",
@@ -44,6 +44,7 @@ MENU_PATHS = [
     "/models",
     "/users",
     "/platforms",
+    "/egress",
     "/tasks",
     "/schedules",
     "/audits",
@@ -60,6 +61,7 @@ ADMIN_PAGES = [
     ("models", "ModelPage", "modules/model-management/ModelPage"),
     ("users", "UserPage", "modules/user-identity/UserPage"),
     ("platforms", "PlatformPage", "modules/project-platform/PlatformPage"),
+    ("egress", "EgressManagementPage", "modules/egress-management/EgressManagementPage"),
     ("tasks", "TaskPage", "modules/task-schedule/TaskPage"),
     ("schedules", "SchedulePage", "modules/task-schedule/SchedulePage"),
     ("audits", "AuditPage", "modules/audit-observability/pages/AuditPage"),
@@ -149,10 +151,10 @@ def test_s10_chat_first_paint_does_not_load_admin_chunks(build_dist: Path) -> No
 
 
 def test_s10_admin_deep_links_keep_the_route_table_and_error_boundary() -> None:
-    """菜单 12 项与路由表逐一对应；BrowserRouter 深链；lazy 页面有 Suspense/错误边界。"""
+    """菜单 13 项与路由表逐一对应；BrowserRouter 深链；lazy 页面有 Suspense/错误边界。"""
     menu = _read(MENU_TS)
     keys = re.findall(r"key:\s*'([^']+)'", menu)
-    assert len(keys) == 12, f"菜单必须保持 12 项：{keys}"
+    assert len(keys) == 13, f"菜单必须包含 13 项：{keys}"
     paths = re.findall(r"path:\s*'([^']+)'", menu)
     assert paths == MENU_PATHS, f"菜单路径与顺序不得变化：{paths}"
 
