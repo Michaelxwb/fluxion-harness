@@ -1,11 +1,11 @@
 # 平台登录态：Skill 先调 session-manager get-state
 
-Skill 访问受保护业务平台时，自己调用 `session-manager get-state --skill-name <skill>` 获取登录态文件，然后直接读该文件发 `requests` 请求。平台不代发业务请求，登录态只由 Skill 自行读取。
+Skill 访问受保护业务平台时，自己调用 `session-manager get-state --skill-name <skill>` 获取登录态文件，然后直接读该文件发 `requests` 请求。单平台、多平台都用这一种：平台集合由 Console 中该 Skill 关联的 `platforms` 决定。`--platform` 是 agent 工作区/排查工具的单平台入口，不用于 Skill 脚本。
 
 ## 列 session 与取登录态
 
 - 用户问“有哪些平台 / 平台 session 状态”时，用 `session-manager list-platforms`；它会逐平台**实际检查登录态**，返回 `available`、有效期或失败原因，不再只表示“有凭据配置”。
-- 执行 Skill 时不要先跑 `list-platforms`；直接 `get-state --skill-name <skill>`，避免为无关平台触发登录、续期和预算消耗。
+- 执行 Skill 时不要先跑 `list-platforms`；直接 `get-state --skill-name <skill>`。声明里只放这个 Skill 实际使用的平台。
 
 ## 脚本写法
 
@@ -19,6 +19,27 @@ SKILL_NAME = "my-skill"  # 必须与 muad.skill.json 的 name 一致
 PLATFORM = "smoke_platform"
 
 
+def _failed_platforms(stderr):
+    """从 CLI 的 platform_sessions 读实际失败平台，不要猜。"""
+    for line in reversed((stderr or "").splitlines()):
+        try:
+            payload = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        report = payload.get("platform_sessions")
+        platforms = report.get("platforms") if isinstance(report, dict) else None
+        if not isinstance(platforms, list):
+            continue
+        return [
+            str(item.get("key"))
+            for item in platforms
+            if isinstance(item, dict) and item.get("available") is False and item.get("key")
+        ]
+    return []
+
+
 def resolve_state_file():
     completed = subprocess.run(
         ["session-manager", "get-state", "--skill-name", SKILL_NAME],
@@ -29,6 +50,13 @@ def resolve_state_file():
     )
     if completed.returncode != 0:
         detail = (completed.stderr or "").strip()
+        failed = _failed_platforms(detail)
+        if failed:
+            raise RuntimeError(
+                "平台登录态获取失败："
+                + ", ".join(failed)
+                + "；请在 Console 检查对应平台凭据后重试"
+            )
         raise RuntimeError(
             "session-manager get-state failed: "
             + (detail[:1000] if detail else f"exit {completed.returncode}")
@@ -49,8 +77,34 @@ response = requests.get(base_url + "/api/v1/items", headers={"Cookie": cookie}, 
 
 - `SKILL_NAME` 必须是硬编码字符串，且等于 `muad.skill.json` 的 `name`（`self-skill-review` 的 SS-R011 会检查）。
 - `PLATFORM` 是 `muad.skill.json` 的 `platforms` 中的平台名，必须是字面量。
+- 多平台 Skill 在同一个 state 文件里读多个 `platforms.<key>` section；不要为某个平台改调 `--platform`。
 - 状态文件缺少对应平台、`baseUrl` 为空时 fail loud（stderr + 非 0）。
+- 取登录态失败时，失败文案必须来自 `platform_sessions` 里的实际失败平台，不要写死 `mssp` / `mssw`。
 - 401/403 不会自动刷新登录态；重新执行 `get-state` 后再发起请求。
+
+失败出口建议直接把异常 message 交给平台（不要吞成“处理失败”）：
+
+```python
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as error:  # fail loud: stderr + 非零退出
+        print(
+            json.dumps(
+                {
+                    "ok": False,
+                    "error": {
+                        "code": "SKILL_EXECUTION_FAILED",
+                        "message": str(error) or "处理失败，请稍后重试",
+                        "retryable": False,
+                    },
+                },
+                ensure_ascii=False,
+            ),
+            file=sys.stderr,
+        )
+        sys.exit(1)
+```
 
 ## 本地开发
 

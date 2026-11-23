@@ -10,10 +10,11 @@
 
 ## 开发规则
 
-- 登录态只从 `session-manager get-state --skill-name <skill>` 获取；不要写死 baseUrl、Cookie、Token、CSRF。
+- 登录态只从 `session-manager get-state --skill-name <skill>` 获取；单平台/多平台都用这一种，平台集合由 Console 中该 Skill 关联的 `platforms` 决定。不要写死 baseUrl、Cookie、Token、CSRF。
+- `--platform` 是 agent 工作区/排查工具的单平台入口，不用于 Skill 脚本。
 - 交付物写 `SKILL_OUTPUT_DIR`（每次执行独立）；状态/缓存/锁写 `SKILL_DATA_DIR`（同一 user + Agent 跨执行持久）。
 - Skill 包根只读，不要写包根或 `/tmp`。
-- 失败写 stderr 并返回非零退出码；成功 stdout 只保留一个机器可读 JSON。
+- 失败写 stderr 并返回非零退出码；成功 stdout 只保留一个机器可读 JSON。取登录态失败时，从 CLI 的 `platform_sessions` 读实际失败平台，不要写死平台名。
 - 模型只调用统一的 `execute`（`target="skill"`）；多 Phase 的旧 Skill 用一层薄分发器（`scripts/run.py --phase N`）路由，不要让模型在多个执行入口之间做选择。
 - 平台 key（`muad.skill.json` 的 `platforms`）与 Skill 名（`SKILL.md` 的 `name`）是不同概念，不要长得像。
 

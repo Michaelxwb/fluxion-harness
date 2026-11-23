@@ -50,7 +50,7 @@ python3 scripts/check.py --target <skill-dir> --format json
    - `SKILL.md` 的 `description` 是否写清触发场景，是否泄露密钥/内部 URL/业务数据。
    - 失败路径是否同时写 stderr 与 exit 非 0，成功 stdout 是否保持单一机器可读结果。
    - 报告/临时文件是否写入 `SKILL_OUTPUT_DIR`，是否避免 `/tmp` 与 Skill 根目录。
-   - 声明平台时是否通过 `session-manager get-state` 获取登录态并使用 `requests`；是否手工拼装了凭据/内部地址。
+   - 声明平台时是否通过 `session-manager get-state --skill-name <skill>` 获取登录态并使用 `requests`（`--platform` 只供 agent 工具，不用于 Skill 脚本）；失败文案是否从 `platform_sessions` 读出实际失败平台、没有写死平台名；是否手工拼装了凭据/内部地址。
    - 平台/SDK 类 Skill 额外按 `references/rules.md` 的“语义审查清单”核对：文档声明与实际断言、Traceid 唯一性、stdout/退出码契约、`--path`/`--count` 边界，以及 SDK 限额 `os._exit(86)` 下汇总必须在终止请求前输出。
 4. 输出检查表：先写清楚**问题是什么、影响是什么**，再给 `file:line`、严重级别和修复建议；规则 ID 只放在括号里做追踪，不要只给 `SS-Rxxx`。
 5. 审查是**建议性**的：平台提交链路不做语言或内容硬拦截，最终由管理员审批决定。结论的价值在于**让用户知道问题在哪、建议怎么改**——把检查表展示给用户，不要只留在工具结果里。
