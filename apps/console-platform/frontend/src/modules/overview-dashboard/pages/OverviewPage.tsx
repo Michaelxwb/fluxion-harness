@@ -1,13 +1,13 @@
 import { Banner, Button } from '@douyinfe/semi-ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { PageHeader, PageSection } from '../../../components/common/ConsolePage';
 import { ErrorState } from '../../../components/common/ErrorState';
 import { AttentionSummary } from '../components/AttentionSummary';
 import { KpiCards, OverviewSkeleton } from '../components/KpiCards';
 import { OverviewCharts } from '../components/OverviewCharts';
 import { OverviewToolbar } from '../components/OverviewToolbar';
-import { OverviewViewTabs } from '../components/OverviewViewTabs';
 import { ResourceSummary } from '../components/ResourceSummary';
 import { useOverview } from '../hooks/useOverview';
 import type { OverviewData } from '../types';
@@ -49,7 +49,7 @@ export function OverviewPage() {
           />
         }
       />
-      <OverviewViewTabs activeKey="overview" />
+      <Link to="/egress">{t('overview.views.egress')}</Link>
       {overview.error && overview.data !== null ? (
         <Banner
           type="warning"

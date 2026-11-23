@@ -159,6 +159,7 @@ class HostEgressExecution:
     def broker(
         self, invocation: TrustedInvocation, *, deadline_seconds: float,
         load_platform_base_urls: PlatformBaseURLLoader | None = None,
+        capture_window_denials: bool = False,
     ) -> InvocationEgressBroker:
         self._require_open()
         self._validate_invocation(invocation)
@@ -171,6 +172,7 @@ class HostEgressExecution:
             renewal_interval_seconds=self._settings.lifetime.renewal_interval_seconds,
             observe=self._observe,
             load_platform_base_urls=load_platform_base_urls,
+            capture_window_denials=capture_window_denials,
         )
         self._brokers.append(broker)
         return broker

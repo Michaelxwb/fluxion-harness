@@ -336,3 +336,128 @@ def test_skill_catalog_is_bounded_and_the_drop_is_reported(
     # 全量渲染约 20 KiB，收口后必须落在目录预算内
     assert len(system.encode("utf-8")) < 9000
     assert "skill_catalog_truncated" in caplog.text
+
+
+class WindowLimitProvider:
+    def __init__(self) -> None:
+        self.model_calls = 0
+        self.tool_calls: list[str] = []
+
+    async def complete(self, request: ModelRequest) -> ModelResponse:
+        from muad_agent_core.model import ModelToolCall
+
+        self.model_calls += 1
+        if self.model_calls > 1:
+            assert not request.tools
+            return ModelResponse(content="已有一份可用结果。", finish_reason="stop")
+        return ModelResponse(
+            content="先看已取得的数据。", finish_reason="tool_calls",
+            tool_calls=(ModelToolCall(id="window-query", name="execute", arguments={}),),
+        )
+
+    async def stream(self, request: ModelRequest, on_delta) -> ModelResponse:
+        response = await self.complete(request)
+        await on_delta(response.content)
+        return response
+
+
+def _window_executor_factory(provider: WindowLimitProvider, artifact_root) -> ExecutorFactory:
+    from muad_agent_core.skill import SkillExecutionResult, SkillExecutionStatus
+    from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolExecutionPipeline
+    from muad_agent_runtime.application.attachments.output_service import OutputArtifactWriter, OutputScope
+    from muad_agent_runtime.application.executor import _audit_writer_for, _recorder_for, _window_limit_reply
+    from muad_agent_runtime.application.skill_tools import _window_limited_result
+
+    async def factory(request: ExecutorRequest) -> RunExecutor:
+        context = request.run_context
+        assert context is not None
+        writer = OutputArtifactWriter(
+            artifact_root=artifact_root, session_factory=get_session_factory,
+            scope=OutputScope(
+                context.tenant_id, context.run_id, context.conversation_id, user_id=context.user_id,
+            ),
+        )
+
+        async def handler(_args, *, call):
+            provider.tool_calls.append(call.call_id)
+            row = await writer.save(
+                b"available result", filename="partial.txt", media_type="text/plain", kind="DOCUMENT",
+            )
+            assert (artifact_root / row.storage_key).read_bytes() == b"available result"
+            return _window_limited_result(
+                SkillExecutionResult(
+                    status=SkillExecutionStatus.FAILED, exit_code=79, platform_window_limited=True,
+                ),
+                [{"artifact_id": row.id, "relative_path": "partial.txt", "checksum": row.checksum,
+                  "size": row.size}],
+            )
+
+        registry = ToolRegistry()
+        registry.register(ToolDefinition("execute", "execute", {"type": "object"}, ToolEffect.READ, handler))
+        recorder = _recorder_for(request, _audit_writer_for(request), None)
+        runner = AgentRunner(
+            provider=provider, registry=registry, window_limit_reply=_window_limit_reply,
+            tool_pipeline=ToolExecutionPipeline(registry=registry, audit=recorder),
+            tool_round_results=recorder,
+        )
+        return AgentRunnerExecutor(runner=runner, request=request)
+
+    return factory
+
+
+async def _inspect_limited_run(run_id: uuid.UUID) -> RunRecord:
+    from muad_agent_runtime.infrastructure.models.runtime import CanonicalEvent, ToolCallAudit
+    from sqlalchemy import select
+
+    async with get_session_factory()() as session:
+        run = await session.get(RunRecord, run_id)
+        assert run is not None and run.status == "COMPLETED"
+        stored = {
+            kind: payload for kind, payload in await session.execute(select(
+                CanonicalEvent.event_type, CanonicalEvent.payload_json,
+            ).where(CanonicalEvent.run_id == run_id))
+        }
+        assert stored["TOOL_CALL"]["outcome"]["business_status"] == "RATE_LIMITED"
+        assert stored["TOOL_CALL"]["outcome"]["error_code"] == "LOCAL_RATE_LIMITED"
+        assert [item["filename"] for item in stored["ASSISTANT_MESSAGE"]["attachments"]] == ["partial.txt"]
+        audit = await session.scalar(select(ToolCallAudit).where(
+            ToolCallAudit.run_id == run_id, ToolCallAudit.tool_call_id == "window-query",
+        ))
+        assert audit is not None
+        assert (audit.status, audit.business_status, audit.error_code) == (
+            "OK", "RATE_LIMITED", "LOCAL_RATE_LIMITED",
+        )
+        session.expunge(run)
+    return run
+
+
+@pytest.mark.integration
+async def test_window_limited_chat_completes_and_recovers_with_registered_output(client, tenant, tmp_path):
+    from muad_agent_core.agent import AgentRunRequest
+    from muad_agent_runtime.application.execution_checkpoint import execution_checkpoint
+    from muad_agent_runtime.application.executor import _window_limit_reply
+
+    provider = WindowLimitProvider()
+    app.dependency_overrides[get_executor_factory] = lambda: _window_executor_factory(provider, tmp_path)
+    response = await client.post("/v1/runs", json=_payload(tenant), headers=_headers(tenant))
+    assert response.status_code == 200
+    events = parse_sse(response.text)
+    assert events[-1]["type"] == "run.completed"
+    assert events[-1]["data"]["status"] == "COMPLETED"
+    expected = "先看已取得的数据。\n\n已有一份可用结果。\n\n" + _window_limit_reply("zh-CN")
+    assert events[-1]["data"]["final_text"] == expected
+    assert "".join(event["data"]["delta"] for event in events if event["type"] == "message.delta") == expected
+    assert not any(event["type"] == "message.snapshot" for event in events)
+    run = await _inspect_limited_run(uuid.UUID(events[0]["run_id"]))
+
+    run.execution_epoch = 2
+    run.lease_owner = "recovery-test"
+    restored, _, _ = await execution_checkpoint(get_session_factory(), run)
+    assert restored.recovered_window_limit
+    recovered = await AgentRunner(
+        provider=provider, registry=ToolRegistry(), window_limit_reply=_window_limit_reply,
+    ).run(AgentRunRequest(model_id="test", instructions="test", reply_locale="en-US"), checkpoint=restored)
+    body, _, _ = expected.rpartition(_window_limit_reply("zh-CN"))
+    assert recovered.final_text == body + _window_limit_reply("en-US")
+    assert provider.model_calls == 3
+    assert provider.tool_calls == ["window-query"]

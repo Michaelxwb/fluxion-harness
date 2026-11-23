@@ -8,7 +8,10 @@ from urllib.parse import urlsplit
 from pydantic import UUID4, BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_validator
 
 MAX_FRAME_BYTES = 4096
-PROTOCOL_VERSION = 6
+PROTOCOL_VERSION = 7
+WINDOW_LIMIT_CODE = "IPC_LIMIT_WINDOW"
+WINDOW_LIMIT_EXIT = 79
+WINDOW_LIMIT_MARKER = "MUAD_EGRESS_WINDOW_LIMIT:"
 
 
 class AttemptMetadata(BaseModel):

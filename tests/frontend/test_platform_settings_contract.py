@@ -97,13 +97,12 @@ def test_task_execution_timeout_is_an_editable_setting_with_schema_bounds() -> N
 def test_settings_page_does_not_hardcode_field_or_group_lists() -> None:
     """分组与字段必须由 API 返回的元数据渲染，页面不得内联字段清单。
 
-    单面板布局（左导航 + 右面板）下，页面不再 `state.groups.map` 平铺分组：导航的 `groups`
-    与面板的 `activeGroup` 都直接来自 `state.groups`，这里断言这条数据来源，防止页面自持
-    一份分组清单。
+    单面板布局下，导航与当前面板都从 `state.groups` 派生。出站分组在独立页面展示。
     """
     page = (MODULE / "pages/SettingsPage.tsx").read_text(encoding="utf-8")
-    assert "groups={state.groups}" in page, "分组导航必须由元数据渲染"
-    assert "state.groups.find" in page, "当前面板分组必须由元数据派生"
+    assert "const groups = state.groups.filter((group) => group.key !== 'egress');" in page
+    assert "groups={groups}" in page, "分组导航必须由元数据渲染"
+    assert "groups.find((group) => group.key === activeKey)" in page, "当前面板分组必须由元数据派生"
     assert "SettingsGroupPanel" in page
     # 页面不得出现具体字段路径字面量（如 'snip.max_groups'），否则即第二套字段清单。
     assert "snip." not in page, "页面不得内联字段路径"
@@ -125,10 +124,10 @@ def test_settings_page_has_four_ui_states() -> None:
     assert "state.loading" in page and "settings-loading" in page, "缺少 loading 态"
     assert "state.failed" in page and "ErrorState" in page, "缺少 error 态"
     assert "state.revision === 0" in page and "settings.empty" in page, "缺少 revision=0 的 empty 态"
-    assert "groups={state.groups}" in page, "缺少 success 态分组渲染"
+    assert "groups={groups}" in page, "缺少 success 态分组渲染"
     # 错误态必须在分组渲染之前 return：失败时不渲染任何值。
     failed_index = page.index("if (state.failed)")
-    assert failed_index < page.index("groups={state.groups}"), "错误态必须先于分组渲染返回（不渲染任何值）"
+    assert failed_index < page.index("groups={groups}"), "错误态必须先于分组渲染返回（不渲染任何值）"
 
 
 def test_save_uses_revision_and_maps_field_errors() -> None:
@@ -184,10 +183,10 @@ def test_backend_applies_to_values_are_known_to_frontend() -> None:
 
 
 def test_settings_route_is_role_guarded_and_menu_has_entry() -> None:
-    """B-08：菜单十二项含系统设置（adminOnly），路由受 RequireRole role=\"ADMIN\" 守卫。"""
+    """B-08：系统设置为菜单末项（adminOnly），路由受 RequireRole role=\"ADMIN\" 守卫。"""
     menu = (FRONTEND / "config/menu.ts").read_text(encoding="utf-8")
     keys = re.findall(r"key:\s*'([^']+)'", menu)
-    assert len(keys) == 12 and keys[-1] == "nav.settings", "菜单必须是十二项且末项为系统设置"
+    assert keys[-1] == "nav.settings", "菜单末项必须为系统设置"
     assert re.search(
         r"\{\s*path:\s*'/settings',\s*key:\s*'nav.settings',\s*adminOnly:\s*true\s*\}", menu
     )

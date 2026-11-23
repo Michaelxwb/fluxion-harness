@@ -686,13 +686,12 @@ class AgentRunnerExecutor:
         if failure is not None:
             raise failure
         if (
-            not emitter.delta_emitted
-            and result is not None
-            and result.final_text
+            result is not None
             and result.status == AgentRunStatus.COMPLETED
         ):
-            # 非流式 provider：把最终回答作为单个 delta，保证渠道侧拼接可用
-            yield _delta_event(result.final_text, reply_generation=emitter.generation)
+            text = result.reply_append if emitter.delta_emitted else result.final_text
+            if text:
+                yield _delta_event(text, reply_generation=emitter.generation)
         if result is not None:
             yield ExecutorEvent(
                 type="runner.outcome",
@@ -2508,6 +2507,12 @@ def _recorder_for(
     )
 
 
+def _window_limit_reply(locale: str | None) -> str:
+    if locale == "en-US":
+        return "The platform query hit a rate limit. Please try again later."
+    return "平台查询触发频率限制，请稍后再试。"
+
+
 def _agent_runner(
     request: ExecutorRequest,
     models: _ModelResources,
@@ -2535,6 +2540,7 @@ def _agent_runner(
         tool_suspension=memory.confirmation if memory is not None else None,
         event_batch_size=request.event_batch_size,
         parallel_limit=request.parallel_limit,
+        window_limit_reply=_window_limit_reply,
     )
 
 

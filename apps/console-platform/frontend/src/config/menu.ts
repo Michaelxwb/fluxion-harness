@@ -12,6 +12,7 @@ export const menuItems: MenuItem[] = [
   { path: '/models', key: 'nav.model' },
   { path: '/users', key: 'nav.user', adminOnly: true },
   { path: '/platforms', key: 'nav.platform' },
+  { path: '/egress', key: 'nav.egress' },
   { path: '/tasks', key: 'nav.task' },
   { path: '/schedules', key: 'nav.schedule' },
   { path: '/audits', key: 'nav.audit' },

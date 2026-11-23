@@ -31,6 +31,9 @@ class RunnerCheckpoint:
     pending_tool_calls: tuple[OperationWatermark, ...] = ()
     #: 失败跟踪的可选持久形态（design §4.3）；旧 checkpoint 缺失时为空，恢复不臆造失败。
     failure_state: dict[str, Any] | None = None
+    # Reconstructed by the host from completed tool events on takeover.
+    recovered_window_limit: bool = False
+    recovered_window_text: str = ""
 
     def __post_init__(self) -> None:
         for value in (

@@ -40,6 +40,7 @@ class ArtifactRef:
     filename: str | None = None
     checksum: str | None = None
     size: int | None = None
+    role: ArtifactRole | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,7 +163,7 @@ def completed_from_result(
         artifacts=tuple(
             ToolEventArtifact(
                 artifact_id=artifact.artifact_id,
-                role=(
+                role=artifact.role or (
                     ArtifactRole.IMAGE
                     if artifact.media_type.startswith("image/")
                     else ArtifactRole.RESULT

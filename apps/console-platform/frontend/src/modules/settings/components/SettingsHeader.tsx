@@ -20,7 +20,7 @@ export interface SettingsHeaderProps {
   emptyHint?: string | null;
   onSave(): void;
   onReset(): void;
-  onOpenHistory(): void;
+  onOpenHistory?(): void;
 }
 
 export function SettingsHeader(props: SettingsHeaderProps) {
@@ -50,14 +50,14 @@ export function SettingsHeader(props: SettingsHeaderProps) {
         ) : null}
       </div>
       <div className="settings-header-actions">
-        <Button
+        {props.onOpenHistory && <Button
           theme="borderless"
           type="primary"
           data-testid="settings-history-open"
           onClick={props.onOpenHistory}
         >
           {t('settings.header.viewHistory')}
-        </Button>
+        </Button>}
         <Button
           theme="borderless"
           type="primary"

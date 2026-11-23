@@ -1150,12 +1150,13 @@ def test_b291_chat_styles_stay_scoped_away_from_the_admin_shell(module_css: dict
         "nav.model",
         "nav.user",
         "nav.platform",
+        "nav.egress",
         "nav.task",
         "nav.schedule",
         "nav.audit",
         "nav.learning",
         "nav.settings",
-    ], "Console 菜单仍是固定十二项"
+    ], "Console 菜单含出站管理入口"
     assert menu.count("adminOnly: true") == 3, "adminOnly 恰三项（/users、/learning、/settings）"
     app = _read(APP_TSX)
     assert re.search(r'path="chat/:entryId\?"', app), "独立 CHAT 路由仍在"

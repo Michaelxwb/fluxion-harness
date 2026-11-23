@@ -11,6 +11,8 @@ import uuid
 from pathlib import Path
 
 import requests
+from muad_platform_sdk.egress_ipc_client import IPCAdmissionError
+from muad_platform_sdk.egress_ipc_protocol import WINDOW_LIMIT_CODE
 
 PLATFORM = "smoke_platform"
 SKILL_NAME = "smoke-platform-sample"
@@ -119,6 +121,8 @@ if __name__ == "__main__":
     try:
         sys.exit(main())
     except Exception as error:  # noqa: BLE001 - fail loud: stderr + non-zero exit
+        if isinstance(error, IPCAdmissionError) and error.code == WINDOW_LIMIT_CODE and error.attempt_id:
+            raise
         print(
             json.dumps({"ok": False, "error": "smoke_platform check failed"}),
             file=sys.stderr,

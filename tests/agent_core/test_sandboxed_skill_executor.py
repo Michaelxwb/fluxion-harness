@@ -322,3 +322,56 @@ async def test_result_json_survives_trailing_log_line(tmp_path: Path) -> None:
     result = await _executor().execute(_request(root))
 
     assert result.result == {"ok": True}
+
+
+@pytest.mark.parametrize(("exit_code", "receipt", "truncated", "expected"), [
+    (79, "current", False, True),
+    (79, "different", False, False),
+    (1, "current", False, False),
+    (0, "current", False, False),
+    (79, "current", True, False),
+])
+def test_confirmed_window_exit_requires_matching_host_receipt(exit_code, receipt, truncated, expected):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    from muad_agent_core.sandbox import SandboxResult
+    from muad_agent_core.skill.sandboxed import _confirmed_window_limit
+    from muad_platform_sdk.egress_ipc_protocol import WINDOW_LIMIT_MARKER
+
+    broker = Mock()
+    broker.confirms_window_denial.side_effect = lambda attempt_id: attempt_id == "current"
+    result = SandboxResult(exit_code, "", f"{WINDOW_LIMIT_MARKER}{receipt}\n", 1, truncated)
+    assert _confirmed_window_limit(result, SimpleNamespace(egress_broker=broker)) is expected
+
+
+@pytest.mark.parametrize("kind", ["timeout", "cancel", "budget", "dependency"])
+async def test_other_terminal_errors_take_priority_over_window_receipt(monkeypatch, kind):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, Mock
+
+    from muad_agent_core.sandbox import SandboxCancelled, SandboxResult, SandboxTimeout
+    from muad_agent_core.skill import sandboxed
+    from muad_platform_sdk.egress_ipc_protocol import WINDOW_LIMIT_EXIT, WINDOW_LIMIT_MARKER
+    from muad_platform_sdk.shared_redis import MeteringUnavailable
+
+    result = SandboxResult(WINDOW_LIMIT_EXIT, "", f"{WINDOW_LIMIT_MARKER}receipt\n", 1)
+    errors = {
+        "timeout": SandboxTimeout("timed out", result=result),
+        "cancel": SandboxCancelled("cancelled", result=result),
+        "budget": SkillExecutionError("LOCAL_BUDGET_EXHAUSTED"),
+        "dependency": MeteringUnavailable("unavailable"),
+    }
+    monkeypatch.setattr(sandboxed, "_run_controlled", AsyncMock(side_effect=errors[kind]))
+    broker = Mock()
+    request = SimpleNamespace(egress_broker=broker)
+    if kind in {"timeout", "cancel"}:
+        _, status, _, limited = await sandboxed._sandbox_outcome(None, None, request, None)
+        expected = SkillExecutionStatus.TIMED_OUT if kind == "timeout" else SkillExecutionStatus.CANCELLED
+        assert status is expected
+        assert not limited
+    else:
+        with pytest.raises(type(errors[kind])) as caught:
+            await sandboxed._sandbox_outcome(None, None, request, None)
+        assert caught.value is errors[kind]
+    broker.confirms_window_denial.assert_not_called()

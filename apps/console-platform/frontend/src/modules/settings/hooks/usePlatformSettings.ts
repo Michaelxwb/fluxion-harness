@@ -52,7 +52,7 @@ function valuesFromGroups(groups: SettingsGroupMeta[]): SettingsValues {
   return initialValues(groups);
 }
 
-export function usePlatformSettings(): PlatformSettingsState {
+export function usePlatformSettings(active = true): PlatformSettingsState {
   const { t } = useTranslation();
   const [snapshot, setSnapshot] = useState<PlatformSettingsSnapshot | null>(null);
   const [values, setValues] = useState<SettingsValues>({});
@@ -96,10 +96,6 @@ export function usePlatformSettings(): PlatformSettingsState {
     })();
   }, []);
 
-  useEffect(() => {
-    reload();
-  }, [reload]);
-
   const setField = useCallback((path: string, value: unknown) => {
     setValues((prev) => ({ ...prev, [path]: value }));
     setErrors((prev) => {
@@ -118,6 +114,14 @@ export function usePlatformSettings(): PlatformSettingsState {
   }, [baseValues]);
 
   const dirty = isDirty(baseValues, values);
+  const hasPendingChanges = useRef(false);
+  hasPendingChanges.current = dirty || saving;
+
+  useEffect(() => {
+    if (active && !hasPendingChanges.current) {
+      reload();
+    }
+  }, [active, reload]);
 
   const save = useCallback(async () => {
     if (snapshot === null || saving || !dirty) {
