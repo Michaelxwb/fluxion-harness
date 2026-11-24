@@ -1,7 +1,7 @@
 ---
 {
   "description": "IM 网关、通道与 WebChat",
-  "next_rule": 14
+  "next_rule": 13
 }
 ---
 
@@ -34,8 +34,6 @@
 - [RULE-011] 附件枚举必须按 artifact_type 标注来源：INBOUND_* 为入站、OUTPUT 为自产、TOOL_RESULT 为工具结果、其他为内部产物；TOOL_RESULT 不得标成入站。显式访问保留，内部产物默认不交付，用户明确要求时按 owner 校验交付。
 
 - [RULE-012] 所有用户可见固定文案（任务受理、停止、断流、附件回执等）必须按回复 locale 从 config/api-messages.yaml 的 activity_messages 模板取，不得硬编码中文；终态正文为空时才读取租户 locale 兜底，读取失败回落目录默认并留 warning。
-
-- [RULE-013] 外部平台通道名必须「以 web 结尾、其余字母数字」（大小写不限），在平台配置解析期校验（Console 抛 `PlatformConfigError` 硬失败，Gateway 跳过该平台并记 ERROR），判定口径唯一来自 `muad_contracts.is_valid_external_channel_name`；不得在解析后放行不合规名——路由前缀取自 `channel.lower()`，nginx 用一条 `^/api/v1/[a-z0-9]+web` 覆盖所有外部平台前缀又不误吞 Console 的 `/api/v1/*`，不合规名会导致运行期静默 404。环境标识（UAT/PRD）放 `display_name`，不得进 `channel`。
 
 ## Conventions
 

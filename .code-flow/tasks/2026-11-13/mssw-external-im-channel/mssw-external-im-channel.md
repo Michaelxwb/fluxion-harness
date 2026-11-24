@@ -892,7 +892,7 @@
 - **Spec-Refs**: test/harness-test, e2e/harness-e2e
 - **Paths**: tests/acceptance/msswweb/**, tests/e2e/mssw_token_factory.py
 - **E2E**: manual
-- **Skip-Tests**: acceptance-browser
+- **Skip-Tests**: false
 - **Skip-Reason**: 浏览器层（S-02/S-03/S-05）由人工在真实构建产物与真实浏览器上按 scenarios.md 执行并记录，不进 CI（项目既有约定）。
 
 ### Tests
@@ -1058,7 +1058,14 @@ MSSW 的身份在 Cookie `soc-token`。Playwright 用 `context.addCookies()` 种
 ### Tests
 
 ```json
-["tests/console_platform/test_external_assertion.py", "tests/gateway/test_external_platform_key_selection.py", "tests/contracts/test_capacity_webchat_chat_contracts.py"]
+[
+  {
+    "id": "channel-name-validation",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/console_platform/test_external_assertion.py", "tests/gateway/test_external_platform_key_selection.py", "tests/contracts/test_capacity_webchat_chat_contracts.py"],
+    "timeout": 300,
+    "parallel": false
+  }
+]
 ```
 
 ### Description
