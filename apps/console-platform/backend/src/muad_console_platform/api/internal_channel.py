@@ -78,6 +78,7 @@ async def bind(
 ) -> ApiResponse[Any]:
     with count_outcome(BIND_METRIC):
         bound = await ChannelService(session).bind(tenant_id, payload, idempotency_key)
+        await session.commit()
     return ok(request.app.state.message_catalog, bound.model_dump(mode="json"))
 
 

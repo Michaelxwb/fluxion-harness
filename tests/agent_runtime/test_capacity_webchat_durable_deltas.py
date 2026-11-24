@@ -613,7 +613,9 @@ async def test_b259_truncated_stream_flushes_produced_text_before_failed_termina
     assert events[-1].type == "run.failed", "残缺回答不得当成功落成 COMPLETED"
     assert terminal.payload_json is not None
     assert terminal.payload_json.get("error_code") == "MODEL_UNAVAILABLE"
-    assert _texts(rows) == script.full_text, "断流前产生的正文必须全部落库（含仍在窗口里的块）"
+    assert _texts(rows[:-1]) == script.full_text, "断流前产生的正文必须全部落库（含仍在窗口里的块）"
+    assert _texts(rows) == terminal.payload_json["final_text"]
+    assert _texts(rows[-1:]).startswith("\n\n")
     assert terminal.seq > rows[-1].seq, "失败终态也必须排在已产生正文之后"
 
 

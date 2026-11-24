@@ -46,7 +46,7 @@ _HARDWARE: dict[str, dict[str, int]] = {
         "memory_limit_mb": 4096,
     },
     "agent-worker": {
-        "cpu_request_millicores": 500,
+        "cpu_request_millicores": 1000,
         "cpu_limit_millicores": 2000,
         "memory_request_mb": 1024,
         "memory_limit_mb": 2048,
