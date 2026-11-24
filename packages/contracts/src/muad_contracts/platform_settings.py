@@ -32,6 +32,11 @@ RECALL_MAX_LIMIT = 20
 TASK_EXECUTION_TIMEOUT_MIN_SEC = 1
 TASK_EXECUTION_TIMEOUT_MAX_SEC = 18000
 
+#: 历史预算的 schema 绝对上限；部署最小窗口还会在保存/准入时进一步收紧。
+HISTORY_BUDGET_TOKENS_MAX = 131072
+#: 预算之外必须留给系统提示、工具目录、摘要前缀与模型输出的保守预留。
+HISTORY_BUDGET_RESERVE_TOKENS = 4096
+
 
 class PlatformSettingsError(ValueError):
     """非法平台设置文档。
@@ -51,11 +56,7 @@ class CompactionConfigError(PlatformSettingsError):
 
 @dataclass(frozen=True, slots=True)
 class SnipSettings:
-    """头尾保留 + 省略标记（FEAT-01）。
-
-    `max_groups` 是**触发阈值**（组数严格大于它才 snip），不是保留总数；保留数量由
-    `keep_head_groups` + `keep_tail_groups` 决定，两者之间换成一条按组报数的省略标记。
-    """
+    """过渡期兼容：压缩流水线仍在 TASK-003 前调用；不属于平台设置文档。"""
 
     enabled: bool = True
     max_groups: int = 50
@@ -65,17 +66,14 @@ class SnipSettings:
 
 @dataclass(frozen=True, slots=True)
 class ToolResultSettings:
-    """工具结果的整轮批次预算与预览（FEAT-02）。"""
+    """工具结果外置阈值；整轮预算与预览由运行时按固定规则派生。"""
 
     persist_threshold_bytes: int = 8 * 1024
-    round_budget_bytes: int = 200_000
-    preview_head_bytes: int = 2000
-    preview_tail_bytes: int = 2000
 
 
 @dataclass(frozen=True, slots=True)
 class MicroSettings:
-    """旧工具结果降级（FEAT-03）；默认关。"""
+    """过渡期兼容：压缩流水线仍在 TASK-003 前调用；不属于平台设置文档。"""
 
     enabled: bool = False
     keep_recent_tool_groups: int = 3
@@ -86,18 +84,14 @@ class SummarySettings:
     """摘要层（FEAT-04）；默认关，开启时必须给出 `model_ref`。"""
 
     enabled: bool = False
-    threshold_bytes: int = 50_000
     model_ref: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class CompactionSettings:
-    snip: SnipSettings = field(default_factory=SnipSettings)
+    history_budget_tokens: int = 16384
     tool_result: ToolResultSettings = field(default_factory=ToolResultSettings)
-    micro: MicroSettings = field(default_factory=MicroSettings)
     summary: SummarySettings = field(default_factory=SummarySettings)
-    history_budget_messages: int = 40
-    max_history_tool_rounds: int = 6
 
 
 @dataclass(frozen=True, slots=True)
@@ -407,13 +401,11 @@ class PlatformSettings:
 
 
 _SECTIONS: dict[str, type] = {
-    "snip": SnipSettings,
     "tool_result": ToolResultSettings,
-    "micro": MicroSettings,
     "summary": SummarySettings,
 }
 
-_COMPACTION_SCALARS = ("history_budget_messages", "max_history_tool_rounds")
+_COMPACTION_SCALARS = ("history_budget_tokens",)
 
 _GROUPS: dict[str, type] = {
     "agent": AgentSettings,
@@ -444,29 +436,14 @@ def default_platform_settings() -> PlatformSettings:
 def compaction_payload(settings: CompactionSettings) -> dict[str, Any]:
     """冻进 snapshot 的 JSON 形状（键序固定，便于逐键比对与 hash 稳定）。"""
     return {
-        "snip": {
-            "enabled": settings.snip.enabled,
-            "max_groups": settings.snip.max_groups,
-            "keep_head_groups": settings.snip.keep_head_groups,
-            "keep_tail_groups": settings.snip.keep_tail_groups,
-        },
+        "history_budget_tokens": settings.history_budget_tokens,
         "tool_result": {
             "persist_threshold_bytes": settings.tool_result.persist_threshold_bytes,
-            "round_budget_bytes": settings.tool_result.round_budget_bytes,
-            "preview_head_bytes": settings.tool_result.preview_head_bytes,
-            "preview_tail_bytes": settings.tool_result.preview_tail_bytes,
-        },
-        "micro": {
-            "enabled": settings.micro.enabled,
-            "keep_recent_tool_groups": settings.micro.keep_recent_tool_groups,
         },
         "summary": {
             "enabled": settings.summary.enabled,
-            "threshold_bytes": settings.summary.threshold_bytes,
             "model_ref": settings.summary.model_ref,
         },
-        "history_budget_messages": settings.history_budget_messages,
-        "max_history_tool_rounds": settings.max_history_tool_rounds,
     }
 
 
@@ -568,6 +545,7 @@ def parse_platform_settings(
     batch_platform_limit: int | None = None,
     chat_message_hard_max_bytes: int | None = None,
     chat_upload_hard_max_bytes: int | None = None,
+    model_context_window_min_tokens: int | None = None,
 ) -> PlatformSettings:
     """从（部分）JSON 解析出完整设置文档；任何非法输入显式抛 `PlatformSettingsError`。
 
@@ -595,6 +573,7 @@ def parse_platform_settings(
         batch_platform_limit=batch_platform_limit,
         chat_message_hard_max_bytes=chat_message_hard_max_bytes,
         chat_upload_hard_max_bytes=chat_upload_hard_max_bytes,
+        model_context_window_min_tokens=model_context_window_min_tokens,
     )
     return settings
 
@@ -627,39 +606,68 @@ def _at_least(path: str, value: float, minimum: float) -> None:
 
 
 def _validate(settings: CompactionSettings) -> None:
-    snip = settings.snip
-    if snip.keep_head_groups < 1:
-        raise CompactionConfigError("snip.keep_head_groups 必须 ≥ 1")
-    if snip.keep_tail_groups < 1:
-        raise CompactionConfigError("snip.keep_tail_groups 必须 ≥ 1")
-    if snip.max_groups < snip.keep_head_groups + snip.keep_tail_groups + 1:
-        raise CompactionConfigError("snip.max_groups 必须 ≥ keep_head_groups + keep_tail_groups + 1")
+    if (
+        isinstance(settings.history_budget_tokens, bool)
+        or not isinstance(settings.history_budget_tokens, int)
+        or not 1 <= settings.history_budget_tokens <= HISTORY_BUDGET_TOKENS_MAX
+    ):
+        raise CompactionConfigError(
+            f"history_budget_tokens 必须是 [1, {HISTORY_BUDGET_TOKENS_MAX}] 内的整数"
+        )
 
     tool = settings.tool_result
     if tool.persist_threshold_bytes < 0:
         raise CompactionConfigError("tool_result.persist_threshold_bytes 必须 ≥ 0")
-    if tool.round_budget_bytes < tool.persist_threshold_bytes:
-        raise CompactionConfigError("tool_result.round_budget_bytes 不得小于 persist_threshold_bytes")
-    if tool.preview_head_bytes < 0 or tool.preview_tail_bytes < 0:
-        raise CompactionConfigError("tool_result.preview_*_bytes 必须 ≥ 0")
-    if tool.preview_head_bytes + tool.preview_tail_bytes > tool.round_budget_bytes:
-        raise CompactionConfigError(
-            "tool_result.preview_head_bytes + preview_tail_bytes 不得超过 round_budget_bytes"
-        )
-
-    if settings.micro.keep_recent_tool_groups < 1:
-        raise CompactionConfigError("micro.keep_recent_tool_groups 必须 ≥ 1")
 
     if settings.summary.enabled and not (settings.summary.model_ref or "").strip():
         raise CompactionConfigError("summary.enabled 必须同时给出 model_ref")
-    if settings.summary.threshold_bytes < 0:
-        raise CompactionConfigError("summary.threshold_bytes 必须 ≥ 0")
 
-    if settings.history_budget_messages < 1:
-        raise CompactionConfigError("history_budget_messages 必须 ≥ 1")
 
-    if not 0 <= settings.max_history_tool_rounds <= 50:
-        raise CompactionConfigError("max_history_tool_rounds 必须落在 [0, 50]")
+def validate_history_budget_tokens(
+    history_budget_tokens: int, *, model_context_window_min_tokens: int | None = None
+) -> None:
+    """校验单个历史预算叶子；部署最小窗口是额外上界，缺失时不校该条。"""
+    _validate(CompactionSettings(history_budget_tokens=history_budget_tokens))
+    if model_context_window_min_tokens is None:
+        return
+    if (
+        isinstance(model_context_window_min_tokens, bool)
+        or not isinstance(model_context_window_min_tokens, int)
+        or model_context_window_min_tokens < 1
+    ):
+        raise CompactionConfigError("model_context_window_min_tokens 必须是正整数")
+    if history_budget_tokens > model_context_window_min_tokens - HISTORY_BUDGET_RESERVE_TOKENS:
+        raise CompactionConfigError(
+            "history_budget_tokens 不得超过 "
+            "model_context_window_min_tokens - HISTORY_BUDGET_RESERVE_TOKENS"
+        )
+
+
+def parse_frozen_compaction_settings(payload: Mapping[str, Any]) -> CompactionSettings:
+    """严格解析已冻结的 compaction 块：完整叶子集，不补默认、不接受旧键。"""
+    if not isinstance(payload, Mapping):
+        raise CompactionConfigError("compaction 必须是对象")
+    expected = {"history_budget_tokens", "tool_result", "summary"}
+    if set(payload) != expected:
+        missing = sorted(expected - set(payload))
+        unknown = sorted(set(payload) - expected)
+        detail = []
+        if missing:
+            detail.append(f"缺失: {', '.join(missing)}")
+        if unknown:
+            detail.append(f"未知: {', '.join(unknown)}")
+        raise CompactionConfigError("compaction 冻结配置键不完整或含未知键（" + "；".join(detail) + "）")
+
+    summary = payload["summary"]
+    tool_result = payload["tool_result"]
+    if not isinstance(summary, Mapping) or set(summary) != {"enabled", "model_ref"}:
+        raise CompactionConfigError("summary 冻结配置必须恰好包含 enabled、model_ref")
+    if not isinstance(tool_result, Mapping) or set(tool_result) != {"persist_threshold_bytes"}:
+        raise CompactionConfigError("tool_result 冻结配置必须恰好包含 persist_threshold_bytes")
+
+    settings = parse_compaction_settings(payload)
+    _validate(settings)
+    return settings
 
 
 def _validate_summary_model_ref(summary: SummarySettings) -> None:
@@ -867,6 +875,7 @@ def validate_platform_settings(
     batch_platform_limit: int | None = None,
     chat_message_hard_max_bytes: int | None = None,
     chat_upload_hard_max_bytes: int | None = None,
+    model_context_window_min_tokens: int | None = None,
 ) -> None:
     """校验整份设置文档：分组内范围 + 跨字段联动（未知键在 parse 层拒绝）。
 
@@ -874,6 +883,10 @@ def validate_platform_settings(
     ——contracts 不读环境、不反向依赖 app；传 None 表示不校该条。
     """
     _validate(settings.compaction)
+    validate_history_budget_tokens(
+        settings.compaction.history_budget_tokens,
+        model_context_window_min_tokens=model_context_window_min_tokens,
+    )
     _validate_summary_model_ref(settings.compaction.summary)
     _validate_agent(settings.agent)
     _validate_task(settings.task, batch_platform_limit)
@@ -904,6 +917,8 @@ MIN_PASSWORD_LENGTH_FLOOR = 8
 __all__ = [
     "COMPACTION_POLICY_KEY",
     "RECALL_MAX_LIMIT",
+    "HISTORY_BUDGET_TOKENS_MAX",
+    "HISTORY_BUDGET_RESERVE_TOKENS",
     "MIN_PASSWORD_LENGTH_FLOOR",
     "AgentSettings",
     "ArtifactSettings",
@@ -933,7 +948,9 @@ __all__ = [
     "egress_rules_from_settings",
     "merge_compaction_payload",
     "parse_compaction_settings",
+    "parse_frozen_compaction_settings",
     "parse_platform_settings",
+    "validate_history_budget_tokens",
     "validate_platform_settings",
     "validate_task_execution_timeout",
 ]

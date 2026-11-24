@@ -17,6 +17,8 @@ from dataclasses import asdict, fields
 from typing import Any
 
 from muad_contracts.platform_settings import (
+    HISTORY_BUDGET_RESERVE_TOKENS,
+    HISTORY_BUDGET_TOKENS_MAX,
     MEMORY_SETTING_BOUNDS,
     PlatformSettings,
     default_platform_settings,
@@ -51,17 +53,12 @@ _GROUP_APPLIES_TO: dict[str, str] = {
 
 #: 逐字段范围/枚举/单位/生效方式覆盖（键为前端使用的字段路径）。
 _FIELD_META: dict[str, dict[str, Any]] = {
-    "snip.max_groups": {"min": 2},
-    "snip.keep_head_groups": {"min": 1},
-    "snip.keep_tail_groups": {"min": 1},
+    "history_budget_tokens": {
+        "min": 1,
+        "max": HISTORY_BUDGET_TOKENS_MAX,
+        "unit_key": "settings.unit.tokens",
+    },
     "tool_result.persist_threshold_bytes": {"min": 0, "unit_key": "settings.unit.bytes"},
-    "tool_result.round_budget_bytes": {"min": 0, "unit_key": "settings.unit.bytes"},
-    "tool_result.preview_head_bytes": {"min": 0, "unit_key": "settings.unit.bytes"},
-    "tool_result.preview_tail_bytes": {"min": 0, "unit_key": "settings.unit.bytes"},
-    "micro.keep_recent_tool_groups": {"min": 1},
-    "summary.threshold_bytes": {"min": 0, "unit_key": "settings.unit.bytes"},
-    "history_budget_messages": {"min": 1},
-    "max_history_tool_rounds": {"min": 0, "max": 50},
     "agent.max_turns": {"min": 1},
     "agent.max_tool_calls": {"min": 0},
     "agent.deadline_ms": {"min": 1, "unit_key": "settings.unit.ms"},
@@ -234,6 +231,7 @@ def build_groups(
     overrides: Mapping[str, int],
     chat_message_hard_max_bytes: int | None = None,
     chat_upload_hard_max_bytes: int | None = None,
+    model_context_window_min_tokens: int | None = None,
 ) -> list[dict[str, Any]]:
     """默认/类型/新字段范围与单位取schema；部署硬上限只约束可编辑范围，不裁剪生效值。
 
@@ -243,6 +241,12 @@ def build_groups(
     defaults = default_platform_settings()
     schema_meta = _bounded_schema_metadata(defaults, chat_message_hard_max_bytes, chat_upload_hard_max_bytes)
     groups: list[dict[str, Any]] = []
+    budget_max = HISTORY_BUDGET_TOKENS_MAX
+    if model_context_window_min_tokens is not None:
+        budget_max = min(
+            budget_max,
+            model_context_window_min_tokens - HISTORY_BUDGET_RESERVE_TOKENS,
+        )
     for group_key, group_defaults in asdict(defaults).items():
         applies_to = _GROUP_APPLIES_TO[group_key]
         values = _flatten(group_key, document[group_key])
@@ -250,6 +254,8 @@ def build_groups(
         for path, value in _flatten(group_key, group_defaults).items():
             field = _field_meta(path, value, applies_to)
             field.update(schema_meta.get(path, {}))
+            if group_key == "compaction" and path == "history_budget_tokens" and budget_max >= 1:
+                field["max"] = budget_max
             field["value"] = values[path]
             field["overridden_by_resources"] = overrides.get(group_key, 0)
             fields.append(field)

@@ -54,19 +54,9 @@ def test_default_document_has_designed_groups_and_defaults() -> None:
     assert all(count > 0 for count in counts.values())
 
     compaction = settings.compaction
-    assert (compaction.snip.enabled, compaction.snip.max_groups) == (True, 50)
-    assert (compaction.snip.keep_head_groups, compaction.snip.keep_tail_groups) == (3, 20)
-    assert (
-        compaction.tool_result.persist_threshold_bytes,
-        compaction.tool_result.round_budget_bytes,
-        compaction.tool_result.preview_head_bytes,
-        compaction.tool_result.preview_tail_bytes,
-    ) == (8192, 200000, 2000, 2000)
-    assert (compaction.micro.enabled, compaction.micro.keep_recent_tool_groups) == (False, 3)
-    assert (compaction.summary.enabled, compaction.summary.threshold_bytes) == (False, 50000)
-    assert compaction.summary.model_ref is None
-    assert compaction.max_history_tool_rounds == 6
-    assert compaction.history_budget_messages == 40
+    assert compaction.history_budget_tokens == 16384
+    assert compaction.tool_result.persist_threshold_bytes == 8192
+    assert (compaction.summary.enabled, compaction.summary.model_ref) == (False, None)
 
 
 def test_other_groups_keep_designed_defaults() -> None:
@@ -170,17 +160,10 @@ _ACCEPT: list[tuple[str, Any]] = [
     ("locale.default_locale", "en-US"),
     ("locale.default_timezone", "UTC"),
     ("locale.default_timezone", "America/New_York"),
-    ("compaction.snip.max_groups", 24),
-    ("compaction.snip.keep_head_groups", 1),
-    ("compaction.snip.keep_tail_groups", 1),
+    ("compaction.history_budget_tokens", 1),
+    ("compaction.history_budget_tokens", 16384),
+    ("compaction.history_budget_tokens", 131072),
     ("compaction.tool_result.persist_threshold_bytes", 0),
-    ("compaction.tool_result.preview_head_bytes", 0),
-    ("compaction.tool_result.preview_tail_bytes", 0),
-    ("compaction.micro.keep_recent_tool_groups", 1),
-    ("compaction.summary.threshold_bytes", 0),
-    ("compaction.history_budget_messages", 1),
-    ("compaction.max_history_tool_rounds", 0),
-    ("compaction.max_history_tool_rounds", 50),
 ]
 
 _REJECT: list[tuple[str, Any]] = [
@@ -225,18 +208,11 @@ _REJECT: list[tuple[str, Any]] = [
     ("locale.default_locale", "zh_CN"),
     ("locale.default_timezone", "Mars/Olympus"),
     ("locale.default_timezone", "Not/AZone"),
-    ("compaction.snip.max_groups", 23),
-    ("compaction.snip.keep_head_groups", 0),
-    ("compaction.snip.keep_tail_groups", 0),
+    ("compaction.history_budget_tokens", 0),
+    ("compaction.history_budget_tokens", -1),
+    ("compaction.history_budget_tokens", 131073),
+    ("compaction.history_budget_tokens", True),
     ("compaction.tool_result.persist_threshold_bytes", -1),
-    ("compaction.tool_result.preview_head_bytes", -1),
-    ("compaction.tool_result.preview_tail_bytes", -1),
-    ("compaction.micro.keep_recent_tool_groups", 0),
-    ("compaction.summary.threshold_bytes", -1),
-    ("compaction.history_budget_messages", 0),
-    ("compaction.memory.budget_ratio", 0.2),
-    ("compaction.max_history_tool_rounds", -1),
-    ("compaction.max_history_tool_rounds", 51),
 ]
 
 
@@ -281,46 +257,36 @@ def test_im_batch_quiet_window_must_be_less_than_max_wait() -> None:
     assert accepted.im.inbound_batch_quiet_ms == 1999
 
 
-def test_snip_max_groups_must_exceed_kept_head_and_tail() -> None:
-    boundary = _with("compaction.snip.keep_head_groups", 2)
-    boundary["compaction"]["snip"]["keep_tail_groups"] = 3
+def test_history_budget_obeys_deployment_min_window() -> None:
     with pytest.raises(PlatformSettingsError):
         parse_platform_settings(
-            {**boundary, "compaction": {"snip": {**boundary["compaction"]["snip"], "max_groups": 5}}}
+            {"compaction": {"history_budget_tokens": 16384}},
+            model_context_window_min_tokens=16384,
         )
     accepted = parse_platform_settings(
-        {"compaction": {"snip": {"keep_head_groups": 2, "keep_tail_groups": 3, "max_groups": 6}}}
+        {"compaction": {"history_budget_tokens": 16384}},
+        model_context_window_min_tokens=32768,
     )
-    assert accepted.compaction.snip.max_groups == 6
+    assert accepted.compaction.history_budget_tokens == 16384
 
 
-def test_preview_budget_must_fit_round_budget() -> None:
-    with pytest.raises(PlatformSettingsError):
-        parse_platform_settings(
-            {
-                "compaction": {
-                    "tool_result": {
-                        "persist_threshold_bytes": 1000,
-                        "round_budget_bytes": 4000,
-                        "preview_head_bytes": 2000,
-                        "preview_tail_bytes": 2001,
-                    }
-                }
-            }
-        )
-    accepted = parse_platform_settings(
-        {
-            "compaction": {
-                "tool_result": {
-                    "persist_threshold_bytes": 1000,
-                    "round_budget_bytes": 4000,
-                    "preview_head_bytes": 2000,
-                    "preview_tail_bytes": 2000,
-                }
-            }
-        }
-    )
-    assert accepted.compaction.tool_result.preview_tail_bytes == 2000
+def test_frozen_compaction_requires_exact_new_shape() -> None:
+    from muad_contracts.platform_settings import parse_frozen_compaction_settings
+
+    valid = {
+        "history_budget_tokens": 16384,
+        "tool_result": {"persist_threshold_bytes": 8192},
+        "summary": {"enabled": False, "model_ref": None},
+    }
+    assert parse_frozen_compaction_settings(valid).history_budget_tokens == 16384
+    for broken in (
+        {"history_budget_tokens": 16384, "summary": {"enabled": False, "model_ref": None}},
+        {**valid, "snip": {"enabled": True}},
+        {**valid, "tool_result": {"persist_threshold_bytes": 8192, "round_budget_bytes": 1}},
+        {**valid, "summary": {"enabled": False}},
+    ):
+        with pytest.raises(CompactionConfigError):
+            parse_frozen_compaction_settings(broken)
 
 
 def test_summary_enabled_requires_uuid_model_reference() -> None:

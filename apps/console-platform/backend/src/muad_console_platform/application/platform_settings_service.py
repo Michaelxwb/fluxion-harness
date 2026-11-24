@@ -122,6 +122,7 @@ def _validate_operation_settings(settings: PlatformSettings) -> None:
         settings, batch_platform_limit=resources.batch_platform_limit,
         chat_message_hard_max_bytes=resources.chat_message_hard_max_bytes,
         chat_upload_hard_max_bytes=resources.chat_upload_hard_max_bytes,
+        model_context_window_min_tokens=resources.model_context_window_min_tokens,
     )
 
 

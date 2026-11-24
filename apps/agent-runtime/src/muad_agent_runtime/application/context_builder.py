@@ -12,7 +12,6 @@ from muad_agent_core.agent.recovery import fold_events
 from muad_agent_core.context.compactor import Group, split_groups, split_protected_prefix
 from muad_agent_core.context.summary import summary_from_payload, summary_message
 from muad_agent_core.model.provider import ModelMessage, ModelRole, ModelToolCall, text_of
-from muad_contracts.platform_settings import default_compaction_settings
 from pydantic import JsonValue
 from sqlalchemy import select, true
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -38,10 +37,8 @@ HISTORY_EVENT_TYPES = (
 
 @dataclass(frozen=True, slots=True)
 class BudgetPolicy:
-    # `max_messages` 是**取事件的查询守卫**（`_recent_events` 按它 ×4 限流），不是请求预算本身：
-    # 请求里的条数由压缩层按冻结配置的 `history_budget_messages` 兜底，两边用的是同一个值。
-    # 默认值**派生自 compaction schema**（不写第二套字面量）：两者必须同源，否则守卫与裁剪会漂移。
-    max_messages: int = default_compaction_settings().history_budget_messages
+    # 过渡期读取守卫；TASK-002 改为按 history_budget_tokens 分页读取。
+    max_messages: int = 40
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,7 +97,7 @@ class DbBackedContextBuilder:
         through_seq: int | None = None,
         unconsumed_run_id: uuid.UUID | None = None,
         consumed_event_seq: int = 0,
-        max_history_tool_rounds: int = default_compaction_settings().max_history_tool_rounds,
+        max_history_tool_rounds: int | None = None,
     ) -> tuple[ModelMessage, ...]:
         """Read owned canonical history; memory and compression belong to the derived request."""
         budget = budget_messages or self._budget.max_messages
@@ -205,14 +202,18 @@ class DbBackedContextBuilder:
         session: AsyncSession,
         tenant_id: str,
         events: list[CanonicalEvent],
-        max_history_tool_rounds: int,
+        max_history_tool_rounds: int | None,
     ) -> list[ModelMessage]:
         references = await self._artifact_references(
             session, tenant_id, [event.artifact_id for event in events if event.artifact_id]
         )
         entries = _history_entries(events, _paired_tool_results(events, references))
-        keep = _kept_tool_rounds([value for value, _ in entries], max_history_tool_rounds)
-        return [message for value, message in entries if value == 0 or value in keep]
+        keep = (
+            _kept_tool_rounds([value for value, _ in entries], max_history_tool_rounds)
+            if max_history_tool_rounds is not None
+            else None
+        )
+        return [message for value, message in entries if value == 0 or keep is None or value in keep]
 
     async def _artifact_references(
         self,

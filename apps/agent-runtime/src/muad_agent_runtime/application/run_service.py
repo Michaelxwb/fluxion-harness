@@ -489,24 +489,6 @@ def execution_defaults_from_platform(document: Mapping[str, Any] | None) -> Exec
     )
 
 
-def history_budget_of(policy: Mapping[str, Any] | None) -> int | None:
-    """从已冻结的 `policy_json` 取历史预算（消息条数）；缺失/形状不对时返回 None。
-
-    这一个值有两个消费者，且**必须是同一个**：装配侧的取数守卫（`load_history`）与压缩层的条数
-    兜底（`trim_history`）。返回 None 让两边各自回落默认值——resume 读到的是**这一行当时**冻结的
-    预算，而不是当前配置，配置改动因此只影响后续新 Run。
-    """
-    compaction = (policy or {}).get("compaction")
-    value = compaction.get("history_budget_messages") if isinstance(compaction, Mapping) else None
-    return value if isinstance(value, int) and not isinstance(value, bool) else None
-
-
-def history_tool_rounds_of(policy: Mapping[str, Any]) -> int:
-    """Use the source Run's frozen tool history budget, including its zero value."""
-    settings = compaction_settings_of(policy)
-    return (settings or default_compaction_settings()).max_history_tool_rounds
-
-
 #: 「无平台设置时」的 schema 默认策略快照（导入期求值一次）。它不是运行期动态默认源：
 #: 新 Run 的 `policy_json` 一律由 Run 创建边界取到的平台快照 + Agent 覆盖解析后冻结（`_create_run`）。
 DEFAULT_POLICY: dict[str, Any] = snapshot_policy()
@@ -1218,7 +1200,7 @@ class RunService:
         self._submissions = submissions or RunSubmissionService(get_session_factory)
         self._context_builder = context_builder or DbBackedContextBuilder(
             session_factory=get_session_factory,
-            budget=BudgetPolicy(max_messages=default_compaction_settings().history_budget_messages),
+            budget=BudgetPolicy(),
         )
         self._settings = process_settings()
         # 共享事件追尾（ADR-02）：同进程按会话共享上游读取、提交后唤醒、超时按 PG 有界补查。
@@ -1438,6 +1420,7 @@ class RunService:
         compaction = resolve_compaction_settings(
             resolved.agent.runtime_config,
             platform_overrides=materials.settings.settings.get("compaction"),
+            model_context_window_min_tokens=self._settings.model_context_window_min_tokens,
         )
         summary_model = await self._resolve_summary_model(
             tenant_id, compaction, run_id=run_id, actor_user_id=request.platform_user_id
@@ -2274,8 +2257,8 @@ class RunService:
                 conversation.id,
                 tenant_id,
                 request.platform_user_id,
-                budget_messages=compaction.history_budget_messages,
-                max_history_tool_rounds=compaction.max_history_tool_rounds,
+                budget_messages=None,
+                max_history_tool_rounds=None,
             )
 
         mark("history_deferred")
@@ -2396,8 +2379,8 @@ class RunService:
                 run.conversation_id,
                 run.tenant_id,
                 run.user_id,
-                budget_messages=history_budget_of(snapshot.policy_json),
-                max_history_tool_rounds=history_tool_rounds_of(snapshot.policy_json),
+                budget_messages=None,
+                max_history_tool_rounds=None,
             )
 
         stream = self._stream_run(
@@ -2860,7 +2843,7 @@ class RunService:
         user_id: uuid.UUID,
         *,
         budget_messages: int | None = None,
-        max_history_tool_rounds: int = default_compaction_settings().max_history_tool_rounds,
+        max_history_tool_rounds: int | None = None,
     ) -> tuple[ModelMessage, ...]:
         """Read canonical history; the executor owns request-time memory refresh."""
         return await self._context_builder.load_history(
@@ -3069,8 +3052,8 @@ class RunService:
             tenant_id=run.tenant_id,
             conversation_id=run.conversation_id,
             user_id=run.user_id,
-            budget_messages=compaction.history_budget_messages if compaction else None,
-            max_history_tool_rounds=(compaction or default_compaction_settings()).max_history_tool_rounds,
+            budget_messages=None,
+            max_history_tool_rounds=None,
             unconsumed_run_id=run.id,
             consumed_event_seq=progress.consumed_event_seq,
         )
