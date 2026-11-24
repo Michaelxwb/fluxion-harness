@@ -39,7 +39,7 @@ description: 指导用户写一个符合本平台格式的自建 Skill。用户�
 每个自建 Skill 都要先确认这几件事，缺一项都要明确补上或明确不需要：
 
 1. **`muad.skill.json` 清单文件**：声明 name/author/platforms/version 等元数据。`author` 必填，写作者姓名/工号/用户名，便于追溯。详见 [`references/skill-manifest.md`](references/skill-manifest.md)。
-2. **对接平台 → 先取登录态，再用 requests 发请求**：脚本先用 `session-manager get-state --skill-name <skill>` 获取登录态，再从返回的 `sessionStateFile` 读取 `platforms.<平台名>.cookies` 和 `requestProfile`（`baseUrl` / `hostHeader` / `staticHeaders`），用 `requests` 发请求。平台名按字面量写，必须与 `muad.skill.json` 的 `platforms` 一致。详见 [`references/http-headers.md`](references/http-headers.md) 与 [`references/session-manager.md`](references/session-manager.md)。
+2. **对接平台 → 先取登录态，再用 requests 发请求**：脚本先用 `session-manager get-state --skill-name <skill>` 获取登录态（单平台/多平台都用这一种；平台集合由 Console 中该 Skill 关联的 `platforms` 决定），再从返回的 `sessionStateFile` 读取 `platforms.<平台名>.cookies` 和 `requestProfile`（`baseUrl` / `hostHeader` / `staticHeaders`），用 `requests` 发请求。平台名按字面量写，必须与 `muad.skill.json` 的 `platforms` 一致；`--platform` 是 agent 工作区/排查工具的单平台入口，不用于 Skill 脚本。取登录态失败时，从 CLI 的 `platform_sessions` 读实际失败平台，不要写死平台名。详见 [`references/http-headers.md`](references/http-headers.md) 与 [`references/session-manager.md`](references/session-manager.md)。
 3. **状态和结果分开保存**：跨轮次状态写到平台提供的 `SKILL_DATA_DIR`；报告、单次运行结果写到 `SKILL_OUTPUT_DIR`。不要覆盖这两个环境变量，也不要把持久状态写到 Skill 根目录或 `/tmp`。详见 [`references/skill-output-dir.md`](references/skill-output-dir.md)。
 4. **调用契约**：可执行 Skill 在 `SKILL.md` frontmatter 声明 `invocation_contract`，写明默认入口用 `argv` 还是 `stdin`，以及参数 schema。定时任务新 Draft 必须有契约；对话直接调用有契约时也会校验。详见 [`references/invocation-contract.md`](references/invocation-contract.md)。
 
@@ -132,7 +132,7 @@ body 用祈使句写指令，遵循“渐进式披露”——核心流程放 SK
 
 若 Step 1 确认要对接平台或有确定性逻辑，在 `scripts/` 下写 Python 脚本（默认入口 `scripts/run.py`）。脚本里三件事必须做对：
 
-1. **登录态与业务请求拆分**：先调用 `session-manager get-state --skill-name <skill>`（`<skill>` 硬编码且等于 manifest `name`），从返回的 `sessionStateFile` 读取平台 `cookies` 与 `requestProfile`（`baseUrl` / `hostHeader` / `staticHeaders`），再用 `requests` 发请求。平台名按字面量写，必须与 `muad.skill.json` 的 `platforms` 一致（不是 skill 名）。不要用 `subprocess` 调 `curl`/`wget` 发业务请求。
+1. **登录态与业务请求拆分**：先调用 `session-manager get-state --skill-name <skill>`（`<skill>` 硬编码且等于 manifest `name`；单平台/多平台都用这一种），从返回的 `sessionStateFile` 读取平台 `cookies` 与 `requestProfile`（`baseUrl` / `hostHeader` / `staticHeaders`），再用 `requests` 发请求。平台名按字面量写，必须与 `muad.skill.json` 的 `platforms` 一致（不是 skill 名）。`--platform` 是 agent 工作区/排查工具的单平台入口，不用于 Skill 脚本。不要用 `subprocess` 调 `curl`/`wget` 发业务请求。
 2. **写文件路径用 `os.environ.get("SKILL_OUTPUT_DIR")`**；为空时不要写文件。
 3. **失败必须写 stderr 并 exit 非 0**（fail loud），成功 stdout 只保留一个机器可读结果。
 

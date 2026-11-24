@@ -12,6 +12,7 @@ import threading
 import time
 import uuid
 from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -31,8 +32,7 @@ MCP_SECRET = "mcp-owner-secret"
 
 
 @dataclass(frozen=True)
-class LiveStack:
-    runtime_url: str
+class LiveServices:
     console_url: str
     llm_url: str
     mcp_url: str
@@ -58,6 +58,11 @@ class LiveStack:
             "X-Tenant-Id": self.tenant_id,
             "X-Internal-Service": INTERNAL_TOKEN,
         }
+
+
+@dataclass(frozen=True)
+class LiveStack(LiveServices):
+    runtime_url: str
 
 
 def _require(name: str, value: str | None) -> str:
@@ -360,8 +365,9 @@ def isolate_engine_caches() -> Iterator[None]:
     _clear_engine_caches()
 
 
-@pytest.fixture(scope="module")
-def live_stack(tmp_path_factory: pytest.TempPathFactory) -> Iterator[LiveStack]:
+@contextmanager
+def _live_services(tmp_path_factory: pytest.TempPathFactory) -> Iterator[LiveServices]:
+    """启动 Console 和外部探针，Runtime 的进程拓扑由用例选择。"""
     settings = SharedSettings()
     database_url = _require("DATABASE_URL", settings.database_url)
     _require("REDIS_URL", settings.redis_url)
@@ -385,16 +391,13 @@ def live_stack(tmp_path_factory: pytest.TempPathFactory) -> Iterator[LiveStack]:
     llm_server = _Server(llm_app)
     mcp_server = _Server(mcp_app)
     console_server = _Server(_console_app())
-    runtime_server = _Server(_runtime_app())
     llm_url = llm_server.start()
     mcp_url = mcp_server.start()
     ids = _seed_console(database_url, llm_url, mcp_url, artifact_root)
     console_url = console_server.start()
     os.environ["CONSOLE_PLATFORM_URL"] = console_url
-    runtime_url = runtime_server.start()
     try:
-        yield LiveStack(
-            runtime_url=runtime_url,
+        yield LiveServices(
             console_url=console_url,
             llm_url=llm_url,
             mcp_url=mcp_url,
@@ -408,13 +411,42 @@ def live_stack(tmp_path_factory: pytest.TempPathFactory) -> Iterator[LiveStack]:
             disabled_skill_key=str(ids["disabled_skill_key"]),
         )
     finally:
-        runtime_server.stop()
         console_server.stop()
         mcp_server.stop()
         llm_server.stop()
         _cleanup(database_url, ids, artifact_root)
         reset_settings_cache()
         _clear_engine_caches()
+
+
+@pytest.fixture(scope="module")
+def live_services(tmp_path_factory: pytest.TempPathFactory) -> Iterator[LiveServices]:
+    with _live_services(tmp_path_factory) as services:
+        yield services
+
+
+@pytest.fixture(scope="module")
+def live_stack(tmp_path_factory: pytest.TempPathFactory) -> Iterator[LiveStack]:
+    with _live_services(tmp_path_factory) as services:
+        runtime_server = _Server(_runtime_app())
+        runtime_url = runtime_server.start()
+        try:
+            yield LiveStack(
+                runtime_url=runtime_url,
+                console_url=services.console_url,
+                llm_url=services.llm_url,
+                mcp_url=services.mcp_url,
+                artifact_root=services.artifact_root,
+                tenant_id=services.tenant_id,
+                agent_id=services.agent_id,
+                platform_user_id=services.platform_user_id,
+                model_id=services.model_id,
+                mcp_server_id=services.mcp_server_id,
+                skill_key=services.skill_key,
+                disabled_skill_key=services.disabled_skill_key,
+            )
+        finally:
+            runtime_server.stop()
 
 
 def _clear_engine_caches() -> None:

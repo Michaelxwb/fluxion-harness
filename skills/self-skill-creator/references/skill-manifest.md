@@ -22,7 +22,7 @@
 |------|------|------|
 | `name` | ✅ | skill 名，必须与 SKILL.md frontmatter 的 `name` 一致，必须与草稿 key 一致 |
 | `author` | ✅ | 作者署名：姓名/工号/用户名，非空字符串，用于追溯“谁写的”。不要写密钥或内部信息 |
-| `platforms` | ❌ | 平台名数组（Console 里配置的自由字符串，如 `mssw`、`smoke_platform`）。声明后，`session-manager get-state --skill-name <skill>` 一次返回该 Skill 声明的全部平台凭证；任一平台未配置时调用失败（不做部分降级） |
+| `platforms` | ❌ | 平台名数组（Console 里配置的自由字符串，如 `mssw`、`smoke_platform`）。声明后，`session-manager get-state --skill-name <skill>` 一次返回该 Skill 声明的全部平台凭证；单平台/多平台都走这一种。任一平台失败时整体失败（不做部分降级），失败平台从 CLI 的 `platform_sessions` 读取。`--platform` 是 agent 工具，不用于 Skill 脚本 |
 | `version` | ✅ | 语义化版本号，如 `0.1.0` |
 | `entrypoint` | ❌ | 显式声明主入口脚本（相对路径，如 `scripts/run.py`）；缺省时按 SKILL.md 约定选择 |
 

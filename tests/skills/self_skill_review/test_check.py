@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -74,6 +75,23 @@ def test_platform_skill_requires_requests_and_session_manager() -> None:
     assert "SS-R005" in grouped
     assert "SS-R006" in grouped
     assert any("requests" in finding["message"] for finding in grouped["SS-R005"])
+
+
+def test_skill_script_platform_flag_is_rejected(tmp_path: Path) -> None:
+    target = tmp_path / "platform-flag-skill"
+    shutil.copytree(FIXTURES / "compliant-skill", target)
+    run_py = target / "scripts" / "run.py"
+    run_py.write_text(
+        run_py.read_text(encoding="utf-8").replace("--skill-name", "--platform"),
+        encoding="utf-8",
+    )
+
+    result = run_check(target, "--format", "json")
+
+    assert result.returncode == 1
+    grouped = findings_by_rule(json.loads(result.stdout))
+    assert "SS-R005" in grouped
+    assert any("--platform" in finding["message"] for finding in grouped["SS-R005"])
 
 
 def test_violating_skill_reports_rules_with_file_line() -> None:

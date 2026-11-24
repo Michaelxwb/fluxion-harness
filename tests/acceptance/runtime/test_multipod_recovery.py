@@ -18,10 +18,11 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+import pytest
 import sqlalchemy as sa
 from muad_common import SharedSettings
 
-from tests.acceptance.runtime.conftest import LiveStack, run_db
+from tests.acceptance.runtime.conftest import LiveServices, run_db
 
 ENTRY_ID = uuid.uuid4()
 
@@ -35,7 +36,7 @@ def _free_port() -> int:
         return int(sock.getsockname()[1])
 
 
-def _runtime_env(pod_name: str, stack: LiveStack) -> dict[str, str]:
+def _runtime_env(pod_name: str, stack: LiveServices) -> dict[str, str]:
     settings = SharedSettings()
     return {
         **os.environ,
@@ -53,7 +54,7 @@ def _runtime_env(pod_name: str, stack: LiveStack) -> dict[str, str]:
 
 
 class RuntimePod:
-    def __init__(self, pod_name: str, stack: LiveStack) -> None:
+    def __init__(self, pod_name: str, stack: LiveServices) -> None:
         self.pod_name = pod_name
         self._port = _free_port()
         self._process = subprocess.Popen(
@@ -107,11 +108,11 @@ class RuntimePod:
                 self.kill()
 
 
-def _headers(stack: LiveStack) -> dict[str, str]:
+def _headers(stack: LiveServices) -> dict[str, str]:
     return stack.runtime_headers()
 
 
-def _payload(stack: LiveStack, text: str, conversation_id: uuid.UUID) -> dict[str, Any]:
+def _payload(stack: LiveServices, text: str, conversation_id: uuid.UUID) -> dict[str, Any]:
     return {
         "agent_id": str(stack.agent_id),
         "platform_user_id": str(stack.platform_user_id),
@@ -126,8 +127,8 @@ def _payload(stack: LiveStack, text: str, conversation_id: uuid.UUID) -> dict[st
     }
 
 
-def _wait_running_with_lease(run_id: str, timeout_sec: float = 20.0) -> None:
-    """等 Run 真被 Pod 领取并持有租约后再杀；`run.created` 不保证 claim 已发生。"""
+def _wait_running_with_lease(run_id: str, pod_name: str, timeout_sec: float = 20.0) -> None:
+    """只有即将被强杀的 Pod 持有租约，才能验证回收路径。"""
 
     async def read(factory: Any) -> tuple[str, str | None]:
         async with factory() as session:
@@ -145,95 +146,103 @@ def _wait_running_with_lease(run_id: str, timeout_sec: float = 20.0) -> None:
     while time.monotonic() < deadline:
         status, owner = run_db(read)
         if status == "RUNNING" and owner:
+            assert owner.startswith(f"{pod_name}:"), (run_id, owner)
             return
         time.sleep(0.1)
     raise AssertionError(f"Run 未在 {timeout_sec}s 内进入 RUNNING+租约：{run_id}")
 
 
-def test_s04_e07_process_kill_reaped_and_takeover(live_stack: LiveStack) -> None:
-    """[S-04][E-07] Pod A 被强杀 → Reaper 回收 RUN_ABANDONED → Pod B 接管同一 conversation。"""
-    # 必须在起 Pod 之前设置：RuntimePod 是独立子进程，启动后再改测试进程 env 不会生效。
-    os.environ["OPENAI_PROBE_DELAY_MS"] = "60000"
-    pod_a = RuntimePod("pod-a", live_stack)
-    pod_b = RuntimePod("pod-b", live_stack)
+def _create_conversation(pod: RuntimePod, services: LiveServices) -> uuid.UUID:
+    response = httpx.post(
+        f"{pod.url}/v1/conversations",
+        json={
+            "agent_id": str(services.agent_id),
+            "platform_user_id": str(services.platform_user_id),
+            "channel": {"type": "WECOM", "entry_id": str(ENTRY_ID), "bot_id": "bot-acc"},
+        },
+        headers=_headers(services),
+        timeout=10,
+    )
+    assert response.status_code == 200, response.text
+    return uuid.UUID(response.json()["data"]["conversation_id"])
+
+
+def _start_run(pod: RuntimePod, services: LiveServices, conversation_id: uuid.UUID) -> str:
+    with httpx.stream(
+        "POST",
+        f"{pod.url}/v1/runs",
+        json=_payload(services, "crash me", conversation_id),
+        headers=_headers(services),
+        timeout=30,
+    ) as stream:
+        assert stream.status_code == 200
+        for line in stream.iter_lines():
+            if line.startswith("data:"):
+                event = json.loads(line[len("data:") :].strip())
+                assert event["type"] == "run.created"
+                return str(event["run_id"])
+    pytest.fail("Runtime 未发送 run.created")
+
+
+def _assert_reaped(pod: RuntimePod, services: LiveServices, run_id: str) -> None:
+    # CI 整跑时，Reaper 在租约过期后可能滞后一段时间才执行。
+    deadline = time.monotonic() + 120
+    data: dict[str, Any] = {}
+    while time.monotonic() < deadline:
+        response = httpx.get(
+            f"{pod.url}/v1/runs/{run_id}", headers=_headers(services), timeout=10
+        )
+        assert response.status_code == 200, response.text
+        data = response.json()["data"]
+        if data["status"] == "FAILED":
+            break
+        assert data["status"] == "RUNNING", data
+        time.sleep(0.5)
+    assert data["status"] == "FAILED", data
+    assert data["error_code"] == "RUN_ABANDONED", data
+    assert data["end_time"] is not None
+
+
+def _assert_takeover(
+    pod: RuntimePod, services: LiveServices, conversation_id: uuid.UUID, abandoned_run_id: str
+) -> None:
+    takeover = httpx.post(
+        f"{pod.url}/v1/runs",
+        json=_payload(services, "takeover", conversation_id),
+        headers=_headers(services),
+        timeout=30,
+    )
+    assert takeover.status_code == 200, takeover.text
+    events = [
+        json.loads(line[len("data:") :].strip())
+        for line in takeover.text.splitlines()
+        if line.startswith("data:")
+    ]
+    assert events[-1]["type"] == "run.completed"
+    assert events[-1]["data"]["status"] == "COMPLETED"
+    assert events[0]["run_id"] != abandoned_run_id
+
+
+def test_s04_e07_process_kill_reaped_and_takeover(live_services: LiveServices) -> None:
+    """[S-04][E-07] Pod A 被强杀 → Reaper 回收 RUN_ABANDONED → Pod B 接管同一会话。"""
+    script_url = f"{live_services.llm_url}/script"
+    pod_a = RuntimePod("pod-a", live_services)
     try:
-        conversation = httpx.post(
-            f"{pod_a.url}/v1/conversations",
-            json={
-                "agent_id": str(live_stack.agent_id),
-                "platform_user_id": str(live_stack.platform_user_id),
-                "channel": {"type": "WECOM", "entry_id": str(ENTRY_ID), "bot_id": "bot-acc"},
-            },
-            headers=_headers(live_stack),
-            timeout=10,
-        )
-        assert conversation.status_code == 200, conversation.text
-        conversation_id = uuid.UUID(conversation.json()["data"]["conversation_id"])
+        # 模型探针在测试进程内，显式设置探针行为并留出强杀窗口。
+        httpx.post(script_url, json={"delay_ms": 60_000}, timeout=10).raise_for_status()
+        conversation_id = _create_conversation(pod_a, live_services)
+        run_id = _start_run(pod_a, live_services, conversation_id)
+        _wait_running_with_lease(run_id, pod_a.pod_name)
 
-        # 在飞窗口必须远大于「读到 run.created → claim → kill」这段耗时：整跑负载下这段
-        # 可能到秒级；并且 run.created 早于 claim，必须等真实 lease 再杀。
-        # 探针是进程内 ASGI app（`await asyncio.sleep` 非阻塞），放大窗口不影响其它用例。
-        run_id: str | None = None
-        with httpx.stream(
-            "POST",
-            f"{pod_a.url}/v1/runs",
-            json=_payload(live_stack, "crash me", conversation_id),
-            headers=_headers(live_stack),
-            timeout=30,
-        ) as stream:
-            for line in stream.iter_lines():
-                if line.startswith("data:"):
-                    event = json.loads(line[len("data:") :].strip())
-                    assert event["type"] == "run.created"
-                    run_id = event["run_id"]
-                    break
-        assert run_id is not None
-        _wait_running_with_lease(run_id)
-        pod_a.kill()
-
-        # 另一实例的 Reaper 在 lease 过期后回收（RUN_ABANDONED 终态，GET Run 可见）。
-        # 栈的 lease=5s / reaper=1s，正常 6–8s 内回收；整跑负载下 Reaper 循环可能被拖慢，
-        # CI 曾在 60s 边界失败（64.62s 时才观察到状态变化）。这里给足 120s，
-        # 断言不变（仍必须 FAILED + RUN_ABANDONED）。
-        deadline = time.monotonic() + 120
-        data: dict[str, Any] = {}
-        while time.monotonic() < deadline:
-            response = httpx.get(
-                f"{live_stack.runtime_url}/v1/runs/{run_id}",
-                headers=_headers(live_stack),
-                timeout=10,
-            )
-            assert response.status_code == 200, response.text
-            data = response.json()["data"]
-            if data["status"] == "FAILED":
-                break
-            time.sleep(0.5)
-        assert data["status"] == "FAILED"
-        assert data["error_code"] == "RUN_ABANDONED"
-        assert data["end_time"] is not None
-
-        # S-04：Pod B 在同一 conversation 创建新 Run（无 sticky session），并真实执行完成
-        os.environ["OPENAI_PROBE_DELAY_MS"] = "0"
-        takeover = httpx.post(
-            f"{pod_b.url}/v1/runs",
-            json=_payload(live_stack, "takeover", conversation_id),
-            headers=_headers(live_stack),
-            timeout=30,
-        )
-        assert takeover.status_code == 200, takeover.text
-        events = []
-        for block in takeover.text.split("\n\n"):
-            data_lines = [
-                line[len("data:") :].lstrip()
-                for line in block.splitlines()
-                if line.startswith("data:")
-            ]
-            if data_lines:
-                events.append(json.loads("\n".join(data_lines)))
-        assert events[-1]["type"] == "run.completed"
-        assert events[-1]["data"]["status"] == "COMPLETED"
-        assert events[0]["run_id"] != run_id
+        # A 领取之后才启动 B，避免 B 抢到本次 Run。
+        pod_b = RuntimePod("pod-b", live_services)
+        try:
+            pod_a.kill()
+            _assert_reaped(pod_b, live_services, run_id)
+            httpx.post(script_url, json={}, timeout=10).raise_for_status()
+            _assert_takeover(pod_b, live_services, conversation_id, run_id)
+        finally:
+            pod_b.stop()
     finally:
-        os.environ.pop("OPENAI_PROBE_DELAY_MS", None)
-        pod_b.stop()
         pod_a.kill()
+        httpx.post(script_url, json={}, timeout=10).raise_for_status()

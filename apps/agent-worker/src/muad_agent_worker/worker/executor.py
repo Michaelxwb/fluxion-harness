@@ -522,6 +522,19 @@ class SkillTaskExecutor:
         }
 
 
+def _skill_platform_keys(skill: Mapping[str, Any]) -> Any:
+    """Read the frozen platform declaration.
+
+    Schedule snapshots freeze `SnapshotSkill` (platforms live under `frontmatter`);
+    immediate task snapshots carry a top-level `platforms` list. A present top-level
+    value wins so an explicit empty declaration is not silently replaced.
+    """
+    if "platforms" in skill:
+        return skill["platforms"]
+    frontmatter = skill.get("frontmatter")
+    return frontmatter.get("platforms", []) if isinstance(frontmatter, Mapping) else []
+
+
 def task_platform_context(
     task: TaskExecution,
     skill: Mapping[str, Any],
@@ -529,7 +542,7 @@ def task_platform_context(
     budget_scope: PlatformBudgetScope | None = None,
     settings: SharedSettings | None = None,
 ) -> SkillPlatformContext:
-    keys = skill.get("platforms", [])
+    keys = _skill_platform_keys(skill)
     if not isinstance(keys, list) or any(not isinstance(k, str) or not k for k in keys):
         raise TaskExecutionError("SKILL_PLATFORMS_INVALID", "Invalid Skill platforms", retryable=False)
     settings = settings or process_settings()

@@ -10,15 +10,24 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Literal
 
-from .egress_ipc_protocol import MAX_FRAME_BYTES, PROTOCOL_VERSION, AttemptMetadata, WireResponse, frame
+from .egress_ipc_protocol import (
+    MAX_FRAME_BYTES,
+    PROTOCOL_VERSION,
+    WINDOW_LIMIT_CODE,
+    AttemptMetadata,
+    WireResponse,
+    frame,
+)
 
 
 class IPCAdmissionError(RuntimeError):
     def __init__(
         self, code: str, *, scope: Literal["public", "execution", "invocation"] | None = None,
+        attempt_id: str | None = None,
     ) -> None:
         self.code = code
         self.scope = scope
+        self.attempt_id = attempt_id
         super().__init__(code)
 
 
@@ -36,10 +45,12 @@ def _receive(connection: socket.socket) -> WireResponse:
     if not result.ok:
         # Only fixed protocol codes are surfaced, never arbitrary server text.
         codes = {"IPC_INVALID_REQUEST", "IPC_TARGET_DENIED", "IPC_DEPENDENCY_UNAVAILABLE",
-                 "IPC_LIMIT_TOTAL", "IPC_LIMIT_WINDOW", "IPC_LIMIT_INFLIGHT", "IPC_BUSY",
+                 "IPC_LIMIT_TOTAL", WINDOW_LIMIT_CODE, "IPC_LIMIT_INFLIGHT", "IPC_BUSY",
                  "IPC_EXECUTION_EXPIRED"}
         code = result.code if result.code in codes else "IPC_UNAVAILABLE"
-        raise IPCAdmissionError(code, scope=result.scope)
+        raise IPCAdmissionError(
+            code, scope=result.scope, attempt_id=result.attempt_id if code == WINDOW_LIMIT_CODE else None,
+        )
     return result
 
 

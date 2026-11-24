@@ -34,6 +34,7 @@ class BusinessStatus(StrEnum):
     TIMED_OUT = "TIMED_OUT"
     CANCELLED = "CANCELLED"
     DENIED = "DENIED"
+    RATE_LIMITED = "RATE_LIMITED"
     #: 该调用不是业务执行（读取/诊断/草稿/workspace），或业务状态未知。
     NOT_APPLICABLE = "NOT_APPLICABLE"
     UNKNOWN = "UNKNOWN"

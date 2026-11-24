@@ -216,7 +216,7 @@ async def test_platform_prelogin_failure_keeps_the_platform_report(tmp_path) -> 
     )
 
     assert payload["error"]["code"] == "PLATFORM_AUTH_REJECTED"
-    assert payload["error"]["message"] == "platform session unavailable"
+    assert payload["error"]["message"] == "platform session unavailable: mssw"
     assert payload["platform_sessions"]["platforms"][0]["available"] is True
     assert payload["platform_sessions"]["platforms"][1]["available"] is False
 

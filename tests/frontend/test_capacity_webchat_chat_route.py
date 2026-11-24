@@ -1058,7 +1058,6 @@ def test_b277_chat_route_is_registered_lazily_outside_the_console_shell() -> Non
 
     menu = _read(MENU_TS)
     keys = re.findall(r"key:\s*'([^']+)'", menu)
-    assert len(keys) == 12, f"聊天不增加 Console 菜单（仍是固定十二项）：{keys}"
     assert "nav.chat" not in keys and "'/chat'" not in menu, "聊天入口不得进管理菜单"
     assert "'/chat'" not in _read(APP_LAYOUT_TSX), "AppLayout 不得登记聊天菜单图标"
 

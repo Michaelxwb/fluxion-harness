@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 
 import { ThemeButton } from './components/common/ThemeButton';
 import { useThemeMode } from './theme';
@@ -24,9 +24,9 @@ const OverviewPage = lazy(() =>
     default: module.OverviewPage
   }))
 );
-const EgressPage = lazy(() =>
-  import('./modules/overview-dashboard/pages/EgressPage').then((module) => ({
-    default: module.EgressPage
+const EgressManagementPage = lazy(() =>
+  import('./modules/egress-management/EgressManagementPage').then((module) => ({
+    default: module.EgressManagementPage
   }))
 );
 const AgentPage = lazy(() =>
@@ -138,7 +138,8 @@ export default function App() {
         }
       >
         <Route index element={<OverviewPage />} />
-        <Route path="overview/egress" element={<EgressPage />} />
+        <Route path="overview/egress" element={<Navigate to="/egress" replace />} />
+        <Route path="egress" element={<EgressManagementPage />} />
         <Route path="agents" element={<AgentPage />} />
         <Route path="skills" element={<SkillPage />} />
         <Route path="mcp" element={<McpPage />} />

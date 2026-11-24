@@ -8,3 +8,9 @@ def test_dev_start_installs_egress_hook_before_services() -> None:
     install = "uv run python -m muad_egress_site --install"
     assert install in script
     assert script.index("ensure_local_egress_hook || exit 1") < script.index('echo "== 启动服务 =="')
+
+
+def test_dev_worker_and_runtime_exclude_workspace_from_reload() -> None:
+    script = (Path(__file__).resolve().parents[1] / "scripts/dev.sh").read_text(encoding="utf-8")
+    assert '[ "$name" = "worker" ] || [ "$name" = "runtime" ]' in script
+    assert 'args+=(--reload-exclude ".data/**")' in script

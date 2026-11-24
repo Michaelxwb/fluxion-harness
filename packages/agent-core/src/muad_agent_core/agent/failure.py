@@ -39,9 +39,8 @@ def update_failure_state(
     if signal is None:
         return _progress(state)
     status = signal.business_status
-    if status == BusinessStatus.CANCELLED:
-        # A cancellation is neither progress nor a new failure; the live runner leaves the
-        # counters untouched so it does not erase the evidence that led to the cancellation.
+    if status in {BusinessStatus.CANCELLED, BusinessStatus.RATE_LIMITED}:
+        # These outcomes preserve previously observed failures and retry counts.
         return state
     if (
         status

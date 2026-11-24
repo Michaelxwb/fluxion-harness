@@ -247,7 +247,7 @@ class PlatformSettingsService:
     async def restore(
         self, tenant_id: str, actor: AuditActor, target_revision: int
     ) -> PlatformSettingsSnapshot:
-        """回滚：读目标版本 → 按**当前 schema** 校验 → 插入**新** revision → 写 RESTORE 审计。
+        """回滚目标版本的系统设置，保留最新出站配置，追加版本并写 RESTORE 审计。
 
         历史内容早于现行 schema 时校验失败即拒绝（异常由调用方映射为 400），
         **绝不改写或删除历史行**。
@@ -255,15 +255,15 @@ class PlatformSettingsService:
         target = await self._revision_row(tenant_id, target_revision)
         if target is None:
             raise PlatformSettingsRevisionNotFound(f"版本不存在：revision={target_revision}")
-        restored = parse_platform_settings(
-            target.settings_json, batch_platform_limit=_batch_platform_limit()
-        )
+        latest = await self._latest_row(tenant_id)
+        current = latest.revision if latest else 0
+        before = latest.settings_json if latest else None
+        document = dict(target.settings_json)
+        document.pop("egress", None)
+        if before is not None and "egress" in before:
+            document["egress"] = before["egress"]
+        restored = parse_platform_settings(document, batch_platform_limit=_batch_platform_limit())
         _validate_operation_settings(restored)
-        from .egress_policy import platform_rules
-
-        await platform_rules(self._session, tenant_id, restored)
-        current = await self._current_revision(tenant_id)
-        before = await self._revision_document(tenant_id, current) if current else None
         _require_non_decreasing_memory_quota(before, restored)
         row = await self._insert(
             tenant_id=tenant_id,

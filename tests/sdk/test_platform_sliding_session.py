@@ -195,8 +195,7 @@ async def test_real_skill_subprocess_calls_platform_and_touches_cache(
     assert len(keys) == 1
     key = next(iter(keys))
     await redis.expire(key, 1)
-    # No platform request in this execution: declaration alone renews the login on Skill start.
-    (tmp_path / "scripts/main.py").write_text('print("{}")')
+    # A later execution that actually uses the platform renews the same login.
     await ScriptSkillExecutor().execute(
         SkillExecutionRequest(
             ready_dir=tmp_path, input={}, timeout_sec=20, platform_context=execution_context

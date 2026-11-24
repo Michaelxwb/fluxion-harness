@@ -96,6 +96,8 @@ def test_semi_components_are_the_only_ui_library() -> None:
 NON_LIST_MODULE_PAGES = (
     "apps/console-platform/frontend/src/modules/overview-dashboard/pages/OverviewPage.tsx",
     "apps/console-platform/frontend/src/modules/overview-dashboard/pages/EgressPage.tsx",
+    # 出站管理页组织规则与监控页签，表格由各页签内容组件渲染。
+    "apps/console-platform/frontend/src/modules/egress-management/EgressManagementPage.tsx",
     "apps/console-platform/frontend/src/modules/settings/pages/SettingsPage.tsx",
     "apps/console-platform/frontend/src/modules/webchat/ChatPage.tsx",
     # 任务中心是深链容器：列表是卡片（ScheduleListPanel 自带分页），本文件不渲染表格/分页构件。

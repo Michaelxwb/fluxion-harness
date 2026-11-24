@@ -94,3 +94,25 @@ def test_markdown_and_json_keep_diagnostic_text_but_mask_secret() -> None:
     assert "skill failed diagnostic-原文" in json_text
     assert "sk-should-be-masked" not in json_text
     assert "sk-should-be-masked" not in markdown
+
+
+def test_calls_export_preserves_window_limit_without_a_run_failure() -> None:
+    from muad_console_platform.application.execution_export_render import (
+        render_calls_csv,
+        render_failures_csv,
+    )
+
+    report = {
+        "execution": {"status": "COMPLETED"},
+        "tool_calls": [{
+            "tool_name": "execute", "status": "OK", "business_status": "RATE_LIMITED",
+            "error_code": "LOCAL_RATE_LIMITED",
+        }],
+        "egress_calls": [{"result_status": "BLOCKED", "error_code": "LIMIT_WINDOW"}],
+        "diagnosis": {},
+    }
+    calls = render_calls_csv(report)
+    assert "RATE_LIMITED" in calls
+    assert "LOCAL_RATE_LIMITED" in calls
+    assert "LIMIT_WINDOW" in calls
+    assert "RATE_LIMITED" not in render_failures_csv(report)

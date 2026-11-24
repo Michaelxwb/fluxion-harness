@@ -240,7 +240,7 @@ apps/agent-runtime/src/muad_agent_runtime/application/executor.py,206,MCP_TOOL_P
 apps/agent-runtime/src/muad_agent_runtime/application/executor.py,208,POOL_RESELECTION_LIMIT,3,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/executor.py,210,POOL_CAPACITY_RETRY_INTERVAL_SEC,0.25,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/executor.py,212,MESSAGE_PROTOCOL_OVERHEAD_BYTES,32,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/executor.py,2295,SKILL_FAMILY_TOOLS,frozenset({'execute'}),python-constant,code,实现常量；不开放任意修改
+apps/agent-runtime/src/muad_agent_runtime/application/executor.py,2294,SKILL_FAMILY_TOOLS,frozenset({'execute'}),python-constant,code,实现常量；不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/experience_candidates.py,39,EXPERIENCE_TTL,timedelta(days=365),python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/experience_candidates.py,40,PROCEDURE,MemoryCategory.PROCEDURE,python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/finalization/facts.py,21,SCHEMA_VERSION,1,python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -387,26 +387,26 @@ apps/agent-runtime/src/muad_agent_runtime/application/schedule_promotion.py,45,_
 apps/agent-runtime/src/muad_agent_runtime/application/skill_draft_client.py,26,INTERNAL_SERVICE_HEADER,'X-Internal-Service',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/skill_draft_client.py,27,REVISION_HEADER,'X-Draft-Revision',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/skill_draft_client.py,28,DEFAULT_TIMEOUT_SEC,30.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,100,LOAD_SKILL_TOOL,'load_skill',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,101,READ_SKILL_RESOURCE_TOOL,'read_skill_resource',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,102,EXECUTE_SKILL_TOOL,'execute_skill',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,103,RUN_SKILL_SCRIPT_TOOL,'run_skill_script',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,104,SEARCH_SKILLS_TOOL,'search_skills',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,105,EXECUTE_TOOL,'execute',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,106,LOAD_SKILL_DESCRIPTION,"""Load a skill's manifest and full SKILL.md instructions by skill key.""",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,107,READ_SKILL_RESOURCE_TOOL_DESCRIPTION,'Read a file shipped inside a skill package (references/assets) by skill key and path.',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,111,SEARCH_SKILLS_DESCRIPTION,"'Search the available skills by keyword (matches key, name and description); omit query to list the catalog (bounded). The system prompt lists only the leading part of the catalog; use this to find any skill that is not listed there. Returns catalog entries, so a match can be passed straight to load_skill or execute target=skill.'",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,118,MAX_RESOURCE_BYTES,256 * 1024,python-constant,code,附件 / 工具限额实现常量（design §2.4 技术债③：留在各自服务，不迁入平台设置）
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,119,SKILL_NOT_EFFECTIVE,'SKILL_NOT_EFFECTIVE',python-constant,code,状态或错误码，不是时间参数
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,120,SKILL_RESOURCE_NOT_FOUND,'SKILL_RESOURCE_NOT_FOUND',python-constant,code,状态或错误码，不是时间参数
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,121,SKILL_SCRIPT_NOT_FOUND,'SKILL_SCRIPT_NOT_FOUND',python-constant,code,状态或错误码，不是时间参数
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,122,SKILL_EXECUTION_FAILED,'SKILL_EXECUTION_FAILED',python-constant,code,状态或错误码，不是时间参数
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,123,BACKGROUND_SUBMIT_FAILED,'BACKGROUND_SUBMIT_FAILED',python-constant,code,状态或错误码，不是时间参数
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,124,_STRING_SCHEMA,{'type': 'string'},python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,125,_OBJECT_SCHEMA,{'type': 'object'},python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,126,_ARGV_SCHEMA,"{'type': 'array', 'items': {'type': 'string'}, 'maxItems': MAX_SKILL_ARGV_ITEMS, 'description': 'Script arguments in order, preserving spaces and repeated flags as separate items.'}",python-constant,code,执行参数校验与工具契约的代码常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,132,_NUMBER_SCHEMA,"{'type': 'number', 'exclusiveMinimum': 0}",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,133,_CATALOG_RESOURCE_KEY,'skills:catalog',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,105,LOAD_SKILL_TOOL,'load_skill',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,106,READ_SKILL_RESOURCE_TOOL,'read_skill_resource',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,107,EXECUTE_SKILL_TOOL,'execute_skill',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,108,RUN_SKILL_SCRIPT_TOOL,'run_skill_script',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,109,SEARCH_SKILLS_TOOL,'search_skills',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,110,EXECUTE_TOOL,'execute',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,111,LOAD_SKILL_DESCRIPTION,"""Load a skill's manifest and full SKILL.md instructions by skill key.""",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,112,READ_SKILL_RESOURCE_TOOL_DESCRIPTION,'Read a file shipped inside a skill package (references/assets) by skill key and path.',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,116,SEARCH_SKILLS_DESCRIPTION,"'Search the available skills by keyword (matches key, name and description); omit query to list the catalog (bounded). The system prompt lists only the leading part of the catalog; use this to find any skill that is not listed there. Returns catalog entries, so a match can be passed straight to load_skill or execute target=skill.'",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,123,MAX_RESOURCE_BYTES,256 * 1024,python-constant,code,附件 / 工具限额实现常量（design §2.4 技术债③：留在各自服务，不迁入平台设置）
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,124,SKILL_NOT_EFFECTIVE,'SKILL_NOT_EFFECTIVE',python-constant,code,状态或错误码，不是时间参数
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,125,SKILL_RESOURCE_NOT_FOUND,'SKILL_RESOURCE_NOT_FOUND',python-constant,code,状态或错误码，不是时间参数
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,126,SKILL_SCRIPT_NOT_FOUND,'SKILL_SCRIPT_NOT_FOUND',python-constant,code,状态或错误码，不是时间参数
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,127,SKILL_EXECUTION_FAILED,'SKILL_EXECUTION_FAILED',python-constant,code,状态或错误码，不是时间参数
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,128,BACKGROUND_SUBMIT_FAILED,'BACKGROUND_SUBMIT_FAILED',python-constant,code,状态或错误码，不是时间参数
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,129,_STRING_SCHEMA,{'type': 'string'},python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,130,_OBJECT_SCHEMA,{'type': 'object'},python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,131,_ARGV_SCHEMA,"{'type': 'array', 'items': {'type': 'string'}, 'maxItems': MAX_SKILL_ARGV_ITEMS, 'description': 'Script arguments in order, preserving spaces and repeated flags as separate items.'}",python-constant,code,执行参数校验与工具契约的代码常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,137,_NUMBER_SCHEMA,"{'type': 'number', 'exclusiveMinimum': 0}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py,138,_CATALOG_RESOURCE_KEY,'skills:catalog',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/sse.py,13,SSE_MEDIA_TYPE,'text/event-stream',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/sse.py,14,HEARTBEAT_FRAME,': heartbeat\n\n',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/sse.py,15,SSE_HEADERS,"{'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no', 'Connection': 'keep-alive'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1763,30 +1763,30 @@ packages/agent-core/src/muad_agent_core/agent/recovery.py,39,OPERATION_WITHOUT_C
 packages/agent-core/src/muad_agent_core/agent/recovery.py,40,DENIED_BEFORE_PREPARED,'DENIED_BEFORE_PREPARED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/agent/recovery.py,41,SYNC_UNKNOWN,'SYNC_UNKNOWN',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/agent/recovery.py,42,COMPLETED,'COMPLETED',python-constant,code,状态或错误码，不是时间参数
-packages/agent-core/src/muad_agent_core/agent/runner.py,96,NODE_PREPARE_CONTEXT,'prepare_context',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,97,NODE_MODEL,'model',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,98,NODE_TOOLS,'tools',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,99,NODE_FINALIZE,'finalize',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,100,NODE_DECIDE,'decide',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,101,TOOL_BUDGET_EXHAUSTED,'tool call budget exhausted',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,102,TOOL_NOT_EXECUTED_CODE,'TOOL_NOT_EXECUTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,103,TOOL_NOT_EXECUTED,'tool call not executed after a deterministic failure',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,104,UNKNOWN_TOOL_TEMPLATE,'unknown tool: {name}',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,106,EMPTY_REPLY_NUDGE,'你上一轮没有输出任何正文。请直接给出结论；如果工具调用失败了，如实说明失败原因与下一步。',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,109,TOOL_BLOCKED_TEMPLATE,'tool blocked before execution: {reason}',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,110,TOOL_FAILED_TEMPLATE,'tool failed: {reason}',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,170,COMPLETED,'COMPLETED',python-constant,code,状态或错误码，不是时间参数
-packages/agent-core/src/muad_agent_core/agent/runner.py,171,WAITING_TOOL,'WAITING_TOOL',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,172,WAITING_INPUT,'WAITING_INPUT',python-constant,code,状态或错误码，不是时间参数
-packages/agent-core/src/muad_agent_core/agent/runner.py,173,BUDGET_EXCEEDED,'BUDGET_EXCEEDED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,175,NO_PROGRESS,'NO_PROGRESS',python-constant,code,实现常量；由 AST 盘点补录（2026-11-08）
-packages/agent-core/src/muad_agent_core/agent/runner.py,180,_SUSPENDED_STATUSES,"frozenset((str(AgentRunStatus.WAITING_INPUT), str(AgentRunStatus.WAITING_TOOL)))",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/agent-core/src/muad_agent_core/agent/runner.py,187,max_turns,DEFAULT_MAX_TURNS,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
-packages/agent-core/src/muad_agent_core/agent/runner.py,188,max_tool_calls,DEFAULT_MAX_TOOL_CALLS,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
-packages/agent-core/src/muad_agent_core/agent/runner.py,189,deadline_ms,DEFAULT_DEADLINE_MS,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
-packages/agent-core/src/muad_agent_core/agent/runner.py,190,max_model_retries,DEFAULT_MAX_MODEL_RETRIES,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
-packages/agent-core/src/muad_agent_core/agent/runner.py,191,max_identical_failures,DEFAULT_MAX_IDENTICAL_FAILURES,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
-packages/agent-core/src/muad_agent_core/agent/runner.py,329,_TOOL_STATUSES,"{'SUCCEEDED': 'OK', 'FAILED': 'ERROR', 'POLICY_DENIED': 'BLOCKED', 'NOT_FOUND': 'NOT_FOUND'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,97,NODE_PREPARE_CONTEXT,'prepare_context',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,98,NODE_MODEL,'model',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,99,NODE_TOOLS,'tools',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,100,NODE_FINALIZE,'finalize',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,101,NODE_DECIDE,'decide',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,102,TOOL_BUDGET_EXHAUSTED,'tool call budget exhausted',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,103,TOOL_NOT_EXECUTED_CODE,'TOOL_NOT_EXECUTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,104,TOOL_NOT_EXECUTED,'tool call not executed after a deterministic failure',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,105,UNKNOWN_TOOL_TEMPLATE,'unknown tool: {name}',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,107,EMPTY_REPLY_NUDGE,'你上一轮没有输出任何正文。请直接给出结论；如果工具调用失败了，如实说明失败原因与下一步。',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,110,TOOL_BLOCKED_TEMPLATE,'tool blocked before execution: {reason}',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,111,TOOL_FAILED_TEMPLATE,'tool failed: {reason}',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,171,COMPLETED,'COMPLETED',python-constant,code,状态或错误码，不是时间参数
+packages/agent-core/src/muad_agent_core/agent/runner.py,172,WAITING_TOOL,'WAITING_TOOL',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,173,WAITING_INPUT,'WAITING_INPUT',python-constant,code,状态或错误码，不是时间参数
+packages/agent-core/src/muad_agent_core/agent/runner.py,174,BUDGET_EXCEEDED,'BUDGET_EXCEEDED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,176,NO_PROGRESS,'NO_PROGRESS',python-constant,code,实现常量；由 AST 盘点补录（2026-11-08）
+packages/agent-core/src/muad_agent_core/agent/runner.py,181,_SUSPENDED_STATUSES,"frozenset((str(AgentRunStatus.WAITING_INPUT), str(AgentRunStatus.WAITING_TOOL)))",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/agent-core/src/muad_agent_core/agent/runner.py,188,max_turns,DEFAULT_MAX_TURNS,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
+packages/agent-core/src/muad_agent_core/agent/runner.py,189,max_tool_calls,DEFAULT_MAX_TOOL_CALLS,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
+packages/agent-core/src/muad_agent_core/agent/runner.py,190,deadline_ms,DEFAULT_DEADLINE_MS,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
+packages/agent-core/src/muad_agent_core/agent/runner.py,191,max_model_retries,DEFAULT_MAX_MODEL_RETRIES,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
+packages/agent-core/src/muad_agent_core/agent/runner.py,192,max_identical_failures,DEFAULT_MAX_IDENTICAL_FAILURES,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
+packages/agent-core/src/muad_agent_core/agent/runner.py,335,_TOOL_STATUSES,"{'SUCCEEDED': 'OK', 'FAILED': 'ERROR', 'POLICY_DENIED': 'BLOCKED', 'NOT_FOUND': 'NOT_FOUND'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/agent/suspension.py,34,HUMAN_INPUT,'HUMAN_INPUT',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 packages/agent-core/src/muad_agent_core/agent/suspension.py,35,TOOL_OPERATION,'TOOL_OPERATION',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 packages/agent-core/src/muad_agent_core/agent/suspension.py,40,TERMINAL_OPERATION_STATUSES,"frozenset((OperationStatus.COMPLETED, OperationStatus.FAILED, OperationStatus.CANCELLED, OperationStatus.LATE))",python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1923,12 +1923,12 @@ packages/agent-core/src/muad_agent_core/skill/draft_shell.py,87,ZIP_SYMLINK_MODE
 packages/agent-core/src/muad_agent_core/skill/executor.py,31,TERMINATE_GRACE_SEC,2.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/skill/executor.py,32,ENV_ALLOWLIST,"('PATH', 'HOME', 'LANG')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/skill/executor.py,34,PLATFORM_SUMMARY_LIMIT,300,python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/skill/sandboxed.py,59,VALID_SOURCES,"frozenset({'SYSTEM', 'ADMIN', 'USER'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/skill/sandboxed.py,60,_SAFE_COMPONENT_RE,re.compile('^[A-Za-z0-9._-]+$'),python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/skill/sandboxed.py,61,_WORKSPACE_DATA,'data',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/skill/sandboxed.py,62,_WORKSPACE_OUTPUTS,'outputs',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/skill/sandboxed.py,63,_OUTPUT_LIMIT_NOTICE,'SANDBOX_OUTPUT_LIMIT',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/skill/sandboxed.py,65,SESSION_SANDBOX_ROOT,'/tmp/fx-session',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/skill/sandboxed.py,60,VALID_SOURCES,"frozenset({'SYSTEM', 'ADMIN', 'USER'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/skill/sandboxed.py,61,_SAFE_COMPONENT_RE,re.compile('^[A-Za-z0-9._-]+$'),python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/skill/sandboxed.py,62,_WORKSPACE_DATA,'data',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/skill/sandboxed.py,63,_WORKSPACE_OUTPUTS,'outputs',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/skill/sandboxed.py,64,_OUTPUT_LIMIT_NOTICE,'SANDBOX_OUTPUT_LIMIT',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/skill/sandboxed.py,66,SESSION_SANDBOX_ROOT,'/tmp/fx-session',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/skill/selection.py,23,SCRIPTS_DIR,'scripts',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/skill/selection.py,24,MAIN_SCRIPT,'main.py',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/skill/selection.py,25,SKILL_FILE,'SKILL.md',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1949,14 +1949,15 @@ packages/agent-core/src/muad_agent_core/tools/outcome.py,33,FAILED,'FAILED',pyth
 packages/agent-core/src/muad_agent_core/tools/outcome.py,34,TIMED_OUT,'TIMED_OUT',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
 packages/agent-core/src/muad_agent_core/tools/outcome.py,35,CANCELLED,'CANCELLED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
 packages/agent-core/src/muad_agent_core/tools/outcome.py,36,DENIED,'DENIED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/tools/outcome.py,38,NOT_APPLICABLE,'NOT_APPLICABLE',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/tools/outcome.py,39,UNKNOWN,'UNKNOWN',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/agent-core/src/muad_agent_core/tools/outcome.py,43,NONE,'NONE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/agent-core/src/muad_agent_core/tools/outcome.py,44,TOOL,'TOOL',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/tools/outcome.py,45,CONTENT,'CONTENT',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/tools/outcome.py,48,FAILURE_STATUSES,"frozenset((BusinessStatus.FAILED, BusinessStatus.TIMED_OUT, BusinessStatus.DENIED))",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/tools/outcome.py,52,NON_FAILURE_STATUSES,"frozenset((BusinessStatus.SUCCEEDED, BusinessStatus.NOT_APPLICABLE, BusinessStatus.UNKNOWN))",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/tools/outcome.py,249,_SKILL_STATUSES,"frozenset(('SUCCEEDED', 'FAILED', 'TIMED_OUT', 'CANCELLED'))",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/outcome.py,37,RATE_LIMITED,'RATE_LIMITED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/outcome.py,39,NOT_APPLICABLE,'NOT_APPLICABLE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/outcome.py,40,UNKNOWN,'UNKNOWN',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/agent-core/src/muad_agent_core/tools/outcome.py,44,NONE,'NONE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/agent-core/src/muad_agent_core/tools/outcome.py,45,TOOL,'TOOL',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/outcome.py,46,CONTENT,'CONTENT',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/outcome.py,49,FAILURE_STATUSES,"frozenset((BusinessStatus.FAILED, BusinessStatus.TIMED_OUT, BusinessStatus.DENIED))",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/outcome.py,53,NON_FAILURE_STATUSES,"frozenset((BusinessStatus.SUCCEEDED, BusinessStatus.NOT_APPLICABLE, BusinessStatus.UNKNOWN))",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/outcome.py,250,_SKILL_STATUSES,"frozenset(('SUCCEEDED', 'FAILED', 'TIMED_OUT', 'CANCELLED'))",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/tools/pipeline.py,30,JSON_OBJECT,"TypeAdapter(dict[str, JsonValue])",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/tools/pipeline.py,31,REDACTED_KEYS,"frozenset({'api_key', 'secret', 'token', 'password'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/tools/planner.py,22,DEFAULT_PARALLEL_LIMIT,4,python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -2757,8 +2758,12 @@ packages/platform-sdk/src/muad_platform_sdk/egress_boundary.py,11,PROTOCOLS,"fro
 packages/platform-sdk/src/muad_platform_sdk/egress_boundary.py,25,max_bytes,MAX_BYTES_DEFAULT,policy-field,business-resource,出网 Egress 资源策略默认；随项目平台 / MCP 资源配置管理，不迁入平台设置
 packages/platform-sdk/src/muad_platform_sdk/egress_boundary.py,26,timeout_sec,10.0,policy-field,business-resource,出网 Egress 资源策略默认；随项目平台 / MCP 资源配置管理，不迁入平台设置
 packages/platform-sdk/src/muad_platform_sdk/egress_client.py,12,RESOLVE_EGRESS_PATH,'/internal/runtime/resolve-egress-access',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/platform-sdk/src/muad_platform_sdk/egress_ipc.py,44,MAX_WINDOW_DENIALS,64,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/platform-sdk/src/muad_platform_sdk/egress_ipc_protocol.py,10,MAX_FRAME_BYTES,4096,python-constant,code,IPC 协议、启动标识或进程内实现状态；不是默认业务限额
-packages/platform-sdk/src/muad_platform_sdk/egress_ipc_protocol.py,11,PROTOCOL_VERSION,6,python-constant,code,IPC 协议、启动标识或进程内实现状态；不是默认业务限额
+packages/platform-sdk/src/muad_platform_sdk/egress_ipc_protocol.py,11,PROTOCOL_VERSION,7,python-constant,code,IPC 协议、启动标识或进程内实现状态；不是默认业务限额
+packages/platform-sdk/src/muad_platform_sdk/egress_ipc_protocol.py,12,WINDOW_LIMIT_CODE,'IPC_LIMIT_WINDOW',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/platform-sdk/src/muad_platform_sdk/egress_ipc_protocol.py,13,WINDOW_LIMIT_EXIT,79,python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/platform-sdk/src/muad_platform_sdk/egress_ipc_protocol.py,14,WINDOW_LIMIT_MARKER,'MUAD_EGRESS_WINDOW_LIMIT:',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/platform-sdk/src/muad_platform_sdk/egress_segment_scripts.py,4,SEGMENT_CONTROL,"_SERVER_GENERATION + ""\nlocal guard, scope, index, segment = KEYS[1], KEYS[2], KEYS[3], KEYS[4]\nif redis.call('TYPE', guard).ok ~= 'hash' or redis.call('TYPE', scope).ok ~= 'hash' or\n   redis.call('TYPE', index).ok ~= 'hash' then return {'CORRUPT'} end\nif redis.call('HGET', guard, 'epoch') ~= ARGV[1] or\n   redis.call('HGET', index, '__guard__') ~= ARGV[1] then return {'EPOCH'} end\nlocal generation_ok = server_generation(guard, false)\nif not generation_ok then return {'SERVER_GENERATION'} end\nif redis.call('HGET', scope, 'identity') ~= ARGV[2] or\n   redis.call('HGET', index, ARGV[3]) ~= ARGV[2] then return {'MISSING_SCOPE'} end\nlocal fence, lease, margin = tonumber(ARGV[4]), tonumber(ARGV[6]), tonumber(ARGV[7])\nif not fence or fence <= 0 or fence >= 9007199254740991 or\n   fence ~= math.floor(fence) or ARGV[4] ~= string.format('%.0f', fence) or\n   ARGV[5] == '' or (ARGV[8] ~= 'activate' and ARGV[8] ~= 'stopped') or\n   not lease or not margin or lease ~= math.floor(lease) or margin ~= math.floor(margin) or\n   lease < 0 or margin < 0 then return {'INVALID'} end\nif ARGV[8] == 'activate' and (lease <= 0 or margin <= 0) then return {'INVALID'} end\nlocal now = redis.call('TIME')\nlocal ms = tonumber(now[1]) * 1000 + math.floor(tonumber(now[2]) / 1000)\nlocal last = tonumber(redis.call('HGET', guard, 'last_ms') or '')\nif not last then return {'CORRUPT'} end\nif ms < last then return {'CLOCK'} end\nlocal until_ms, safe_after = ms + lease, ms + lease + margin\nif safe_after >= 9007199254740991 then return {'INVALID'} end\nlocal marker = redis.call('HGET', index, 'segment:' .. ARGV[3])\nlocal kind = redis.call('TYPE', segment).ok\nlocal scope_marker = redis.call('HGET', scope, 'segment_key')\nif marker or scope_marker then\n  if scope_marker ~= segment or marker ~= segment then return {'MISSING_SEGMENT'} end\n  if marker ~= segment or kind ~= 'hash' then return {'MISSING_SEGMENT'} end\n  if redis.call('HGET', segment, 'epoch') ~= ARGV[1] or\n     redis.call('HGET', segment, 'identity') ~= ARGV[2] then return {'CORRUPT'} end\n  local old_raw = redis.call('HGET', segment, 'fence') or ''\n  local old_fence = tonumber(old_raw)\n  local old_until = tonumber(redis.call('HGET', segment, 'until_ms') or '')\n  local old_safe = tonumber(redis.call('HGET', segment, 'safe_after') or '')\n  if not old_fence or old_fence <= 0 or old_raw ~= string.format('%.0f', old_fence) or\n     not old_until or not old_safe or old_safe < old_until or\n     old_until < 0 or old_until ~= math.floor(old_until) or\n     old_safe ~= math.floor(old_safe) or old_safe >= 9007199254740991 then return {'CORRUPT'} end\n  if fence < old_fence then return {'FENCE'} end\n  if fence == old_fence then\n    if redis.call('HGET', segment, 'segment_id') ~= ARGV[5] then return {'FENCE'} end\n    if ARGV[8] == 'activate' then\n      if ms >= old_until then return {'EXPIRED'} end\n      until_ms = math.max(old_until, until_ms)\n      safe_after = math.max(old_safe, until_ms + margin)\n    end\n  elseif ARGV[8] == 'stopped' then return {'FENCE'}\n  elseif ms < old_safe then return {'BUSY'} end\nelse\n  if kind ~= 'none' or ARGV[8] ~= 'activate' then return {'MISSING_SEGMENT'} end\nend\nif ARGV[8] == 'stopped' then until_ms, safe_after = 0, ms end\nif safe_after >= 9007199254740991 then return {'INVALID'} end\n-- All state/argument checks precede the first mutation: Lua has no rollback.\nredis.call('HSET', guard, 'last_ms', ms)\nredis.call('HSET', index, 'segment:' .. ARGV[3], segment)\nredis.call('HSET', scope, 'segment_key', segment)\nredis.call('HSET', segment, 'epoch', ARGV[1], 'identity', ARGV[2], 'fence', ARGV[4],\n           'segment_id', ARGV[5], 'until_ms', string.format('%.0f', until_ms),\n           'safe_after', string.format('%.0f', safe_after))\nreturn {'OK'}\n""",python-constant,code,执行段一致性协议与 Lua 原语；不作为业务可调限额
 packages/platform-sdk/src/muad_platform_sdk/egress_segment_scripts.py,69,_SEGMENT_GATE,"""\nlocal guard, segment, index, scope = KEYS[#KEYS - 3], KEYS[#KEYS - 2], KEYS[#KEYS - 1], KEYS[#KEYS]\nlocal epoch, fence = ARGV[#ARGV - 4], ARGV[#ARGV - 3]\nlocal segment_id, identity, scope_name = ARGV[#ARGV - 2], ARGV[#ARGV - 1], ARGV[#ARGV]\nif redis.call('TYPE', guard).ok ~= 'hash' or redis.call('TYPE', segment).ok ~= 'hash' or\n   redis.call('TYPE', index).ok ~= 'hash' or redis.call('TYPE', scope).ok ~= 'hash' then\n  return {'MISSING_SEGMENT'}\nend\nif redis.call('HGET', guard, 'epoch') ~= epoch or\n   redis.call('HGET', segment, 'epoch') ~= epoch then return {'EPOCH'} end\nif redis.call('HGET', scope, 'segment_key') ~= segment or\n   redis.call('HGET', index, 'segment:' .. scope_name) ~= segment then return {'MISSING_SEGMENT'} end\nif redis.call('HGET', segment, 'identity') ~= identity or\n   redis.call('HGET', segment, 'fence') ~= fence or\n   redis.call('HGET', segment, 'segment_id') ~= segment_id then return {'FENCE'} end\nlocal now = redis.call('TIME')\nlocal ms = tonumber(now[1]) * 1000 + math.floor(tonumber(now[2]) / 1000)\nlocal last = tonumber(redis.call('HGET', guard, 'last_ms') or '')\nlocal expires = tonumber(redis.call('HGET', segment, 'until_ms') or '')\nif not last or not expires or expires ~= math.floor(expires) or\n   expires >= 9007199254740991 then return {'CORRUPT'} end\nif ms < last then return {'CLOCK'} end\nif ms >= expires then return {'EXPIRED_SEGMENT'} end\nlocal original_keys, original_args = {}, {}\nfor i = 1, #KEYS - 4 do original_keys[i] = KEYS[i] end\nfor i = 1, #ARGV - 5 do original_args[i] = ARGV[i] end\nlocal decision, attempt = original_keys[decision_position], original_args[attempt_position]\nif redis.call('TYPE', decision).ok ~= 'hash' then return {'CORRUPT'} end\nlocal owner = cjson.encode({segment, fence, segment_id})\nlocal recorded_owner = redis.call('HGET', decision, '__segment_owner:' .. attempt)\nif operation_kind ~= 'admit' or redis.call('HEXISTS', decision, attempt) == 1 then\n  if recorded_owner ~= owner then return {'FENCE'} end\nelseif recorded_owner and recorded_owner ~= owner then return {'FENCE'} end\nlocal result = operation(original_keys, original_args)\nif operation_kind == 'admit' and (result[1] == 'OK' or result[1] == 'DUPLICATE') then\n  redis.call('HSET', decision, '__segment_owner:' .. attempt, owner)\nend\nreturn result\n""",python-constant,code,执行段一致性协议与 Lua 原语；不作为业务可调限额
 packages/platform-sdk/src/muad_platform_sdk/egress_segment_scripts.py,118,FENCED_OPERATIONS,"{ADMIT: _fenced(ADMIT, 'admit', 3, 3), CONSUME: _fenced(CONSUME, 'consume', 2, 2), RENEW: _fenced(RENEW, 'renew', 1, 1)}",python-constant,code,执行段一致性协议与 Lua 原语；不作为业务可调限额

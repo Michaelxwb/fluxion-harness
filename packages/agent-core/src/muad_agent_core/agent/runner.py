@@ -59,10 +59,11 @@ from ..model.provider import (
     ModelRole,
     ModelToolCall,
     ModelUsage,
+    text_of,
 )
 from ..prompt.builder import DefaultPromptBuilder, PromptBuilder, PromptSkill
 from ..tools.identity import AssistantTurn, PreparedCall, ToolCall
-from ..tools.outcome import ExecutionOutcome, tool_exception_outcome
+from ..tools.outcome import BusinessStatus, ExecutionOutcome, tool_exception_outcome
 from ..tools.pipeline import RunnableToolCall, ToolExecutionPipeline, build_prepared_call
 from ..tools.planner import (
     DEFAULT_PARALLEL_LIMIT,
@@ -244,6 +245,7 @@ class AgentRunResult:
     last_failure: dict[str, str] | None = None
     #: 终止事实：Runtime 的 facts/renderer 只读它，不再解析 Kernel 的进程内 state。
     termination: TerminationSnapshot | None = None
+    reply_append: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -275,6 +277,10 @@ class AgentRunState(TypedDict):
     input_tokens: int | None
     output_tokens: int | None
     budget_exhausted: bool
+    window_limited: bool
+    window_limit_reply: str | None
+    reply_append: str | None
+    assistant_tool_text: str
     #: 同一 (工具, 错误码) 的连续失败计数；任一工具成功即清零（"有进展"）。
     identical_failures: dict[str, int]
     #: 失败重复次数达到上限：终态按 NO_PROGRESS 收尾，不再发起模型调用。
@@ -398,11 +404,13 @@ class AgentRunner:
         parallel_limit: int = DEFAULT_PARALLEL_LIMIT,
         answer_verifier: Callable[[str], Awaitable[tuple[bool, str]]] | None = None,
         verification_max_attempts: int = 1,
+        window_limit_reply: Callable[[str | None], str] | None = None,
     ) -> None:
         if verification_max_attempts < 1:
             raise ValueError("verification_max_attempts must be >= 1")
         self._answer_verifier = answer_verifier
         self._verification_max_attempts = verification_max_attempts
+        self._window_limit_reply = window_limit_reply
         self._provider = provider
         self._registry = registry
         self._hooks = hooks or HookPipeline()
@@ -479,6 +487,7 @@ class AgentRunner:
                 final["last_failure"].as_legacy_dict() if final["last_failure"] else None
             ),
             termination=self._snapshot(final),
+            reply_append=final["reply_append"],
         )
 
     async def _emit_stop_hook(self, *, final_text: str, turns: int, error: bool) -> None:
@@ -524,6 +533,8 @@ class AgentRunner:
         )
         run_input = request.run_input
         restored = FailureState.from_payload(progress.failure_state)
+        window_reply = self._window_limit_reply(effective_locale) if self._window_limit_reply else None
+        recovered_limit = progress.recovered_window_limit and window_reply is not None
         return AgentRunState(
             model_id=request.model_id,
             instructions=request.instructions,
@@ -536,12 +547,16 @@ class AgentRunner:
             pending_tool_calls=[],
             run_input=run_input,
             active_skills=set(request.active_skills),
-            final_text="",
+            final_text=progress.recovered_window_text if recovered_limit else "",
             turns=progress.turns,
             tool_calls_used=progress.tool_calls,
             input_tokens=progress.input_tokens,
             output_tokens=progress.output_tokens,
             budget_exhausted=False,
+            window_limited=recovered_limit,
+            window_limit_reply=window_reply,
+            reply_append=None,
+            assistant_tool_text=progress.recovered_window_text if recovered_limit else "",
             identical_failures=dict(restored.identical_failures),
             no_progress=restored.no_progress,
             last_failure=restored.last_failure,
@@ -568,6 +583,9 @@ class AgentRunner:
 
         失败收尾不再调用模型：所有终止出口都只记录事实，由 Runtime 平台直出（design §4.5）。
         """
+        if state["window_limited"]:
+            self._ensure_runnable(state)
+            return await self._finalize(state)
         while True:
             state = self._remember(await self._prepare_context(state))
             prepared = self._route_after_prepare(state)
@@ -700,6 +718,7 @@ class AgentRunner:
             "messages": [*state["messages"], assistant],
             "pending_tool_calls": list(calls),
             "final_text": response.content,
+            "assistant_tool_text": state["assistant_tool_text"] + (response.content if calls else ""),
             "turns": state["turns"] + 1,
             "input_tokens": _usage_sum(state["input_tokens"], response.input_tokens),
             "output_tokens": _usage_sum(state["output_tokens"], response.output_tokens),
@@ -741,8 +760,14 @@ class AgentRunner:
             for batch in batches:
                 # 取消/失约取消整批（TaskGroup 传播）；批内单调用失败只变成对应失败 ToolResult。
                 self._ensure_runnable(state)
-                if state["no_progress"]:
-                    self._append_not_executed(messages, executed, batch)
+                if state["no_progress"] or state["window_limited"]:
+                    self._append_not_executed(
+                        messages, executed, batch,
+                        reason=(
+                            "tool call not executed after a platform rate limit"
+                            if not state["no_progress"] else TOOL_NOT_EXECUTED
+                        ),
+                    )
                     continue
                 outcomes = await self._run_batch(state, batch)
                 for planned, outcome in zip(batch.calls, outcomes, strict=True):
@@ -937,8 +962,10 @@ class AgentRunner:
         messages: list[ModelMessage],
         executed: list[tuple[int, str, str, _CallOutcome]],
         batch: ToolBatch,
+        *,
+        reason: str,
     ) -> None:
-        """确定性失败后的批次止损：后续调用零执行，但每个声明都得到显式结果。"""
+        """Every declared call gets a result, including calls skipped after an early stop."""
         for planned in batch.calls:
             call = ToolCall(
                 call_id=planned.call_id,
@@ -948,7 +975,7 @@ class AgentRunner:
             )
             outcome = tool_exception_outcome(
                 code=TOOL_NOT_EXECUTED_CODE,
-                message=TOOL_NOT_EXECUTED,
+                message=reason,
                 retryable=False,
             )
             result = ToolResult(
@@ -956,7 +983,7 @@ class AgentRunner:
                     {
                         "error": {
                             "code": TOOL_NOT_EXECUTED_CODE,
-                            "message": TOOL_NOT_EXECUTED,
+                            "message": reason,
                         }
                     },
                     ensure_ascii=False,
@@ -978,6 +1005,12 @@ class AgentRunner:
             else:
                 self._apply_failure(state, None)
                 return
+        if (
+            execution.business_status is BusinessStatus.RATE_LIMITED
+            and state["window_limit_reply"] is not None
+        ):
+            state["window_limited"] = True
+            return
         signal = FailureSignal(
             tool=execution.tool_name or tool_name,
             tool_call_id=execution.call_id,
@@ -1120,14 +1153,55 @@ class AgentRunner:
             )
         )
 
+    async def _append_window_limit(self, state: AgentRunState) -> AgentRunState:
+        """Complete the answer from settled results while keeping tool dispatch closed."""
+        self._ensure_runnable(state)
+        notice = state["window_limit_reply"]
+        assert notice is not None
+        body = state["assistant_tool_text"]
+        summary = ""
+        if state["turns"] < state["policy"].max_turns:
+            try:
+                response = await self._window_limit_answer(state)
+            except (RunnerCancelled, RunnerDeadlineExceeded):
+                raise
+            except Exception as exc:  # noqa: BLE001 - optional answer must not replace the confirmed notice
+                logger.warning("window_limit_answer_unavailable", extra={"error_type": type(exc).__name__})
+            else:
+                state = {
+                    **state,
+                    "turns": state["turns"] + 1,
+                    "input_tokens": _usage_sum(state["input_tokens"], response.input_tokens),
+                    "output_tokens": _usage_sum(state["output_tokens"], response.output_tokens),
+                }
+                if response.finish_reason and not response.tool_calls:
+                    summary = response.content.strip()
+        self._ensure_runnable(state)
+        tail = "\n\n".join(part for part in (summary, notice) if part)
+        append = ("\n\n" if body else "") + tail
+        return {**state, "final_text": body + append, "reply_append": append}
+
+    async def _window_limit_answer(self, state: AgentRunState) -> ModelResponse:
+        system, *history = state["messages"]
+        instruction = (
+            "A platform query was stopped by a frequency limit. Answer the user's request from the "
+            "available, confirmed results. State which requested data is still unavailable; never "
+            "invent missing results. Do not call tools. The platform will add the rate-limit notice."
+        )
+        return await self._invoke_model(
+            state,
+            ModelRequest(
+                model_id=state["model_id"],
+                messages=(replace(system, content=f"{text_of(system.content)}\n\n{instruction}"), *history),
+                temperature=state["temperature"],
+                max_tokens=state["max_tokens"],
+                params=state["params"],
+            ),
+            stream=False,
+        )
+
     async def _finalize(self, state: AgentRunState) -> AgentRunState:
         await self._emit_post_model(state)
-        self._stop_emitted = True
-        context = await self._hooks.run(
-            HookEvent.STOP,
-            {"final_text": state["final_text"], "turns": state["turns"]},
-        )
-        final_text = context.payload.get("final_text", state["final_text"])
         suspended = state["status"] in _SUSPENDED_STATUSES
         exceeded = not suspended and (
             state["budget_exhausted"]
@@ -1139,17 +1213,21 @@ class AgentRunner:
             status = str(AgentRunStatus.BUDGET_EXCEEDED)
         else:
             status = state["status"]
-        return {
-            **state,
-            "final_text": final_text if isinstance(final_text, str) else state["final_text"],
-            "status": status,
-        }
+        if state["window_limited"] and status == AgentRunStatus.COMPLETED:
+            state = await self._append_window_limit(state)
+        text = state["final_text"]
+        self._stop_emitted = True
+        context = await self._hooks.run(HookEvent.STOP, {"final_text": text, "turns": state["turns"]})
+        final_text = context.payload.get("final_text")
+        return {**state, "final_text": final_text if isinstance(final_text, str) else text, "status": status}
 
     def _snapshot(self, state: AgentRunState) -> TerminationSnapshot:
         """把终止事实冻结成 Runtime 可消费的形状；budget subtype 从计数器推导。"""
         policy = state["policy"]
         suspended = state["status"] in _SUSPENDED_STATUSES
-        if suspended or state["no_progress"]:
+        if suspended or state["no_progress"] or (
+            state["window_limited"] and state["status"] == AgentRunStatus.COMPLETED
+        ):
             budget_kind = BudgetKind.NONE
         elif state["turns"] >= policy.max_turns:
             budget_kind = BudgetKind.TURN
@@ -1252,7 +1330,10 @@ class AgentRunner:
 
     @staticmethod
     def _route_after_tools(state: AgentRunState) -> str:
-        if state["budget_exhausted"] or state["no_progress"] or state["status"] in _SUSPENDED_STATUSES:
+        if (
+            state["budget_exhausted"] or state["no_progress"] or state["window_limited"]
+            or state["status"] in _SUSPENDED_STATUSES
+        ):
             # 两类挂起（等人 / 等外部操作）都在这里收口：继续跑模型回合等于把挂起当没发生。
             return NODE_FINALIZE
         return NODE_PREPARE_CONTEXT

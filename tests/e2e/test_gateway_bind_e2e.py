@@ -86,6 +86,32 @@ async def engine() -> AsyncIterator[AsyncEngine]:
     await engine.dispose()
 
 
+async def _wait_for_identity(
+    engine: AsyncEngine,
+    *,
+    tenant_id: str,
+    user_id: uuid.UUID,
+    timeout: float = 5.0,
+) -> list[tuple[uuid.UUID]]:
+    """Console 的 `get_session` 在响应后提交；绑定接口返回不等于行已可见。"""
+    deadline = time.monotonic() + timeout
+    while True:
+        async with engine.connect() as connection:
+            identity = (
+                await connection.execute(
+                    text(
+                        "SELECT platform_user_id FROM control.channel_identity "
+                        "WHERE tenant_id = :tenant_id AND platform_user_id = :user_id "
+                        "AND is_deleted = false"
+                    ),
+                    {"tenant_id": tenant_id, "user_id": user_id},
+                )
+            ).all()
+        if identity or time.monotonic() >= deadline:
+            return list(identity)
+        await asyncio.sleep(0.1)
+
+
 async def test_s02_gateway_bind_creates_identity_without_grant(
     console_server: str, engine: AsyncEngine
 ) -> None:
@@ -166,16 +192,8 @@ async def test_s02_gateway_bind_creates_identity_without_grant(
         assert response.bound is True
         assert response.platform_user_id == user_id
 
+        identity = await _wait_for_identity(engine, tenant_id=tenant_id, user_id=user_id)
         async with engine.connect() as connection:
-            identity = (
-                await connection.execute(
-                    text(
-                        "SELECT platform_user_id FROM control.channel_identity "
-                        "WHERE tenant_id = :tenant_id AND platform_user_id = :user_id AND is_deleted = false"
-                    ),
-                    {"tenant_id": tenant_id, "user_id": user_id},
-                )
-            ).all()
             code_status = await connection.scalar(
                 text("SELECT status FROM control.bind_code WHERE id = :id"), {"id": bind_code_id}
             )

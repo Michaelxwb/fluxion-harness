@@ -14,7 +14,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from muad_agent_core.skill import ScriptSkillExecutor, SkillExecutionError, SkillExecutionRequest
+from muad_agent_core.skill import ScriptSkillExecutor, SkillExecutionRequest
+from muad_agent_core.tools import ToolCall, ToolError
 from muad_agent_runtime.application.skill_tools import DraftShellContext, SkillToolSet
 
 from tests.acceptance.user_skill_sandbox.draft_shell_support import (
@@ -80,15 +81,15 @@ async def test_s03_session_state_file_and_legacy_stdout(tmp_path: Path, chain: S
 async def test_s03_unauthorized_platform_returns_platform_access_denied(
     tmp_path: Path,
 ) -> None:
-    """[S-03] 未授权平台：Console 拒绝，执行返回 PLATFORM_ACCESS_DENIED。"""
+    """[S-03] 未授权平台：脚本取 state 时 Console 拒绝，执行非零退出。"""
     async with open_session_chain() as chain:
         root = _package(tmp_path, chain, platform="mssw")
         context = replace(chain.context, platform_keys=("mssw",))
-        with pytest.raises(SkillExecutionError) as captured:
-            await ScriptSkillExecutor().execute(
-                SkillExecutionRequest(ready_dir=root, input={}, timeout_sec=30.0, platform_context=context)
-            )
-    assert captured.value.code == "PLATFORM_ACCESS_DENIED"
+        result = await ScriptSkillExecutor().execute(
+            SkillExecutionRequest(ready_dir=root, input={}, timeout_sec=30.0, platform_context=context)
+        )
+    assert result.exit_code != 0
+    assert "PLATFORM_ACCESS_DENIED" in result.stderr
 
 
 def _dev_unsafe_runner_factory():
@@ -131,12 +132,17 @@ def _draft_toolset(
 
 
 async def _call_draft_shell(toolset: SkillToolSet, *, command: str) -> dict[str, Any]:
-    return json.loads(
-        await toolset.execute(
-            {"target": "draft", "draft_id": str(uuid.uuid4()), "command": command},
-            call_id="call-s03",
-        )
-    )
+    arguments = {
+        "target": "draft",
+        "draft_id": str(uuid.uuid4()),
+        "command": command,
+    }
+    call = ToolCall(call_id="call-s03", name="execute", arguments=arguments)
+    try:
+        result = await toolset.execute(arguments, call=call)
+    except ToolError as exc:
+        return json.loads(exc.content())
+    return json.loads(result.content)
 
 
 async def test_s03_draft_shell_gets_session_state_and_deletes_it() -> None:
@@ -178,7 +184,7 @@ async def test_s03_draft_shell_gets_session_state_and_deletes_it() -> None:
 
 
 async def test_s03_draft_shell_unauthorized_platform_returns_access_denied() -> None:
-    """[S-03] 草稿声明未授权平台时返回 PLATFORM_ACCESS_DENIED。"""
+    """[S-03] 草稿声明未授权平台时，真正取 state 才返回 PLATFORM_ACCESS_DENIED。"""
     async with open_session_chain() as chain:
         skill_name = "draft-session-denied"
         store = MemoryDraftStore(
@@ -191,11 +197,21 @@ async def test_s03_draft_shell_unauthorized_platform_returns_access_denied() -> 
                         "platforms: [mssw]\n"
                         "---\n"
                     ),
-                    "scripts/probe.py": "print('should not run')\n",
+                    "scripts/probe.py": (
+                        "import json, subprocess\n"
+                        "p = subprocess.run(['session-manager', 'get-state', '--platform', 'mssw'],"
+                        " capture_output=True, text=True)\n"
+                        "print(json.dumps({'exit': p.returncode,"
+                        " 'error': json.loads(p.stderr)['error']['code']}))\n"
+                    ),
                 }
             )
         )
         toolset = _draft_toolset(chain, store=store, actor_user_id=chain.actor_user_id)
         payload = await _call_draft_shell(toolset, command="python scripts/probe.py")
 
-    assert payload["error"]["code"] == "PLATFORM_ACCESS_DENIED", payload
+    assert payload["exit_code"] == 0, payload
+    assert json.loads(payload["stdout"]) == {
+        "exit": 1,
+        "error": "PLATFORM_ACCESS_DENIED",
+    }

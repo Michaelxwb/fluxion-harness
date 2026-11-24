@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import mimetypes
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
@@ -37,6 +38,9 @@ from muad_agent_core.skill import (
 )
 from muad_agent_core.skill.selection import select_entry_script
 from muad_agent_core.tools import (
+    ArtifactRef,
+    ArtifactRole,
+    ExecutionOutcome,
     ToolAssembly,
     ToolCall,
     ToolCapability,
@@ -49,6 +53,7 @@ from muad_agent_core.tools import (
     shell_outcome,
     skill_result_outcome,
 )
+from muad_agent_core.tools.outcome import BusinessStatus, FailureLayer
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache, SkillArtifactCacheError
@@ -616,7 +621,7 @@ class SkillToolSet:
                     ErrorCode.COMMON_VALIDATION_ERROR.value, "platforms must be a non-empty list"
                 )
             selected = tuple(dict.fromkeys(key.strip() for key in keys))
-            platform = replace(platform, platform_keys=selected, require_all_platforms=True)
+            platform = replace(platform, platform_keys=selected, authorize_selection=True)
             timeout_sec = _optional_timeout(arguments, limit=self._timeout_sec)
             platform, broker = await self._workspace_platform_scope(platform, call_id, timeout_sec)
             cwd = arguments.get("cwd", WORKSPACE_MOUNT)
@@ -634,9 +639,13 @@ class SkillToolSet:
         except (WorkspaceError, SandboxError, SkillExecutionError) as exc:
             raise ToolError(exc.code, exc.message) from exc
         except PlatformAuthError as exc:
+            failed = _failed_platform_keys(exc.platform_sessions)
+            message = "platform session unavailable"
+            if failed:
+                message = f"{message}: {', '.join(failed)}"
             raise ToolError(
                 exc.code,
-                "platform session unavailable",
+                message,
                 platform_sessions=exc.platform_sessions,
             ) from exc
         except SkillToolError:
@@ -949,18 +958,7 @@ class SkillToolSet:
                 timeout_sec=timeout_sec,
             )
             self._record_execution(skill, result)
-            outputs = await self._register_outputs(result)
-            return ToolResult(
-                content=_execution_payload(result, outputs),
-                outcome=skill_result_outcome(
-                    status=str(result.status),
-                    stdout=result.stdout,
-                    stderr=result.stderr,
-                    result=result.result,
-                    exit_code=result.exit_code,
-                    output_truncated=result.output_truncated,
-                ),
-            )
+            return _skill_tool_result(result, await self._register_outputs(result))
         finally:
             if lease is not None:
                 await self._release_execution_workspace(lease)
@@ -1022,6 +1020,7 @@ class SkillToolSet:
         invocation = await host.host_invocation(operation_key=operation_key, skill_key=skill.key)
         broker = host.broker(
             invocation, deadline_seconds=timeout_sec, load_platform_base_urls=self._load_platform_base_urls,
+            capture_window_denials=True,
         )
         if context is not None:
             context = replace(
@@ -1362,6 +1361,52 @@ def _manifest_payload(package: SkillPackage) -> dict[str, Any]:
     return payload
 
 
+def _skill_tool_result(result: SkillExecutionResult, outputs: Sequence[Mapping[str, Any]]) -> ToolResult:
+    if result.platform_window_limited:
+        return _window_limited_result(result, outputs)
+    return ToolResult(
+        content=_execution_payload(result, outputs),
+        outcome=skill_result_outcome(
+            status=str(result.status),
+            stdout=result.stdout,
+            stderr=result.stderr,
+            result=result.result,
+            exit_code=result.exit_code,
+            output_truncated=result.output_truncated,
+        ),
+    )
+
+
+def _window_limited_result(
+    result: SkillExecutionResult, outputs: Sequence[Mapping[str, Any]],
+) -> ToolResult:
+    artifacts = tuple(
+        ArtifactRef(
+            artifact_id=str(entry["artifact_id"]),
+            media_type=mimetypes.guess_type(str(entry["relative_path"]))[0] or "application/octet-stream",
+            filename=PurePosixPath(str(entry["relative_path"])).name,
+            checksum=str(entry["checksum"]),
+            size=int(entry["size"]),
+            role=ArtifactRole.ATTACHMENT,
+        )
+        for entry in outputs if entry.get("artifact_id")
+    )
+    return ToolResult(
+        content=json.dumps({
+            "status": BusinessStatus.RATE_LIMITED,
+            "error_code": "LOCAL_RATE_LIMITED",
+            "output_artifact_ids": [artifact.artifact_id for artifact in artifacts],
+        }),
+        outcome=ExecutionOutcome(
+            business_status=BusinessStatus.RATE_LIMITED,
+            failure_layer=FailureLayer.CONTENT,
+            error_code="LOCAL_RATE_LIMITED",
+            exit_code=result.exit_code,
+        ),
+        artifacts=artifacts,
+    )
+
+
 def _execution_payload(result: SkillExecutionResult, outputs: Sequence[Mapping[str, Any]] = ()) -> str:
     payload: dict[str, Any] = {
         "status": result.status.value,
@@ -1400,6 +1445,23 @@ def _workspace_result(result: Any) -> ToolResult:
             output_truncated=result.output_truncated,
         ),
     )
+
+
+def _failed_platform_keys(report: Mapping[str, object] | None) -> tuple[str, ...]:
+    """Point the model at the platform(s) that actually failed, not the first key."""
+    if not isinstance(report, Mapping):
+        return ()
+    platforms = report.get("platforms")
+    if not isinstance(platforms, list):
+        return ()
+    keys: list[str] = []
+    for item in platforms:
+        if not isinstance(item, Mapping) or item.get("available") is not False:
+            continue
+        key = item.get("key")
+        if isinstance(key, str) and key:
+            keys.append(key)
+    return tuple(dict.fromkeys(keys))
 
 
 def skill_platform_keys(frontmatter: Mapping[str, Any]) -> tuple[str, ...]:

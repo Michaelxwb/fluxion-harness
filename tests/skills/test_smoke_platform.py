@@ -72,3 +72,31 @@ def test_smoke_validates_trace_after_requests_overwrites_it(monkeypatch, path: s
     response._content = json.dumps({"traceId": caller_trace}).encode()
     with pytest.raises(RuntimeError, match="did not echo the sent TraceId"):
         get_json(base, path, {"TraceId": caller_trace})
+
+
+@pytest.mark.unit
+def test_smoke_preserves_window_denial_for_the_launcher(monkeypatch, tmp_path) -> None:
+    import muad_egress_launch
+    import muad_egress_site
+    from muad_platform_sdk.egress_ipc_client import IPCAdmissionError
+    from muad_platform_sdk.egress_ipc_protocol import WINDOW_LIMIT_CODE, WINDOW_LIMIT_EXIT
+
+    denied = IPCAdmissionError(WINDOW_LIMIT_CODE, attempt_id=uuid4().hex)
+
+    def reject(*args, **kwargs):
+        raise denied
+
+    state = tmp_path / "state.json"
+    state.write_text(json.dumps({"platforms": {"smoke_platform": {
+        "requestProfile": {"baseUrl": "https://smoke.test"},
+    }}}))
+    monkeypatch.setattr(requests, "get", reject)
+    monkeypatch.setattr(muad_egress_site, "ready", lambda: True)
+    monkeypatch.setenv(muad_egress_site.SOCKET_ENV, "/test/smoke.sock")
+    monkeypatch.delenv("MUAD_SESSION_SOCKET", raising=False)
+    monkeypatch.setenv("MUAD_LOCAL_SESSION_STATE", str(state))
+    monkeypatch.setattr(sys, "argv", ["launcher", str(SAMPLE / "scripts/run.py")])
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    with pytest.raises(SystemExit) as exc:
+        muad_egress_launch.main()
+    assert exc.value.code == WINDOW_LIMIT_EXIT
