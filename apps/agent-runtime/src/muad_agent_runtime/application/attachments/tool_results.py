@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from muad_agent_core.tools.result_budget import RoundCandidate, select_round_persists
 from muad_logging import get_logger
 from pydantic import JsonValue
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -46,45 +47,9 @@ def preview_head_tail(text: str, *, head_bytes: int, tail_bytes: int) -> str:
 
 
 @dataclass(frozen=True, slots=True)
-class RoundCandidate:
-    """整轮里一个**未被单条阈值命中**的工具结果。"""
-
-    tool_call_id: str
-    size_bytes: int
-
-
-@dataclass(frozen=True, slots=True)
 class PreparedToolResults:
     rows: tuple[Artifact, ...] = ()
     references: Mapping[str, dict[str, JsonValue]] = field(default_factory=dict)
-
-
-def select_round_persists(
-    candidates: Sequence[RoundCandidate],
-    *,
-    persist_threshold_bytes: int,
-    round_budget_bytes: int,
-) -> tuple[str, ...]:
-    """整轮批次预算的选取（纯逻辑，design §2.3 FEAT-02）。
-
-    两段判定，都不涉及 IO：
-    1. 单条 **严格大于** `persist_threshold_bytes` ⇒ 必落盘（沿用既有单项阈值）；
-    2. 剩下的合计若仍 **严格大于** `round_budget_bytes`，按字节**从大到小**逐条落盘，
-       一进预算就停（先落大的收敛最快）。
-
-    返回需要落盘的 `tool_call_id`（顺序稳定：超阈值的按入参顺序，补落的按「大到小 + id」）。
-    """
-    over = [item for item in candidates if item.size_bytes > persist_threshold_bytes]
-    rest = [item for item in candidates if item.size_bytes <= persist_threshold_bytes]
-    remaining = sum(item.size_bytes for item in rest)
-
-    selected = list(over)
-    for item in sorted(rest, key=lambda entry: (-entry.size_bytes, entry.tool_call_id)):
-        if remaining <= round_budget_bytes:
-            break
-        selected.append(item)
-        remaining -= item.size_bytes
-    return tuple(item.tool_call_id for item in selected)
 
 
 def reference_payload(reference: Mapping[str, Any]) -> str:

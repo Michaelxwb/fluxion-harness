@@ -6,7 +6,6 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 
 from muad_common import process_settings
 from muad_contracts import OperationStatus, canonical_json
-from muad_contracts.platform_settings import ToolResultSettings
 from muad_logging import get_logger
 from pydantic import JsonValue
 from sqlalchemy import select
@@ -21,12 +20,17 @@ from ...infrastructure.models.runtime import (
     RuntimeSnapshot,
 )
 from ...metrics import CONTEXT_COMPACTION_METRIC, record_outcome
+from muad_agent_core.tools.result_budget import (
+    RoundCandidate,
+    ToolResultBudget,
+    derive_tool_result_budget,
+    select_round_persists,
+)
+
 from ..attachments.tool_results import (
     ArtifactResultWriter,
     PreparedToolResults,
-    RoundCandidate,
     reference_payload,
-    select_round_persists,
 )
 from ..context_settings import compaction_settings_of
 from ..run_events import EventWriter
@@ -51,7 +55,7 @@ def external_data(event_type: str, payload: Mapping[str, object]) -> str:
 
 async def _read_batch(
     factory: SessionFactory, identity: ExecutionIdentity, limit: int
-) -> tuple[RunRecord, tuple[ToolResultInbox, ...], ToolResultSettings]:
+) -> tuple[RunRecord, tuple[ToolResultInbox, ...], ToolResultBudget]:
     async with factory() as session:
         run = await session.scalar(
             select(RunRecord).where(
@@ -85,7 +89,7 @@ async def _read_batch(
             )
         )
         frozen = compaction_settings_of(snapshot.policy_json) if snapshot else None
-    return run, rows, frozen.tool_result if frozen else ToolResultSettings()
+    return run, rows, derive_tool_result_budget(frozen)
 
 
 async def materialize_results(
@@ -93,7 +97,7 @@ async def materialize_results(
     identity: ExecutionIdentity,
     *,
     writer: ArtifactResultWriter | None = None,
-    settings: ToolResultSettings | None = None,
+    settings: ToolResultBudget | None = None,
     batch_limit: int = 16,
 ) -> tuple[CanonicalEvent, ...]:
     if isinstance(batch_limit, bool) or not 1 <= batch_limit <= 100:
@@ -144,7 +148,7 @@ async def _prepare(
     writer: ArtifactResultWriter,
     run: RunRecord,
     rows: tuple[ToolResultInbox, ...],
-    settings: ToolResultSettings,
+    settings: ToolResultBudget,
 ) -> PreparedToolResults:
     texts = {str(row.id): result_text(row.payload_json) for row in rows}
     selected = set(
@@ -392,7 +396,7 @@ async def materialize_late_results(
     for run, rows in groups:
         prepared = PreparedToolResults()
         try:
-            prepared = await _prepare(publisher, run, rows, ToolResultSettings())
+            prepared = await _prepare(publisher, run, rows, derive_tool_result_budget())
             committed += await _commit_late(factory, run, rows, prepared)
         except Exception as exc:  # noqa: BLE001 - 物化失败退化为内联，不丢事实
             logger.warning(

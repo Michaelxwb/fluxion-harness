@@ -15,7 +15,8 @@ from muad_agent_runtime.application.context_compaction import RuntimeContextComp
 from muad_agent_runtime.infrastructure.models.async_tools import ToolResultInbox
 from muad_agent_runtime.infrastructure.models.runtime import Artifact, CanonicalEvent, RunRecord
 from muad_contracts import canonical_json
-from muad_contracts.platform_settings import CompactionSettings, SummarySettings, ToolResultSettings
+from muad_agent_core.tools.result_budget import ToolResultBudget
+from muad_contracts.platform_settings import CompactionSettings, SummarySettings
 from muad_platform_sdk.types import SecretValue
 from sqlalchemy import func, select
 
@@ -71,9 +72,13 @@ async def test_e09_external_data_user_role_preserves_system_and_original_tool_pa
     events = await materialize_results(factory, identity)
     assert len(events) == 1
     builder = DbBackedContextBuilder(session_factory=lambda: factory)
-    history = await builder.load_history(
-        tenant_id=run.tenant_id, conversation_id=run.conversation_id, user_id=None
+    loaded = await builder.load_history(
+        tenant_id=run.tenant_id,
+        conversation_id=run.conversation_id,
+        user_id=None,
+        budget_tokens=100_000,
     )
+    history = loaded.messages
     system = ModelMessage(ModelRole.SYSTEM, "Original authority")
     actual = []
 
@@ -109,9 +114,12 @@ async def test_e09_external_data_user_role_preserves_system_and_original_tool_pa
         assert inbox.payload_json == received.model_dump(mode="json") and inbox.materialized
         assert inbox.canonical_event_id == events[0].id
     rebuilt = await builder.load_history(
-        tenant_id=run.tenant_id, conversation_id=run.conversation_id, user_id=None
+        tenant_id=run.tenant_id,
+        conversation_id=run.conversation_id,
+        user_id=None,
+        budget_tokens=100_000,
     )
-    assert rebuilt == history
+    assert rebuilt.messages == history
 
 
 @pytest.mark.parametrize("extra", [0, 1])
@@ -121,7 +129,7 @@ async def test_b03_exact_utf8_threshold_and_one_byte_over(async_tool_database, t
     request = await receipt(factory, run, op, {"body": "中" * 100 + "x" * extra})
     baseline = request.model_copy(update={"result": {"body": "中" * 100}})
     threshold = len(result_text(baseline.model_dump(mode="json")).encode("utf-8"))
-    settings = ToolResultSettings(
+    settings = ToolResultBudget(
         persist_threshold_bytes=threshold,
         round_budget_bytes=100_000,
         preview_head_bytes=40,
@@ -142,9 +150,13 @@ async def test_b03_exact_utf8_threshold_and_one_byte_over(async_tool_database, t
         else:
             assert await session.scalar(select(func.count()).select_from(Artifact)) == 0
     builder = DbBackedContextBuilder(session_factory=lambda: factory)
-    history = await builder.load_history(
-        tenant_id=run.tenant_id, conversation_id=run.conversation_id, user_id=None
+    loaded = await builder.load_history(
+        tenant_id=run.tenant_id,
+        conversation_id=run.conversation_id,
+        user_id=None,
+        budget_tokens=100_000,
     )
+    history = loaded.messages
     assert history[0].role == ModelRole.USER
     assert ("artifact_id" in history[0].content) is bool(extra)
 
@@ -158,7 +170,7 @@ async def test_b03_multi_result_round_budget_selects_whole_batch(async_tool_data
         factory,
         identity,
         writer=ArtifactResultWriter(tmp_path),
-        settings=ToolResultSettings(persist_threshold_bytes=10_000, round_budget_bytes=600),
+        settings=ToolResultBudget(persist_threshold_bytes=10_000, round_budget_bytes=600, preview_head_bytes=0, preview_tail_bytes=0),
     )
     assert len(events) == 3 and sum(row.artifact_id is not None for row in events) == 2
     assert [row.payload_json["source_tool_call_id"] for row in events] == [
@@ -193,7 +205,7 @@ async def test_e10_batch_io_failure_rolls_back_all_artifacts_and_summary_keeps_h
     before = render_metrics()
     with caplog.at_level(logging.WARNING):
         events = await materialize_results(
-            factory, identity, writer=writer, settings=ToolResultSettings(persist_threshold_bytes=50)
+            factory, identity, writer=writer, settings=ToolResultBudget(persist_threshold_bytes=50, round_budget_bytes=100_000, preview_head_bytes=0, preview_tail_bytes=0)
         )
     assert len(events) == 2 and all(row.artifact_id is None for row in events)
     assert not list(tmp_path.rglob("result.bin"))
@@ -207,15 +219,19 @@ async def test_e10_batch_io_failure_rolls_back_all_artifacts_and_summary_keeps_h
     )
     assert increment == 1
     builder = DbBackedContextBuilder(session_factory=lambda: factory)
-    history = await builder.load_history(
-        tenant_id=run.tenant_id, conversation_id=run.conversation_id, user_id=None
+    loaded = await builder.load_history(
+        tenant_id=run.tenant_id,
+        conversation_id=run.conversation_id,
+        user_id=None,
+        budget_tokens=100_000,
     )
+    history = loaded.messages
     messages = (
         ModelMessage(ModelRole.SYSTEM, "protected"),
         ModelMessage(ModelRole.USER, "old"),
         ModelMessage(ModelRole.ASSISTANT, "older reply"),
-        ModelMessage(ModelRole.USER, "current"),
         *history,
+        ModelMessage(ModelRole.USER, "current", message_id="current"),
     )
 
     async def failed_summary(items):
@@ -223,7 +239,8 @@ async def test_e10_batch_io_failure_rolls_back_all_artifacts_and_summary_keeps_h
 
     compactor = RuntimeContextCompactor(
         settings=CompactionSettings(
-            summary=SummarySettings(enabled=True, threshold_bytes=1, model_ref="frozen-summary")
+            history_budget_tokens=100_000,
+            summary=SummarySettings(enabled=True, model_ref="frozen-summary"),
         ),
         tenant_id=run.tenant_id,
         run_id=run.id,
@@ -234,10 +251,17 @@ async def test_e10_batch_io_failure_rolls_back_all_artifacts_and_summary_keeps_h
     )
     with caplog.at_level(logging.WARNING):
         summary_before = _failed_counter(render_metrics(), "summary")
-        from muad_agent_core.context.plan import plan_context, render_context
+        from muad_agent_core.context.plan import RunInput, plan_context, render_context
 
-        plan = plan_context(messages, run_input=None, active_skills=())
-        assert render_context(await compactor.compact_plan(plan)) == messages
+        plan = plan_context(
+            messages,
+            run_input=RunInput("current", "current"),
+            active_skills=(),
+            covered_seq=0,
+            material_scan_end_seq=10_000,
+            earlier_records=1,
+        )
+        assert render_context(await compactor.compact_plan(plan))
     assert "context_summary_call_failed" in caplog.text
     assert _failed_counter(render_metrics(), "summary") == summary_before + 1
 
@@ -258,7 +282,7 @@ async def test_e10_real_artifact_transaction_failure_rolls_back_whole_batch(
     monkeypatch.setattr(writer, "prepare_round", duplicate_identity)
     with caplog.at_level(logging.WARNING):
         events = await materialize_results(
-            factory, identity, writer=writer, settings=ToolResultSettings(persist_threshold_bytes=50)
+            factory, identity, writer=writer, settings=ToolResultBudget(persist_threshold_bytes=50, round_budget_bytes=100_000, preview_head_bytes=0, preview_tail_bytes=0)
         )
     assert len(events) == 2 and all(row.artifact_id is None for row in events)
     assert not list(tmp_path.rglob("result.bin"))
@@ -287,7 +311,7 @@ async def test_b03_epoch_change_during_artifact_io_rolls_back_unreferenced_batch
     monkeypatch.setattr(writer, "prepare_round", take_over)
     with pytest.raises(ExecutionLeaseLost):
         await materialize_results(
-            factory, identity, writer=writer, settings=ToolResultSettings(persist_threshold_bytes=50)
+            factory, identity, writer=writer, settings=ToolResultBudget(persist_threshold_bytes=50, round_budget_bytes=100_000, preview_head_bytes=0, preview_tail_bytes=0)
         )
     assert not list(tmp_path.rglob("result.bin"))
     async with factory() as session:
@@ -315,7 +339,7 @@ async def test_e10_cancel_during_file_publication_removes_prepared_files(async_t
             finally:
                 done.set()
     task = asyncio.create_task(materialize_results(factory, identity, writer=GatedWriter(tmp_path),
-        settings=ToolResultSettings(persist_threshold_bytes=1)))
+        settings=ToolResultBudget(persist_threshold_bytes=1, round_budget_bytes=100_000, preview_head_bytes=0, preview_tail_bytes=0)))
     assert await asyncio.to_thread(started.wait, 5)
     task.cancel()
     release.set()

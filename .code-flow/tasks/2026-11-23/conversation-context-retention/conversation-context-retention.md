@@ -288,7 +288,7 @@
   - context-fit-summary PASS exit=0
 ## TASK-004: 整轮工具结果外置与预览派生
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001
 - **Source**: conversation-context-retention.backend.design.md §1 D1.1、§2.1；conversation-context-retention.prd.md FEAT-01
 - **Scenarios**: B-01
@@ -333,11 +333,11 @@
 
 ### Checklist
 
-- [ ] `ToolResultBudget` 的派生值与边界（阈值 0、阈值大于整轮预算、单条超预算）有纯逻辑测试。
-- [ ] Runtime 与 Worker 写入侧使用同一派生函数。
-- [ ] 整轮结果外置后最新工具往返内联大小有界。
-- [ ] 预览头尾受阈值与 `PREVIEW_CAP_BYTES` 上限约束。
-- [ ] 删除旧字段读取与对应测试，不保留兼容参数。
+- [x] `ToolResultBudget` 的派生值与边界（阈值 0、阈值大于整轮预算、单条超预算）有纯逻辑测试。
+- [x] Runtime 与 Worker 写入侧使用同一派生函数。
+- [x] 整轮结果外置后最新工具往返内联大小有界。
+- [x] 预览头尾受阈值与 `PREVIEW_CAP_BYTES` 上限约束。
+- [x] 删除旧字段读取与对应测试，不保留兼容参数。
 
 ### Spec Delta
 
@@ -348,13 +348,15 @@
 ### Log
 
 - [2026-11-25] created；待任务边界复核。
+- [2026-11-24T17:05:41.365Z] started tests=670c75d7f120
 
 ### Verification
 
 - 尚未执行
 
 <a id="task-005"></a>
-
+- 2026-11-24T17:13:25.743Z PASS commands=1/1 executed=1 deduped=0 elapsed=8604ms tests=670c75d7f120 head=c39cf996a300 dirty=1
+  - tool-result-budget PASS exit=0
 ## TASK-005: Worker 压缩对齐
 
 - **Status**: draft

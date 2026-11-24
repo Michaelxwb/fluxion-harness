@@ -15,7 +15,11 @@ from dataclasses import replace
 from uuid import UUID
 
 from muad_agent_core.tools import ArtifactRef, ToolResult
-from muad_contracts.platform_settings import ToolResultSettings
+from muad_agent_core.tools.result_budget import (
+    RoundCandidate,
+    ToolResultBudget,
+    select_round_persists,
+)
 
 from ...infrastructure.task_artifact_client import TaskArtifactClient
 
@@ -34,25 +38,6 @@ def preview_head_tail(text: str, *, head_bytes: int, tail_bytes: int) -> str:
     tail = data[len(data) - tail_bytes :].decode("utf-8", errors="ignore") if tail_bytes else ""
     omitted = len(data) - len(head.encode("utf-8")) - len(tail.encode("utf-8"))
     return f"{head}\n…（中间 {omitted} 字节已省略）…\n{tail}"
-
-
-def select_round_persists(
-    candidates: Sequence[tuple[str, int]],
-    *,
-    persist_threshold_bytes: int,
-    round_budget_bytes: int,
-) -> tuple[str, ...]:
-    """整轮批次选取（与冻结 `ToolResultSettings` 同一口径，纯逻辑）。"""
-    over = [item for item in candidates if item[1] > persist_threshold_bytes]
-    rest = [item for item in candidates if item[1] <= persist_threshold_bytes]
-    remaining = sum(size for _, size in rest)
-    selected = [call_id for call_id, _ in over]
-    for call_id, size in sorted(rest, key=lambda item: (-item[1], item[0])):
-        if remaining <= round_budget_bytes:
-            break
-        selected.append(call_id)
-        remaining -= size
-    return tuple(selected)
 
 
 def reference_payload(
@@ -78,7 +63,7 @@ class TaskArtifactRoundWriter:
     def __init__(
         self,
         client: TaskArtifactClient,
-        settings: ToolResultSettings,
+        settings: ToolResultBudget,
         *,
         tenant_id: str,
         execution_id: UUID,
@@ -90,7 +75,7 @@ class TaskArtifactRoundWriter:
 
     async def finish_round(self, results: Sequence[ToolResult]) -> Sequence[ToolResult]:
         candidates = [
-            (result.call_id or "unknown", len(result.content.encode("utf-8")))
+            RoundCandidate(result.call_id or "unknown", len(result.content.encode("utf-8")))
             for result in results
             if result.externalizable
         ]

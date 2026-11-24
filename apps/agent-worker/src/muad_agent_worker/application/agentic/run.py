@@ -36,6 +36,7 @@ from muad_agent_core.model import ModelMessage, ModelRole, ModelUsage
 from muad_agent_core.prompt import PromptSkill, resolve_zone
 from muad_agent_core.sandbox import WorkspaceStore
 from muad_agent_core.skill import SkillArtifactResolver, SkillExecutor
+from muad_agent_core.tools.result_budget import derive_tool_result_budget
 from muad_agent_core.tools import AttachmentReadTools, ResolvedAttachment, ToolExecutionPipeline
 from muad_agent_core.tools.attachments import TextCursor, read_text_segment
 from muad_api import AppError
@@ -487,7 +488,7 @@ def _round_writer(
 ) -> TaskArtifactRoundWriter | None:
     if deps.artifacts is None:
         return None
-    settings = compaction_settings(frozen.snapshot.policy).tool_result
+    settings = derive_tool_result_budget(compaction_settings(frozen.snapshot.policy))
     return TaskArtifactRoundWriter(
         deps.artifacts,
         settings,

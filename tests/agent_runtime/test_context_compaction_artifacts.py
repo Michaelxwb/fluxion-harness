@@ -26,7 +26,7 @@ from muad_agent_runtime.application.attachments.transcripts import (
 )
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import Artifact
-from muad_contracts.platform_settings import ToolResultSettings
+from muad_agent_core.tools.result_budget import derive_tool_result_budget
 
 from agent_runtime.conftest import TenantContext
 
@@ -34,7 +34,7 @@ RUN_ID = uuid.UUID("33333333-3333-3333-3333-333333333333")
 CONVERSATION_ID = uuid.UUID("44444444-4444-4444-4444-444444444444")
 
 #: 预览头尾字节只从 schema 取（TASK-011 收敛：源码里不再有第二套默认常量）。
-_PREVIEW = ToolResultSettings()
+_PREVIEW = derive_tool_result_budget()
 
 
 def _messages(count: int = 4) -> list[ModelMessage]:

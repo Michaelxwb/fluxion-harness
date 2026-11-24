@@ -21,14 +21,14 @@ from muad_agent_runtime.application.attachments.tool_results import (
     preview_head_tail,
     select_round_persists,
 )
-from muad_contracts.platform_settings import ToolResultSettings
+from muad_agent_core.tools.result_budget import derive_tool_result_budget
 
 TENANT = "test-round-budget"
 RUN_ID = uuid.UUID("11111111-1111-1111-1111-111111111111")
 CONVERSATION_ID = uuid.UUID("22222222-2222-2222-2222-222222222222")
 
 #: 预览头尾字节只从 schema 取（TASK-011 收敛：源码里不再有第二套默认常量）。
-_PREVIEW = ToolResultSettings()
+_PREVIEW = derive_tool_result_budget()
 
 
 def _select(sizes: dict[str, int], *, threshold: int = 8192, budget: int = 200_000) -> tuple[str, ...]:
