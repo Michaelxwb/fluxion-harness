@@ -359,7 +359,7 @@
   - tool-result-budget PASS exit=0
 ## TASK-005: Worker 压缩对齐
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001, TASK-003, TASK-004
 - **Source**: conversation-context-retention.backend.design.md §2.2 Worker、§4 Worker、§1 D1/D5；conversation-context-retention.prd.md FEAT-01/02/03
 - **Scenarios**: B-01, B-02
@@ -403,11 +403,11 @@
 
 ### Checklist
 
-- [ ] Worker 严格冻结解析与 Runtime 同入口，旧键/缺键显式失败。
-- [ ] `TaskContextCompactor` 始终安装，`fit_history` 始终执行。
-- [ ] Worker 材料/头部/coverage 口径落地，摘要去重且失败降级。
-- [ ] Worker 工具结果外置使用派生预算。
-- [ ] Worker 单测覆盖摘要复用、失败回落、头部/当前任务保护、旧字段删除。
+- [x] Worker 严格冻结解析与 Runtime 同入口，旧键/缺键显式失败。
+- [x] `TaskContextCompactor` 始终安装，`fit_history` 始终执行。
+- [x] Worker 材料/头部/coverage 口径落地，摘要去重且失败降级。
+- [x] Worker 工具结果外置使用派生预算。
+- [x] Worker 单测覆盖摘要复用、失败回落、头部/当前任务保护、旧字段删除。
 
 ### Spec Delta
 
@@ -418,13 +418,15 @@
 ### Log
 
 - [2026-11-25] created；待任务边界复核。
+- [2026-11-24T17:13:46.369Z] started tests=c1f9eb515395
 
 ### Verification
 
 - 尚未执行
 
 <a id="task-006"></a>
-
+- 2026-11-24T17:17:57.300Z PASS commands=1/1 executed=1 deduped=0 elapsed=20956ms tests=c1f9eb515395 head=ae624e31ea56 dirty=1
+  - worker-context PASS exit=0
 ## TASK-006: “继续”进入模型回合
 
 - **Status**: draft

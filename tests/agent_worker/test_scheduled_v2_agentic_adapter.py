@@ -152,9 +152,9 @@ def agentic_snapshot(
         policy={
             "compaction": compaction
             or {
-                "snip": {"enabled": False},
-                "micro": {"enabled": False},
-                "summary": {"enabled": False},
+                "history_budget_tokens": 100_000,
+                "tool_result": {"persist_threshold_bytes": 8192},
+                "summary": {"enabled": False, "model_ref": None},
             }
         },
         skills=[
@@ -1161,15 +1161,30 @@ def _summary_payload() -> str:
 def _long_history() -> tuple[ModelMessage, ...]:
     # 合法历史：assistant(带 tool_calls) + 它的 tool 结果成对出现（压缩器按组处理）。
     messages: list[ModelMessage] = [ModelMessage(role=ModelRole.SYSTEM, content="你是助手")]
+    seq = 1
     for index in range(12):
         call = ModelToolCall(f"call-{index}", "echo", {})
-        messages.append(ModelMessage(role=ModelRole.USER, content=f"问题 {index}", message_id=f"q-{index}"))
-        messages.append(ModelMessage(role=ModelRole.ASSISTANT, content="", tool_calls=(call,)))
+        messages.append(ModelMessage(role=ModelRole.USER, content=f"问题 {index}", message_id=f"q-{index}", source_event_seq=seq))
+        seq += 1
+        messages.append(ModelMessage(role=ModelRole.ASSISTANT, content="", tool_calls=(call,), source_event_seq=seq))
+        seq += 1
         messages.append(
-            ModelMessage(role=ModelRole.TOOL, content="x" * 400, tool_call_id=call.id)
+            ModelMessage(role=ModelRole.TOOL, content="x" * 400, tool_call_id=call.id, source_event_seq=seq)
         )
-    messages.append(ModelMessage(role=ModelRole.USER, content="当前问题", message_id="current"))
+        seq += 1
+    messages.append(ModelMessage(role=ModelRole.USER, content="当前问题", message_id="current", source_event_seq=seq))
     return tuple(messages)
+
+
+def _plan_for(history):
+    return plan_context(
+        history,
+        run_input=RunInput(message_id="current", content="当前问题"),
+        covered_seq=0,
+        material_scan_end_seq=max((message.source_event_seq or 0 for message in history), default=0),
+        head_end_seq=2,
+        earlier_records=0,
+    )
 
 
 async def test_compaction_applies_the_free_layers_and_degrades_summary(
@@ -1185,9 +1200,9 @@ async def test_compaction_applies_the_free_layers_and_degrades_summary(
     settings = compaction_settings(
         {
             "compaction": {
-                "snip": {"enabled": True, "max_groups": 4, "keep_head_groups": 1, "keep_tail_groups": 2},
-                "micro": {"enabled": True, "keep_recent_tool_groups": 1},
-                "summary": {"enabled": True, "threshold_bytes": 1, "model_ref": "summary-model"},
+                "history_budget_tokens": 100,
+                "tool_result": {"persist_threshold_bytes": 8192},
+                "summary": {"enabled": True, "model_ref": "summary-model"},
             }
         }
     )
@@ -1200,10 +1215,7 @@ async def test_compaction_applies_the_free_layers_and_degrades_summary(
         artifacts=RecordingArtifacts(),  # type: ignore[arg-type]
     )
     history = _long_history()
-    plan = plan_context(
-        history,
-        run_input=RunInput(message_id="current", content="当前问题"),
-    )
+    plan = _plan_for(history)
     outbound = render_context(await compactor.compact_plan(plan))
     assert failing.calls == 1, "摘要失败要走 older 的 fallback，而不是跳过压缩"
     assert len(outbound) < len(history)
@@ -1227,9 +1239,9 @@ async def test_summary_without_archive_is_discarded(tenant: TenantContext) -> No
     settings = compaction_settings(
         {
             "compaction": {
-                "snip": {"enabled": False},
-                "micro": {"enabled": False},
-                "summary": {"enabled": True, "threshold_bytes": 1, "model_ref": "summary-model"},
+                "history_budget_tokens": 100,
+                "tool_result": {"persist_threshold_bytes": 8192},
+                "summary": {"enabled": True, "model_ref": "summary-model"},
             }
         }
     )
@@ -1242,13 +1254,10 @@ async def test_summary_without_archive_is_discarded(tenant: TenantContext) -> No
         artifacts=_FailingArtifacts(),  # type: ignore[arg-type]
     )
     history = _long_history()
-    plan = plan_context(
-        history,
-        run_input=RunInput(message_id="current", content="当前问题"),
-    )
+    plan = _plan_for(history)
     outbound = render_context(await compactor.compact_plan(plan))
     assert provider.calls == 1
-    assert outbound == history  # 摘要作废 ⇒ 历史原样
+    assert len(outbound) < len(history), "摘要作废后回落到预算裁剪"
     assert not any(message.content.startswith("[历史摘要]") for message in outbound)
 
 
@@ -1264,9 +1273,9 @@ async def test_summary_is_archived_before_it_replaces_history(tenant: TenantCont
     settings = compaction_settings(
         {
             "compaction": {
-                "snip": {"enabled": False},
-                "micro": {"enabled": False},
-                "summary": {"enabled": True, "threshold_bytes": 1, "model_ref": "summary-model"},
+                "history_budget_tokens": 100,
+                "tool_result": {"persist_threshold_bytes": 8192},
+                "summary": {"enabled": True, "model_ref": "summary-model"},
             }
         }
     )
@@ -1278,10 +1287,7 @@ async def test_summary_is_archived_before_it_replaces_history(tenant: TenantCont
         artifacts=artifacts,  # type: ignore[arg-type]
     )
     history = _long_history()
-    plan = plan_context(
-        history,
-        run_input=RunInput(message_id="current", content="当前问题"),
-    )
+    plan = _plan_for(history)
     outbound = render_context(await compactor.compact_plan(plan))
     assert artifacts.writes, "摘要必须先逐字存档"
     assert any(message.content.startswith("[历史摘要]") for message in outbound)
@@ -1294,22 +1300,22 @@ async def test_round_artifact_selection_and_rollback(tenant: TenantContext) -> N
         TaskArtifactRoundWriter,
         select_round_persists,
     )
-    from muad_contracts.platform_settings import ToolResultSettings
+    from muad_agent_core.tools.result_budget import RoundCandidate, ToolResultBudget
 
-    settings = ToolResultSettings(
+    settings = ToolResultBudget(
         persist_threshold_bytes=100,
         round_budget_bytes=200,
         preview_head_bytes=10,
         preview_tail_bytes=10,
     )
     assert select_round_persists(
-        [("a", 101), ("b", 50), ("c", 50)],
+        [RoundCandidate("a", 101), RoundCandidate("b", 50), RoundCandidate("c", 50)],
         persist_threshold_bytes=100,
         round_budget_bytes=10_000,
     ) == ("a",)
     # 剩余合计 65 > 轮预算 10 ⇒ 按大到小补一条后即进预算
     assert select_round_persists(
-        [("a", 100), ("b", 60), ("c", 5)],
+        [RoundCandidate("a", 100), RoundCandidate("b", 60), RoundCandidate("c", 5)],
         persist_threshold_bytes=100,
         round_budget_bytes=10,
     ) == ("a", "b")
