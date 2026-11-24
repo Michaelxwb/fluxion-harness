@@ -221,10 +221,15 @@ class WebchatResourceService:
         entries: WebchatEntrySource,
         tenant_id: str,
         surface: ChatSurface | None = None,
+        web_surface_channels: tuple[str, ...] = WEB_SURFACE_CHANNELS,
     ) -> None:
         self._runtime = runtime
         self._entries = entries
         self._tenant_id = tenant_id
+        # 读取面（列表/详情/消息）的通道 allowlist：内建 Web 面 + 当前启用的外部 JWT 平台通道。
+        # 由装配根经 `muad_contracts.web_surface_channels` 动态合成后注入，避免 mssp 等新平台
+        # 会话写入后读不出。默认仅内建基线，兼容单平台/测试场景。
+        self._web_surface_channels = web_surface_channels
         # 同一套 SYNC 逻辑按 surface 挂载：WEBCHAT 与 MSSWWEB 仅 `channel` 不同。
         self._surface = surface or ChatSurface(channel=WEBCHAT_CHANNEL)
         # 本地流式提交走统一消息核心的 SYNC 入口（API-08）：渠道校验在核心，端口只做映射。
@@ -429,7 +434,7 @@ class WebchatResourceService:
             page_size=page_size,
             # 跨 Web 入口共享：同一 user+Agent 的 Web 会话不按入口切分（设计 §API-05）。
             entry_agnostic=True,
-            channel_types=WEB_SURFACE_CHANNELS,
+            channel_types=self._web_surface_channels,
         )
         return _project(WebchatConversationPage, data)
 
@@ -451,7 +456,7 @@ class WebchatResourceService:
             # 入口显式只用于把 entry_id 交给 Owner 做归属记录，隔离交给 user+Agent；
             # 来源通道 allowlist 阻止 Web 面通过 URL 直达企微会话。
             entry_agnostic=True,
-            channel_types=WEB_SURFACE_CHANNELS,
+            channel_types=self._web_surface_channels,
         )
         return _project(WebchatConversationDetail, data)
 
@@ -498,7 +503,7 @@ class WebchatResourceService:
             through_seq=through_seq,
             # 跨 Web 入口共享历史：不按入口切分（设计 §API-05 / RULE-08），企微来源仍隔离。
             entry_agnostic=True,
-            channel_types=WEB_SURFACE_CHANNELS,
+            channel_types=self._web_surface_channels,
         )
         return _project(WebchatMessagePage, data)
 

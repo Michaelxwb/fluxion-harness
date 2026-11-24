@@ -201,7 +201,9 @@ for (const width of [1280, 390]) {
     await page.setViewportSize({ width: 1280, height: 640 });
     await openPage(page, 'agents', 'light', 'en-US', {
       '/api/v1/agents': { items: [agent], total: 1, page: 1, page_size: 20 },
-      '/api/v1/agents/layout-agent': agent
+      '/api/v1/agents/layout-agent': agent,
+      // 详情侧滑会拉外部断言平台列表（数组契约）；显式给数组，避免兜底对象被当作平台列表。
+      '/api/v1/external-platforms': []
     });
     await page.getByTestId('agent-link-layout-agent').click();
     await page.getByRole('tab', { name: 'IM Channels', exact: true }).click();

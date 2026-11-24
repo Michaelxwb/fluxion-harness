@@ -25,7 +25,12 @@ from typing import Any
 import sqlalchemy as sa
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts import WEB_SURFACE_CHANNELS, RunRequest, RunStatus
+from muad_common import process_settings
+from muad_contracts import (
+    RunRequest,
+    RunStatus,
+    web_surface_channels_from_settings,
+)
 from muad_contracts.platform_settings import parse_platform_settings
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -97,16 +102,28 @@ def scope_of(request: RunRequest, tenant_id: str) -> ConversationScope:
     )
 
 
+def process_web_surface_channels() -> tuple[str, ...]:
+    """本进程 Web 对话面的通道集合：内建基线 ∪ 当前 Secret 里配置的外部平台通道。
+
+    Runtime 各处「是不是网页面」的判断统一走这里，别直接比 `WEB_SURFACE_CHANNELS`：
+    新增外部平台只改平台配置，续聊/归档等路径自动跟进。外部平台配置是进程级的，改 Secret
+    后需重启（与 Gateway/Console 一致）。
+    """
+    return web_surface_channels_from_settings(process_settings())
+
+
 def conversation_scope_of(request: RunRequest, tenant_id: str) -> ConversationScope:
     """显式会话的核属：Web 面允许同 user + Agent 跨 Web 入口续聊，企微等 IM 通道保持严格。
 
     Web 面共用同一套会话数据，发送入口只决定本次 Run 的来源与投递路由，不改变会话的创建来源。
-    来源通道 allowlist 由查询层强制，跨面（如从 Web 继续企微会话）仍 404。
+    来源通道 allowlist 由查询层强制，跨面（如从 Web 继续企微会话）仍 404。Web 面集合含外部
+    JWT 平台通道（按平台配置动态合成），因此从 MSSW 建、MSSP 续同样共享。
     """
     scope = scope_of(request, tenant_id)
-    if request.channel.type not in WEB_SURFACE_CHANNELS:
+    allowed = process_web_surface_channels()
+    if request.channel.type not in allowed:
         return scope
-    return replace(scope, entry_agnostic=True, channel_types=WEB_SURFACE_CHANNELS)
+    return replace(scope, entry_agnostic=True, channel_types=allowed)
 
 
 def normalize_title_text(text: str) -> str:

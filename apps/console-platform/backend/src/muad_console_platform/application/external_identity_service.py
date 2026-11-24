@@ -52,6 +52,19 @@ def grant_snapshot(grant: EntryAccessGrant) -> dict[str, object]:
     }
 
 
+def _expected_channel_for_platform(platform_key: str) -> str:
+    """平台所属的外部断言通道名；未配置该平台时退回内置 `MSSWWEB`（保守，不放行其它通道）。
+
+    `BotAccount` 只有 `channel` 没有 `platform_key`，所以判断"入口是否属于某平台"只能
+    用该平台配置的 `channel` 名去比对入口的 `channel`。取不到配置时退回默认通道名，
+    宁可拒绝（`bot.channel` 不等于它）也不放行到别的通道。
+    """
+    config = get_platform_configs().get(platform_key)
+    if config is None:
+        return _EXTERNAL_PLATFORM_CHANNEL
+    return config.channel
+
+
 class ExternalIdentityService:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -92,6 +105,7 @@ class ExternalIdentityService:
                 configured=True,
                 identity_keys=list(config.identity_keys),
                 identity_field_labels=dict(config.identity_field_labels),
+                channel=config.channel,
             )
             for config in configs.values()
         ]
@@ -246,7 +260,8 @@ class ExternalIdentityService:
         offset = max(page - 1, 0) * page_size
         bot_accounts = await self._repo.list_entry_candidates(
             tenant_id,
-            channel=_EXTERNAL_PLATFORM_CHANNEL,
+            # 可授权入口按**该平台配置的通道**过滤；新平台不应列出 MSSWWEB 的入口。
+            channel=_expected_channel_for_platform(platform_key),
             query=query,
             offset=offset,
             limit=page_size,
@@ -296,9 +311,11 @@ class ExternalIdentityService:
         if bot is None:
             # 入口不存在或不属于本租户：统一报未找到，不泄露跨租户存在性。
             raise AppError(ErrorCode.COMMON_NOT_FOUND)
-        if bot.channel != _EXTERNAL_PLATFORM_CHANNEL:
-            # 外部身份只服务于外部断言通道。不校验就能把 MSSW 用户的身份授权到
-            # WebChat 等其它通道的入口上，越权放行了一个本不该连通的通道。
+        expected_channel = _expected_channel_for_platform(record.platform_key)
+        if bot.channel != expected_channel:
+            # 外部身份只服务于**本平台配置的外部断言通道**。不校验就能把某平台用户的身份
+            # 授权到其它通道（WebChat / 另一外部平台）的入口上，越权放行一个本不该连通的
+            # 通道。`BotAccount` 无 `platform_key`，故按身份的 `platform_key` 取该平台通道名。
             raise AppError(ErrorCode.COMMON_NOT_FOUND)
 
         existing = await self._repo.find_grant(tenant_id, identity_id, channel_account_id)

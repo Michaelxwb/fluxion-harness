@@ -53,7 +53,7 @@ spec:
             # worker/service.py）；别的单元才建的池（stream/upload 属 Gateway、MCP 属 Runtime）不写。
             # 任务执行槽：只限制本进程并发，领取/续租/回收/维护各自独立循环。
             - name: WORKER_EXECUTION_CONCURRENCY
-              value: "4"
+              value: "8"
             # 分池 HTTP 连接预算（每进程；池名与 WORKER_HTTP_POOLS 一致）。
             # 总连接 = 进程数 × 最大副本数 求和，正式部署须由容量 profile 声明并校验（§4.1）。
             - name: CONTROL_HTTP_MAX_CONNECTIONS
@@ -68,7 +68,7 @@ spec:
           # （tests/capacity/profiles/agent-capacity-webchat.example.yml）。
           resources:
             requests:
-              cpu: "500m"
+              cpu: "1"
               memory: 1Gi
             limits:
               cpu: "2"

@@ -33,7 +33,6 @@ from muad_artifact_store import NfsArtifactStore
 from muad_common import process_settings
 from muad_common.db_counters import db_stage, db_stage_scope
 from muad_contracts import (
-    WEB_SURFACE_CHANNELS,
     AsyncToolPolicy,
     AttachmentRef,
     CancelSource,
@@ -144,6 +143,7 @@ from .channel_conversations import (
     load_explicit_conversation_with_active_run,
     lock_conversation_scope,
     lock_pointer,
+    process_web_surface_channels,
     promote_archived_conversation,
     record_user_message,
     register_pointer,
@@ -2035,7 +2035,7 @@ class RunService:
             # 只决定投递来源，不把会话挪到发送入口。
             conversation_scope = scope_of(request, tenant_id)
             if (
-                request.channel.type in WEB_SURFACE_CHANNELS
+                request.channel.type in process_web_surface_channels()
                 and conversation.channel_account_id is not None
             ):
                 conversation_scope = replace(

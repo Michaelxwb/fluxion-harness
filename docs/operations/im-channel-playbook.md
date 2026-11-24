@@ -198,11 +198,11 @@
 |---|---|
 | Channel | `MSSWWEB`；`BUILTIN_CHANNEL_NAMES` + `LOCAL_STREAM_CHANNELS` |
 | Adapter | `WebchatChannelAdapter(name="MSSWWEB")`；`channels/registry.py` |
-| Surface | `/api/v1/msswwweb`；`ChatSurface(auth_kind="EXTERNAL_ASSERTION")` |
+| Surface | `/api/v1/msswweb`；`ChatSurface(auth_kind="EXTERNAL_ASSERTION")` |
 | 认证 | Console `application/external_assertion/`；Secret `EXTERNAL_ASSERTION_PLATFORMS_JSON`（`optional: true`） |
 | 认证缓存 | 凭证/权限分层；独立用户版本、同步屏障、policy_epoch；失效成功后才返回管理成功 |
 | 绑定 | 用户级 `external_identity` + `entry_access_grant`；管理员 API/UI |
-| 权限接口 | `GET /api/v1/msswwweb/identity`；未绑定 `platform_user_id=null` |
+| 权限接口 | `GET /api/v1/msswweb/identity`；未绑定 `platform_user_id=null` |
 | 数据共享 | user+agent 跨入口；entry/channel 只做来源 |
 | 未读 | 通知用户级 + 会话 `has_unread` + 水位 mark-read |
 | 确认 | `confirmation.required` + `POST /runs/{id}/resume`；Agent 授权边界 |

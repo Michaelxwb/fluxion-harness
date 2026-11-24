@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import UTC, datetime
 from types import SimpleNamespace
@@ -22,12 +23,22 @@ from muad_agent_runtime.application.channel_conversations import (
 from muad_agent_runtime.application.webchat_history import _conversation_item
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_common import reset_settings_cache
 from muad_contracts import (
     WEB_SURFACE_CHANNELS,
     ChannelContext,
     MessageInput,
     RunRequest,
 )
+
+
+@pytest.fixture(autouse=True)
+def _clean_platform_config(monkeypatch: pytest.MonkeyPatch):
+    """隔离进程环境：本文件默认按「未配置外部平台」跑；需要时在用例内自行设置并重建。"""
+    monkeypatch.delenv("EXTERNAL_ASSERTION_PLATFORMS_JSON", raising=False)
+    reset_settings_cache()
+    yield
+    reset_settings_cache()
 
 
 def _scope(*, entry_id: uuid.UUID, entry_agnostic: bool) -> ConversationScope:
@@ -111,3 +122,31 @@ def test_wecom_explicit_conversation_scope_stays_strict() -> None:
     scope = conversation_scope_of(_request("WECOM", uuid.uuid4()), "t1")
     assert scope.entry_agnostic is False
     assert scope.channel_types is None
+
+
+def test_external_platform_channel_joins_web_surface_without_code_change(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """新增外部平台（如 MSSPWEB）只改平台配置：续聊自动并入 Web 面，来源 allowlist 带上它。
+
+    回归点：曾用封闭的 `WEB_SURFACE_CHANNELS` 判断，MSSP 续聊不进入 entry_agnostic → 跨入口
+    续聊 404。修复后按 Secret 里的平台 `channel` 动态合成，无需改代码。
+    """
+    monkeypatch.setenv(
+        "EXTERNAL_ASSERTION_PLATFORMS_JSON",
+        json.dumps({"mssw": {"channel": "MSSWWEB"}, "mssp": {"channel": "MSSPWEB"}}),
+    )
+    reset_settings_cache()
+
+    entry = uuid.uuid4()
+    scope = conversation_scope_of(_request("MSSPWEB", entry), "t1")
+    assert scope.entry_agnostic is True
+    assert "MSSPWEB" in scope.channel_types
+    for channel in WEB_SURFACE_CHANNELS:
+        assert channel in scope.channel_types
+    assert scope.entry_id == entry
+
+    # 未配置的平台通道仍按严格核属（未知通道不静默放宽）。
+    strict = conversation_scope_of(_request("FOOWEB", uuid.uuid4()), "t1")
+    assert strict.entry_agnostic is False
+    assert strict.channel_types is None

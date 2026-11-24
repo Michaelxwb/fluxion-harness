@@ -43,6 +43,8 @@ from .delivery import (
 from .enums import (
     BUILTIN_CHANNEL_NAMES,
     CHANNEL_DISPLAY_LABELS,
+    DEFAULT_EXTERNAL_CHANNEL,
+    EXTERNAL_CHANNEL_NAME_PATTERN,
     LOCAL_STREAM_CHANNELS,
     OUTBOUND_CHANNELS,
     WEB_SURFACE_CHANNELS,
@@ -92,6 +94,12 @@ from .enums import (
     UserScope,
     WaitKind,
     WaitReason,
+    external_platform_channels,
+    is_local_stream_channel,
+    is_valid_external_channel_name,
+    is_web_surface_channel,
+    web_surface_channels,
+    web_surface_channels_from_settings,
 )
 from .i18n import DEFAULT_LOCALE, SUPPORTED_LOCALES, normalize_locale
 from .im import (
@@ -319,7 +327,15 @@ __all__ = [
     "task_retry_safety",
     "tool_waiting_reason",
     "BUILTIN_CHANNEL_NAMES",
+    "DEFAULT_EXTERNAL_CHANNEL",
+    "EXTERNAL_CHANNEL_NAME_PATTERN",
     "WEB_SURFACE_CHANNELS",
+    "external_platform_channels",
+    "is_local_stream_channel",
+    "is_valid_external_channel_name",
+    "is_web_surface_channel",
+    "web_surface_channels",
+    "web_surface_channels_from_settings",
     "ChannelName",
     "DEFAULT_PAGE_SIZE",
     "MAX_PAGE_SIZE",

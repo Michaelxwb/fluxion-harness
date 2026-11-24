@@ -66,6 +66,14 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.global.existingSecret }}
                   key: INTERNAL_SERVICE_TOKEN
+            # 外部断言平台配置：扩展会话读取面 channel_types 白名单所需（与 Gateway/Console
+            # 共用同一份 Secret 键）；未配置时为空，仅接受内建通道名。
+            - name: EXTERNAL_ASSERTION_PLATFORMS_JSON
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.existingSecret }}
+                  key: EXTERNAL_ASSERTION_PLATFORMS_JSON
+                  optional: true
             - name: POD_NAME
               valueFrom:
                 fieldRef:

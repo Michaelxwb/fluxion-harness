@@ -660,10 +660,17 @@ class AgentRunner:
         inner_delta = state["on_delta"]
 
         async def track_delta(text: str) -> None:
+            # 每个流式增量外发前先判一次取消/截止：`is_cancelled` 由 1s 轮询置位，但 provider
+            # 的 `async for` 读流循环本身不看它（`_parse_stream` 只累积 token）。不在这个每块
+            # 必经的咽喉点检查，长回答要等整段吐完、`streamer()` 返回后才在流后检查点生效——
+            # 用户点了取消仍在持续输出（实测 CANCEL 紧贴 MODEL_CALL_COMPLETED）。
+            self._ensure_runnable(state)
             streamed["value"] = True
             if inner_delta is not None:
                 await inner_delta(text)
 
+        # 仅在流式路径（inner_delta 存在）包装：不改变「是否流式」的判定——非流式调用由
+        # `_complete_with_recovery` 返回后的 `_ensure_runnable`（681 行）兜底。
         attempt_state = {**state, "on_delta": track_delta} if inner_delta is not None else state
         while True:
             streamed["value"] = False

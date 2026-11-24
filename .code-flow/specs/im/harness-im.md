@@ -1,7 +1,7 @@
 ---
 {
   "description": "IM 网关、通道与 WebChat",
-  "next_rule": 13
+  "next_rule": 15
 }
 ---
 
@@ -34,6 +34,10 @@
 - [RULE-011] 附件枚举必须按 artifact_type 标注来源：INBOUND_* 为入站、OUTPUT 为自产、TOOL_RESULT 为工具结果、其他为内部产物；TOOL_RESULT 不得标成入站。显式访问保留，内部产物默认不交付，用户明确要求时按 owner 校验交付。
 
 - [RULE-012] 所有用户可见固定文案（任务受理、停止、断流、附件回执等）必须按回复 locale 从 config/api-messages.yaml 的 activity_messages 模板取，不得硬编码中文；终态正文为空时才读取租户 locale 兜底，读取失败回落目录默认并留 warning。
+
+- [RULE-013] 外部 JWT 平台接入以 ChatSurface(channel, auth_kind, entry_resolver) 抽象复用同一套 router/service：新平台只注册 surface 与适配器，不复制 handler。通道名必须参数化——任何以字面量硬编码通道名决定 Run 落库、能力分组或路由的位置都必须改为取当前 surface 的 channel。
+
+- [RULE-014] 外部 JWT 平台的通道名必须匹配 ^[A-Za-z0-9]+web$（不区分大小写地以 web 结尾、其余为字母数字），该约束在平台配置解析期显式校验：Console 抛 PlatformConfigError 硬失败，Gateway 跳过该平台并记 ERROR，判定口径唯一来自 muad_contracts.is_valid_external_channel_name。通道名决定路由前缀 /api/v1/<channel 小写>，反代用一条正则覆盖所有外部平台前缀且不误吞 Console 的 /api/v1/* 业务前缀与 webchat；契约层 ChannelName 不约束字符集，故须在解析期校验，不合规名会导致运行期静默 404。环境/部署标识（如 UAT/PRD）放 display_name，不得进入 channel。✅ MSSWWEB、MSSPWEB；❌ MSSPWEBUAT、mssp-web、custom-channel。
 
 ## Conventions
 
@@ -96,6 +100,10 @@
 - **节拍按客户端重排成本定**：节拍过快会让企微对话框滚动发涩；具体值由平台设置定义；`已执行 mm:ss` 跳秒变粗是有意取舍。节拍做成平台设置（生产默认由单测钉住，验收栈按租户种设置行），❌ 用环境变量当节拍来源。
 - **等待是执行事实，不是终态**：`run.waiting_tool` 只停本段计时，`run.resumed` 开新执行段；等待期不发完成帧、不伪造活动。断流不等于取消，重连按最后确认 `seq` 经 `open_events(after_seq)` 续读，绝不重复 POST 建 Run。`WAITING_TOOL` 不允许显式 human resume（只服务 `WAITING_INPUT`），`/stop` 走独立命令容量。ReplySession 失效走渠道中立的主动投递，无能力或失败必须显式失败、不得回「已送达」。
 
+**外部平台通道命名**：
+
+- **通道名以 `web` 结尾、其余字母数字，解析期校验**：新接外部 JWT 平台时，`channel` 用 `MSSWWEB`/`MSSPWEB` 这类「字母数字 + `WEB`」的名字，由 `muad_contracts.is_valid_external_channel_name` 统一判定；Console 解析期抛 `PlatformConfigError`，Gateway 跳过坏平台并记 `external_assertion_channel_name_invalid`。✅ `MSSPWEB`、`ACMEWEB`；❌ `MSSPWEBUAT`、`msspweb_uat`、`mssp-web`（带环境后缀/下划线/横线会让 nginx 的 `^/api/v1/[a-z0-9]+web` 匹配不到，运行期静默 404）。环境标识（UAT/PRD）放 `display_name`，不进 `channel`。
+
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。
@@ -121,3 +129,7 @@
 - {"source":"2026-11-20/im-attachment-integrity/im-attachment-integrity.md#TASK-005#DELTA-001","op":"add","rule":"RULE-011","payload_sha256":"40ddae60ee7969df184a9fd613bc8961e5f3a9b267ad73d07a976033c00d4279","at":"2026-11-21T01:12:04.047Z"}
 
 - {"source":"2026-11-21/agent-output-and-platform-defaults/agent-output-and-platform-defaults.md#TASK-007#DELTA-006","op":"add","rule":"RULE-012","payload_sha256":"c13c9d5a87dfdb2095bcc911ea401885e5ff7e9a2b460f0f21e84533943aab8d","at":"2026-11-21T07:54:54.594Z"}
+
+- {"source":"2026-11-13/mssw-external-im-channel/mssw-external-im-channel.md#TASK-002#DELTA-001","op":"add","rule":"RULE-013","payload_sha256":"9b4f9146bdc11f65f952dbda08b70477643997ea36d0d86417dd27f5600a9a23","at":"2026-11-24T03:55:12.828Z"}
+
+- {"source":"2026-11-13/mssw-external-im-channel/mssw-external-im-channel.md#TASK-014#DELTA-014","op":"add","rule":"RULE-014","payload_sha256":"23ceed2672500e8e54ae33d36f9e8f351fe8523108d908fc51385e13006a960e","at":"2026-11-24T03:55:12.849Z"}

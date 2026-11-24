@@ -27,7 +27,7 @@ from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi.responses import FileResponse, StreamingResponse
 from muad_api import ApiResponse, AppError, ok
 from muad_api.error_codes import ErrorCode
-from muad_contracts import MAX_PAGE_SIZE
+from muad_contracts import MAX_PAGE_SIZE, web_surface_channels
 from muad_contracts.webchat import (
     WebchatHistoryQuery,
     WebchatMarkReadRequest,
@@ -63,6 +63,7 @@ from ..application.webchat_streams import (
 )
 from ..application.webchat_surfaces import get_webchat_surface
 from ..application.webchat_uploads import WebchatUploadService
+from ..channels.registry import parse_external_platform_surfaces
 from .deps import (
     ChatCredentialsDep,
     ChatIdentityDep,
@@ -108,7 +109,24 @@ def get_webchat_service(request: Request, surface: WebchatSurfaceDep) -> Webchat
     runtime: RuntimeClient = request.app.state.runtime_client
     entries: BotSnapshotCache = request.app.state.bot_snapshot
     tenant_id: str = request.app.state.tenant_id
-    return WebchatResourceService(runtime=runtime, entries=entries, tenant_id=tenant_id, surface=surface)
+    # 读取面通道 allowlist = 内建 Web 面 + 当前启用的全部外部 JWT 平台通道（按 Secret 动态合成），
+    # 否则新平台（如 MSSPWEB）的会话能写入却读不出。settings 缺失（如精简测试装配）时回退内建基线。
+    settings = getattr(request.app.state, "settings", None)
+    external_channels = (
+        tuple(
+            channel
+            for channel, _header in parse_external_platform_surfaces(settings).values()
+        )
+        if settings is not None
+        else ()
+    )
+    return WebchatResourceService(
+        runtime=runtime,
+        entries=entries,
+        tenant_id=tenant_id,
+        surface=surface,
+        web_surface_channels=web_surface_channels(external_channels),
+    )
 
 
 WebchatServiceDep = Annotated[WebchatResourceService, Depends(get_webchat_service)]

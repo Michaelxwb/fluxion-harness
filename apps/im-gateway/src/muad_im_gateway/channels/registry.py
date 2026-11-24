@@ -11,10 +11,16 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Awaitable, Callable, Sequence
+from decimal import Decimal
 
 from muad_common import SharedSettings
-from muad_contracts import BotSnapshotItem
+from muad_contracts import (
+    DEFAULT_EXTERNAL_CHANNEL,
+    BotSnapshotItem,
+    is_valid_external_channel_name,
+)
 from muad_logging import get_logger
 
 from .base import (
@@ -38,14 +44,72 @@ logger = get_logger(__name__)
 SnapshotChangeCallback = Callable[[tuple[BotSnapshotItem, ...]], Awaitable[None]]
 
 
+#: 外部断言平台的装配摘要：`platform_key` → (channel, assertion_header)。
+#: Gateway 只需通道名与断言头名，验签/身份键解析仍由认证侧（Console）负责。
+DEFAULT_ASSERTION_HEADER = "soc-token"
+
+
+def parse_external_platform_surfaces(
+    settings: SharedSettings,
+) -> dict[str, tuple[str, str]]:
+    """从 Secret 解析每个外部平台要挂的 (channel, assertion_header)。
+
+    返回 ``{platform_key: (channel, assertion_header)}``。``channel`` 缺省为
+    ``MSSWWEB``、``assertion_header`` 缺省为 ``soc-token``，保证存量单平台部署零变化。
+    解析失败/非 dict 返回空表（等价"未配置"，走既有的 503 路径，不静默放行）。
+
+    **一平台一通道**：若两个平台解析出同一个 ``channel``，入口层（只按 channel 区分）会
+    冲突，这里显式记 ERROR 但保留首个，交给上层按需失败，不静默合并。
+    """
+    raw = getattr(settings, "external_assertion_platforms_json", "") or ""
+    try:
+        # `parse_float=Decimal`：平台 id 可能是超长数字，按 float 解析会丢精度。
+        parsed = json.loads(raw, parse_float=Decimal) if raw.strip() else {}
+    except ValueError:
+        logger.error("external_assertion_platforms_unparseable")
+        return {}
+    if not isinstance(parsed, dict):
+        logger.error("external_assertion_platforms_not_object")
+        return {}
+
+    surfaces: dict[str, tuple[str, str]] = {}
+    seen_channels: dict[str, str] = {}
+    for platform_key, item in parsed.items():
+        if not isinstance(item, dict):
+            logger.error("external_assertion_platform_item_invalid platform=%s", platform_key)
+            continue
+        channel = str(item.get("channel") or DEFAULT_EXTERNAL_CHANNEL).strip()
+        header = str(item.get("assertion_header") or DEFAULT_ASSERTION_HEADER)
+        # 通道名格式不合规（RULE-im-013）：路由前缀取自 channel.lower()，nginx 的
+        # `^/api/v1/[a-z0-9]+web` 匹配不到 → 静默 404。Gateway 保持"坏平台只影响自己"
+        # 的风格：跳过并记 ERROR，不连带整表失败（Console 侧同样规则是硬失败）。
+        if not is_valid_external_channel_name(channel):
+            logger.error(
+                "external_assertion_channel_name_invalid platform=%s channel=%s",
+                platform_key,
+                channel,
+            )
+            continue
+        if channel in seen_channels:
+            logger.error(
+                "external_assertion_channel_conflict channel=%s platforms=%s,%s",
+                channel,
+                seen_channels[channel],
+                platform_key,
+            )
+            continue
+        seen_channels[channel] = platform_key
+        surfaces[str(platform_key)] = (channel, header)
+    return surfaces
+
+
 def external_platforms_enabled(settings: SharedSettings) -> bool:
-    """是否配置了外部断言平台（MSSWWEB 面的启用开关）。
+    """是否配置了外部断言平台（外部断言面的启用开关）。
 
     只判断配置是否非空：具体平台的验签/身份键解析在认证侧（TASK-007/012）负责，
     Gateway 注册表只需知道"该面是否启用"。
     """
-    raw = getattr(settings, "external_assertion_platforms_json", "") or ""
-    return raw.strip() not in ("", "{}")
+    return bool(parse_external_platform_surfaces(settings))
 
 
 def build_channel_registry(
@@ -57,11 +121,11 @@ def build_channel_registry(
     出站写 `im.outbound`；没有 sink（未接线）时装配仍成立，任何发送都显式失败。
     """
     registry = ChannelRegistry()
-    # 本地流式对话面：WEBCHAT 恒定注册；MSSWWEB 只有在配置了外部断言平台时才注册，
-    # 未启用的部署与原来完全一致（不暴露该面，见设计 §I4 / RULE-im-006）。
+    # 本地流式对话面：WEBCHAT 恒定注册；每个外部断言平台按它配置的 `channel` 名各注册
+    # 一个适配器。未配置外部平台的部署与原来完全一致（不暴露该面，见设计 §I4 / RULE-im-006）。
     registry.register(WebchatChannelAdapter(name="WEBCHAT"))
-    if external_platforms_enabled(settings):
-        registry.register(WebchatChannelAdapter(name="MSSWWEB"))
+    for channel, _header in parse_external_platform_surfaces(settings).values():
+        registry.register(WebchatChannelAdapter(name=channel))
     for config in parse_webhook_channels(settings.gateway_webhook_channels):
         registry.register(
             WebhookChannelAdapter(

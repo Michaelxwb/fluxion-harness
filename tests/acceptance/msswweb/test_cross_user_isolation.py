@@ -32,7 +32,7 @@ import pytest
 from tests.acceptance.msswweb.conftest import FreshUser, MsswStack
 from tests.e2e.mssw_token_factory import issue
 
-ENTRIES = "/api/v1/msswwweb/entries"
+ENTRIES = "/api/v1/msswweb/entries"
 
 
 def _owner_headers(mssw_stack: MsswStack) -> dict[str, str]:
@@ -97,14 +97,14 @@ def test_e04_outsider_cannot_read_foreign_conversation_detail(
 
     # 前置：主人自己读得到（证明 404 不是「这个会话根本不存在」）
     mine = gateway_client.get(
-        f"{base}/api/v1/msswwweb/conversations/{conversation_id}", headers=owner_headers
+        f"{base}/api/v1/msswweb/conversations/{conversation_id}", headers=owner_headers
     )
     assert mine.status_code == 200, mine.text
 
     # 旁观者：能看到入口，却读不到这个会话
     outsider_headers = mssw_stack.mssw_headers(outsider.token(mssw_stack.platform))
     foreign = gateway_client.get(
-        f"{base}/api/v1/msswwweb/conversations/{conversation_id}", headers=outsider_headers
+        f"{base}/api/v1/msswweb/conversations/{conversation_id}", headers=outsider_headers
     )
     assert foreign.status_code == 404, f"他人会话必须 404，实际 {foreign.status_code}: {foreign.text}"
     assert "code" in foreign.json(), "错误封套应为 {code, msg}"
@@ -121,7 +121,7 @@ def test_e04_outsider_cannot_read_foreign_messages(
     outsider_headers = mssw_stack.mssw_headers(outsider.token(mssw_stack.platform))
 
     response = gateway_client.get(
-        f"{base}/api/v1/msswwweb/conversations/{conversation_id}/messages",
+        f"{base}/api/v1/msswweb/conversations/{conversation_id}/messages",
         headers=outsider_headers,
     )
     assert response.status_code == 404, response.text
@@ -138,13 +138,13 @@ def test_e04_outsider_cannot_delete_foreign_conversation(
 
     outsider_headers = mssw_stack.mssw_headers(outsider.token(mssw_stack.platform))
     deleted = gateway_client.delete(
-        f"{base}/api/v1/msswwweb/conversations/{conversation_id}", headers=outsider_headers
+        f"{base}/api/v1/msswweb/conversations/{conversation_id}", headers=outsider_headers
     )
     assert deleted.status_code == 404, deleted.text
 
     # 关键断言：拒绝之后会话仍然存在（归属校验在写之前）
     still_there = gateway_client.get(
-        f"{base}/api/v1/msswwweb/conversations/{conversation_id}", headers=owner_headers
+        f"{base}/api/v1/msswweb/conversations/{conversation_id}", headers=owner_headers
     )
     assert still_there.status_code == 200, "被拒绝的删除不得真的删掉会话"
 
@@ -160,7 +160,7 @@ def test_e04_outsider_cannot_cancel_foreign_run(
     base = mssw_stack.gateway_url
     outsider_headers = mssw_stack.mssw_headers(outsider.token(mssw_stack.platform))
     response = gateway_client.post(
-        f"{base}/api/v1/msswwweb/runs/{uuid.uuid4()}/cancel", headers=outsider_headers
+        f"{base}/api/v1/msswweb/runs/{uuid.uuid4()}/cancel", headers=outsider_headers
     )
     assert response.status_code == 404, response.text
 

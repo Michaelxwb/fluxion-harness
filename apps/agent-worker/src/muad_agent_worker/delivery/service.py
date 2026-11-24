@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
@@ -25,7 +26,6 @@ from typing import Any, cast
 import sqlalchemy as sa
 from muad_common import SharedSettings
 from muad_contracts import (
-    LOCAL_STREAM_CHANNELS,
     OUTBOUND_CHANNELS,
     AttachmentRef,
     ControlOutboxStatus,
@@ -34,6 +34,8 @@ from muad_contracts import (
     DeliveryRouteInput,
     HumanInteractionStatus,
     TaskStatus,
+    is_local_stream_channel,
+    web_surface_channels_from_settings,
 )
 from muad_contracts.platform_settings import PlatformSettings, TaskSettings
 from muad_contracts.webchat_events import WebchatTaskResultRegistration
@@ -513,14 +515,17 @@ class DeliveryLoop:
         _start_attempt(session, reserved, now=now)
         return _reserved_from_row(reserved, lease_owner=self._owner, lease_until=lease_until)
 
-    @staticmethod
-    def _detectable_conditions() -> tuple[ColumnElement[bool], ...]:
+    def _detectable_conditions(self) -> tuple[ColumnElement[bool], ...]:
         """设置无关的「这条记录还想被投递」谓词（退避/上限判断留到取到快照后）。
 
         - 最终结果：只有 Execution 已终态才可发（立即任务在创建时就建了行）；
         - Human 问题：只有对应 interaction 仍 OPEN 才可发；
         - 网页投递额外要求结果发件已出结论：受理前不消耗投递尝试。
+
+        「站内入口」集合按本进程平台配置动态合成（内建 Web 面 ∪ 外部平台通道），新增平台
+        无需改这里。
         """
+        local_stream_channels = web_surface_channels_from_settings(self._settings)
         final_ready = sa.and_(
             TaskDelivery.delivery_kind == str(DeliveryKind.PUSH),
             _live_execution_exists(),
@@ -531,7 +536,7 @@ class DeliveryLoop:
                 TaskExecution.status.in_(TERMINAL_STATUSES),
             )
             .exists(),
-            _webchat_result_settled(),
+            _webchat_result_settled(local_stream_channels),
         )
         question_ready = sa.and_(
             TaskDelivery.delivery_kind == str(DeliveryKind.HUMAN_QUESTION),
@@ -576,8 +581,12 @@ class DeliveryLoop:
         locale = platform.locale.default_locale
         if reserved.delivery_kind == str(DeliveryKind.HUMAN_QUESTION):
             prepared = self._question_request(reserved, context, route, locale)
-        elif route.channel in LOCAL_STREAM_CHANNELS:
-            # 网页没有可推送的外部目标：送达 = Runtime 持久用户收件箱提交（TASK-068）。
+        elif is_local_stream_channel(
+            route.channel, web_surface_channels_from_settings(self._settings)
+        ):
+            # 站内入口（内建 Web 面 ∪ 外部平台通道）没有可推送的外部目标：送达 = Runtime
+            # 持久用户收件箱提交（TASK-068）。外部平台也是站内入口，判错会让它们的定时
+            # 结果走外部推送路径而失败。
             return await self._attempt_inbox(reserved, context, now=now, max_attempts=max_attempts)
         else:
             prepared = await self._final_request(reserved, context, route, locale)
@@ -1302,18 +1311,23 @@ def _open_interaction_exists() -> ColumnElement[bool]:
     )
 
 
-def _webchat_result_settled() -> ColumnElement[bool]:
+def _webchat_result_settled(
+    local_stream_channels: Iterable[str],
+) -> ColumnElement[bool]:
     """网页投递的前置条件：该 Task 结果的 Runtime 发件已出结论（TASK-068）。
 
     网页"送达"是提交进 Runtime 的持久用户收件箱，而 Runtime 只接受已被受理的结果。结果
     发件还在 `PENDING` 时不得消耗投递尝试——否则发件还在退避，投递先把预算烧光，用户
     永远看不到结果（design §3.6「Worker 结果沿任务完成后的持久投递意图重试」）。
+
+    `local_stream_channels` 是站内入口集合（内建 Web 面 ∪ 已启用的外部平台通道），由调用方
+    按平台配置算出——外部平台也是站内入口，漏掉会让它们的定时结果永远发不出去。
     """
     local_stream_route = (
         select(DeliveryRoute.id)
         .where(
             DeliveryRoute.id == TaskDelivery.delivery_route_id,
-            DeliveryRoute.channel.in_(sorted(LOCAL_STREAM_CHANNELS)),
+            DeliveryRoute.channel.in_(sorted(local_stream_channels)),
         )
         .exists()
     )

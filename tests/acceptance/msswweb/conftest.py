@@ -38,7 +38,7 @@ from tests.acceptance.im_gateway.environment import (
     stop_gateway_stack,
 )
 from tests.acceptance.msswweb.admin_api import AdminApi, login_admin
-from tests.acceptance.msswweb.seed import MsswSeed, seed_msswwweb
+from tests.acceptance.msswweb.seed import MsswSeed, seed_msswweb
 from tests.e2e.mssw_token_factory import MsswPlatform, new_platform
 from tests.e2e.seed_im_gateway import TENANT
 
@@ -111,7 +111,7 @@ def mssw_stack(
         },
     )
     try:
-        seed = seed_msswwweb(
+        seed = seed_msswweb(
             platform=mssw_platform,
             tenant_id=stack.tenant_id,
             agent_id=stack.agent_id,
@@ -147,7 +147,7 @@ def _wait_for_entry(stack: GatewayStack, seed: MsswSeed, platform: MsswPlatform)
     while time.monotonic() < deadline:
         try:
             response = httpx.get(
-                f"{stack.gateway_url}/api/v1/msswwweb/entries",
+                f"{stack.gateway_url}/api/v1/msswweb/entries",
                 headers={"soc-token": token},
                 timeout=5.0,
             )
@@ -271,7 +271,7 @@ def _assert_entry_usable(stack: MsswStack, fresh: FreshUser) -> None:
     这里把环境问题（前置状态不对）与产品行为分开报错，避免误判。
     """
     response = httpx.get(
-        f"{stack.gateway_url}/api/v1/msswwweb/entries",
+        f"{stack.gateway_url}/api/v1/msswweb/entries",
         headers={"soc-token": fresh.token(stack.platform)},
         timeout=10.0,
     )

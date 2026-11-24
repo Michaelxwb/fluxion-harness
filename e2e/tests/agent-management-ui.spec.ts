@@ -155,6 +155,11 @@ async function mockApi(page: Page, state: MockState): Promise<void> {
       await route.fulfill({ json: envelope(pageData([])) });
       return;
     }
+    if (path === '/api/v1/external-platforms') {
+      // 外部断言平台列表是数组契约（详情侧滑据此派生可建入口的通道下拉）。
+      await route.fulfill({ json: envelope([]) });
+      return;
+    }
     await route.fulfill({ json: envelope(pageData([])) });
   });
 }

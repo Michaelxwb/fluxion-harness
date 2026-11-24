@@ -19,8 +19,8 @@ import httpx
 from tests.acceptance.msswweb.conftest import MsswStack
 from tests.e2e.mssw_token_factory import issue
 
-IDENTITY = "/api/v1/msswwweb/identity"
-ENTRIES = "/api/v1/msswwweb/entries"
+IDENTITY = "/api/v1/msswweb/identity"
+ENTRIES = "/api/v1/msswweb/entries"
 
 
 def _token(mssw_stack: MsswStack) -> str:
@@ -76,7 +76,7 @@ def test_s03_full_conversation_over_mssw_surface(mssw_stack: MsswStack, gateway_
 
     # 5) 事件流：必须有终态帧，且连接自然结束（不是被超时掐断）
     with gateway_client.stream(
-        "GET", f"{base}/api/v1/msswwweb/runs/{run_id}/events", headers=headers
+        "GET", f"{base}/api/v1/msswweb/runs/{run_id}/events", headers=headers
     ) as stream:
         assert stream.status_code == 200, stream.read()
         body = stream.read().decode("utf-8")
@@ -84,7 +84,7 @@ def test_s03_full_conversation_over_mssw_surface(mssw_stack: MsswStack, gateway_
 
     # 6) 历史：用户消息与助手回答都在，且刷新后仍然读得回
     history = gateway_client.get(
-        f"{base}/api/v1/msswwweb/conversations/{conversation_id}/messages",
+        f"{base}/api/v1/msswweb/conversations/{conversation_id}/messages",
         headers=headers,
     )
     assert history.status_code == 200, history.text

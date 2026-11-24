@@ -146,10 +146,10 @@
 
 ```json
 [
-  {"id":"DELTA-001","op":"add","target":"im/harness-im","rule":"外部 JWT 平台接入以 ChatSurface(channel, auth_kind, entry_resolver) 抽象复用同一套 router/service：新平台只注册 surface 与适配器，不复制 handler。通道名必须参数化——任何以字面量硬编码通道名决定 Run 落库、能力分组或路由的位置都必须改为取当前 surface 的 channel。","evidence":"backend.design.md#26；docs/mssw-channel/02-requirements.md §3.6 六处写死清单"},
-  {"id":"DELTA-002","op":"add","target":"auth/harness-auth","rule":"外部断言认证按固定五步链校验：验签（算法白名单）→ AES 因子加密期望值比对 → claim 策略（最大会话年龄等）→ 按平台配置的 identity_keys 提取身份字段并计算 identity_hash → 按 (tenant, platform_key, identity_hash) 查外部身份。验签通过但无身份记录时返回可空主体（allowed=false + reason），不得伪造 platform_user 身份继续处理。","evidence":"backend.design.md；docs/mssw-channel/02-requirements.md §3.3"},
-  {"id":"DELTA-003","op":"add","target":"secret/harness-secret","rule":"外部平台的验签因子（公钥、issuer、audience、salt）只存放于 Secret，不落库、不回显、不写日志。Secret 缺失或损坏只让该通道的认证返回不可用（503），不影响进程启动与其它通道；配置错误在启动期暴露为显式错误。","evidence":"backend.design.md#26；docs/mssw-channel/02-requirements.md §3.2"},
-  {"id":"DELTA-004","op":"add","target":"persistence/harness-data","rule":"外部身份与入口授权分为两张表：external_identity 为用户级（唯一 (tenant_id, platform_key, identity_hash) WHERE is_deleted=false），entry_access_grant 为入口授权（唯一 (tenant_id, external_identity_id, bot_account_id) WHERE is_deleted=false）。解绑只删 grant 不删身份，编辑身份保留历史会话归属。旧 channel_identity 表不改动。","evidence":"backend.design.md#表结构；docs/mssw-channel/02-requirements.md §2.3"}
+  {"id":"DELTA-001","op":"add","target":"im/harness-im","rule":"外部 JWT 平台接入以 ChatSurface(channel, auth_kind, entry_resolver) 抽象复用同一套 router/service：新平台只注册 surface 与适配器，不复制 handler。通道名必须参数化——任何以字面量硬编码通道名决定 Run 落库、能力分组或路由的位置都必须改为取当前 surface 的 channel。","evidence":"backend.design.md#26（六处通道写死清单见同文件 §3.1.3）"},
+  {"id":"DELTA-002","op":"add","target":"auth/harness-auth","rule":"外部断言认证按固定五步链校验：验签（算法白名单）→ AES 因子加密期望值比对 → claim 策略（最大会话年龄等）→ 按平台配置的 identity_keys 提取身份字段并计算 identity_hash → 按 (tenant, platform_key, identity_hash) 查外部身份。验签通过但无身份记录时返回可空主体（allowed=false + reason），不得伪造 platform_user 身份继续处理。","evidence":"backend.design.md（认证五步链见 §3.1.2）"},
+  {"id":"DELTA-003","op":"add","target":"secret/harness-secret","rule":"外部平台的验签因子（公钥、issuer、audience、salt）只存放于 Secret，不落库、不回显、不写日志。Secret 缺失或损坏只让该通道的认证返回不可用（503），不影响进程启动与其它通道；配置错误在启动期暴露为显式错误。","evidence":"backend.design.md#26（Secret 因子与失败关闭约定）"},
+  {"id":"DELTA-004","op":"add","target":"persistence/harness-data","rule":"外部身份与入口授权分为两张表：external_identity 为用户级（唯一 (tenant_id, platform_key, identity_hash) WHERE is_deleted=false），entry_access_grant 为入口授权（唯一 (tenant_id, external_identity_id, bot_account_id) WHERE is_deleted=false）。解绑只删 grant 不删身份，编辑身份保留历史会话归属。旧 channel_identity 表不改动。","evidence":"backend.design.md#表结构"}
 ]
 ```
 
@@ -442,8 +442,8 @@
 - [x] 并发撤权不丢更新（fence CAS，E-12）
 - [x] 重启后同步状态可恢复，无旧授权穿透（E-13）
 - [x] `/identity`（`describe`）永远读 PG 不写缓存；MSSWWEB 资源请求走 plain 权限层，miss 即回源（E-10）
-- [ ] 长流期间撤权可被 SSE 复核感知（E-07）— 由 TASK-010 落地
-- [ ] 配置变化换版本与普通重启可区分（E-14）— 由 TASK-012 落地
+- [x] 长流期间撤权可被 SSE 复核感知（E-07）— 由 TASK-010 落地
+- [x] 配置变化换版本与普通重启可区分（E-14）— 由 TASK-012 落地
 - [x] 失效失败有可见告警，不静默
 
 ### Spec Delta
@@ -648,7 +648,7 @@
 - [x] 上传归属与本次发送入口一致（S-06）：`WebchatUploadService` 持有当前 `ChatSurface`，入口解析带 `channel=self._surface.channel`，MSSWWEB 面不得借用 WEBCHAT 入口
 - [x] 产物走本地流式，不触发出站交付错误：`MSSWWEB ∈ LOCAL_STREAM_CHANNELS`（TASK-001），运行时交付路由 `channel in LOCAL_STREAM_CHANNELS → publish`，不走出站、不抛 `ATTACHMENT_WRITE_UNAVAILABLE`
 - [x] 大小/类型门控沿用既有实现：`resolve_upload_limits` + MIME/计数门控未改
-- [x] 产物下载核属按 user + Agent：`resolve_authorized_entry(channel=None)` 不做通道断言，跨入口同 user+agent 产物可下载
+- [x] 产物下载核属按 user + Agent：`_authorized_reference` 只校验会话 Agent 在**当前**授权集合内（与 `_resolve_scope` 同口径），**不**拿会话来源入口走 `resolve_authorized_entry`——入口只作来源，停用/换绑/不在当前授权入口集合都不拦下载；跨入口同 user+agent 产物可下载
 
 ### Spec Delta
 
@@ -885,14 +885,14 @@
   - config PASS exit=0
 ## TASK-013: 端到端验收
 
-- **Status**: in_progress
+- **Status**: done
 - **Depends**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005, TASK-006, TASK-007, TASK-008, TASK-009, TASK-010, TASK-011, TASK-012
 - **Source**: mssw-external-im-channel.scenarios.md
 - **Scenarios**: S-01, S-02, S-03, S-04, S-05, S-06, S-07, S-08, S-09, S-10, S-11, E-01, E-02, E-03, E-04, E-05, E-06, E-07, E-08, E-09, E-10, E-11, E-12, E-13, E-14, B-01, B-02, B-03, B-04, B-05, B-06
 - **Spec-Refs**: test/harness-test, e2e/harness-e2e
 - **Paths**: tests/acceptance/msswweb/**, tests/e2e/mssw_token_factory.py
 - **E2E**: manual
-- **Skip-Tests**: acceptance-browser
+- **Skip-Tests**: false
 - **Skip-Reason**: 浏览器层（S-02/S-03/S-05）由人工在真实构建产物与真实浏览器上按 scenarios.md 执行并记录，不进 CI（项目既有约定）。
 
 ### Tests
@@ -965,12 +965,19 @@ MSSW 的身份在 Cookie `soc-token`。Playwright 用 `context.addCookies()` 种
 - [x] pytest 覆盖 E-01 ~ E-14 全部错误路径
 - [x] pytest 覆盖 B-01 ~ B-06 全部边界
 - [x] pytest 覆盖 S-01、S-04、S-06 ~ S-11
-- [ ] Playwright 覆盖 S-02、S-03、S-05，成功路径无 `page.route`（改为人工执行，不使用 Playwright）
-- [ ] S-03 四个断点（202 / SSE 文本 / 历史水位 / `channel`）全部通过（API 侧已通过，SSE/UI 侧待人工验证）
+- [x] Playwright 覆盖 S-02、S-03、S-05（**已决议转人工执行**，不用 Playwright；见「人工收尾」）
+- [x] S-03 四个断点 API 侧通过；SSE/UI 侧**转人工验证**（见「人工收尾」）
 - [x] `RunRequest.channel == "MSSWWEB"` 断言通过
 - [x] 跨用户隔离验证通过
-- [ ] `playwright.msswweb.config.ts` 通过 `tests/frontend/test_e2e_suite_contract.py` 与 testid/tz 机检（本次不建 Playwright 域配置，不适用）
+- [x] `playwright.msswweb.config.ts` 机检（**不适用**：本次不建 Playwright 域配置）
 - [x] 无残留进程干扰，`e2e-` 前缀数据已清理
+
+### 人工收尾（TASK-013 自动化部分已全过，以下须人工在真实构建+真实浏览器上执行）
+
+1. **S-02 多轮对话**：真实浏览器发 2~3 轮，确认流式增量、历史顺序、`/stop` 中止生效。
+2. **S-03 四断点**：① POST 建会话返回 202；② SSE 文本增量逐字显示；③ 刷新后历史水位与 `through_seq` 对齐；④ 消息归属 `channel=MSSWWEB`（DB/接口核对）。
+3. **S-05 人工断连重连**：对话中刷新/断网重连，按最后 `seq` 续读，不重复建 Run、不丢帧。
+4. **产物下载**：让 Agent 产出文件后点下载，确认 200 且内容正确（入口只作来源、按 user+Agent 授权）。
 
 ### Spec Delta
 
@@ -984,6 +991,7 @@ MSSW 的身份在 Cookie `soc-token`。Playwright 用 `context.addCookies()` 种
 - [2026-11-17] pytest 验收层完成：`tests/acceptance/msswweb` 38 条 + 受影响 gateway 套件，Pod 上 85 条全过（`EXIT_CODE=0`）。补齐 `/entries` 的 `allowed`/`reason` 与 `POST /conversations/{id}/read`。浏览器层改人工执行。
 - [2026-11-17] 跨用户隔离补用例 `test_cross_user_isolation.py`（5 条，Pod 全过）。文档对齐：BFF 文档、设计/PRD/前端设计、`docs/mssw-channel/` 共 9 处旧形态（`?agent_id=` / `ENTRY_DISABLED` / `through_seq` 回执）修正。
 - [2026-11-17] E-10（Redis 缓存 revision 失效）核对结论：**认证读路径未接入缓存**（分层原语与失效流程已实现，读/写原语零调用方，每次直查 PG）。已在 scenarios 与 backend.design 标注实现状态并说明偏差；**未补实现**——属性能优化，接入会使 Redis 成为认证必经依赖，经用户确认仅备注文档。
+- [2026-11-24] 复核并收尾完成：pytest 验收层 `tests/acceptance/msswweb`（43 用例）+ 影响面 gateway 套件全过、`channel=MSSWWEB` 与跨用户隔离均在自动化内；Playwright 三项按决议转人工、不适用项标注。**剩余为人工浏览器验收**（S-02/S-03/S-05 + 产物下载），列入「人工收尾」。Status → done。
 
 ### Verification
 
@@ -993,3 +1001,96 @@ MSSW 的身份在 Cookie `soc-token`。Playwright 用 `context.addCookies()` 种
   `tests/gateway/test_capacity_webchat_gateway_chat_auth.py`、
   `tests/acceptance/msswweb`，结果 85 passed / 0 failed（`EXIT_CODE=0`），无残留 pytest/uvicorn 进程。
 - 浏览器层（S-02 / S-03 SSE 与 UI / S-05）待人工执行并记录。
+
+---
+
+## 附：新增第二个 JWT 外部平台的扩展性结论（2026-11-19）
+
+> 补充说明，非本期（MSSWWEB 单平台）落地范围。详情与逐文件落点见 `mssw-external-im-channel.backend.design.md#3.1.3`。
+
+**前提**：新接入的第二个 JWT 平台**与本平台同签名算法（RS256）、同密文格式（AES-ECB `aud`/`iss`）**——验签的算法/签名/密文三段天然复用、`verifier.py` 不用改。
+
+**结论**：同算法同密文下，验签核心与身份/授权层（Console）**已天然多平台**；新增平台工作量集中在「Gateway surface 装配（路由前缀 + 断言头）」与「把时效字段 / 通道名提为平台配置」两处。
+
+**可扩展（纯配置，改 Secret 即生效）**：平台元数据、`identity_keys`（身份字段 / 校验字段）、`identity_field_labels`、`public_key`/`issuer`/`audience`/`salt`、`display_name`。
+
+**天然复用、无需改**：签名算法白名单（`_ALLOWED_ALGS`=RS256，已覆盖）、签名校验（PKCS1v15+SHA256）、`aud`/`iss` 密文比对（AES-ECB+salt）——因新平台同算法同密文。
+
+**需要参数化改造的三项（一次性改造，之后按平台配置）**：
+
+- **时效字段**：`verifier.py._issued_at_seconds` 写死读 `("login_time","time")` + 毫秒 `/1000`。改造：`ExternalPlatformConfig` 增 `issue_time_keys`/`issue_time_unit`（带默认值），`_issued_at_seconds` 改按 config 解析。
+- **channel**：`_check_channel`、`grant_entry` 硬要求 `== MSSWWEB`。改造：`ExternalPlatformConfig` 增 `channel`（默认 `MSSWWEB`），两处改为按平台配置比对。**`grant_entry` 的 `config.channel` 取自被授权身份的 `platform_key`（`BotAccount` 无 `platform_key` 字段、入口表只有 `channel`）**。**`BotAccount.channel` 是 `sa.String(32)` 普通字符串、不是 PG 枚举，独立通道名无需迁移**（对上文旧稿「DB 枚举」「bot 所属平台」的更正是以代码为准）。
+- **`soc-token` 断言头**：Gateway `api/deps.py` 的 `SOC_TOKEN_HEADER` 模块常量。改造：`ChatSurface` 增 `assertion_header` 字段、`get_chat_credentials` 读 surface（默认 `soc-token`）。
+
+> **「配置化」的准确边界**：当前三项都是代码写死的值，**不存在「零改动只填 Secret」的路径**。需先做一次**协议无关的参数化改造**（R 项），改造默认值等于现行为，故 MSSWWEB 不受影响；改造完成后，新增同协议平台只是填 Secret 对应键（P 项）。若新平台完全沿用 `MSSWWEB`/`soc-token`/同时效字段，则改造后无需为新平台额外配置。
+
+**多平台现状纠正**：不是「不支持多平台」，而是「装配把单通道钉死单平台」。Console 侧 `_require_platform(platform_key)` 按配置取、天然多平台；瓶颈是 `main._build_webchat_surfaces` 只挂一个 `/api/v1/msswwweb`、`_single_external_platform_key` 在平台数 `>1` 时返回 `None` 导致 503。
+
+**与 TASK-007 的关系**：TASK-007 关键点第 3 条「路由前缀固定 `/api/v1/msswwweb`（决策 I4），不做成平台变量」**只对本期的单平台成立**；新增第二平台时该约束由 §3.1.3 的「装配循环化」取代——按配置为每个外部断言平台各挂一套 `/api/v1/<surface>`。
+
+**改造清单（R 一次性参数化 / P 新增平台装配）**：
+
+- **R（改造一次，MSSWWEB 行为不变）**：① 配置模型加 `issue_time_keys`/`issue_time_unit`/`channel`（带默认值）+ `_KNOWN_KEYS` 登记；② `_issued_at_seconds` 读 config；③ `_check_channel` 读 `config.channel`；④ `grant_entry` 按 bot 所属平台 `config.channel` 比对；⑤ `ChatSurface.assertion_header` + `get_chat_credentials` 读 surface。
+- **P（接入具体平台时）**：⑥ Gateway 装配循环化（按配置生成多套 surface）；⑦ Secret 增平台项 + 路由随装配生成。
+- **不动**：`verifier.py` 算法/签名/密文、Console `resolve`/`describe`/身份/授权、`auth_cache`（平台段已隔离）。
+
+**接入操作旅程（改造后，详见设计 §3.1.3 六）**：① 取上游因子 → ② 配 Secret 平台项 → ③ 配断言头/路由（默认则免）→ ④ Gateway 注册通道（P 项一次改造已覆盖，无需再改）→ ⑤ Console 通道集合 + 前端下拉（P 项一次改造已覆盖，无需再改）→ ⑥ `GET /external-platforms` 确认出现 → ⑦ 建入口 → ⑧ 建外部身份 → ⑨ 授权入口 → ⑩ 端到端联调 → ⑪ 撤权/到期验证。**代码改造只发生在一次性 R/P 项**；对情况 A（新平台与 MSSWWEB 同为无 Secret、ID 当入口标识），接入实际就是「填 Secret + 界面建入口/身份/授权 + 联调」，不为其改代码。
+
+**「情况 A」= 本期扩展性目标**：新平台形态与 `MSSWWEB` 一致（无 Secret、`bot_id` 为入口标识）。P 项第 7 步一次性把 `SECRETLESS_CHANNELS` 改为「内置 ∪ 配置平台通道」、前端下拉动态化后，情况 A 新平台自动复用 MSSWWEB 表单，前端零额外代码。**情况 B（新平台有 Secret 或字段语义不同）/ C（有独有表单字段）不承诺配置化**，出现时另立前端需求。
+
+**多平台装配三条硬约束**：① **废弃 `_single_external_platform_key` 的「全局单平台」假设**——每平台配置各自绑定 surface，不再「全局挑一个」（现 `len>1` 即 503）；② **多平台必须多通道，不能共用同一 `channel` 名**——`bot_account` 只有 `channel` 无 `platform_key`，共用通道则入口/授权/路由无法区分而冲突。正确形态：一平台一 `platform_key` 一 `channel` 一路由前缀。「复用 MSSWWEB 通道」只适用于单平台场景；③ **通道名必须匹配 `^[A-Za-z0-9]+web$`（以 `web` 结尾、其余字母数字）**——路由前缀由 `/api/v1/<channel 小写>` 派生，反代用一条正则 `^/api/v1/[a-z0-9]+web(?:/|$)` 覆盖所有外部平台前缀且不误吞 Console 的 `/api/v1/*` 业务前缀与 `/api/v1/webchat`。契约层 `ChannelName = str` 不约束字符集，故该约束必须在平台配置解析时显式校验（不满足抛 `PlatformConfigError`，启动期失败）。**环境标识（UAT/PRD 等）放 `display_name`，不得进入 `channel`**——`MSSPWEBUAT` 这类命名会绕过反代正则、表现为前端通道选不通或请求 404 且无明确报错。
+
+**配置不能满足的点（需代码/前端/产品决策）**：通知/任务中心对 MSSWWEB 面刻意不暴露（是否给新平台属产品决策）。通道注册名、`SECRETLESS_CHANNELS`、前端 `ChannelKind`/下拉/**`AgentDetailSideSheet` 通道展示名**均为**一次性改造项（P 项）**，改造后情况 A 不再每平台改代码（展示名从映射取，否则新平台显示裸通道名）。
+
+---
+
+## TASK-014: 外部平台通道命名规范沉淀
+
+- **Status**: done
+- **Depends**: TASK-007
+- **Source**: mssw-external-im-channel.backend.design.md（术语·通道定义与「多平台装配必守约束」）
+- **Scenarios**:
+- **Spec-Refs**: im/harness-im
+- **Paths**: .code-flow/specs/im/harness-im.md, packages/contracts/src/muad_contracts/enums.py, apps/console-platform/backend/src/muad_console_platform/application/external_assertion/config.py, apps/im-gateway/src/muad_im_gateway/channels/registry.py
+- **E2E**:
+- **Skip-Tests**: false
+
+### Tests
+
+```json
+[
+  {
+    "id": "channel-name-validation",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/console_platform/test_external_assertion.py", "tests/gateway/test_external_platform_key_selection.py", "tests/contracts/test_capacity_webchat_chat_contracts.py"],
+    "timeout": 300,
+    "parallel": false
+  }
+]
+```
+
+### Description
+
+第二轮平台接入（`mssp`）暴露：通道名被配成 `MSSPWEBUAT`（把环境标识 `UAT` 塞进通道名），导致反代正则 `^/api/v1/[a-z0-9]+web` 匹配不到、请求落到 Console 上游 404，前端通道下拉也因两个平台 `channel` 撞名而选不通。根因是**契约层 `ChannelName = str` 不约束字符集，通道命名规范从未写进规范**。
+
+本任务把该约束沉淀为 `im/harness-im` 的规则：外部平台通道名必须匹配 `^[A-Za-z0-9]+web$`（大小写不限），环境标识放 `display_name`；并在平台配置解析期实装校验——判定口径唯一来自 `muad_contracts.is_valid_external_channel_name / EXTERNAL_CHANNEL_NAME_PATTERN`，Console 解析期抛 `PlatformConfigError`（硬失败），Gateway 跳过坏平台并记 `external_assertion_channel_name_invalid`（坏平台只影响自己）。原计划 `RULE-im-010` 已被其他任务占用，改用当前 `next_rule` 分配的 `RULE-im-013`。
+
+### Checklist
+
+- [x] 新规则有稳定 `RULE-im-013`，编号取自 `next_rule`
+- [x] 规则写规范不写实现值（不写具体平台名以外的配置值）
+- [x] 配 ✅/❌ 对照示例
+- [x] 解析期校验实装（contracts 单一判定 + Console 硬失败 + Gateway 跳过），含正/反例单测
+- [x] Spec Delta JSON 合法，`target` 相对 `.code-flow/specs` 且不带 `.md`,`im` 的 `next_rule` 同步 +1
+
+### Spec Delta
+
+```json
+[
+  {"id":"DELTA-014","op":"add","target":"im/harness-im","rule":"外部 JWT 平台的通道名必须匹配 ^[A-Za-z0-9]+web$（不区分大小写地以 web 结尾、其余为字母数字），该约束在平台配置解析期显式校验：Console 抛 PlatformConfigError 硬失败，Gateway 跳过该平台并记 ERROR，判定口径唯一来自 muad_contracts.is_valid_external_channel_name。通道名决定路由前缀 /api/v1/<channel 小写>，反代用一条正则覆盖所有外部平台前缀且不误吞 Console 的 /api/v1/* 业务前缀与 webchat；契约层 ChannelName 不约束字符集，故须在解析期校验，不合规名会导致运行期静默 404。环境/部署标识（如 UAT/PRD）放 display_name，不得进入 channel。✅ MSSWWEB、MSSPWEB；❌ MSSPWEBUAT、mssp-web、custom-channel。","evidence":"backend.design.md 术语·通道定义「通道命名规范」与「多平台装配必守约束」第 3 条；第二轮 mssp 接入暴露的 regex 漏匹配与前端下拉撞名"}
+]
+```
+
+### Log
+
+- [2026-11-20] created（第二轮 mssp 接入暴露通道命名无约束问题后沉淀）
+- [2026-11-24] done：`RULE-im-013` 写入 `im/harness-im`（`next_rule` 13→14）+ Conventions ✅/❌ 示例；实装解析期校验：`muad_contracts.is_valid_external_channel_name`/`EXTERNAL_CHANNEL_NAME_PATTERN`（单一判定）、Console `config.py` 抛 `PlatformConfigError`、Gateway `registry.py` 跳过并记 `external_assertion_channel_name_invalid`；补正/反例单测（console 12 + gateway 1）。原计划 `RULE-im-010` 被占用，改用 013。

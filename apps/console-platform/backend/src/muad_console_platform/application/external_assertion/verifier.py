@@ -96,14 +96,35 @@ def _check_factors(claims: dict[str, object], config: ExternalPlatformConfig) ->
         raise AssertionRejected("issuer_mismatch")
 
 
-def _issued_at_seconds(claims: dict[str, object]) -> float | None:
+def _seconds_from_epoch(raw: float, unit: str) -> float:
+    """把一个 epoch 数值换算成秒。
+
+    ``unit`` 是平台声明的默认单位，但上游同一 token 内不同 key 的单位可能不一致
+    （MSSW 的 ``login_time`` 是**秒级**字符串、``time`` 是**毫秒级**整数），所以这里按
+    数值量级自适应覆盖配置单位：秒级 epoch 约 1e9、毫秒级约 1e12。阈值取 1e11——介于
+    两者之间，且远小于任何真实秒级时间戳、远大于任何真实毫秒时间戳的溢出边界。
+    """
+    magnitude = "ms" if raw >= 1e11 else "s"
+    if magnitude != unit:
+        _LOGGER.debug(
+            "external_assertion_issue_time_unit_override declared=%s detected=%s",
+            unit,
+            magnitude,
+        )
+    return raw / 1000.0 if magnitude == "ms" else raw
+
+
+def _issued_at_seconds(claims: dict[str, object], config: ExternalPlatformConfig) -> float | None:
     """取上游签发自报时刻，统一换成**秒**。
 
-    上游发的是 ``login_time``（字符串形式的 Unix **毫秒**）与 ``time``（int64 毫秒），
-    二者同值；``iat`` 是上游**不发的**字段（见 ``docs/mssw-channel/01-jwt-spec.md``），
-    这里刻意不读它——读了也永远取不到值，等于把上限校验变成空转。
+    字段名与单位来自平台配置（``issue_time_keys`` / ``issue_time_unit``）：MSSW 默认读
+    ``login_time``（字符串形式的 Unix **秒**）与 ``time``（int64 **毫秒**），二者同值但单位
+    不同；``iat`` 是上游**不发的**字段（见 ``docs/mssw-channel/01-jwt-spec.md``），故不放进
+    默认候选——读了也永远取不到值，等于把上限校验变成空转。不同平台可各自配不同的键/单位；
+    同一平台内则按数值量级自适应（见 ``_seconds_from_epoch``），避免把秒值当毫秒除以 1000
+    而算到 1970 年、被误判 ``assertion_expired``。
     """
-    for key in ("login_time", "time"):
+    for key in config.issue_time_keys:
         raw = claims.get(key)
         if isinstance(raw, bool):  # bool 是 int 的子类，必须先排除
             continue
@@ -113,11 +134,13 @@ def _issued_at_seconds(claims: dict[str, object]) -> float | None:
             except ValueError:
                 continue
         if isinstance(raw, (int, float)) and raw > 0:
-            return float(raw) / 1000.0
+            return _seconds_from_epoch(float(raw), config.issue_time_unit)
     return None
 
 
-def _check_max_age(claims: dict[str, object], max_session_age_sec: int | None) -> None:
+def _check_max_age(
+    claims: dict[str, object], config: ExternalPlatformConfig, max_session_age_sec: int | None
+) -> None:
     """``exp`` 恒为 -1，不可信；用签发自报时间做绝对上限（第 ③ 步）。
 
     这道闸的作用是限制「``exp=-1`` 的 token 无限续订 SSE」——**签发时间不可知时无界，
@@ -126,7 +149,7 @@ def _check_max_age(claims: dict[str, object], max_session_age_sec: int | None) -
     """
     if not max_session_age_sec or max_session_age_sec <= 0:
         return
-    issued_at = _issued_at_seconds(claims)
+    issued_at = _issued_at_seconds(claims, config)
     if issued_at is None:
         raise AssertionRejected("missing_issue_time")
     age = time.time() - issued_at
@@ -148,5 +171,5 @@ def verify_assertion(
     _verify_signature(header_b64, payload_b64, signature_b64, config)
     claims = _decode_claims(payload_b64)
     _check_factors(claims, config)
-    _check_max_age(claims, max_session_age_sec)
+    _check_max_age(claims, config, max_session_age_sec)
     return VerifiedClaims(claims=claims)
