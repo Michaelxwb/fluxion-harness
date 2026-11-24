@@ -147,3 +147,41 @@ def test_retryable_business_failure_follows_retry_safety() -> None:
 
     assert retry.disposition is FailureDisposition.RETRY
     assert unverified.disposition is FailureDisposition.UNVERIFIED
+
+
+def test_verified_findings_complete_without_becoming_wait_or_fanout() -> None:
+    reviewed = {"summary": {"errors": 2}, "wait": {"external_ref": {"id": "ignored"}}}
+    outcome = interpret_execution(
+        {
+            "status": "SUCCEEDED",
+            "execution_status": "COMPLETED",
+            "business_status": "REVIEW_FINDINGS",
+            "exit_code": 1,
+            "result": reviewed,
+        },
+        now=datetime.now(UTC),
+    )
+    assert outcome.kind is OutcomeKind.COMPLETED
+    assert outcome.result == {
+        "execution_status": "COMPLETED",
+        "business_status": "REVIEW_FINDINGS",
+        "exit_code": 1,
+        "result": reviewed,
+    }
+    assert outcome.wait_kind is None
+
+
+def test_contract_failure_keeps_original_exit_and_failure_reason() -> None:
+    outcome = interpret_execution(
+        {
+            "status": "FAILED",
+            "execution_status": "FAILED",
+            "error_code": "SKILL_RESULT_INVALID",
+            "exit_code": 1,
+            "result": None,
+        },
+        now=datetime.now(UTC),
+    )
+    assert outcome.kind is OutcomeKind.RETRYABLE_FAILURE
+    assert (outcome.error_code, outcome.exit_code, outcome.retryable) == ("SKILL_RESULT_INVALID", 1, False)
+    assert outcome.failure_layer == "TOOL"

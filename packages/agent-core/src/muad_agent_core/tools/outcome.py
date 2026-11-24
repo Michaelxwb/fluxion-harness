@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
+from muad_contracts.skill_results import SkillBusinessConclusion, SkillCallStatus
 from muad_logging.redaction import redact_text
 
 TOOL_FAILED_CODE = "TOOL_FAILED"
@@ -30,6 +31,10 @@ PLATFORM_SUMMARY_LIMIT = 300
 
 class BusinessStatus(StrEnum):
     SUCCEEDED = "SUCCEEDED"
+    REVIEW_PASSED = "REVIEW_PASSED"
+    REVIEW_FINDINGS = "REVIEW_FINDINGS"
+    NO_DEVICES = "NO_DEVICES"
+    NEEDS_INPUT = "NEEDS_INPUT"
     FAILED = "FAILED"
     TIMED_OUT = "TIMED_OUT"
     CANCELLED = "CANCELLED"
@@ -76,6 +81,9 @@ class ExecutionOutcome:
     exit_code: int | None = None
     retryable: bool = False
     evidence: ExecutionEvidence = field(default_factory=ExecutionEvidence)
+    execution_status: SkillCallStatus | None = None
+    review_progress: tuple[str, int, int] | None = None
+    customer_options: tuple[dict[str, str], ...] = ()
 
     @property
     def is_failure(self) -> bool:
@@ -94,6 +102,9 @@ class ExecutionOutcome:
             exit_code=self.exit_code,
             retryable=self.retryable,
             evidence=self.evidence,
+            execution_status=self.execution_status,
+            review_progress=self.review_progress,
+            customer_options=self.customer_options,
         )
 
 
@@ -281,6 +292,30 @@ def _failure_envelope(stderr: str) -> tuple[str | None, str, bool | None]:
     )
 
 
+def _review_progress(result: object) -> tuple[str, int, int] | None:
+    if not isinstance(result, Mapping):
+        return None
+    draft = result.get("reviewed_draft")
+    summary = result.get("summary")
+    if not isinstance(draft, Mapping) or not isinstance(summary, Mapping):
+        return None
+    draft_id, revision, errors = draft.get("draft_id"), draft.get("revision"), summary.get("errors")
+    if isinstance(draft_id, str) and type(revision) is int and type(errors) is int:
+        return draft_id, revision, errors
+    return None
+
+
+def _customer_options(result: object) -> tuple[dict[str, str], ...]:
+    candidates = result.get("candidates") if isinstance(result, Mapping) else None
+    if not isinstance(candidates, list):
+        return ()
+    return tuple(
+        {"id": item["id"], "name": item["name"]}
+        for item in candidates if isinstance(item, dict)
+        and isinstance(item.get("id"), str) and isinstance(item.get("name"), str)
+    )
+
+
 def skill_result_outcome(
     *,
     status: str,
@@ -289,15 +324,31 @@ def skill_result_outcome(
     result: object = None,
     exit_code: int | None = None,
     output_truncated: bool = False,
+    execution_status: SkillCallStatus | None = None,
+    business_conclusion: SkillBusinessConclusion | None = None,
+    result_error_code: str | None = None,
 ) -> ExecutionOutcome:
     """`execute(target=skill)` 的**类型化执行事实** → `ExecutionOutcome`。
 
     只消费执行器已经给出的 `status/exit_code/result` 与脚本协议要求的 stderr 失败信封；
     stdout 只作证据。
     """
+    if execution_status is SkillCallStatus.COMPLETED and business_conclusion is not None:
+        return ExecutionOutcome(
+            execution_status=execution_status,
+            business_status=BusinessStatus(business_conclusion.value),
+            review_progress=_review_progress(result),
+            customer_options=(
+                _customer_options(result)
+                if business_conclusion is SkillBusinessConclusion.NEEDS_INPUT else ()
+            ),
+            exit_code=exit_code,
+            evidence=ExecutionEvidence(output_truncated=output_truncated),
+        )
     if status == "CANCELLED":
         return ExecutionOutcome(
             business_status=BusinessStatus.CANCELLED,
+            execution_status=execution_status,
             failure_layer=FailureLayer.NONE,
             exit_code=exit_code,
             evidence=evidence_for(stderr, stdout, output_truncated=output_truncated),
@@ -309,9 +360,13 @@ def skill_result_outcome(
             business_status=(
                 BusinessStatus.TIMED_OUT if status == "TIMED_OUT" else BusinessStatus.FAILED
             ),
-            failure_layer=FailureLayer.CONTENT,
-            error_code=code or SKILL_FAILED_CODE,
-            error_message=message or (stderr.strip()[:500] if stderr.strip() else ""),
+            execution_status=execution_status,
+            failure_layer=FailureLayer.TOOL if result_error_code else FailureLayer.CONTENT,
+            error_code=result_error_code or code or SKILL_FAILED_CODE,
+            error_message=(
+                "Skill did not produce a verifiable result."
+                if result_error_code else message or stderr.strip()[:500]
+            ),
             exit_code=exit_code,
             retryable=retryable,
             evidence=evidence_for(
@@ -352,8 +407,22 @@ def skill_execution_outcome(payload: Mapping[str, Any]) -> ExecutionOutcome | No
     stdout = payload.get("stdout")
     stderr = payload.get("stderr")
     exit_code = payload.get("exit_code")
+    execution_status = payload.get("execution_status")
+    conclusion = payload.get("business_status")
+    error = payload.get("error_code")
     return skill_result_outcome(
         status=status,
+        execution_status=(
+            SkillCallStatus(execution_status)
+            if isinstance(execution_status, str) and execution_status in SkillCallStatus._value2member_map_
+            else None
+        ),
+        business_conclusion=(
+            SkillBusinessConclusion(conclusion)
+            if isinstance(conclusion, str) and conclusion in SkillBusinessConclusion._value2member_map_
+            else None
+        ),
+        result_error_code=error if isinstance(error, str) else None,
         stdout=stdout if isinstance(stdout, str) else "",
         stderr=stderr if isinstance(stderr, str) else "",
         result=payload.get("result"),

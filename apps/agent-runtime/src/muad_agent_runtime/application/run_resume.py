@@ -117,5 +117,11 @@ async def resolve_generic_interrupts(session: AsyncSession, rows: list[RunInterr
             continue
         if row.interrupt_type == "MEMORY_CONFIRMATION":
             raise RuntimeError("memory confirmation must use the dedicated dispatcher")
+        if row.interrupt_type == "HUMAN_INPUT":
+            if row.expires_at is not None and row.expires_at <= now:
+                raise AppError(ErrorCode.REVISION_CONFLICT)
+            options = row.options_json
+            if not text.strip() or (options and text.strip() not in {item["id"] for item in options}):
+                raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
         row.status, row.resolved_at, row.update_time = "RESOLVED", now, now
         row.resolution_json = {"input": text}

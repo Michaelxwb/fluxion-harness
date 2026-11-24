@@ -42,6 +42,7 @@ Skill key 由 `SKILL.md` 的 `name` 生成，默认脚本取 manifest 的 `entry
 
 ## 自建 Skill 三件套说明
 
+- 通过平台托管 `execute` 运行 `self-skill-review` 前，将本次发布的审查包 SHA-256（`sha256:<hex>`）加入 Console 的 `MUAD_TRUSTED_SKILL_REVIEW_CHECKSUMS`。多个发布包以逗号分隔。先配置受信校验值，再导入和绑定三件套的新版本。
 - 草稿不再写本地 `skill-staging/`，改为平台草稿（按 tenant + user + agent 隔离、revision CAS）。
 - 上传不再调用旧项目的 `/internal/v1/skills/private/ingest`，改用 Runtime 的 `skill_draft` 工具
   （action：create/get/read/write/delete/review/status/submit）。

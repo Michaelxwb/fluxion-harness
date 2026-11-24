@@ -356,6 +356,7 @@ def _tool_calls(bundle: ExecutionExportBundle) -> list[dict[str, Any]]:
             "error_code": row.get("error_code"),
             "error_message": row.get("error_message"),
             "business_status": row.get("business_status"),
+            "execution_status": row.get("execution_status"),
             "failure_layer": row.get("failure_layer"),
             "exit_code": row.get("exit_code"),
             "output_truncated": row.get("output_truncated"),

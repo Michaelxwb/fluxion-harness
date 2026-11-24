@@ -30,10 +30,9 @@ description: 把当前用户的 Skill 草稿提交到控制台，生成待审批
 ### Step 2：提交前审查（必须，没跑过不提交）
 
 1. **规范审查**：用 `self-skill-review` 审当前草稿——
-   - `execute(target="workspace", command="pwd")` 取工作区根；
-   - `execute(target="skill", skill_key="self-skill-review", input={}, argv=["--target", "<工作区根>/skill-drafts/<key>"])`；
-   - 把 error/warning 摘要原样告诉用户。审查**不阻断提交**，但有 error 时要说明风险并建议先修；
-   - 审查之后草稿又被改过 ⇒ 旧报告失效，必须重跑；拿不到报告就**不要提交**。
+   - `execute(target="skill", skill_key="self-skill-review", input={}, argv=["--target", "skill-drafts/<key>", "--format", "json"])`；
+   - 要求 `execution_status=COMPLETED`、有效的审查业务结论，以及 `result.reviewed_draft` 的 `draft_id` 和 `revision` 匹配提交目标。证据缺失或审查执行失败时停止提交并说明原因；
+   - 把 error/warning 摘要告诉用户。`REVIEW_FINDINGS` 时说明风险并等待用户确认。草稿变更后重新审查当前版本。
 2. **平台结构校验**：调用 `skill_draft {"action": "review", "draft_id": "<draft_id>"}`：
    - 有 `error`：原样转述问题（`file:line` + 原因），**不要提交**，让用户改完再试；
    - 只有 `warning`：可以继续，但把 warning 一并告知用户。
@@ -66,7 +65,7 @@ skill_draft {
 
 | 错误码 | 含义 | 处理 |
 |---|---|---|
-| `DRAFT_REVISION_CONFLICT` | 草稿在提交前被改过 | 重新 `skill_draft`（action=`get`） 取新 revision，重试**一次**；仍冲突就告知用户草稿正在被修改 |
+| `DRAFT_REVISION_CONFLICT` | 草稿在提交前被改过 | 读取新 revision，重做规范审查和平台结构校验，按该版本的 findings 完成必要的确认，再重试一次 |
 | `SKILL_PACKAGE_INVALID` / `SKILL_MD_MISSING` / `MANIFEST_INVALID` | 草稿格式不合法 | 转述具体原因，回到 `self-skill-creator` 修正 |
 | `SKILL_KEY_EXISTS` / `SKILL_PENDING_EXISTS` | 同名 Skill 或已有待审版本 | 告知用户：等管理员处理，或联系管理员删除旧 Skill 后重提 |
 | `SKILL_APPROVED_LOCKED` | 已有审批通过的 Skill | 告知用户：已审批版本锁定，需管理员解绑+软删后才能重提新版本 |

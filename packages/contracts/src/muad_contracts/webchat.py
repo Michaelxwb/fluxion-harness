@@ -318,6 +318,7 @@ class WebchatHistoryMessage(WebchatContract):
     role: Literal["USER", "ASSISTANT"]
     text: StrictStr
     attachments: list[WebchatAttachment] = Field(default_factory=list)
+    technical_details: list[StrictStr] | None = Field(default=None, exclude_if=lambda value: not value)
     #: 定时任务卡片：Draft 事件不是普通消息，但它必须能以同一条持久事实回到历史里
     #: （刷新后仍可确认），因此挂在助手条目上而不是另造一种历史条目。只有卡片条目带这个键，
     #: 普通消息的线格式不因此多一个 `draft: null`。

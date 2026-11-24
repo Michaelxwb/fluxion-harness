@@ -521,7 +521,8 @@ async def test_no_checkpoint_recovery_rebuilds_counters_and_failure_state(
     assert resume.checkpoint.turns == 1
     assert resume.checkpoint.tool_calls == 1
     assert resume.checkpoint.failure_state is not None
-    assert resume.checkpoint.failure_state["no_progress"] is True
+    assert resume.checkpoint.failure_state["no_progress"] is False
+    assert resume.checkpoint.failure_state["external_blocked"] is True
     assert resume.checkpoint.failure_state["last_failure"]["code"] == "PLATFORM_AUTH_REJECTED"
 
 
@@ -870,8 +871,8 @@ async def _failure_state_from_events(harness: AsyncHarness, task: TaskExecution)
     return resume.checkpoint.failure_state
 
 
-async def test_recovery_clears_failure_counter_after_a_success(harness: AsyncHarness) -> None:
-    """失败 → 成功 → 再失败 必须按"成功清零"恢复，不能被旧计数判成 NO_PROGRESS。"""
+async def test_recovery_retains_failure_counter_after_a_neutral_result(harness: AsyncHarness) -> None:
+    """没有业务结论的工具结果不会清零已经确认的失败。"""
     tenant = harness.tenant
     task = await insert_task(tenant, agentic_snapshot(), status=TaskStatus.RUNNING)
     sink = TaskEventSink(
@@ -887,8 +888,8 @@ async def test_recovery_clears_failure_counter_after_a_success(harness: AsyncHar
     state = await _failure_state_from_events(harness, task)
 
     assert state is not None
-    assert state["no_progress"] is False
-    assert sum(state["identical_failures"].values()) == 1, "success reset the earlier chain"
+    assert state["no_progress"] is True
+    assert sum(state["identical_failures"].values()) == 2
 
 
 @pytest.mark.parametrize("code", ["TOOL_NOT_EXECUTED", "TOOL_BUDGET_EXHAUSTED"])
@@ -1066,7 +1067,8 @@ async def test_checkpoint_failure_state_does_not_mask_newer_events(harness: Asyn
 
     assert resume is not None
     assert resume.checkpoint.failure_state is not None
-    assert resume.checkpoint.failure_state["no_progress"] is True
+    assert resume.checkpoint.failure_state["no_progress"] is False
+    assert resume.checkpoint.failure_state["external_blocked"] is True
     assert resume.checkpoint.failure_state["last_failure"]["code"] == "PLATFORM_AUTH_REJECTED"
 
 

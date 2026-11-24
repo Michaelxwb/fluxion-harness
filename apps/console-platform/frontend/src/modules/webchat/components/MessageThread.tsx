@@ -620,6 +620,12 @@ function MessageItem(props: MessageItemProps) {
           )}
         </div>
         <MessageContent text={message.text} />
+        {message.technical_details?.length ? (
+          <details className="chat-message-technical-details">
+            <summary>{t('chat.message.technicalDetails')}</summary>
+            <ul>{message.technical_details.map((line, index) => <li key={index}>{line}</li>)}</ul>
+          </details>
+        ) : null}
         {message.attachments.length === 0 ? null : (
           <div className="chat-message-attachments">
             {message.attachments.map((attachment) => (

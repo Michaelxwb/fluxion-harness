@@ -4,6 +4,7 @@ import json
 import mimetypes
 import uuid
 from collections.abc import Mapping, Sequence
+from contextlib import AsyncExitStack
 from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 from typing import Any, Protocol
@@ -36,6 +37,8 @@ from muad_agent_core.skill import (
     build_sandboxed_skill_executor,
     validate_skill_invocation,
 )
+from muad_agent_core.skill.result_profiles import RESULT_INVALID
+from muad_agent_core.skill.review_archive import review_target
 from muad_agent_core.skill.selection import select_entry_script
 from muad_agent_core.tools import (
     ArtifactRef,
@@ -73,6 +76,7 @@ from muad_contracts.skill_invocation import (
     MAX_SKILL_ARGV_ITEMS,
     validate_skill_argv,
 )
+from muad_contracts.skill_results import SkillResultProfile, frozen_skill_result_contract
 from muad_logging import get_logger
 from muad_platform_sdk.adapter.mss_config import PlatformAuthError
 from muad_platform_sdk.egress_attempt_audit import AttemptObserver
@@ -979,22 +983,21 @@ class SkillToolSet:
         try:
             deadline = self._timeout_sec if timeout_sec is None else timeout_sec
             broker, platform_context = await self._execution_egress(skill, invocation_id, deadline)
-            return await self._executor.execute(
-                SkillExecutionRequest(
-                    ready_dir=ready_dir,
-                    input=input_data,
-                    argv=argv,
-                    timeout_sec=deadline,
-                    source=str(skill.source),
-                    workspace_dir=workspace_dir,
-                    execution_id=execution_id,
-                    script=script,
-                    egress_broker=broker,
-                    platform_context=platform_context,
-                )
+            request = SkillExecutionRequest(
+                ready_dir=ready_dir,
+                input=input_data,
+                argv=argv,
+                timeout_sec=deadline,
+                source=str(skill.source),
+                workspace_dir=workspace_dir,
+                execution_id=execution_id,
+                script=script,
+                egress_broker=broker,
+                platform_context=platform_context,
             )
+            return await self._execute_result_contract(request, skill)
         except SkillExecutionError as exc:
-            if exc.code == "LOCAL_BUDGET_EXHAUSTED":
+            if exc.code in {"LOCAL_BUDGET_EXHAUSTED", RESULT_INVALID}:
                 raise SkillToolError(exc.code, exc.message) from exc
             raise SkillToolError(
                 SKILL_EXECUTION_FAILED,
@@ -1008,6 +1011,26 @@ class SkillToolSet:
             raise SkillToolError(code, str(exc)) from exc
         except MeteringUnavailable:
             raise SkillToolError("EGRESS_METERING_UNAVAILABLE", "shared metering unavailable") from None
+
+    async def _execute_result_contract(
+        self, request: SkillExecutionRequest, skill: ResolvedSkill,
+    ) -> SkillExecutionResult:
+        contract = (
+            frozen_skill_result_contract(skill.frontmatter, checksum=skill.checksum)
+            if request.script is None else None
+        )
+        if contract is None:
+            return await self._executor.execute(request)
+        async with AsyncExitStack() as stack:
+            target = None
+            if contract.profile is SkillResultProfile.SKILL_REVIEW:
+                loader = self._draft_tools.review_archive if self._draft_tools is not None else None
+                target = await stack.enter_async_context(
+                    review_target(request.argv, loader, settings=process_settings())
+                )
+            return await self._executor.execute(
+                replace(request, result_contract=contract, review_target=target)
+            )
 
     async def _execution_egress(
         self, skill: ResolvedSkill, operation_key: str, timeout_sec: float,
@@ -1373,6 +1396,9 @@ def _skill_tool_result(result: SkillExecutionResult, outputs: Sequence[Mapping[s
             result=result.result,
             exit_code=result.exit_code,
             output_truncated=result.output_truncated,
+            execution_status=result.execution_status,
+            business_conclusion=result.business_conclusion,
+            result_error_code=result.result_error_code,
         ),
     )
 
@@ -1419,6 +1445,12 @@ def _execution_payload(result: SkillExecutionResult, outputs: Sequence[Mapping[s
         "output_notice": result.output_notice,
         "output_truncated": result.output_truncated,
     }
+    if result.execution_status is not None:
+        payload["execution_status"] = result.execution_status.value
+    if result.business_conclusion is not None:
+        payload["business_status"] = result.business_conclusion.value
+    if result.result_error_code is not None:
+        payload["error_code"] = result.result_error_code
     if result.platform_sessions:
         payload["platform_sessions"] = result.platform_sessions
     return json.dumps(payload, ensure_ascii=False)

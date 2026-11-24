@@ -291,7 +291,7 @@ async def test_read_settings_revisions_and_limits_envelope(
         "egress",
         "schedule",
     }
-    assert _field_value(read.json(), "task.max_attempts") == 3
+    assert _field_value(read.json(), "task.max_attempts") == default_platform_settings().task.max_attempts
     assert data["readonly_notes"], "非本页管理的项须给出归属说明"
 
     assert (await _put(client, _bad_payload(0, {"task": {"max_attempts": 7}}))).status_code == 200

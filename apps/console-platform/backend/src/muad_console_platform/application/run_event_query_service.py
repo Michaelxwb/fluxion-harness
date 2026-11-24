@@ -128,6 +128,7 @@ def _call_details(detail: RunEventDetail, row: RunEventDetailRow) -> None:
     if row.event_type in TOOL_EVENTS:
         data = row.tool or row.event_data
         add_fields(detail, data, ("tool_name", "tool_call_id", "status", "duration_ms", "error_code"))
+        add_fields(detail, data, ("execution_status", "business_status", "exit_code"))
         arguments = data.get("arguments")
         detail.arguments = argument_views(arguments)
         if isinstance(arguments, dict):

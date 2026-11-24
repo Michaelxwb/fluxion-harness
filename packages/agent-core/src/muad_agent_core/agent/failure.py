@@ -1,22 +1,15 @@
-"""Failure tracking as one pure state machine shared by live execution and recovery.
-
-The runner applies tool outcomes in round order; recovery folds the same completed facts in the
-same order. Keeping the transition here is what makes a restored Run stop for the same reasons a
-live Run would.
-"""
+"""Failure, progress and retry decisions shared by live execution and recovery."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
-from ..tools.outcome import BusinessStatus, FailureLayer
+from ..tools.outcome import FAILURE_STATUSES, BusinessStatus, FailureLayer
 from .termination import FailureEvidence, FailureState
 
 
 @dataclass(frozen=True, slots=True)
 class FailureSignal:
-    """One tool outcome expressed as the facts failure tracking consumes."""
-
     tool: str
     tool_call_id: str = ""
     business_status: str = BusinessStatus.NOT_APPLICABLE.value
@@ -27,6 +20,24 @@ class FailureSignal:
     retryable: bool = False
     evidence_preview: str = ""
     occurred_at: str = ""
+    attempt: str | None = None
+    external_started: bool = False
+    review_progress: tuple[str, int, int] | None = None
+
+
+def is_effectful(effect: str, retry_safety: str) -> bool:
+    # A distinct model call has a new operation identity, even for a declared idempotent tool.
+    return effect != "READ" and retry_safety != "READ_ONLY"
+
+
+def failure_scope(tool: str, *, skill_key: str | None = None, skill_id: object = None) -> str:
+    if skill_key:
+        return "skill:" + skill_key
+    return "skill:" + str(skill_id) if skill_id else tool
+
+
+def attempt_identity(scope: str, args_hash: str) -> str:
+    return f"{scope}:{args_hash}"
 
 
 def update_failure_state(
@@ -35,28 +46,42 @@ def update_failure_state(
     *,
     max_identical_failures: int,
 ) -> FailureState:
-    """Apply one outcome. `None` means "no confirmed failure" (success / non-business call)."""
     if signal is None:
-        return _progress(state)
-    status = signal.business_status
-    if status in {BusinessStatus.CANCELLED, BusinessStatus.RATE_LIMITED}:
-        # These outcomes preserve previously observed failures and retry counts.
         return state
-    if (
-        status
-        in (
-            BusinessStatus.SUCCEEDED,
-            BusinessStatus.NOT_APPLICABLE,
-            BusinessStatus.UNKNOWN,
-        )
-        or signal.failure_layer == FailureLayer.NONE
-    ):
-        return _progress(state)
+    if signal.error_code == "LOCAL_BUDGET_EXHAUSTED" and signal.business_status in FAILURE_STATUSES:
+        return replace(state, last_failure=_evidence(signal), no_progress=True)
+    if signal.review_progress is not None:
+        return _review_progress(state, signal, max_identical_failures=max_identical_failures)
+    status = signal.business_status
+    if status not in FAILURE_STATUSES or signal.failure_layer == FailureLayer.NONE:
+        if status == BusinessStatus.SUCCEEDED:
+            counts = {
+                key: count for key, count in state.identical_failures.items()
+                if not key.startswith(signal.tool + ":")
+            }
+            return replace(state, identical_failures=counts)
+        return state
 
-    evidence = FailureEvidence(
+    blocked = state.blocked_attempts
+    if not signal.retryable and signal.attempt is not None:
+        blocked = blocked | {signal.attempt}
+    if signal.external_started:
+        state = replace(state, external_blocked=True)
+    state = replace(state, blocked_attempts=blocked)
+    key_code = signal.error_code or "TOOL_FAILED"
+    if key_code == "TOOL_RETRY_UNSAFE":
+        key_code = "TOOL_RETRY_BLOCKED"
+    return _count_failure(
+        state, _evidence(signal), key=f"{signal.tool}:{key_code}:{signal.failure_layer}",
+        max_identical_failures=max_identical_failures,
+    )
+
+
+def _evidence(signal: FailureSignal) -> FailureEvidence:
+    return FailureEvidence(
         tool=signal.tool,
         tool_call_id=signal.tool_call_id,
-        status=status,
+        status=signal.business_status,
         code=signal.error_code or "TOOL_FAILED",
         message=signal.message,
         failure_layer=signal.failure_layer,
@@ -65,24 +90,32 @@ def update_failure_state(
         evidence_preview=signal.evidence_preview,
         occurred_at=signal.occurred_at,
     )
-    if not signal.retryable:
-        return replace(state, last_failure=evidence, no_progress=True)
 
+
+def _count_failure(
+    state: FailureState, evidence: FailureEvidence, *, key: str, max_identical_failures: int,
+) -> FailureState:
     counts = dict(state.identical_failures)
-    key = f"{evidence.tool}:{evidence.code}:{evidence.failure_layer}"
     counts[key] = counts.get(key, 0) + 1
-    stopped = state.no_progress or counts[key] >= max(1, max_identical_failures)
     return replace(
-        state,
-        last_failure=evidence,
-        identical_failures=counts,
-        no_progress=stopped,
+        state, last_failure=evidence, identical_failures=counts,
+        no_progress=state.no_progress or counts[key] >= max(2, max_identical_failures),
     )
 
 
-def _progress(state: FailureState) -> FailureState:
-    """Reset retry counters without undoing a stop reached earlier in the same batch."""
-    return replace(state, identical_failures={})
+def _review_progress(
+    state: FailureState, signal: FailureSignal, *, max_identical_failures: int,
+) -> FailureState:
+    assert signal.review_progress is not None
+    draft, revision, errors = signal.review_progress
+    previous = state.reviews.get(draft)
+    key = f"review:{draft}:NO_PROGRESS"
+    if previous is None or errors == 0 or (revision > previous[0] and errors < previous[1]):
+        counts = dict(state.identical_failures)
+        counts.pop(key, None)
+        return replace(state, reviews={**state.reviews, draft: (revision, errors)}, identical_failures=counts)
+    evidence = replace(_evidence(signal), code="SKILL_REVIEW_NO_PROGRESS")
+    return _count_failure(state, evidence, key=key, max_identical_failures=max_identical_failures)
 
 
-__all__ = ["FailureSignal", "update_failure_state"]
+__all__ = ["FailureSignal", "attempt_identity", "failure_scope", "is_effectful", "update_failure_state"]

@@ -238,7 +238,7 @@ async def test_workspace_shell_nonzero_exit_is_evidence_not_no_progress() -> Non
     assert result.termination.failure_state.last_failure is None
 
 
-async def test_skill_content_failure_stops_on_first_occurrence() -> None:
+async def test_skill_content_failure_allows_a_normal_reply_and_keeps_the_evidence() -> None:
     payload = json.dumps(
         {
             "status": "FAILED",
@@ -253,7 +253,7 @@ async def test_skill_content_failure_stops_on_first_occurrence() -> None:
             "output_truncated": False,
         }
     )
-    provider = _Provider([_tool_call(("c1", "execute"))])
+    provider = _Provider([_tool_call(("c1", "execute")), _text("Access denied.")])
     registry = ToolRegistry()
 
     async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
@@ -282,14 +282,14 @@ async def test_skill_content_failure_stops_on_first_occurrence() -> None:
 
     result = await AgentRunner(provider=provider, registry=registry).run(_request())
 
-    assert result.status is AgentRunStatus.NO_PROGRESS
-    assert len(provider.requests) == 1
+    assert result.status is AgentRunStatus.COMPLETED
+    assert len(provider.requests) == 2
     snapshot = result.termination
     assert snapshot is not None
-    assert snapshot.reason is TerminationReason.NO_PROGRESS
+    assert snapshot.reason is None
     failure = snapshot.failure_state.last_failure
     assert failure is not None
     assert failure.failure_layer == "CONTENT"
     assert failure.code == "PLATFORM_AUTH_REJECTED"
     assert failure.exit_code == 3
-    assert decisive_failure(snapshot, TerminationReason.NO_PROGRESS) is failure
+    assert decisive_failure(snapshot, snapshot.reason) is None

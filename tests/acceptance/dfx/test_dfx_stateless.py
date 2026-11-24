@@ -457,19 +457,24 @@ def test_s12_stateless_pod_replacement_freezes_snapshot_and_deterministic_hash(
         # 命中 RUNNING 窗口（2026-10-09 全量 Pytest 实测一次）；只放大窗口，断言不变。
         _set_probe_delay(stack, 15000)
         run1 = _start_run_streaming(pod_a, stack, conversation, "s12 turn one")
+        claim_deadline = time.monotonic() + 10
+        while _read_run(run1)["status"] == "CREATED" and time.monotonic() < claim_deadline:
+            time.sleep(POLL_INTERVAL_SEC)
         snapshot1 = _read_experience_snapshot(run1)
         run1_before = _read_run(run1)
         assert snapshot1["run_id"] == run1
         assert snapshot1["content_hash"].startswith("sha256:")
         assert "api_key" not in snapshot1["model_json"]
         assert MODEL_API_KEY not in json.dumps(snapshot1["model_json"])
-        assert run1_before["status"] in {"CREATED", "RUNNING"}, run1_before
+        assert run1_before["status"] == "RUNNING", run1_before
         assert run1_before["conversation_id"] == conversation
 
         # 2) 真实 SIGKILL 掉 Pod A（进程确实退出）
         pod_a.kill()
         assert not pod_a.alive, "Pod A 仍存活"
         assert pod_a.returncode == -signal.SIGKILL, pod_a.returncode
+        assert _wait_terminal(run1, timeout=30) == "FAILED"
+        assert _read_run(run1)["error_code"] == "RUN_ABANDONED"
 
         # 3) 相同配置、跨 Pod：content_hash 相等（确定性口径）
         _set_probe_delay(stack, 0)
@@ -517,11 +522,6 @@ def test_s12_stateless_pod_replacement_freezes_snapshot_and_deterministic_hash(
         assert snapshot_b["content_hash"] != snapshot_a["content_hash"], (
             "只改 Model params 也必须改变 content_hash（model 腿未被冻结）"
         )
-
-        # R1 被强杀后由 reaper 回收为 RUN_ABANDONED（同一 conversation 才能再发起 Run）
-        terminal1 = _wait_terminal(run1, timeout=30)
-        assert terminal1 == "FAILED", terminal1
-        assert _read_run(run1)["error_code"] == "RUN_ABANDONED"
 
         # 7) Turn 2：另一 Pod、同一 conversation_id（无 sticky session 的直接证据）
         run2, conversation2 = _start_run(pod_b, stack, conversation, "s12 turn two")

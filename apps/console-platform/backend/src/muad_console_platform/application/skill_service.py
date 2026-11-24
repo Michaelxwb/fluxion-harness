@@ -37,6 +37,7 @@ from ..infrastructure.skill_validator import (
     ValidatedSkillPackage,
     checksum_of,
     invalid_package,
+    require_result_entrypoint,
     validated_package,
 )
 from .audit_service import AuditActor, AuditService, sanitize_payload
@@ -889,6 +890,7 @@ class SkillService:
         value: str | None,
         package: ValidatedSkillPackage,
     ) -> str | None:
+        require_result_entrypoint(value, package)
         if value is None:
             return None
         path = PurePosixPath(value)

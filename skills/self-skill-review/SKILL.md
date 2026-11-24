@@ -1,5 +1,6 @@
 ---
 name: self-skill-review
+result_contract: {version: 1, profile: skill-review}
 description: "提交或审批自建 Skill 前必须执行。触发场景：审查 skill / review skill / 检查 skill 是否符合规范 / skill 合规检查。只读确定性审查一个 Skill 目录，不执行目标代码。"
 ---
 
@@ -27,20 +28,18 @@ python3 scripts/check.py --target <skill-dir> --format json
 
 ## 平台草稿怎么审
 
-平台草稿在用户工作区的 `skill-drafts/<key>` 下。拿路径的可靠做法（**不要 `find /`**）：
-
-1. `execute(target="workspace", command="pwd")`，得到工作区根（开发环境是宿主路径，生产是 `/workspace`）。
-2. `execute(target="skill", skill_key="self-skill-review", argv=[...])` 调用本 Skill，`argv` 原样传给 `scripts/check.py`：
+通过托管 `execute` 审查当前用户的草稿。平台读取该草稿的固定版本，执行只读审查并校验报告。
 
 ```json
 {
+  "target": "skill",
   "skill_key": "self-skill-review",
   "input": {},
-  "argv": ["--target", "<工作区根>/skill-drafts/<key>"]
+  "argv": ["--target", "skill-drafts/<key>", "--format", "json"]
 }
 ```
 
-拿不到草稿目录、或目录里没有 `SKILL.md` 时，直接报告“无法审查”并给出原因，不要猜路径。
+以返回的 `execution_status`、`business_status` 和 `result.reviewed_draft` 为准。`COMPLETED` 加 `REVIEW_PASSED` 表示无 error；`COMPLETED` 加 `REVIEW_FINDINGS` 表示审查完成且存在 error。执行失败或证据缺失时，说明无法验证及已知原因。
 
 ## 审查流程
 

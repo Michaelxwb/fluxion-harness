@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Mapping, Sequence
+from contextlib import AsyncExitStack
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -35,6 +36,7 @@ from muad_agent_core.skill import (
     SkillExecutionStatus,
     SkillExecutor,
 )
+from muad_agent_core.tools import ToolResult, skill_result_outcome
 from muad_artifact_store import SkillArtifactCacheError
 from muad_common import SharedSettings
 from muad_contracts import (
@@ -72,7 +74,7 @@ from ..infrastructure.task_operation_client import (
     TaskOperationError,
 )
 from .egress_execution import execute_task_skill_with_egress
-from .executor import TaskExecutionError, task_env
+from .executor import TaskExecutionError, apply_worker_result_contract, skill_result_facts, task_env
 
 logger = get_logger("muad_agent_worker.worker.agentic_skills")
 
@@ -125,14 +127,14 @@ class AgenticSkillTools:
         *,
         call_id: str,
         args_hash: str | None = None,
-    ) -> str:
+    ) -> str | ToolResult:
         if skill.execution_mode == "ASYNC":
             return await self._submit(skill, tool_name, input, argv, call_id, args_hash=args_hash)
         return await self._execute(skill, input, argv, call_id)
 
     async def _execute(
         self, skill: SnapshotSkill, input: Mapping[str, Any], argv: Sequence[str], call_id: str
-    ) -> str:
+    ) -> str | ToolResult:
         source = skill.source.strip().upper()
         if source not in VALID_SKILL_SOURCES:
             raise TaskExecutionError("SKILL_SOURCE_INVALID", f"invalid frozen skill source: {source!r}")
@@ -151,22 +153,22 @@ class AgenticSkillTools:
                 env=task_env(self._task),
                 platform_context=self._platform_context(skill),
             )
-            result = await execute_task_skill_with_egress(
-                self._executor,
-                request,
-                task=self._task,
-                skill_key=self._skill_key(skill),
-                settings=self._settings,
-                sessions=self._sessions,
-                operation_key=egress_operation_key("TOOL_CALL", call_id),
-                egress=self._egress,
-            )
+            async with AsyncExitStack() as stack:
+                request = await apply_worker_result_contract(
+                    request, self._task, skill.model_dump(mode="json"), self._settings, stack,
+                    require_pinned=False,
+                )
+                result = await execute_task_skill_with_egress(
+                    self._executor, request, task=self._task, skill_key=self._skill_key(skill),
+                    settings=self._settings, sessions=self._sessions,
+                    operation_key=egress_operation_key("TOOL_CALL", call_id), egress=self._egress,
+                )
         except SkillExecutionError as exc:
             message = exc.message
             if exc.platform_sessions:
                 message = f"{message}; {_platform_summary(exc.platform_sessions)}"
             raise TaskExecutionError(
-                "SKILL_EXECUTION_FAILED",
+                exc.code if exc.code == "SKILL_RESULT_INVALID" else "SKILL_EXECUTION_FAILED",
                 message,
                 platform_sessions=exc.platform_sessions,
             ) from exc
@@ -571,7 +573,21 @@ def _child_task_snapshot(
     )
 
 
-def _result_text(result: SkillExecutionResult) -> str:
+def _result_text(result: SkillExecutionResult) -> str | ToolResult:
+    if result.execution_status is not None:
+        return ToolResult(
+            json.dumps({
+                **skill_result_facts(result), "status": result.status.value,
+                "result": result.result,
+            }, ensure_ascii=False),
+            outcome=skill_result_outcome(
+                status=result.status.value, exit_code=result.exit_code, stdout=result.stdout,
+                stderr=result.stderr, result=result.result,
+                execution_status=result.execution_status,
+                business_conclusion=result.business_conclusion, result_error_code=result.result_error_code,
+                output_truncated=result.output_truncated,
+            ),
+        )
     if result.status is not SkillExecutionStatus.SUCCEEDED:
         raise TaskExecutionError(
             "SKILL_EXECUTION_FAILED", result.stderr or f"skill finished with {result.status.value}"

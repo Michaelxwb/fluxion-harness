@@ -231,7 +231,8 @@ async def test_business_failure_is_read_from_tool_audit(
         assert payload["finalization"]["evidence_status"] == "CONFIRMED_FAILURE"
         assert evidence["last_failure"]["error_code"] == "PLATFORM_AUTH_REJECTED"
         assert evidence["decisive_failure"]["tool"] == "execute"
-        assert "PLATFORM_AUTH_REJECTED" in payload["final_text"]
+        assert "PLATFORM_AUTH_REJECTED" not in payload["final_text"]
+        assert any("PLATFORM_AUTH_REJECTED" in line for line in payload["technical_details"])
     finally:
         await _cleanup_audit(factory, run.tenant_id)
 

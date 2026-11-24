@@ -482,3 +482,44 @@ async def test_system_import_forces_all_user_scope(
     )
     assert response.status_code == 200, response.text
     assert response.json()["data"]["user_scope"] == "ALL"
+
+
+async def test_review_contract_requires_release_checksum(
+    client: AsyncClient, skill_env: SkillContext, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    files = {
+        "SKILL.md": (
+            "---\nname: self-skill-review\ndescription: Review a Skill\n"
+            "result_contract: {version: 1, profile: skill-review}\n---\n"
+        ),
+        "muad.skill.json": '{"author":"fluxion-harness","entrypoint":"scripts/check.py"}',
+        "scripts/check.py": "print('example')\n",
+        "scripts/other.py": "print('other example')\n",
+    }
+    release = zip_bytes(files)
+    checksum = skill_validator.checksum_of(release)
+    monkeypatch.setenv(skill_validator.TRUSTED_REVIEW_CHECKSUMS_ENV, checksum)
+    unauthorized = zip_bytes({**files, "scripts/check.py": "print('different bytes')\n"})
+    rejected = await import_skill(client, skill_env, unauthorized)
+    assert rejected.status_code == 400
+    assert rejected.json()["data"]["reason"] == "RESULT_CONTRACT_NOT_TRUSTED"
+    assert skill_validator.review_package(unauthorized).status == "error"
+    conflict = skill_validator.review_package(release, default_script="scripts/other.py")
+    assert conflict.status == "error"
+    assert any(check.code == "RESULT_CONTRACT_ENTRYPOINT_MISMATCH" for check in conflict.checks)
+
+    accepted = await import_skill(client, skill_env, release)
+    assert accepted.status_code in {200, 201}, accepted.text
+    async with get_session_factory()() as session:
+        artifact = await session.scalar(
+            select(SkillArtifact)
+            .join(Skill, Skill.id == SkillArtifact.skill_id)
+            .where(Skill.tenant_id == skill_env.tenant_id, SkillArtifact.checksum == checksum)
+        )
+        assert artifact is not None
+        assert artifact.frontmatter_json["result_contract"] == {
+            "version": 1,
+            "profile": "skill-review",
+            "checksum": checksum,
+            "entrypoint": "scripts/check.py",
+        }

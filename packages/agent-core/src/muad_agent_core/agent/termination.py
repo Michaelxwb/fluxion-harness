@@ -99,12 +99,18 @@ class FailureState:
     last_failure: FailureEvidence | None = None
     identical_failures: Mapping[str, int] = field(default_factory=dict)
     no_progress: bool = False
+    blocked_attempts: frozenset[str] = frozenset()
+    external_blocked: bool = False
+    reviews: Mapping[str, tuple[int, int]] = field(default_factory=dict)
 
     def as_payload(self) -> dict[str, Any]:
         return {
             "last_failure": self.last_failure.as_payload() if self.last_failure else None,
             "identical_failures": dict(self.identical_failures),
             "no_progress": self.no_progress,
+            "blocked_attempts": sorted(self.blocked_attempts),
+            "external_blocked": self.external_blocked,
+            "reviews": {key: list(value) for key, value in self.reviews.items()},
         }
 
     @classmethod
@@ -117,7 +123,21 @@ class FailureState:
             for key, value in raw_counts.items():
                 if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
                     counts[str(key)] = value
+        blocked = payload.get("blocked_attempts")
+        raw_reviews = payload.get("reviews")
+        reviews = {}
+        if isinstance(raw_reviews, Mapping):
+            for key, values in raw_reviews.items():
+                if (
+                    isinstance(values, list | tuple) and len(values) == 2
+                    and all(type(v) is int for v in values)
+                ):
+                    reviews[str(key)] = (values[0], values[1])
         return cls(
+            blocked_attempts=frozenset(v for v in blocked if isinstance(v, str)) if isinstance(blocked, list)
+            else frozenset(),
+            external_blocked=payload.get("external_blocked") is True,
+            reviews=reviews,
             last_failure=FailureEvidence.from_payload(payload.get("last_failure")),
             identical_failures=counts,
             no_progress=payload.get("no_progress") is True,

@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
 import re
 import tempfile
 import zipfile
@@ -14,6 +15,7 @@ from typing import Any
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_contracts.skill_results import FrozenSkillResultContract, SkillResultProfile
 from muad_skill_sdk import (
     SkillManifest,
     SkillPackage,
@@ -21,6 +23,7 @@ from muad_skill_sdk import (
     declared_entrypoint,
     locate_package_root,
 )
+from pydantic import ValidationError
 
 ZIP_BYTES_LIMIT = 50 * 1024 * 1024
 UNPACKED_BYTES_LIMIT = 200 * 1024 * 1024
@@ -166,6 +169,7 @@ def review_package(
                 PackageCheck("FILE_SAFETY", "pass", f"{len(package.files)} 个文件通过安全检查"),
                 PackageCheck("SECRET_SCAN", "pass", "未发现明显密钥"),
             ]
+            require_result_entrypoint(default_script, package)
             entrypoint = _entrypoint_check(default_script, package)
             if entrypoint is not None:
                 checks.append(entrypoint)
@@ -235,6 +239,8 @@ def _reason_message(reason: str) -> str:
     return {
         "SKILL_MD_MISSING": "缺少 SKILL.md",
         "MANIFEST_INVALID": "SKILL.md frontmatter 不合法",
+        "RESULT_CONTRACT_NOT_TRUSTED": "审查结果契约需要受信任的发布包",
+        "RESULT_CONTRACT_ENTRYPOINT_MISMATCH": "默认脚本必须与结果契约入口一致",
         "PATH_INVALID": "包含路径穿越或 symlink",
         "NESTED_ARCHIVE": "包含嵌套压缩包",
         "FILE_TYPE_UNSUPPORTED": "包含不允许的文件类型",
@@ -279,6 +285,10 @@ def _validate_package(data: bytes, temp_root: Path) -> ValidatedSkillPackage:
     _scan_secrets(package_root)
     author = _package_author(package_root)
     frontmatter = _frontmatter(package.manifest)
+    entrypoint = _declared_entrypoint(package_root)
+    bound_contract = _bind_result_contract(package.manifest, entrypoint, data)
+    if bound_contract is not None:
+        frontmatter["result_contract"] = bound_contract.model_dump(mode="json")
     if author is not None:
         frontmatter["author"] = author
     return ValidatedSkillPackage(
@@ -289,8 +299,41 @@ def _validate_package(data: bytes, temp_root: Path) -> ValidatedSkillPackage:
         total_size=total_size,
         default_key=_default_key(package.manifest.name, inner_dir),
         author=author,
-        entrypoint=_declared_entrypoint(package_root),
+        entrypoint=entrypoint,
     )
+
+
+SKILL_REVIEW_ENTRYPOINT = "scripts/check.py"
+TRUSTED_REVIEW_CHECKSUMS_ENV = "MUAD_TRUSTED_SKILL_REVIEW_CHECKSUMS"
+
+
+def require_result_entrypoint(value: str | None, package: ValidatedSkillPackage) -> None:
+    if package.manifest.result_contract is not None and value not in (None, package.entrypoint):
+        raise invalid_package("RESULT_CONTRACT_ENTRYPOINT_MISMATCH")
+
+
+def _bind_result_contract(
+    manifest: SkillManifest, entrypoint: str | None, data: bytes
+) -> FrozenSkillResultContract | None:
+    contract = manifest.result_contract
+    if contract is None:
+        return None
+    if entrypoint is None:
+        raise invalid_package("RESULT_CONTRACT_ENTRYPOINT_MISMATCH")
+    checksum = checksum_of(data)
+    if contract.profile is SkillResultProfile.SKILL_REVIEW:
+        trusted = {
+            item.strip() for item in os.environ.get(TRUSTED_REVIEW_CHECKSUMS_ENV, "").split(",")
+        }
+        if entrypoint != SKILL_REVIEW_ENTRYPOINT or checksum not in trusted:
+            raise invalid_package("RESULT_CONTRACT_NOT_TRUSTED")
+    try:
+        return FrozenSkillResultContract(
+            version=contract.version, profile=contract.profile, checksum=checksum,
+            entrypoint=entrypoint,
+        )
+    except ValidationError as exc:
+        raise invalid_package("RESULT_CONTRACT_ENTRYPOINT_MISMATCH") from exc
 
 
 def _package_author(root: Path) -> str | None:

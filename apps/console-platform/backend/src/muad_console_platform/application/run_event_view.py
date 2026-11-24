@@ -10,6 +10,9 @@ from pydantic import BaseModel, Field, JsonValue
 EventFieldKey = Literal[
     "tool_name",
     "tool_call_id",
+    "execution_status",
+    "business_status",
+    "exit_code",
     "skill_key",
     "script",
     "status",

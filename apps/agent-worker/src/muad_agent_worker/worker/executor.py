@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 import mimetypes
 from collections.abc import Mapping
-from dataclasses import dataclass
+from contextlib import AsyncExitStack
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol, cast
@@ -25,16 +26,21 @@ from muad_agent_core.skill import (
     SkillExecutor,
     build_sandboxed_skill_executor,
 )
+from muad_agent_core.skill.draft_shell import DraftShellArchive
+from muad_agent_core.skill.result_profiles import RESULT_INVALID
+from muad_agent_core.skill.review_archive import load_review_archive, review_target
 from muad_artifact_store import SkillArtifactCacheError
 from muad_common import SharedSettings, process_settings
 from muad_contracts import TriggerType, WaitKind
 from muad_contracts.egress_identity import egress_operation_key
 from muad_contracts.skill_invocation import validate_skill_argv
+from muad_contracts.skill_results import FrozenReviewDraft, SkillResultProfile, frozen_skill_result_contract
 from muad_contracts.snapshot import task_execution_timeout
 from muad_logging import get_logger
 from muad_platform_sdk.platform_transport import PlatformBudgetScope
 from muad_platform_sdk.shared_redis import MeteringUnavailable, SharedLimitExceeded
 from muad_platform_sdk.skill_access import SkillPlatformContext
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..application.batch_fanout import (
@@ -241,6 +247,54 @@ def frozen_workspace(task: TaskExecution, skill: Mapping[str, Any], *,
         ) from exc
 
 
+async def apply_worker_result_contract(
+    request: SkillExecutionRequest, task: TaskExecution, skill: Mapping[str, Any],
+    settings: SharedSettings, stack: AsyncExitStack, *, require_pinned: bool,
+) -> SkillExecutionRequest:
+    metadata = skill.get("frontmatter")
+    if not isinstance(metadata, Mapping):
+        metadata = skill
+    try:
+        contract = frozen_skill_result_contract(metadata, checksum=str(skill["checksum"]))
+    except (ValueError, ValidationError) as exc:
+        raise TaskExecutionError(RESULT_INVALID, "Invalid frozen result contract") from exc
+    if contract is None:
+        return request
+    if contract.profile is not SkillResultProfile.SKILL_REVIEW:
+        return replace(request, result_contract=contract)
+
+    pinned = None
+    if require_pinned:
+        try:
+            pinned = FrozenReviewDraft.model_validate(task.execution_snapshot_json.get("review_draft"))
+        except ValidationError as exc:
+            raise TaskExecutionError(RESULT_INVALID, "Review requires a frozen draft reference") from exc
+
+    async def load_archive(key: str) -> DraftShellArchive:
+        return await load_review_archive(
+            key, tenant_id=task.tenant_id, owner_user_id=str(task.actor_user_id),
+            agent_id=str(task.agent_id), settings=settings,
+        )
+
+    target = await stack.enter_async_context(
+        review_target(request.argv, load_archive, settings=settings, pinned=pinned)
+    )
+    return replace(request, result_contract=contract, review_target=target)
+
+
+def skill_result_facts(result: SkillExecutionResult) -> dict[str, Any]:
+    if result.execution_status is None:
+        return {}
+    return {
+        "execution_status": result.execution_status.value,
+        "business_status": (
+            result.business_conclusion.value if result.business_conclusion is not None else None
+        ),
+        "error_code": result.result_error_code,
+        "exit_code": result.exit_code,
+    }
+
+
 class SkillTaskExecutor:
     """按冻结 Snapshot 执行 Skill。
 
@@ -325,13 +379,17 @@ class SkillTaskExecutor:
         key = skill.get("key")
         skill_key = key if isinstance(key, str) and key.strip() else None
         try:
-            result = await execute_task_skill_with_egress(
-                self._executor, request, task=task, skill_key=skill_key, settings=self._settings,
-                sessions=self._sessions,
-                operation_key=egress_operation_key("TASK_SKILL", str(task.id)),
-            )
+            async with AsyncExitStack() as stack:
+                request = await apply_worker_result_contract(
+                    request, task, skill, self._settings, stack, require_pinned=True,
+                )
+                result = await execute_task_skill_with_egress(
+                    self._executor, request, task=task, skill_key=skill_key, settings=self._settings,
+                    sessions=self._sessions,
+                    operation_key=egress_operation_key("TASK_SKILL", str(task.id)),
+                )
         except SkillExecutionError as exc:
-            if exc.code in {"LOCAL_BUDGET_EXHAUSTED", "EGRESS_CLIENT_UNSUPPORTED",
+            if exc.code in {"LOCAL_BUDGET_EXHAUSTED", "EGRESS_CLIENT_UNSUPPORTED", RESULT_INVALID,
                             "EGRESS_SCOPE_CONFLICT", "EGRESS_STOP_UNCONFIRMED"}:
                 raise TaskExecutionError(exc.code, exc.message, retryable=False) from exc
             raise TaskExecutionError("SKILL_EXECUTION_FAILED", exc.message) from exc
@@ -349,7 +407,7 @@ class SkillTaskExecutor:
         self._record_result(source, result)
         await self._register_outputs(task, workspace, result)
         payload = dict(result.result) if result.result else {}
-        plan = self._parse_plan(payload)
+        plan = self._parse_plan(payload) if result.execution_status is None else None
         if plan is not None:
             if self._fanout is None:
                 raise TaskExecutionError(
@@ -363,6 +421,7 @@ class SkillTaskExecutor:
             return self._batch_envelope(task, summary)
         return {
             "status": str(result.status),
+            **skill_result_facts(result),
             # `is not None` 而不是真值判断：脚本打印 `{}` 是**一个合法的结构化结果**，
             # 用真值判断会把它折成 `None`，随后 `interpret_execution` 的 stdout 兜底
             # 就把 `"{}"` 当成文本结果覆盖掉它（"空对象优先于 stdout"这条保证会失效）。

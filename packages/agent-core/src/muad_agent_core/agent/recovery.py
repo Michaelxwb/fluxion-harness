@@ -14,6 +14,8 @@ from enum import StrEnum
 from typing import Any
 
 from ..model.provider import ModelMessage, ModelRole, ModelToolCall
+from .failure import FailureSignal, attempt_identity, failure_scope, is_effectful, update_failure_state
+from .termination import FailureState
 
 NOT_EXECUTED_CODE = "TOOL_NOT_EXECUTED"
 OUTCOME_UNKNOWN_CODE = "OUTCOME_UNKNOWN"
@@ -25,6 +27,7 @@ DENIED_BEFORE_PREPARED_CODES = frozenset(
         "POLICY_DENIED",
         "TOOL_NOT_EXECUTED",
         "TOOL_BUDGET_EXHAUSTED",
+        "TOOL_RETRY_UNSAFE",
     }
 )
 
@@ -66,6 +69,7 @@ class PreparedFact:
     skill_key: str | None = None
     execution_mode: str | None = None
     retry_safety: str = "NON_RETRYABLE"
+    effect: str = "EXTERNAL"
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,6 +82,8 @@ class CompletedFact:
     failure_layer: str = "NONE"
     error_code: str | None = None
     retryable: bool = False
+    exit_code: int | None = None
+    review_progress: tuple[str, int, int] | None = None
     artifacts: tuple[Mapping[str, Any], ...] = ()
     follow_ups: tuple[Mapping[str, Any], ...] = ()
 
@@ -193,6 +199,37 @@ def fold_events(events: Sequence[Mapping[str, Any]]) -> RecoveryFold:
         calls=tuple(calls.values()),
         has_any_fact=bool(calls),
     )
+
+
+def replay_failure_state(fold: RecoveryFold, *, max_identical_failures: int) -> FailureState:
+    state = FailureState()
+    for call in fold.calls:
+        prepared, completed = call.prepared, call.completed
+        effectful = bool(prepared and is_effectful(prepared.effect, prepared.retry_safety))
+        if completed is None:
+            if effectful:
+                state = replace(state, external_blocked=True)
+            continue
+        if completed.error_code in {NOT_EXECUTED_CODE, "TOOL_BUDGET_EXHAUSTED"}:
+            continue
+        scope = failure_scope(
+            completed.tool_name or call.declaration.tool_name,
+            skill_key=prepared.skill_key if prepared else None,
+            skill_id=prepared.skill_id if prepared else None,
+        )
+        state = update_failure_state(
+            state,
+            FailureSignal(
+                tool=scope, tool_call_id=completed.call_id,
+                business_status=completed.business_status, failure_layer=completed.failure_layer,
+                error_code=completed.error_code, exit_code=completed.exit_code,
+                retryable=completed.retryable, evidence_preview=completed.content[:1024],
+                attempt=attempt_identity(scope, prepared.args_hash) if prepared else None,
+                external_started=effectful, review_progress=completed.review_progress,
+            ),
+            max_identical_failures=max_identical_failures,
+        )
+    return state
 
 
 def recover_call(
@@ -313,7 +350,16 @@ def _prepared_fact(call_id: str, payload: Mapping[str, Any]) -> PreparedFact:
             else None
         ),
         retry_safety=str(payload.get("retry_safety") or "NON_RETRYABLE"),
+        effect=str(payload.get("effect") or "EXTERNAL"),
     )
+
+
+def _progress_fact(value: object) -> tuple[str, int, int] | None:
+    if isinstance(value, list | tuple) and len(value) == 3:
+        draft, revision, errors = value
+        if isinstance(draft, str) and type(revision) is int and type(errors) is int:
+            return draft, revision, errors
+    return None
 
 
 def _completed_fact(call_id: str, payload: Mapping[str, Any]) -> CompletedFact:
@@ -336,6 +382,9 @@ def _completed_fact(call_id: str, payload: Mapping[str, Any]) -> CompletedFact:
             else None
         ),
         retryable=outcome_map.get("retryable") is True,
+        exit_code=outcome_map.get("exit_code") if type(outcome_map.get("exit_code")) is int else None,
+        review_progress=_progress_fact(outcome_map.get("review_progress")),
+
         artifacts=tuple(
             item for item in payload.get("artifacts") or () if isinstance(item, Mapping)
         ),

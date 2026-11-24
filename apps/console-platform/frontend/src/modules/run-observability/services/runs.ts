@@ -62,6 +62,7 @@ export interface RunTimelineEvent {
 
 export const EVENT_DETAIL_FIELDS = [
   'tool_name', 'tool_call_id', 'skill_key', 'script', 'status', 'duration_ms',
+  'execution_status', 'business_status', 'exit_code',
   'model', 'provider', 'attempt', 'retry_reason', 'input_tokens', 'output_tokens',
   'operation_id', 'task_id', 'task_status', 'completion_mode', 'wait_generation',
   'execution_epoch', 'error_code', 'covers_up_to_seq', 'bytes_before', 'bytes_after', 'operation_status',

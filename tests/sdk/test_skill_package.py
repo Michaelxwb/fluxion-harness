@@ -227,3 +227,26 @@ def test_script_extension_check_is_case_insensitive(tmp_path: Path) -> None:
     package = SkillPackage.load(root)  # 不抛
 
     assert [path.name for path in package.scripts()] == ["helper.MJS", "run.JS"]
+
+
+@pytest.mark.parametrize(
+    ("declaration", "has_entrypoint", "message"),
+    [
+        ("{version: 1, profile: skill-review}", False, "requires a declared"),
+        ("{version: 2, profile: skill-review}", True, "result_contract.*invalid"),
+        ("{version: true, profile: skill-review}", True, "result_contract.*invalid"),
+        ("{version: 1, profile: inexistent}", True, "result_contract.*invalid"),
+        ("{version: 1, profile: skill-review, trusted: true}", True, "result_contract.*invalid"),
+    ],
+)
+def test_result_contract_requires_supported_profile_and_exact_entrypoint(
+    tmp_path: Path, declaration: str, has_entrypoint: bool, message: str
+) -> None:
+    (tmp_path / "SKILL.md").write_text(
+        f"---\nname: example\ndescription: example\nresult_contract: {declaration}\n---\n"
+    )
+    if has_entrypoint:
+        (tmp_path / "run.py").write_text("print('example')\n")
+        (tmp_path / "muad.skill.json").write_text('{"entrypoint":"run.py"}')
+    with pytest.raises(SkillPackageError, match=message):
+        SkillPackage.load(tmp_path)

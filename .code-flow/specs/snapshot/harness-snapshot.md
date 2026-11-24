@@ -1,7 +1,7 @@
 ---
 {
   "description": "Run/Task 快照冻结",
-  "next_rule": 3
+  "next_rule": 4
 }
 ---
 
@@ -15,7 +15,11 @@
 
 - [RULE-002] Run 的 policy_json 冻结 locale.default_locale；旧行缺失时不追加语言段，失败文案回落默认语言。Draft 创建时读取当前 locale.default_timezone 属于 authoring 输入，不替代执行期冻结；Worker AGENTIC 在 admission 把用户 memory 的 language 偏好冻结进 SnapshotMemory.block.language，执行期与平台默认经同一 resolve_reply_locale 裁决，配置变化只影响后续新执行。
 
+- [RULE-003] 已完成工具调用以持久化的规范结果作为恢复事实。实时与恢复使用同一进展判定，并按调用与消费水位去重。已准备但没有可核实完成或未派发事实的调用视为结果未知。重试门禁基于冻结安全性、受信执行阶段和幂等身份，恢复及同一会话后续运行不能靠变参或换能力入口重做未核实的外部操作。
+
 ## Conventions
+
+- **恢复期间使用已持久化的工具事实**（RULE-003）：✅ 待核实的外部操作保留原身份和重试限制；❌ 通过更换工具入口或参数重做效果仍未知的操作。
 
 - **后台 Skill 的 CLI 参数随执行快照冻结**：独立的 `argv` 与 JSON stdin 分开存储，纳入快照 hash 和 operation 输入指纹；Worker 重试只读取原快照并校验参数，省略表示没有 CLI 参数。✅ 同一 call 改参数返回幂等冲突，重试原样执行；❌ 从当前 Skill 说明重建参数、将控制字段混入业务 input、不同参数复用旧操作。
 
@@ -45,3 +49,5 @@
 - {"source":"2026-11-15/scheduled-task-v2/scheduled-task-v2.md#TASK-010#DELTA-001","op":"update","rule":"RULE-snapshot-001","payload_sha256":"79ca71e73965785f513e78275bdd783f5293a316a307372448964d743614602e","at":"2026-11-16T05:09:15.751Z"}
 
 - {"source":"2026-11-21/agent-output-and-platform-defaults/agent-output-and-platform-defaults.md#TASK-007#DELTA-005","op":"add","rule":"RULE-002","payload_sha256":"c31b695ec19d13f2d7acc4c91bbede6d85f946a66fb4cc41ab852c8cd88f0f95","at":"2026-11-21T07:54:54.594Z"}
+
+- {"source":"2026-11-24/skill-results-conversation-finalization/skill-results-conversation-finalization.md#TASK-004#DELTA-001","op":"add","rule":"RULE-003","payload_sha256":"5c797b6a277cd93fffd6ead1a546b41b55935c717d1aeb9845c9eca2926dea11","at":"2026-11-24T09:27:16.306Z"}

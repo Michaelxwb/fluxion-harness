@@ -35,6 +35,7 @@ from .scheduling import (
     TaskExecutionSnapshotV4,
 )
 from .skill_invocation import validate_skill_argv
+from .skill_results import frozen_skill_result_contract
 
 #: v3：budget 冻结单次 Skill 执行超时；缺失预算的旧快照不能参与执行。
 TASK_SNAPSHOT_SCHEMA_VERSION = 3
@@ -55,7 +56,8 @@ def _skill_entry(skill: ResolvedSkill, workspace: WorkspaceRef) -> dict[str, Any
     platforms = skill.frontmatter.get("platforms", [])
     if not isinstance(platforms, list) or any(not isinstance(k, str) or not k for k in platforms):
         raise ValueError("Skill platforms must be a list of platform keys")
-    return {
+    contract = frozen_skill_result_contract(skill.frontmatter, checksum=skill.checksum)
+    entry = {
         "skill_id": str(skill.skill_id),
         "artifact_id": str(skill.artifact_id),
         "key": skill.key,
@@ -71,6 +73,9 @@ def _skill_entry(skill: ResolvedSkill, workspace: WorkspaceRef) -> dict[str, Any
         },
         "platforms": list(dict.fromkeys(platforms)),
     }
+    if contract is not None:
+        entry["result_contract"] = contract.model_dump(mode="json")
+    return entry
 
 
 def _mcp_entry(server: ResolvedMcpServer) -> dict[str, Any]:

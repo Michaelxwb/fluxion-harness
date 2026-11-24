@@ -38,6 +38,9 @@ class ToolEventOutcome(_ToolEventModel):
     retryable: bool = False
     evidence_preview: str = ""
     exit_code: int | None = None
+    execution_status: str | None = None
+    review_progress: tuple[str, int, int] | None = None
+    customer_options: tuple[dict[str, str], ...] = ()
 
 
 class AssistantToolCallEvent(_ToolEventModel):
@@ -68,6 +71,7 @@ class PreparedCallEvent(_ToolEventModel):
     tool_name: str | None = None
     execution_mode: str | None = None
     retry_safety: str
+    effect: str = "EXTERNAL"
 
 
 class ToolCompletedEvent(_ToolEventModel):

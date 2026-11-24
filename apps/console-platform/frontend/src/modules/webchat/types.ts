@@ -213,6 +213,7 @@ export interface WebchatHistoryMessage {
   role: WebchatMessageRole;
   text: string;
   attachments: WebchatAttachment[];
+  technical_details?: string[] | null;
   /**
    * 定时任务 Draft 卡片（`schedule.draft.ready` 的持久投影）：它不是普通消息，但必须以同一条
    * 持久事实回到历史里，刷新/重连后仍可确认。普通消息线格式不带这个键。

@@ -8,6 +8,7 @@ from pydantic import AwareDatetime, Field, model_validator
 from .enums import ChannelName, ScheduleMode, SkillExecutionMode, SkillSource
 from .model_pool import PositiveCount
 from .scheduling import ToolAllowlistEntry, ToolSource
+from .skill_results import frozen_skill_result_contract
 from .tasks import ContractModel
 
 
@@ -60,6 +61,11 @@ class ResolvedSkill(ContractModel):
     frontmatter: dict[str, Any] = Field(default_factory=dict)
     #: 服务端记录的唯一来源；加密/执行策略由它决定，缺失或非法一律拒绝执行（RULE-snapshot-001）。
     source: SkillSource
+
+    @model_validator(mode="after")
+    def _validate_result_contract(self) -> Self:
+        frozen_skill_result_contract(self.frontmatter, checksum=self.checksum)
+        return self
 
 
 class ResolvedMcpServer(ContractModel):

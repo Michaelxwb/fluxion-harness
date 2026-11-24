@@ -98,6 +98,7 @@ class TaskEventSink:
                 tool_name=prepared.tool_name,
                 execution_mode=prepared.execution_mode,
                 retry_safety=str(prepared.retry_safety),
+                effect=prepared.effect,
             ).model_dump(mode="json"),
         )
 
@@ -115,6 +116,11 @@ class TaskEventSink:
                     retryable=completed.outcome.retryable,
                     evidence_preview=completed.outcome.evidence.preview,
                     exit_code=completed.outcome.exit_code,
+                    execution_status=(
+                        completed.outcome.execution_status.value
+                        if completed.outcome.execution_status else None
+                    ),
+                    review_progress=completed.outcome.review_progress,
                 ),
                 content=completed.content,
                 artifacts=[

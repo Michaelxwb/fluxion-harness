@@ -198,8 +198,8 @@ async def test_audit_same_transaction_records_create_then_update_with_before_aft
     assert [row["action"] for row in rows] == ["CREATE", "UPDATE"]
     assert {row["actor_user_id"] for row in rows} == {actor.account_id}
     assert rows[0]["before_json"] is None, "首个版本没有 before"
-    assert rows[0]["after_json"]["task"]["max_attempts"] == 3  # 归一化后的 schema 默认
-    assert rows[1]["before_json"]["task"]["max_attempts"] == 3  # 上一版本内容
+    assert rows[0]["after_json"]["task"]["max_attempts"] == TaskSettings().max_attempts
+    assert rows[1]["before_json"]["task"]["max_attempts"] == TaskSettings().max_attempts
     assert rows[1]["after_json"]["task"]["max_attempts"] == 7  # 本次变更
     # 脱敏：白名单 schema 之外的键进不来，审计文档里不含任何凭据形状
     serialized = json.dumps(rows[1]["after_json"], ensure_ascii=False).lower()
@@ -314,7 +314,7 @@ async def test_restore_appends_new_revision_and_keeps_history(
 
     rows = await _audit_rows(tenant_id)
     assert rows[-1]["action"] == "RESTORE"
-    assert rows[-1]["before_json"]["task"]["max_attempts"] == 3
+    assert rows[-1]["before_json"]["task"]["max_attempts"] == TaskSettings().max_attempts
     assert rows[-1]["after_json"]["task"]["max_attempts"] == 7
     assert rows[-1]["before_json"]["egress"] == rows[-1]["after_json"]["egress"]
 

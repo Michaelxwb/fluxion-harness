@@ -176,3 +176,31 @@ async def test_b104_definition_change_only_affects_new_runs(
     assert after_model["agent_json"] == after_agent["agent_json"], "Model 腿不得改动 agent 列"
     assert after_model["content_hash"] != after_agent["content_hash"], "只换 model 也必须改变 hash"
     assert await _snapshot_row(run1) == before
+
+
+def test_background_snapshot_freezes_result_contract_without_unrelated_metadata() -> None:
+    from muad_contracts import ResolvedAgent, ResolvedModel, ResolvedSkill, SkillSource, WorkspaceRef
+    from muad_contracts.snapshot import build_task_snapshot
+
+    agent = ResolvedAgent(id=uuid.uuid4(), key="agent", revision=1, instructions="")
+    workspace = WorkspaceRef(tenant_id="test", user_id=uuid.uuid4(), agent_id=agent.id)
+    model = ResolvedModel(
+        id=uuid.uuid4(), revision=1, model_id="example", base_url="https://example.com"
+    )
+    checksum = "sha256:" + "a" * 64
+    contract = {
+        "version": 1,
+        "profile": "skill-review",
+        "checksum": checksum,
+        "entrypoint": "scripts/check.py",
+    }
+    skill = ResolvedSkill(
+        skill_id=uuid.uuid4(), artifact_id=uuid.uuid4(), key="review", name="review",
+        description="Review a draft", version="1.0.0", checksum=checksum,
+        storage_key="skills/review.zip", source=SkillSource.ADMIN,
+        frontmatter={"result_contract": contract, "unused": "not part of execution"},
+    )
+    frozen = build_task_snapshot(agent=agent, model=model, skill=skill, workspace=workspace)
+    skill.frontmatter["result_contract"]["entrypoint"] = "scripts/changed.py"
+    assert frozen["skills"][0]["result_contract"]["entrypoint"] == "scripts/check.py"
+    assert "unused" not in frozen["skills"][0]

@@ -6,12 +6,13 @@ from typing import Any
 
 from muad_agent_core.agent.continuation import RunnerCheckpoint
 from muad_agent_core.agent.failure import FailureSignal, update_failure_state
-from muad_agent_core.agent.recovery import NOT_EXECUTED_CODE
+from muad_agent_core.agent.recovery import NOT_EXECUTED_CODE, fold_events, replay_failure_state
 from muad_agent_core.agent.termination import FailureState
 from muad_agent_core.tools.outcome import FAILURE_STATUSES, BusinessStatus
 from muad_contracts import AsyncToolPolicy
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from ..infrastructure.db import SessionFactory
 from ..infrastructure.models.async_tools import RunContinuation
@@ -103,6 +104,57 @@ async def _latest_completed_tools(
     return "".join(text), completed
 
 
+async def _replay_state(
+    session: AsyncSession, run: RunRecord, policy: Mapping[str, Any],
+) -> FailureState:
+    rows = await session.execute(
+        select(CanonicalEvent.event_type, CanonicalEvent.payload_json)
+        .where(
+            CanonicalEvent.tenant_id == run.tenant_id,
+            CanonicalEvent.conversation_id == run.conversation_id,
+            CanonicalEvent.run_id == run.id,
+            CanonicalEvent.is_deleted.is_(False),
+            CanonicalEvent.event_type.in_(["ASSISTANT_TURN", "TOOL_CALL"]),
+        )
+        .order_by(CanonicalEvent.seq)
+    )
+    fold = fold_events([{"event_type": kind, "payload": payload} for kind, payload in rows])
+    raw_limit = policy.get("max_identical_failures")
+    limit = raw_limit if isinstance(raw_limit, int) and not isinstance(raw_limit, bool) else 2
+    return replay_failure_state(fold, max_identical_failures=limit)
+
+
+async def _previous_unverified_external(session: AsyncSession, run: RunRecord) -> bool:
+    event, done = CanonicalEvent, aliased(CanonicalEvent)
+    prior_completed_safely = (
+        select(done.id)
+        .where(
+            done.tenant_id == event.tenant_id,
+            done.conversation_id == event.conversation_id,
+            done.run_id == event.run_id,
+            done.event_type == "TOOL_CALL",
+            done.is_deleted.is_(False),
+            done.payload_json["state"].as_string() == "COMPLETED",
+            done.payload_json["tool_call_id"].as_string() == event.payload_json["tool_call_id"].as_string(),
+            func.coalesce(done.payload_json["outcome"]["failure_layer"].as_string(), "NONE") == "NONE",
+        )
+        .exists()
+    )
+    return bool(await session.scalar(select(
+        select(event.id).where(
+            event.tenant_id == run.tenant_id,
+            event.conversation_id == run.conversation_id,
+            event.run_id != run.id,
+            event.is_deleted.is_(False),
+            event.event_type == "TOOL_CALL",
+            event.payload_json["state"].as_string() == "STARTED",
+            event.payload_json["effect"].as_string().in_(["WRITE", "EXTERNAL"]),
+            event.payload_json["retry_safety"].as_string() != "READ_ONLY",
+            ~prior_completed_safely,
+        ).exists()
+    )))
+
+
 async def execution_checkpoint(
     factory: SessionFactory, run: RunRecord
 ) -> tuple[RunnerCheckpoint, DurableRuntimeEventPort, AsyncToolPolicy]:
@@ -124,6 +176,13 @@ async def execution_checkpoint(
             )
         ).one()
         checkpoint = checkpoint_of(saved)
+        state = (
+            await _replay_state(session, run, snapshot.policy_json)
+            if run.execution_epoch > 1 else FailureState()
+        )
+        if await _previous_unverified_external(session, run):
+            state = replace(state, external_blocked=True)
+        checkpoint = replace(checkpoint, failure_state=state.as_payload())
         if run.execution_epoch > 1:
             text, completed = await _latest_completed_tools(session, run)
             checkpoint = _recover_window_limit(checkpoint, completed, text=text)
