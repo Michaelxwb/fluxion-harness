@@ -22,6 +22,7 @@ from muad_contracts import BotSnapshotItem
 from muad_im_connector.channels.wecom.adapter import ConnectionState, WeComAdapter
 from muad_im_gateway.application.inbound import InboundPipeline
 from muad_im_gateway.application.sse import SseEvent, iter_sse_events
+from muad_im_gateway.application.stream_renderer import RenderAction, StreamRenderer
 from muad_im_gateway.infrastructure.dedupe import NullDedupeStore
 
 from tests.e2e.wecom_probe_app import WeComProbe
@@ -146,6 +147,25 @@ def _is_stream(frame: dict[str, Any]) -> bool:
 def _stream_finished(frame: dict[str, Any]) -> bool:
     body = frame.get("body") or {}
     return bool((body.get("stream") or {}).get("finish"))
+
+
+def test_task_accepted_writes_receipt_before_finalizing() -> None:
+    from muad_im_gateway.application.stream_renderer import FINALIZE_KIND, STREAM_KIND, TEXT_KIND
+
+    renderer = StreamRenderer(
+        flush_interval_sec=0.0,
+        system_text=lambda key: {"task_accepted": "任务已受理"}[key],
+    )
+
+    actions = renderer.apply(SseEvent("message.delta", {"delta": "部分输出"}))
+    assert actions == (RenderAction(STREAM_KIND, "部分输出"),)
+
+    actions = renderer.apply(SseEvent("task.accepted", {}))
+    assert actions == (
+        RenderAction(TEXT_KIND, "任务已受理"),
+        RenderAction(FINALIZE_KIND),
+    )
+    assert renderer.finalized
 
 
 async def _run_once(
