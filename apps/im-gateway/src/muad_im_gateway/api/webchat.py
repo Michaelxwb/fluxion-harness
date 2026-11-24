@@ -53,7 +53,6 @@ from ..application.webchat_config import (
 )
 from ..application.webchat_core import ChatSurface
 from ..application.webchat_service import WebchatResourceService
-from ..channels.registry import parse_external_platform_surfaces
 from ..application.webchat_streams import (
     HEARTBEAT_FRAME,
     SSE_MEDIA_TYPE,
@@ -64,6 +63,7 @@ from ..application.webchat_streams import (
 )
 from ..application.webchat_surfaces import get_webchat_surface
 from ..application.webchat_uploads import WebchatUploadService
+from ..channels.registry import parse_external_platform_surfaces
 from .deps import (
     ChatCredentialsDep,
     ChatIdentityDep,

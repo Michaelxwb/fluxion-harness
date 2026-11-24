@@ -247,8 +247,13 @@ def test_nginx_routes_external_platform_prefix_to_the_gateway() -> None:
     否则请求落到 `location /api` 的 Console 上游，而该前缀在 Console 上不存在，表现为 404。
     """
     conf = Path("build/nginx-build/nginx.conf").read_text(encoding="utf-8")
-    # 两个正则 location 块（以 `web(?:/|$)` 段尾锚定，避免误吞 /api/v1/webchat）都必须转发到 gateway_upstream。
-    for header in ("location ~* ^/api/v1/[a-z0-9]+web/runs(?:/|$) {", "location ~* ^/api/v1/[a-z0-9]+web(?:/|$) {"):
+    # 两个正则 location 块（以 `web(?:/|$)` 段尾锚定，避免误吞 /api/v1/webchat）
+    # 都必须转发到 gateway_upstream。
+    headers = (
+        "location ~* ^/api/v1/[a-z0-9]+web/runs(?:/|$) {",
+        "location ~* ^/api/v1/[a-z0-9]+web(?:/|$) {",
+    )
+    for header in headers:
         assert header in conf, f"缺少 location: {header}"
         block = conf[conf.index(header) :]
         block = block[: block.index("}")]
