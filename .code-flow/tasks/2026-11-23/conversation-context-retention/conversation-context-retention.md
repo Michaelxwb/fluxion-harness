@@ -565,7 +565,7 @@
   - console-settings-audit PASS exit=0
 ## TASK-008: 重置 runbook 与配置/需求 inventory
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005, TASK-006, TASK-007
 - **Source**: conversation-context-retention.backend.design.md §8；conversation-context-retention.prd.md FEAT-05；conversation-context-retention.scenarios.md E-04/B-03
 - **Scenarios**: E-04, B-03
@@ -606,12 +606,12 @@
 
 ### Checklist
 
-- [ ] cutover runbook 明确全量平台设置重置与其他分组回默认的影响。
-- [ ] Agent 压缩覆盖、`CONTEXT_SUMMARY`、平台设置幂等回执重置顺序与校验 SQL 落地。
-- [ ] 旧键/旧摘要为空是发布门禁；不新增兼容读取或删除 API。
-- [ ] 配置清单重生成，旧常量/字段行删除。
-- [ ] 需求 inventory 覆盖全部 TASK、Spec-Refs、Scenarios 和声明测试，无占位行。
-- [ ] E-04/B-03 人工验收记录写入 Verification，未执行前不得标记 done。
+- [x] cutover runbook 明确全量平台设置重置与其他分组回默认的影响。
+- [x] Agent 压缩覆盖、`CONTEXT_SUMMARY`、平台设置幂等回执重置顺序与校验 SQL 落地。
+- [x] 旧键/旧摘要为空是发布门禁；不新增兼容读取或删除 API。
+- [x] 配置清单重生成，旧常量/字段行删除。
+- [x] 需求 inventory 覆盖全部 TASK、Spec-Refs、Scenarios 和声明测试，无占位行。
+- [x] E-04/B-03 人工验收记录写入 Verification，未执行前不得标记 done。
 
 ### Spec Delta
 
@@ -622,7 +622,10 @@
 ### Log
 
 - [2026-11-25] created；待任务边界复核。
+- [2026-11-24T17:24:38.975Z] started tests=7b58e01fd45b
 
 ### Verification
 
 - 尚未执行
+- 2026-11-24T17:25:56.620Z PASS commands=1/1 executed=1 deduped=0 elapsed=7223ms tests=7b58e01fd45b head=4135077e5328 dirty=1
+  - cutover-inventory PASS exit=0
