@@ -1,7 +1,7 @@
 ---
 {
   "description": "IM 网关、通道与 WebChat",
-  "next_rule": 13
+  "next_rule": 15
 }
 ---
 
@@ -34,6 +34,10 @@
 - [RULE-011] 附件枚举必须按 artifact_type 标注来源：INBOUND_* 为入站、OUTPUT 为自产、TOOL_RESULT 为工具结果、其他为内部产物；TOOL_RESULT 不得标成入站。显式访问保留，内部产物默认不交付，用户明确要求时按 owner 校验交付。
 
 - [RULE-012] 所有用户可见固定文案（任务受理、停止、断流、附件回执等）必须按回复 locale 从 config/api-messages.yaml 的 activity_messages 模板取，不得硬编码中文；终态正文为空时才读取租户 locale 兜底，读取失败回落目录默认并留 warning。
+
+- [RULE-013] 外部 JWT 平台接入以 ChatSurface(channel, auth_kind, entry_resolver) 抽象复用同一套 router/service：新平台只注册 surface 与适配器，不复制 handler。通道名必须参数化——任何以字面量硬编码通道名决定 Run 落库、能力分组或路由的位置都必须改为取当前 surface 的 channel。
+
+- [RULE-014] 外部 JWT 平台的通道名必须匹配 ^[A-Za-z0-9]+web$（不区分大小写地以 web 结尾、其余为字母数字），该约束在平台配置解析期显式校验：Console 抛 PlatformConfigError 硬失败，Gateway 跳过该平台并记 ERROR，判定口径唯一来自 muad_contracts.is_valid_external_channel_name。通道名决定路由前缀 /api/v1/<channel 小写>，反代用一条正则覆盖所有外部平台前缀且不误吞 Console 的 /api/v1/* 业务前缀与 webchat；契约层 ChannelName 不约束字符集，故须在解析期校验，不合规名会导致运行期静默 404。环境/部署标识（如 UAT/PRD）放 display_name，不得进入 channel。✅ MSSWWEB、MSSPWEB；❌ MSSPWEBUAT、mssp-web、custom-channel。
 
 ## Conventions
 
@@ -125,3 +129,7 @@
 - {"source":"2026-11-20/im-attachment-integrity/im-attachment-integrity.md#TASK-005#DELTA-001","op":"add","rule":"RULE-011","payload_sha256":"40ddae60ee7969df184a9fd613bc8961e5f3a9b267ad73d07a976033c00d4279","at":"2026-11-21T01:12:04.047Z"}
 
 - {"source":"2026-11-21/agent-output-and-platform-defaults/agent-output-and-platform-defaults.md#TASK-007#DELTA-006","op":"add","rule":"RULE-012","payload_sha256":"c13c9d5a87dfdb2095bcc911ea401885e5ff7e9a2b460f0f21e84533943aab8d","at":"2026-11-21T07:54:54.594Z"}
+
+- {"source":"2026-11-13/mssw-external-im-channel/mssw-external-im-channel.md#TASK-002#DELTA-001","op":"add","rule":"RULE-013","payload_sha256":"9b4f9146bdc11f65f952dbda08b70477643997ea36d0d86417dd27f5600a9a23","at":"2026-11-24T03:55:12.828Z"}
+
+- {"source":"2026-11-13/mssw-external-im-channel/mssw-external-im-channel.md#TASK-014#DELTA-014","op":"add","rule":"RULE-014","payload_sha256":"23ceed2672500e8e54ae33d36f9e8f351fe8523108d908fc51385e13006a960e","at":"2026-11-24T03:55:12.849Z"}

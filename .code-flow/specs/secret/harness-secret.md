@@ -1,7 +1,7 @@
 ---
 {
   "description": "密钥归属与脱敏",
-  "next_rule": 4
+  "next_rule": 5
 }
 ---
 
@@ -22,6 +22,8 @@
   - ❌ 把公钥或 salt 写进表、写进快照、写进响应；缺因子时整个服务起不来。
 
 - [RULE-003] 平台失败原因在离开适配器前，除 `ak`/`sk`/`headers` 外还须擦除本次 CSRF token 与登录响应中可取得的 Cookie 值；进入 Skill stderr、工具错误 `platform_sessions`、有界摘要或日志前完成替换，日志只记 code 与状态。
+
+- [RULE-004] 外部平台的验签因子（公钥、issuer、audience、salt）只存放于 Secret，不落库、不回显、不写日志。Secret 缺失或损坏只让该通道的认证返回不可用（503），不影响进程启动与其它通道；配置错误在启动期暴露为显式错误。
 
 ## Conventions
 
@@ -92,3 +94,5 @@ api_key = model.api_key or os.environ.get("MODEL_API_KEY")   # 密钥清空时�
 - {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-002#DELTA-002","op":"add","rule":"RULE-002","payload_sha256":"0dc4d1cfe9328f378c5de37fc135a6a7ea765d4aa5857b764356ba619911b353","at":"2026-11-18T14:06:44.263Z"}
 
 - {"source":"2026-11-19/platform-session-reporting/platform-session-reporting.md#TASK-006#DELTA-002","op":"add","rule":"RULE-003","payload_sha256":"5e35118e452ff87b44dbd428e0bab256d040be1ddc5517c350c2ae018f45e45e","at":"2026-11-20T06:07:25.510Z"}
+
+- {"source":"2026-11-13/mssw-external-im-channel/mssw-external-im-channel.md#TASK-002#DELTA-003","op":"add","rule":"RULE-004","payload_sha256":"2dabb8ade23a6f532a05ba38fb2aba0624b5f6b83c298a009583078a02a8df9e","at":"2026-11-24T03:55:12.843Z"}

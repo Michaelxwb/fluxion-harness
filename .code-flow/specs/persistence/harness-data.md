@@ -1,7 +1,7 @@
 ---
 {
   "description": "表设计、迁移与索引",
-  "next_rule": 6
+  "next_rule": 7
 }
 ---
 
@@ -26,6 +26,8 @@
   - ✅ 一次查询 `(tenant, platform_key, identity_hash)` 直接命中身份，再按身份查 grant；❌ 把身份与入口塞进同一张表、用 `channel:bot_id:user` 拼接当身份键。
 
 - [RULE-005] 系统设置回滚将目标版本的系统设置与当前版本的出站配置合成，按现有并发保护追加新版本并写入审计。成功回滚保留当前出站总开关及规则。
+
+- [RULE-006] 外部身份与入口授权分为两张表：external_identity 为用户级（唯一 (tenant_id, platform_key, identity_hash) WHERE is_deleted=false），entry_access_grant 为入口授权（唯一 (tenant_id, external_identity_id, bot_account_id) WHERE is_deleted=false）。解绑只删 grant 不删身份，编辑身份保留历史会话归属。旧 channel_identity 表不改动。
 
 ## Conventions
 
@@ -82,3 +84,5 @@
 - {"source":"2026-11-18/spec-rule-promotion/spec-rule-promotion.md#TASK-002#DELTA-005","op":"add","rule":"RULE-004","payload_sha256":"ba02c3e8ef86aa917728eda81e6f9d8925886ab8ba13ef932df056ec9742e250","at":"2026-11-18T14:06:44.263Z"}
 
 - {"source":"2026-11-23/egress-management-ui/egress-management-ui.md#TASK-001#DELTA-001","op":"add","rule":"RULE-005","payload_sha256":"8d6383439a32ca8fc9c830fc7a671c74dc15adc7b9f560ea5ad87e5795acefab","at":"2026-11-23T07:47:21.008Z"}
+
+- {"source":"2026-11-13/mssw-external-im-channel/mssw-external-im-channel.md#TASK-002#DELTA-004","op":"add","rule":"RULE-006","payload_sha256":"3197005e5b53c4424af0e75b3ebef868736ccb611a8cee76453e9c9120f917ad","at":"2026-11-24T03:55:12.848Z"}

@@ -1,5 +1,8 @@
 ---
-{"description": "认证、会话、RBAC 与 CHAT", "next_rule": 4}
+{
+  "description": "认证、会话、RBAC 与 CHAT",
+  "next_rule": 5
+}
 ---
 
 # harness-auth
@@ -17,6 +20,8 @@
 - [RULE-auth-003] **外部断言缓存必须分层：凭证层以断言完整哈希为键，权限层复用既有 `perm:` 失效链路**：凭证层可缓存验签结论（命中即跳过五步链），安全性来自「键是断言原文的 SHA-256」——任何改动都会 miss 并回源完整校验；权限层（Agent 与入口授权）**不得**与凭证同键，必须走既有 `perm:<user_id>` 层，使撤销授权/停用用户或 Agent/删除身份等变更**即时生效**。凭证项必须自带绝对到期（首次校验时按 claim 策略算出，续期不得延长），续期只重置闲置窗口。不得以用户 ID、身份字段等可预测值作凭证键。凭证键必须含**平台标识**（置于租户 hash tag 之后，不得放在之前而打散同租户槽位），使反向索引可按平台区分，避免解绑某平台身份时连带清除其它平台凭证；权限层键不加平台段（跨平台共用）。凭证反向索引必须可回收，不得无界增长。Redis 不可用时回源完整校验，不得因「缓存读不到」而放行。凭证层与权限层**只能由 Console 写入**（验签与授权解析的唯一权威），网关只读与续期；缺失任一层的生产者会让读取端永远回源，等同于没有缓存。
     - ✅ 凭证命中跳过验签但仍读权限层；撤权后权限层失效即回源 PG；`touch` 后 TTL = `min(闲置窗口, expires_at - now)`，闲置窗口取既有缓存 TTL 配置，不新增同名键。
   - ❌ 把授权快照塞进凭证缓存（撤权将延迟到 TTL 到期）；用 `platform_user_id` 或身份字段做凭证键；凭证键缺平台段；把平台段放到租户 hash tag 之前；`touch` 越过 `expires_at`；Redis 失败时按「无缓存即可信」放行；外部断言凭证与 WebChat 会话键混用。
+
+- [RULE-004] 外部断言认证按固定五步链校验：验签（算法白名单）→ AES 因子加密期望值比对 → claim 策略（最大会话年龄等）→ 按平台配置的 identity_keys 提取身份字段并计算 identity_hash → 按 (tenant, platform_key, identity_hash) 查外部身份。验签通过但无身份记录时返回可空主体（allowed=false + reason），不得伪造 platform_user 身份继续处理。
 
 ## Conventions
 
@@ -61,3 +66,7 @@ Console 身份、会话与凭据管理（每条末附机器检查）：
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。
+
+## Applied Deltas
+
+- {"source":"2026-11-13/mssw-external-im-channel/mssw-external-im-channel.md#TASK-002#DELTA-002","op":"add","rule":"RULE-004","payload_sha256":"27b1ddee04ac42e8b809895234e6aa61de7787e1b4645116c5aff0a77d8ab23e","at":"2026-11-24T03:55:12.836Z"}
