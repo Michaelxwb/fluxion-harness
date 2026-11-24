@@ -230,7 +230,7 @@ async def test_mcp_and_sync_skill_share_one_execution_budget(
         text_reply("done"),
     ]
     if cap == 3:
-        with pytest.raises(TaskExecutionError, match="execute / LOCAL_BUDGET_EXHAUSTED"):
+        with pytest.raises(TaskExecutionError, match="skill:deliver / LOCAL_BUDGET_EXHAUSTED"):
             await harness._executor.execute(task)
         assert len(mcp_probe[1]) == 3, "the Skill request uses the already consumed Execution cap"
     else:

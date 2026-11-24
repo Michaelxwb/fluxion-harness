@@ -838,7 +838,7 @@ class AgentRunner:
         """
         port = self._tool_suspension
         request = port.suspend_request if port is not None else None
-        if port is not None and request is not None:
+        if port is not None and request is not None and not state["no_progress"]:
             self._ensure_runnable(state)
             await port.suspend(self._checkpoint(state, request))
             await self.notify_interrupt(

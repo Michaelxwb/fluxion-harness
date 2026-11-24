@@ -3656,7 +3656,8 @@ class RunService:
             locale = await self._frozen_locale(session, current)
             suffix = render_finalization(facts, locale=locale, include_technical=False)
             partial, generation = await self._partial_submission_reply(session, current, submission_id)
-            final_text = f"{partial.rstrip()}\n\n{suffix}" if partial.strip() else suffix
+            delta = f"\n\n{suffix}" if partial else suffix
+            final_text = partial + delta
             technical_details = render_technical_details(facts, locale=locale, run_id=str(current.id))
             updated = await session.execute(
                 sa.update(RunRecord)
@@ -3695,15 +3696,22 @@ class RunService:
                 conversation_id=run.conversation_id,
                 run_id=run.id,
                 event_type="ASSISTANT_MESSAGE",
-                stream_type="message.snapshot",
                 payload={
                     "text": final_text,
-                    "reply_generation": generation + 1,
                     "technical_details": technical_details,
                     "attachments": await self._run_output_attachments(
                         session, tenant_id=run.tenant_id, run_id=run.id,
                     ),
                 },
+                submission_id=submission_id,
+            )
+            await EventWriter(session).append(
+                tenant_id=run.tenant_id,
+                conversation_id=run.conversation_id,
+                run_id=run.id,
+                event_type="ASSISTANT_DELTA",
+                stream_type="message.delta",
+                payload={"reply_generation": generation, "delta": delta},
                 submission_id=submission_id,
             )
             terminal_event_id = uuid.uuid4()

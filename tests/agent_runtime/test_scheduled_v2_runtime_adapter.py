@@ -40,6 +40,7 @@ from muad_agent_runtime.application import executor as executor_module
 from muad_agent_runtime.application.async_tools.continuation_service import ExecutionIdentity
 from muad_agent_runtime.application.async_tools.event_port import DurableRuntimeEventPort
 from muad_agent_runtime.application.execution_checkpoint import checkpoint_of
+from muad_agent_runtime.application.human_question import HumanQuestion
 from muad_agent_runtime.application.memory_confirmation import MemoryConfirmationService
 from muad_agent_runtime.infrastructure.models.async_tools import RunContinuation
 from muad_contracts.memory import RememberMemoryInput
@@ -333,7 +334,7 @@ async def test_production_factory_assembles_the_neutral_runtime_adapter(
     try:
         runner = executor._runner  # noqa: SLF001 —— 装配断言：执行器内部就是这一份 Kernel
         assert isinstance(runner._runtime_events, DurableRuntimeEventPort)  # noqa: SLF001
-        assert isinstance(runner._tool_suspension, MemoryConfirmationService)  # noqa: SLF001
+        assert isinstance(runner._tool_suspension, HumanQuestion)  # noqa: SLF001
         assert runner._tool_suspension.suspend_request is None  # noqa: SLF001
         # 清单第 2 条：模型池/压缩/结果外置/工具策略仍是这条生产路径的组成部分。
         assert runner._context_compactor is not None  # noqa: SLF001

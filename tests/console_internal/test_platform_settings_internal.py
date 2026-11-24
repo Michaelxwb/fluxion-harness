@@ -74,4 +74,4 @@ async def test_service_identity_and_tenant_isolation(
     other_data = other.json()["data"]
     assert other_data["revision"] == 0
     assert other_data["settings"] == asdict(default_platform_settings())
-    assert other_data["settings"]["task"]["max_attempts"] == 3
+    assert other_data["settings"]["task"]["max_attempts"] == default_platform_settings().task.max_attempts

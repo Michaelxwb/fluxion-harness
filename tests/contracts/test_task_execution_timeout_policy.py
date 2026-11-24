@@ -29,8 +29,13 @@ def test_freezing_timeout_preserves_the_input_and_participates_in_the_hash() -> 
     assert snapshot_hash(first) != snapshot_hash(later)
 
 
-@pytest.mark.parametrize("budget", [{}, {"execution_timeout_sec": True}, {"execution_timeout_sec": 0},
-                                    {"execution_timeout_sec": TASK_EXECUTION_TIMEOUT_MAX_SEC + 1}, {"execution_timeout_sec": "300"}])
+@pytest.mark.parametrize("budget", [
+    {},
+    {"execution_timeout_sec": True},
+    {"execution_timeout_sec": 0},
+    {"execution_timeout_sec": TASK_EXECUTION_TIMEOUT_MAX_SEC + 1},
+    {"execution_timeout_sec": "300"},
+])
 def test_execution_rejects_missing_or_invalid_frozen_timeout(budget) -> None:
     with pytest.raises(PlatformSettingsError, match="task.execution_timeout_sec"):
         task_execution_timeout({"budget": budget})

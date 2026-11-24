@@ -658,6 +658,14 @@ html.chat-route-active body {
   align-self: flex-start;
 }
 
+.chat-message-technical-details {
+  overflow-wrap: anywhere;
+}
+
+.chat-message-technical-details > summary {
+  cursor: pointer;
+}
+
 .chat-message-attachments {
   display: flex;
   flex-wrap: wrap;

@@ -740,7 +740,9 @@ async def test_b262_exhausted_retry_budget_terminates_without_new_generation(
     deltas = _rows_of(rows, DELTA_STREAM_TYPE)
     terminals = [row for row in rows if row.stream_type in TERMINAL_STREAM_TYPES]
     assert _rows_of(rows, SNAPSHOT_STREAM_TYPE) == [], "终止分支不得伪造替换边界"
-    assert _delta_text(rows, 0) == OLD_PARTIAL_TEXT, "终止前已确认正文保持唯一一份"
+    body = _delta_text(rows, 0)
+    assert body.startswith(OLD_PARTIAL_TEXT + "\n\n")
+    assert body.count(OLD_PARTIAL_TEXT) == 1, "终止前已确认正文保持唯一一份"
     assert all(_payload(row).get("reply_generation") == 0 for row in deltas)
     assert len(terminals) == 1 and terminals[0].stream_type == "run.failed"
     assert _payload(terminals[0]).get("error_code") == "MODEL_UNAVAILABLE"
@@ -748,7 +750,7 @@ async def test_b262_exhausted_retry_budget_terminates_without_new_generation(
     run = await _run_row(run_id)
     assert run is not None and run.status == RunStatus.FAILED
     assert len(probe.calls) == 1, "重试预算耗尽不得再发上游调用"
-    assert _visible_body(rows) == OLD_PARTIAL_TEXT, "终止分支保留已确认的部分正文"
+    assert _visible_body(rows) == _payload(terminals[0])["final_text"] == body
 
 
 # --------------------------------------------------------------------------------------
@@ -977,7 +979,7 @@ async def test_b262_committed_tool_operation_business_key_survives_model_retry(
     credentials: ConsoleCredentialsClient,
     supervisor: Any,
 ) -> None:
-    """控制面确定性失败：Run 立即收尾并投递结论；已提交操作的身份/业务键保持不变。"""
+    """控制面失败仍可继续回复，模型重试不改变已提交操作的身份。"""
     from httpx import AsyncClient
     from muad_agent_runtime.application.async_tools.control_dispatcher import ControlDispatcher
     from muad_agent_runtime.application.async_tools.runtime import (
@@ -1033,12 +1035,12 @@ async def test_b262_committed_tool_operation_business_key_survives_model_retry(
     assert after[0]["source_tool_call_id"] == "call-1"
 
     run = await _run_row(run_id)
-    assert run is not None and run.status == RunStatus.FAILED
-    assert run.error_code == "RUN_NO_PROGRESS", "确定性失败第一次即收尾"
+    assert run is not None and run.status == RunStatus.COMPLETED
+    assert len(probe.calls) == 4
     rows = await _canonical_rows(run_id)
-    terminal = [row for row in rows if row.event_type == "RUN_FAILED"][-1]
+    terminal = [row for row in rows if row.stream_type == "run.completed"][-1]
     final_text = str(_payload(terminal).get("final_text") or "")
-    assert final_text, "失败终态必须带结论正文（不许只剩一句目录提示）"
+    assert final_text == NEW_GENERATION_TEXT
     # 站内入口（WebChat）的历史只投影可见消息：结论要以 ASSISTANT_MESSAGE 落库，
     # 且必须排在 RUN_FAILED 之前，页面刷新后看到的才是这段结论。
     assistant = [

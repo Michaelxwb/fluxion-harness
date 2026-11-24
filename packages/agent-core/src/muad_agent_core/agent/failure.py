@@ -48,6 +48,8 @@ def update_failure_state(
 ) -> FailureState:
     if signal is None:
         return state
+    if signal.error_code == "LOCAL_BUDGET_EXHAUSTED" and signal.business_status in FAILURE_STATUSES:
+        return replace(state, last_failure=_evidence(signal), no_progress=True)
     if signal.review_progress is not None:
         return _review_progress(state, signal, max_identical_failures=max_identical_failures)
     status = signal.business_status
