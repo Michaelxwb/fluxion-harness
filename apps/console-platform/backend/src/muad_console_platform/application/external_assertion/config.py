@@ -14,6 +14,7 @@ from functools import lru_cache
 
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from cryptography.hazmat.primitives.serialization import load_der_public_key, load_pem_public_key
+from muad_contracts import EXTERNAL_CHANNEL_NAME_PATTERN, is_valid_external_channel_name
 from muad_logging import get_logger
 
 _LOGGER = get_logger(__name__)
@@ -43,6 +44,7 @@ _DEFAULT_ISSUE_TIME_KEYS = ("login_time", "time")
 _DEFAULT_ISSUE_TIME_UNIT = "ms"
 #: 通道名默认值：与当前唯一外部通道一致。
 _DEFAULT_CHANNEL = "MSSWWEB"
+
 
 
 class PlatformConfigError(RuntimeError):
@@ -121,9 +123,14 @@ def _parse_one(platform_key: str, raw: object) -> ExternalPlatformConfig:
             f"platform {platform_key}: issue_time_unit must be one of {sorted(_ISSUE_TIME_UNITS)}"
         )
 
-    channel = str(raw.get("channel") or _DEFAULT_CHANNEL)
-    if not channel.strip():
+    channel = str(raw.get("channel") or _DEFAULT_CHANNEL).strip()
+    if not channel:
         raise PlatformConfigError(f"platform {platform_key}: channel must be a non-empty string")
+    if not is_valid_external_channel_name(channel):
+        raise PlatformConfigError(
+            f"platform {platform_key}: channel {channel!r} must match "
+            f"{EXTERNAL_CHANNEL_NAME_PATTERN} (alphanumeric ending with 'web')"
+        )
 
     return ExternalPlatformConfig(
         platform_key=platform_key,

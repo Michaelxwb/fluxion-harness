@@ -1,4 +1,5 @@
 import json
+import re
 from collections.abc import Iterable
 from enum import StrEnum
 
@@ -18,6 +19,20 @@ ChannelName = str
 #: 外部断言平台未显式配置 `channel` 时的缺省通道名（与 Console 平台配置解析、Gateway
 #: 注册表解析同源）。存量单平台部署不写 `channel` 也落到这个值。
 DEFAULT_EXTERNAL_CHANNEL: ChannelName = "MSSWWEB"
+
+#: 外部通道名规则：**以 `web` 结尾、其余字母数字**（大小写不限）。这是 Console/Gateway
+#: 平台配置解析期的单一校验口径（RULE-im-013）。理由：Gateway 路由前缀取自
+#: `channel.lower()`（`/api/v1/<channel 小写>`），nginx 用一条 `^/api/v1/[a-z0-9]+web`
+#: 正则覆盖所有外部平台前缀、又不误吞 Console 的 `/api/v1/*`；名字若不合规（下划线、横线、
+#: 非 web 结尾），路由装配后 nginx 匹配不到 → 运行期静默 404，所以在解析期就显式失败。
+#: 大小写不敏感（通道名实际以大写下发，如 `MSSWWEB`），结尾必须是 `web`（任意大小写）。
+EXTERNAL_CHANNEL_NAME_PATTERN = r"^[A-Za-z0-9]+[wW][eE][bB]$"
+_EXTERNAL_CHANNEL_NAME_RE = re.compile(EXTERNAL_CHANNEL_NAME_PATTERN)
+
+
+def is_valid_external_channel_name(channel: ChannelName | None) -> bool:
+    """外部通道名是否满足 `^[A-Za-z0-9]+web$`（RULE-im-013）。"""
+    return bool(channel) and bool(_EXTERNAL_CHANNEL_NAME_RE.match(channel))
 
 
 def external_platform_channels(platforms_json: str | None) -> tuple[ChannelName, ...]:

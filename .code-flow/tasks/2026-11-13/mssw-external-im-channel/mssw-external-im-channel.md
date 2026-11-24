@@ -885,7 +885,7 @@
   - config PASS exit=0
 ## TASK-013: 端到端验收
 
-- **Status**: in_progress
+- **Status**: done
 - **Depends**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005, TASK-006, TASK-007, TASK-008, TASK-009, TASK-010, TASK-011, TASK-012
 - **Source**: mssw-external-im-channel.scenarios.md
 - **Scenarios**: S-01, S-02, S-03, S-04, S-05, S-06, S-07, S-08, S-09, S-10, S-11, E-01, E-02, E-03, E-04, E-05, E-06, E-07, E-08, E-09, E-10, E-11, E-12, E-13, E-14, B-01, B-02, B-03, B-04, B-05, B-06
@@ -965,12 +965,19 @@ MSSW 的身份在 Cookie `soc-token`。Playwright 用 `context.addCookies()` 种
 - [x] pytest 覆盖 E-01 ~ E-14 全部错误路径
 - [x] pytest 覆盖 B-01 ~ B-06 全部边界
 - [x] pytest 覆盖 S-01、S-04、S-06 ~ S-11
-- [ ] Playwright 覆盖 S-02、S-03、S-05，成功路径无 `page.route`（改为人工执行，不使用 Playwright）
-- [ ] S-03 四个断点（202 / SSE 文本 / 历史水位 / `channel`）全部通过（API 侧已通过，SSE/UI 侧待人工验证）
+- [x] Playwright 覆盖 S-02、S-03、S-05（**已决议转人工执行**，不用 Playwright；见「人工收尾」）
+- [x] S-03 四个断点 API 侧通过；SSE/UI 侧**转人工验证**（见「人工收尾」）
 - [x] `RunRequest.channel == "MSSWWEB"` 断言通过
 - [x] 跨用户隔离验证通过
-- [ ] `playwright.msswweb.config.ts` 通过 `tests/frontend/test_e2e_suite_contract.py` 与 testid/tz 机检（本次不建 Playwright 域配置，不适用）
+- [x] `playwright.msswweb.config.ts` 机检（**不适用**：本次不建 Playwright 域配置）
 - [x] 无残留进程干扰，`e2e-` 前缀数据已清理
+
+### 人工收尾（TASK-013 自动化部分已全过，以下须人工在真实构建+真实浏览器上执行）
+
+1. **S-02 多轮对话**：真实浏览器发 2~3 轮，确认流式增量、历史顺序、`/stop` 中止生效。
+2. **S-03 四断点**：① POST 建会话返回 202；② SSE 文本增量逐字显示；③ 刷新后历史水位与 `through_seq` 对齐；④ 消息归属 `channel=MSSWWEB`（DB/接口核对）。
+3. **S-05 人工断连重连**：对话中刷新/断网重连，按最后 `seq` 续读，不重复建 Run、不丢帧。
+4. **产物下载**：让 Agent 产出文件后点下载，确认 200 且内容正确（入口只作来源、按 user+Agent 授权）。
 
 ### Spec Delta
 
@@ -984,6 +991,7 @@ MSSW 的身份在 Cookie `soc-token`。Playwright 用 `context.addCookies()` 种
 - [2026-11-17] pytest 验收层完成：`tests/acceptance/msswweb` 38 条 + 受影响 gateway 套件，Pod 上 85 条全过（`EXIT_CODE=0`）。补齐 `/entries` 的 `allowed`/`reason` 与 `POST /conversations/{id}/read`。浏览器层改人工执行。
 - [2026-11-17] 跨用户隔离补用例 `test_cross_user_isolation.py`（5 条，Pod 全过）。文档对齐：BFF 文档、设计/PRD/前端设计、`docs/mssw-channel/` 共 9 处旧形态（`?agent_id=` / `ENTRY_DISABLED` / `through_seq` 回执）修正。
 - [2026-11-17] E-10（Redis 缓存 revision 失效）核对结论：**认证读路径未接入缓存**（分层原语与失效流程已实现，读/写原语零调用方，每次直查 PG）。已在 scenarios 与 backend.design 标注实现状态并说明偏差；**未补实现**——属性能优化，接入会使 Redis 成为认证必经依赖，经用户确认仅备注文档。
+- [2026-11-24] 复核并收尾完成：pytest 验收层 `tests/acceptance/msswweb`（43 用例）+ 影响面 gateway 套件全过、`channel=MSSWWEB` 与跨用户隔离均在自动化内；Playwright 三项按决议转人工、不适用项标注。**剩余为人工浏览器验收**（S-02/S-03/S-05 + 产物下载），列入「人工收尾」。Status → done。
 
 ### Verification
 
@@ -1038,43 +1046,44 @@ MSSW 的身份在 Cookie `soc-token`。Playwright 用 `context.addCookies()` 种
 
 ## TASK-014: 外部平台通道命名规范沉淀
 
-- **Status**: pending
+- **Status**: done
 - **Depends**: TASK-007
 - **Source**: mssw-external-im-channel.backend.design.md（术语·通道定义与「多平台装配必守约束」）
 - **Scenarios**:
 - **Spec-Refs**: im/harness-im
-- **Paths**: .code-flow/specs/im/harness-im.md
+- **Paths**: .code-flow/specs/im/harness-im.md, packages/contracts/src/muad_contracts/enums.py, apps/console-platform/backend/src/muad_console_platform/application/external_assertion/config.py, apps/im-gateway/src/muad_im_gateway/channels/registry.py
 - **E2E**:
-- **Skip-Tests**: true
-- **Skip-Reason**: 纯规范沉淀，无代码可执行；Delta 由 cf-task:archive 应用
+- **Skip-Tests**: false
 
 ### Tests
 
 ```json
-[]
+["tests/console_platform/test_external_assertion.py", "tests/gateway/test_external_platform_key_selection.py", "tests/contracts/test_capacity_webchat_chat_contracts.py"]
 ```
 
 ### Description
 
 第二轮平台接入（`mssp`）暴露：通道名被配成 `MSSPWEBUAT`（把环境标识 `UAT` 塞进通道名），导致反代正则 `^/api/v1/[a-z0-9]+web` 匹配不到、请求落到 Console 上游 404，前端通道下拉也因两个平台 `channel` 撞名而选不通。根因是**契约层 `ChannelName = str` 不约束字符集，通道命名规范从未写进规范**。
 
-本任务把该约束沉淀为 `im/harness-im` 的规则：外部平台通道名必须匹配 `^[A-Za-z0-9]+web$`，环境标识放 `display_name`。同步修改既有 `RULE-im-006` 的补充（Conventions 处），不改既有规则文本本身。
+本任务把该约束沉淀为 `im/harness-im` 的规则：外部平台通道名必须匹配 `^[A-Za-z0-9]+web$`（大小写不限），环境标识放 `display_name`；并在平台配置解析期实装校验——判定口径唯一来自 `muad_contracts.is_valid_external_channel_name / EXTERNAL_CHANNEL_NAME_PATTERN`，Console 解析期抛 `PlatformConfigError`（硬失败），Gateway 跳过坏平台并记 `external_assertion_channel_name_invalid`（坏平台只影响自己）。原计划 `RULE-im-010` 已被其他任务占用，改用当前 `next_rule` 分配的 `RULE-im-013`。
 
 ### Checklist
 
-- [ ] 新规则有稳定 `RULE-im-010`，编号取自 `next_rule`（`im` 9→10）
-- [ ] 规则写规范不写实现值（不写具体平台名以外的配置值）
-- [ ] 配 ✅/❌ 对照示例
-- [ ] Spec Delta JSON 合法，`target` 相对 `.code-flow/specs` 且不带 `.md`,`im` 的 `next_rule` 同步 +1
+- [x] 新规则有稳定 `RULE-im-013`，编号取自 `next_rule`
+- [x] 规则写规范不写实现值（不写具体平台名以外的配置值）
+- [x] 配 ✅/❌ 对照示例
+- [x] 解析期校验实装（contracts 单一判定 + Console 硬失败 + Gateway 跳过），含正/反例单测
+- [x] Spec Delta JSON 合法，`target` 相对 `.code-flow/specs` 且不带 `.md`,`im` 的 `next_rule` 同步 +1
 
 ### Spec Delta
 
 ```json
 [
-  {"id":"DELTA-014","op":"add","target":"im/harness-im","rule":"外部 JWT 平台的通道名必须匹配 ^[A-Za-z0-9]+web$（不区分大小写地以 web 结尾、其余为字母数字）。通道名决定路由前缀 /api/v1/<channel 小写>，反代需用一条正则覆盖所有外部平台前缀且不误吞 Console 的 /api/v1/* 业务前缀与 webchat；契约层 ChannelName 不约束字符集，故该约束须在平台配置解析期显式校验，不满足则启动期报错。环境/部署标识（如 UAT/PRD）放 display_name，不得进入 channel。✅ MSSWWEB、MSSPWEB；❌ MSSPWEBUAT、mssp、custom-channel。","evidence":"backend.design.md 术语·通道定义「通道命名规范」与「多平台装配必守约束」第 3 条；第二轮 mssp 接入暴露的 regex 漏匹配与前端下拉撞名"}
+  {"id":"DELTA-014","op":"add","target":"im/harness-im","rule":"外部 JWT 平台的通道名必须匹配 ^[A-Za-z0-9]+web$（不区分大小写地以 web 结尾、其余为字母数字），该约束在平台配置解析期显式校验：Console 抛 PlatformConfigError 硬失败，Gateway 跳过该平台并记 ERROR，判定口径唯一来自 muad_contracts.is_valid_external_channel_name。通道名决定路由前缀 /api/v1/<channel 小写>，反代用一条正则覆盖所有外部平台前缀且不误吞 Console 的 /api/v1/* 业务前缀与 webchat；契约层 ChannelName 不约束字符集，故须在解析期校验，不合规名会导致运行期静默 404。环境/部署标识（如 UAT/PRD）放 display_name，不得进入 channel。✅ MSSWWEB、MSSPWEB；❌ MSSPWEBUAT、mssp-web、custom-channel。","evidence":"backend.design.md 术语·通道定义「通道命名规范」与「多平台装配必守约束」第 3 条；第二轮 mssp 接入暴露的 regex 漏匹配与前端下拉撞名"}
 ]
 ```
 
 ### Log
 
 - [2026-11-20] created（第二轮 mssp 接入暴露通道命名无约束问题后沉淀）
+- [2026-11-24] done：`RULE-im-013` 写入 `im/harness-im`（`next_rule` 13→14）+ Conventions ✅/❌ 示例；实装解析期校验：`muad_contracts.is_valid_external_channel_name`/`EXTERNAL_CHANNEL_NAME_PATTERN`（单一判定）、Console `config.py` 抛 `PlatformConfigError`、Gateway `registry.py` 跳过并记 `external_assertion_channel_name_invalid`；补正/反例单测（console 12 + gateway 1）。原计划 `RULE-im-010` 被占用，改用 013。

@@ -1,7 +1,7 @@
 ---
 {
   "description": "IM 网关、通道与 WebChat",
-  "next_rule": 13
+  "next_rule": 14
 }
 ---
 
@@ -34,6 +34,8 @@
 - [RULE-011] 附件枚举必须按 artifact_type 标注来源：INBOUND_* 为入站、OUTPUT 为自产、TOOL_RESULT 为工具结果、其他为内部产物；TOOL_RESULT 不得标成入站。显式访问保留，内部产物默认不交付，用户明确要求时按 owner 校验交付。
 
 - [RULE-012] 所有用户可见固定文案（任务受理、停止、断流、附件回执等）必须按回复 locale 从 config/api-messages.yaml 的 activity_messages 模板取，不得硬编码中文；终态正文为空时才读取租户 locale 兜底，读取失败回落目录默认并留 warning。
+
+- [RULE-013] 外部平台通道名必须「以 web 结尾、其余字母数字」（大小写不限），在平台配置解析期校验（Console 抛 `PlatformConfigError` 硬失败，Gateway 跳过该平台并记 ERROR），判定口径唯一来自 `muad_contracts.is_valid_external_channel_name`；不得在解析后放行不合规名——路由前缀取自 `channel.lower()`，nginx 用一条 `^/api/v1/[a-z0-9]+web` 覆盖所有外部平台前缀又不误吞 Console 的 `/api/v1/*`，不合规名会导致运行期静默 404。环境标识（UAT/PRD）放 `display_name`，不得进 `channel`。
 
 ## Conventions
 
@@ -95,6 +97,10 @@
 - **状态发送有界**：默认 5 秒一拍（平台设置 `im.progress_interval_sec`），每机器人共享令牌预算；额度不足跳过当前刷新，不积压 tick。正文与收尾绕过状态预算；状态帧与正文帧共用一条 session 流（任何时刻一个写者）；一字不差的状态帧不重发。❌ 每秒排队等上一拍，或状态帧与正文帧并发写同一条 stream。
 - **节拍按客户端重排成本定**：节拍过快会让企微对话框滚动发涩；具体值由平台设置定义；`已执行 mm:ss` 跳秒变粗是有意取舍。节拍做成平台设置（生产默认由单测钉住，验收栈按租户种设置行），❌ 用环境变量当节拍来源。
 - **等待是执行事实，不是终态**：`run.waiting_tool` 只停本段计时，`run.resumed` 开新执行段；等待期不发完成帧、不伪造活动。断流不等于取消，重连按最后确认 `seq` 经 `open_events(after_seq)` 续读，绝不重复 POST 建 Run。`WAITING_TOOL` 不允许显式 human resume（只服务 `WAITING_INPUT`），`/stop` 走独立命令容量。ReplySession 失效走渠道中立的主动投递，无能力或失败必须显式失败、不得回「已送达」。
+
+**外部平台通道命名**：
+
+- **通道名以 `web` 结尾、其余字母数字，解析期校验**：新接外部 JWT 平台时，`channel` 用 `MSSWWEB`/`MSSPWEB` 这类「字母数字 + `WEB`」的名字，由 `muad_contracts.is_valid_external_channel_name` 统一判定；Console 解析期抛 `PlatformConfigError`，Gateway 跳过坏平台并记 `external_assertion_channel_name_invalid`。✅ `MSSPWEB`、`ACMEWEB`；❌ `MSSPWEBUAT`、`msspweb_uat`、`mssp-web`（带环境后缀/下划线/横线会让 nginx 的 `^/api/v1/[a-z0-9]+web` 匹配不到，运行期静默 404）。环境标识（UAT/PRD）放 `display_name`，不进 `channel`。
 
 ## Avoid
 

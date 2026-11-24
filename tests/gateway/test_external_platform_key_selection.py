@@ -37,9 +37,17 @@ def test_multiple_platforms_each_get_their_own_surface() -> None:
 
 def test_channel_collision_keeps_first_and_drops_later() -> None:
     """一平台一通道：两平台配同一 channel 会在入口层冲突，后者被丢弃（不静默合并）。"""
-    raw = '{"mssw": {"channel": "SHARED"}, "acme": {"channel": "SHARED"}}'
+    raw = '{"mssw": {"channel": "SHAREDWEB"}, "acme": {"channel": "SHAREDWEB"}}'
     surfaces = parse_external_platform_surfaces(_settings(raw))
-    assert surfaces == {"mssw": ("SHARED", DEFAULT_ASSERTION_HEADER)}
+    assert surfaces == {"mssw": ("SHAREDWEB", DEFAULT_ASSERTION_HEADER)}
+
+
+def test_invalid_channel_name_is_skipped_not_loaded() -> None:
+    """通道名不合规（RULE-im-013）的平台被跳过：否则 nginx 的 `[a-z0-9]+web` 匹配不到 →
+    运行期静默 404。Gateway 保持"坏平台只影响自己"，不连带整表失败。"""
+    raw = '{"bad": {"channel": "MSSPWEBUAT"}, "good": {"channel": "MSSPWEB"}}'
+    surfaces = parse_external_platform_surfaces(_settings(raw))
+    assert surfaces == {"good": ("MSSPWEB", DEFAULT_ASSERTION_HEADER)}
 
 
 def test_empty_config_returns_empty() -> None:

@@ -359,6 +359,29 @@ def test_config_rejects_bad_time_unit(keypair) -> None:
         load_platform_configs(json.dumps(payload))
 
 
+@pytest.mark.parametrize("channel", ["MSSWWEB", "MSSPWEB", "msspweb", "ACMEWEB", "xweb"])
+def test_config_accepts_valid_channel_names(keypair, channel: str) -> None:
+    """合规通道名（字母数字 + web 结尾，任意大小写）通过解析（RULE-im-013）。"""
+    payload = _platform_payload(keypair, channel=channel)
+    cfg = load_platform_configs(json.dumps(payload))["mssw"]
+    assert cfg.channel == channel
+
+
+@pytest.mark.parametrize(
+    "channel",
+    ["MSSPWEBUAT", "msspweb_uat", "mssp-web", "MSSP", "web", " Web", "w e b"],
+)
+def test_config_rejects_invalid_channel_name(keypair, channel: str) -> None:
+    """不合规通道名在解析期显式失败，而非运行期静默 404（RULE-im-013）。
+
+    回归点：路由前缀取自 channel.lower()，nginx 用 `^/api/v1/[a-z0-9]+web` 转发；名字带
+    下划线/横线/非 web 结尾会让 nginx 匹配不到 → 404，且无明确报错。
+    """
+    payload = _platform_payload(keypair, channel=channel)
+    with pytest.raises(PlatformConfigError):
+        load_platform_configs(json.dumps(payload))
+
+
 def test_config_empty_issue_time_keys_falls_back_to_default(keypair) -> None:
     """空列表视同未配置，回退默认候选键（不报错、不产生"没有任何时效字段"）。"""
     payload = _platform_payload(keypair, issue_time_keys=[])

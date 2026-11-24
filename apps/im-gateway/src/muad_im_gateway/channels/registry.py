@@ -16,7 +16,11 @@ from collections.abc import Awaitable, Callable, Sequence
 from decimal import Decimal
 
 from muad_common import SharedSettings
-from muad_contracts import DEFAULT_EXTERNAL_CHANNEL, BotSnapshotItem
+from muad_contracts import (
+    DEFAULT_EXTERNAL_CHANNEL,
+    BotSnapshotItem,
+    is_valid_external_channel_name,
+)
 from muad_logging import get_logger
 
 from .base import (
@@ -74,8 +78,18 @@ def parse_external_platform_surfaces(
         if not isinstance(item, dict):
             logger.error("external_assertion_platform_item_invalid platform=%s", platform_key)
             continue
-        channel = str(item.get("channel") or DEFAULT_EXTERNAL_CHANNEL)
+        channel = str(item.get("channel") or DEFAULT_EXTERNAL_CHANNEL).strip()
         header = str(item.get("assertion_header") or DEFAULT_ASSERTION_HEADER)
+        # 通道名格式不合规（RULE-im-013）：路由前缀取自 channel.lower()，nginx 的
+        # `^/api/v1/[a-z0-9]+web` 匹配不到 → 静默 404。Gateway 保持"坏平台只影响自己"
+        # 的风格：跳过并记 ERROR，不连带整表失败（Console 侧同样规则是硬失败）。
+        if not is_valid_external_channel_name(channel):
+            logger.error(
+                "external_assertion_channel_name_invalid platform=%s channel=%s",
+                platform_key,
+                channel,
+            )
+            continue
         if channel in seen_channels:
             logger.error(
                 "external_assertion_channel_conflict channel=%s platforms=%s,%s",
