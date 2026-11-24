@@ -14,7 +14,11 @@ from functools import lru_cache
 
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from cryptography.hazmat.primitives.serialization import load_der_public_key, load_pem_public_key
-from muad_contracts import EXTERNAL_CHANNEL_NAME_PATTERN, is_valid_external_channel_name
+from muad_contracts import (
+    DEFAULT_EXTERNAL_CHANNEL,
+    EXTERNAL_CHANNEL_NAME_PATTERN,
+    is_valid_external_channel_name,
+)
 from muad_logging import get_logger
 
 _LOGGER = get_logger(__name__)
@@ -39,11 +43,11 @@ _KNOWN_KEYS = (
 _ISSUE_TIME_UNITS = frozenset({"ms", "s"})
 
 #: 时效字段与单位的默认值——等于 MSSW 上游的实际口径（``login_time``/``time`` 毫秒）。
-#: 未在 Secret 里覆盖时按此行为，保证 MSSWWEB 现有部署零变化。
+#: 未在 Secret 里覆盖时按此行为，保证现有外部通道部署零变化。
 _DEFAULT_ISSUE_TIME_KEYS = ("login_time", "time")
 _DEFAULT_ISSUE_TIME_UNIT = "ms"
-#: 通道名默认值：与当前唯一外部通道一致。
-_DEFAULT_CHANNEL = "MSSWWEB"
+#: 通道名默认值：与 `muad_contracts.DEFAULT_EXTERNAL_CHANNEL` 同源（单一声明处）。
+_DEFAULT_CHANNEL = DEFAULT_EXTERNAL_CHANNEL
 
 
 

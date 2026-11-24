@@ -220,9 +220,9 @@ async def consume_confirmation(
 def _stream_type_for(run: RunRecord) -> str | None:
     """Web 面的确认回执不走进度流：它由历史刷新展示，避免与流式正文瞬时重复。
 
-    企微等文本渠道没有历史刷新入口，回执必须作为 `message.delta` 投递。Web 面判定走
-    `is_web_surface_channel`（内建 WEBCHAT/MSSWWEB ∪ 已启用的外部平台通道），新增平台
-    无需改这里，也不会再把 MSSWWEB/MSSPWEB 误判成 IM 文本渠道。
+    文本渠道没有历史刷新入口，回执必须作为 `message.delta` 投递。Web 面判定走
+    `is_web_surface_channel`（内建 Web 通道 ∪ 已启用的外部平台通道），新增平台
+    无需改这里，也不会再把外部平台 Web 通道误判成 IM 文本渠道。
     """
     channel = (run.channel_json or {}).get("type")
     external = web_surface_channels_from_settings(process_settings())

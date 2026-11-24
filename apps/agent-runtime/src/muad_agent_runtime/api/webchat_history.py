@@ -109,8 +109,10 @@ def _allowed_channel_names() -> frozenset[str]:
     外部平台会话能写入却读不出（读取被 422 拒掉）。解析口径与 Gateway / Console 同源
     （`muad_contracts.external_platform_channels`）。
     """
-    platforms_json = getattr(process_settings(), "external_assertion_platforms_json", "")
-    return frozenset((*BUILTIN_CHANNEL_NAMES, *external_platform_channels(platforms_json)))
+    settings = process_settings()
+    return frozenset(
+        (*BUILTIN_CHANNEL_NAMES, *external_platform_channels(settings.external_assertion_platforms_json))
+    )
 
 
 def _channel_types(value: str | None) -> tuple[str, ...] | None:
