@@ -63,6 +63,8 @@ class EventCompaction(BaseModel):
     layer: str
     groups: int | None = None
     bytes_saved: int | None = None
+    dropped_records: int | None = None
+    retained_from_seq: int | None = None
 
 
 class ModelRunSummary(BaseModel):
@@ -141,6 +143,8 @@ def compaction_views(value: JsonValue) -> list[EventCompaction]:
             layer=redact_text(key)[:128],
             groups=integer(item.get("groups")),
             bytes_saved=integer(item.get("bytes_saved")),
+            dropped_records=integer(item.get("dropped_records")),
+            retained_from_seq=integer(item.get("retained_from_seq")),
         )
         for key, item in list(value.items())[:ITEM_LIMIT]
         if isinstance(item, dict) and item.get("fired") is True

@@ -1,7 +1,7 @@
 """上下文装配与压缩的纯逻辑（运行时无关）。
 
-- `compactor.py`：会删消息的压缩层与「受保护前缀」切分；
-- `layers.py`：Runtime/Worker 共享的四层执行顺序（working micro、摘要材料、fallback）；
+- `compactor.py`：请求边界唯一的 `fit_history` 与「受保护前缀」切分；
+- `layers.py`：Runtime/Worker 共享的摘要 + `fit_history` 执行顺序；
 - `summary.py`：摘要字段的渲染与解析。
 
 **这里没有 `ContextBuilder`**（2026-10-07 删除）：它是一份**从未接线**的接口——全仓没有调用方，

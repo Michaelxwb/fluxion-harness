@@ -1,7 +1,7 @@
 """请求构建缝的压缩适配器（design §3.2 第二条集成缝）。
 
-`AgentRunner` 在组装 `ModelRequest` 之前调这里；本适配器把四个层的**副作用**落地：
-micro/snip/条数兜底是纯函数（agent-core），摘要要调模型、要写 transcript、要落审计事件。
+`AgentRunner` 在组装 `ModelRequest` 之前调这里；本适配器把摘要与请求边界裁剪的**副作用**
+落地：`fit_history` 是纯函数（agent-core），摘要要调模型、要写 transcript、要落审计事件。
 
 **RULE-04 落在这里**：整段包在 try 里，任何异常都退化到"原样返回输入历史"——压缩是尽力而为，
 绝不能让 Run 失败。日志只记层级与字节数，不记内容。
@@ -14,7 +14,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from pathlib import Path
 
 from muad_agent_core.context.compactor import LayerOutcome
-from muad_agent_core.context.layers import SummaryAttempt, compact_plan_layered
+from muad_agent_core.context.layers import SummaryAttempt, SummaryCache, compact_plan_layered
 from muad_agent_core.context.plan import ContextPlan
 from muad_agent_core.context.summary import SummaryFields, try_parse_summary
 from muad_agent_core.model import (
@@ -114,8 +114,11 @@ class RuntimeContextCompactor:
         self._summary_runner = summary_runner
         self._session_factory = session_factory or get_session_factory
         self._submission_id = submission_id
+        self._summary_cache = SummaryCache()
 
-    async def compact_plan(self, plan: ContextPlan) -> ContextPlan:
+    async def compact_plan(
+        self, plan: ContextPlan, *, budget_ratio: float = 1.0
+    ) -> ContextPlan:
         try:
             async def summarize(material: Sequence[ModelMessage]) -> SummaryFields | None:
                 assert self._summary_runner is not None
@@ -141,6 +144,8 @@ class RuntimeContextCompactor:
                 summarize=summarize if self._summary_runner is not None else None,
                 persist_summary=self._persist_summary,
                 persist_layers=self._persist_layers,
+                summary_cache=self._summary_cache,
+                budget_ratio=budget_ratio,
             )
             for layer in layers:
                 if layer.fired:

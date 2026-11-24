@@ -124,10 +124,56 @@ def plan_context(
     )
 
 
+def material_groups(plan: ContextPlan) -> tuple[Group, ...]:
+    """`older` 中落在 `(covered_seq, material_end_seq]` 的连续材料组。"""
+    if plan.material_end_seq <= plan.covered_seq:
+        return ()
+    groups: list[Group] = []
+    for group in plan.older:
+        seqs = [message.source_event_seq or 0 for message in group]
+        if not seqs:
+            continue
+        if min(seqs) > plan.covered_seq and max(seqs) <= plan.material_end_seq:
+            groups.append(group)
+    return tuple(groups)
+
+
+def pinned_event_ids(plan: ContextPlan) -> tuple[str, ...]:
+    return tuple(
+        message.source_event_id
+        for group in plan.pinned
+        for message in group
+        if message.source_event_id
+    )
+
+
 def with_summary(plan: ContextPlan, summary: ModelMessage) -> ContextPlan:
-    """摘要在计划上的唯一落点：清空 older，并用新摘要替换旧摘要前缀。"""
+    """只替换材料区间：保留头部、独立尾部与 pinned，并推进 covered_seq。"""
+    material = material_groups(plan)
+    if not material:
+        return plan
+    kept_older = tuple(group for group in plan.older if group not in material)
+    retained_head = (
+        max(
+            (
+                max(message.source_event_seq or 0 for message in group)
+                for group in kept_older
+                if plan.head_end_seq is not None
+                and max(message.source_event_seq or 0 for message in group) <= plan.head_end_seq
+            ),
+            default=0,
+        )
+        or None
+    )
     prefix = tuple(message for message in plan.prefix if not is_summary_message(message))
-    return replace(plan, older=(), prefix=(*prefix, summary))
+    return replace(
+        plan,
+        prefix=(*prefix, summary),
+        older=kept_older,
+        covered_seq=max(plan.covered_seq, plan.material_end_seq),
+        material_end_seq=0,
+        head_end_seq=retained_head,
+    )
 
 
 def render_context(
@@ -219,6 +265,8 @@ __all__ = [
     "ContextPlan",
     "MessageOrigin",
     "RunInput",
+    "material_groups",
+    "pinned_event_ids",
     "plan_context",
     "render_context",
     "with_summary",

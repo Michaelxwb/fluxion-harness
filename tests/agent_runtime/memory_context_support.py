@@ -27,11 +27,13 @@ def loader(engine, ctx, *, policy=None, query="你好", task_state_ref=None, run
 async def request_round(engine, ctx, memory, *, handler=None, extra_history=(), compactor=None):
     factory = async_sessionmaker(engine, expire_on_commit=False)
     builder = DbBackedContextBuilder(session_factory=lambda: factory)
-    history = await builder.load_history(
+    loaded = await builder.load_history(
         tenant_id=ctx.tenant_id,
         user_id=ctx.user_id,
         conversation_id=ctx.conversation_id or uuid4(),
+        budget_tokens=100_000,
     )
+    history = loaded.messages
     registry = ToolRegistry()
     calls = []
     if handler is not None:

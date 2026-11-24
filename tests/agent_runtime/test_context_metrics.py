@@ -1,717 +1,189 @@
-"""[E-05] 压缩指标：真实 `/metrics` 目录 + 触发后计数递增（FEAT-06）。
-
-不得 Mock 的真实边界：真实 uvicorn 单进程（127.0.0.1 真实 socket）+ 真实 Runtime app/路由 →
-api-kit 进程内注册表 → `GET /metrics` Prometheus 文本。计数由**真实链路**产生：
-· 请求缝 snip —— 真实两连 Run（`RunService` → `AgentRunner` → 压缩层）；
-· 摘要层 —— 真实 `RuntimeContextCompactor` + 真实 `make_summary_runner` + 真实 PG + 真实产物根。
-
-label 卫生沿用 `test_runtime_metrics.py` 的口径：label 名不得命中敏感标记，label 值不得落入资源 ID。
-"""
+"""Runtime compactor: summary persistence, material interval and cache."""
 
 from __future__ import annotations
 
-import asyncio
-import json
-import re
-import socket
-import time
 import uuid
-from collections.abc import AsyncIterator, Sequence
-from contextlib import asynccontextmanager
-from pathlib import Path
-from typing import Any
+from collections.abc import Sequence
 
-import httpx
 import pytest
 import sqlalchemy as sa
-import uvicorn
-from fastapi import FastAPI
-from muad_agent_core.agent import AgentRunner
-from muad_agent_core.context.plan import RunInput, plan_context, render_context
-from muad_agent_core.hooks import HookPipeline
-from muad_agent_core.model import (
-    ImagePart,
-    ModelMessage,
-    ModelProvider,
-    ModelRequest,
-    ModelResponse,
-    ModelRole,
-    ModelToolCall,
-)
-from muad_agent_core.tools import ToolRegistry
-from muad_agent_runtime.api.deps import (
-    get_credentials_client,
-    get_executor_factory,
-    get_resolve_client,
-)
-from muad_agent_runtime.application import context_compaction
-from muad_agent_runtime.application.context_compaction import (
-    RuntimeContextCompactor,
-    make_summary_runner,
-)
-from muad_agent_runtime.application.executor import (
-    AgentRunnerExecutor,
-    ExecutorFactory,
-    ExecutorRequest,
-    RunExecutor,
+from muad_agent_core.context.plan import ContextPlan, render_context
+from muad_agent_core.context.summary import SummaryFields
+from muad_agent_core.model import ModelMessage, ModelRole, ModelToolCall
+from muad_agent_runtime.application.context_compaction import RuntimeContextCompactor
+from muad_agent_runtime.application.context_events import (
+    CONTEXT_COMPACTED_EVENT,
+    CONTEXT_SUMMARY_EVENT,
 )
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import CanonicalEvent, Conversation
-from muad_agent_runtime.main import app
-from muad_contracts.platform_settings import (
-    CompactionSettings,
-    SnipSettings,
-    SummarySettings,
-)
+from muad_contracts.platform_settings import CompactionSettings, SummarySettings
 
-from agent_runtime.conftest import FakeResolveClient, TenantContext, parse_sse
-from tests.internal_service import TOKEN as INTERNAL_SERVICE_TOKEN
-
-#: 稳定入口身份：同一测试的多条消息必须落在同一条会话上（入口是会话作用域的一部分）。
-ENTRY_ID = uuid.uuid4()
-
-METRICS_PATH = "/metrics"
-LISTEN_TIMEOUT_SEC = 15.0
-#: 回复要有**体量**：省略标记本身也占几十字节，被省的组太短时 `bytes_saved` 会是 0。
-FIRST_TEXT = "第一轮：收到，" + "细节" * 200
-SECOND_TEXT = "第二轮：收到，" + "细节" * 200
-SUMMARY_TOKENS = 128
-
-#: 本任务落地的四级计数器（design §3.5 可观测性）。**无流量也必须可见**。
-CONTEXT_METRICS: tuple[tuple[str, str], ...] = (
-    ("context_compaction_total", "counter"),
-    ("context_compaction_bytes_saved_total", "counter"),
-    ("context_summary_total", "counter"),
-    ("context_summary_tokens_total", "counter"),
-)
-
-SENSITIVE_LABEL_MARKERS = ("authorization", "api_key", "token", "secret", "password", "credential")
-UUID_PATTERN = re.compile(
-    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.IGNORECASE
-)
-SAMPLE_PATTERN = re.compile(
-    r"^(?P<name>[A-Za-z_:][A-Za-z0-9_:]*)(?P<labels>\{.*\})?\s+(?P<value>[0-9eE+\-.]+)$"
-)
+from agent_runtime.conftest import TenantContext
 
 
-class _TwoTurnProvider:
-    """两个来回都直接收尾（本用例只关心压缩指标，不关心工具）。"""
-
-    def __init__(self) -> None:
-        self.calls = 0
-
-    async def complete(self, request: ModelRequest) -> ModelResponse:
-        self.calls += 1
-        # 第一、二、三轮都给体量足够的回复（第三轮之后的调用不会发生）
-        return ModelResponse(
-            content=FIRST_TEXT if self.calls % 2 == 1 else SECOND_TEXT, finish_reason="stop"
-        )
-
-
-class _SummaryProvider:
-    """摘要模型的替身：返回**恰好五字段**的 JSON，并带上 token 用量。
-
-    替身只替"外部模型响应"这一段；`make_summary_runner`、校验、落库、计数都是真实实现。
-    """
-
-    def __init__(self) -> None:
-        self.requests: list[ModelRequest] = []
-
-    async def complete(self, request: ModelRequest) -> ModelResponse:
-        self.requests.append(request)
-        return ModelResponse(
-            content=json.dumps(
-                {
-                    "user_goal": "核对清单",
-                    "constraints": [],
-                    "progress": [],
-                    "open_items": [],
-                    "artifacts": [],
-                },
-                ensure_ascii=False,
-            ),
-            finish_reason="stop",
-            input_tokens=100,
-            output_tokens=SUMMARY_TOKENS - 100,
-        )
-
-
-def _parse_samples(text: str) -> list[tuple[str, dict[str, str], float]]:
-    samples: list[tuple[str, dict[str, str], float]] = []
-    for line in text.splitlines():
-        if not line or line.startswith("#"):
-            continue
-        matched = SAMPLE_PATTERN.match(line.strip())
-        if matched is None:
-            continue
-        labels: dict[str, str] = {}
-        raw = matched.group("labels")
-        if raw:
-            for pair in raw[1:-1].split(","):
-                name, _, value = pair.partition("=")
-                labels[name.strip()] = value.strip().strip('"')
-        samples.append((matched.group("name"), labels, float(matched.group("value"))))
-    return samples
-
-
-def _value(
-    samples: Sequence[tuple[str, dict[str, str], float]], name: str, labels: dict[str, str]
-) -> float:
-    for sample_name, sample_labels, value in samples:
-        if sample_name == name and all(
-            sample_labels.get(key) == item for key, item in labels.items()
-        ):
-            return value
-    return 0.0
-
-
-def _assert_label_hygiene(samples: Sequence[tuple[str, dict[str, str], float]]) -> None:
-    for name, labels, _amount in samples:
-        for key, value in labels.items():
-            for marker in SENSITIVE_LABEL_MARKERS:
-                assert marker not in key.lower(), f"指标 label 名命中敏感标记 {marker}：{name}{labels}"
-            assert not UUID_PATTERN.search(value), f"指标 label 值落入资源 ID：{name}{labels}"
-
-
-@asynccontextmanager
-async def _serve_http(target: FastAPI) -> AsyncIterator[httpx.AsyncClient]:
-    """真实 uvicorn 单进程监听 127.0.0.1 随机端口（真实 socket）。"""
-    with socket.socket() as sock:
-        sock.bind(("127.0.0.1", 0))
-        port = int(sock.getsockname()[1])
-    config = uvicorn.Config(target, host="127.0.0.1", port=port, log_level="error", lifespan="off")
-    server = uvicorn.Server(config)
-    serving = asyncio.create_task(server.serve())
-    try:
-        deadline = time.monotonic() + LISTEN_TIMEOUT_SEC
-        while not server.started and time.monotonic() < deadline:
-            await asyncio.sleep(0.02)
-        assert server.started, "Runtime 未在超时内监听"
-        async with httpx.AsyncClient(base_url=f"http://127.0.0.1:{port}", timeout=30.0) as client:
-            yield client
-    finally:
-        server.should_exit = True
-        await asyncio.wait_for(serving, timeout=LISTEN_TIMEOUT_SEC)
-
-
-@asynccontextmanager
-async def _runtime_http(
-    fake_resolve: FakeResolveClient, executor_factory: ExecutorFactory
-) -> AsyncIterator[httpx.AsyncClient]:
-    """真实 HTTP 服务真实 Runtime app；依赖覆盖与 `conftest.client` 同口径。
-
-    **三条覆盖缺一不可**：少任何一个都会落到真实依赖上（解析走到 console-platform、
-    凭据走到 secret）—— 表现是 `POST /v1/runs` 直接 500，且服务端不打堆栈。
-    """
-    app.dependency_overrides[get_resolve_client] = lambda: fake_resolve
-    app.dependency_overrides[get_executor_factory] = lambda: executor_factory
-    app.dependency_overrides[get_credentials_client] = lambda: None
-    try:
-        async with _serve_http(app) as client:
-            yield client
-    finally:
-        app.dependency_overrides.pop(get_resolve_client, None)
-        app.dependency_overrides.pop(get_executor_factory, None)
-        app.dependency_overrides.pop(get_credentials_client, None)
-
-
-async def _metrics(client: httpx.AsyncClient) -> str:
-    response = await client.get(METRICS_PATH)
-    assert response.status_code == 200
-    return response.text
-
-
-def _snip_settings() -> CompactionSettings:
-    """把 snip 压到"三个来回就触发"：阈值 3 组、保头保尾各 1 组。
-
-    取值必须满足 schema 的 `max_groups ≥ keep_head + keep_tail + 1`（`_validate` 会拒）。
-    """
-    return CompactionSettings(
-        snip=SnipSettings(max_groups=3, keep_head_groups=1, keep_tail_groups=1),
-        history_budget_messages=2,
+def _fields(goal: str = "compressed goal") -> SummaryFields:
+    return SummaryFields(
+        user_goal=goal,
+        constraints=(),
+        progress=(),
+        open_items=(),
+        artifacts=(),
     )
 
 
-def _factory(provider: ModelProvider, tmp_path: Path) -> ExecutorFactory:
-    """生产同款装配：请求缝装上**真实** `RuntimeContextCompactor`（与 `default_executor_factory` 同口径）。"""
-
-    async def factory(request: ExecutorRequest) -> RunExecutor:
-        context = request.run_context
-        assert context is not None
-        runner = AgentRunner(
-            provider=provider,
-            registry=ToolRegistry(),
-            hooks=HookPipeline(),
-            context_compactor=RuntimeContextCompactor(
-                settings=_snip_settings(),
-                tenant_id=context.tenant_id,
-                run_id=context.run_id,
-                conversation_id=context.conversation_id,
-                artifact_root=tmp_path,
-            ),
-        )
-        return AgentRunnerExecutor(runner=runner, request=request)
-
-    return factory
-
-
-async def _send(client: httpx.AsyncClient, tenant: TenantContext, text: str) -> None:
-    response = await client.post(
-        "/v1/runs",
-        json={
-            "agent_id": str(tenant.agent_id),
-            "platform_user_id": str(tenant.platform_user_id),
-            "channel": {"type": "WECOM", "entry_id": str(ENTRY_ID), "bot_id": "bot-metrics"},
-            "message": {"id": f"msg-{uuid.uuid4()}", "type": "text", "text": text},
-        },
-        headers={
-            "X-Tenant-Id": tenant.tenant_id,
-            "X-Internal-Service": INTERNAL_SERVICE_TOKEN,
-        },
-    )
-    assert response.status_code == 200, response.text
-    events = parse_sse(response.text)
-    assert events[-1]["type"] == "run.completed", events[-1]
-
-
-async def test_e05_catalog_is_visible_without_any_traffic() -> None:
-    """没有任何流量时，四个计数器也必须出现在 `/metrics` 目录里（能写告警、能看基线）。"""
-    async with _serve_http(app) as client:
-        text = await _metrics(client)
-
-    missing = [name for name, kind in CONTEXT_METRICS if f"# TYPE {name} {kind}" not in text]
-    assert not missing, f"压缩指标目录缺失：{missing}\n{text}"
-
-
-async def test_e05_compaction_counters_increase_on_a_real_run(
-    tenant: TenantContext, fake_resolve: FakeResolveClient, tmp_path: Path
-) -> None:
-    """真实三连 Run 触发请求缝条数兜底 ⇒ 计数与省下字节递增（Prometheus 文本可抓取）。"""
-    async with _runtime_http(fake_resolve, _factory(_TwoTurnProvider(), tmp_path)) as client:
-        before = _parse_samples(await _metrics(client))
-        await _send(client, tenant, "第一轮：先打个招呼")
-        await _send(client, tenant, "第二轮：接着说")
-        await _send(client, tenant, "第三轮：说完了")
-        after = _parse_samples(await _metrics(client))
-
-    fired = {"layer": "budget", "status": "FIRED"}
-    assert _value(after, "context_compaction_total", fired) == (
-        _value(before, "context_compaction_total", fired) + 1
-    ), "条数兜底触发一次就该记一次"
-    assert _value(after, "context_compaction_bytes_saved_total", {"layer": "budget"}) > 0, (
-        "省下的字节必须为正（否则这条指标没有意义）"
-    )
-    _assert_label_hygiene(after)
-
-
-def test_summary_instruction_types_every_array_field_explicitly() -> None:
-    """摘要指令必须逐字段写明数组类型，不能依赖括号的作用范围（DeepSeek 会误读）。"""
-    instruction = context_compaction.SUMMARY_INSTRUCTION
-    for field in ("constraints", "progress", "open_items"):
-        assert f"{field}（字符串数组）" in instruction
-    assert "user_goal（字符串）" in instruction
-    assert "artifacts（数组" in instruction
-
-
-async def test_e05_summary_counters_increase_on_a_real_compactor(
-    tenant: TenantContext, tmp_path: Path
-) -> None:
-    """摘要层真实跑一次 ⇒ `context_summary_total{status=OK}` 与 tokens 递增。"""
-    conversation_id = uuid.uuid4()
-    async with get_session_factory()() as session:
-        session.add(
-            Conversation(
-                id=conversation_id,
-                tenant_id=tenant.tenant_id,
-                user_id=tenant.platform_user_id,
-                agent_id=tenant.agent_id,
-                last_seq=0,
-            )
-        )
-        await session.commit()
-
-    provider = _SummaryProvider()
-    compactor = RuntimeContextCompactor(
-        settings=CompactionSettings(
-            summary=SummarySettings(enabled=True, threshold_bytes=1, model_ref="probe-model"),
-            # 快照里就是这两个字段（`model_ref` 引用的既有 model_definition，不新增回退）
-            snip=SnipSettings(enabled=False),
-        ),
-        tenant_id=tenant.tenant_id,
-        run_id=uuid.uuid4(),
-        conversation_id=conversation_id,
-        artifact_root=tmp_path,
-        summary_runner=make_summary_runner(provider=provider, model_id="probe-model"),
-    )
-    history = (
-        # 受保护前缀（系统提示）与当前回合都必须留在换出去的那条请求里：整段换成一条摘要等于
-        # agent 失忆 + 模型不知道自己该回答什么
-        ModelMessage(role=ModelRole.SYSTEM, content="be helpful"),
-        ModelMessage(role=ModelRole.USER, content="更早那轮：很长的诉求" * 200),
-        ModelMessage(role=ModelRole.ASSISTANT, content="更早那轮：很长的回答" * 200),
-        ModelMessage(role=ModelRole.USER, content="当前这一轮：接着聊", message_id="current"),
-    )
-
-    async with _serve_http(app) as client:
-        before = _parse_samples(await _metrics(client))
-        plan = plan_context(
-            history,
-            run_input=RunInput(message_id="current", content="当前这一轮：接着聊"),
-        )
-        compacted = render_context(await compactor.compact_plan(plan))
-        after = _parse_samples(await _metrics(client))
-
-    assert [message.role for message in compacted] == [
-        ModelRole.SYSTEM,
-        ModelRole.SYSTEM,
-        ModelRole.USER,
-    ], "前缀 + 摘要 + 当前回合"
-    assert "be helpful" in str(compacted[0].content), "系统提示不得被摘要吞掉"
-    assert str(compacted[1].content).startswith("[历史摘要]")
-    assert "当前这一轮" in str(compacted[2].content), "当前用户消息必须原样保留"
-    assert provider.requests, "摘要模型确实被调了一次"
-    ok = {"status": "OK"}
-    assert (
-        _value(after, "context_summary_total", ok) == _value(before, "context_summary_total", ok) + 1
-    )
-    assert _value(after, "context_summary_tokens_total", {}) == (
-        _value(before, "context_summary_tokens_total", {}) + SUMMARY_TOKENS
-    ), "token 用量要按模型回报的 input+output 计"
-    _assert_label_hygiene(after)
-
-
-async def test_summary_consumes_the_plan_boundary_with_a_tool_image_follow_up(
-    tenant: TenantContext, tmp_path: Path
-) -> None:
-    """摘要只消费 plan.older；工具图片 follow-up 不能把当前输入挤出保护范围。"""
-    conversation_id = uuid.uuid4()
-    async with get_session_factory()() as session:
-        session.add(
-            Conversation(
-                id=conversation_id,
-                tenant_id=tenant.tenant_id,
-                user_id=tenant.platform_user_id,
-                agent_id=tenant.agent_id,
-                last_seq=0,
-            )
-        )
-        await session.commit()
-
-    provider = _SummaryProvider()
-    compactor = RuntimeContextCompactor(
-        settings=CompactionSettings(
-            summary=SummarySettings(enabled=True, threshold_bytes=1, model_ref="probe-model"),
-            snip=SnipSettings(enabled=False),
-        ),
-        tenant_id=tenant.tenant_id,
-        run_id=uuid.uuid4(),
-        conversation_id=conversation_id,
-        artifact_root=tmp_path,
-        summary_runner=make_summary_runner(provider=provider, model_id="probe-model"),
-    )
-    tool_call = ModelToolCall("call-1", "read_attachment", {"artifact_id": "a1"})
-    history = (
-        ModelMessage(role=ModelRole.SYSTEM, content="be helpful"),
-        ModelMessage(
-            role=ModelRole.USER,
-            content="更早那轮：" + "很长的诉求" * 200,
-            source_event_id="e1",
-            source_event_seq=1,
-        ),
-        ModelMessage(
-            role=ModelRole.ASSISTANT,
-            content="更早那轮：" + "很长的回答" * 200,
-            source_event_id="e2",
-            source_event_seq=2,
-        ),
-        ModelMessage(
-            role=ModelRole.USER,
-            content="当前这一轮：接着聊",
-            message_id="current",
-            source_event_id="e3",
-            source_event_seq=3,
-        ),
-        ModelMessage(
-            role=ModelRole.ASSISTANT,
-            content="",
-            tool_calls=(tool_call,),
-            source_event_id="e4",
-            source_event_seq=4,
-        ),
-        ModelMessage(
-            role=ModelRole.TOOL,
-            content="tool result",
-            tool_call_id="call-1",
-            source_event_id="e5",
-            source_event_seq=5,
-        ),
-        ModelMessage(
-            role=ModelRole.USER,
-            content=(
-                "[重看附件] x.png",
-                ImagePart(media_type="image/png", data_base64="AAAA", artifact_id="a1"),
-            ),
-            source_event_id="e12",
-            source_event_seq=12,
-        ),
-    )
-
-    async with _serve_http(app) as client:
-        plan = plan_context(
-            history,
-            run_input=RunInput(message_id="current", content="当前这一轮：接着聊"),
-        )
-        assert len(plan.older) == 2, "plan 的覆盖边界只到当前输入之前"
-        outbound = render_context(await compactor.compact_plan(plan))
-        after = _parse_samples(await _metrics(client))
-
-    assert [message.role for message in outbound] == [
-        ModelRole.SYSTEM,
-        ModelRole.SYSTEM,
-        ModelRole.USER,
-        ModelRole.ASSISTANT,
-        ModelRole.TOOL,
-        ModelRole.USER,
-    ]
-    assert "当前这一轮" in str(outbound[2].content)
-    assert outbound[4].tool_call_id == "call-1"
-    assert "重看附件" in str(outbound[5].content)
-    assert provider.requests, "摘要模型确实被调了一次"
-    summary_input = provider.requests[0].messages
-    assert any("更早那轮" in str(message.content) for message in summary_input)
-    assert not any("当前这一轮" in str(message.content) for message in summary_input), (
-        "摘要材料只含旧摘要 + 原始 older；pinned 当前输入不重复发送"
-    )
-    async with get_session_factory()() as session:
-        row = await session.scalar(
-            sa.select(CanonicalEvent).where(
-                CanonicalEvent.conversation_id == conversation_id,
-                CanonicalEvent.event_type == "CONTEXT_SUMMARY",
-            )
-        )
-    assert row is not None
-    payload = row.payload_json or {}
-    assert payload["covers_up_to_seq"] == 2
-    assert "e3" in payload["protected_event_ids"]
-    assert "e1" not in payload["protected_event_ids"]
-    _assert_label_hygiene(after)
-
-
-async def test_summary_sees_the_full_older_interval_before_any_tail_trim(
-    tenant: TenantContext, tmp_path: Path
-) -> None:
-    """60 条 older 必须先全部进入摘要；coverage 不能被 40 条裁剪后的尾巴改写。"""
-    conversation_id = uuid.uuid4()
-    async with get_session_factory()() as session:
-        session.add(
-            Conversation(
-                id=conversation_id,
-                tenant_id=tenant.tenant_id,
-                user_id=tenant.platform_user_id,
-                agent_id=tenant.agent_id,
-                last_seq=0,
-            )
-        )
-        await session.commit()
-
-    provider = _SummaryProvider()
-    compactor = RuntimeContextCompactor(
-        settings=CompactionSettings(
-            summary=SummarySettings(enabled=True, threshold_bytes=1, model_ref="probe-model"),
-            snip=SnipSettings(enabled=False),
-            history_budget_messages=40,
-        ),
-        tenant_id=tenant.tenant_id,
-        run_id=uuid.uuid4(),
-        conversation_id=conversation_id,
-        artifact_root=tmp_path,
-        summary_runner=make_summary_runner(provider=provider, model_id="probe-model"),
-    )
+def _plan(*, material_end: int = 4) -> ContextPlan:
     older = tuple(
-        ModelMessage(
-            role=ModelRole.USER if index % 2 == 0 else ModelRole.ASSISTANT,
-            content=f"旧-{index}：" + "很长的历史" * 100,
-            source_event_id=f"e{index + 1}",
-            source_event_seq=index + 1,
-        )
-        for index in range(60)
-    )
-    history = (*older, ModelMessage(role=ModelRole.USER, content="当前问题", message_id="current"))
-
-    plan = plan_context(
-        history,
-        run_input=RunInput(message_id="current", content="当前问题"),
-    )
-    assert len(plan.older) == 60
-    outbound = render_context(await compactor.compact_plan(plan))
-
-    assert provider.requests, "摘要模型确实被调了一次"
-    summary_input = provider.requests[0].messages
-    assert sum(1 for message in summary_input if "旧-" in str(message.content)) == 60
-    assert not any("当前问题" in str(message.content) for message in summary_input), (
-        "当前输入属于 pinned，不属于摘要材料"
-    )
-    assert "当前问题" in str(outbound[-1].content)
-    async with get_session_factory()() as session:
-        row = await session.scalar(
-            sa.select(CanonicalEvent).where(
-                CanonicalEvent.conversation_id == conversation_id,
-                CanonicalEvent.event_type == "CONTEXT_SUMMARY",
-            )
-        )
-    assert row is not None
-    assert (row.payload_json or {})["covers_up_to_seq"] == 60
-
-
-async def test_compaction_audit_failure_rolls_the_summary_back_too(
-    tenant: TenantContext, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """[RULE-04/RULE-05] 压缩审计写失败 ⇒ 这次压缩**整个不生效**。
-
-    以前摘要在自己的事务里先 commit、审计随后另开事务：审计失败时本轮返回原历史，摘要的
-    `covers_up_to_seq` 却已经落库 —— 下一轮据此排除原始事件，等于一半的压缩悄悄生效
-    （2026-10-06 review）。现在三处写（transcript / 摘要事件 / 审计）一个事务，要么全落、
-    要么全不落，并按 FAILED 记出来。
-    """
-    conversation_id = uuid.uuid4()
-    async with get_session_factory()() as session:
-        session.add(
-            Conversation(
-                id=conversation_id,
-                tenant_id=tenant.tenant_id,
-                user_id=tenant.platform_user_id,
-                agent_id=tenant.agent_id,
-                last_seq=0,
-            )
-        )
-        await session.commit()
-
-    provider = _SummaryProvider()
-    compactor = RuntimeContextCompactor(
-        settings=CompactionSettings(
-            summary=SummarySettings(enabled=True, threshold_bytes=1, model_ref="probe-model"),
-            snip=SnipSettings(enabled=False),
-        ),
-        tenant_id=tenant.tenant_id,
-        run_id=uuid.uuid4(),
-        conversation_id=conversation_id,
-        artifact_root=tmp_path,
-        summary_runner=make_summary_runner(provider=provider, model_id="probe-model"),
-    )
-    history = (
-        ModelMessage(role=ModelRole.USER, content="更早那轮：很长的诉求" * 200),
-        ModelMessage(role=ModelRole.ASSISTANT, content="更早那轮：很长的回答" * 200),
-        ModelMessage(role=ModelRole.USER, content="当前这一轮：接着聊", message_id="current"),
-    )
-
-    async def _boom(*args: Any, **kwargs: Any) -> None:
-        raise RuntimeError("audit write failed")
-
-    monkeypatch.setattr(context_compaction, "record_compaction", _boom)
-
-    async with _serve_http(app) as client:
-        before = _parse_samples(await _metrics(client))
-        plan = plan_context(
-            history,
-            run_input=RunInput(message_id="current", content="当前这一轮：接着聊"),
-        )
-        compacted = render_context(await compactor.compact_plan(plan))
-        after = _parse_samples(await _metrics(client))
-
-    assert compacted == history, "压缩失败一律退化成不压缩，且不得只退一半"
-    assert provider.requests, "摘要模型确实被调过（失败发生在落库阶段）"
-    failed = {"layer": "*", "status": "FAILED"}
-    assert _value(after, "context_compaction_total", failed) == (
-        _value(before, "context_compaction_total", failed) + 1
-    ), "退化必须可见"
-    async with get_session_factory()() as session:
-        rows = (
-            await session.scalars(
-                sa.select(CanonicalEvent).where(
-                    CanonicalEvent.conversation_id == conversation_id,
-                    CanonicalEvent.event_type.in_(("CONTEXT_SUMMARY", "CONTEXT_COMPACTED")),
-                )
-            )
-        ).all()
-    assert list(rows) == [], "摘要事件不得单独落库（下一次装配才不会以为那段历史已被覆盖）"
-
-
-async def test_summary_transcript_failure_falls_back_to_free_layers(
-    tenant: TenantContext, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """[RULE-04/RULE-05] 逐字存档失败 ⇒ 摘要作废，但对原始 older 的兜底照常生效。"""
-    conversation_id = uuid.uuid4()
-    async with get_session_factory()() as session:
-        session.add(
-            Conversation(
-                id=conversation_id,
-                tenant_id=tenant.tenant_id,
-                user_id=tenant.platform_user_id,
-                agent_id=tenant.agent_id,
-                last_seq=0,
-            )
-        )
-        await session.commit()
-
-    provider = _SummaryProvider()
-    compactor = RuntimeContextCompactor(
-        settings=CompactionSettings(
-            summary=SummarySettings(enabled=True, threshold_bytes=1, model_ref="probe-model"),
-            snip=SnipSettings(
-                enabled=True, max_groups=2, keep_head_groups=0, keep_tail_groups=1
-            ),
-            history_budget_messages=40,
-        ),
-        tenant_id=tenant.tenant_id,
-        run_id=uuid.uuid4(),
-        conversation_id=conversation_id,
-        artifact_root=tmp_path,
-        summary_runner=make_summary_runner(provider=provider, model_id="probe-model"),
-    )
-    history = (
-        ModelMessage(role=ModelRole.SYSTEM, content="be helpful"),
-        *tuple(
+        (
             ModelMessage(
-                role=ModelRole.USER if index % 2 == 0 else ModelRole.ASSISTANT,
-                content=f"旧-{index}：" + "很长的历史" * 100,
-                source_event_seq=index + 1,
-            )
-            for index in range(6)
-        ),
-        ModelMessage(role=ModelRole.USER, content="当前问题", message_id="current"),
-    )
-
-    async def _no_transcript(*args: Any, **kwargs: Any) -> None:
-        return None
-
-    monkeypatch.setattr(
-        context_compaction.TranscriptWriter, "persist_with_session", _no_transcript
-    )
-
-    async with _serve_http(app) as client:
-        before = _parse_samples(await _metrics(client))
-        plan = plan_context(
-            history,
-            run_input=RunInput(message_id="current", content="当前问题"),
+                role=ModelRole.USER if index % 2 else ModelRole.ASSISTANT,
+                content=f"old-{index}",
+                source_event_seq=index,
+            ),
         )
-        compacted = render_context(await compactor.compact_plan(plan))
-        after = _parse_samples(await _metrics(client))
-
-    assert provider.requests, "摘要模型确实被调过一次"
-    assert not any(str(message.content).startswith("[历史摘要]") for message in compacted)
-    assert len(compacted) < len(history), "摘要作废后仍要对原始 older 做可见兜底"
-    assert compacted[-1].content == "当前问题"
-    failed = {"status": "FAILED"}
-    assert _value(after, "context_summary_total", failed) == (
-        _value(before, "context_summary_total", failed) + 1
+        for index in range(1, 7)
     )
+    current = ModelMessage(
+        role=ModelRole.USER,
+        content="current",
+        message_id="current",
+        source_event_id="current-event",
+        source_event_seq=99,
+    )
+    working = (
+        (
+            ModelMessage(
+                role=ModelRole.ASSISTANT,
+                content="",
+                tool_calls=(ModelToolCall("c1", "echo", {}),),
+                source_event_seq=100,
+            ),
+            ModelMessage(
+                role=ModelRole.TOOL,
+                content="tool result",
+                tool_call_id="c1",
+                source_event_seq=101,
+            ),
+        ),
+    )
+    return ContextPlan(
+        prefix=(ModelMessage(role=ModelRole.SYSTEM, content="[历史摘要] old"),),
+        older=older,
+        pinned=((current,),),
+        working=working,
+        covered_seq=0,
+        material_end_seq=material_end,
+        head_end_seq=2,
+        earlier_records=1,
+    )
+
+
+def _settings() -> CompactionSettings:
+    return CompactionSettings(
+        history_budget_tokens=100_000,
+        summary=SummarySettings(enabled=True, model_ref="probe-model"),
+    )
+
+
+async def _conversation(tenant: TenantContext) -> Conversation:
     async with get_session_factory()() as session:
-        summary_rows = (
-            await session.scalars(
-                sa.select(CanonicalEvent).where(
-                    CanonicalEvent.conversation_id == conversation_id,
-                    CanonicalEvent.event_type == "CONTEXT_SUMMARY",
-                )
+        row = Conversation(
+            id=uuid.uuid4(),
+            tenant_id=tenant.tenant_id,
+            user_id=tenant.platform_user_id,
+            agent_id=tenant.agent_id,
+            last_seq=0,
+        )
+        session.add(row)
+        await session.commit()
+    return row
+
+
+async def _event_types(conversation_id: uuid.UUID) -> list[str]:
+    async with get_session_factory()() as session:
+        rows = await session.scalars(
+            sa.select(CanonicalEvent.event_type).where(
+                CanonicalEvent.conversation_id == conversation_id
             )
-        ).all()
-    assert list(summary_rows) == [], "存档失败时摘要事件不得落库"
+        )
+        return list(rows)
+
+
+@pytest.mark.asyncio
+async def test_summary_persists_material_coverage_and_reuses_cache(
+    tenant: TenantContext, database_guard: None, tmp_path
+) -> None:
+    conversation = await _conversation(tenant)
+    calls: list[tuple[ModelMessage, ...]] = []
+
+    async def summarize(material: Sequence[ModelMessage]) -> SummaryFields | None:
+        calls.append(tuple(material))
+        return _fields()
+
+    compactor = RuntimeContextCompactor(
+        settings=_settings(),
+        tenant_id=tenant.tenant_id,
+        run_id=uuid.uuid4(),
+        conversation_id=conversation.id,
+        artifact_root=tmp_path / "artifacts",
+        summary_runner=summarize,
+        session_factory=get_session_factory,
+    )
+
+    first = await compactor.compact_plan(_plan())
+    second = await compactor.compact_plan(_plan())
+
+    assert len(calls) == 1, "same material reuses the cached summary"
+    assert [str(message.content) for message in calls[0]] == [
+        "[历史摘要] old",
+        "old-1",
+        "old-2",
+        "old-3",
+        "old-4",
+    ]
+    assert render_context(first) == render_context(second)
+    outbound = [str(message.content) for message in render_context(first)]
+    assert "old-5" in outbound and "old-6" in outbound
+    assert "current" in outbound
+
+    async with get_session_factory()() as session:
+        summary = await session.scalar(
+            sa.select(CanonicalEvent).where(
+                CanonicalEvent.conversation_id == conversation.id,
+                CanonicalEvent.event_type == CONTEXT_SUMMARY_EVENT,
+            ).order_by(CanonicalEvent.seq.desc())
+        )
+        assert summary is not None
+        assert summary.payload_json["covers_up_to_seq"] == 4
+        assert summary.payload_json["transcript_artifact_id"]
+    assert CONTEXT_COMPACTED_EVENT in await _event_types(conversation.id)
+
+
+@pytest.mark.asyncio
+async def test_summary_failure_falls_back_without_writing_summary(
+    tenant: TenantContext, database_guard: None, tmp_path
+) -> None:
+    conversation = await _conversation(tenant)
+
+    async def summarize(_material: Sequence[ModelMessage]) -> SummaryFields | None:
+        raise RuntimeError("summary down")
+
+    compactor = RuntimeContextCompactor(
+        settings=_settings(),
+        tenant_id=tenant.tenant_id,
+        run_id=uuid.uuid4(),
+        conversation_id=conversation.id,
+        artifact_root=tmp_path / "artifacts",
+        summary_runner=summarize,
+        session_factory=get_session_factory,
+    )
+
+    compacted = await compactor.compact_plan(_plan())
+
+    assert compacted.covered_seq == 0
+    assert CONTEXT_SUMMARY_EVENT not in await _event_types(conversation.id)
+    assert any(
+        "[历史裁剪]" in str(message.content)
+        for group in compacted.older
+        for message in group
+    )

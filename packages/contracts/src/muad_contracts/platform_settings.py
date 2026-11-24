@@ -55,28 +55,10 @@ class CompactionConfigError(PlatformSettingsError):
 
 
 @dataclass(frozen=True, slots=True)
-class SnipSettings:
-    """过渡期兼容：压缩流水线仍在 TASK-003 前调用；不属于平台设置文档。"""
-
-    enabled: bool = True
-    max_groups: int = 50
-    keep_head_groups: int = 3
-    keep_tail_groups: int = 20
-
-
-@dataclass(frozen=True, slots=True)
 class ToolResultSettings:
     """工具结果外置阈值；整轮预算与预览由运行时按固定规则派生。"""
 
     persist_threshold_bytes: int = 8 * 1024
-
-
-@dataclass(frozen=True, slots=True)
-class MicroSettings:
-    """过渡期兼容：压缩流水线仍在 TASK-003 前调用；不属于平台设置文档。"""
-
-    enabled: bool = False
-    keep_recent_tool_groups: int = 3
 
 
 @dataclass(frozen=True, slots=True)
@@ -932,11 +914,9 @@ __all__ = [
     "ModelPoolSettings",
     "MemoryPolicySettings",
     "MEMORY_SETTING_BOUNDS",
-    "MicroSettings",
     "PlatformSettings",
     "PlatformSettingsError",
     "ScheduleSettings",
-    "SnipSettings",
     "SummarySettings",
     "TaskSettings",
     "ToolResultSettings",

@@ -1,12 +1,12 @@
-"""Current Run input and loaded Skill instructions survive history reconstruction."""
+"""Current Run input and loaded Skill instructions survive history fitting."""
 
 from __future__ import annotations
 
 import uuid
 
 import pytest
-from muad_agent_core.context.compactor import compact_plan
-from muad_agent_core.context.plan import RunInput, plan_context, render_context, with_summary
+from muad_agent_core.context.compactor import fit_history
+from muad_agent_core.context.plan import RunInput, plan_context, render_context
 from muad_agent_core.model import ModelMessage, ModelRole
 from muad_agent_runtime.application.context_builder import (
     ActiveSkillContext,
@@ -16,7 +16,6 @@ from muad_agent_runtime.application.context_builder import (
 from muad_agent_runtime.application.run_events import EventWriter
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import Conversation
-from muad_contracts.platform_settings import MicroSettings, SnipSettings
 
 from agent_runtime.conftest import TenantContext
 
@@ -48,7 +47,7 @@ def test_confirmation_merge_preserves_current_input_identity() -> None:
     assert merged.origin == original.origin
     plan = plan_context((merged,), run_input=RunInput("input-1", "current goal"))
     assert not plan.older
-    assert merged in render_context(with_summary(plan, ModelMessage(ModelRole.SYSTEM, "summary")))
+    assert merged in render_context(plan)
 
 
 async def _seed_skill_history(tenant: TenantContext) -> tuple[uuid.UUID, uuid.UUID]:
@@ -64,6 +63,7 @@ async def _seed_skill_history(tenant: TenantContext) -> tuple[uuid.UUID, uuid.UU
         session.add(conversation)
         await session.flush()
         writer = EventWriter(session)
+
         async def append(kind: str, payload: dict[str, object]) -> None:
             await writer.append(
                 tenant_id=tenant.tenant_id,
@@ -72,6 +72,7 @@ async def _seed_skill_history(tenant: TenantContext) -> tuple[uuid.UUID, uuid.UU
                 event_type=kind,
                 payload=payload,
             )
+
         await append("USER_MESSAGE", {"text": "goal", "message_id": "goal"})
         for index in range(8):
             tool = "load_skill" if index < 2 else "lookup"
@@ -103,9 +104,9 @@ async def _seed_skill_history(tenant: TenantContext) -> tuple[uuid.UUID, uuid.UU
     return conversation.id, run_id
 
 
-@pytest.mark.parametrize("round_limit", [6, 50])
-async def test_restored_skill_instructions_survive_the_recent_round_window(
-    tenant: TenantContext, round_limit: int,
+@pytest.mark.asyncio
+async def test_restored_skill_instructions_survive_request_fit(
+    tenant: TenantContext,
 ) -> None:
     conversation_id, run_id = await _seed_skill_history(tenant)
     builder = DbBackedContextBuilder(session_factory=get_session_factory)
@@ -113,25 +114,22 @@ async def test_restored_skill_instructions_survive_the_recent_round_window(
         tenant_id=tenant.tenant_id,
         conversation_id=conversation_id,
         user_id=tenant.platform_user_id,
-        max_history_tool_rounds=round_limit,
+        budget_tokens=100_000,
     )
-    assert not any("required instructions" in str(message.content) for message in history)
     context = await builder.load_skill_context(
         tenant_id=tenant.tenant_id,
         conversation_id=conversation_id,
         run_id=run_id,
     )
     assert context.keys == ("weather",), "failed loads do not activate Skill instructions"
-    merged = context.merge(history)
+    merged = context.merge(history.messages)
     assert context.merge(merged) == merged, "restored groups must not duplicate existing rounds"
     plan = plan_context(merged, run_input=RunInput("goal", "goal"), active_skills=context.keys)
-    compacted, _ = compact_plan(
-        plan,
-        snip_settings=SnipSettings(max_groups=2, keep_head_groups=0, keep_tail_groups=1),
-        micro_settings=MicroSettings(),
-        history_budget_messages=1,
+    compacted, _ = fit_history(plan, budget_tokens=1)
+    assert any(
+        "required instructions" in str(message.content)
+        for message in render_context(compacted)
     )
-    assert any("required instructions" in str(message.content) for message in render_context(compacted))
     assert len(plan.pinned) == 2
     for tenant_id, target_run in (("unrelated-tenant", run_id), (tenant.tenant_id, uuid.uuid4())):
         other = await builder.load_skill_context(

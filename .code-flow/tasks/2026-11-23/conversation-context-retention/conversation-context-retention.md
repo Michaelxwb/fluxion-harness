@@ -209,12 +209,12 @@
   - history-retention PASS exit=0
 ## TASK-003: 请求边界唯一裁剪与摘要材料替换
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-002
 - **Source**: conversation-context-retention.backend.design.md §2.3、§4；conversation-context-retention.prd.md FEAT-03
 - **Scenarios**: E-02, E-03
 - **Spec-Refs**: snapshot/harness-snapshot, arch/harness-arch, persistence/harness-data, test/harness-test
-- **Paths**: packages/agent-core/src/muad_agent_core/context/compactor.py, packages/agent-core/src/muad_agent_core/context/layers.py, packages/agent-core/src/muad_agent_core/context/plan.py, packages/agent-core/src/muad_agent_core/model/budget.py, packages/agent-core/src/muad_agent_core/agent/runner.py, apps/agent-runtime/src/muad_agent_runtime/application/context_compaction.py, apps/agent-runtime/src/muad_agent_runtime/application/context_events.py, apps/agent-runtime/src/muad_agent_runtime/application/executor.py, apps/agent-runtime/src/muad_agent_runtime/application/run_service.py, apps/console-platform/backend/src/muad_console_platform/application/run_event_view.py, tests/agent_core/test_context_budget.py, tests/agent_core/test_context_plan.py, tests/agent_core/test_context_layers.py, tests/agent_core/test_context_coverage.py, tests/agent_core/test_context_compactor.py, tests/agent_core/test_context_protection.py, tests/agent_runtime/test_context_memory.py, tests/agent_runtime/test_context_metrics.py, tests/agent_runtime/test_context_events.py
+- **Paths**: packages/agent-core/src/muad_agent_core/context/compactor.py, packages/agent-core/src/muad_agent_core/context/layers.py, packages/agent-core/src/muad_agent_core/context/plan.py, packages/agent-core/src/muad_agent_core/model/budget.py, packages/agent-core/src/muad_agent_core/agent/runner.py, apps/agent-runtime/src/muad_agent_runtime/application/context_compaction.py, apps/agent-runtime/src/muad_agent_runtime/application/context_events.py, apps/agent-runtime/src/muad_agent_runtime/application/executor.py, apps/agent-runtime/src/muad_agent_runtime/application/run_service.py, apps/console-platform/backend/src/muad_console_platform/application/run_event_view.py, tests/agent_core/test_context_budget.py, tests/agent_core/test_context_plan.py, tests/agent_core/test_context_layers.py, tests/agent_core/test_context_coverage.py, tests/agent_core/test_context_compactor.py, tests/agent_runtime/test_context_protection.py, tests/agent_runtime/test_context_memory.py, tests/agent_runtime/test_context_metrics.py, tests/agent_runtime/test_context_events.py
 - **E2E**:
 - **Skip-Tests**: false
 - **Skip-Reason**:
@@ -237,7 +237,7 @@
       "tests/agent_core/test_context_layers.py",
       "tests/agent_core/test_context_coverage.py",
       "tests/agent_core/test_context_compactor.py",
-      "tests/agent_core/test_context_protection.py",
+      "tests/agent_runtime/test_context_protection.py",
       "tests/agent_runtime/test_context_memory.py",
       "tests/agent_runtime/test_context_metrics.py",
       "tests/agent_runtime/test_context_events.py"
@@ -260,13 +260,13 @@
 
 ### Checklist
 
-- [ ] `fit_history` 纯逻辑与预算/保护集合落地，组边界无孤儿。
-- [ ] `with_summary` 只替换材料区间，头部/独立尾部/pinned 保留。
-- [ ] 摘要材料/coverage 使用实际材料组最大 seq，当前输入与 pinned 不进入材料。
-- [ ] 标记只在有丢弃/缺口时出现，计数与审计字段一致。
-- [ ] `snip`/`micro`/旧 fallback/`coverage_seq` 删除，无第二套按组数选择。
-- [ ] 摘要缓存去重与失败回落可观测。
-- [ ] 现有压缩/摘要/受保护前缀/记忆预算测试迁移为 `fit_history` 口径。
+- [x] `fit_history` 纯逻辑与预算/保护集合落地，组边界无孤儿。
+- [x] `with_summary` 只替换材料区间，头部/独立尾部/pinned 保留。
+- [x] 摘要材料/coverage 使用实际材料组最大 seq，当前输入与 pinned 不进入材料。
+- [x] 标记只在有丢弃/缺口时出现，计数与审计字段一致。
+- [x] `snip`/`micro`/旧 fallback/`coverage_seq` 删除，无第二套按组数选择。
+- [x] 摘要缓存去重与失败回落可观测。
+- [x] 现有压缩/摘要/受保护前缀/记忆预算测试迁移为 `fit_history` 口径。
 
 ### Spec Delta
 
@@ -277,13 +277,15 @@
 ### Log
 
 - [2026-11-25] created；待任务边界复核。
+- [2026-11-24T16:52:31.618Z] started tests=92044209f7f3
 
 ### Verification
 
 - 尚未执行
 
 <a id="task-004"></a>
-
+- 2026-11-24T17:05:21.033Z PASS commands=1/1 executed=1 deduped=0 elapsed=9612ms tests=180bb93508f8 head=0288088b57be dirty=1 tests-changed
+  - context-fit-summary PASS exit=0
 ## TASK-004: 整轮工具结果外置与预览派生
 
 - **Status**: draft

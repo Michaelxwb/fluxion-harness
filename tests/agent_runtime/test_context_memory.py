@@ -18,7 +18,8 @@ from typing import Any
 
 import pytest
 import sqlalchemy as sa
-from muad_agent_core.context.compactor import trim_history
+from muad_agent_core.context.compactor import fit_history
+from muad_agent_core.context.plan import plan_context, render_context
 from muad_agent_core.memory.render import EXPERIENCE_NOTICE
 from muad_agent_core.model.provider import ModelMessage, ModelRole
 from muad_agent_runtime.application.context_builder import DbBackedContextBuilder
@@ -152,12 +153,13 @@ async def test_s08_context_from_db_with_isolation_and_preview(async_tool_databas
     before = await _count_events(async_tool_database, tenant)
 
     # 走**生产路径**（`load_history`）：记忆已改为请求边界组件（S-03 起覆盖），不在这里。
-    messages = await _builder(async_tool_database).load_history(
+    loaded = await _builder(async_tool_database).load_history(
         tenant_id=tenant,
         conversation_id=conversation_id,
         user_id=USER_ID,
-        budget_messages=10,
+        budget_tokens=100_000,
     )
+    messages = loaded.messages
 
     content = " ".join(str(m.content) for m in messages)
     assert "hello" in content
@@ -190,15 +192,17 @@ async def test_s08_budget_trims_only_request_keeps_tool_pairs(async_tool_databas
     component = await memory.refresh()
     assert component is not None and component.message is not None, "样本前提：存在真实记忆组件"
 
-    messages = await _builder(async_tool_database).load_history(
+    loaded = await _builder(async_tool_database).load_history(
         tenant_id=tenant,
         conversation_id=conversation_id,
         user_id=USER_ID,
-        budget_messages=2,
+        budget_tokens=200,
     )
+    messages = loaded.messages
     # Runner 的请求形态：system 提示 + memory 组件 + 历史（组件插入在首条之后）。
     request_messages = (ModelMessage(ModelRole.SYSTEM, "fixed instructions"), component.message, *messages)
-    out = trim_history(request_messages, 2)
+    plan = plan_context(request_messages, run_input=None)
+    out = render_context(fit_history(plan, budget_tokens=200)[0])
 
     protected_roles = [
         str(message.role)
@@ -267,12 +271,13 @@ async def test_orphan_tool_messages_are_dropped_from_history(async_tool_database
             ]
         )
 
-    messages = await _builder(async_tool_database).load_history(
+    loaded = await _builder(async_tool_database).load_history(
         tenant_id=tenant,
         conversation_id=conv_id,
         user_id=USER_ID,
-        budget_messages=20,
+        budget_tokens=100_000,
     )
+    messages = loaded.messages
     roles = [str(message.role) for message in messages]
     # 系统提示不在这里（由 `AgentRunner` 的 `DefaultPromptBuilder` 负责）
     assert roles == ["user", "assistant"], roles
@@ -355,12 +360,13 @@ async def test_unanswered_tool_calls_are_dropped_from_history(async_tool_databas
             ]
         )
 
-    messages = await _builder(async_tool_database).load_history(
+    loaded = await _builder(async_tool_database).load_history(
         tenant_id=tenant,
         conversation_id=conv_id,
         user_id=USER_ID,
-        budget_messages=20,
+        budget_tokens=100_000,
     )
+    messages = loaded.messages
     declared = [call.id for message in messages for call in message.tool_calls]
     answered = [message.tool_call_id for message in messages if message.role is ModelRole.TOOL]
     assert declared == ["a"], "只有真有结果的声明能回放"
@@ -454,12 +460,13 @@ async def test_memory_confirmation_result_is_user_context_not_assistant_utteranc
             ]
         )
 
-    messages = await _builder(async_tool_database).load_history(
+    loaded = await _builder(async_tool_database).load_history(
         tenant_id=tenant,
         conversation_id=conv_id,
         user_id=USER_ID,
-        budget_messages=20,
+        budget_tokens=100_000,
     )
+    messages = loaded.messages
 
     assert [str(message.role) for message in messages] == [
         "user",
@@ -561,12 +568,13 @@ async def test_tool_result_stays_attached_to_its_declaring_turn_when_events_inte
             ]
         )
 
-    messages = await _builder(async_tool_database).load_history(
+    loaded = await _builder(async_tool_database).load_history(
         tenant_id=tenant,
         conversation_id=conv_id,
         user_id=USER_ID,
-        budget_messages=20,
+        budget_tokens=100_000,
     )
+    messages = loaded.messages
     roles = [str(message.role) for message in messages]
     declaration = next(index for index, message in enumerate(messages) if message.tool_calls)
     assert roles[declaration + 1] == "tool"
@@ -601,17 +609,17 @@ async def _seed_reused_call_history(engine, *, same_run: bool) -> tuple[str, uui
 
 
 @pytest.mark.parametrize("same_run", [False, True])
-@pytest.mark.parametrize("limit", [0, 1, 2])
 async def test_reused_tool_call_ids_keep_each_rounds_own_result(
-    async_tool_database, same_run: bool, limit: int,
+    async_tool_database, same_run: bool,
 ) -> None:
     tenant, conversation_id = await _seed_reused_call_history(async_tool_database, same_run=same_run)
-    messages = await _builder(async_tool_database).load_history(
+    loaded = await _builder(async_tool_database).load_history(
         tenant_id=tenant, conversation_id=conversation_id, user_id=USER_ID,
-        budget_messages=20, max_history_tool_rounds=limit,
+        budget_tokens=100_000,
     )
+    messages = loaded.messages
     results = [message.content for message in messages if message.role is ModelRole.TOOL]
-    assert results == (["old result", "new result"][-limit:] if limit else [])
+    assert results == ["old result", "new result"]
     ordinary = [message.content for message in messages if not message.tool_calls
                 and message.role is not ModelRole.TOOL]
     assert ordinary == ["question 0", "answer 0", "question 1", "answer 1"]
@@ -633,10 +641,11 @@ async def test_tool_results_from_another_run_do_not_answer_a_declared_call(
             CanonicalEvent.conversation_id == conversation_id,
             CanonicalEvent.seq.in_((3, 4)),
         ).values(run_id=uuid.uuid4()))
-    messages = await _builder(async_tool_database).load_history(
+    loaded = await _builder(async_tool_database).load_history(
         tenant_id=tenant, conversation_id=conversation_id, user_id=USER_ID,
-        budget_messages=20, max_history_tool_rounds=2,
+        budget_tokens=100_000,
     )
+    messages = loaded.messages
     assert [message.content for message in messages if message.role is ModelRole.TOOL] == ["new result"]
     assert [message.tool_calls[0].arguments["round"] for message in messages if message.tool_calls] == [1]
 
