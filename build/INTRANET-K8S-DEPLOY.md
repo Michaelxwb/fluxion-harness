@@ -361,16 +361,16 @@ kubectl -n muad create secret docker-registry regcred \
 --set serviceAccount.create=true \
 --set service.image=muad-console-platform \
 --set service.port=8000 \
---set autoscaling.minReplicas=1 \
---set autoscaling.maxReplicas=1 \
+--set autoscaling.minReplicas=2 \
+--set autoscaling.maxReplicas=2 \
 --set service.type=NodePort \
 --set service.nodePort=30090 \
 --set service.externalTrafficPolicy=Cluster \
---set service.resources.requests.cpu=1 \
---set service.resources.requests.memory=2Gi \
---set service.resources.limits.cpu=2 \
---set service.resources.limits.memory=4Gi \
---set console.workers=4 \
+--set service.resources.requests.cpu=500m \
+--set service.resources.requests.memory=1Gi \
+--set service.resources.limits.cpu=1 \
+--set service.resources.limits.memory=2Gi \
+--set console.workers=2 \
 --set ingress.enabled=false
 ```
 
@@ -416,7 +416,7 @@ kubectl -n muad create secret docker-registry regcred \
 --set autoscaling.minReplicas=4 \
 --set autoscaling.maxReplicas=4 \
 --set service.type=ClusterIP \
---set service.resources.requests.cpu=500m \
+--set service.resources.requests.cpu=1 \
 --set service.resources.requests.memory=1Gi \
 --set service.resources.limits.cpu=2 \
 --set service.resources.limits.memory=2Gi
@@ -474,9 +474,9 @@ kubectl -n muad create secret docker-registry regcred \
 
 | 服务 | 副本 | request / limit | 内存 |
 |---|---:|---|---:|
-| console-platform | 1（4 workers） | 1 / 2 | 2Gi / 4Gi |
+| console-platform | 2（2 workers） | 500m / 1 | 1Gi / 2Gi |
 | agent-runtime | 8 | 1 / 2 | 2Gi / 4Gi |
-| agent-worker | 4 | 500m / 2 | 1Gi / 2Gi |
+| agent-worker | 4 | 1 / 2 | 1Gi / 2Gi |
 | im-gateway | 2 | 1 / 2 | 1Gi / 2Gi |
 | im-connector | 2 | 250m / 1 | 512Mi / 1Gi |
 
@@ -581,7 +581,7 @@ data:
   IM_PROGRESS_UPDATES_PER_SECOND: "10"
 
   RUNTIME_EXECUTION_CONCURRENCY: "8"
-  WORKER_EXECUTION_CONCURRENCY: "4"
+  WORKER_EXECUTION_CONCURRENCY: "8"
   GATEWAY_MAX_CONCURRENT_HANDLERS: "8"
   GATEWAY_MAX_PENDING_HANDLERS: "256"
   GATEWAY_MAX_PENDING_PER_ROUTE: "8"
@@ -891,8 +891,8 @@ console release 设置：
 
 ### 注意
 
-- console 只有 1 副本，固定到单节点就是单点；节点故障 console 不可用。
-- 需要 console HA 时至少 2 副本，并用 `service.affinity` 配 podAntiAffinity 分散到不同节点。
+- console 已按 2 副本部署，但如果两个副本都被 `nodeSelector` 固定到同一个节点，节点故障仍然全部不可用。
+- 2 副本必须配 `service.affinity` 的 podAntiAffinity 分散到不同节点，否则 HA 只是纸面上的。
 - runtime/worker 的多副本不需要逐个固定节点，交给调度器按资源分布即可。
 
 
