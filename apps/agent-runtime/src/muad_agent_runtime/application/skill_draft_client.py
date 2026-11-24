@@ -21,6 +21,7 @@ from muad_agent_core.skill.draft_shell import (
     DraftShellError,
     DraftShellRequest,
 )
+from muad_agent_core.skill.review_archive import review_archive_response
 from muad_logging import get_logger
 
 INTERNAL_SERVICE_HEADER = "X-Internal-Service"
@@ -395,6 +396,17 @@ class ConsoleSkillDraftClient:
             "POST", f"/internal/skills/drafts/{draft_id}/submit", json=body
         )
 
+    async def review_archive(
+        self, key: str, *, tenant_id: str, owner_user_id: str, agent_id: str,
+    ) -> DraftShellArchive:
+        response = await self._send(
+            "GET",
+            f"/internal/skills/drafts/by-key/{key}/review-archive",
+            params={"tenant_id": tenant_id, "owner_user_id": owner_user_id, "agent_id": agent_id},
+            accept="application/zip",
+        )
+        return review_archive_response(response, agent_id=agent_id)
+
     async def _call(
         self,
         method: str,
@@ -403,7 +415,20 @@ class ConsoleSkillDraftClient:
         params: Mapping[str, Any] | None = None,
         json: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
-        headers = {"Accept": "application/json"}
+        response = await self._send(method, path, params=params, json=json)
+        payload = _payload(response)
+        data = payload.get("data")
+        if not isinstance(data, dict):
+            raise DraftShellError("COMMON_INTERNAL_ERROR", "console draft response is invalid")
+        return data
+
+    async def _send(
+        self, method: str, path: str, *,
+        params: Mapping[str, Any] | None = None,
+        json: Mapping[str, Any] | None = None,
+        accept: str = "application/json",
+    ) -> httpx.Response:
+        headers = {"Accept": accept}
         if self._service_token:
             headers[INTERNAL_SERVICE_HEADER] = self._service_token
         url = f"{self._base_url}{path}"
@@ -425,11 +450,7 @@ class ConsoleSkillDraftClient:
             ) from exc
         if response.status_code >= 400:
             raise _response_error(response)
-        payload = _payload(response)
-        data = payload.get("data")
-        if not isinstance(data, dict):
-            raise DraftShellError("COMMON_INTERNAL_ERROR", "console draft response is invalid")
-        return data
+        return response
 
 
 __all__ = ["ConsoleDraftShellClient", "ConsoleSkillDraftClient"]

@@ -169,8 +169,17 @@ def _project_message(
         role=role,
         text=text if isinstance(text, str) else "",
         attachments=attachments,
+        technical_details=(
+            _technical_details(payload.get("technical_details")) if role == "ASSISTANT" else None
+        ),
         created_at=row.create_time,
     )
+
+
+def _technical_details(value: object) -> list[str] | None:
+    if not isinstance(value, list):
+        return None
+    return [str(line)[:512] for line in value[:16] if isinstance(line, str)] or None
 
 
 def _artifact_id_of(entry: object) -> uuid.UUID | None:

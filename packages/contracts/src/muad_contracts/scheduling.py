@@ -64,6 +64,7 @@ from .model_pool import (
     _require_settlement_shape,
 )
 from .skill_invocation import validate_skill_argv
+from .skill_results import frozen_skill_result_contract
 from .tasks import ContractModel, DeliveryRouteInput
 from .tool_runtime import TaskToolOperationOwner
 
@@ -1103,6 +1104,11 @@ class SnapshotSkill(ContractModel):
     frontmatter: dict[str, Any] = Field(default_factory=dict)
     #: 冻结的 workspace 归属：定时执行不接受 Task 行上的可变身份。
     workspace: dict[str, str] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _validate_result_contract(self) -> Self:
+        frozen_skill_result_contract(self.frontmatter, checksum=self.checksum)
+        return self
 
 
 class SnapshotTool(ContractModel):

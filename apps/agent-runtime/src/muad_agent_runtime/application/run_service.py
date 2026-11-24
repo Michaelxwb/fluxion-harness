@@ -204,6 +204,7 @@ from .finalization import (
     render_finalization,
     tool_call_record,
 )
+from .finalization.render import render_technical_details
 from .memory_confirmation_resume import (
     ConfirmationBinding,
     consume_confirmation,
@@ -3653,7 +3654,10 @@ class RunService:
                 snapshot=snapshot,
             )
             locale = await self._frozen_locale(session, current)
-            final_text = render_finalization(facts, locale=locale, run_id=str(current.id))
+            suffix = render_finalization(facts, locale=locale, include_technical=False)
+            partial, generation = await self._partial_submission_reply(session, current, submission_id)
+            final_text = f"{partial.rstrip()}\n\n{suffix}" if partial.strip() else suffix
+            technical_details = render_technical_details(facts, locale=locale, run_id=str(current.id))
             updated = await session.execute(
                 sa.update(RunRecord)
                 .where(RunRecord.id == run.id, RunRecord.status == RunStatus.RUNNING)
@@ -3682,6 +3686,7 @@ class RunService:
                 "error_code": code,
                 "finalization": facts.to_payload(),
                 "final_text": final_text,
+                "technical_details": technical_details,
             }
             # 站内入口（WebChat）的历史只投影可见消息：结论先落一条 ASSISTANT_MESSAGE，
             # 页面刷新后看到的才是平台事实，而不是只有「任务执行失败」的提示。
@@ -3690,7 +3695,15 @@ class RunService:
                 conversation_id=run.conversation_id,
                 run_id=run.id,
                 event_type="ASSISTANT_MESSAGE",
-                payload={"text": final_text},
+                stream_type="message.snapshot",
+                payload={
+                    "text": final_text,
+                    "reply_generation": generation + 1,
+                    "technical_details": technical_details,
+                    "attachments": await self._run_output_attachments(
+                        session, tenant_id=run.tenant_id, run_id=run.id,
+                    ),
+                },
                 submission_id=submission_id,
             )
             terminal_event_id = uuid.uuid4()
@@ -3729,6 +3742,31 @@ class RunService:
             seq=int(seq),
             timestamp=_utcnow().isoformat(),
         )
+
+    async def _partial_submission_reply(
+        self, session: AsyncSession, run: RunRecord, submission_id: uuid.UUID,
+    ) -> tuple[str, int]:
+        event = CanonicalEvent
+        rows = await session.execute(
+            sa.select(event.stream_type, event.payload_json).where(
+                event.tenant_id == run.tenant_id, event.run_id == run.id,
+                event.submission_id == submission_id, event.is_deleted.is_(False),
+                event.stream_type.in_(("message.snapshot", "message.delta")),
+            ).order_by(event.seq)
+        )
+        generation = 0
+        chunks: list[str] = []
+        for kind, payload in rows:
+            current = payload.get("reply_generation", 0)
+            if type(current) is not int or current < generation:
+                continue
+            if current > generation or kind == "message.snapshot":
+                generation = current
+                chunks.clear()
+            text = payload.get("text" if kind == "message.snapshot" else "delta")
+            if isinstance(text, str):
+                chunks.append(text)
+        return "".join(chunks), generation
 
     async def _terminal_event(self, session: AsyncSession, run: RunRecord) -> ExecutorEvent:
         """已有终态（并发收尾/Reaper）：返回已持久化的终态事件或按 Run 记录合成。"""

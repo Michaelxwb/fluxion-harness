@@ -1078,3 +1078,67 @@ async def test_chat_skill_projects_only_registered_outputs_on_confirmed_window_l
     assert [(item.artifact_id, item.role) for item in result.artifacts] == [
         (output_id, ArtifactRole.ATTACHMENT),
     ]
+
+
+@pytest.mark.parametrize(("draft_key", "conclusion", "exit_code"), [
+    ("violating-skill", "REVIEW_FINDINGS", 1),
+    ("compliant-skill", "REVIEW_PASSED", 0),
+])
+async def test_sync_review_binds_authorized_draft_revision_to_real_findings(
+    tmp_path: Path, draft_key: str, conclusion: str, exit_code: int,
+) -> None:
+    from muad_agent_core.skill.draft_shell import DraftShellArchive
+    from muad_agent_runtime.application.skill_tools import SkillToolSet
+
+    repository = Path(__file__).resolve().parents[2]
+    review_dir = repository / "skills/self-skill-review"
+    target_dir = repository / "tests/skills/self_skill_review/fixtures" / draft_key
+    draft_id = str(uuid.uuid4())
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, "w") as package:
+        for file in target_dir.rglob("*"):
+            if file.is_file():
+                package.write(file, file.relative_to(target_dir))
+    keys: list[str] = []
+
+    class DraftLoader:
+        async def review_archive(self, key: str) -> DraftShellArchive:
+            keys.append(key)
+            return DraftShellArchive(draft_id, 9, archive.getvalue(), str(uuid.uuid4()))
+
+    checksum = "sha256:" + "a" * 64
+    skill = ResolvedSkill(
+        skill_id=uuid.uuid4(), artifact_id=uuid.uuid4(), key="self-skill-review",
+        name="self-skill-review", description="review", version="1.0.0", checksum=checksum,
+        source="ADMIN", storage_key="skill.zip",
+        frontmatter={"result_contract": {
+            "version": 1, "profile": "skill-review", "checksum": checksum,
+            "entrypoint": "scripts/check.py",
+        }},
+    )
+    store = NfsArtifactStore(tmp_path / "artifacts")
+    tool = SkillToolSet(
+        cache=SkillArtifactCache(store, tmp_path / "cache"),
+        skills=[skill],
+        timeout_sec=10,
+        executor=_dev_executor(),
+        draft_tools=DraftLoader(),  # type: ignore[arg-type]
+        workspace_dir=tmp_path / "workspace",
+    )
+    execute = dict(
+        ready_dir=review_dir, input_data={}, script=None, skill=skill, call_id="review-test",
+    )
+    with pytest.raises(ToolError, match="workspace-relative"):
+        await tool._execute(**execute, argv=("--target", str(target_dir)))  # type: ignore[arg-type]
+    result = await tool._execute(  # type: ignore[arg-type]
+        **execute, argv=("--target", f"skill-drafts/{draft_key}", "--format", "json")
+    )
+    payload = json.loads(result.content)
+    assert keys == [draft_key]
+    assert result.outcome.business_status == conclusion
+    assert payload["execution_status"] == "COMPLETED"
+    assert payload["exit_code"] == exit_code
+    identity_findings = [item for item in payload["result"]["findings"] if item["rule"] == "SS-R003"]
+    assert all(f"directory name '{draft_key}'" in item["message"] for item in identity_findings)
+    assert payload["result"]["reviewed_draft"]["draft_id"] == draft_id
+    assert payload["result"]["reviewed_draft"]["revision"] == 9

@@ -20,7 +20,8 @@ function EventFields({ detail, onOpenTask }: { detail: RunEventDetail; onOpenTas
   const { t } = useTranslation();
   const items = detail.fields.map(({ key, value }) => {
     let display = String(value);
-    if (['status', 'task_status', 'operation_status'].includes(key) && STATUSES.has(display)) display = t(`run.eventDetail.status.${display}`);
+    if (['status', 'task_status', 'operation_status', 'execution_status'].includes(key) && STATUSES.has(display)) display = t(`run.eventDetail.status.${display}`);
+    if (key === 'business_status') display = t(`run.eventDetail.business.${display}`, { defaultValue: display });
     if (key === 'completion_mode' && (value === 'JOIN' || value === 'DETACH')) display = t(`run.operation.mode.${value}`);
     if (key === 'duration_ms' && typeof value === 'number') display = formatDuration(value, t);
     if (key === 'attempt' && typeof value === 'number') display = String(value + 1);

@@ -16,6 +16,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
 from muad_contracts.skill_invocation import validate_skill_argv
+from muad_contracts.skill_results import (
+    FrozenSkillResultContract,
+    SkillBusinessConclusion,
+    SkillCallStatus,
+)
 
 if TYPE_CHECKING:  # pragma: no cover - 仅类型检查导入，运行时不加载平台 SDK
     from muad_platform_sdk.egress_ipc import InvocationEgressBroker
@@ -104,6 +109,17 @@ class OutputFile:
 
 
 @dataclass(frozen=True, slots=True)
+class SkillReviewTarget:
+    """Private immutable snapshot owned by the trusted execution host."""
+
+    root: Path
+    draft_id: str
+    revision: int
+    fingerprint: str
+    files: int
+
+
+@dataclass(frozen=True, slots=True)
 class SkillExecutionRequest:
     ready_dir: Path
     input: Mapping[str, Any]
@@ -124,6 +140,8 @@ class SkillExecutionRequest:
     output_limits: OutputLimits = field(default_factory=OutputLimits)
     #: Business CLI arguments appended after the selected script, never parsed by a shell.
     argv: tuple[str, ...] = ()
+    result_contract: FrozenSkillResultContract | None = None
+    review_target: SkillReviewTarget | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "argv", validate_skill_argv(self.argv))
@@ -153,6 +171,9 @@ class SkillExecutionResult:
     #: 有平台失败时附带的逐平台报告；正常成功为空。
     platform_sessions: dict[str, object] | None = None
     platform_window_limited: bool = False
+    execution_status: SkillCallStatus | None = None
+    business_conclusion: SkillBusinessConclusion | None = None
+    result_error_code: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

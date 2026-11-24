@@ -48,12 +48,12 @@ def test_threshold_still_stops_after_repeated_failures_without_success() -> None
     assert sum(state.identical_failures.values()) == 2
 
 
-def test_non_retryable_failure_stops_on_the_first_occurrence() -> None:
+def test_non_retryable_failure_preserves_a_chance_to_respond() -> None:
     state = update_failure_state(
         FailureState(), _failure(retryable=False), max_identical_failures=5
     )
 
-    assert state.no_progress is True
+    assert state.no_progress is False
     assert state.last_failure is not None
     assert state.last_failure.retryable is False
 
@@ -67,10 +67,10 @@ def test_cancelled_outcome_does_not_erase_progress_or_failure_facts() -> None:
     assert updated == state
 
 
-def test_no_business_outcome_counts_as_progress() -> None:
+def test_no_business_outcome_does_not_reset_failures() -> None:
     state = update_failure_state(FailureState(), _failure(), max_identical_failures=2)
     updated = update_failure_state(state, None, max_identical_failures=2)
 
-    assert updated.identical_failures == {}
+    assert updated.identical_failures == state.identical_failures
     assert updated.no_progress is False
     assert updated.last_failure is not None

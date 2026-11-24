@@ -90,7 +90,7 @@ class SkillToolRunner(Protocol):
         *,
         call_id: str,
         args_hash: str | None = None,
-    ) -> str: ...
+    ) -> str | ToolResult: ...
 
 
 class TaskQueryPort(Protocol):
@@ -484,7 +484,7 @@ def _register_execute(
                 str(exc),
                 retryable=bool(getattr(exc, "retryable", False)),
             ) from exc
-        return ToolResult(content)
+        return content if isinstance(content, ToolResult) else ToolResult(content)
 
     registry.register(
         ToolDefinition(
@@ -653,7 +653,7 @@ def _skill_handler(runner: SkillToolRunner, skill: SnapshotSkill, tool_name: str
                 str(exc),
                 retryable=bool(getattr(exc, "retryable", False)),
             ) from exc
-        return ToolResult(content)
+        return content if isinstance(content, ToolResult) else ToolResult(content)
 
     return call
 

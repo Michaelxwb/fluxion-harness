@@ -53,6 +53,7 @@ from .contracts import (
     collect_outputs_async,
 )
 from .executor import attach_platform_report, parse_result
+from .result_profiles import ensure_result_entrypoint, review_argv, validate_result_profile
 from .selection import SCRIPTS_DIR, SKILL_FILE, sandbox_script_path, script_command, select_script
 
 logger = get_logger("muad_agent_core.skill.sandbox")
@@ -163,7 +164,10 @@ def _sandbox_spec(request: SkillExecutionRequest, source: str, package_root: Pat
             dev_unsafe=allow_dev_unsafe,
             env_inject=(*session.env, *egress.env),
         ),
-        command=(*_sandbox_command(script, package_root, dev_unsafe, egress), *request.argv),
+        command=(
+            *_sandbox_command(script, package_root, dev_unsafe, egress),
+            *review_argv(request, native=dev_unsafe),
+        ),
         workspace_dir=workspace,
         package_dir=package_root,
         env=_sandbox_environment(request, workspace, output_dir, execution_id, dev_unsafe, session, egress),
@@ -178,6 +182,8 @@ def _sandbox_spec(request: SkillExecutionRequest, source: str, package_root: Pat
         mounts=(
             *(SandboxMount(mount.source, mount.target, readonly=mount.readonly) for mount in session.mounts),
             *(SandboxMount(mount.source, mount.target, readonly=mount.readonly) for mount in egress.mounts),
+            *((SandboxMount(request.review_target.root, review_argv(request, native=False)[1]),)
+              if request.review_target is not None and not dev_unsafe else ()),
         ),
         name=f"skill:{source}:{execution_id}",
     )
@@ -263,6 +269,7 @@ class SandboxedSkillExecutor:
         source = validate_source(request.source)
         package_root = resolve_package_root(request.ready_dir)
         script = select_script(package_root, request.script)
+        ensure_result_entrypoint(request, root=package_root, script=script)
         workspace, output_dir, execution_id = _prepare_workspace(request, package_root)
         try:
             runner = self._require_runner()
@@ -379,6 +386,7 @@ class SandboxedSkillExecutor:
             workspace_dir=workspace,
             platform_window_limited=limited,
         )
+        result = validate_result_profile(request, result, native=dev_unsafe)
         self._emit_result(source, result)
         return result
 

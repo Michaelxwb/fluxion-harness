@@ -20,7 +20,7 @@ import json
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any, NoReturn
 
-from muad_agent_core.skill.draft_shell import DraftShellChange, DraftShellError
+from muad_agent_core.skill.draft_shell import DraftShellArchive, DraftShellChange, DraftShellError
 from muad_agent_core.tools import ToolCall, ToolDefinition, ToolEffect, ToolError, ToolResult
 
 from .draft_import import ArtifactPackageReader, PackageImportError, extract_package_members
@@ -131,6 +131,13 @@ class SkillDraftTools:
     @property
     def _identity(self) -> tuple[str, str]:
         return str(self._context.tenant_id), str(self._context.owner_user_id)
+
+    async def review_archive(self, key: str) -> DraftShellArchive:
+        tenant_id, owner_user_id = self._identity
+        return await self._client.review_archive(
+            key, tenant_id=tenant_id, owner_user_id=owner_user_id,
+            agent_id=str(self._context.agent_id),
+        )
 
     def definitions(self) -> tuple[ToolDefinition, ...]:
         """单一入口：模型用 action 选择操作，不再暴露 8 个独立工具。"""

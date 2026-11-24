@@ -75,13 +75,20 @@ from ..tools.planner import (
 from ..tools.registry import ToolNotFoundError, ToolRegistry
 from ..tools.result import (
     ToolCompleted,
+    ToolError,
     ToolExecutionResult,
     ToolResult,
     completed_from_result,
 )
 from ..tools.round_results import ToolResultRoundPort
 from .continuation import ExecutionEventPort, RunnerCheckpoint, WaitDecision
-from .failure import FailureSignal, update_failure_state
+from .failure import (
+    FailureSignal,
+    attempt_identity,
+    failure_scope,
+    is_effectful,
+    update_failure_state,
+)
 from .suspension import SuspensionKind, SuspensionRequest, ToolSuspensionPort
 from .termination import (
     BudgetKind,
@@ -283,6 +290,9 @@ class AgentRunState(TypedDict):
     assistant_tool_text: str
     #: 同一 (工具, 错误码) 的连续失败计数；任一工具成功即清零（"有进展"）。
     identical_failures: dict[str, int]
+    blocked_attempts: frozenset[str]
+    external_blocked: bool
+    reviews: dict[str, tuple[int, int]]
     #: 失败重复次数达到上限：终态按 NO_PROGRESS 收尾，不再发起模型调用。
     no_progress: bool
     #: 最近一次失败的事实（结构化 evidence），收尾 facts 与兜底文案都读它。
@@ -347,6 +357,7 @@ class _CallOutcome:
     call: ToolCall
     status: str
     result: ToolResult
+    prepared: PreparedCall | None = None
 
     @property
     def content(self) -> str:
@@ -558,6 +569,9 @@ class AgentRunner:
             reply_append=None,
             assistant_tool_text=progress.recovered_window_text if recovered_limit else "",
             identical_failures=dict(restored.identical_failures),
+            blocked_attempts=restored.blocked_attempts,
+            external_blocked=restored.external_blocked,
+            reviews=dict(restored.reviews),
             no_progress=restored.no_progress,
             last_failure=restored.last_failure,
             unexecuted_tool_calls=[],
@@ -920,6 +934,19 @@ class AgentRunner:
         if isinstance(item, _CallOutcome):
             return item
         prepared = build_prepared_call(item.prepared, item.definition)
+        scope = failure_scope(prepared.call.name, skill_key=prepared.skill_key, skill_id=prepared.skill_id)
+        attempt = attempt_identity(scope, prepared.args_hash)
+        if attempt in state["blocked_attempts"] or (
+            state["external_blocked"] and is_effectful(prepared.effect, prepared.retry_safety.value)
+        ):
+            return self._exception_outcome(
+                prepared.call,
+                ToolError(
+                    "TOOL_RETRY_UNSAFE",
+                    "The previous operation cannot safely be run again before its result is verified.",
+                    retryable=False,
+                ),
+            )
         notify_prepared = state["on_tool_prepared"]
         if notify_prepared is not None:
             try:
@@ -930,19 +957,12 @@ class AgentRunner:
         try:
             result = await self._tool_pipeline.run_prepared(item)
         except Exception as exc:
-            return self._exception_outcome(
-                ToolCall(
-                    call_id=item.prepared.call_id,
-                    name=item.prepared.tool_name,
-                    model_name=item.prepared.model_name or item.prepared.tool_name,
-                    arguments=item.prepared.arguments,
-                ),
-                exc,
-            )
+            return replace(self._exception_outcome(prepared.call, exc), prepared=prepared)
         return _CallOutcome(
             result.call,
             _TOOL_STATUSES.get(result.status, "ERROR"),
             result.result,
+            prepared,
         )
 
     def _exception_outcome(self, call: ToolCall, exc: BaseException) -> _CallOutcome:
@@ -1011,8 +1031,17 @@ class AgentRunner:
         ):
             state["window_limited"] = True
             return
+        prepared = outcome.prepared
+        scope = failure_scope(
+            execution.tool_name or tool_name,
+            skill_key=prepared.skill_key if prepared else None,
+            skill_id=prepared.skill_id if prepared else None,
+        )
         signal = FailureSignal(
-            tool=execution.tool_name or tool_name,
+            tool=scope,
+            attempt=attempt_identity(scope, prepared.args_hash) if prepared else None,
+            external_started=bool(prepared and is_effectful(prepared.effect, prepared.retry_safety.value)),
+            review_progress=execution.review_progress,
             tool_call_id=execution.call_id,
             business_status=str(execution.business_status),
             failure_layer=str(execution.failure_layer),
@@ -1030,6 +1059,9 @@ class AgentRunner:
             FailureState(
                 last_failure=state["last_failure"],
                 identical_failures=dict(state["identical_failures"]),
+                blocked_attempts=state["blocked_attempts"],
+                external_blocked=state["external_blocked"],
+                reviews=state["reviews"],
                 no_progress=state["no_progress"],
             ),
             signal,
@@ -1037,6 +1069,9 @@ class AgentRunner:
         )
         state["last_failure"] = updated.last_failure
         state["identical_failures"] = dict(updated.identical_failures)
+        state["blocked_attempts"] = updated.blocked_attempts
+        state["external_blocked"] = updated.external_blocked
+        state["reviews"] = dict(updated.reviews)
         state["no_progress"] = updated.no_progress
         self._latest_state = state
 
@@ -1207,7 +1242,9 @@ class AgentRunner:
             state["budget_exhausted"]
             or (bool(state["pending_tool_calls"]) and state["turns"] >= state["policy"].max_turns)
         )
-        if state["no_progress"] and not suspended:
+        if not suspended and (
+            state["no_progress"] or (state["window_limited"] and state["last_failure"] is not None)
+        ):
             status = str(AgentRunStatus.NO_PROGRESS)
         elif exceeded:
             status = str(AgentRunStatus.BUDGET_EXCEEDED)
@@ -1255,6 +1292,9 @@ class AgentRunner:
             failure_state=FailureState(
                 last_failure=state["last_failure"],
                 identical_failures=dict(state["identical_failures"]),
+                blocked_attempts=state["blocked_attempts"],
+                external_blocked=state["external_blocked"],
+                reviews=state["reviews"],
                 no_progress=state["no_progress"],
             ),
             pending_tool_calls=tuple(pending),
@@ -1303,6 +1343,9 @@ class AgentRunner:
         failure_state = FailureState(
             last_failure=state["last_failure"],
             identical_failures=dict(state["identical_failures"]),
+            blocked_attempts=state["blocked_attempts"],
+            external_blocked=state["external_blocked"],
+            reviews=state["reviews"],
             no_progress=state["no_progress"],
         )
         return RunnerCheckpoint(

@@ -48,3 +48,4 @@ class PreparedCall:
     tool_name: str | None = None
     execution_mode: str | None = None
     retry_safety: ToolRetrySafety = DEFAULT_TOOL_RETRY_SAFETY
+    effect: str = "EXTERNAL"

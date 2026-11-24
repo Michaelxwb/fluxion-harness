@@ -147,6 +147,7 @@ from .context_settings import FrozenLearning, PoolExecutionPolicy
 from .draft_shell import build_draft_shell_runner, build_draft_tools
 from .draft_tools import SkillDraftTools
 from .egress_execution import run_egress, run_platform_trace_loader, run_trace_observer
+from .human_question import HumanQuestion
 from .mcp_runtime_adapter import (
     McpRuntimeAdapter,
     McpServerDefinition,
@@ -474,6 +475,7 @@ class _ExecutorEventEmitter:
             tool_name=prepared.tool_name,
             execution_mode=prepared.execution_mode,
             retry_safety=str(prepared.retry_safety),
+            effect=prepared.effect,
         ).model_dump(mode="json")
         await self.emit(ExecutorEvent(type=TOOL_STARTED_EVENT, data=data))
 
@@ -525,6 +527,11 @@ class _ExecutorEventEmitter:
                 retryable=completed.outcome.retryable,
                 evidence_preview=completed.outcome.evidence.preview,
                 exit_code=completed.outcome.exit_code,
+                execution_status=(
+                    completed.outcome.execution_status.value if completed.outcome.execution_status else None
+                ),
+                review_progress=completed.outcome.review_progress,
+                customer_options=completed.outcome.customer_options,
             ),
             content=completed.content,
             artifacts=[
@@ -1878,6 +1885,10 @@ class ToolCallRecorder:
                         str(event.outcome.business_status) if event.outcome else None
                     ),
                     failure_layer=str(event.outcome.failure_layer) if event.outcome else None,
+                    execution_status=(
+                        event.outcome.execution_status.value
+                        if event.outcome and event.outcome.execution_status else None
+                    ),
                     exit_code=event.outcome.exit_code if event.outcome else None,
                     output_truncated=(
                         event.outcome.evidence.output_truncated if event.outcome else None
@@ -2008,6 +2019,9 @@ class ToolCallRecorder:
                 artifact_id=uuid.UUID(str(reference["artifact_id"])) if reference else None,
                 business_status=str(outcome.business_status) if outcome else None,
                 failure_layer=str(outcome.failure_layer) if outcome else None,
+                execution_status=(
+                    outcome.execution_status.value if outcome and outcome.execution_status else None
+                ),
                 exit_code=outcome.exit_code if outcome else None,
                 output_truncated=outcome.evidence.output_truncated if outcome else None,
                 evidence_preview=outcome.evidence.preview if outcome else None,
@@ -2521,6 +2535,14 @@ def _agent_runner(
     memory: RunMemory | None,
 ) -> AgentRunner:
     hooks = HookPipeline()
+    memory_confirmation = memory.confirmation if memory is not None else None
+    context = request.run_context
+    question = None
+    if request.execution_identity is not None and context is not None and context.submission_id is not None:
+        question = HumanQuestion(
+            get_session_factory(), request.execution_identity, context.submission_id, memory_confirmation,
+        )
+        registry.register(question.definition())
     return AgentRunner(
         provider=models.provider,
         registry=registry,
@@ -2537,7 +2559,7 @@ def _agent_runner(
         tool_round_results=recorder,
         runtime_events=request.runtime_events,
         context_loader=memory.loader if memory is not None else None,
-        tool_suspension=memory.confirmation if memory is not None else None,
+        tool_suspension=question or memory_confirmation,
         event_batch_size=request.event_batch_size,
         parallel_limit=request.parallel_limit,
         window_limit_reply=_window_limit_reply,

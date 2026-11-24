@@ -375,3 +375,55 @@ async def test_other_terminal_errors_take_priority_over_window_receipt(monkeypat
             await sandboxed._sandbox_outcome(None, None, request, None)
         assert caught.value is errors[kind]
     broker.confirms_window_denial.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("fixture", "exit_code", "execution", "business"),
+    [
+        ("compliant-skill", 0, "COMPLETED", "REVIEW_PASSED"),
+        ("violating-skill", 1, "COMPLETED", "REVIEW_FINDINGS"),
+        ("report-missing", 1, "FAILED", None),
+        ("real-crash", 2, "FAILED", None),
+    ],
+)
+async def test_managed_review_colors_result_by_validated_report(
+    tmp_path: Path, fixture: str, exit_code: int, execution: str, business: str | None
+) -> None:
+    from muad_agent_core.skill.contracts import SkillReviewTarget
+    from muad_agent_core.skill.result_profiles import review_target_fingerprint
+    from muad_contracts.skill_results import FrozenSkillResultContract
+
+    repository = Path(__file__).resolve().parents[2]
+    real_review = repository / "skills/self-skill-review"
+    fixtures = repository / "tests/skills/self_skill_review/fixtures"
+    target = fixtures / fixture if (fixtures / fixture).is_dir() else fixtures / "compliant-skill"
+    fingerprint, files = review_target_fingerprint(target)
+    root = real_review
+    entrypoint = "scripts/check.py"
+    if fixture in {"report-missing", "real-crash"}:
+        root = _package(tmp_path / "review", f"raise SystemExit({exit_code})")
+        entrypoint = "scripts/main.py"
+    result = await _executor().execute(
+        _request(
+            root,
+            workspace_dir=tmp_path / "workspace",
+            argv=("--target", "skill-drafts/example"),
+            result_contract=FrozenSkillResultContract(
+                version=1, profile="skill-review", checksum="sha256:" + "a" * 64,
+                entrypoint=entrypoint,
+            ),
+            review_target=SkillReviewTarget(target, "draft-id", 5, fingerprint, files),
+        )
+    )
+    assert result.exit_code == exit_code
+    assert result.execution_status == execution
+    assert result.business_conclusion == business
+    if business is not None:
+        assert result.status == SkillExecutionStatus.SUCCEEDED
+        assert result.result is not None
+        assert result.result["reviewed_draft"] == {
+            "draft_id": "draft-id", "revision": 5, "fingerprint": fingerprint,
+        }
+    else:
+        assert result.result is None
+        assert result.result_error_code == "SKILL_RESULT_INVALID"

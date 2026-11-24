@@ -759,36 +759,35 @@ def _fixable_error_tool(registry: ToolRegistry) -> None:
     )
 
 
-async def test_deterministic_failure_stops_the_run_immediately() -> None:
-    """平台/环境类确定性失败第一次即停止，不再发起模型收尾回合。"""
+async def test_deterministic_failure_can_be_explained_in_a_normal_turn() -> None:
     provider = ScriptedModelProvider(
-        [_tool_call("c1", "failing", {"code": "PLATFORM_AUTH_REJECTED"})]
+        [_tool_call("c1", "failing", {"code": "PLATFORM_AUTH_REJECTED"}), _text("Access denied.")]
     )
     registry = ToolRegistry()
     _failing_tool(registry)
 
     result = await AgentRunner(provider=provider, registry=registry).run(_request())
 
-    assert result.status is AgentRunStatus.NO_PROGRESS
-    assert len(provider.requests) == 1, "失败收尾由平台直出，不再调用模型"
+    assert result.status is AgentRunStatus.COMPLETED
+    assert len(provider.requests) == 2
     assert result.tool_calls == 1
-    assert result.final_text == ""
+    assert result.final_text == "Access denied."
     assert result.last_failure is not None
     assert result.last_failure["code"] == "PLATFORM_AUTH_REJECTED"
     assert result.termination is not None
-    assert result.termination.reason.value == "NO_PROGRESS"
+    assert result.termination.reason is None
 
 
 async def test_typed_failure_body_counts_as_a_failure_too() -> None:
     """typed 失败（ToolError）同样进入失败跟踪，不能当成功放过。"""
-    provider = ScriptedModelProvider([_tool_call("c1", "rejecting")])
+    provider = ScriptedModelProvider([_tool_call("c1", "rejecting"), _text("Access denied.")])
     registry = ToolRegistry()
     _error_returning_tool(registry)
 
     result = await AgentRunner(provider=provider, registry=registry).run(_request())
 
-    assert result.status is AgentRunStatus.NO_PROGRESS
-    assert len(provider.requests) == 1
+    assert result.status is AgentRunStatus.COMPLETED
+    assert len(provider.requests) == 2
     assert result.last_failure is not None
     assert result.last_failure["code"] == "PLATFORM_AUTH_REJECTED"
 
@@ -842,8 +841,7 @@ async def test_different_retryable_codes_do_not_accumulate() -> None:
     assert len(provider.requests) == 3
 
 
-async def test_a_successful_tool_call_resets_the_failure_counter() -> None:
-    """中间有成功＝有进展：旧的可重试失败计数清零，随后同码失败从头计。"""
+async def test_an_unrelated_success_does_not_reset_failure_counter() -> None:
     provider = ScriptedModelProvider(
         [
             _tool_call("c1", "failing", {"code": "NET", "retryable": True}),
@@ -859,8 +857,8 @@ async def test_a_successful_tool_call_resets_the_failure_counter() -> None:
 
     result = await AgentRunner(provider=provider, registry=registry).run(_request())
 
-    assert result.status is AgentRunStatus.COMPLETED
-    assert len(provider.requests) == 4
+    assert result.status is AgentRunStatus.NO_PROGRESS
+    assert len(provider.requests) == 3
 
 
 async def test_threshold_comes_from_the_policy() -> None:
@@ -883,13 +881,12 @@ async def test_threshold_comes_from_the_policy() -> None:
     assert len(provider.requests) == 3
 
 
-@pytest.mark.parametrize("retryable", [False, True])
-async def test_parallel_success_cannot_reopen_a_stopped_run(retryable: bool) -> None:
+async def test_parallel_success_cannot_reopen_a_stopped_run() -> None:
     calls: list[str] = []
 
     async def fail(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
         calls.append("fail")
-        raise ToolError("PLATFORM_REJECTED", "rejected", retryable=retryable)
+        raise ToolError("PLATFORM_REJECTED", "rejected", retryable=True)
 
     async def succeed(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
         calls.append(call.name)
@@ -905,7 +902,7 @@ async def test_parallel_success_cannot_reopen_a_stopped_run(retryable: bool) -> 
     registry.register(ToolDefinition(
         "write", "write", {"type": "object"}, ToolEffect.WRITE, succeed,
     ))
-    script = [_tool_call("prior", "fail")] if retryable else []
+    script = [_tool_call("prior", "fail")]
     script.extend([
         _multi_tool_call(("c1", "fail"), ("c2", "read"), ("c3", "write")),
         _text("must not run"),
@@ -918,28 +915,30 @@ async def test_parallel_success_cannot_reopen_a_stopped_run(retryable: bool) -> 
     assert result.status is AgentRunStatus.NO_PROGRESS
     assert "read" in calls, "the independent read in the same batch still completes"
     assert "write" not in calls, "the later write batch must remain stopped"
-    assert len(provider.requests) == 1 + int(retryable)
+    assert len(provider.requests) == 2
 
 
 async def test_failure_does_not_append_a_model_finalization_turn() -> None:
     """失败收尾不追加 USER 指令、不调用模型：事实交给 Runtime 平台直出。"""
-    provider = ScriptedModelProvider([_tool_call("c1", "rejecting")])
+    provider = ScriptedModelProvider(
+        [_tool_call("c1", "rejecting"), _tool_call("c2", "rejecting"), _tool_call("c3", "rejecting")]
+    )
     registry = ToolRegistry()
     _error_returning_tool(registry)
 
     result = await AgentRunner(provider=provider, registry=registry).run(_request())
 
     assert result.status is AgentRunStatus.NO_PROGRESS
-    assert len(provider.requests) == 1
-    user_messages = [m for m in provider.requests[0].messages if m.role is ModelRole.USER]
+    assert len(provider.requests) == 3
+    user_messages = [m for m in provider.requests[-1].messages if m.role is ModelRole.USER]
     assert [message.content for message in user_messages] == ["hi"], "不得追加收尾 USER 指令"
     assert result.last_failure is not None
-    assert result.last_failure["code"] == "PLATFORM_AUTH_REJECTED"
+    assert result.last_failure["code"] == "TOOL_RETRY_UNSAFE"
 
 
 async def test_policy_denied_tool_gets_a_structured_failure() -> None:
     """策略拒绝（canonical status=BLOCKED）必须记结构化失败：工具名 + 错误码。"""
-    provider = ScriptedModelProvider([_tool_call("c1", "echo", {"text": "x"})])
+    provider = ScriptedModelProvider([_tool_call("c1", "echo", {"text": "x"}), _text("Denied.")])
     registry = ToolRegistry()
     _echo_tool(registry, [])
     pipeline = ToolExecutionPipeline(
@@ -951,7 +950,7 @@ async def test_policy_denied_tool_gets_a_structured_failure() -> None:
         provider=provider, registry=registry, tool_pipeline=pipeline
     ).run(_request(AgentPolicy(max_identical_failures=1)))
 
-    assert result.status is AgentRunStatus.NO_PROGRESS
+    assert result.status is AgentRunStatus.COMPLETED
     assert result.last_failure is not None
     assert result.last_failure["tool"] == "echo"
     assert result.last_failure["code"] == "POLICY_DENIED"

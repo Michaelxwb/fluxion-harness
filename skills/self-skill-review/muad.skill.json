@@ -3,5 +3,5 @@
   "author": "fluxion-harness",
   "platforms": [],
   "entrypoint": "scripts/check.py",
-  "version": "0.1.3"
+  "version": "0.1.4"
 }

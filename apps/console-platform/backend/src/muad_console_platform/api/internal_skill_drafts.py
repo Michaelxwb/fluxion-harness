@@ -100,6 +100,29 @@ async def get_draft(
     return ok(request.app.state.message_catalog, data)
 
 
+@router.get("/by-key/{key}/review-archive")
+async def review_archive_draft(
+    key: str,
+    session: Session,
+    _internal: InternalServiceDep,
+    tenant_id: Annotated[str, Query(min_length=1, max_length=64)],
+    owner_user_id: Annotated[uuid.UUID, Query()],
+    agent_id: Annotated[uuid.UUID, Query()],
+) -> Response:
+    view, data = await SkillDraftService(session).review_archive_by_key(
+        tenant_id, owner_user_id, agent_id, key
+    )
+    return Response(
+        content=data,
+        media_type="application/zip",
+        headers={
+            "X-Draft-Id": str(view["id"]),
+            "X-Draft-Revision": str(view["revision"]),
+            "X-Draft-Agent-Id": str(view["agent_id"]),
+        },
+    )
+
+
 @router.get("/{draft_id}/archive")
 async def archive_draft(
     draft_id: uuid.UUID,

@@ -25,6 +25,7 @@ def render_finalization(
     *,
     locale: str | None = "zh-CN",
     run_id: str | None = None,
+    include_technical: bool = True,
 ) -> str:
     """确定性渲染；未知 locale 回落 zh-CN，不编造语言。"""
     zh = _is_chinese(locale)
@@ -39,10 +40,16 @@ def render_finalization(
         _pick(zh, "原因：", "Cause: ") + reason_text,
         _pick(zh, "下一步：", "Next step: ") + next_step,
         _completion_line(facts, zh),
-        "",
-        *_technical_lines(facts, primary, zh=zh, run_id=run_id),
     ]
+    if include_technical:
+        lines.extend(["", *render_technical_details(facts, locale=locale, run_id=run_id)])
     return "\n".join(lines)
+
+
+def render_technical_details(
+    facts: FinalizationFacts, *, locale: str | None, run_id: str | None,
+) -> list[str]:
+    return _technical_lines(facts, _primary_failure(facts), zh=_is_chinese(locale), run_id=run_id)
 
 
 def render_cancelled(

@@ -70,6 +70,7 @@ class TaskOutcome:
     human: HumanQuestion | None = None
     #: 业务执行结果（TASK-008）：失败分类、证据与重试裁决都来自同一份 `ExecutionOutcome`。
     business_status: str | None = None
+    execution_status: str | None = None
     failure_layer: str | None = None
     exit_code: int | None = None
     retryable: bool | None = None
@@ -159,6 +160,7 @@ def interpret_execution(execution: Mapping[str, Any], *, now: datetime) -> TaskO
             error_code=str(fields.get("error_code") or status or "SKILL_EXECUTION_FAILED"),
             error_message=str(fields.get("error_message") or execution.get("stderr") or ""),
             business_status=fields.get("business_status"),
+            execution_status=fields.get("execution_status"),
             failure_layer=fields.get("failure_layer"),
             exit_code=fields.get("exit_code"),
             retryable=fields.get("retryable"),
@@ -166,6 +168,8 @@ def interpret_execution(execution: Mapping[str, Any], *, now: datetime) -> TaskO
             output_truncated=fields.get("output_truncated"),
         )
     payload = _result_payload(execution)
+    if execution.get("execution_status") == "COMPLETED":
+        return _completed_skill_contract(execution, payload)
     agentic = _agentic_envelope(execution.get(AGENTIC_KEY))
     wait = payload.get(WAIT_KEY)
     if wait is not None:
@@ -181,6 +185,24 @@ def interpret_execution(execution: Mapping[str, Any], *, now: datetime) -> TaskO
     )
 
 
+def _completed_skill_contract(execution: Mapping[str, Any], payload: dict[str, Any]) -> TaskOutcome:
+    facts = _outcome_fields(execution)
+    if facts.get("business_status") in {None, "UNKNOWN", "NOT_APPLICABLE"}:
+        raise _invalid("verified result is missing its business conclusion")
+    return TaskOutcome(
+        kind=OutcomeKind.COMPLETED,
+        result={
+            "execution_status": facts["execution_status"],
+            "business_status": facts["business_status"],
+            "exit_code": facts["exit_code"],
+            "result": payload,
+        },
+        execution_status=facts["execution_status"],
+        business_status=facts["business_status"],
+        exit_code=facts["exit_code"],
+    )
+
+
 def _outcome_fields(execution: Mapping[str, Any]) -> dict[str, Any]:
     """共享的业务判定（TASK-008）：Task 路径与 Runtime 工具路径用同一份 `ExecutionOutcome`。"""
     outcome: ExecutionOutcome | None = skill_execution_outcome(execution)
@@ -190,6 +212,7 @@ def _outcome_fields(execution: Mapping[str, Any]) -> dict[str, Any]:
         "error_code": outcome.error_code,
         "error_message": outcome.error_message,
         "business_status": str(outcome.business_status),
+        "execution_status": outcome.execution_status.value if outcome.execution_status else None,
         "failure_layer": str(outcome.failure_layer),
         "exit_code": outcome.exit_code,
         "retryable": outcome.retryable,

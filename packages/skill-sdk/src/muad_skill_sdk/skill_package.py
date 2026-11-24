@@ -9,6 +9,7 @@ from typing import Any
 
 import yaml
 from muad_contracts import SkillExecutionMode, SkillInvocationContract
+from muad_contracts.skill_results import SkillResultContract
 from muad_logging import get_logger
 from pydantic import ValidationError
 
@@ -85,6 +86,7 @@ class SkillManifest:
     version: str | None = None
     #: 默认入口的调用契约；缺失表示该 Skill 不具备可校验的调用契约。
     invocation_contract: SkillInvocationContract | None = None
+    result_contract: SkillResultContract | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,7 +106,7 @@ class SkillPackage:
         except UnicodeDecodeError as exc:
             raise SkillPackageError(f"{SKILL_FILE_NAME} is not valid UTF-8") from exc
         frontmatter, body = _split_frontmatter(text)
-        declared_entrypoint(base)
+        entrypoint = declared_entrypoint(base)
         frontmatter = dict(frontmatter)
         legacy_manifest = base / "muad.skill.json"
         if legacy_manifest.is_file():
@@ -117,11 +119,10 @@ class SkillPackage:
                     frontmatter["platforms"] = legacy["platforms"]
                 if "version" not in frontmatter and "version" in legacy:
                     frontmatter["version"] = legacy["version"]
-        return cls(
-            root=base,
-            manifest=_build_manifest(frontmatter),
-            instructions=body.strip(),
-        )
+        manifest = _build_manifest(frontmatter)
+        if manifest.result_contract is not None and entrypoint is None:
+            raise SkillPackageError("result_contract requires a declared, existing entrypoint")
+        return cls(root=base, manifest=manifest, instructions=body.strip())
 
     def scripts(self) -> tuple[Path, ...]:
         directory = self.root / SCRIPTS_DIR
@@ -274,7 +275,17 @@ def _build_manifest(frontmatter: Mapping[str, Any]) -> SkillManifest:
             else _catalog_field(platform_label, "platform_label", MAX_PLATFORM_LABEL_BYTES)
         ),
         invocation_contract=invocation_contract,
+        result_contract=_read_result_contract(frontmatter),
     )
+
+
+def _read_result_contract(frontmatter: Mapping[str, Any]) -> SkillResultContract | None:
+    if "result_contract" not in frontmatter:
+        return None
+    try:
+        return SkillResultContract.model_validate(frontmatter["result_contract"])
+    except ValidationError as exc:
+        raise SkillPackageError("frontmatter 'result_contract' is invalid") from exc
 
 
 def _execution_mode(value: Any) -> SkillExecutionMode:

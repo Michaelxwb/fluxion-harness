@@ -190,7 +190,7 @@ async def test_prepared_event_write_failure_aborts_handler_io() -> None:
     assert "event store unavailable" in completed[0].content
 
 
-async def test_deterministic_failure_stops_later_serial_batches() -> None:
+async def test_deterministic_read_failure_allows_an_independent_serial_call() -> None:
     calls: list[str] = []
     completed: list[ToolCompleted] = []
 
@@ -230,7 +230,8 @@ async def test_deterministic_failure_stops_later_serial_batches() -> None:
                     ModelToolCall("c1", "fail", {}),
                     ModelToolCall("c2", "second", {}),
                 ),
-            )
+            ),
+            ModelResponse(content="Completed the second read.", finish_reason="stop"),
         ]
     )
 
@@ -241,11 +242,11 @@ async def test_deterministic_failure_stops_later_serial_batches() -> None:
         _request(), on_tool_completed=on_completed
     )
 
-    assert result.status.value == "NO_PROGRESS"
-    assert calls == ["fail"], "later serial call never executed"
+    assert result.status.value == "COMPLETED"
+    assert calls == ["fail", "second"]
     assert len(completed) == 2
     assert completed[1].tool_call_id == "c2"
-    assert "TOOL_NOT_EXECUTED" in completed[1].content
+    assert completed[1].content == "ran"
     assert completed[1].outcome.retryable is False
 
 

@@ -148,6 +148,7 @@ def build_prepared_call(
         tool_name=tool_name,
         execution_mode=definition.execution_mode,
         retry_safety=definition.retry_safety,
+        effect=definition.effect.value,
     )
 
 

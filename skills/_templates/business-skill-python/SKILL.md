@@ -36,6 +36,8 @@ execute(target="skill", skill_key="business-skill-python-template", argv=["--com
 
 失败写 stderr 并返回非零退出码（fail loud），stderr 最后一行输出结构化 `error` 信封（`code` / `message` / `retryable`）；成功时 stdout 只输出一个机器可读的 JSON。取登录态失败时，CLI 的 stderr 里有 `platform_sessions`；失败文案要从这里读实际失败的平台，不要写死平台名。
 
+客户设备查询接入 `customer-devices` 结果契约时，确认无设备后返回 `NO_DEVICES`、`customer_id` 和空的 `devices`。需要选择时返回 `NEEDS_INPUT` 和已获授权的 `candidates`（每项含 `id`、`name`）。两种业务结果均正常退出。查询失败仍按上面的异常协议报告。
+
 ## 本地调试
 
 沙箱外没有 `session-manager` 时，把同形状的 state 文件放到 `MUAD_LOCAL_SESSION_STATE` 指向的路径，

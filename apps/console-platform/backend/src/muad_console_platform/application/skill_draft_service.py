@@ -176,6 +176,17 @@ class SkillDraftService:
         await self._ensure_storage(draft)
         return draft_view(draft), self._store.export_zip(draft)
 
+    async def review_archive_by_key(
+        self, tenant_id: str, owner_user_id: uuid.UUID, agent_id: uuid.UUID, key: str,
+    ) -> tuple[dict[str, Any], bytes]:
+        validate_draft_key(key)
+        draft = await self._drafts.find_by_key(tenant_id, owner_user_id, agent_id, key)
+        if draft is None:
+            raise AppError(ErrorCode.DRAFT_NOT_FOUND)
+        locked = await self._require_for_update(tenant_id, owner_user_id, agent_id, draft.id)
+        await self._ensure_storage(locked)
+        return draft_view(locked), self._store.export_zip(locked)
+
     async def read(
         self,
         tenant_id: str,

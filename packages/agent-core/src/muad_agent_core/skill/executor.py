@@ -26,6 +26,7 @@ from .contracts import (
     SkillExecutionStatus,
     SkillExecutor,
 )
+from .result_profiles import ensure_result_entrypoint, review_argv, validate_result_profile
 from .selection import script_command, select_entry_script, select_script
 
 TERMINATE_GRACE_SEC = 2.0
@@ -109,12 +110,13 @@ class ScriptSkillExecutor:
             except SkillPackageError as exc:
                 raise SkillExecutionError(exc.message) from exc
         script = select_script(ready_dir, request.script)
+        ensure_result_entrypoint(request, root=ready_dir, script=script)
         started = time.monotonic()
         env = build_child_env(request.env)
         try:
             process = await asyncio.create_subprocess_exec(
                 *script_command(script, env),
-                *request.argv,
+                *review_argv(request, native=True),
                 cwd=str(ready_dir),
                 env=env,
                 stdin=asyncio.subprocess.PIPE,
@@ -131,7 +133,7 @@ class ScriptSkillExecutor:
         duration_ms = int((time.monotonic() - started) * 1000)
         stdout = decode_capped(stdout_bytes)
         stderr = decode_capped(stderr_bytes)
-        return SkillExecutionResult(
+        result = SkillExecutionResult(
             status=status,
             stdout=stdout,
             stderr=stderr,
@@ -139,6 +141,7 @@ class ScriptSkillExecutor:
             duration_ms=duration_ms,
             exit_code=process.returncode,
         )
+        return validate_result_profile(request, result, native=True)
 
 
 async def _collect(

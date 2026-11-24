@@ -28,9 +28,8 @@ from muad_agent_core.agent import (
     Verifier,
 )
 from muad_agent_core.agent.continuation import RunnerCheckpoint
-from muad_agent_core.agent.failure import FailureSignal, update_failure_state
 from muad_agent_core.agent.recovery import active_skills as folded_active_skills
-from muad_agent_core.agent.recovery import fold_events, history_messages
+from muad_agent_core.agent.recovery import fold_events, history_messages, replay_failure_state
 from muad_agent_core.agent.termination import FailureState
 from muad_agent_core.hooks import HookPipeline
 from muad_agent_core.model import ModelMessage, ModelRole, ModelUsage
@@ -796,26 +795,7 @@ def _fold_events(
         )
         for call in fold.calls
     )
-    failure_state = FailureState()
-    for call in fold.calls:
-        completed = call.completed
-        if completed is None or completed.error_code in ("TOOL_NOT_EXECUTED", "TOOL_BUDGET_EXHAUSTED"):
-            # These placeholders never entered the live runner's failure state.
-            continue
-        failure_state = update_failure_state(
-            failure_state,
-            FailureSignal(
-                tool=completed.tool_name or call.declaration.tool_name,
-                tool_call_id=completed.call_id,
-                business_status=completed.business_status,
-                failure_layer=completed.failure_layer,
-                error_code=completed.error_code,
-                message=completed.content,
-                retryable=completed.retryable,
-                evidence_preview=completed.content[:1024],
-            ),
-            max_identical_failures=max_identical_failures,
-        )
+    failure_state = replay_failure_state(fold, max_identical_failures=max_identical_failures)
     return FoldedHistory(
         messages,
         declared,
