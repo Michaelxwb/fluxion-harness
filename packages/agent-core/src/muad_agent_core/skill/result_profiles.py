@@ -104,7 +104,9 @@ class _DeviceResult(BaseModel):
     devices: list[dict[str, Any]] = Field(max_length=1000)
 
 
-_CUSTOMER_RESULT = TypeAdapter(_CustomerSelection | _DeviceResult)
+_CUSTOMER_RESULT: TypeAdapter[_CustomerSelection | _DeviceResult] = TypeAdapter(
+    _CustomerSelection | _DeviceResult
+)
 
 
 def _verify_customer(stdout: str) -> tuple[dict[str, Any], SkillBusinessConclusion]:
