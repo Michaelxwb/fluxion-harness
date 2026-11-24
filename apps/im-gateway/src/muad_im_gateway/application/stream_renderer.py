@@ -133,7 +133,13 @@ class StreamRenderer:
         message = str((event.data or {}).get("message") or "").strip() or self._system(
             "task_accepted"
         )
-        return (*self.finalize(), RenderAction(TEXT_KIND, message))
+        # 先把受理文案写入当前回复，再发唯一终帧；否则已关闭的 ReplySession
+        # 会把文案降级成另一条 reply_text，导致同一条入站消息出现两个 finish 帧。
+        actions = list(self.flush())
+        actions.append(RenderAction(TEXT_KIND, message))
+        self._finalized = True
+        actions.append(RenderAction(FINALIZE_KIND))
+        return tuple(actions)
 
     def _on_artifact(self, event: SseEvent) -> tuple[RenderAction, ...]:
         # 只给摘要：不使用 artifact_id 生成任何下载入口/链接
