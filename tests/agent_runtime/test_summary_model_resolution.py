@@ -151,11 +151,11 @@ def _enable_summary(fake_resolve: FakeResolveClient) -> None:
                         **agent.runtime_config,
                         "budget": {
                             "compaction": {
+                                "history_budget_tokens": 1,
                                 "summary": {
                                     "enabled": True,
-                                    "threshold_bytes": 1,
                                     "model_ref": str(SUMMARY_MODEL_ID),
-                                }
+                                },
                             }
                         },
                     }

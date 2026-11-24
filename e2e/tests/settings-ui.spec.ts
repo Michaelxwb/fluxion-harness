@@ -30,21 +30,20 @@ function snapshot(revision: number) {
       {
         key: 'compaction',
         label_key: 'settings.group.compaction',
-        applies_to: 'RUN',
+        applies_to: 'new_run',
         readonly: false,
         fields: [
           {
-            path: 'snip.max_groups',
-            label_key: 'settings.field.snip.max_groups',
+            path: 'history_budget_tokens',
+            label_key: 'settings.field.history_budget_tokens',
             type: 'int',
-            default: 50,
-            value: 50,
-            applies_to: 'RUN',
+            default: 16384,
+            value: 16384,
+            applies_to: 'new_run',
             overridden_by_resources: 0,
             min: 1,
-            max: 10000,
-            unit_key: 'settings.unit.count',
-            effect_key: 'settings.effect.newRuns'
+            max: 131072,
+            unit_key: 'settings.unit.tokens'
           }
         ]
       }
@@ -108,7 +107,7 @@ async function mockApi(page: Page, state: MockState, account: typeof ADMIN | typ
         await route.fulfill({
           status: 400,
           json: failure('VALIDATION_FAILED', '设置不合法', [
-            { path: 'snip.max_groups', message: 'snip.max_groups 超出范围' }
+            { path: 'history_budget_tokens', message: 'history_budget_tokens 超出范围' }
           ])
         });
         return;
@@ -144,20 +143,20 @@ async function openCompaction(page: Page): Promise<void> {
   await expect(page.getByTestId('settings-group-compaction')).toBeVisible();
 }
 
-test('E-11 破坏联动组合 ⇒ 字段级错误定位且输入保留', async ({ page }) => {
+test('E-11 非法预算值 ⇒ 字段级错误定位且输入保留', async ({ page }) => {
   const state: MockState = { revision: 1, readFailure: false, saveMode: 'invalid', settingsRequests: [] };
   await mockApi(page, state);
   await openSettings(page);
   await openCompaction(page);
-  const input = page.getByTestId('settings-field-snip.max_groups').locator('input');
-  await input.fill('1000');
+  const input = page.getByTestId('settings-field-history_budget_tokens').locator('input');
+  await input.fill('0');
   await input.press('Enter');
   await page.getByTestId('settings-save').click();
 
-  const error = page.getByTestId('settings-error-snip.max_groups');
+  const error = page.getByTestId('settings-error-history_budget_tokens');
   await expect(error).toBeVisible();
-  await expect(error).toContainText('snip.max_groups');
-  await expect(input).toHaveValue('1000');
+  await expect(error).toContainText('history_budget_tokens');
+  await expect(input).toHaveValue('0');
   await expect(page.getByTestId('settings-revision')).toContainText('v1');
 });
 
@@ -166,7 +165,7 @@ test('E-12 版本冲突 ⇒ 明确提示 + 重新加载，不静默重试', asyn
   await mockApi(page, state);
   await openSettings(page);
   await openCompaction(page);
-  const input = page.getByTestId('settings-field-snip.max_groups').locator('input');
+  const input = page.getByTestId('settings-field-history_budget_tokens').locator('input');
   await input.fill('42');
   await input.press('Enter');
   const put = page.waitForRequest((r) => r.url().includes('/platform-settings') && r.method() === 'PUT');

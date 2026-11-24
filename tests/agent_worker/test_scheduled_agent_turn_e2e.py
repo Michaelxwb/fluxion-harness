@@ -81,6 +81,11 @@ SETTINGS: dict[str, Any] = {
         "default_deadline_hours": 24 * 365,
         "execution_timeout_sec": 240,
     },
+    "compaction": {
+        "history_budget_tokens": 16_384,
+        "tool_result": {"persist_threshold_bytes": 8_192},
+        "summary": {"enabled": False, "model_ref": None},
+    },
 }
 
 
@@ -156,6 +161,13 @@ def _agentic_materials() -> ScheduleAdmissionMaterials:
         grants=ScheduleGrantMaterials(
             agent_access=True, mcp_server_ids=[mcp_server_id]
         ),
+        policy={
+            "compaction": {
+                "history_budget_tokens": 16_384,
+                "tool_result": {"persist_threshold_bytes": 8_192},
+                "summary": {"enabled": False, "model_ref": None},
+            }
+        },
         settings_revision=1,
     )
 

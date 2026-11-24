@@ -98,9 +98,9 @@ async def _resume_events(factory: SessionFactory, run: RunRecord) -> list[Canoni
     return rows
 
 
-def _decision(rows: list[CanonicalEvent], submission_id: UUID) -> MemoryResumeDecision:
+def _decision(rows: list[CanonicalEvent], submission_id: UUID | None) -> MemoryResumeDecision:
     for row in rows:
-        if row.submission_id != submission_id:
+        if submission_id is not None and row.submission_id != submission_id:
             continue
         if row.event_type == "MEMORY_RESUME_RESOLVED":
             if row.payload_json.get("outcome") == "SELECTED":
@@ -113,6 +113,9 @@ def _decision(rows: list[CanonicalEvent], submission_id: UUID) -> MemoryResumeDe
                 return MemoryResumeDecision(reference=reference)
             return MemoryResumeDecision()
         if row.event_type == "MEMORY_RESUME_OPTIONS":
+            if submission_id is None:
+                # 入队只关心最终选择；未消费的候选不能遮住更早的 SELECTED。
+                continue
             options = MemoryResumeOptions.model_validate(
                 {key: value for key, value in row.payload_json.items() if key != "delta"}
             )

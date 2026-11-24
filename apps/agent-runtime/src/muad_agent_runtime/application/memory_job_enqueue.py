@@ -122,4 +122,5 @@ async def _reference(session: AsyncSession, run: RunRecord, through_seq: int) ->
             .order_by(CanonicalEvent.seq.desc())
         )
     )
-    return _decision(events, run.id).reference
+    # 完成 Run 的入队看整条 Run 的最终决定；submission 过滤只属于单次请求的 resume_decision。
+    return _decision(events, None).reference

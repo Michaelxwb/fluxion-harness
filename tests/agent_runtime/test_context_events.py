@@ -56,8 +56,15 @@ async def test_e03_compaction_writes_exactly_one_audit_row(
     conversation = await _conversation(tenant)
     run_id = uuid.uuid4()
     layers = [
-        {"layer": "snip", "fired": True, "groups": 4, "bytes_saved": 1234},
-        {"layer": "micro", "fired": False, "groups": 0, "bytes_saved": 0},
+        {
+            "layer": "budget",
+            "fired": True,
+            "groups": 4,
+            "bytes_saved": 1234,
+            "dropped_records": 5,
+            "retained_from_seq": 7,
+        },
+        {"layer": "summary", "fired": False, "groups": 0, "bytes_saved": 0},
     ]
 
     async with get_session_factory()() as session:
@@ -75,12 +82,14 @@ async def test_e03_compaction_writes_exactly_one_audit_row(
     assert rows[0].event_type == CONTEXT_COMPACTED_EVENT
     assert rows[0].seq == seq == 1, "seq 由 conversation 行锁分配"
     payload = rows[0].payload_json
-    assert payload["layers"]["snip"] == {
-        "layer": "snip",
+    assert payload["layers"]["budget"] == {
+        "layer": "budget",
         "fired": True,
         "groups": 4,
         "bytes_saved": 1234,
-    }, "层级/省下字节/组数逐项落库"
+        "dropped_records": 5,
+        "retained_from_seq": 7,
+    }, "层级/省下字节/组数/丢弃记录逐项落库"
     assert "summary_event_seq" not in payload, "没有摘要时不得凭空带上引用"
 
 

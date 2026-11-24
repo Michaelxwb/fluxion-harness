@@ -3,7 +3,7 @@
  *
  * 真实 Chromium → 真实 Console（真实 PostgreSQL，真实 ConsoleAccount/ConsoleSession）→ 真实
  * 构建产物（vite preview）。种子走 tests/e2e/seed_platform_settings.py（真实 PlatformSettingsService，
- * 为租户 A 落一版 max_groups=42 的设置）；浏览器侧不改写业务数据。
+ * 为租户 A 落一版 history_budget_tokens=8192 的设置）；浏览器侧不改写业务数据。
  *
  * 失败路径（E-12/E-13）按设计允许制造：E-12 用**真实并发**（先经 API 以当前 revision 提交一次，
  * 让浏览器手里的 revision 变陈旧 → 后端真实返回 409），E-13 用路由 500 模拟读取失败。
@@ -36,9 +36,9 @@ interface Credentials {
 interface SeedState {
   tenantId: string;
   tenantBId: string;
-  seededMaxGroups: number;
-  validMaxGroups: number;
-  invalidMaxGroups: number;
+  seededHistoryBudgetTokens: number;
+  validHistoryBudgetTokens: number;
+  invalidHistoryBudgetTokens: number;
   account: Credentials;
   builder: Credentials;
   otherAdmin: Credentials;
@@ -123,7 +123,7 @@ test('S-01 保存后版本号更新并提示新操作立即生效 @smoke', async
   await expect(page.getByTestId('settings-revision')).toContainText('v1');
 
   await openGroup(page, 'compaction');
-  await setFieldValue(page, 'snip.max_groups', state.validMaxGroups);
+  await setFieldValue(page, 'history_budget_tokens', state.validHistoryBudgetTokens);
 
   const save = page.getByTestId('settings-save');
   await expect(save).toBeEnabled();
@@ -179,6 +179,6 @@ test('S-03 ADMIN 菜单有入口且排在运行审计之后；BUILDER 无入口�
   // revision=0 不再渲染纯文本版本号（琥珀标签自身已含「尚未保存过」，不重复）
   await expect(otherPage.getByTestId('settings-revision')).toHaveCount(0);
   await openGroup(otherPage, 'compaction');
-  await expect(fieldInput(otherPage, 'snip.max_groups')).toHaveValue('50');
+  await expect(fieldInput(otherPage, 'history_budget_tokens')).toHaveValue('16384');
   await otherContext.close();
 });

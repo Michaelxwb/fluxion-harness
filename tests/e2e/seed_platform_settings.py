@@ -1,7 +1,7 @@
 """Console 系统设置页 E2E 的种子（TASK-010 / S-01、S-03、E-11..E-14、B-05）。
 
 在**真实 PostgreSQL** 上建两个租户：A（默认租户，含 ADMIN + BUILDER）与 B（另一租户 ADMIN），
-并为租户 A 用真实 `PlatformSettingsService` 落一版设置（`compaction.snip.max_groups`），
+并为租户 A 用真实 `PlatformSettingsService` 落一版设置（`compaction.history_budget_tokens`），
 使设置页初始 revision=1，跨租户断言可区分 A/B。
 
 浏览器请求不带 `X-Tenant-Id`，Console 一律回落 `DEFAULT_TENANT_ID`（= 租户 A）；租户 B 的 ADMIN
@@ -46,12 +46,12 @@ BUILDER_PASSWORD = "settings-browser-builder-password"
 OTHER_ADMIN_USERNAME = "settings-browser-other-admin"
 OTHER_ADMIN_PASSWORD = "settings-browser-other-password"
 
-#: 种子版本里 `compaction.snip.max_groups` 的取值：默认 50，改成 42 以便断言"读到的是库里的值"。
-SEEDED_MAX_GROUPS = 42
-#: 一次合法改动（≥ keep_head(3) + keep_tail(20) + 1 = 24）。
-VALID_MAX_GROUPS = 30
-#: 破坏联动的取值（< 24）：后端必须拒绝并定位到该字段（E-11）。
-INVALID_MAX_GROUPS = 2
+#: 种子版本里 `compaction.history_budget_tokens` 的取值：与 schema 默认不同，便于断言"读到的是库里的值"。
+SEEDED_HISTORY_BUDGET_TOKENS = 8192
+#: 一次合法的预算改动。
+VALID_HISTORY_BUDGET_TOKENS = 4096
+#: 越界取值（0）：后端必须拒绝并定位到该字段（E-11）。
+INVALID_HISTORY_BUDGET_TOKENS = 0
 
 CLEANUP = (
     "DELETE FROM control.platform_setting WHERE tenant_id = :t",
@@ -100,7 +100,7 @@ async def _seed() -> dict[str, object]:
             await session.flush()
 
             document = asdict(default_platform_settings())
-            document["compaction"]["snip"]["max_groups"] = SEEDED_MAX_GROUPS
+            document["compaction"]["history_budget_tokens"] = SEEDED_HISTORY_BUDGET_TOKENS
             settings = parse_platform_settings(
                 document, batch_platform_limit=SharedSettings().batch_platform_limit
             )
@@ -110,9 +110,9 @@ async def _seed() -> dict[str, object]:
     return {
         "tenantId": TENANT,
         "tenantBId": TENANT_B,
-        "seededMaxGroups": SEEDED_MAX_GROUPS,
-        "validMaxGroups": VALID_MAX_GROUPS,
-        "invalidMaxGroups": INVALID_MAX_GROUPS,
+        "seededHistoryBudgetTokens": SEEDED_HISTORY_BUDGET_TOKENS,
+        "validHistoryBudgetTokens": VALID_HISTORY_BUDGET_TOKENS,
+        "invalidHistoryBudgetTokens": INVALID_HISTORY_BUDGET_TOKENS,
         "account": {"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD},
         "builder": {"username": BUILDER_USERNAME, "password": BUILDER_PASSWORD},
         "otherAdmin": {"username": OTHER_ADMIN_USERNAME, "password": OTHER_ADMIN_PASSWORD},

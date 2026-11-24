@@ -603,11 +603,12 @@ def _resolved_definition(tenant: BackgroundTenant) -> ResolveDefinitionResponse:
                 "temperature": 0.0,
                 "budget": {
                     "compaction": {
+                        # 历史预算压到最小，第二轮必然触发一次真实摘要。
+                        "history_budget_tokens": 1,
                         "summary": {
                             "enabled": True,
-                            "threshold_bytes": 1,
                             "model_ref": str(tenant.summary_model_id),
-                        }
+                        },
                     }
                 },
             },

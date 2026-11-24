@@ -109,8 +109,8 @@ def test_settings_page_does_not_hardcode_field_or_group_lists() -> None:
     assert "groups={groups}" in page, "分组导航必须由元数据渲染"
     assert "groups.find((group) => group.key === activeKey)" in page, "当前面板分组必须由元数据派生"
     assert "SettingsGroupPanel" in page
-    # 页面不得出现具体字段路径字面量（如 'snip.max_groups'），否则即第二套字段清单。
-    assert "snip." not in page, "页面不得内联字段路径"
+    # 页面不得出现具体字段路径字面量（如 'history_budget_tokens'），否则即第二套字段清单。
+    assert "history_budget_tokens" not in page, "页面不得内联字段路径"
 
 
 def test_egress_rules_use_list_and_modal_editor() -> None:

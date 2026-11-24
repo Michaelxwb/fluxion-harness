@@ -31,15 +31,16 @@ from muad_agent_core.agent.continuation import RunnerCheckpoint
 from muad_agent_core.agent.recovery import active_skills as folded_active_skills
 from muad_agent_core.agent.recovery import fold_events, history_messages, replay_failure_state
 from muad_agent_core.agent.termination import FailureState
+from muad_agent_core.context.compactor import split_groups
+from muad_agent_core.context.plan import RunInput
 from muad_agent_core.hooks import HookPipeline
 from muad_agent_core.model import ModelMessage, ModelRole, ModelUsage
 from muad_agent_core.prompt import PromptSkill, resolve_zone
 from muad_agent_core.sandbox import WorkspaceStore
 from muad_agent_core.skill import SkillArtifactResolver, SkillExecutor
-from muad_agent_core.context.compactor import split_groups
-from muad_agent_core.tools.result_budget import derive_tool_result_budget
 from muad_agent_core.tools import AttachmentReadTools, ResolvedAttachment, ToolExecutionPipeline
 from muad_agent_core.tools.attachments import TextCursor, read_text_segment
+from muad_agent_core.tools.result_budget import derive_tool_result_budget
 from muad_api import AppError
 from muad_common import SharedSettings
 from muad_contracts import OperationWatermark
@@ -505,7 +506,9 @@ def _round_writer(
     )
 
 
-def _worker_history_meta(messages, run_input):
+def _worker_history_meta(
+    messages: Sequence[ModelMessage], run_input: RunInput
+) -> tuple[int, int | None]:
     """Worker has no durable summary coverage: all older is material; keep first task goal."""
     groups = split_groups(messages)
     material_end = max((message.source_event_seq or 0 for message in messages), default=0)
@@ -513,9 +516,7 @@ def _worker_history_meta(messages, run_input):
     for index, group in enumerate(groups):
         if not any(message.role.value == "user" for message in group):
             continue
-        if run_input is not None and any(
-            message.message_id == run_input.message_id for message in group
-        ):
+        if any(message.message_id == run_input.message_id for message in group):
             break
         end = max(message.source_event_seq or 0 for message in group)
         if index + 1 < len(groups):

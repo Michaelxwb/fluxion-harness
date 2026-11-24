@@ -8,11 +8,11 @@
 E2E 在编码阶段只登记不执行（manifest `kind=e2e`）：由需求级
 `cf_acceptance_runner.py --manifest … --include-e2e` 统一执行。
 
-场景构造：把该 Agent 的 snip 阈值压到 3 组（配置随 Run 冻结，见 E-04 的口径），于是一次
-"两个来回 + 四个工具回合"的会话就足以触发**真实的 snip**——链路每一段都是生产实现。
+场景构造：把该 Agent 的历史预算压到很小（配置随 Run 冻结，见 E-04 的口径），于是一次
+"两个来回 + 四个工具回合"的会话就足以触发**真实的历史预算裁剪**——链路每一段都是生产实现。
 
 覆盖分工（不重复也不留空）：
-- 本用例：snip 真的在请求缝触发、开头诉求仍在、模型收到的请求里没有孤儿 TOOL、审计事件落库；
+- 本用例：历史预算裁剪真的在请求缝触发、开头诉求仍在、模型收到的请求里没有孤儿 TOOL、审计事件落库；
 - 「整轮超预算 ⇒ 结果外置 + 头尾预览」由 E-02 / B-02 在集成层取证（本栈没有能产出 >8 KiB
   结果的工具，塞一个假工具就变成自造行为而不是验生产链路）。
 """
@@ -42,32 +42,25 @@ from tests.acceptance.im_gateway.environment import (
     wait_for_new_run_terminal,
 )
 
-#: 会话开头的诉求——被 snip 省略掉中间历史之后，它必须还在（"保头"）。
+#: 会话开头的诉求——省略中间历史之后，它必须还在（"保头"）。
 OPENING = "开头诉求：这份清单很长，请逐条核对后告诉我结论"
-#: 第二个来回：只用来把工具回合沉淀成 older 历史（当前回合不参与 snip）。
+#: 第二个来回：只用来把工具回合沉淀成 older 历史（当前回合不参与裁剪）。
 MIDDLE = "第二段诉求：先按顺序把每一条都过一遍"
 #: 第二个来回的追问。**不能写成"继续…"**：那是记忆续接通道的完整请求形式
-#: （design §3.5.2，`muad_agent_core.memory.resume.parse_resume_intent`），零候选 TASK_STATE
-#: 时 Runtime 会直接投"没有可用线索"的 MEMORY_RESUME_NOTICE 并以此收尾、**不再调模型**
-#: ——本用例要验的是 snip 在请求缝执行，不能被另一个通道截走这轮模型调用。
+#: （design §3.5.2，`muad_agent_core.memory.resume.parse_resume_intent`），会额外触发
+#: 任务线索列表；本用例只验预算裁剪在请求缝执行，避免把另一个通道混进对照。
 FOLLOW_UP = "把剩下的也核对一遍"
 FINAL_TEXT = "核对完毕"
 TOOL_ROUNDS = 4
 
-#: 只压**触发阈值**（`max_groups` 的语义就是阈值，不是保留总数），保头保尾用生产默认值（3 / 20）：
-#: 短会话才会触发真实的 snip，而省略口径仍是线上那一套。
-#: 取值必须满足 schema 的 `max_groups ≥ keep_head + keep_tail + 1`（`_validate` 会拒，且
-#: 拒绝发生在 Run 建立之前 ⇒ 表现是"推了消息却压根没有 Run"，而不是一条清晰的报错）。
-SNIP_RUNTIME_CONFIG: dict[str, Any] = {
-    "budget": {
-        "compaction": {
-            "snip": {"max_groups": 3, "keep_head_groups": 1, "keep_tail_groups": 1}
-        }
-    }
+#: 只压历史预算：短会话就会触发真实的请求边界裁剪，保头保尾仍是生产实现。
+#: 预算必须是 schema 允许的正整数；非法值会在 Run 建立前被拒（表现是"推了消息却没有 Run"）。
+COMPACTION_RUNTIME_CONFIG: dict[str, Any] = {
+    "budget": {"compaction": {"history_budget_tokens": 100}}
 }
 
 WAIT_TIMEOUT_SEC = 150.0
-MARKER = "[历史省略]"
+MARKER = "[历史裁剪]"
 
 
 async def _execute(statement: str, params: dict[str, Any]) -> None:
@@ -100,8 +93,8 @@ async def _wait_for(predicate: Callable[[], Any], *, what: str, timeout: float =
     raise AssertionError(what)
 
 
-def _arm_early_snip(stack: GatewayStack) -> None:
-    """把该 Agent 的 snip 阈值压到 3 组（真实 `control.agent_definition` 行）。
+def _arm_small_history_budget(stack: GatewayStack) -> None:
+    """把该 Agent 的历史预算压到很小（真实 `control.agent_definition` 行）。
 
     必须在**本条会话的第一次 Run 之前**写完：压缩配置在 Run 建立时解析并冻结进
     `policy_json`（E-04），之后改配置只影响后续新 Run。
@@ -111,7 +104,7 @@ def _arm_early_snip(stack: GatewayStack) -> None:
         await _execute(
             "UPDATE control.agent_definition SET runtime_config_json = CAST(:cfg AS jsonb) "
             "WHERE tenant_id = :t AND key = 'e2e_im_agent'",
-            {"t": TENANT, "cfg": json.dumps(SNIP_RUNTIME_CONFIG, ensure_ascii=False)},
+            {"t": TENANT, "cfg": json.dumps(COMPACTION_RUNTIME_CONFIG, ensure_ascii=False)},
         )
 
     _run_in_thread(run)
@@ -224,7 +217,7 @@ def _assert_no_orphan_tools(messages: list[dict[str, Any]]) -> None:
 
 async def test_s01_compaction_composes_on_the_real_chain(gateway_stack: GatewayStack) -> None:
     stack = gateway_stack
-    _arm_early_snip(stack)
+    _arm_small_history_budget(stack)
     await _wait_for_bot_connection(stack)
 
     # 第一个来回：建立"会话开头"。这轮不调工具，让 OPENING 成为对话区的第一组。
@@ -239,7 +232,7 @@ async def test_s01_compaction_composes_on_the_real_chain(gateway_stack: GatewayS
     finally:
         _clear_script(stack)
 
-    # 第三个来回：older 组数已越过阈值，snip 必须在**本次请求缝**真的触发。
+    # 第三个来回：older 已超预算，裁剪必须在**本次请求缝**真的触发。
     assert await _send_until_terminal(stack, FOLLOW_UP) == "COMPLETED"
 
     requests = _probe_requests(stack)
@@ -248,7 +241,7 @@ async def test_s01_compaction_composes_on_the_real_chain(gateway_stack: GatewayS
         for body in requests
         if MARKER in json.dumps(body.get("messages") or [], ensure_ascii=False)
     ]
-    assert compacted, f"没有任何一次模型请求带省略标记：snip 没在请求缝执行（共 {len(requests)} 次请求）"
+    assert compacted, f"没有任何一次模型请求带裁剪标记：预算裁剪没在请求缝执行（共 {len(requests)} 次请求）"
 
     sent = list(compacted[-1].get("messages") or [])
     texts = [_message_text(message) for message in sent]

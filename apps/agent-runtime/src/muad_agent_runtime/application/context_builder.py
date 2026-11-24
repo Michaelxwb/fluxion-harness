@@ -273,12 +273,12 @@ class DbBackedContextBuilder:
         consumed_event_seq: int,
     ) -> tuple[list[CanonicalEvent], int]:
         if tail_reached_boundary:
-            material = [
+            complete = [
                 event
                 for event in tail_events
                 if not _is_current_input(event, current_message_id)
             ]
-            return material, max((event.seq for event in material), default=0)
+            return complete, max((event.seq for event in complete), default=0)
 
         material: list[CanonicalEvent] = []
         cursor: int | None = None

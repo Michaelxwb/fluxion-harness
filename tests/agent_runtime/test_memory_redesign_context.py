@@ -446,12 +446,18 @@ async def test_b08_memory_redesign_history_scope_keeps_other_users_summary_priva
     builder = DbBackedContextBuilder(session_factory=lambda: factory)
     with query_counts(async_tool_database) as counts:
         other = await builder.load_history(
-            tenant_id=run.tenant_id, conversation_id=run.conversation_id, user_id=uuid4()
+            tenant_id=run.tenant_id,
+            conversation_id=run.conversation_id,
+            user_id=uuid4(),
+            budget_tokens=100_000,
         )
         own = await builder.load_history(
-            tenant_id=run.tenant_id, conversation_id=run.conversation_id, user_id=run.user_id
+            tenant_id=run.tenant_id,
+            conversation_id=run.conversation_id,
+            user_id=run.user_id,
+            budget_tokens=100_000,
         )
-    assert other == () and "private summary" in own[0].content
+    assert other.messages == () and "private summary" in own.messages[0].content
     assert counts == {"full": 0, "head": 0}
 
 
@@ -490,9 +496,13 @@ async def test_b07_memory_redesign_production_forget_receipt_next_http_and_histo
         await install_history_failure(async_tool_database)
     if failure == "refresh":
         await _install_recall_corruption(async_tool_database)
-    history = await DbBackedContextBuilder(session_factory=lambda: factory).load_history(
-        tenant_id=run.tenant_id, user_id=run.user_id, conversation_id=run.conversation_id
+    loaded = await DbBackedContextBuilder(session_factory=lambda: factory).load_history(
+        tenant_id=run.tenant_id,
+        user_id=run.user_id,
+        conversation_id=run.conversation_id,
+        budget_tokens=100_000,
     )
+    history = loaded.messages
     memory_id = await _memory_id(async_tool_database, ctx)
     calls = [
         {

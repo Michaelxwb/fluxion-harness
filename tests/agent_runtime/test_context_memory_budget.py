@@ -1,8 +1,8 @@
-"""[E-06] memory 预算与 micro 豁免（0020 新契约）。
+"""[E-06] memory 预算与历史裁剪豁免（0020 新契约）。
 
 2026-10-15 随 TASK-031 改写：`memory.budget_ratio` 已从 schema 删除，注入只有**硬上限**
 （条数 × 完整 UTF-8 字节，Run 创建时冻结）；旧「比例 × 历史字节」断言替换为「历史长度不改变
-注入预算、超限条目跳过、注入段落逐字且不受 micro 改写」。
+注入预算、超限条目跳过、注入段落逐字且不受历史预算裁剪改写」。
 
 不得 Mock 的真实边界：真实 agent-runtime 请求装配（真实 PG 的 `canonical_event` + `user_memory`
 → `MemoryCandidateCache`/`MemoryContextLoader` → `AgentRunner`）→ **真实模型 HTTP 探针**
@@ -32,6 +32,7 @@ from muad_agent_core.hooks import HookPipeline
 from muad_agent_core.memory.render import EXPERIENCE_NOTICE
 from muad_agent_core.model import ModelProvider, OpenAICompatibleProvider
 from muad_agent_core.tools import ToolCall, ToolDefinition, ToolEffect, ToolRegistry, ToolResult
+from muad_agent_core.tools.result_budget import derive_tool_result_budget
 from muad_agent_runtime.api.deps import (
     get_credentials_client,
     get_executor_factory,
@@ -53,12 +54,7 @@ from muad_agent_runtime.infrastructure.models.runtime import (
 )
 from muad_agent_runtime.main import app
 from muad_common import SharedSettings
-from muad_contracts.platform_settings import (
-    CompactionSettings,
-    MicroSettings,
-    SnipSettings,
-    ToolResultSettings,
-)
+from muad_contracts.platform_settings import CompactionSettings
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -202,8 +198,8 @@ def _memory_loader(request: ExecutorRequest):
     )
 
 
-def _factory(probe_url: str, budget: dict[str, Any], tmp_path: Path) -> ExecutorFactory:
-    """生产同款装配：工具结果经 recorder 外置（不然 micro 无物可降级）+ 请求缝真实压缩器。"""
+def _factory(probe_url: str, budget_tokens: int, tmp_path: Path) -> ExecutorFactory:
+    """生产同款装配：工具结果经 recorder 外置 + 请求缝真实压缩器。"""
 
     async def factory(request: ExecutorRequest) -> RunExecutor:
         context_ = request.run_context
@@ -211,17 +207,12 @@ def _factory(probe_url: str, budget: dict[str, Any], tmp_path: Path) -> Executor
         provider: ModelProvider = OpenAICompatibleProvider(
             base_url=f"{probe_url}/v1", model="probe-model", api_key="probe-key"
         )
-        settings = CompactionSettings(
-            snip=SnipSettings(max_groups=99),  # 本用例只关心 memory 与 micro
-            micro=MicroSettings(
-                enabled=bool(budget["micro"]), keep_recent_tool_groups=int(budget["keep_recent"])
-            ),
-        )
+        settings = CompactionSettings(history_budget_tokens=budget_tokens)
         recorder = ToolCallRecorder(
             context=context_,
             audit_writer=None,
             artifact_writer=ArtifactResultWriter(tmp_path),
-            settings=ToolResultSettings(),
+            settings=derive_tool_result_budget(settings),
         )
         runner = AgentRunner(
             provider=provider,
@@ -254,13 +245,13 @@ def _wrap_registry(registry: ToolRegistry, recorder: ToolCallRecorder) -> ToolRe
 
 @asynccontextmanager
 async def _stack(
-    fake_resolve: FakeResolveClient, budget: dict[str, Any], tmp_path: Path
+    fake_resolve: FakeResolveClient, budget_tokens: int, tmp_path: Path
 ) -> AsyncIterator[tuple[httpx.AsyncClient, httpx.AsyncClient]]:
     """真实 Runtime（依赖覆盖与 `conftest.client` 同口径）+ 真实模型探针。"""
     async with _serve_http(probe_app) as probe:
         app.dependency_overrides[get_resolve_client] = lambda: fake_resolve
         app.dependency_overrides[get_executor_factory] = lambda: _factory(
-            str(probe.base_url), budget, tmp_path
+            str(probe.base_url), budget_tokens, tmp_path
         )
         app.dependency_overrides[get_credentials_client] = lambda: None
         try:
@@ -359,24 +350,22 @@ async def test_e06_injection_is_hard_capped_without_history_ratio(async_tool_dat
     assert len(short_block.encode("utf-8")) <= 2048, "硬上限 2048 字节是绝对兜底"
 
 
-async def test_e06_injected_memory_is_verbatim_while_micro_degrades_tools(
+async def test_e06_injected_memory_is_verbatim_while_budget_trim_fires(
     tenant: TenantContext, fake_resolve: FakeResolveClient, tmp_path: Path
 ) -> None:
-    """micro 真的跑了（审计事件可证）且模型收到的注入段**逐字与注入原文一致**。
+    """历史预算裁剪真的跑了（审计事件可证）且模型收到的注入段**逐字与注入原文一致**。
 
-    对照组用**审计事件**而不是去找占位符：`CONTEXT_COMPACTED` 里 `micro.fired=True` 是"这一层
-    确实执行过"的直接证据；在此前提下注入段仍然逐字，才说明它没被降级、也没被改写。
+    对照组用**审计事件**而不是去找省略标记：`CONTEXT_COMPACTED` 里 `budget.fired=True` 是
+    这一层确实执行过的直接证据；在此前提下注入段仍然逐字，才说明它没被裁剪或改写。
     """
     await _seed(tenant)
-    budget: dict[str, Any] = {"micro": True, "keep_recent": 0}
-    async with _stack(fake_resolve, budget, tmp_path) as (client, probe):
+    async with _stack(fake_resolve, 120, tmp_path) as (client, probe):
         await _script_tool_round(probe)
         await _send(client, tenant, "第一轮：帮我 dump 一份内容")
         first_tool = _tool_texts(await _last_request(probe))
-        assert first_tool and (
-            first_tool[-1].startswith('{"artifact"')
-            or "read_attachment" in first_tool[-1]
-        ), "前置条件：结果确实被外置了（原文或 micro 占位都可证）"
+        assert first_tool and first_tool[-1].startswith('{"artifact"'), (
+            "前置条件：结果确实被外置了"
+        )
 
         await _send(client, tenant, "第二轮：接着聊")
         body = await _last_request(probe)
@@ -400,10 +389,10 @@ async def test_e06_injected_memory_is_verbatim_while_micro_degrades_tools(
         for layer in (row.payload_json or {}).get("layers", {}).values()
         if layer.get("fired")
     }
-    assert "micro" in fired_layers, f"micro 必须真的执行过（否则本用例是空转）：{fired_layers}"
+    assert "budget" in fired_layers, f"budget 必须真的执行过（否则本用例是空转）：{fired_layers}"
 
     block = _injected_block(body)
     for key, value in MEMORIES.items():
         assert f'"memory_key":"{key}"' in block and f'"value":"{value}"' in block, (
-            "注入段落在受保护前缀里：micro 不得把它换掉或改写"
+            "注入段落在受保护前缀里：历史裁剪不得把它换掉或改写"
         )

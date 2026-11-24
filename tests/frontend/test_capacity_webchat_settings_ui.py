@@ -67,7 +67,7 @@ ERROR_CASES = (
     ("capacity_cross_field", {"capacity": {"max_open_runs_per_tenant": 3, "max_open_runs_per_user": 5}}),
     ("model_pool_weight", {"model_pool": {"interactive_weight": 0}}),
     ("webchat_session_ttl", {"webchat": {"session_ttl_hours": 25}}),
-    ("compaction_relative", {"compaction": {"snip": {"max_groups": 2}}}),
+    ("compaction_relative", {"compaction": {"history_budget_tokens": 0}}),
     ("compaction_prefixed", {"compaction": {"summary": {"enabled": True, "model_ref": "not-a-uuid"}}}),
 )
 
@@ -479,9 +479,9 @@ def settings_render(
         {"id": "webchat-zh", "locale": "zh-CN", "group": groups["webchat"], "values": values,
          "errors": {"webchat.upload_max_bytes": "不得超过部署硬上限"}},
         {"id": "compaction-zh", "locale": "zh-CN", "group": groups["compaction"], "values": values,
-         "errors": {"snip.max_groups": "必须 ≥ 组头 + 组尾 + 1"}},
+         "errors": {"history_budget_tokens": "必须是 [1, 131072] 内的整数"}},
         {"id": "compaction-bool-zh", "locale": "zh-CN", "group": groups["compaction"], "values": values,
-         "errors": {"snip.enabled": "必须是布尔值"}},
+         "errors": {"summary.enabled": "必须是布尔值"}},
         {"id": "compaction-text-zh", "locale": "zh-CN", "group": groups["compaction"], "values": values,
          "errors": {"summary.model_ref": "必须是既有模型定义的主键（UUID）"}},
         {"id": "locale-zh", "locale": "zh-CN", "group": groups["locale"], "values": values,
@@ -582,7 +582,7 @@ def test_b289_field_errors_locate_the_control_instead_of_a_page_error(
     }, "compaction.summary.model_ref 必须定位到 summary.model_ref 控件"
     assert settings_ui["locations"]["compaction_relative"] == {
         "groupKey": "compaction",
-        "fieldPath": "snip.max_groups",
+        "fieldPath": "history_budget_tokens",
     }
     assert settings_ui["unknownLocation"] is None, "不存在的路径不得伪装成已定位控件"
     assert settings_ui["validationCode"] == "VALIDATION_FAILED"
@@ -700,8 +700,8 @@ def test_b289_field_error_renders_inside_its_control_row_only(
         ("capacity-zh", "capacity.max_open_runs_per_user", "用户上限不得超过租户上限"),
         ("model_pool-zh", "model_pool.interactive_weight", "权重必须落在 1～100"),
         ("webchat-zh", "webchat.upload_max_bytes", "不得超过部署硬上限"),
-        ("compaction-zh", "snip.max_groups", "必须 ≥ 组头 + 组尾 + 1"),
-        ("compaction-bool-zh", "snip.enabled", "必须是布尔值"),
+        ("compaction-zh", "history_budget_tokens", "必须是 [1, 131072] 内的整数"),
+        ("compaction-bool-zh", "summary.enabled", "必须是布尔值"),
         ("compaction-text-zh", "summary.model_ref", "必须是既有模型定义的主键（UUID）"),
         ("locale-zh", "locale.default_locale", "必须是 zh-CN 或 en-US"),
     )

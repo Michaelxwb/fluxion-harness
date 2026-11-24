@@ -131,7 +131,7 @@ for (const { locale, theme, width } of TIMELINE_CELLS) {
         const detail = timeline.getByTestId('run-event-details-4783');
         await expect(detail).toContainText(locale === 'zh-CN' ? '用户问题' : 'User question');
         await expect(detail).toContainText(locale === 'zh-CN' ? '成功' : 'Succeeded');
-        await expect(detail).toContainText(locale === 'zh-CN' ? '历史片段裁剪' : 'History trimming');
+        await expect(detail).toContainText(locale === 'zh-CN' ? '历史预算裁剪' : 'History budget trim');
         await expect(detail.locator('.run-event-text')).toHaveText(nodeDetail.text!);
         await expect(detail.locator('img')).toHaveCount(0);
         expect(await detail.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);

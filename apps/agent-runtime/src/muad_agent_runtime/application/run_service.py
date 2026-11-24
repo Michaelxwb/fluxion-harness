@@ -3080,7 +3080,7 @@ class RunService:
         skills: Sequence[ResolvedSkill],
         mcp_servers: Sequence[ResolvedMcpServer],
         mcp_secrets: dict[str, str],
-        history: LoadedHistory | None = None,
+        history: LoadedHistory | Sequence[ModelMessage] | None = None,
         history_loader: Callable[[], Awaitable[LoadedHistory]] | None = None,
         submission_id: uuid.UUID,
         resumed: bool,
@@ -3103,7 +3103,7 @@ class RunService:
                     raise ValueError("history or history_loader is required")
                 with db_stage("turn:history"):
                     history = await history_loader()
-            elif isinstance(history, tuple):
+            elif not isinstance(history, LoadedHistory):
                 history = LoadedHistory(messages=tuple(history))
             with db_stage("turn:start"):
                 start_event = await self._start_segment_event(run, submission_id, resumed)

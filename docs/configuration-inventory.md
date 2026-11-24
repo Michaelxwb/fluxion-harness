@@ -43,7 +43,7 @@
 
 设置文档 schema、默认值与跨字段联动校验落在 `packages/contracts/src/muad_contracts/platform_settings.py`（9 个分组的唯一权威声明，Console 与三个执行服务共用）。分组与叶子：
 
-- `compaction`（15）：`snip.{enabled,max_groups,keep_head_groups,keep_tail_groups}`、`tool_result.{persist_threshold_bytes,round_budget_bytes,preview_head_bytes,preview_tail_bytes}`、`micro.{enabled,keep_recent_tool_groups}`、`summary.{enabled,threshold_bytes,model_ref}`、`history_budget_messages`、`max_history_tool_rounds`
+- `compaction`（4）：`history_budget_tokens`、`tool_result.persist_threshold_bytes`、`summary.enabled`、`summary.model_ref`
 - `agent`（4）：`max_turns` / `max_tool_calls` / `deadline_ms` / `max_model_retries`
 - `task`（6）：`default_deadline_hours` / `max_attempts` / `batch_max_concurrency` / `misfire_grace_sec` / `delivery_max_attempts` / `delivery_backoff_base_sec`
 - `memory`（21）：`write_enabled` / `max_injected_memories` / `max_injected_bytes` / `max_recall_bytes` / `recall_default_limit` / `inject_inferred` / `task_state_injection_enabled` / `max_entries_per_user` / `max_memory_bytes_per_user` / `ttl_days_user` / `ttl_days_agent` / `ttl_days_task_state` / `consolidation_enabled` / `consolidation_min_user_messages` / `consolidation_max_input_bytes` / `consolidation_max_output_tokens` / `consolidation_timeout_sec` / `consolidation_max_candidates` / `consolidation_max_attempts` / `consolidation_retry_delay_sec` / `consolidation_lease_sec`
@@ -53,11 +53,11 @@
 - `im`（1）：`progress_interval_sec`
 - `mcp`（1）：`max_tools_per_server`
 
-联动校验必须保留（服务端单一来源，前端只做预检）：保留头尾组数与触发阈值的关系、预览头尾与预算的关系、摘要启用需要有效 `model_ref`（引用既有 `model_definition`，不引入平台默认模型）、memory 各叶子落在 `MEMORY_SETTING_BOUNDS`（召回条数上界 `RECALL_MAX_LIMIT`、硬配额上界 `MEMORY_MAX_RECORDS`/`MEMORY_MAX_BYTES`）、`memory.consolidation_lease_sec ≥ consolidation_timeout_sec + 15`、`task.batch_max_concurrency ≤ batch_platform_limit`（环境项）、未知键拒绝（fail-closed）。memory 硬额度（`max_entries_per_user`/`max_memory_bytes_per_user`）在线只能提高，降低需维护窗口排空。
+联动校验必须保留（服务端单一来源，前端只做预检）：`history_budget_tokens` 落在 schema 范围内且不得超过部署最小模型窗口的预留上限、摘要启用需要有效 `model_ref`（引用既有 `model_definition`，不引入平台默认模型）、memory 各叶子落在 `MEMORY_SETTING_BOUNDS`（召回条数上界 `RECALL_MAX_LIMIT`、硬配额上界 `MEMORY_MAX_RECORDS`/`MEMORY_MAX_BYTES`）、`memory.consolidation_lease_sec ≥ consolidation_timeout_sec + 15`、`task.batch_max_concurrency ≤ batch_platform_limit`（环境项）、未知键拒绝（fail-closed）。memory 硬额度（`max_entries_per_user`/`max_memory_bytes_per_user`）在线只能提高，降低需维护窗口排空。
 
 认证策略在登录 / 改密 / 续期边界读当前值校验；`session_ttl_hours` 与 Cookie `Max-Age` **同源**（登录时同一次读取），滑动阈值是**派生值**（会话自身窗口的一半），不是独立设置项。改会话时长只影响之后签发 / 续期的会话，不追改已签发会话，存量密码不回改。
 
-57 个叶子在 CSV 里的默认值来源标为 `business`：设置文档 schema 自身（`contracts/platform_settings.py`）、`agent` 分组的 `AgentPolicy` 字段与 `budget.py` 的 `DEFAULT_MAX_*`、`BudgetPolicy.max_messages`（与 `compaction.history_budget_messages` 收敛为同一冻结值）、以及 `model_gateway` 消费这些默认的参数入口。
+platform settings 叶子的默认值来源标为 `business`：设置文档 schema 自身（`contracts/platform_settings.py`）、`agent` 分组的 `AgentPolicy` 字段与 `budget.py` 的 `DEFAULT_MAX_*`，以及 `model_gateway` 消费这些默认的参数入口。历史预算只有一个来源：冻结的 `compaction.history_budget_tokens`；整轮工具结果外置预算由它派生，不再单独配置。
 
 ### Agent / 模型 / 压缩覆盖的优先级
 
@@ -134,7 +134,7 @@ API 默认 page size=20、max=100 与 UI 页量（2026-10-06 起全站统一 15�
 
 | # | 项 | 现状 | 依据 |
 |---|---|---|---|
-| 1 | 历史预算（`CompactionSettings.history_budget_messages` 与 `BudgetPolicy.max_messages`） | **已收敛** | `context_builder.BudgetPolicy.max_messages` 派生自 `default_compaction_settings().history_budget_messages`，同源 |
+| 1 | 历史预算（旧条数/回合口径与 token 预算） | **已收敛** | 旧 `history_budget_messages` / `max_history_tool_rounds` / `BudgetPolicy` 已删除；唯一预算是冻结的 `compaction.history_budget_tokens`，装配与请求边界共用 |
 | 2 | 工具结果默认（`TOOL_RESULT_ARTIFACT_BYTES` / `PREVIEW_*` 与 schema 默认） | **已收敛** | `ADR-05`：三个模块常量删除，`ToolResultSettings` 为唯一来源；CSV 中不再出现这些常量 |
 | 3 | 会话时长（auth_service 与 Cookie `Max-Age`） | **已收敛** | `auth.session_ttl_hours` 与 Cookie `Max-Age` 登录时同一次读取；`SESSION_TTL` / `SLIDE_THRESHOLD` 常量删除，阈值派生（`ADR-12`） |
 | 4 | 上传限制（Skill ZIP / 解压 / 项数；前端副本） | **部分收敛** | 服务端限额为单一来源并经 `API-05` 只读端点暴露；**前端 `SKILL_ZIP_LIMIT_BYTES` 副本仍在、尚未接线**（`技术债③`）。附件输入 / 输出 / 归档是不同操作的限额，本就不凭同值合并 |
@@ -143,7 +143,7 @@ API 默认 page size=20、max=100 与 UI 页量（2026-10-06 起全站统一 15�
 | 7 | 产物路径（`SharedSettings` 默认与 bootstrap 硬编码） | **已收敛** | `ADR-08`：删除裸 `getenv` 第二套默认，产物 / 技能缓存路径全部经启动 settings，集群侧由 ConfigMap 注入 |
 | 8 | 默认租户（CLI `DEFAULT_TENANT` 与 `SharedSettings.default_tenant_id`） | **已收敛** | `ADR-08`：CLI 改为读 `SharedSettings().default_tenant_id` |
 | 9 | 生效方式混杂（临时构造 `SharedSettings` / 进程内缓存） | **部分收敛** | `ADR-03`：删除 `ContextSettingsCache` 与 `context_settings_cache_ttl_sec`，设置快照只在业务操作边界取一次。**但“请求内临时构造 `SharedSettings()`”的全仓收口明确不在本次**（`技术债②`），仍属已知债 |
-| 10 | 间接资源限制（batch 并发 / 会话时长 / 模型预算 / 渠道限额） | **已收敛（渠道限额除外）** | 联动校验在 `validate_platform_settings`（`batch_max_concurrency ≤ batch_platform_limit`、snip / preview / summary / memory 关系）；会话时长同源、模型预算分层；WeCom 渠道固定上传限额**明确留在代码**（第三方硬上限，不随业务设置放宽） |
+| 10 | 间接资源限制（batch 并发 / 会话时长 / 模型预算 / 渠道限额） | **已收敛（渠道限额除外）** | 联动校验在 `validate_platform_settings`（`batch_max_concurrency ≤ batch_platform_limit`、`history_budget_tokens` 上界、summary / memory 关系）；会话时长同源、模型预算分层；WeCom 渠道固定上传限额**明确留在代码**（第三方硬上限，不随业务设置放宽） |
 
 ## “保存后立即生效”的落地契约（已交付）
 

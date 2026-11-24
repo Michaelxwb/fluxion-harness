@@ -12,11 +12,10 @@ import ast
 import inspect
 from pathlib import Path
 
-from muad_agent_runtime.application.context_builder import BudgetPolicy
+from muad_agent_runtime.application.context_builder import DbBackedContextBuilder
 from muad_agent_runtime.application.run_service import RunService
 from muad_common import SharedSettings
 from muad_console_platform.application.dto import PasswordChangeRequest
-from muad_contracts.platform_settings import CompactionSettings
 from pydantic import ValidationError
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -116,30 +115,17 @@ def test_tool_result_defaults_have_single_source() -> None:
     assert not present, f"重复默认源仍在源码里：{sorted(present)}"
 
 
-def _class_field_default(path: Path, class_name: str, field_name: str) -> ast.expr | None:
-    """取某类某字段的默认值 AST 节点（无默认返回 None）。"""
-    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-        if isinstance(node, ast.ClassDef) and node.name == class_name:
-            for item in node.body:
-                if (
-                    isinstance(item, ast.AnnAssign)
-                    and isinstance(item.target, ast.Name)
-                    and item.target.id == field_name
-                ):
-                    return item.value
-    return None
+def test_history_budget_has_single_source() -> None:
+    """历史预算只在 compaction schema 声明；装配入口必须接收冻结预算，不得自造默认。"""
+    source = ROOT / "apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py"
+    text = source.read_text(encoding="utf-8")
+    assert "class BudgetPolicy" not in text, "旧 BudgetPolicy 条数口径不得复活"
+    assert "max_messages" not in text, "历史预算不得再按消息条数声明"
 
-
-def test_budget_policy_default_derives_from_compaction_schema() -> None:
-    """`BudgetPolicy.max_messages` 与 schema 的 `history_budget_messages` 同源（同一冻结值）。"""
-    assert BudgetPolicy().max_messages == CompactionSettings().history_budget_messages
-    default = _class_field_default(
-        ROOT / "apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py",
-        "BudgetPolicy",
-        "max_messages",
-    )
-    assert not isinstance(default, ast.Constant), (
-        "BudgetPolicy.max_messages 又写回硬编码默认——必须派生自 schema"
+    params = inspect.signature(DbBackedContextBuilder.load_history).parameters
+    assert "budget_tokens" in params
+    assert params["budget_tokens"].default is inspect.Parameter.empty, (
+        "装配入口不得回落到第二套历史预算默认值"
     )
 
 

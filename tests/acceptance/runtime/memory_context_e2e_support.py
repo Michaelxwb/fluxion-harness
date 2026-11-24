@@ -105,16 +105,11 @@ def configure(stack, endpoint, layer):
             original = credential.base_url, agent.runtime_config
             credential.base_url = endpoint + "/v1"
             compaction = {
-                "snip": {
-                    "enabled": layer == "snip",
-                    "max_groups": 3,
-                    "keep_head_groups": 1,
-                    "keep_tail_groups": 1,
-                },
-                "micro": {"enabled": layer == "micro", "keep_recent_tool_groups": 1},
+                # 足够小，保证 5 个历史工具回合在请求边界触发一次真实裁剪/摘要。
+                "history_budget_tokens": 200,
+                "tool_result": {"persist_threshold_bytes": 8192},
                 "summary": {
                     "enabled": layer == "summary",
-                    "threshold_bytes": 0,
                     "model_ref": str(stack.model_id) if layer == "summary" else None,
                 },
             }
