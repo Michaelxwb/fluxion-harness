@@ -11,7 +11,7 @@ import { formatDuration } from './timelinePresentation';
 
 export const EVENT_DETAIL_STATUSES = ['OK', 'ERROR', 'RETRY', 'SUCCESS', 'COMPLETED', 'FAILED', 'CANCELLED', 'CREATED', 'RUNNING', 'WAITING_TOOL', 'WAITING_INPUT', 'QUEUED', 'WAITING', 'SUBMIT_PENDING', 'SUBMITTED', 'TASK_ACCEPTED', 'RESULT_RECEIVED', 'MATERIALIZED', 'LATE'] as const;
 const STATUSES: ReadonlySet<string> = new Set(EVENT_DETAIL_STATUSES);
-export const COMPACTION_LAYERS = ['micro', 'snip', 'summary'] as const;
+export const COMPACTION_LAYERS = ['summary', 'budget'] as const;
 const LAYERS: ReadonlySet<string> = new Set(COMPACTION_LAYERS);
 export const MODEL_RETRY_REASONS = ['RATE_LIMITED', 'UNAVAILABLE'] as const;
 const RETRY_REASONS: ReadonlySet<string> = new Set(MODEL_RETRY_REASONS);
@@ -82,6 +82,8 @@ function EventResources({ detail }: { detail: RunEventDetail }) {
       <span>{LAYERS.has(layer.layer) ? t(`run.eventDetail.layer.${layer.layer}`) : layer.layer}</span>
       {layer.groups !== null ? <span>{t('run.eventDetail.groups', { count: layer.groups })}</span> : null}
       {layer.bytes_saved !== null ? <span>{t('run.eventDetail.saved', { count: layer.bytes_saved })}</span> : null}
+      {layer.dropped_records !== null ? <span>{t('run.eventDetail.dropped', { count: layer.dropped_records })}</span> : null}
+      {layer.retained_from_seq !== null ? <span>{t('run.eventDetail.retained', { seq: layer.retained_from_seq })}</span> : null}
     </div>)}
   </>;
 }

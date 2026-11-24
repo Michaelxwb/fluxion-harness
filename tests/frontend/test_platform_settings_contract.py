@@ -156,6 +156,19 @@ def test_applies_to_labels_cover_all_five_values() -> None:
             assert payload.get(key), f"{locale} 缺少生效方式词条 {key}"
 
 
+def test_compaction_group_has_exactly_four_fields_and_no_legacy_keys() -> None:
+    groups = build_groups(PlatformSettings(), overrides={})
+    compaction = next(group for group in groups if group["key"] == "compaction")
+    paths = {field["path"] for field in compaction["fields"]}
+    assert paths == {
+        "history_budget_tokens",
+        "summary.enabled",
+        "summary.model_ref",
+        "tool_result.persist_threshold_bytes",
+    }
+    assert not any("snip." in path or "micro." in path for path in paths)
+
+
 def test_backend_catalog_label_keys_are_translated_in_both_locales() -> None:
     """遍历后端 catalog 的每个 label_key / unit_key，断言两侧词条齐备（最省事又最硬的覆盖）。"""
     groups = build_groups(PlatformSettings(), overrides={})

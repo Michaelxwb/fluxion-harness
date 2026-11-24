@@ -497,7 +497,7 @@
   - resume-model-turn PASS exit=0
 ## TASK-007: Console 4 字段与裁剪审计展示
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001, TASK-003
 - **Source**: conversation-context-retention.frontend.design.md；conversation-context-retention.backend.design.md §2.1、§2.3；conversation-context-retention.prd.md FEAT-01/03
 - **Scenarios**: E-01, E-02
@@ -539,11 +539,11 @@
 
 ### Checklist
 
-- [ ] 设置页只显示 4 个字段，旧字段/词条删除。
-- [ ] `settings.unit.tokens` 与字段词条在 zh-CN/en-US 两侧齐备。
-- [ ] 非法预算保存错误仍按后端字段路径定位。
-- [ ] Run 事件详情展示保留起点/丢弃条数，未知值可降级。
-- [ ] 不新增裁剪横幅或前端本地裁剪逻辑。
+- [x] 设置页只显示 4 个字段，旧字段/词条删除。
+- [x] `settings.unit.tokens` 与字段词条在 zh-CN/en-US 两侧齐备。
+- [x] 非法预算保存错误仍按后端字段路径定位。
+- [x] Run 事件详情展示保留起点/丢弃条数，未知值可降级。
+- [x] 不新增裁剪横幅或前端本地裁剪逻辑。
 
 ### Spec Delta
 
@@ -554,13 +554,15 @@
 ### Log
 
 - [2026-11-25] created；待任务边界复核。
+- [2026-11-24T17:21:42.011Z] started tests=5f918ab7ee8f
 
 ### Verification
 
 - 尚未执行
 
 <a id="task-008"></a>
-
+- 2026-11-24T17:24:11.628Z PASS commands=1/1 executed=1 deduped=0 elapsed=30029ms tests=5f918ab7ee8f head=6a1216d8e468 dirty=1
+  - console-settings-audit PASS exit=0
 ## TASK-008: 重置 runbook 与配置/需求 inventory
 
 - **Status**: draft

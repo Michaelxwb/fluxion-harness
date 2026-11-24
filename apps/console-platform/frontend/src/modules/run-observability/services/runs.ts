@@ -89,7 +89,7 @@ export interface RunEventDetail {
   fields: { key: EventDetailFieldKey; value: string | number }[];
   arguments: { name: string; value: string }[];
   attachments: { id: string | null; filename: string | null; media_type: string | null; size: number | null }[];
-  compaction: { layer: string; groups: number | null; bytes_saved: number | null }[];
+  compaction: { layer: string; groups: number | null; bytes_saved: number | null; dropped_records: number | null; retained_from_seq: number | null }[];
   model_state: 'LINKED' | 'UNLINKED' | 'PENDING' | null;
   model_summary: ModelRunSummary | null;
 }
