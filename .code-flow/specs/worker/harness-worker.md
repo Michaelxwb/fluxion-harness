@@ -1,7 +1,7 @@
 ---
 {
   "description": "任务、调度与投递",
-  "next_rule": 7
+  "next_rule": 8
 }
 ---
 
@@ -23,7 +23,11 @@
 
 - [RULE-006] 每次 Fire 必须用当前 Skill artifact 的 invocation_contract 重新校验渲染后的参数；契约缺失、参数不兼容或工具通配必须作为永久 admission 失败处理，不得创建 Execution，CRON 进入 NEEDS_ATTENTION、ONCE 进入 ENDED。
 
+- [RULE-007] Worker 按共享结果契约完成结算并持久化原始退出事实、执行判定、业务结论及可访问结果引用。后台回执传递已验证事实。报告和业务数据不能作为等待、扇出或投递指令，投递状态不改写已经确定的执行或业务结论。
+
 ## Conventions
+
+- **结算与回执保留验证结果**（RULE-007）：✅ 结构化审查发现保留原始退出事实并按已完成结算；❌ 把报告当成等待或扇出指令，或用投递失败改写业务结论。
 
 - **Run 来源的新 operation 冻结单次执行预算**：`TaskService._creation_values` 对有 `runtime_operation` 的 Task 使用 max_attempts=1，Child 继承；JOIN 从冻结 execution snapshot budget 读取带时区 run_deadline_at，并与自己的 Task deadline 取较早值，DETACH 受理后使用独立 Task deadline。立即提交每个真实 call 独立 operation，传输重试使用 `runtime-op:{operation_id}:submit/cancel`；受理响应包含可信 run/actor/operation/call/hash 与真实首次 Task 状态。✅ 重投同 operation，结果先到也不回退状态；❌ 把同 Run、Skill、输入的两次明确调用合并，或把提交未确认伪称 Task FAILED。
 
@@ -70,3 +74,5 @@
 - {"source":"2026-11-18/execution-and-delivery/execution-and-delivery.md#TASK-005#DELTA-001","op":"update","rule":"RULE-003","payload_sha256":"8b70684ff985a3fef4b4c70bee41c50bf0fa9fd47dd2478951db0e0631b62ff4","at":"2026-11-19T14:00:41.766Z"}
 
 - {"source":"2026-11-20/scheduled-skill-invocation/scheduled-skill-invocation.md#TASK-005#DELTA-005","op":"add","rule":"RULE-006","payload_sha256":"bab36447c2a8a66f430bbb55e0d2395800f7c023762b2015a9e5df3e28bda669","at":"2026-11-20T13:18:06.407Z"}
+
+- {"source":"2026-11-24/skill-results-conversation-finalization/skill-results-conversation-finalization.md#TASK-003#DELTA-001","op":"add","rule":"RULE-007","payload_sha256":"a26c8d21cc1ffb7b64ac0d453fce8a3b8807c761affaebb32d67939861dbc703","at":"2026-11-24T09:27:16.305Z"}

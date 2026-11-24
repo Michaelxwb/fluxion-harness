@@ -1,7 +1,7 @@
 ---
 {
   "description": "Skill 产物、缓存与子进程",
-  "next_rule": 6
+  "next_rule": 7
 }
 ---
 
@@ -21,7 +21,11 @@
 
 - [RULE-005] 对话直接调用 Skill 时，若默认入口声明 invocation_contract，必须在启动子进程或提交异步操作前按同一通道/参数 schema 校验；失败返回 SKILL_INVOCATION_INVALID（retryable=true）且不启动执行；辅助脚本不套用主入口契约；load_skill.manifest 返回 entrypoint 与 invocation_contract；无契约时保持现有行为。
 
+- [RULE-006] 可执行 Skill 的结果契约绑定不可变 artifact 及确定的默认入口，在导入时校验并随执行冻结。共享执行器独立记录真实退出事实、执行判定与业务结论。仅当受信 profile 允许且本次结果通过校验，才能将非零退出判为已完成的业务结果。宿主停止事实优先，结果声明不授予工具权限或重试安全性。
+
 ## Conventions
+
+- **区分进程退出与业务结论**（RULE-006）：✅ 受信审查入口输出与本次草稿版本匹配的有效报告，记录原始退出码和审查发现；❌ 单凭非零退出码或脚本自报状态改变执行判定。
 
 **Skill 包、目录与发现**：
 
@@ -77,3 +81,5 @@
 - {"source":"2026-11-20/scheduled-skill-invocation/scheduled-skill-invocation.md#TASK-001#DELTA-001","op":"add","rule":"RULE-004","payload_sha256":"6b4dcbe5db91886efd30ba011070d13461ca198c362761212e37c041e69b0aba","at":"2026-11-20T13:18:06.406Z"}
 
 - {"source":"2026-11-20/scheduled-skill-invocation/scheduled-skill-invocation.md#TASK-008#DELTA-008","op":"add","rule":"RULE-005","payload_sha256":"a9d34e87b9b7b63a8a8b049a252acc36a1bd71dd7b4a0f3e5efa3f0d8a21c264","at":"2026-11-20T13:18:06.408Z"}
+
+- {"source":"2026-11-24/skill-results-conversation-finalization/skill-results-conversation-finalization.md#TASK-001#DELTA-001","op":"add","rule":"RULE-006","payload_sha256":"b9d4c970fc8acd873dcd66e082c851e155c05d6a1852ce100cd4f89c4f2dae54","at":"2026-11-24T09:27:16.301Z"}

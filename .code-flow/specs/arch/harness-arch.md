@@ -15,7 +15,7 @@
 
 - [RULE-002] IM Gateway web 角色不持库（不得 import `sqlalchemy`）；渠道 SDK 只允许出现在 Connector 的 `channels/` 适配器；`iter_events()` 是 IM 入站规范化唯一入口，Connector 只发 `im.inbound`/`im.outbound`，不直接调 Runtime。机检 `tests/architecture/test_im_gateway_boundaries.py`。
 
-- [RULE-003] 失败收尾由 Runtime 确定性渲染，不新增模型调用；用户可见正文先给直白原因与下一步，终止码、工具/平台码、Run ID 与脱敏平台原文只进技术信息；首次确定性失败不得渲染成「重复失败」。本条覆盖 Conventions 中「收尾再发一次模型调用」的旧口径。
+- [RULE-003] 单次工具失败应作为结构化事实交给正常 Agent 回合。不可重试约束原操作重做，能否继续由剩余权限、预算、期限、副作用门禁和进展决定。执行进入硬停止或模型不可用时，由宿主依据已持久化事实确定性收尾，不补发模型调用。正文说明已完成范围、真实障碍和可行下一步，保留可交付结果。技术码、Run ID 与脱敏诊断只进技术详情。本条覆盖 Conventions 中确定性失败第一次即停和追加模型收尾的旧口径。
 
 - [RULE-004] 聊天 Skill 因本次调用中经出站准入确认的平台接口窗口限流而中断时，超限请求必须继续在外发前拦截并审计，工具结果明确记录查询受限。仅由该限流结束的聊天轮次保留已有正文，在正常助手回复末尾追加受限提示并停止派发后续工具；仅展示已验证可交付的部分结果。独立故障继续按其真实原因收尾。
 
@@ -71,7 +71,7 @@
   - ✅ 锁内预留本地槽、锁外 await claim；`free_slots` 扣除正在领取的槽；`finally` 释放预留且异常/取消原样传播。❌ 在 `finally` 中 `return False` 吞掉领取异常或 `CancelledError`，使启动失败不可见、关闭取消失效。
   - ✅ 断流不等于取消：SSE 断开后 Run 继续执行，重连按最后确认 seq 回放；claim 失败不改业务状态，只有 Run/continuation/lease 同事务切到新 owner+epoch 才算抢占成功
   - ❌ 把 Runner 生命周期绑在 HTTP 请求/SSE generator 上（连接断开=业务取消），或在请求内同步跑完整 Run（`apps/agent-runtime/src/muad_agent_runtime/application/run_service.py`、`async_tools/continuation_service.py`；机检：`tests/agent_runtime/test_tool_wait_state_machine.py`）
-- **失败跟进：确定性失败第一次即停，可重试失败按阈值**（RUN_NO_PROGRESS）：工具失败体分两种形状（抛异常＝状态 ERROR；工具自己返回 `{"error": {…}}`＝状态 OK），两者同等对待。**平台/环境失败第一次即停**（带平台 `detail`，或 `PLATFORM_`/`CREDENTIAL_`/`CONTROL_`/`SANDBOX_`/`MODEL_` 前缀：鉴权被拒、业务码非 0、控制面拒绝、模型不可用）；**模型可自行纠正的失败**（工具名拼错、参数/校验错、策略拦截、未标注异常）与显式 `retryable: true` 一样按阈值重试⇒ 第一次即进入**收尾**：禁用工具、只再发一次模型调用让模型整理失败结论（哪一步、错误码、平台返回、下一步建议）；终态 `RUN_NO_PROGRESS`，终态正文用这段结论，收尾调用失败或空产出时用「失败码 + 平台原文」兜底；`retryable: true`（网络/超时/5xx/429）⇒ 按 `(工具名, 错误码)` 计连续失败，达到平台设置 `agent.max_identical_failures`（Console agent 分组可配，默认 2）即停；任一真正成功的工具调用清零计数。目的：失败的环节继续尝试不会变成功，过度探索只会让用户以为卡住。✅ 一次 `PLATFORM_AUTH_REJECTED` 即停，网络抖动允许按配置重试；❌ 把返回的错误体当成功放过，或把不同错误码混算。
+- **失败跟进**（RULE-003）：正常回合读取结构化失败并在原权限和预算内决定下一步；同类失败缺乏进展达到策略上限后，由宿主根据已保存的事实收尾。✅ 认证被拒后解释阻塞或改走获授权的只读查询；❌ 因首次失败提前结束、用无关工具结果清除失败计数，或在硬停止后额外调用模型。
 - **工具并发是显式声明，默认串行**（async-tool-runtime，2026-10-09）：`ToolDefinition.concurrency`（`SERIAL` 默认 / `PARALLEL_READ`）+ `resource_key` 不可由模型设置；规划器按原调用序切**连续**批，资源冲突/未知依赖拆串行，`WRITE`/`EXTERNAL` 是前后屏障，批大小 ≤ `parallel_limit`（1–16，bool/小数/越界显式拒绝）。第一版只登记已证明只读的工具（`search_skills`/`read_skill_resource`/隔离 `get_task`/`list_tasks`）；`load_skill`、memory 与全部 MCP 默认 SERIAL。
   - ✅ 先按原序校验/授权/预留预算，再只并发 handler IO，结果按原序收口；❌ 按 `ToolEffect.READ` 或 MCP `readOnlyHint` 自动放行并行（对端提示不是授权依据）
   - 机检：`tests/agent_runtime/test_tool_parallel_planner.py`（`packages/agent-core/src/muad_agent_core/tools/planner.py`、`tools/registry.py`）
@@ -89,3 +89,5 @@
 - {"source":"2026-11-21/agent-output-and-platform-defaults/agent-output-and-platform-defaults.md#TASK-007#DELTA-002","op":"add","rule":"RULE-003","payload_sha256":"07379992368498a66463980b88dbc3014e3215ebfcdc0117cc04cb7dbb84fa45","at":"2026-11-21T07:54:54.594Z"}
 
 - {"source":"2026-11-23/chat-egress-rate-limit-notice/chat-egress-rate-limit-notice.md#TASK-002#DELTA-001","op":"add","rule":"RULE-004","payload_sha256":"517fc9693939f052dffaf5e73df2f16bb8678618d52df1cd6701781815a29b1d","at":"2026-11-23T07:47:20.774Z"}
+
+- {"source":"2026-11-24/skill-results-conversation-finalization/skill-results-conversation-finalization.md#TASK-006#DELTA-001","op":"update","rule":"RULE-003","payload_sha256":"541b70dac6d63b110935e01f80b0085f93bfdf6a21732346eb3f13876b3f6114","at":"2026-11-24T09:27:16.307Z"}
