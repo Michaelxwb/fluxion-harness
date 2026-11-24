@@ -91,6 +91,15 @@ def _start_server() -> tuple[subprocess.Popen[str], str]:
     return process, str(json.loads(line)["baseUrl"])
 
 
+def _run_async(coro: Any) -> Any:
+    """Run one coroutine on a private loop without disturbing pytest-asyncio's session loop."""
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
+
+
 def _login(base_url: str) -> dict[str, Any]:
     config = PlatformConfig(
         key=PLATFORM_KEY,
@@ -103,7 +112,7 @@ def _login(base_url: str) -> dict[str, Any]:
         credential_mode=CredentialMode.SHARED_ONLY,
     )
     credential = SecretValue(value=json.dumps({"ak": AK, "sk": SK}), version="1")
-    session = asyncio.run(MSSAdapter().authenticate(config, credential))
+    session = _run_async(MSSAdapter().authenticate(config, credential))
     cookies = json.loads(session.cookie or "[]")
     return {
         "platforms": {

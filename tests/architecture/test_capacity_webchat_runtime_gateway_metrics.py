@@ -868,7 +868,14 @@ async def test_b298_sse_buffer_backpressure_and_ledger_are_really_recorded() -> 
     text = render_metrics()
     assert CANARY_TEXT not in text, "正文不得进入指标文本"
     assert str(run_id) not in text, "资源 UUID 不得进入指标文本"
-    label_names = {name for _sample, labels, _value in _parse_samples(text) for name in labels}
+    # 全局注册表里还有本次套件其它模块的指标；label 卫生只对本目录声明的指标负责。
+    owned = {entry[0] for entry in (*runtime_metrics.CATALOG, *gateway_metrics.CATALOG)}
+    label_names = {
+        name
+        for sample, labels, _value in _parse_samples(text)
+        if any(sample == metric or sample.startswith(f"{metric}_") for metric in owned)
+        for name in labels
+    }
     assert label_names <= ALLOWED_LABEL_NAMES, f"真实样本出现白名单外 label：{sorted(label_names)}"
 
 

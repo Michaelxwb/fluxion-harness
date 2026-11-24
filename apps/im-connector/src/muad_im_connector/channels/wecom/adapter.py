@@ -42,6 +42,7 @@ from muad_im_gateway.channels.base import (
     FetchedAttachment,
 )
 from muad_logging import get_logger
+from muad_logging.redaction import redact_text
 
 from .media import (
     UPLOAD_CHUNK_CMD,
@@ -308,7 +309,11 @@ class _BotConnection:
         # 类名与消息都要：str(exc) 不含类名，只打 __name__ 又会丢掉「缺哪个包/为什么连不上」
         # 这类关键信息（真实事故：只落 ImportError，看不到 requires python-socks）。
         logger.warning(
-            "%s bot_id=%s error=%s: %s", event, self.bot.bot_id, type(error).__name__, error
+            "%s bot_id=%s error=%s: %s",
+            event,
+            self.bot.bot_id,
+            type(error).__name__,
+            redact_text(str(error)),
         )
 
     def _handle_message(self, message: WeComInboundMessage) -> None:
