@@ -352,7 +352,7 @@ export function ExternalIdentitySection(props: ExternalIdentitySectionProps) {
       )}
 
       <FormModal
-        key={`identity-${editing?.identity_id ?? 'new'}-${identityModal.platformKey}`}
+        key={`identity-${editing?.identity_id ?? 'new'}`}
         visible={identityModal.visible}
         title={editing ? t('user.external.editTitle') : t('user.external.addTitle')}
         confirmLoading={submitting}
@@ -384,11 +384,15 @@ export function ExternalIdentitySection(props: ExternalIdentitySectionProps) {
             label: item.display_name || item.platform_key
           }))}
           onChange={(value) => {
-            // 换平台后字段集合不同，重置表单并重新挂载，避免上一个平台的字段残留。
-            setIdentityModal({
-              visible: true,
-              platformKey: String(value ?? '')
+            const nextKey = String(value ?? '');
+            // 换平台后字段集合不同，清空已粘贴的 claims 避免上一个平台的残留值；
+            // 用 FormApi 重置而不是让 Modal 的 key 变化重挂——重挂会让弹窗闪一下。
+            setIdentityModal({ visible: true, platformKey: nextKey });
+            identityFormApi.current?.setValues({
+              [PLATFORM_FIELD]: nextKey,
+              [CLAIMS_FIELD]: ''
             });
+            setFormError(null);
           }}
         />
         <div className="detail-hint" style={{ marginBottom: 8 }}>

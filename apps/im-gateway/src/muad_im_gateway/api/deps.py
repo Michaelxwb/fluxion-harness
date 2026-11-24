@@ -24,9 +24,6 @@ from ..infrastructure.artifact_resolver import ArtifactResolverPort
 from ..infrastructure.dedupe import DedupeStore
 from ..infrastructure.streams import DeliveryStreams
 
-#: 外部平台断言请求头（RULE-01：MSSWWEB 面只认它，Cookie/Authorization 一律拒绝）。
-SOC_TOKEN_HEADER = "soc-token"
-
 
 def get_registry(request: Request) -> ChannelRegistry:
     registry: ChannelRegistry = request.app.state.registry
@@ -118,14 +115,15 @@ async def get_chat_credentials(
 ) -> ChatSessionCredentials:
     """CHAT 请求凭据：按 surface 的认证方式取。
 
-    - `EXTERNAL_ASSERTION`（MSSWWEB）：**只**认 `soc-token` 请求头（RULE-01：Cookie/Authorization
-      一律拒绝），无会话上下文；
+    - `EXTERNAL_ASSERTION`（MSSWWEB 等）：**只**认该 surface 配置的断言头
+      （默认 `soc-token`；RULE-01：Cookie/Authorization 一律拒绝），无会话上下文；
     - `USER_TOKEN`（WebChat）：Cookie 原文 + `X-Chat-Context`（缺失上下文头仍是 422）。
 
-    两条路径都不会把"没有凭据"当成合法主体。
+    两条路径都不会把"没有凭据"当成合法主体。断言头名按 surface 注入，支持多外部平台
+    各用各的头（`surface.assertion_header`）。
     """
     if surface.auth_kind == "EXTERNAL_ASSERTION":
-        assertion = request.headers.get(SOC_TOKEN_HEADER, "")
+        assertion = request.headers.get(surface.assertion_header, "")
         if not assertion.strip():
             raise AppError(ErrorCode.UNAUTHORIZED)
         return ChatSessionCredentials(assertion=SecretStr(assertion))

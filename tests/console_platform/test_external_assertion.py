@@ -19,6 +19,7 @@ from muad_console_platform.application.external_assertion.aes_ecb import (
     matches_expected,
 )
 from muad_console_platform.application.external_assertion.config import (
+    ExternalPlatformConfig,
     PlatformConfigError,
     load_platform_configs,
 )
@@ -32,6 +33,24 @@ from muad_console_platform.application.external_assertion.verifier import (
 )
 
 ISSUER = "mssw-issuer"
+
+
+def _default_config() -> ExternalPlatformConfig:
+    """构造一个只关心默认时效口径的配置（供 `_session_expires_at` 直调测试用）。
+
+    公钥/因子字段在这些测试里用不到，随便给一个占位 PEM 即可；`issue_time_*` / `channel`
+    走 dataclass 默认值（`login_time`/`time`、`ms`、`MSSWWEB`），与 MSSW 上游一致。
+    """
+    return ExternalPlatformConfig(
+        platform_key="mssw",
+        public_key=None,  # type: ignore[arg-type]
+        issuer=ISSUER,
+        audience="aud",
+        salt=b"0" * 32,
+        identity_keys=("expert_id", "tenant_id"),
+        identity_field_labels={},
+        display_name="mssw",
+    )
 AUDIENCE = "mssw-audience"
 SALT = b"mssw-test-salt"
 
@@ -220,6 +239,34 @@ def test_future_issue_time_is_rejected(keypair, config) -> None:
     assert exc.value.reason == "assertion_expired"
 
 
+def test_seconds_granularity_login_time_is_not_misread_as_ms(keypair, config) -> None:
+    """真实上游形态：`login_time` 是**秒级**字符串，`time` 是**毫秒级**整数。
+
+    同一 token 内两个字段单位不同；若按单一 `issue_time_unit='ms'` 统一除 1000，秒值会算到
+    1970 年，`age` 变成上万年而被误判 `assertion_expired`。`_seconds_from_epoch` 按量级自适应后
+    应正确放行。
+    """
+    private, _ = keypair
+    now_sec = int(time.time())
+    token = _sign(private, _claims(login_time=str(now_sec), time=now_sec * 1000))
+    verified = verify_assertion(token, config, max_session_age_sec=86400)
+    assert verified.claims["login_time"] == str(now_sec)
+
+
+def test_issue_time_unit_adapts_to_magnitude_both_keys(keypair, config) -> None:
+    """两个候选 key 各自按量级换算：秒级与毫秒级都应被识别为「刚签发」，不误判过期。"""
+    from muad_console_platform.application.external_assertion.verifier import _issued_at_seconds
+
+    now = time.time()
+    # 秒级 login_time 命中：应约等于 now。
+    sec_claims = {"login_time": str(int(now)), "time": int(now * 1000)}
+    assert abs(_issued_at_seconds(sec_claims, config) - now) < 2
+
+    # 只有毫秒级 time 时，也应约等于 now。
+    ms_claims = {"time": int(now * 1000)}
+    assert abs(_issued_at_seconds(ms_claims, config) - now) < 2
+
+
 def test_iat_alone_is_not_accepted_as_issue_time(keypair, config) -> None:
     """上游从不发 `iat`：只带 `iat` 的样本必须被判为「缺签发时间」，防止字段名回退。"""
     private, _ = keypair
@@ -265,6 +312,81 @@ def test_identity_hash_changes_with_tenant() -> None:
 def test_empty_config_means_no_platform() -> None:
     assert load_platform_configs("") == {}
     assert load_platform_configs(None) == {}
+
+
+def _pem(keypair) -> str:
+    _, public = keypair
+    return public.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    ).decode("utf-8")
+
+
+def _platform_payload(keypair, **extra) -> dict:
+    return {
+        "mssw": {
+            "public_key": _pem(keypair),
+            "issuer": ISSUER,
+            "audience": AUDIENCE,
+            "salt": SALT.decode("utf-8"),
+            "identity_keys": ["expert_id", "tenant_id"],
+            **extra,
+        }
+    }
+
+
+def test_config_new_keys_default_to_mssw_behaviour(keypair) -> None:
+    """不配新键时，时效/通道取 MSSW 默认值——存量部署零变化。"""
+    cfg = load_platform_configs(json.dumps(_platform_payload(keypair)))["mssw"]
+    assert cfg.issue_time_keys == ("login_time", "time")
+    assert cfg.issue_time_unit == "ms"
+    assert cfg.channel == "MSSWWEB"
+
+
+def test_config_parses_overridden_time_keys_unit_and_channel(keypair) -> None:
+    payload = _platform_payload(
+        keypair, issue_time_keys=["iat"], issue_time_unit="s", channel="ACMEWEB"
+    )
+    cfg = load_platform_configs(json.dumps(payload))["mssw"]
+    assert cfg.issue_time_keys == ("iat",)
+    assert cfg.issue_time_unit == "s"
+    assert cfg.channel == "ACMEWEB"
+
+
+def test_config_rejects_bad_time_unit(keypair) -> None:
+    payload = _platform_payload(keypair, issue_time_unit="minute")
+    with pytest.raises(PlatformConfigError):
+        load_platform_configs(json.dumps(payload))
+
+
+@pytest.mark.parametrize("channel", ["MSSWWEB", "MSSPWEB", "msspweb", "ACMEWEB", "xweb"])
+def test_config_accepts_valid_channel_names(keypair, channel: str) -> None:
+    """合规通道名（字母数字 + web 结尾，任意大小写）通过解析（RULE-im-013）。"""
+    payload = _platform_payload(keypair, channel=channel)
+    cfg = load_platform_configs(json.dumps(payload))["mssw"]
+    assert cfg.channel == channel
+
+
+@pytest.mark.parametrize(
+    "channel",
+    ["MSSPWEBUAT", "msspweb_uat", "mssp-web", "MSSP", "web", " Web", "w e b"],
+)
+def test_config_rejects_invalid_channel_name(keypair, channel: str) -> None:
+    """不合规通道名在解析期显式失败，而非运行期静默 404（RULE-im-013）。
+
+    回归点：路由前缀取自 channel.lower()，nginx 用 `^/api/v1/[a-z0-9]+web` 转发；名字带
+    下划线/横线/非 web 结尾会让 nginx 匹配不到 → 404，且无明确报错。
+    """
+    payload = _platform_payload(keypair, channel=channel)
+    with pytest.raises(PlatformConfigError):
+        load_platform_configs(json.dumps(payload))
+
+
+def test_config_empty_issue_time_keys_falls_back_to_default(keypair) -> None:
+    """空列表视同未配置，回退默认候选键（不报错、不产生"没有任何时效字段"）。"""
+    payload = _platform_payload(keypair, issue_time_keys=[])
+    cfg = load_platform_configs(json.dumps(payload))["mssw"]
+    assert cfg.issue_time_keys == ("login_time", "time")
 
 
 def test_missing_factor_is_a_config_error(keypair) -> None:
@@ -322,8 +444,9 @@ async def test_resolve_raises_platform_unavailable_when_no_platform_configured(
 
 async def test_resolve_rejects_assertion_on_another_channel(
     monkeypatch: pytest.MonkeyPatch,
+    keypair,
 ) -> None:
-    """断言只能用在外部断言通道上；声明了别的通道直接拒绝，且不访问存储。"""
+    """断言只能用在**该平台配置的通道**上；声明了别的通道直接拒绝，且不访问存储。"""
     from muad_common import SharedSettings
     from muad_console_platform.application import external_assertion_service as svc_mod
 
@@ -337,9 +460,28 @@ async def test_resolve_rejects_assertion_on_another_channel(
             touched.append(name)
             raise AssertionError(f"通道不匹配不得访问存储方法 {name}")
 
+    _, public = keypair
+    pem = public.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    ).decode("utf-8")
+    # `mssw` 默认通道是 MSSWWEB；这里声明 WEBCHAT 必须被拒。
+    platform_json = json.dumps(
+        {
+            "mssw": {
+                "public_key": pem,
+                "issuer": ISSUER,
+                "audience": AUDIENCE,
+                "salt": SALT.decode("utf-8"),
+                "identity_keys": ["expert_id", "tenant_id"],
+            }
+        }
+    )
     monkeypatch.setattr(svc_mod, "ExternalIdentityRepository", _RecordingRepo)
     monkeypatch.setattr(
-        svc_mod, "process_settings", lambda: SharedSettings(external_assertion_platforms_json="")
+        svc_mod,
+        "process_settings",
+        lambda: SharedSettings(external_assertion_platforms_json=platform_json),
     )
     service = svc_mod.ExternalAssertionService(session=None)  # type: ignore[arg-type]
 
@@ -411,6 +553,7 @@ def test_session_expiry_takes_the_soonest_of_three_bounds() -> None:
             "login_time": str(int(issued.timestamp() * 1000)),
             "exp": int((now + timedelta(seconds=5)).timestamp()),
         },
+        _default_config(),
         max_session_age_sec=600,
     )
     assert expires < now + timedelta(seconds=10)
@@ -418,13 +561,15 @@ def test_session_expiry_takes_the_soonest_of_three_bounds() -> None:
 
     # 无正数 exp、login_time 较旧 → 应取 login_time + max_age（毫秒截断，允许亚秒误差）
     expires = _session_expires_at(
-        {"login_time": str(int(issued.timestamp() * 1000)), "exp": -1}, max_session_age_sec=60
+        {"login_time": str(int(issued.timestamp() * 1000)), "exp": -1},
+        _default_config(),
+        max_session_age_sec=60,
     )
     assert abs((expires - (issued + timedelta(seconds=60))).total_seconds()) < 1
 
     # 缺 login_time 且 exp 非正 → 只剩 now + max_age 兜底
     before = datetime.now(tz=UTC)
-    expires = _session_expires_at({"exp": -1}, max_session_age_sec=60)
+    expires = _session_expires_at({"exp": -1}, _default_config(), max_session_age_sec=60)
     assert expires >= before + timedelta(seconds=59)
 
 
@@ -436,7 +581,9 @@ def test_session_expiry_ignores_non_positive_exp() -> None:
 
     now = datetime.now(tz=UTC)
     issued_ms = int((now - timedelta(seconds=10)).timestamp() * 1000)
-    expires = _session_expires_at({"login_time": str(issued_ms), "exp": -1}, max_session_age_sec=600)
+    expires = _session_expires_at(
+        {"login_time": str(issued_ms), "exp": -1}, _default_config(), max_session_age_sec=600
+    )
     # 落在 login_time + 600s 附近，且显然在「现在」之后（-1 没把会话判死）
     assert expires > now + timedelta(seconds=500)
 
@@ -458,13 +605,31 @@ def test_session_expiry_without_age_cap_only_honours_positive_exp() -> None:
 
     # 关闭年龄闸：登录已过去 8 小时也不再因年龄被判过期。
     for disabled in (0, None):
-        expires = _session_expires_at(claims, max_session_age_sec=disabled)
+        expires = _session_expires_at(claims, _default_config(), max_session_age_sec=disabled)
         assert expires > now + timedelta(days=365), "关闭年龄闸后不应设任何年龄上限"
 
     # 但上游若给了正数 exp，仍要尊重它——闸关闭 ≠ 无视一切约束。
     exp = int((now + timedelta(minutes=30)).timestamp())
-    bounded = _session_expires_at({**claims, "exp": exp}, max_session_age_sec=0)
+    bounded = _session_expires_at({**claims, "exp": exp}, _default_config(), max_session_age_sec=0)
     assert abs((bounded - datetime.fromtimestamp(exp, tz=UTC)).total_seconds()) < 1
+
+
+def test_issue_time_unit_and_keys_follow_platform_config() -> None:
+    """时效字段与单位来自平台配置：`s` 单位不除以 1000，自定义键名按配置读取。"""
+    import dataclasses
+    from datetime import UTC, datetime
+
+    from muad_console_platform.application.external_assertion.verifier import _issued_at_seconds
+
+    now = datetime.now(tz=UTC)
+    now_s = int(now.timestamp())  # 秒
+    cfg = dataclasses.replace(
+        _default_config(), issue_time_keys=("iat",), issue_time_unit="s"
+    )
+    # `s` 单位：iat 是秒，原样返回，不 /1000
+    assert abs(_issued_at_seconds({"iat": now_s}, cfg) - now_s) < 1
+    # 默认 ms 配置读不到 `iat`（不在候选键里），返回 None
+    assert _issued_at_seconds({"iat": now_s}, _default_config()) is None
 
 
 # --- 凭证层/权限层写入：Console 是唯一的写入者 ----------------------------------------

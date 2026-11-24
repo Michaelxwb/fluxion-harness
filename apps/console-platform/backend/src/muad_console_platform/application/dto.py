@@ -744,6 +744,8 @@ class ExternalPlatformItem(BaseModel):
     configured: bool
     identity_keys: list[str]
     identity_field_labels: dict[str, str] = Field(default_factory=dict)
+    #: 该平台归属的外部断言通道名（驱动 Console 建入口时的通道下拉与「无 secret」判定）。
+    channel: str = ""
 
 
 class ExternalEntryItem(BaseModel):

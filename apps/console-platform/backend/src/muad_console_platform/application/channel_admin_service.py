@@ -23,14 +23,29 @@ WECOM_CHANNEL = "WECOM"
 WEBCHAT_CHANNEL = "WEBCHAT"
 #: 外部平台网页入口：身份由上游 JWT 断言给出，验签因子走 Secret，入口本身无 secret。
 MSSWWEB_CHANNEL = "MSSWWEB"
-#: 没有企微凭据的稳定入口通道：创建与更新都不接受 secret（显式拒绝，不静默存一份没人消费的凭据）。
-SECRETLESS_CHANNELS = frozenset({WEBCHAT_CHANNEL, MSSWWEB_CHANNEL})
+#: 没有企微凭据的**内置**稳定入口通道：WEBCHAT（稳定入口标识）与 MSSWWEB（外部断言）。
+#: MSSWWEB 常驻这里，不只依赖 `get_platform_configs()`——即使 Secret 里某项缺 `channel`
+#: 或解析失败退回，也不让内置 MSSWWEB 通道被误判为「需要 secret」。其余**新增**外部
+#: 平台通道仍由 `secretless_channels()` 从配置补齐，新增平台不必改这里。
+_BUILTIN_SECRETLESS_CHANNELS = frozenset({WEBCHAT_CHANNEL, MSSWWEB_CHANNEL})
+
+
+def secretless_channels() -> frozenset[str]:
+    """无 secret 的稳定入口通道集合 = 内置 `{WEBCHAT}` ∪ 所有外部断言平台的 `channel`。
+
+    外部断言通道的身份来自上游 JWT，入口本身无 secret。平台列表由 Secret 配置驱动，
+    故新增平台后其通道自动被认作无 secret，无需改代码。
+    """
+    from .external_assertion.config import get_platform_configs
+
+    external = {cfg.channel for cfg in get_platform_configs().values()}
+    return _BUILTIN_SECRETLESS_CHANNELS | external
 
 
 def entry_secret(channel_name: str, secret: str | None) -> str | None:
-    """按通道裁决企微凭据：企微入口必须携带；稳定入口（WEBCHAT/MSSWWEB）不得携带。"""
+    """按通道裁决企微凭据：企微入口必须携带；稳定入口（WEBCHAT/外部断言通道）不得携带。"""
     provided = secret or None
-    if channel_name in SECRETLESS_CHANNELS:
+    if channel_name in secretless_channels():
         if provided is not None:
             raise AppError(
                 ErrorCode.COMMON_VALIDATION_ERROR,

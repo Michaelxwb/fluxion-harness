@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
-from decimal import Decimal
 
 import redis.asyncio
 from fastapi import FastAPI
@@ -54,8 +52,7 @@ from .application.webchat_core import ChatSurface
 from .application.webchat_streams import SseBufferLedger
 from .application.worker_client import WorkerClient
 from .channels.base import ChannelRegistry
-from .channels.registry import build_channel_registry, dispatch_snapshot
-from .channels.registry import external_platforms_enabled as _external_platforms_configured
+from .channels.registry import build_channel_registry, dispatch_snapshot, parse_external_platform_surfaces
 from .channels.routed import parse_routed_channels
 from .channels.webhook import parse_webhook_channels
 from .infrastructure.artifact_resolver import HttpArtifactResolver
@@ -67,7 +64,11 @@ from .metrics import install_gateway_metrics
 
 #: 本地流式对话面的挂载前缀：路由本身不带 prefix，装配根是唯一挂载事实。
 WEBCHAT_API_PREFIX = "/api/v1/webchat"
-MSSWWEB_API_PREFIX = "/api/v1/msswwweb"
+#: 默认外部断言通道（`MSSWWEB`）的标准前缀，等价 `_external_prefix_for("MSSWWEB")`；
+#: 多平台时各平台前缀由 `_external_prefix_for(channel)` 按通道名生成，此常量作默认基准。
+#: 使用通道名小写（`msswweb`，7 个 w）——不再保留历史的 `/msswwweb`（8 个 w）特例，
+#: 使「通道名 → 路由前缀」在所有平台上一致、可推导。
+MSSWWEB_API_PREFIX = "/api/v1/msswweb"
 
 logger = get_logger(__name__)
 
@@ -521,44 +522,38 @@ app.include_router(webhook_router)
 # WEBCHAT（Console 签发的 CHAT token）与 MSSWWEB（上游 platform 断言）共享 handler，
 # 仅通道名与认证方式不同；通道字面量只在本装配根出现，api/application 层保持中立。
 def _build_webchat_surfaces(settings: SharedSettings) -> dict[str, ChatSurface]:
-    """按配置生成要挂载的 surface 表：WEBCHAT 恒定，MSSWWEB 仅在启用外部断言平台时加。"""
+    """按配置生成要挂载的 surface 表：WEBCHAT 恒定，每个外部平台各挂一套。
+
+    每个外部断言平台按它配置的 `channel` / `assertion_header` 挂一套
+    `/api/v1/<channel 小写>`，`platform_key` 直接取该平台自身——不再有"全局单平台"
+    假设（旧 `_single_external_platform_key` 平台数 >1 即 503 的行为已废弃）。
+    """
     surfaces: dict[str, ChatSurface] = {
         WEBCHAT_API_PREFIX: ChatSurface(channel="WEBCHAT", auth_kind="USER_TOKEN"),
     }
-    if _external_platforms_configured(settings):
-        surfaces[MSSWWEB_API_PREFIX] = ChatSurface(
-            channel="MSSWWEB",
+    for platform_key, (channel, header) in parse_external_platform_surfaces(settings).items():
+        prefix = _external_prefix_for(channel)
+        if prefix in surfaces:
+            # 通道名与内置 WEBCHAT 前缀撞车等极端配置：显式记错、跳过，不覆盖内置面。
+            logger.error("webchat_surface_prefix_collision channel=%s prefix=%s", channel, prefix)
+            continue
+        surfaces[prefix] = ChatSurface(
+            channel=channel,
             auth_kind="EXTERNAL_ASSERTION",
-            platform_key=_single_external_platform_key(settings),
+            platform_key=platform_key,
+            assertion_header=header,
         )
     return surfaces
 
 
-def _single_external_platform_key(settings: SharedSettings) -> str | None:
-    """从 Secret 配置解析外部断言平台的 `platform_key`（channel 与平台一一对应）。
+def _external_prefix_for(channel: str) -> str:
+    """外部断言面的路由前缀，统一为 `/api/v1/<channel 小写>`。
 
-    未配置/无法解析时返回 `None`：认证会在转发 `external-principal` 前以 503 失败，
-    而不是把错误藏进验签结果里。
+    历史上 `MSSWWEB` 曾特判成 `/api/v1/msswwweb`（8 个 w，与通道名小写不一致），导致
+    路径难以推导、易误写为 7 个 w 而 404。现统一按通道名小写生成：`MSSWWEB` → `msswweb`，
+    `MSSPWEB` → `msspweb`。「加一个平台 = 多一条配置」时路由自然出现，不必手写。
     """
-    raw = getattr(settings, "external_assertion_platforms_json", "") or ""
-    try:
-        # `parse_float=Decimal`：平台 id 可能是超长数字，按 float 解析会丢精度，
-        # 导致键与 Console 侧写的不一致。
-        parsed = json.loads(raw, parse_float=Decimal) if raw.strip() else {}
-    except ValueError:
-        return None
-    if not isinstance(parsed, dict):
-        return None
-    if len(parsed) > 1:
-        # 一个通道只能对应一个平台。静默取第一个会让多配的平台不报错却永不生效，
-        # 属于「改了没反应」的典型来源——显式失败，走既有的 503 路径。
-        logger.error(
-            "external_assertion_platforms_ambiguous count=%d keys=%s",
-            len(parsed),
-            ",".join(sorted(parsed)),
-        )
-        return None
-    return next(iter(parsed), None)
+    return f"/api/v1/{channel.lower()}"
 
 
 def mount_webchat_surfaces(target_app: FastAPI, settings: SharedSettings) -> None:

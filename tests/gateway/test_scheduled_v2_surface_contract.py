@@ -6,7 +6,7 @@
   surface 上，同一输入必须得到逐字节相同的 `data`（items/detail/pending/badges 全对齐）。
 - 两个 surface 的唯一差别是前缀与确认来源（`ConfirmationSurface`）；数据范围是 user+agent，
   entry/channel 只是来源元数据（响应里没有这些字段的位置）。
-- 生产 `muad_im_gateway.main.app` 上**没有** `/api/v1/msswwweb/task-center/*`：MSSWWEB 任务中心
+- 生产 `muad_im_gateway.main.app` 上**没有** `/api/v1/msswweb/task-center/*`：MSSWWEB 任务中心
   属于另立需求，落地时只加路由，不改 service/contracts（本文件把它钉成事实）。
 
 Fake principal 是本文件唯一的"假"边界（S-12 明确要求）；scoping 语义仍由真实 service 执行。
@@ -56,7 +56,7 @@ CONFIRMED_SCHEDULE = UUID("c3c3c3c3-c3c3-43c3-83c3-c3c3c3c3c3c3")
 
 #: Fake MSSWWEB surface：本需求**只存在于测试**，用于证明同一 service 可以直接复用。
 MSSWWEB_SURFACE = TaskCenterSurface(
-    name="msswwweb", confirmation_surface=ConfirmationSurface.MSSWWEB
+    name="msswweb", confirmation_surface=ConfirmationSurface.MSSWWEB
 )
 
 FORBIDDEN_PAYLOAD_KEYS = frozenset(
@@ -400,12 +400,12 @@ async def test_both_surfaces_return_identical_data(tmp_path: Path) -> None:
             webchat = await clients[WEBCHAT_SURFACE.name].get(
                 _url(WEBCHAT_SURFACE, path), headers={"X-Chat-Context": str(SESSION_WEBCHAT)}
             )
-            msswwweb = await clients[MSSWWEB_SURFACE.name].get(
+            msswweb = await clients[MSSWWEB_SURFACE.name].get(
                 _url(MSSWWEB_SURFACE, path), headers={"X-Chat-Context": str(SESSION_MSSWWEB)}
             )
             assert webchat.status_code == 200, (path, webchat.text)
-            assert msswwweb.status_code == 200, (path, msswwweb.text)
-            assert webchat.json()["data"] == msswwweb.json()["data"], path
+            assert msswweb.status_code == 200, (path, msswweb.text)
+            assert webchat.json()["data"] == msswweb.json()["data"], path
             assert _forbidden_keys(webchat.json()["data"]) == set(), path
 
 
@@ -454,7 +454,7 @@ async def test_confirm_uses_each_surface_confirmation_source(tmp_path: Path) -> 
 
     assert owner.confirmations == [
         (ConfirmationSurface.WEBCHAT, "confirm-webchat", DRAFT_ID),
-        (ConfirmationSurface.MSSWWEB, "confirm-msswwweb", DRAFT_ID),
+        (ConfirmationSurface.MSSWWEB, "confirm-msswweb", DRAFT_ID),
     ], "同一 service 只按 surface 写确认来源，不改契约"
 
 
@@ -471,7 +471,7 @@ async def test_handler_sets_differ_only_by_prefix(tmp_path: Path) -> None:
     assert len(paths(WEBCHAT_SURFACE)) == 11, "任务列表 + API-12..19 + API-25 + API-31 同一组 handler"
 
 
-def test_production_app_mounts_no_msswwweb_task_center() -> None:
+def test_production_app_mounts_no_msswweb_task_center() -> None:
     routes: list[Any] = []
     for route in production_app.routes:
         expand = getattr(route, "effective_route_contexts", None)
@@ -484,7 +484,7 @@ def test_production_app_mounts_no_msswwweb_task_center() -> None:
         for route in routes
         if str(getattr(route, "path", "")).startswith("/api/v1/")
     }
-    assert not [path for path in mounted if path.startswith("/api/v1/msswwweb")], (
+    assert not [path for path in mounted if path.startswith("/api/v1/msswweb")], (
         "MSSWWEB 任务中心另立需求：本需求不得挂载它的路由"
     )
     assert "/api/v1/webchat/task-center/schedules" in mounted

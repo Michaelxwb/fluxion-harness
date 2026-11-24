@@ -23,12 +23,12 @@
 业务平台前端
   └─ 业务平台 BFF
        └─ muad-nginx（内网统一入口）
-            └─ /api/v1/msswwweb/*
+            └─ /api/v1/msswweb/*
 ```
 
 - BFF 统一走 `muad-nginx`，不直连后端服务。
 - 上传、下载、SSE 都走同一个入口，不需要额外开通域名。
-- 当前平台的 Base URL 形如：`https://<内网站点>/api/v1/msswwweb`，具体域名/端口由部署方提供。
+- 当前平台的 Base URL 形如：`https://<内网站点>/api/v1/msswweb`，具体域名/端口由部署方提供。
 - 后续同类平台只换 Base URL；下面的路径、字段、错误码保持不变。
 
 ### 1.2 一次对话的调用顺序

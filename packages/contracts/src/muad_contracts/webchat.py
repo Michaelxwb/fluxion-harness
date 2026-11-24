@@ -660,7 +660,7 @@ class ExternalIdentityQuery(WebchatContract):
 
 
 class ExternalIdentityView(WebchatContract):
-    """`GET /api/v1/msswwweb/identity` 的响应（API-01）：外部平台据此判断「此人能否用机器人」。
+    """`GET /api/v1/msswweb/identity` 的响应（API-01）：外部平台据此判断「此人能否用机器人」。
 
     与 `/entries` 的分工：`/entries` 是**资源接口**（只列可用入口，拒绝走 401/403）；
     `/identity` 是**权限查询**（未通过是正常结果，恒 200）——所以这里用 `allowed` + `reason`

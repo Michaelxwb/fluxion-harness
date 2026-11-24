@@ -13,6 +13,7 @@ from httpx import ASGITransport, AsyncClient
 from muad_agent_runtime.application.ports import NullPlatformSettingsClient
 from muad_api import install_api_foundation
 from muad_common import SharedSettings
+from muad_common.redis_client import create_redis_client
 from muad_common.session_store import RedisSessionStore
 from muad_console_platform.api.deps import get_runtime_memory_client
 from muad_console_platform.api.security import CSRF_COOKIE, CSRF_HEADER
@@ -26,7 +27,6 @@ from muad_console_platform.infrastructure.models.control import (
 )
 from muad_console_platform.infrastructure.runtime_memory_client import RuntimeMemoryClient
 from muad_console_platform.main import app
-from redis.asyncio import Redis
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -41,7 +41,14 @@ async def chat_session_store() -> AsyncIterator[None]:
     if not settings.redis_url:
         yield
         return
-    client = Redis.from_url(settings.redis_url, decode_responses=True)
+    # 集群模式下裸 `Redis.from_url` 会在建连时 `SELECT` 被拒（cluster 不支持 db 选择），
+    # 必须走集群感知客户端；standalone 行为不变。
+    client = create_redis_client(
+        settings.redis_url,
+        mode=settings.redis_mode,
+        seeds=[s.strip() for s in (settings.redis_cluster_seeds or "").split(",") if s.strip()],
+        decode_responses=True,
+    )
     app.state.session_store = RedisSessionStore(client)
     try:
         yield

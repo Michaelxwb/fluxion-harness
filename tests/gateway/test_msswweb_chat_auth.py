@@ -86,7 +86,7 @@ def _request(
     app = FastAPI()
     app.state.webchat_surfaces = surfaces or {
         "/api/v1/webchat": ChatSurface(channel="WEBCHAT", auth_kind="USER_TOKEN"),
-        "/api/v1/msswwweb": ChatSurface(
+        "/api/v1/msswweb": ChatSurface(
             channel="MSSWWEB", auth_kind="EXTERNAL_ASSERTION", platform_key=PLATFORM_KEY
         ),
     }
@@ -154,7 +154,7 @@ def _allowed_result(
 
 async def test_assertion_surface_reads_soc_token_header_only() -> None:
     credentials = await _credentials_for(
-        _request("/api/v1/msswwweb/entries", headers={"soc-token": ASSERTION})
+        _request("/api/v1/msswweb/entries", headers={"soc-token": ASSERTION})
     )
     assert credentials.assertion is not None
     assert credentials.assertion.get_secret_value() == ASSERTION
@@ -164,13 +164,13 @@ async def test_assertion_surface_reads_soc_token_header_only() -> None:
 
 async def test_assertion_surface_rejects_missing_soc_token() -> None:
     with pytest.raises(AppError) as excinfo:
-        await _credentials_for(_request("/api/v1/msswwweb/entries"))
+        await _credentials_for(_request("/api/v1/msswweb/entries"))
     assert excinfo.value.code == "UNAUTHORIZED"
 
 
 async def test_assertion_surface_rejects_blank_soc_token() -> None:
     with pytest.raises(AppError) as excinfo:
-        await _credentials_for(_request("/api/v1/msswwweb/entries", headers={"soc-token": "  "}))
+        await _credentials_for(_request("/api/v1/msswweb/entries", headers={"soc-token": "  "}))
     assert excinfo.value.code == "UNAUTHORIZED"
 
 
@@ -179,7 +179,7 @@ async def test_assertion_surface_ignores_session_cookie_and_authorization() -> N
     with pytest.raises(AppError) as excinfo:
         await _credentials_for(
             _request(
-                "/api/v1/msswwweb/entries",
+                "/api/v1/msswweb/entries",
                 headers={"Authorization": f"Bearer {ASSERTION}"},
                 cookies={CHAT_SESSION_COOKIE: ASSERTION},
             )
@@ -503,7 +503,7 @@ async def test_identity_returns_200_with_allowed_false_instead_of_raising() -> N
     console = FakeConsoleClient()
     console.external_identity_response = _view(allowed=False, reason="USER_DISABLED")
     gate = ChatPrincipalGate(console, tenant_id=GATEWAY_TENANT)
-    request = _request("/api/v1/msswwweb/identity", headers={"soc-token": ASSERTION})
+    request = _request("/api/v1/msswweb/identity", headers={"soc-token": ASSERTION})
 
     response = await describe_identity(
         request=request,
@@ -524,7 +524,7 @@ async def test_identity_forwards_entry_id_and_surface_factors() -> None:
     console = FakeConsoleClient()
     console.external_identity_response = _view()
     gate = ChatPrincipalGate(console, tenant_id=GATEWAY_TENANT)
-    request = _request("/api/v1/msswwweb/identity", headers={"soc-token": ASSERTION})
+    request = _request("/api/v1/msswweb/identity", headers={"soc-token": ASSERTION})
     entry_id = uuid.uuid4()
 
     await describe_identity(
@@ -547,7 +547,7 @@ async def test_identity_requires_soc_token_not_session_cookie() -> None:
     console.external_identity_response = _view()
     gate = ChatPrincipalGate(console, tenant_id=GATEWAY_TENANT)
     request = _request(
-        "/api/v1/msswwweb/identity",
+        "/api/v1/msswweb/identity",
         cookies={CHAT_SESSION_COOKIE: "session-token"},
     )
 
@@ -568,9 +568,9 @@ async def test_identity_without_platform_config_fails_before_console() -> None:
     console.external_identity_response = _view()
     gate = ChatPrincipalGate(console, tenant_id=GATEWAY_TENANT)
     request = _request(
-        "/api/v1/msswwweb/identity",
+        "/api/v1/msswweb/identity",
         headers={"soc-token": ASSERTION},
-        surfaces={"/api/v1/msswwweb": ChatSurface(channel="MSSWWEB", auth_kind="EXTERNAL_ASSERTION")},
+        surfaces={"/api/v1/msswweb": ChatSurface(channel="MSSWWEB", auth_kind="EXTERNAL_ASSERTION")},
     )
 
     with pytest.raises(AppError) as excinfo:
@@ -590,7 +590,7 @@ async def test_identity_rejection_from_console_is_not_swallowed() -> None:
     console = FakeConsoleClient()
     console.external_identity_error = AppError("EXTERNAL_ASSERTION_INVALID")
     gate = ChatPrincipalGate(console, tenant_id=GATEWAY_TENANT)
-    request = _request("/api/v1/msswwweb/identity", headers={"soc-token": ASSERTION})
+    request = _request("/api/v1/msswweb/identity", headers={"soc-token": ASSERTION})
 
     with pytest.raises(AppError) as excinfo:
         await describe_identity(

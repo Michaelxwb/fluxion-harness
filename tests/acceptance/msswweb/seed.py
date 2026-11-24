@@ -52,7 +52,7 @@ class MsswSeed:
         return {"expert_id": self.expert_id, "tenant_id": self.platform_tenant_id}
 
 
-def seed_msswwweb(
+def seed_msswweb(
     *,
     platform: MsswPlatform,
     tenant_id: str,

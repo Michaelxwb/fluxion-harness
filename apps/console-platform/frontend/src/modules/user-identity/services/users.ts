@@ -328,6 +328,8 @@ export interface ExternalPlatformItem {
   configured: boolean;
   identity_keys: string[];
   identity_field_labels: Record<string, string>;
+  /** 该平台归属的外部断言通道名（驱动建入口时的通道下拉与「无 secret」判定）。 */
+  channel: string;
 }
 
 /** 平台下可授权的入口（bot_account）；`granted` 表示该身份是否已授权此入口。 */
@@ -360,7 +362,15 @@ export interface ExternalIdentityItem {
 export async function listExternalPlatforms(
   options: RequestOptions = {}
 ): Promise<ExternalPlatformItem[]> {
-  return unwrap(await api.get<ApiResponse<ExternalPlatformItem[]>>('/external-platforms', options));
+  const platforms = unwrap(
+    await api.get<ApiResponse<ExternalPlatformItem[]>>('/external-platforms', options)
+  );
+  // 契约是数组：异形响应（网关错误页、代理包裹对象等）按失败处理，交给调用方降级，
+  // 避免详情侧滑在 `platforms.filter(...)` 处抛 TypeError 白屏。
+  if (!Array.isArray(platforms)) {
+    throw new TypeError('external-platforms response is not an array');
+  }
+  return platforms;
 }
 
 export async function listPlatformEntries(

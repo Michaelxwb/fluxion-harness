@@ -284,6 +284,118 @@ design_template: full
 | A-06 删除/停用清理 | 删除走用户级 `ConversationDeletionService`，含 tombstone、幂等；不预解析、不按 entry/channel 断言；入口停用不影响清理 |
 | D-04 跨通道产物 | 同用户同 Agent 的产物跨入口复用允许；不做数据域隔离；未来要严格隔离另立需求 |
 
+#### 3.1.3 新增第二个 JWT 外部平台的扩展边界（2026-11-19 结论）
+
+**诉求**：再接入一个「JWT 方式」的外部平台，做到「配置驱动要填的字段、要校验的字段，再加一套需要配置的路由」，尽量不改代码。
+
+**前提（2026-11-19 用户补充确认）**：新接入的第二个 JWT 平台**与本平台同一套签名算法（RS256）、同一套密文格式（AES-ECB 的 `aud`/`iss` 比对）**。因此验签的「算法 + 签名校验 + 因子密文比对」三段**天然复用、`verifier.py` 无需改动**；真正要设计扩展性的是**时效字段、channel、`soc-token` 断言头**三项——它们目前都写死，但性质不同（前两者与 channel 需要新增平台级配置，`soc-token` 需要改 Gateway 取头方式）。
+
+结论：**在同算法、同密文格式的前提下，验签核心与身份/授权层（Console）已天然多平台；新增平台的工作量集中在「Gateway surface 装配（含路由前缀与断言头）+ 把时效字段/通道名提为平台配置」两处，不涉及验签算法与密文逻辑。**
+
+**一、可扩展（纯配置，改 Secret 即生效，无需改代码）**
+
+| 能力 | 配置键 / 落点 | 说明 |
+|---|---|---|
+| 平台元数据 | `external_assertion_platforms_json` 每平台一项，键集见 `external_assertion/config.py` 的已知键集合 | 多平台各自一项，互不影响 |
+| 要填 / 要校验的字段 | `identity_keys`（默认 `["expert_id","tenant_id"]`） | 身份指纹取这些 claim 值排序后规范化 JSON 再算 SHA-256（`external_assertion/principal.py`）；Console 录入时按平台自己的 `identity_keys` 校验字段集合一致且非空（`external_identity_service._validate_identity`） |
+| 展示字段标签 | `identity_field_labels` | 纯 UI 渲染映射 |
+| 验签因子 | `public_key` / `issuer` / `audience` / `salt` | 每平台独立，轮换只改 Secret |
+| 平台显示名 | `display_name` | 纯展示 |
+
+即：接入「另一个同算法、同密文格式的 JWT 平台、换一套身份字段」，身份侧落点是配置，不碰代码。
+
+**二、天然复用、无需改动（因新平台与本平台同算法、同密文格式）**
+
+| 项 | 现状 | 为何不用改 |
+|---|---|---|
+| 签名算法 | `external_assertion/verifier.py` 的 `_ALLOWED_ALGS = {"RS256"}` | 新平台同样是 RS256，白名单已覆盖 |
+| 签名校验 | `verifier.py` 的 `_verify_signature`（PKCS1v15 + SHA256） | 同上，签名语义一致 |
+| `aud`/`iss` 密文比对 | `verifier.py` 的 `_check_factors`（AES-ECB + `salt` 右补零） | 密文格式一致，每平台的 `audience`/`issuer`/`salt` 走配置即可 |
+
+> 只有将来出现「算法或密文格式不同」的平台，才需要把 `verifier.py` 的算法/密文选择按平台参数化——本期新平台不涉及。
+
+**术语：平台 vs 通道（后文反复出现，先定义清楚）**
+
+- **平台（platform）**＝「这张 JWT 由谁签发、用哪把公钥验」的验签配置单元，标识是 `platform_key`（现为 `mssw`），落在 `external_assertion_platforms_json` 的一项里（公钥/issuer/audience/salt/identity_keys…）。`platform_key` 也存在于 `external_identity` 表（用户外部身份按平台隔离）。
+- **通道（channel）**＝「消息从哪条管道进」的系统标签（`WECOM`/`WEBCHAT`/`MSSWWEB`…），落在 `bot_account.channel`（入口）与 `ChannelContext.type` 上，决定路由前缀与入口归属。**`bot_account` 表没有 `platform_key` 字段**——入口只认通道名。
+- **关系：平台 ↔ 通道一一对应，是「校验层的约定」，不是 DB 唯一约束**。当前由 `_check_channel`（断言通道必须等于 `MSSWWEB`）与 `grant_entry`（入口通道必须等于该身份平台所配通道）两处逻辑强制。DB 层没有 `platform_key↔channel` 唯一索引，因此**改造后仍应保留「一平台一通道」约束**：若把两个平台配成同一个 `channel` 名，入口层（只按 `channel` 区分）将无法分辨二者而冲突。一个平台对应一个入口通道，`mssw` 平台 → `MSSWWEB` 通道 → `/api/v1/msswwweb` 路由即此关系的实例。
+- **通道命名规范（外部平台通道必须遵守）**：`channel` 取值必须匹配 `^[A-Za-z0-9]+web$`（不区分大小写地以 `web` 结尾，其余为字母数字），原因有二：① 路由前缀由 `/api/v1/<channel 小写>` 派生，反代（nginx）需用一条正则 `^/api/v1/[a-z0-9]+web(?:/|$)` 覆盖所有外部平台前缀，同时不误吞 Console 的 `/api/v1/*` 业务前缀与 `/api/v1/webchat`；② 契约层 `ChannelName = str` 本身**不约束字符集**，若不在平台配置层显式约束，错误命名（如把环境标识 `UAT` 塞进通道名得到 `MSSPWEBUAT`）会绕过反代正则、表现为前端通道选不通或 404，且没有明确报错。**环境标识（UAT/PRD 等）应放在 `display_name`，不得进入 `channel`**。该匹配在 `config.py` 解析平台项时校验，不满足即抛 `PlatformConfigError`（启动期失败，而非运行期静默 404）。
+
+**三、需要设计扩展性的三项：参数化改造方案（一次性改造，之后新增平台纯配置）**
+
+这三项是本次讨论的重点：时效字段、channel、`soc-token`。它们都不是「换个协议」才要动，而是「多平台各自值不同」就要能配。**当前它们都是代码里写死的值，不存在「零代码改动、只填 Secret」的路径**；下面给出的是一次性参数化改造——改造完成后，新增任何同协议平台都只是填 Secret 里对应的键。
+
+| 项 | 当前写死位置 | 参数化改造（改哪里 / 加什么） | 改造后配置键 | 难度 |
+|---|---|---|---|---|
+| **时效字段** | `verifier.py._issued_at_seconds` 硬编码读 `("login_time","time")` 两个 claim 名、硬编码按**毫秒** `raw/1000` | ① `ExternalPlatformConfig` 增 `issue_time_keys: tuple[str,...]`（默认 `("login_time","time")`）与 `issue_time_unit: str`（默认 `"ms"`）；② `config.py` 的 `_KNOWN_KEYS` 登记这两个键、`parse` 读出并校验单位枚举；③ `_issued_at_seconds(claims, config)` 改按 `config.issue_time_keys` 取、按 `config.issue_time_unit` 决定是否 `/1000`。签名传 `config` 进去 | `issue_time_keys`、`issue_time_unit`（`ms`/`s`） | 中：验签层一处解析 + 配置字段 + 单测 |
+| **channel（校验侧）** | `external_assertion_service._check_channel` 硬要求 `channel == MSSWWEB_CHANNEL` | ① `ExternalPlatformConfig` 增 `channel: str`（该平台归属的外部断言通道名，默认 `MSSWWEB`）；② `config.py` 的 `_KNOWN_KEYS` 登记、`parse` 读出；③ `_check_channel(channel, config)` 改为「`channel == config.channel`」（`config` 已由 `_require_config(platform_key)` 取得） | `channel` | 小：Console 一处比对 + 配置字段 |
+| **channel（授权侧）** | `external_identity_service.grant_entry` 硬要求 `bot.channel == _EXTERNAL_PLATFORM_CHANNEL` | 改为「`bot.channel == 本次授权身份的 `platform_key` 所配的 `channel`」：**`BotAccount` 没有 `platform_key` 字段**（入口表只有 `channel`），`platform_key` 在被授权的 `external_identity` 行上——所以取 `config.channel` 必须用**身份的 `platform_key`**，再比 `bot.channel`。**DB 无障碍**：`BotAccount.channel` 是 `sa.String(32)` 普通字符串（默认 `'WECOM'`），**不是 PG 枚举，独立通道名（≤32 字符）无需迁移**；需确认该通道名同时满足契约层对 `channel` 的取值约束 | 复用 `channel` | 中：身份 `platform_key`→`config.channel`（MSSWWEB 行为不变：身份的 platform_key=`mssw`，其 config.channel=`MSSWWEB`）+ 契约取值约束核对 |
+| **`soc-token` 断言头** | Gateway `api/deps.py` 的 `SOC_TOKEN_HEADER = "soc-token"` 模块常量，`get_chat_credentials` 在 `request.headers.get(SOC_TOKEN_HEADER, "")` 直接取 | ① `ChatSurface` 增 `assertion_header: str` 字段（body 已有 `channel/auth_kind/platform_key`）；② 装配层按平台配置注入头名；③ `get_chat_credentials` 改读 `surface.assertion_header` 而非模块常量。保留模块常量作为默认值即可 | surface 配置项 `assertion_header`（来源同一个 Secret 平台项） | 小：装配层 + 取头一处 + `ChatSurface` 加字段 |
+
+> **判定要点**：若新平台**复用同一通道名 `MSSWWEB`、同一断言头 `soc-token`、同一时效字段**，则「三」里三项都**沿用改造后的默认值即可**（即只需完成上面的一次性参数化改造，无需为新平台额外配置）；只有新平台在某一项上取值不同，才在 Secret 里覆盖对应键。**改造是一次性的（协议无关的通用参数化），新增平台是配置驱动的**——这正是用户要的「参数化改造后的方案」。
+
+**四、多平台现状：不是「不支持」，是「装配把单通道钉死单平台」**
+
+- Console 侧**天然多平台**：`_require_platform(platform_key)`（`external_identity_service`）与 `resolve`/`_require_config` 均按配置字典 `platform_key` 取，验签、身份、授权每平台独立成立。
+- 瓶颈只在 **Gateway 的 surface 装配**：`main._build_webchat_surfaces` 只挂**一个** `/api/v1/msswwweb`，其 `platform_key` 来自 `main._single_external_platform_key`；该函数在 Secret 内平台数 `> 1` 时 `logger.error` 并返回 `None`，于是 surface 已挂载但 `platform_key=None`，认证期放不出主体 → 503。
+- 因此「多平台会 503」的准确表述是：**当前装配把「一个外部通道」硬绑定成「一个平台」，路由前缀 `/api/v1/msswwweb` 与 `soc-token` 头也写死，故同时启用两个外部平台无法装配**；底层能力（`ChatSurface.channel/auth_kind/platform_key` 已参数化）是支持的。
+
+**多平台装配的两条必须遵守的约束（P 项落地时）**
+
+1. **废弃 `_single_external_platform_key` 的「全局单平台」假设**：它是为「一个 MSSWWEB 通道选一个平台」写的，`len>1` 即 503。多平台装配时，每个 surface 应**直接绑定它自己配置项的 `platform_key`**（遍历平台配置、逐个构造 `ChatSurface(platform_key=该项.platform_key, channel=该项.channel, assertion_header=...)`），不再经过「全局挑一个」的逻辑。否则多平台永远触发 503。
+2. **多平台必须多通道，不能共用同一 `channel` 名**：`bot_account` 只有 `channel` 没有 `platform_key`，入口层只能按通道名区分。若两个平台配成同一个 `channel`（如都想用 `MSSWWEB` 共用一扇门），入口、`grant_entry`（按身份 `platform_key` 取 `config.channel` 再比 `bot.channel`）、路由前缀都无法区分二者，必然冲突。**正确形态：一平台一 `platform_key` 一 `channel` 一路由前缀（`/api/v1/<channel 小写>`）**。「复用 MSSWWEB 通道」只适用于「就一个外部平台」的场景；一旦要第二平台，必须给它独立通道名。**每个通道名还必须满足上面的「通道命名规范」（`^[A-Za-z0-9]+web$`）**——通道名决定路由前缀，只有遵守该规范，反代才能用一条正则覆盖全部外部平台前缀而不误吞 Console 路径；不满足时 `config.py` 解析阶段即报错。
+
+**五、参数化改造清单（一次性改造；完成后新增同协议平台即纯配置，供后续需求承接）**
+
+> 分两类：**R 项**是「协议无关的通用参数化」，做一次即可，让时效字段/channel/断言头从写死变为可配；**P 项**是「新增某个具体平台时的装配」，按配置生成。R 项做完后，接入同协议新平台只剩 P 项 + 填 Secret。
+
+**R 项（一次性参数化，改造后即支持按平台配置）**
+
+1. **配置模型扩展**：`ExternalPlatformConfig` 增 `issue_time_keys` / `issue_time_unit` / `channel` 三个字段（各带默认值，沿用现写死的 `("login_time","time")` / `"ms"` / `"MSSWWEB"`），`config.py` 的 `_KNOWN_KEYS` 登记、`parse` 读出并校验 `issue_time_unit ∈ {ms, s}`。
+2. **验签层读配置**：`verifier._issued_at_seconds` 改为接收 `config`、按 `config.issue_time_keys` 取 claim、按 `config.issue_time_unit` 换算。
+3. **通道校验读配置**：`external_assertion_service._check_channel` 改为 `channel == config.channel`（config 由 `_require_config(platform_key)` 取得）。
+4. **授权侧通道校验**：`external_identity_service.grant_entry` 改为按**被授权身份的 `platform_key`** 取 `config.channel` 再比 `bot.channel`（`BotAccount` 无 `platform_key`，入口表只有 `channel`）；确认 `BotAccount.channel`（`sa.String(32)`，非枚举，无需迁移）取值满足契约约束。
+5. **断言头参数化**：`ChatSurface` 增 `assertion_header` 字段，`api/deps.get_chat_credentials` 读 `surface.assertion_header`（默认 `soc-token`）。
+
+**P 项（新增具体平台时的装配）**
+
+6. **Gateway 装配循环化**：`main._build_webchat_surfaces` 从「对 MSSWWEB 单次挂载」改为「遍历外部断言平台，各挂一套 `/api/v1/<surface>`」，`ChatSurface` 取该平台 `platform_key` / `channel` / `assertion_header`。`channels/registry.py` 的 `name="MSSWWEB"` 单次注册同步改为「遍历平台各注册一个 `WebchatChannelAdapter(name=config.channel)`」。两处都在装配层按配置生成，`application` 层被架构用例 `test_b09` 禁止写死通道字面量。
+7. **Console 通道集合动态化（情况 A 一次性改造）**：后端 `channel_admin_service.SECRETLESS_CHANNELS` 从「写死 `{WEBCHAT, MSSWWEB}`」改为「内置 `{WEBCHAT}` ∪ 配置中所有外部平台 `channel`」；前端 `ChannelFormModal` 的通道下拉改为「内置 `WECOM/WEBCHAT` ∪ 外部平台通道（含 `display_name`）」，下拉项动态渲染。**改造后，情况 A 的新平台（与 MSSWWEB 同为无 Secret、ID 当入口标识）自动复用 MSSWWEB 的表单形态，前端无需为该平台单独改代码。** 同一改造需覆盖**通道展示名**：`AgentDetailSideSheet.tsx` 的通道列现按 `WEBCHAT/MSSWWEB/WECOM` 三元硬编码，新平台会退化为显示原始通道串——改后应从「通道显示名映射」取（内置三值 + 配置平台 `display_name`），否则新平台入口在详情页显示成裸通道名。
+8. **配置与路由**：Secret 增该平台一项（`platform_key` + 身份/验签字段 + 需要覆盖的 `issue_time_*` / `channel` / 断言头）；路由前缀由第 6 步装配自动生成，无需逐个复制 handler。
+9. **不改的部分**：`verifier.py` 的算法/签名/密文比对（同算法同密文）、Console 的 `resolve`/`describe`/身份/授权链路（已多平台）、`auth_cache`（凭证键与 `useridx` 均含 `platform_key` 平台段，天然隔离）。
+
+**「情况 A」的定义与适用范围（本期扩展性目标锁定为此）**
+
+- **情况 A（本次目标，纯配置可承接）**：新平台与 `MSSWWEB` 形态一致——无 Bot Secret、`bot_id` 作为「入口标识」、断言头与路由走默认或仅换名。第 7 步一次性改造后，**新平台只需填 Secret + 在界面选到该通道建入口，前端零额外代码**。
+- **情况 B（不承诺配置化）**：新平台需要**有 Secret** 或与 MSSWWEB 的表单字段语义不同——前端 `isSecretless`/表单分支需为其写代码。
+- **情况 C（不承诺配置化）**：新平台需要**现有三通道都没有的独有表单字段**——前端需为其写专属表单区块。配置无法描述「字段如何渲染/校验」。
+
+> 本次只承接**情况 A**；B/C 若出现，作为前端需求另立。第 7 步是「一次性改造」，改完后情况 A 的新平台不再碰前端。
+
+> 本条是**扩展性评估结论**，不是本期（MSSWWEB 单平台）的落地范围；新增平台作为独立需求承接，届时按第五条的 R/P 清单拆 Task。R 项（1~5）是「参数化改造」，无论是否新增平台都可先做（做完后 MSSWWEB 行为不变，只是从写死变为可配）；P 项（6~7）在真正的第二个平台接入时再做。
+
+**六、接入一个三方平台的操作旅程（改造完成后，以 `acme` 为目标平台为例）**
+
+> 前提：R 项参数化改造已完成、P 项装配已支持多 surface。以下每一步标注「是否需改代码」，未标注的均为运维/配置/API 操作。平台名 `acme` 为示例。
+
+| 步 | 动作 | 具体操作 | 是否改代码 |
+|---|---|---|---|
+| 1 | 准备平台因子 | 向上游 `acme` 取得：RSA 公钥（PEM 或 base64-DER）、`issuer`、`audience`、`salt`（≤32 字节）、身份 claim 名列表（如 `["acme_uid"]`） | 否（运维/上游对接） |
+| 2 | 配 Secret | 在 `external_assertion_platforms_json` 增一项 `acme`：`public_key`/`issuer`/`audience`/`salt`/`identity_keys`/`identity_field_labels`/`display_name`；若与默认不同再覆盖 `issue_time_keys`/`issue_time_unit`/`channel` | 否（改 Secret） |
+| 3 | 配置断言头与路由 | 若 `acme` 断言头非 `soc-token` 或路由前缀非默认，配 surface 项；Gateway 装配据此生成 `/api/v1/<surface>` | 否（改 Secret/Helm values；复用装配循环） |
+| 4 | 确认 Gateway 注册通道 | `registry.py` 已由 P 项第 6 步改为「遍历平台各注册 `config.channel`」，`acme` 配进 Secret 即自动注册。**无需再改代码。** | 否（P 项一次改造已覆盖） |
+| 5 | 确认 Console 能新建该通道入口 | 后端 `SECRETLESS_CHANNELS` 已由 P 项第 7 步改为「内置 ∪ 配置平台通道」，前端下拉动态渲染；情况 A 的表单复用 MSSWWEB 形态。`acme` 配进 Secret 后界面即可选到、无需为其改前端。 | 否（P 项一次改造已覆盖，限情况 A） |
+| 6 | 校验平台已生效 | `GET /api/v1/external-platforms` 应出现 `acme`（该接口遍历配置，配进 Secret 即出现，无需改码） | 否（API 只读） |
+| 7 | 建入口 | `POST /api/v1/agents/{agent_id}/channels` 建一个 `channel=<acme 通道名>` 的入口（无 Secret 通道不传 Bot Secret） | 否（API/Console 界面） |
+| 8 | 建外部身份 | 为使用方用户录入 `acme` 身份：按 `identity_keys` 提供 claim 值，Console 按该平台 `identity_keys` 校验字段集合一致且非空 | 否（API/Console 界面） |
+| 9 | 授权入口 | 对身份授该入口（`grant`）；后端按 `config.channel` 校验入口通道一致性 | 否（API/Console 界面） |
+| 10 | 端到端验证 | 上游用 `acme` 私钥签发 JWT，经 `acme` 断言头打到 `/api/v1/<surface>`，验证凭据层落缓存、`GET .../identity`、会话列表/历史/发送可通 | 否（联调） |
+| 11 | 撤权/到期验证 | 撤销授权或等会话到期，确认下次请求回源 Console 重新拒绝（撤权即时生效走「权限层删除→miss→回源」） | 否（联调） |
+
+**代码改造只发生在「一次性 R/P 项」里，不在每一步接入时**：第 4、5 步之所以「否」，是因为 P 项第 6、7 步已把「Gateway 通道注册」「Console 通道集合 + 前端下拉」改成遍历配置——**这是接入第一个新平台前做一次的通用改造，之后情况 A 的每个新平台都不再碰代码**。因此对情况 A，接入一个平台的实际操作就是：**填 Secret（第 2 步）→ 界面建入口/身份/授权（第 7~9 步）→ 联调（第 10~11 步）**，全程无需为这个平台改代码。
+
+**不满足点（沿用上一轮扫描结论，此处归档）**：多平台同时启用需 P 项装配循环化（`_single_external_platform_key` 平台数>1 现返回 None → 503）；通知中心/任务中心对 MSSWWEB 面刻意不暴露（`webchat.py`/`task_center.py`/`main.py`），`acme` 是否要给通知/任务中心属产品决策，非配置可继承。
+
 ### 3.2 架构设计
 
 ```mermaid

@@ -34,13 +34,16 @@ from muad_agent_core.tools import (
 )
 from muad_agent_core.tools.attachments import TextCursor, decode_cursor, encode_cursor, read_text_segment
 from muad_artifact_store import NfsArtifactStore
+from muad_common import process_settings
 from muad_contracts import (
     DeliveryMessage,
     DeliveryRequest,
     DeliveryRouteInput,
     is_archive_media_type,
+    is_local_stream_channel,
+    web_surface_channels_from_settings,
 )
-from muad_contracts.enums import LOCAL_STREAM_CHANNELS, OUTBOUND_CHANNELS
+from muad_contracts.enums import OUTBOUND_CHANNELS
 from muad_logging import get_logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -929,7 +932,11 @@ class AttachmentToolSet:
         # 交付方式按**入口能力**显式选择：外部推送通道走网关投递，站内入口发布到目标会话
         # 的持久流；不在任一能力组的通道显式拒绝，不把"未知"猜成"站内"。
         channel = self._delivery_route.channel
-        if channel in LOCAL_STREAM_CHANNELS:
+        # 站内入口集合含外部 JWT 平台通道（按平台配置动态合成）：新增平台无需改这里，
+        # 否则外部平台会话里产出的文件会落不进会话流而报「无处可写」。
+        if is_local_stream_channel(
+            channel, web_surface_channels_from_settings(process_settings())
+        ):
             content = await self._publish_to_conversation(row, allow_internal=allow_internal)
         elif channel in OUTBOUND_CHANNELS:
             content = await self._deliver_via_gateway(row)

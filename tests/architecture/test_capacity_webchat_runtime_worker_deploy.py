@@ -121,6 +121,8 @@ UNITS = (
         slot_field="runtime_execution_concurrency",
         # 投递泵并发（channel_delivery_pump.py 消费）：独立于执行槽与 SSE。
         concurrency_env=("CHANNEL_DELIVERY_CONCURRENCY",),
+        # 外部平台通道配置（webchat_history.py 经 SharedSettings 消费）：补充运行时白名单。
+        extra_settings_env=("EXTERNAL_ASSERTION_PLATFORMS_JSON",),
     ),
     DeployUnit(
         name="agent-worker",

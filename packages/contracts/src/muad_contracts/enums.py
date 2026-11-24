@@ -1,3 +1,6 @@
+import json
+import re
+from collections.abc import Iterable
 from enum import StrEnum
 
 # 通道名的**唯一**声明处。契约字段是**开放的 string**（新增通道只写适配器，不改这里：
@@ -5,11 +8,122 @@ from enum import StrEnum
 # 机检（一处声明）使用。放在 leaves 模块（仅依赖标准库），避免 channel ↔ tasks 的循环导入。
 # 机检：tests/test_attachment_contract.py::test_b07_channel_enum_is_defined_in_exactly_one_place
 BUILTIN_CHANNEL_NAMES: tuple[str, ...] = ("WECOM", "WEBCHAT", "MSSWWEB")
-#: Web 对话面：同一 user + Agent 的会话在 WebChat/MSSWWEB 之间共享；企微不进入 Web 会话列表。
-#: 顺序稳定，供内部读取面的 `channel_types` allowlist 与测试断言复用。
+#: Web 对话面的**内建基线**：同一 user + Agent 的会话在 WebChat/MSSWWEB 之间共享；企微不进入
+#: Web 会话列表。外部 JWT 平台（如 MSSPWEB）在运行时按其 `channel` 追加（见
+#: `web_surface_channels`），因此读取面用的 allowlist 必须走该函数、不要再直读本常量。
+#: 顺序稳定，供默认值、测试断言与机检复用。
 WEB_SURFACE_CHANNELS: tuple[str, ...] = ("WEBCHAT", "MSSWWEB")
 #: 兼容别名：类型上是开放 string（WECOM=企微机器人；WEBCHAT=通用网页稳定入口）。
 ChannelName = str
+
+#: 外部断言平台未显式配置 `channel` 时的缺省通道名（与 Console 平台配置解析、Gateway
+#: 注册表解析同源）。存量单平台部署不写 `channel` 也落到这个值。
+DEFAULT_EXTERNAL_CHANNEL: ChannelName = "MSSWWEB"
+
+#: 外部通道名规则：**以 `web` 结尾、其余字母数字**（大小写不限）。这是 Console/Gateway
+#: 平台配置解析期的单一校验口径（RULE-im-013）。理由：Gateway 路由前缀取自
+#: `channel.lower()`（`/api/v1/<channel 小写>`），nginx 用一条 `^/api/v1/[a-z0-9]+web`
+#: 正则覆盖所有外部平台前缀、又不误吞 Console 的 `/api/v1/*`；名字若不合规（下划线、横线、
+#: 非 web 结尾），路由装配后 nginx 匹配不到 → 运行期静默 404，所以在解析期就显式失败。
+#: 大小写不敏感（通道名实际以大写下发，如 `MSSWWEB`），结尾必须是 `web`（任意大小写）。
+EXTERNAL_CHANNEL_NAME_PATTERN = r"^[A-Za-z0-9]+[wW][eE][bB]$"
+_EXTERNAL_CHANNEL_NAME_RE = re.compile(EXTERNAL_CHANNEL_NAME_PATTERN)
+
+
+def is_valid_external_channel_name(channel: ChannelName | None) -> bool:
+    """外部通道名是否满足 `^[A-Za-z0-9]+web$`（RULE-im-013）。"""
+    return channel is not None and bool(_EXTERNAL_CHANNEL_NAME_RE.match(channel))
+
+
+def external_platform_channels(platforms_json: str | None) -> tuple[ChannelName, ...]:
+    """从 `EXTERNAL_ASSERTION_PLATFORMS_JSON` 解析当前启用的外部平台通道名（去重保序）。
+
+    这是**跨进程共享的单一解析口径**：Console（验签/身份）、Gateway（路由挂载）、Runtime
+    （会话读取面的 `channel_types` 白名单校验）都需要知道「当前配置了哪些外部平台通道」。
+    放在 leaves 模块里，Runtime 不必反向 import Gateway。
+
+    - 空值/空对象 → 空元组（一个平台都没配，合法状态）；
+    - 非对象或 JSON 损坏 → 空元组（等价"未配置"，由调用方各自的 503/回退路径处理，不静默放行）；
+    - 单个平台项非对象 → 跳过该平台；
+    - `channel` 缺失/空白 → 落 `DEFAULT_EXTERNAL_CHANNEL`（与解析 header 的路径同源）。
+    """
+    if not platforms_json or not platforms_json.strip():
+        return ()
+    try:
+        payload = json.loads(platforms_json)
+    except ValueError:
+        return ()
+    if not isinstance(payload, dict):
+        return ()
+    seen: dict[ChannelName, None] = {}
+    for item in payload.values():
+        if not isinstance(item, dict):
+            continue
+        channel = str(item.get("channel") or DEFAULT_EXTERNAL_CHANNEL).strip()
+        if channel:
+            seen.setdefault(channel, None)
+    return tuple(seen)
+
+
+def web_surface_channels(
+    external_channels: "Iterable[ChannelName]" = (),
+) -> tuple[ChannelName, ...]:
+    """合成 Web 对话面的通道 allowlist：内建基线 + 当前启用的外部 JWT 平台通道。
+
+    外部平台（`EXTERNAL_ASSERTION_PLATFORMS_JSON` 里配置的每个 `channel`）与内建 Web 面同属
+    「站内入口」——同一 user + Agent 跨入口共享会话、产物走本进程持久流。读取面的
+    `channel_types` allowlist 必须包含它们，否则新建的会话能写入却读不出（列表/详情出现
+    「聊得了但看不到历史」）。按配置动态合成，新增平台无需改代码。
+
+    `external_channels` 由调用方从平台配置解析后传入（gateway: 注册的 surface 通道；
+    runtime/worker: 平台配置的 channel 集合）。去重保序，内建在前。
+    """
+    seen: dict[ChannelName, None] = {}
+    for channel in (*WEB_SURFACE_CHANNELS, *external_channels):
+        if channel:
+            seen.setdefault(channel, None)
+    return tuple(seen)
+
+
+def is_web_surface_channel(
+    channel: ChannelName | None,
+    external_channels: "Iterable[ChannelName]" = (),
+) -> bool:
+    """`channel` 是否属于 Web 对话面（内建基线 ∪ 已启用的外部平台通道）。
+
+    所有「是不是网页面」的判断都必须走这里，**不要再直接与 `WEB_SURFACE_CHANNELS`
+    比成员或写死 `== "WEBCHAT"`**：新增外部平台只改平台配置（Secret 的 `channel`），
+    续聊/归档/产物写入/确认回执/投递等各条路径自动跟进，无需改代码。
+    """
+    if not channel:
+        return False
+    return channel in web_surface_channels(external_channels)
+
+
+def is_local_stream_channel(
+    channel: ChannelName | None,
+    external_channels: "Iterable[ChannelName]" = (),
+) -> bool:
+    """`channel` 是否走本进程持久会话流（站内入口）。
+
+    与 `is_web_surface_channel` 同义：Web 面（含外部平台）的产物不经过 IM 出站管道，
+    直接落目标会话的 canonical 流。保留独立函数名是为了让调用点表达意图（写入面 vs
+    读取面），实现共用同一份合成逻辑。
+    """
+    return is_web_surface_channel(channel, external_channels)
+
+
+def web_surface_channels_from_settings(
+    settings: object,
+) -> tuple[ChannelName, ...]:
+    """从进程设置对象读取 Web 面对外通道集合（内建基线 ∪ 外部平台通道）。
+
+    Runtime / Worker 拿到的是同一个 `SharedSettings`（字段 `external_assertion_platforms_json`），
+    用本函数一次算出集合再传给各判定函数，避免每个调用点各自 `json.loads`。对不具备该属性的
+    对象退化为仅内建基线（等价"未配置外部平台"），不抛错——配置缺失是合法状态。
+    """
+    platforms_json = getattr(settings, "external_assertion_platforms_json", "") or ""
+    return web_surface_channels(external_platform_channels(platforms_json))
 
 
 class RunStatus(StrEnum):

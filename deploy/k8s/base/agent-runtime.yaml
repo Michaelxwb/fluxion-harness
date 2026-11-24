@@ -48,6 +48,15 @@ spec:
                 secretKeyRef:
                   name: muad-external
                   key: INTERNAL_SERVICE_TOKEN
+            # 外部断言平台配置：Runtime 读它的每个平台 `channel` 来扩展会话读取面的
+            # `channel_types` 白名单（内建通道 ∪ 已配置外部平台通道）。缺省为空等价「无外部
+            # 平台」，此时只接受内建通道名 —— 与 Gateway/Console 共用同一份 Secret 键。
+            - name: EXTERNAL_ASSERTION_PLATFORMS_JSON
+              valueFrom:
+                secretKeyRef:
+                  name: muad-external
+                  key: EXTERNAL_ASSERTION_PLATFORMS_JSON
+                  optional: true
             # 进程身份：日志/指标里的 instance_id 前缀（main.py 读 POD_NAME，缺省回落主机名）。
             # 这不是把执行绑到某个 Pod —— Runtime 无状态，同一会话由任意 Pod 的租约接管。
             - name: POD_NAME

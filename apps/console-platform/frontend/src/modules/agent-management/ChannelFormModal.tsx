@@ -12,29 +12,50 @@ import {
   type ChannelSaveInput
 } from './services/agents';
 
+/** 外部断言平台的一个可建入口通道（来自 `/external-platforms`，配置驱动）。 */
+export interface ExternalChannelOption {
+  /** 通道名（平台 `channel` 字段，如 `MSSWWEB`）。 */
+  channel: string;
+  /** 展示名（平台 `display_name`）。 */
+  label: string;
+}
+
 export interface ChannelFormModalProps {
   visible: boolean;
   agentId: string;
   channel: AgentChannelItem | null;
+  /** 外部断言平台通道（配置驱动）；缺省等价于只有内置三通道。 */
+  externalChannels?: ExternalChannelOption[];
   onCancel(): void;
   onSaved(): void;
 }
 
-type ChannelKind = 'WECOM' | 'WEBCHAT' | 'MSSWWEB';
+// 通道名不再是封闭字面量：外部平台可以配出任意新通道（情况 A：与 MSSWWEB 同形态）。
+type ChannelKind = string;
 
-const DEFAULT_CHANNEL: ChannelKind = 'WECOM';
-const WEBCHAT_CHANNEL: ChannelKind = 'WEBCHAT';
-const MSSWWEB_CHANNEL: ChannelKind = 'MSSWWEB';
+const DEFAULT_CHANNEL = 'WECOM';
+const WEBCHAT_CHANNEL = 'WEBCHAT';
+const MSSWWEB_CHANNEL = 'MSSWWEB';
+const WECOM_CHANNEL = 'WECOM';
 
 /**
- * 无 Bot Secret 的通道：入口靠平台侧身份断言（MSSWWEB）或稳定入口标识（WEBCHAT）。
- * 后端 `SECRETLESS_CHANNELS` 是同一条界线，两边必须一致——给这些通道提交 secret 会被拒。
+ * 内置的无 Bot Secret 通道：WEBCHAT（稳定入口标识）与 MSSWWEB（外部断言）。
+ * MSSWWEB **必须常驻**这里——它虽是外部断言平台，但也是内置通道，`externalChannels`
+ * 只承载「新增的外部平台」，不保证包含 MSSWWEB（调用方通常按内置项去重）。
+ * 其它无 secret 通道（新增外部平台）由 `isSecretless` 结合 `externalChannels` 判定。
+ * 后端 `secretless_channels()` 是同一条界线，两边必须一致——给这些通道提交 secret 会被拒。
  */
-const SECRETLESS_CHANNELS: ReadonlySet<ChannelKind> = new Set([WEBCHAT_CHANNEL, MSSWWEB_CHANNEL]);
+const BUILTIN_SECRETLESS_CHANNELS: ReadonlySet<string> = new Set([
+  WEBCHAT_CHANNEL,
+  MSSWWEB_CHANNEL
+]);
 
 /** `bot_id` 在无 secret 的通道里是「入口标识」，有 secret 的通道里是平台侧的 Bot ID。 */
-function isSecretless(kind: ChannelKind): boolean {
-  return SECRETLESS_CHANNELS.has(kind);
+function isSecretless(kind: ChannelKind, externalChannels: ExternalChannelOption[]): boolean {
+  if (BUILTIN_SECRETLESS_CHANNELS.has(kind)) {
+    return true;
+  }
+  return externalChannels.some((item) => item.channel === kind);
 }
 
 interface ChannelFormValues {
@@ -47,19 +68,15 @@ interface ChannelFormValues {
 }
 
 /**
- * 把服务端返回的 channel 归一到已知类型。
+ * 把服务端返回的 channel 归一到可选值。
  *
- * 不能让未知值落到「非 WEBCHAT 即 WECOM」的兜底里：编辑一个已存在的 MSSWWEB 入口时，
- * 那样就会被当成 WECOM 而多出一个 Secret 输入框，提交上去还会被后端拒绝。
+ * 已存在入口的通道名原样保留（可能是外部平台通道）；只有空值时回退默认。
+ * 不能用「非 WEBCHAT 即 WECOM」的兜底：那样编辑一个已存在的 MSSWWEB/外部通道入口时，
+ * 会被当成 WECOM 而多出一个 Secret 输入框，提交上去还会被后端拒绝。
  */
 function channelKindOf(channel: AgentChannelItem | null): ChannelKind {
-  if (channel?.channel === WEBCHAT_CHANNEL) {
-    return WEBCHAT_CHANNEL;
-  }
-  if (channel?.channel === MSSWWEB_CHANNEL) {
-    return MSSWWEB_CHANNEL;
-  }
-  return DEFAULT_CHANNEL;
+  const raw = channel?.channel;
+  return raw && raw.trim() ? raw : DEFAULT_CHANNEL;
 }
 
 export function ChannelFormModal(props: ChannelFormModalProps) {
@@ -68,6 +85,24 @@ export function ChannelFormModal(props: ChannelFormModalProps) {
   const [formError, setFormError] = useState<string | null>(null);
   const [channelKind, setChannelKind] = useState<ChannelKind>(DEFAULT_CHANNEL);
   const formApi = useRef<FormApi | null>(null);
+  const externalChannels = props.externalChannels ?? [];
+  const secretless = isSecretless(channelKind, externalChannels);
+
+  // 通道下拉：本地通道（WECOM/WEBCHAT）内置，其余**全部外部断言平台从 Secret 配置动态读**
+  // ——包括 MSSWWEB 在内，不再写死。外部平台通道由 `externalChannels`（来自
+  // `/external-platforms`，即 Secret 的 `external_assertion_platforms_json`）提供，
+  // 展示名用平台 `display_name`。与内置重名（理论上不会）时丢弃外部项，避免重复。
+  const builtinOptions: { value: string; label: string }[] = [
+    { value: WECOM_CHANNEL, label: t('agent.channel.channelWecom') },
+    { value: WEBCHAT_CHANNEL, label: t('agent.channel.channelWebchat') }
+  ];
+  const builtinValues = new Set(builtinOptions.map((o) => o.value));
+  const channelOptions = [
+    ...builtinOptions,
+    ...externalChannels
+      .filter((item) => item.channel && !builtinValues.has(item.channel))
+      .map((item) => ({ value: item.channel, label: item.label || item.channel }))
+  ];
 
   useEffect(() => {
     if (!props.visible) {
@@ -117,8 +152,8 @@ export function ChannelFormModal(props: ChannelFormModalProps) {
           enabled: values.enabled === 'true',
           config
         };
-        // 无 secret 的通道（网页入口、MSSW 网页入口）不提交 secret——后端会显式拒绝。
-        if (!isSecretless(channel) && values.secret) {
+        // 无 secret 的通道（网页入口、外部断言平台通道）不提交 secret——后端会显式拒绝。
+        if (!isSecretless(channel, externalChannels) && values.secret) {
           input.secret = values.secret;
         }
         await updateAgentChannel(props.agentId, props.channel.channel_account_id, input, {
@@ -132,7 +167,7 @@ export function ChannelFormModal(props: ChannelFormModalProps) {
           enabled: values.enabled === 'true',
           config
         };
-        if (!isSecretless(channel)) {
+        if (!isSecretless(channel, externalChannels)) {
           input.secret = values.secret;
         }
         await addAgentChannel(props.agentId, input, { errorTip: 'never' });
@@ -174,11 +209,7 @@ export function ChannelFormModal(props: ChannelFormModalProps) {
           field="channel"
           label={t('agent.channel.channel')}
           disabled={props.channel !== null}
-          optionList={[
-            { value: 'WECOM', label: t('agent.channel.channelWecom') },
-            { value: 'WEBCHAT', label: t('agent.channel.channelWebchat') },
-            { value: 'MSSWWEB', label: t('agent.channel.channelMsswweb') }
-          ]}
+          optionList={channelOptions}
           onChange={(value) => setChannelKind(value as ChannelKind)}
         />
         <Form.Input
@@ -188,18 +219,16 @@ export function ChannelFormModal(props: ChannelFormModalProps) {
         />
         <Form.Input
           field="bot_id"
-          label={isSecretless(channelKind) ? t('agent.channel.entryKey') : t('agent.channel.botId')}
-          extraText={isSecretless(channelKind) ? t('agent.channel.entryKeyHint') : undefined}
+          label={secretless ? t('agent.channel.entryKey') : t('agent.channel.botId')}
+          extraText={secretless ? t('agent.channel.entryKeyHint') : undefined}
           rules={[
             {
               required: true,
-              message: isSecretless(channelKind)
-                ? t('agent.channel.entryKey')
-                : t('agent.channel.botId')
+              message: secretless ? t('agent.channel.entryKey') : t('agent.channel.botId')
             }
           ]}
         />
-        {!isSecretless(channelKind) ? (
+        {!secretless ? (
           <Form.Input
             field="secret"
             label={t('agent.channel.secret')}
