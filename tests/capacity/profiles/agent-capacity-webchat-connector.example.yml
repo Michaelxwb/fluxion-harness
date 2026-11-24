@@ -53,7 +53,7 @@ resources:
   hardware:
     console-platform: {cpu_request_millicores: 1000, cpu_limit_millicores: 2000, memory_request_mb: 2048, memory_limit_mb: 4096}
     agent-runtime: {cpu_request_millicores: 1000, cpu_limit_millicores: 2000, memory_request_mb: 2048, memory_limit_mb: 4096}
-    agent-worker: {cpu_request_millicores: 500, cpu_limit_millicores: 2000, memory_request_mb: 1024, memory_limit_mb: 2048}
+    agent-worker: {cpu_request_millicores: 1000, cpu_limit_millicores: 2000, memory_request_mb: 1024, memory_limit_mb: 2048}
     im-gateway: {cpu_request_millicores: 1000, cpu_limit_millicores: 2000, memory_request_mb: 1024, memory_limit_mb: 2048}
     connector: {cpu_request_millicores: 250, cpu_limit_millicores: 1000, memory_request_mb: 512, memory_limit_mb: 1024}
   # 每 Pod 进程数：>1 时连接/FD/SSE 缓冲预算按 进程数 × 最大副本数 求和。

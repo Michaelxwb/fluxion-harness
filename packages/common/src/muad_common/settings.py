@@ -99,7 +99,7 @@ class SharedSettings(BaseSettings):
     runtime_admission_queue_limit: int = Field(default=256, ge=0, le=10000)
     #: memory consolidation 的租户级待处理上限；到界后不再入队（不阻塞已完成的 Run）。
     memory_consolidation_queue_max: int = Field(default=10000, ge=1)
-    worker_execution_concurrency: int = Field(default=4, ge=1, le=64)
+    worker_execution_concurrency: int = Field(default=8, ge=1, le=64)
     gateway_max_concurrent_handlers: int = Field(default=8, ge=1)
     gateway_max_pending_handlers: int = Field(default=256, ge=1)
     gateway_max_pending_per_route: int = Field(default=8, ge=1)

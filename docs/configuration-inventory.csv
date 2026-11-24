@@ -2263,7 +2263,7 @@ packages/common/src/muad_common/settings.py,92,im_progress_updates_per_second,"F
 packages/common/src/muad_common/settings.py,96,runtime_execution_concurrency,"Field(default=256, ge=1, le=256)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
 packages/common/src/muad_common/settings.py,99,runtime_admission_queue_limit,"Field(default=256, ge=0, le=10000)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
 packages/common/src/muad_common/settings.py,101,memory_consolidation_queue_max,"Field(default=10000, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
-packages/common/src/muad_common/settings.py,102,worker_execution_concurrency,"Field(default=4, ge=1, le=64)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,102,worker_execution_concurrency,"Field(default=8, ge=1, le=64)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
 packages/common/src/muad_common/settings.py,103,gateway_max_concurrent_handlers,"Field(default=8, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
 packages/common/src/muad_common/settings.py,104,gateway_max_pending_handlers,"Field(default=256, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
 packages/common/src/muad_common/settings.py,105,gateway_max_pending_per_route,"Field(default=8, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
@@ -2578,7 +2578,7 @@ packages/contracts/src/muad_contracts/memory_taxonomy.py,61,ENTITY_TYPE_DISPLAY_
 packages/contracts/src/muad_contracts/platform_settings.py,28,COMPACTION_POLICY_KEY,'compaction',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/platform_settings.py,31,RECALL_MAX_LIMIT,20,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/platform_settings.py,32,TASK_EXECUTION_TIMEOUT_MIN_SEC,1,python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/platform_settings.py,33,TASK_EXECUTION_TIMEOUT_MAX_SEC,3600,python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/platform_settings.py,33,TASK_EXECUTION_TIMEOUT_MAX_SEC,18000,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/platform_settings.py,60,enabled,True,policy-field,business,平台设置策略默认值
 packages/contracts/src/muad_contracts/platform_settings.py,61,max_groups,50,policy-field,business,平台设置 schema 的默认值来源（design §2.3.2）；迁移后由 Console 系统设置按租户持久化
 packages/contracts/src/muad_contracts/platform_settings.py,62,keep_head_groups,3,policy-field,business,平台设置 schema 的默认值来源（design §2.3.2）；迁移后由 Console 系统设置按租户持久化
@@ -2604,8 +2604,8 @@ packages/contracts/src/muad_contracts/platform_settings.py,109,deadline_ms,36000
 packages/contracts/src/muad_contracts/platform_settings.py,110,max_model_retries,3,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
 packages/contracts/src/muad_contracts/platform_settings.py,113,max_identical_failures,2,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
 packages/contracts/src/muad_contracts/platform_settings.py,120,default_deadline_hours,24,policy-field,business,平台设置 schema 的默认值来源（design §2.3.2）；迁移后由 Console 系统设置按租户持久化
-packages/contracts/src/muad_contracts/platform_settings.py,121,execution_timeout_sec,"field(default=300, metadata={'minimum': TASK_EXECUTION_TIMEOUT_MIN_SEC, 'maximum': TASK_EXECUTION_TIMEOUT_MAX_SEC, 'unit': 'seconds'})",policy-field,business,平台设置 schema 的默认值来源（design §2.3.2）；迁移后由 Console 系统设置按租户持久化
-packages/contracts/src/muad_contracts/platform_settings.py,129,max_attempts,3,policy-field,business,平台设置 schema 的默认值来源（design §2.3.2）；迁移后由 Console 系统设置按租户持久化
+packages/contracts/src/muad_contracts/platform_settings.py,121,execution_timeout_sec,"field(default=3600, metadata={'minimum': TASK_EXECUTION_TIMEOUT_MIN_SEC, 'maximum': TASK_EXECUTION_TIMEOUT_MAX_SEC, 'unit': 'seconds'})",policy-field,business,平台设置 schema 的默认值来源（design §2.3.2）；迁移后由 Console 系统设置按租户持久化
+packages/contracts/src/muad_contracts/platform_settings.py,129,max_attempts,5,policy-field,business,平台设置 schema 的默认值来源（design §2.3.2）；迁移后由 Console 系统设置按租户持久化
 packages/contracts/src/muad_contracts/platform_settings.py,130,batch_max_concurrency,8,policy-field,business,平台设置 schema 的默认值来源（design §2.3.2）；迁移后由 Console 系统设置按租户持久化
 packages/contracts/src/muad_contracts/platform_settings.py,131,misfire_grace_sec,60,policy-field,business,平台设置 schema 的默认值来源（design §2.3.2）；迁移后由 Console 系统设置按租户持久化
 packages/contracts/src/muad_contracts/platform_settings.py,132,delivery_max_attempts,5,policy-field,business,平台设置 schema 的默认值来源（design §2.3.2）；迁移后由 Console 系统设置按租户持久化

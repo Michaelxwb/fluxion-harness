@@ -37,7 +37,10 @@ from muad_agent_worker.infrastructure.platform_settings_client import (
 from muad_agent_worker.worker.service import WorkerLoop
 from muad_api import AppError, render_metrics
 from muad_common import SharedSettings
-from muad_contracts.platform_settings import parse_platform_settings
+from muad_contracts.platform_settings import (
+    default_platform_settings,
+    parse_platform_settings,
+)
 from muad_contracts.snapshot import snapshot_hash
 from sqlalchemy import func, select
 
@@ -277,7 +280,10 @@ async def test_new_task_defaults_client_uses_worker_service_identity() -> None:
     assert headers["X-Tenant-Id"] == "tenant-a"
     assert headers["X-Caller-Service"] == "worker"
     assert snapshot.revision == 3
-    assert snapshot.settings["task"]["max_attempts"] == 3
+    assert (
+        snapshot.settings["task"]["max_attempts"]
+        == default_platform_settings().task.max_attempts
+    ), "客户端必须原样透传 schema 默认，不自行改写"
 
 
 # ---- E-19：调度默认（misfire grace / attempts / deadline） ----

@@ -30,7 +30,7 @@ COMPACTION_POLICY_KEY = "compaction"
 #: 记忆召回默认条数的上界（与 agent-runtime `memory_tools.RECALL_MAX_LIMIT` 同口径的容量上界）。
 RECALL_MAX_LIMIT = 20
 TASK_EXECUTION_TIMEOUT_MIN_SEC = 1
-TASK_EXECUTION_TIMEOUT_MAX_SEC = 3600
+TASK_EXECUTION_TIMEOUT_MAX_SEC = 18000
 
 
 class PlatformSettingsError(ValueError):
@@ -119,14 +119,14 @@ class TaskSettings:
 
     default_deadline_hours: int = 24
     execution_timeout_sec: int = field(
-        default=300,
+        default=3600,
         metadata={
             "minimum": TASK_EXECUTION_TIMEOUT_MIN_SEC,
             "maximum": TASK_EXECUTION_TIMEOUT_MAX_SEC,
             "unit": "seconds",
         },
     )
-    max_attempts: int = 3
+    max_attempts: int = 5
     batch_max_concurrency: int = 8
     misfire_grace_sec: int = 60
     delivery_max_attempts: int = 5

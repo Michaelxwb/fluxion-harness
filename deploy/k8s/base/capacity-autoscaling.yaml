@@ -120,7 +120,7 @@ spec:
           type: Utilization
           averageUtilization: 80
     # 排队信号：claim 轮询观测到的可领取任务数（真实 gauge，`worker/claimer.py` 发布）。
-    # 目标 8 = 2 × WORKER_EXECUTION_CONCURRENCY（4 个执行槽）：每个 Pod 平均排到两轮槽位
+    # 目标 16 = 2 × WORKER_EXECUTION_CONCURRENCY（8 个执行槽）：每个 Pod 平均排到两轮槽位
     # 就再扩一个 Pod；任务按租约领取，扩出来的 Pod 立刻参与同一队列（无 Pod 绑定）。
     # 该自定义指标经 Prometheus Adapter 暴露为 Pods 指标（集群侧前置条件与 metrics-server
     # 同类；本仓库只声明真实存在的指标名与目标口径）。
@@ -130,4 +130,4 @@ spec:
           name: task_queue_depth
         target:
           type: AverageValue
-          averageValue: "8"
+          averageValue: "16"
