@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 import pytest
-from muad_agent_core.agent import AgentRunRequest, AgentRunner, RunnerCancelled
+from muad_agent_core.agent import AgentRunner, AgentRunRequest, RunnerCancelled
 from muad_agent_core.model import ModelRequest, ModelResponse
 from muad_agent_core.tools import ToolRegistry
 
