@@ -2969,6 +2969,7 @@ class RunService:
         current_attachments: tuple[PersistedAttachment, ...] | None = None,
         submission_id: uuid.UUID | None = None,
         memory_resume_ref: MemoryResumeRef | None = None,
+        resume_hint: str | None = None,
         pool: PoolExecutionPolicy | None = None,
         members: Sequence[MemberRef] | None = None,
         summary_members: Sequence[MemberRef] | None = None,
@@ -3013,6 +3014,7 @@ class RunService:
                 material_scan_end_seq=history.material_scan_end_seq,
                 head_end_seq=history.head_end_seq,
                 earlier_records=history.earlier_records,
+                resume_hint=resume_hint,
                 active_skills=skill_context.keys,
                 compaction=compaction,
                 execution=execution,
@@ -3126,17 +3128,14 @@ class RunService:
                         current_attachments=current_attachments,
                         submission_id=submission_id,
                         memory_resume_ref=resume.reference,
+                        resume_hint=resume.hint,
                         pool=pool,
                         members=members,
                         summary_members=summary_members,
                     )
 
             with db_stage("turn:segment"):
-                result = (
-                    SegmentResult(final_text=resume.message)
-                    if resume.message is not None
-                    else await self._run_segment(run, submission_id, agent.key, build)
-                )
+                result = await self._run_segment(run, submission_id, agent.key, build)
             if result is not None:
                 terminal = await self._finish_segment(run, submission_id, agent.key, result)
                 if terminal is not None:

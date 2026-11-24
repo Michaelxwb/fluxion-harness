@@ -429,7 +429,7 @@
   - worker-context PASS exit=0
 ## TASK-006: “继续”进入模型回合
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-002, TASK-003
 - **Source**: conversation-context-retention.backend.design.md §5；conversation-context-retention.prd.md FEAT-04
 - **Scenarios**: S-02, S-03
@@ -471,11 +471,11 @@
 
 ### Checklist
 
-- [ ] 单候选不自动绑定；裸“继续”进入执行段。
-- [ ] 明确选择编号/key/唯一标题才产生 `resume_ref`。
-- [ ] 无候选时模型照常回答，不再产生平台话术事件。
-- [ ] hint 只取当前 submission，定界/截断且不授予权限。
-- [ ] 记忆确认续跑语义不变，旧 submission 不污染当前 hint/reference。
+- [x] 单候选不自动绑定；裸“继续”进入执行段。
+- [x] 明确选择编号/key/唯一标题才产生 `resume_ref`。
+- [x] 无候选时模型照常回答，不再产生平台话术事件。
+- [x] hint 只取当前 submission，定界/截断且不授予权限。
+- [x] 记忆确认续跑语义不变，旧 submission 不污染当前 hint/reference。
 
 ### Spec Delta
 
@@ -486,13 +486,15 @@
 ### Log
 
 - [2026-11-25] created；待任务边界复核。
+- [2026-11-24T17:18:18.676Z] started tests=e25d999f1a8c
 
 ### Verification
 
 - 尚未执行
 
 <a id="task-007"></a>
-
+- 2026-11-24T17:21:18.787Z PASS commands=1/1 executed=1 deduped=0 elapsed=5456ms tests=e25d999f1a8c head=25cdd0ee7a07 dirty=1
+  - resume-model-turn PASS exit=0
 ## TASK-007: Console 4 字段与裁剪审计展示
 
 - **Status**: draft

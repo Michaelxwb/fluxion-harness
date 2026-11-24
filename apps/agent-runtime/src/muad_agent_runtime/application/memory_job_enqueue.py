@@ -114,7 +114,7 @@ async def _reference(session: AsyncSession, run: RunRecord, through_seq: int) ->
                 CanonicalEvent.tenant_id == run.tenant_id,
                 CanonicalEvent.run_id == run.id,
                 CanonicalEvent.event_type.in_(
-                    ("MEMORY_RESUME_RESOLVED", "MEMORY_RESUME_OPTIONS", "MEMORY_RESUME_NOTICE")
+                    ("MEMORY_RESUME_RESOLVED", "MEMORY_RESUME_OPTIONS")
                 ),
                 CanonicalEvent.seq <= through_seq,
                 CanonicalEvent.is_deleted.is_(False),

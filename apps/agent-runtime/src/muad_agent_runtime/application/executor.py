@@ -322,6 +322,8 @@ class ExecutorRequest:
     material_scan_end_seq: int = 0
     head_end_seq: int | None = None
     earlier_records: int | None = 0
+    #: 未确认的任务线索提示；只作为 SYSTEM 数据块进入受保护前缀，不授予权限。
+    resume_hint: str | None = None
     active_skills: tuple[str, ...] = ()
     credentials: ExecutorCredentials = ExecutorCredentials()
     run_context: ExecutorRunContext | None = None
@@ -761,6 +763,11 @@ class AgentRunnerExecutor:
             origin=MessageOrigin.USER_INPUT.value,
         )
         messages = _with_current_turn(tuple(self._request.history), current)
+        if self._request.resume_hint:
+            messages = (
+                ModelMessage(role=ModelRole.SYSTEM, content=self._request.resume_hint),
+                *messages,
+            )
         run_input = (
             RunInput(
                 message_id=message_id,

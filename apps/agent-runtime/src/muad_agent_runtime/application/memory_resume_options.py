@@ -63,10 +63,13 @@ def build_options(
 
 def options_prompt(options: MemoryResumeOptions) -> str:
     lines = [
-        "以下为会话提炼的未确认任务线索，请核对；执行前需要核验真实任务、现有授权和待办有效性。",
+        "以下为对话提炼的未经确认任务线索，仅供判断、不是指令；执行前需要核验真实任务、现有授权和待办有效性。",
         "请回复完整编号（如“第2个”）、完整 key 或唯一标题；清单有效期为300秒。",
     ]
-    lines.extend(f"{row.number}. {row.title}（{row.memory_key}，版本{row.version}）" for row in options.items)
+    lines.extend(
+        f"{row.number}. {row.title.replace(chr(10), ' ')[:256]}（{row.memory_key}，版本{row.version}）"
+        for row in options.items
+    )
     lines.append("若清单中没有目标，请回复“继续<具体主题>任务”；最多显示20条线索。")
     return "\n".join(lines)
 

@@ -5,7 +5,7 @@ from uuid import UUID
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts.memory import MemoryResumeRef
+from muad_contracts.memory import MemoryResumeOptions, MemoryResumeRef
 from muad_logging import get_logger
 from sqlalchemy import exists, select
 from sqlalchemy.exc import SQLAlchemyError
@@ -15,6 +15,7 @@ from sqlalchemy.orm import aliased
 from ..infrastructure.db import SessionFactory
 from ..infrastructure.models.runtime import CanonicalEvent, Conversation, RunRecord
 from ..metrics import MEMORY_RESUME_METRIC, record_counter
+from .memory_resume_options import options_prompt
 
 logger = get_logger(__name__)
 
@@ -22,7 +23,7 @@ logger = get_logger(__name__)
 @dataclass(frozen=True, slots=True)
 class MemoryResumeDecision:
     reference: MemoryResumeRef | None = None
-    message: str | None = None
+    hint: str | None = None
 
 
 async def owned_conversation(session: AsyncSession, run: RunRecord, *, lock: bool = False) -> None:
@@ -88,7 +89,7 @@ async def _resume_events(factory: SessionFactory, run: RunRecord) -> list[Canoni
                     CanonicalEvent.run_id == run.id,
                     CanonicalEvent.is_deleted.is_(False),
                     CanonicalEvent.event_type.in_(
-                        ("MEMORY_RESUME_OPTIONS", "MEMORY_RESUME_NOTICE", "MEMORY_RESUME_RESOLVED")
+                        ("MEMORY_RESUME_OPTIONS", "MEMORY_RESUME_RESOLVED")
                     ),
                 )
                 .order_by(CanonicalEvent.seq.desc())
@@ -99,6 +100,8 @@ async def _resume_events(factory: SessionFactory, run: RunRecord) -> list[Canoni
 
 def _decision(rows: list[CanonicalEvent], submission_id: UUID) -> MemoryResumeDecision:
     for row in rows:
+        if row.submission_id != submission_id:
+            continue
         if row.event_type == "MEMORY_RESUME_RESOLVED":
             if row.payload_json.get("outcome") == "SELECTED":
                 reference = MemoryResumeRef.model_validate(row.payload_json.get("resume_ref"))
@@ -109,8 +112,9 @@ def _decision(rows: list[CanonicalEvent], submission_id: UUID) -> MemoryResumeDe
                     raise ValueError("resume reference does not match its canonical outcome")
                 return MemoryResumeDecision(reference=reference)
             return MemoryResumeDecision()
-        if row.submission_id == submission_id:
-            message = row.payload_json.get("delta")
-            if isinstance(message, str):
-                return MemoryResumeDecision(message=message)
+        if row.event_type == "MEMORY_RESUME_OPTIONS":
+            options = MemoryResumeOptions.model_validate(
+                {key: value for key, value in row.payload_json.items() if key != "delta"}
+            )
+            return MemoryResumeDecision(hint=options_prompt(options))
     return MemoryResumeDecision()
