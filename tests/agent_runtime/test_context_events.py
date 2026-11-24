@@ -150,9 +150,12 @@ async def test_e03_plain_history_load_writes_no_compaction_row(
 
     builder = DbBackedContextBuilder(session_factory=get_session_factory)
     messages = await builder.load_history(
-        tenant_id=tenant.tenant_id, conversation_id=conversation.id, user_id=None
+        tenant_id=tenant.tenant_id,
+        conversation_id=conversation.id,
+        user_id=None,
+        budget_tokens=100_000,
     )
-    assert [message.content for message in messages] == ["你好"]
+    assert [message.content for message in messages.messages] == ["你好"]
 
     kinds = [row.event_type for row in await _events(tenant, conversation.id)]
     assert kinds == ["USER_MESSAGE"], "历史装配是只读路径，不得写事件"

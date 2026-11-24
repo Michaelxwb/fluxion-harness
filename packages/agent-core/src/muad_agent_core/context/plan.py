@@ -43,8 +43,10 @@ class ContextPlan:
     pinned: tuple[Group, ...]
     older: tuple[Group, ...]
     working: tuple[Group, ...]
-    coverage_seq: int = 0
-    protected_event_ids: tuple[str, ...] = ()
+    covered_seq: int = 0
+    material_end_seq: int = 0
+    head_end_seq: int | None = None
+    earlier_records: int | None = 0
     pinned_bytes: int = 0
     pinned_omitted: tuple[str, ...] = ()
     run_input: RunInput | None = None
@@ -65,6 +67,10 @@ def plan_context(
     run_input: RunInput | None,
     active_skills: Sequence[str] = (),
     protected_budget_bytes: int = 0,
+    covered_seq: int = 0,
+    material_scan_end_seq: int | None = None,
+    head_end_seq: int | None = None,
+    earlier_records: int | None = 0,
 ) -> ContextPlan:
     """Build the plan from explicit input + active skills; no "first/last user" inference."""
     prefix, body = split_protected_prefix(messages)
@@ -97,27 +103,20 @@ def plan_context(
         kept.append(group)
         used += size
     pinned_groups = tuple(kept)
-    protected_ids = tuple(
-        message.source_event_id
-        for group in pinned_groups
-        for message in group
-        if message.source_event_id
-    )
-    coverage = max(
-        (
-            message.source_event_seq or 0
-            for group in older_groups
-            for message in group
-        ),
-        default=0,
+    material_end = _material_end_seq(
+        older_groups,
+        covered_seq=covered_seq,
+        material_scan_end_seq=material_scan_end_seq,
     )
     return ContextPlan(
         prefix=prefix,
         pinned=pinned_groups,
         older=older_groups,
         working=working_groups,
-        coverage_seq=coverage,
-        protected_event_ids=protected_ids,
+        covered_seq=covered_seq,
+        material_end_seq=material_end,
+        head_end_seq=head_end_seq,
+        earlier_records=earlier_records,
         pinned_bytes=used,
         pinned_omitted=tuple(dict.fromkeys(omitted)),
         run_input=run_input,
@@ -195,6 +194,25 @@ def _group_skill_keys(group: Group) -> list[str]:
                 if isinstance(key, str):
                     keys.append(key)
     return keys
+
+
+def _material_end_seq(
+    groups: Sequence[Group],
+    *,
+    covered_seq: int,
+    material_scan_end_seq: int | None,
+) -> int:
+    if material_scan_end_seq is None:
+        return 0
+    seqs = [
+        message.source_event_seq or 0
+        for group in groups
+        for message in group
+    ]
+    return max(
+        (seq for seq in seqs if covered_seq < seq <= material_scan_end_seq),
+        default=0,
+    )
 
 
 __all__ = [

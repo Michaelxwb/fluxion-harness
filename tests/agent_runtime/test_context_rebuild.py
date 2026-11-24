@@ -138,19 +138,31 @@ async def test_e01_rebuild_is_deterministic_and_matches_the_independent_oracle(
     conversation_id, _ = await _seed(tenant)
 
     first = await _builder().load_history(
-        tenant_id=tenant.tenant_id, conversation_id=conversation_id, user_id=None
+        tenant_id=tenant.tenant_id,
+        conversation_id=conversation_id,
+        user_id=None,
+        budget_tokens=100_000,
     )
     second = await _builder().load_history(
-        tenant_id=tenant.tenant_id, conversation_id=conversation_id, user_id=None
+        tenant_id=tenant.tenant_id,
+        conversation_id=conversation_id,
+        user_id=None,
+        budget_tokens=100_000,
     )
 
     # 同一份库、两个独立实例（换 Pod 的等价物）⇒ 逐字节相同。
-    assert [message.content for message in first] == [message.content for message in second]
-    assert [str(message.role) for message in first] == [str(message.role) for message in second]
+    assert [message.content for message in first.messages] == [
+        message.content for message in second.messages
+    ]
+    assert [str(message.role) for message in first.messages] == [
+        str(message.role) for message in second.messages
+    ]
 
-    assert [message.content for message in first] == await _raw_rebuild(tenant, conversation_id)
-    assert first[0].content.startswith("[历史摘要]"), "摘要作为权威历史排在最前"
-    joined = "\n".join(str(message.content) for message in first)
+    assert [message.content for message in first.messages] == await _raw_rebuild(
+        tenant, conversation_id
+    )
+    assert first.messages[0].content.startswith("[历史摘要]"), "摘要作为权威历史排在最前"
+    joined = "\n".join(str(message.content) for message in first.messages)
     assert "被压缩掉的旧诉求" not in joined, "被摘要覆盖的原始事件不再进入装配"
     assert "摘要之后的追问 2" in joined, "覆盖边界之后的事件按 seq 顺序接着来"
 
@@ -180,11 +192,16 @@ async def test_e01_a_new_summary_takes_effect_on_the_next_rebuild(
         await session.commit()
 
     rebuilt = await _builder().load_history(
-        tenant_id=tenant.tenant_id, conversation_id=conversation_id, user_id=None
+        tenant_id=tenant.tenant_id,
+        conversation_id=conversation_id,
+        user_id=None,
+        budget_tokens=100_000,
     )
 
-    assert "推进后的目标" in str(rebuilt[0].content), "取最新一份覆盖事件作前缀"
-    assert "摘要之后的追问" not in "\n".join(str(message.content) for message in rebuilt)
+    assert "推进后的目标" in str(rebuilt.messages[0].content), "取最新一份覆盖事件作前缀"
+    assert "摘要之后的追问" not in "\n".join(
+        str(message.content) for message in rebuilt.messages
+    )
 
 
 async def test_rule05_summary_is_authoritative_and_transcript_is_only_an_archive(
@@ -196,7 +213,10 @@ async def test_rule05_summary_is_authoritative_and_transcript_is_only_an_archive
 
     conversation_id, _ = await _seed(tenant)
     rebuilt = await _builder().load_history(
-        tenant_id=tenant.tenant_id, conversation_id=conversation_id, user_id=None
+        tenant_id=tenant.tenant_id,
+        conversation_id=conversation_id,
+        user_id=None,
+        budget_tokens=100_000,
     )
 
     # 存档侧：逐字原文落在共享产物里，类型 TRANSCRIPT，且**不在** canonical_event 中。
@@ -215,15 +235,15 @@ async def test_rule05_summary_is_authoritative_and_transcript_is_only_an_archive
 
     assert artifact is not None and artifact.artifact_type == "TRANSCRIPT"
     assert "被压缩掉的旧诉求 0" not in json.dumps(
-        [row for row in rebuilt], default=str
+        [row for row in rebuilt.messages], default=str
     ), "摘要不作 verbatim 存档，逐字原文不进历史（进历史的是摘要）"
 
     # 互换即失真：把 transcript 的逐字原文当前缀，重建结果会变。
     swapped = [
         ModelMessage(role=ModelRole.SYSTEM, content="被压缩掉的旧诉求 0"),
-        *rebuilt[1:],
+        *rebuilt.messages[1:],
     ]
     assert [message.content for message in swapped] != [
-        message.content for message in rebuilt
+        message.content for message in rebuilt.messages
     ], "摘要与 transcript 一旦互换，重建结果必然不同——二者不是同一种东西"
 

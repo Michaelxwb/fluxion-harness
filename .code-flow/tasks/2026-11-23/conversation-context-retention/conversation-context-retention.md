@@ -135,7 +135,7 @@
   - settings-contract PASS exit=0
 ## TASK-002: Runtime 历史装配只读与索引
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001
 - **Source**: conversation-context-retention.backend.design.md §2.2、§3；conversation-context-retention.prd.md FEAT-02
 - **Scenarios**: S-01, E-02
@@ -181,13 +181,13 @@
 
 ### Checklist
 
-- [ ] `LoadedHistory` 与 `ContextPlan` 的 seq 元数据贯通 `ExecutorRequest` / `AgentRunRequest` / `AgentRunState`。
-- [ ] 尾部、材料、头部、缺口计数使用同一组过滤条件。
-- [ ] 当前输入不进材料/头部/缺口，尾部仍包含当前用户消息。
-- [ ] `material_end_seq` 在实际材料组上计算，`head_end_seq` 支持“全量已读但预算不足”路径。
-- [ ] 孤儿/重复工具结果不回放，配对逻辑不按回合上限截断。
-- [ ] partial index 迁移与 ORM 声明一致，迁移测试覆盖谓词。
-- [ ] 新增真实 PostgreSQL 回归覆盖预算内/预算外、缺口、当前输入排除、跨轮收敛。
+- [x] `LoadedHistory` 与 `ContextPlan` 的 seq 元数据贯通 `ExecutorRequest` / `AgentRunRequest` / `AgentRunState`。
+- [x] 尾部、材料、头部、缺口计数使用同一组过滤条件。
+- [x] 当前输入不进材料/头部/缺口，尾部仍包含当前用户消息。
+- [x] `material_end_seq` 在实际材料组上计算，`head_end_seq` 支持“全量已读但预算不足”路径。
+- [x] 孤儿/重复工具结果不回放，配对逻辑不按回合上限截断。
+- [x] partial index 迁移与 ORM 声明一致，迁移测试覆盖谓词。
+- [x] 新增真实 PostgreSQL 回归覆盖预算内/预算外、缺口、当前输入排除、跨轮收敛。
 
 ### Spec Delta
 
@@ -198,13 +198,15 @@
 ### Log
 
 - [2026-11-25] created；待任务边界复核。
+- [2026-11-24T16:42:50.116Z] started tests=52ee2f347d69
 
 ### Verification
 
 - 尚未执行
 
 <a id="task-003"></a>
-
+- 2026-11-24T16:52:11.907Z PASS commands=1/1 executed=1 deduped=0 elapsed=3666ms tests=52ee2f347d69 head=985d41f3a3d6 dirty=1
+  - history-retention PASS exit=0
 ## TASK-003: 请求边界唯一裁剪与摘要材料替换
 
 - **Status**: draft

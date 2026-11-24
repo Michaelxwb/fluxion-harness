@@ -314,6 +314,11 @@ class ExecutorRequest:
     skills: tuple[ResolvedSkill, ...] = ()
     mcp_servers: tuple[ResolvedMcpServer, ...] = ()
     history: tuple[ModelMessage, ...] = ()
+    #: 历史装配的 seq 元数据；由 history loader 注入，逐层传给 ContextPlan。
+    covered_seq: int = 0
+    material_scan_end_seq: int = 0
+    head_end_seq: int | None = None
+    earlier_records: int | None = 0
     active_skills: tuple[str, ...] = ()
     credentials: ExecutorCredentials = ExecutorCredentials()
     run_context: ExecutorRunContext | None = None
@@ -768,6 +773,10 @@ class AgentRunnerExecutor:
             skills=self._catalog_skills(),
             messages=messages,
             run_input=run_input,
+            covered_seq=self._request.covered_seq,
+            material_scan_end_seq=self._request.material_scan_end_seq,
+            head_end_seq=self._request.head_end_seq,
+            earlier_records=self._request.earlier_records,
             active_skills=self._request.active_skills,
             policy=agent_policy_for(self._request),
             reply_locale=execution_defaults_for(self._request).locale,

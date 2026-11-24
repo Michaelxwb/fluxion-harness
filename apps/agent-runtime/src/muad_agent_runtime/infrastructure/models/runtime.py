@@ -490,6 +490,17 @@ class CanonicalEvent(StandardColumnsMixin, Base):
         sa.Index("ix_canonical_event_run_seq", "run_id", "seq"),
         sa.Index("ix_canonical_event_conversation_create_time", "conversation_id", "create_time"),
         sa.Index(
+            "ix_canonical_event_history",
+            "conversation_id",
+            "seq",
+            postgresql_where=sa.text(
+                "is_deleted = false AND event_type IN ("
+                "'USER_MESSAGE','ASSISTANT_MESSAGE','MEMORY_CONFIRMATION_RESOLVED',"
+                "'TOOL_CALL','ASSISTANT_TURN','TOOL_TASK_ACCEPTED',"
+                "'BACKGROUND_RESULT','TOOL_SUBMISSION_FAILED')"
+            ),
+        ),
+        sa.Index(
             "uq_canonical_event_source",
             "tenant_id",
             "source_event_id",
