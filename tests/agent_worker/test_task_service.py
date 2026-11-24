@@ -13,7 +13,10 @@ from muad_agent_worker.infrastructure.models.task import (
 )
 from muad_agent_worker.main import app
 from muad_api import AppError
-from muad_contracts.platform_settings import default_platform_settings
+from muad_contracts.platform_settings import (
+    TASK_EXECUTION_TIMEOUT_MAX_SEC,
+    default_platform_settings,
+)
 from sqlalchemy import func, select
 
 from agent_worker.conftest import TenantContext
@@ -272,7 +275,7 @@ async def test_snapshot_with_out_of_range_execution_timeout_is_rejected(
     payload = create_task_payload(tenant, idempotency_key="snap-timeout-range")
     tainted = {
         **payload.execution_snapshot,
-        "budget": {**payload.execution_snapshot["budget"], "execution_timeout_sec": 3601},
+        "budget": {**payload.execution_snapshot["budget"], "execution_timeout_sec": TASK_EXECUTION_TIMEOUT_MAX_SEC + 1},
     }
     invalid = payload.model_copy(update={"execution_snapshot": tainted})
     async with tenant.session_factory() as session:

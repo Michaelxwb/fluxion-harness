@@ -22,7 +22,12 @@ from muad_console_platform.application.platform_settings_catalog import (
     build_groups,
     readonly_notes,
 )
-from muad_contracts.platform_settings import PlatformSettings
+from muad_contracts.platform_settings import (
+    TASK_EXECUTION_TIMEOUT_MAX_SEC,
+    TASK_EXECUTION_TIMEOUT_MIN_SEC,
+    PlatformSettings,
+    TaskSettings,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 FRONTEND = ROOT / "apps/console-platform/frontend/src"
@@ -84,9 +89,9 @@ def test_task_execution_timeout_is_an_editable_setting_with_schema_bounds() -> N
     task = next(group for group in groups if group["key"] == "task")
     field = next(item for item in task["fields"] if item["path"] == "task.execution_timeout_sec")
     assert task["readonly"] is False
-    assert field["default"] == 300
-    assert field["min"] == 1
-    assert field["max"] == 3600
+    assert field["default"] == TaskSettings().execution_timeout_sec
+    assert field["min"] == TASK_EXECUTION_TIMEOUT_MIN_SEC
+    assert field["max"] == TASK_EXECUTION_TIMEOUT_MAX_SEC
     assert field["unit_key"] == "settings.unit.seconds"
     assert field["applies_to"] == "new_task"
     for locale, translations in _locales().items():

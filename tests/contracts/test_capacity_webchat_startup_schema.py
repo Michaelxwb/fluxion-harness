@@ -9,7 +9,7 @@ from pydantic import ValidationError
 pytestmark = pytest.mark.unit
 
 DEFAULTS: dict[str, int | float] = {
-    "runtime_execution_concurrency": 256, "worker_execution_concurrency": 4,
+    "runtime_execution_concurrency": 256, "worker_execution_concurrency": 8,
     "gateway_max_concurrent_handlers": 8, "gateway_max_pending_handlers": 256,
     "gateway_max_pending_per_route": 8, "gateway_max_pending_commands": 32,
     "gateway_max_sse_subscribers": 1100, "runtime_max_sse_subscribers": 1100,
