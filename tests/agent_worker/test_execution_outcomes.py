@@ -149,22 +149,22 @@ def test_retryable_business_failure_follows_retry_safety() -> None:
     assert unverified.disposition is FailureDisposition.UNVERIFIED
 
 
-def test_verified_findings_complete_without_becoming_wait_or_fanout() -> None:
+def test_failed_review_preserves_report_without_becoming_wait_or_fanout() -> None:
     reviewed = {"summary": {"errors": 2}, "wait": {"external_ref": {"id": "ignored"}}}
     outcome = interpret_execution(
         {
-            "status": "SUCCEEDED",
-            "execution_status": "COMPLETED",
-            "business_status": "REVIEW_FINDINGS",
+            "status": "FAILED",
+            "execution_status": "FAILED",
             "exit_code": 1,
             "result": reviewed,
         },
         now=datetime.now(UTC),
     )
-    assert outcome.kind is OutcomeKind.COMPLETED
+    assert outcome.kind is OutcomeKind.RETRYABLE_FAILURE
+    assert outcome.retryable is False
     assert outcome.result == {
-        "execution_status": "COMPLETED",
-        "business_status": "REVIEW_FINDINGS",
+        "execution_status": "FAILED",
+        "business_status": "FAILED",
         "exit_code": 1,
         "result": reviewed,
     }

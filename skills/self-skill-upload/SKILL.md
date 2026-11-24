@@ -31,8 +31,8 @@ description: 把当前用户的 Skill 草稿提交到控制台，生成待审批
 
 1. **规范审查**：用 `self-skill-review` 审当前草稿——
    - `execute(target="skill", skill_key="self-skill-review", input={}, argv=["--target", "skill-drafts/<key>", "--format", "json"])`；
-   - 要求 `execution_status=COMPLETED`、有效的审查业务结论，以及 `result.reviewed_draft` 的 `draft_id` 和 `revision` 匹配提交目标。证据缺失或审查执行失败时停止提交并说明原因；
-   - 把 error/warning 摘要告诉用户。`REVIEW_FINDINGS` 时说明风险并等待用户确认。草稿变更后重新审查当前版本。
+   - 要求 `exit_code` 为 `0` 或 `1`，有有效报告，且 `result.reviewed_draft` 的 `draft_id` 和 `revision` 匹配提交目标。缺少这些证据时停止提交并说明原因。
+   - 把 error/warning 摘要告诉用户。退出码 `1` 且有 findings 时说明风险并等待用户确认。草稿变更后重新审查当前版本。
 2. **平台结构校验**：调用 `skill_draft {"action": "review", "draft_id": "<draft_id>"}`：
    - 有 `error`：原样转述问题（`file:line` + 原因），**不要提交**，让用户改完再试；
    - 只有 `warning`：可以继续，但把 warning 一并告知用户。

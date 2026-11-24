@@ -1081,8 +1081,8 @@ async def test_chat_skill_projects_only_registered_outputs_on_confirmed_window_l
 
 
 @pytest.mark.parametrize(("draft_key", "conclusion", "exit_code"), [
-    ("violating-skill", "REVIEW_FINDINGS", 1),
-    ("compliant-skill", "REVIEW_PASSED", 0),
+    ("violating-skill", "FAILED", 1),
+    ("compliant-skill", "SUCCEEDED", 0),
 ])
 async def test_sync_review_binds_authorized_draft_revision_to_real_findings(
     tmp_path: Path, draft_key: str, conclusion: str, exit_code: int,
@@ -1136,8 +1136,10 @@ async def test_sync_review_binds_authorized_draft_revision_to_real_findings(
     payload = json.loads(result.content)
     assert keys == [draft_key]
     assert result.outcome.business_status == conclusion
-    assert payload["execution_status"] == "COMPLETED"
+    assert payload["execution_status"] == ("FAILED" if exit_code else "COMPLETED")
     assert payload["exit_code"] == exit_code
+    assert result.outcome.retryable is False
+    assert result.outcome.review_progress is not None
     identity_findings = [item for item in payload["result"]["findings"] if item["rule"] == "SS-R003"]
     assert all(f"directory name '{draft_key}'" in item["message"] for item in identity_findings)
     assert payload["result"]["reviewed_draft"]["draft_id"] == draft_id

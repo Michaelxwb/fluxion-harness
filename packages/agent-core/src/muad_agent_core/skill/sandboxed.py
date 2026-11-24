@@ -159,10 +159,13 @@ def _sandbox_spec(request: SkillExecutionRequest, source: str, package_root: Pat
                   session: PlatformSessionEnvironment, egress: ScriptEgressEnvironment,
                   *, allow_dev_unsafe: bool, stdout_limit_bytes: int) -> SandboxSpec:
     return SandboxSpec(
-        policy=SandboxPolicy.for_source(
-            source,
-            dev_unsafe=allow_dev_unsafe,
-            env_inject=(*session.env, *egress.env),
+        policy=replace(
+            SandboxPolicy.for_source(
+                source,
+                dev_unsafe=allow_dev_unsafe,
+                env_inject=(*session.env, *egress.env),
+            ),
+            network=request.review_target is None,
         ),
         command=(
             *_sandbox_command(script, package_root, dev_unsafe, egress),
@@ -270,6 +273,24 @@ class SandboxedSkillExecutor:
         package_root = resolve_package_root(request.ready_dir)
         script = select_script(package_root, request.script)
         ensure_result_entrypoint(request, root=package_root, script=script)
+        if request.review_target is not None:
+            # A report may drive review progress only from this isolated invocation.
+            with tempfile.TemporaryDirectory(prefix="muad-review-workspace-") as workspace:
+                broker = request.egress_broker
+                result = await self._execute_prepared(
+                    replace(
+                        request, workspace_dir=Path(workspace), env={},
+                        egress_broker=None, platform_context=None,
+                        budget_exhausted_event=broker.exhausted if broker else request.budget_exhausted_event,
+                    ),
+                    source, package_root, script,
+                )
+                return replace(result, outputs=(), workspace_dir=None)
+        return await self._execute_prepared(request, source, package_root, script)
+
+    async def _execute_prepared(
+        self, request: SkillExecutionRequest, source: str, package_root: Path, script: Path,
+    ) -> SkillExecutionResult:
         workspace, output_dir, execution_id = _prepare_workspace(request, package_root)
         try:
             runner = self._require_runner()

@@ -17,7 +17,7 @@ from .helpers import submission_context
 from .test_execution import _wait_terminal
 
 
-def test_worker_preserves_verified_findings_as_completed(live_stack, http):
+def test_worker_preserves_verified_findings_on_failed_call(live_stack, http):
     skill = seed_review_skill(live_stack, run_db)
     draft_id, revision = seed_review_draft(http, live_stack)
     headers = live_stack.service_headers()
@@ -59,8 +59,8 @@ def test_worker_preserves_verified_findings_as_completed(live_stack, http):
     )
     submitted.raise_for_status()
     detail = _wait_terminal(http, live_stack, submitted.json()["data"]["task_id"])
-    assert detail["status"] == "COMPLETED", detail
-    assert detail["result"]["execution_status"] == "COMPLETED"
-    assert detail["result"]["business_status"] == "REVIEW_FINDINGS"
+    assert detail["status"] == "FAILED", detail
+    assert detail["result"]["execution_status"] == "FAILED"
+    assert detail["result"]["business_status"] == "FAILED"
     assert detail["result"]["exit_code"] == 1
     assert detail["result"]["result"]["reviewed_draft"]["revision"] == revision

@@ -157,6 +157,12 @@ def interpret_execution(execution: Mapping[str, Any], *, now: datetime) -> TaskO
         fields = _outcome_fields(execution)
         return TaskOutcome(
             kind=OutcomeKind.RETRYABLE_FAILURE,
+            result=(
+                _skill_result_details(fields, dict(report))
+                if isinstance((report := execution.get("result")), Mapping)
+                and fields.get("execution_status") == "FAILED"
+                else None
+            ),
             error_code=str(fields.get("error_code") or status or "SKILL_EXECUTION_FAILED"),
             error_message=str(fields.get("error_message") or execution.get("stderr") or ""),
             business_status=fields.get("business_status"),
@@ -191,16 +197,20 @@ def _completed_skill_contract(execution: Mapping[str, Any], payload: dict[str, A
         raise _invalid("verified result is missing its business conclusion")
     return TaskOutcome(
         kind=OutcomeKind.COMPLETED,
-        result={
-            "execution_status": facts["execution_status"],
-            "business_status": facts["business_status"],
-            "exit_code": facts["exit_code"],
-            "result": payload,
-        },
+        result=_skill_result_details(facts, payload),
         execution_status=facts["execution_status"],
         business_status=facts["business_status"],
         exit_code=facts["exit_code"],
     )
+
+
+def _skill_result_details(facts: Mapping[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "execution_status": facts["execution_status"],
+        "business_status": facts["business_status"],
+        "exit_code": facts["exit_code"],
+        "result": payload,
+    }
 
 
 def _outcome_fields(execution: Mapping[str, Any]) -> dict[str, Any]:

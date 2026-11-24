@@ -369,6 +369,10 @@ def skill_result_outcome(
             ),
             exit_code=exit_code,
             retryable=retryable,
+            review_progress=(
+                _review_progress(result)
+                if execution_status is SkillCallStatus.FAILED and result_error_code is None else None
+            ),
             evidence=evidence_for(
                 stderr,
                 stdout,

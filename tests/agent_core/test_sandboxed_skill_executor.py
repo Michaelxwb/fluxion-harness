@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from muad_agent_core.sandbox import DevUnsafeRunner
+from muad_agent_core.sandbox import DevUnsafeRunner, SandboxResult, SandboxSpec
 from muad_agent_core.skill import (
     OutputLimits,
     SandboxedSkillExecutor,
@@ -378,16 +378,16 @@ async def test_other_terminal_errors_take_priority_over_window_receipt(monkeypat
 
 
 @pytest.mark.parametrize(
-    ("fixture", "exit_code", "execution", "business"),
+    ("fixture", "exit_code", "execution", "has_report"),
     [
-        ("compliant-skill", 0, "COMPLETED", "REVIEW_PASSED"),
-        ("violating-skill", 1, "COMPLETED", "REVIEW_FINDINGS"),
-        ("report-missing", 1, "FAILED", None),
-        ("real-crash", 2, "FAILED", None),
+        ("compliant-skill", 0, "COMPLETED", True),
+        ("violating-skill", 1, "FAILED", True),
+        ("report-missing", 1, "FAILED", False),
+        ("real-crash", 2, "FAILED", False),
     ],
 )
-async def test_managed_review_colors_result_by_validated_report(
-    tmp_path: Path, fixture: str, exit_code: int, execution: str, business: str | None
+async def test_managed_review_keeps_exit_status_and_validated_report(
+    tmp_path: Path, fixture: str, exit_code: int, execution: str, has_report: bool
 ) -> None:
     from muad_agent_core.skill.contracts import SkillReviewTarget
     from muad_agent_core.skill.result_profiles import review_target_fingerprint
@@ -417,9 +417,11 @@ async def test_managed_review_colors_result_by_validated_report(
     )
     assert result.exit_code == exit_code
     assert result.execution_status == execution
-    assert result.business_conclusion == business
-    if business is not None:
-        assert result.status == SkillExecutionStatus.SUCCEEDED
+    assert result.business_conclusion == ("SUCCEEDED" if exit_code == 0 else None)
+    expected_status = SkillExecutionStatus.SUCCEEDED if exit_code == 0 else SkillExecutionStatus.FAILED
+    assert result.status is expected_status
+    assert not (tmp_path / "workspace").exists()
+    if has_report:
         assert result.result is not None
         assert result.result["reviewed_draft"] == {
             "draft_id": "draft-id", "revision": 5, "fingerprint": fingerprint,
@@ -427,3 +429,44 @@ async def test_managed_review_colors_result_by_validated_report(
     else:
         assert result.result is None
         assert result.result_error_code == "SKILL_RESULT_INVALID"
+
+
+async def test_managed_review_uses_ephemeral_workspace_and_no_network(tmp_path: Path) -> None:
+    from muad_agent_core.skill.contracts import SkillReviewTarget
+    from muad_agent_core.skill.result_profiles import review_target_fingerprint
+    from muad_contracts.skill_results import FrozenSkillResultContract
+
+    skill = _package(tmp_path / "skill", "pass")
+    draft = _package(tmp_path / "draft", "pass")
+    workspace = tmp_path / "persistent"
+    fingerprint, files = review_target_fingerprint(draft)
+
+    class CaptureRunner:
+        name = "bwrap"
+        spec: SandboxSpec
+
+        async def run(self, spec: SandboxSpec) -> SandboxResult:
+            self.spec = spec
+            assert spec.workspace_dir.exists()
+            return SandboxResult(2, "", "review failed", 1)
+
+    runner = CaptureRunner()
+    await SandboxedSkillExecutor(runner=runner).execute(
+        _request(
+            skill,
+            env={"SKILL_EXAMPLE": "persistent"},
+            workspace_dir=workspace,
+            result_contract=FrozenSkillResultContract(
+                version=1, profile="skill-review", checksum="sha256:" + "a" * 64,
+                entrypoint="scripts/main.py",
+            ),
+            review_target=SkillReviewTarget(draft, "draft-id", 5, fingerprint, files),
+        )
+    )
+    assert runner.spec.policy.network is False
+    assert runner.spec.workspace_dir != workspace
+    assert not runner.spec.workspace_dir.exists()
+    assert "SKILL_EXAMPLE" not in runner.spec.env
+    assert len(runner.spec.mounts) == 1
+    assert runner.spec.mounts[0].source == draft
+    assert runner.spec.mounts[0].readonly
