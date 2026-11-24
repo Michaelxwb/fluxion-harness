@@ -39,7 +39,7 @@ python3 scripts/check.py --target <skill-dir> --format json
 }
 ```
 
-以返回的 `execution_status`、`business_status` 和 `result.reviewed_draft` 为准。`COMPLETED` 加 `REVIEW_PASSED` 表示无 error；`COMPLETED` 加 `REVIEW_FINDINGS` 表示审查完成且存在 error。执行失败或证据缺失时，说明无法验证及已知原因。
+查看 `exit_code`、`result.summary` 和 `result.reviewed_draft`。退出码 `0` 且有当前版本的有效报告时表示无 error。退出码 `1` 在执行层显示调用失败，如果仍有对应当前草稿版本的有效报告，就列出 findings。报告缺失、草稿版本不符或其他退出码时，说明无法验证及已知原因。
 
 ## 审查流程
 

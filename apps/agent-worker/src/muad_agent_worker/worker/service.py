@@ -621,6 +621,7 @@ class WorkerLoop:
                 retryable=outcome.retryable,
             ),
             now=now,
+            result=outcome.result,
         )
         return False
 
@@ -1038,6 +1039,7 @@ class WorkerLoop:
         exc: Exception,
         *,
         now: datetime | None,
+        result: dict[str, Any] | None = None,
     ) -> None:
         """失败的收尾裁决：确定性错误直接终态；可重试形状按**冻结** retry_safety 分流。
 
@@ -1062,7 +1064,7 @@ class WorkerLoop:
                     ):
                         return
                 elif await self._mark_failed(
-                    session, task, outcome.error_code, outcome.error_message, moment
+                    session, task, outcome.error_code, outcome.error_message, moment, result=result,
                 ):
                     return
                 await self._mark_cancelled(session, task, moment)
@@ -1145,11 +1147,18 @@ class WorkerLoop:
         error_code: str,
         error_message: str,
         moment: datetime,
+        *,
+        result: dict[str, Any] | None = None,
     ) -> bool:
         return await self._terminal(
             session,
             task,
-            TerminalChange(status=TerminalStatus.FAILED, error_code=error_code, error_message=error_message),
+            TerminalChange(
+                status=TerminalStatus.FAILED,
+                error_code=error_code,
+                error_message=error_message,
+                result=result,
+            ),
             moment,
             require_not_cancelled=True,
         )

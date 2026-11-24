@@ -150,7 +150,7 @@ def _safe_finding_path(value: str) -> bool:
 
 def _verify_review(
     stdout: str, target: SkillReviewTarget, *, expected_path: str, exit_code: int
-) -> tuple[dict[str, Any], SkillBusinessConclusion]:
+) -> dict[str, Any]:
     report = _ReviewReport.model_validate(json.loads(stdout, object_pairs_hook=_strict_object))
     summary = report.summary
     if report.target != expected_path or summary.fingerprint != target.fingerprint:
@@ -184,7 +184,7 @@ def _verify_review(
             "revision": target.revision,
             "fingerprint": target.fingerprint,
         },
-    }, (SkillBusinessConclusion.REVIEW_FINDINGS if errors else SkillBusinessConclusion.REVIEW_PASSED)
+    }
 
 
 def review_argv(request: SkillExecutionRequest, *, native: bool) -> tuple[str, ...]:
@@ -215,9 +215,10 @@ def validate_result_profile(
             execution_status=SkillCallStatus.FAILED,
             result_error_code=RESULT_INVALID,
         )
+    if result.status is SkillExecutionStatus.FAILED:
+        return replace(result, result=payload, stdout="", stderr="", execution_status=SkillCallStatus.FAILED)
     return replace(
         result,
-        status=SkillExecutionStatus.SUCCEEDED,
         result=payload,
         stdout="",
         stderr="",
@@ -240,14 +241,19 @@ def _verified_payload(
             raise ValueError("customer query did not complete")
         return _verify_customer(result.stdout)
     target = request.review_target
-    if target is None or result.exit_code not in (0, 1):
+    exit_code = result.exit_code
+    if target is None or exit_code is None or (exit_code, result.status) not in {
+        (0, SkillExecutionStatus.SUCCEEDED),
+        (1, SkillExecutionStatus.FAILED),
+    }:
         raise ValueError("review execution did not produce a complete report")
-    return _verify_review(
+    payload = _verify_review(
         result.stdout,
         target,
         expected_path=review_argv(request, native=native)[1],
-        exit_code=result.exit_code,
+        exit_code=exit_code,
     )
+    return payload, SkillBusinessConclusion.SUCCEEDED
 
 
 def ensure_result_entrypoint(request: SkillExecutionRequest, *, root: Path, script: Path) -> None:

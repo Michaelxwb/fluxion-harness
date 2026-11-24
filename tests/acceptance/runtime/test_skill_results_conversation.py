@@ -167,4 +167,4 @@ def test_real_review_findings_then_repaired_draft(live_stack, http):
             )
             return [tuple(row) for row in rows]
 
-    assert run_db(audit) == [("COMPLETED", "REVIEW_FINDINGS", 1), ("COMPLETED", "REVIEW_PASSED", 0)]
+    assert run_db(audit) == [("FAILED", "FAILED", 1), ("COMPLETED", "SUCCEEDED", 0)]

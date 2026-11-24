@@ -484,7 +484,7 @@ async def test_system_import_forces_all_user_scope(
     assert response.json()["data"]["user_scope"] == "ALL"
 
 
-async def test_review_contract_requires_release_checksum(
+async def test_review_contract_imports_without_release_checksum(
     client: AsyncClient, skill_env: SkillContext, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     files = {
@@ -498,12 +498,7 @@ async def test_review_contract_requires_release_checksum(
     }
     release = zip_bytes(files)
     checksum = skill_validator.checksum_of(release)
-    monkeypatch.setenv(skill_validator.TRUSTED_REVIEW_CHECKSUMS_ENV, checksum)
-    unauthorized = zip_bytes({**files, "scripts/check.py": "print('different bytes')\n"})
-    rejected = await import_skill(client, skill_env, unauthorized)
-    assert rejected.status_code == 400
-    assert rejected.json()["data"]["reason"] == "RESULT_CONTRACT_NOT_TRUSTED"
-    assert skill_validator.review_package(unauthorized).status == "error"
+    monkeypatch.delenv("MUAD_TRUSTED_SKILL_REVIEW_CHECKSUMS", raising=False)
     conflict = skill_validator.review_package(release, default_script="scripts/other.py")
     assert conflict.status == "error"
     assert any(check.code == "RESULT_CONTRACT_ENTRYPOINT_MISMATCH" for check in conflict.checks)

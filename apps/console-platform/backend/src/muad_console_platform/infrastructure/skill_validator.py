@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 import io
 import json
-import os
 import re
 import tempfile
 import zipfile
@@ -15,7 +14,7 @@ from typing import Any
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts.skill_results import FrozenSkillResultContract, SkillResultProfile
+from muad_contracts.skill_results import FrozenSkillResultContract
 from muad_skill_sdk import (
     SkillManifest,
     SkillPackage,
@@ -239,7 +238,6 @@ def _reason_message(reason: str) -> str:
     return {
         "SKILL_MD_MISSING": "缺少 SKILL.md",
         "MANIFEST_INVALID": "SKILL.md frontmatter 不合法",
-        "RESULT_CONTRACT_NOT_TRUSTED": "审查结果契约需要受信任的发布包",
         "RESULT_CONTRACT_ENTRYPOINT_MISMATCH": "默认脚本必须与结果契约入口一致",
         "PATH_INVALID": "包含路径穿越或 symlink",
         "NESTED_ARCHIVE": "包含嵌套压缩包",
@@ -303,10 +301,6 @@ def _validate_package(data: bytes, temp_root: Path) -> ValidatedSkillPackage:
     )
 
 
-SKILL_REVIEW_ENTRYPOINT = "scripts/check.py"
-TRUSTED_REVIEW_CHECKSUMS_ENV = "MUAD_TRUSTED_SKILL_REVIEW_CHECKSUMS"
-
-
 def require_result_entrypoint(value: str | None, package: ValidatedSkillPackage) -> None:
     if package.manifest.result_contract is not None and value not in (None, package.entrypoint):
         raise invalid_package("RESULT_CONTRACT_ENTRYPOINT_MISMATCH")
@@ -321,12 +315,6 @@ def _bind_result_contract(
     if entrypoint is None:
         raise invalid_package("RESULT_CONTRACT_ENTRYPOINT_MISMATCH")
     checksum = checksum_of(data)
-    if contract.profile is SkillResultProfile.SKILL_REVIEW:
-        trusted = {
-            item.strip() for item in os.environ.get(TRUSTED_REVIEW_CHECKSUMS_ENV, "").split(",")
-        }
-        if entrypoint != SKILL_REVIEW_ENTRYPOINT or checksum not in trusted:
-            raise invalid_package("RESULT_CONTRACT_NOT_TRUSTED")
     try:
         return FrozenSkillResultContract(
             version=contract.version, profile=contract.profile, checksum=checksum,
