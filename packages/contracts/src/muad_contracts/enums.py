@@ -32,7 +32,7 @@ _EXTERNAL_CHANNEL_NAME_RE = re.compile(EXTERNAL_CHANNEL_NAME_PATTERN)
 
 def is_valid_external_channel_name(channel: ChannelName | None) -> bool:
     """外部通道名是否满足 `^[A-Za-z0-9]+web$`（RULE-im-013）。"""
-    return bool(channel) and bool(_EXTERNAL_CHANNEL_NAME_RE.match(channel))
+    return channel is not None and bool(_EXTERNAL_CHANNEL_NAME_RE.match(channel))
 
 
 def external_platform_channels(platforms_json: str | None) -> tuple[ChannelName, ...]:
