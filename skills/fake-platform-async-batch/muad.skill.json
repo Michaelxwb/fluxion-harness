@@ -2,6 +2,6 @@
   "name": "fake-platform-async-batch",
   "author": "fluxion-harness",
   "platforms": ["smoke_platform"],
-  "version": "0.1.1",
+  "version": "0.1.2",
   "entrypoint": "scripts/run.py"
 }

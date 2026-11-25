@@ -22,6 +22,8 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
+import pytest
+from muad_agent_core.skill import SkillInvocationError, validate_skill_invocation
 from muad_console_platform.infrastructure.skill_validator import validated_package
 from muad_contracts import CredentialMode
 from muad_platform_sdk.adapter.mss import MSSAdapter
@@ -168,6 +170,32 @@ def test_package_loads_as_async_and_validates() -> None:
     assert package.manifest.name == "fake-platform-async-batch"
     assert package.manifest.execution.value == "ASYNC"
     assert package.manifest.platforms == (PLATFORM_KEY,)
+    contract = package.manifest.invocation_contract
+    assert contract is not None
+    assert contract.invocation == "stdin"
+    assert contract.contract_schema["required"] == []
+    assert set(contract.contract_schema["properties"]) == {
+        "targets",
+        "max_concurrency",
+        "aggregate_mode",
+        "offline",
+        "fail_targets",
+    }
+    # 定时任务最小输入是 {}；显式目标/离线模式也必须被契约接受。
+    validate_skill_invocation(contract, input_data={}, argv=[], phase="shape")
+    validate_skill_invocation(
+        contract,
+        input_data={"targets": ["alpha"], "offline": True},
+        argv=[],
+        phase="shape",
+    )
+    with pytest.raises(SkillInvocationError):
+        validate_skill_invocation(
+            contract,
+            input_data={"unknown": True},
+            argv=[],
+            phase="shape",
+        )
     with validated_package(_zip_directory(SKILL)) as validated:
         assert validated.manifest.execution.value == "ASYNC"
 
