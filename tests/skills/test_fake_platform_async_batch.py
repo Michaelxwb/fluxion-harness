@@ -12,6 +12,7 @@ Covers the Skill in isolation before the Worker acceptance:
 from __future__ import annotations
 
 import asyncio
+import importlib.util
 import io
 import json
 import os
@@ -198,6 +199,31 @@ def test_package_loads_as_async_and_validates() -> None:
         )
     with validated_package(_zip_directory(SKILL)) as validated:
         assert validated.manifest.execution.value == "ASYNC"
+
+
+def test_child_accepts_the_trace_echoed_after_egress_replacement(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """egress 会把 Traceid 换成业务 trace；子任务应以平台实际回显值为准。"""
+    spec = importlib.util.spec_from_file_location("fake_batch_run", SCRIPT)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    monkeypatch.setattr(module, "_platform_state", lambda: ("http://platform", {}))
+    monkeypatch.setattr(
+        module,
+        "_get_json",
+        lambda base_url, path, headers: {"traceId": "egress-business-trace"}
+        if path == module.PING_PATH
+        else {},
+    )
+    monkeypatch.setenv("SKILL_OUTPUT_DIR", str(tmp_path))
+
+    result = module._child_result({"target": "alpha"})
+
+    assert result["trace_id"] == "egress-business-trace"
+    assert result["ok"] is True
 
 
 def test_parent_batch_plan_and_child_files_run_against_fake_platform(tmp_path: Path) -> None:

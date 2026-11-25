@@ -39,7 +39,6 @@ from ..infrastructure.models.task import (
     TaskEvent,
     TaskExecution,
     TaskSchedule,
-    TaskScheduleRevision,
 )
 from ..metrics import (
     TASK_EXECUTION_DURATION_SECONDS_METRIC,
@@ -48,7 +47,11 @@ from ..metrics import (
     record_outcome,
 )
 from .task_events import EntityType, TaskEventType, append_event
-from .task_message_outbox import enqueue_task_message_outbox
+from .task_message_outbox import (
+    _identity_push_routes,
+    _revision_push_route,
+    enqueue_task_message_outbox,
+)
 
 logger = get_logger(__name__)
 
@@ -424,51 +427,53 @@ async def _enqueue_push_delivery(session: AsyncSession, task: TaskExecution) -> 
     """按来源 Revision 的 `delivery_intent` 建投递意图（§3.2.11）：PUSH 才建行，NONE 靠任务中心 pull。
 
     终态事件先落库，再在这里建独立投递记录（`DELIVERY/ENQUEUED`）——发送是投递循环的事，
-    业务终态不等待、也不依赖投递结果。稳定键与种类归 `delivery.records`，同键重放不新增。
+    业务终态不等待、也不依赖投递结果。投递目标与有附件结果共用同一套身份扇出：
+    用户当前绑定的每个有效机器人都建一条投递意图，不能退回单一冻结路由。
     """
     if task.parent_id is not None or task.schedule_revision_id is None:
         # JOIN/BATCH 子任务不直接向用户投递；父任务终态聚合子产物（design §5.7）。
         return
-    revision = await session.scalar(
-        select(TaskScheduleRevision).where(
-            TaskScheduleRevision.id == task.schedule_revision_id,
-            TaskScheduleRevision.is_deleted.is_(False),
-        )
-    )
-    if (
-        revision is None
-        or revision.delivery_intent != DELIVERY_INTENT_PUSH
-        or revision.delivery_route_id is None
-    ):
-        return
-    delivery_id = uuid4()
-    inserted = (
-        await session.execute(
-            pg_insert(TaskDelivery)
-            .values(
-                id=delivery_id,
-                tenant_id=task.tenant_id,
-                execution_id=task.id,
-                delivery_route_id=revision.delivery_route_id,
-                delivery_kind=str(DeliveryKind.PUSH),
-                delivery_key=execution_delivery_key(task.id),
-                status=str(DeliveryState.PENDING),
-                attempt_count=0,
+    pushes = await _identity_push_routes(session, task)
+    if not pushes:
+        fallback = await _revision_push_route(session, task)
+        if fallback is None:
+            return
+        pushes = [fallback]
+    for push in pushes:
+        if push.route_id is None:
+            continue
+        delivery_id = uuid4()
+        inserted = (
+            await session.execute(
+                pg_insert(TaskDelivery)
+                .values(
+                    id=delivery_id,
+                    tenant_id=task.tenant_id,
+                    execution_id=task.id,
+                    delivery_route_id=push.route_id,
+                    delivery_kind=str(DeliveryKind.PUSH),
+                    delivery_key=execution_delivery_key(task.id),
+                    status=str(DeliveryState.PENDING),
+                    attempt_count=0,
+                )
+                .on_conflict_do_nothing(
+                    index_elements=[
+                        TaskDelivery.tenant_id,
+                        TaskDelivery.delivery_key,
+                        TaskDelivery.delivery_route_id,
+                    ],
+                    index_where=TaskDelivery.is_deleted == false(),
+                )
+                .returning(TaskDelivery.id)
             )
-            .on_conflict_do_nothing(
-                index_elements=[TaskDelivery.tenant_id, TaskDelivery.delivery_key],
-                index_where=TaskDelivery.is_deleted == false(),
-            )
-            .returning(TaskDelivery.id)
+        ).scalar_one_or_none()
+        if inserted is None:
+            continue
+        await append_event(
+            session,
+            tenant_id=task.tenant_id,
+            entity_type=EntityType.DELIVERY,
+            entity_id=inserted,
+            event_type=TaskEventType.ENQUEUED,
+            payload={"kind": str(DeliveryKind.PUSH), "execution_id": str(task.id)},
         )
-    ).scalar_one_or_none()
-    if inserted is None:
-        return
-    await append_event(
-        session,
-        tenant_id=task.tenant_id,
-        entity_type=EntityType.DELIVERY,
-        entity_id=inserted,
-        event_type=TaskEventType.ENQUEUED,
-        payload={"kind": str(DeliveryKind.PUSH), "execution_id": str(task.id)},
-    )

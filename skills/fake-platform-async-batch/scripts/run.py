@@ -267,8 +267,12 @@ def _child_result(payload: dict[str, Any]) -> dict[str, Any]:
             "targets": _get_json(base_url, TARGETS_PATH, headers),
         }
         ping = platform_data.get("ping")
-        if not isinstance(ping, dict) or ping.get("traceId") != trace:
+        echoed = ping.get("traceId") if isinstance(ping, dict) else None
+        if not isinstance(echoed, str) or not echoed.strip():
             raise RuntimeError("Traceid was not echoed by the platform")
+        # egress 会把平台的 TraceId 替换成统一的业务 trace；以平台实际回显值为准，
+        # 不再要求等于本进程生成的临时 UUID。
+        trace = echoed.strip()
     files = _write_reports(target, trace, platform_data)
     return {
         "ok": True,

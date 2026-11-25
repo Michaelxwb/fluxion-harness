@@ -502,6 +502,63 @@ async def test_task_without_attachments_keeps_existing_text_delivery(
     assert len(await _task_deliveries(tenant, execution.id)) == 1
 
 
+async def test_text_only_completed_task_fans_out_to_all_bound_identities(
+    outbox_tenant: _Tenant, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tenant = outbox_tenant.context
+    owner, agent = uuid.uuid4(), uuid.uuid4()
+    first_route = _sample_route()
+    first_route_id = await _seed_route(tenant, platform_user_id=owner)
+    second_route = DeliveryRouteInput(
+        channel="WECOM", bot_id="bot-second", external_user_id=EXTERNAL_USER_ID
+    )
+    async with tenant.session_factory() as session, session.begin():
+        second_route_id = await upsert_delivery_route(
+            session,
+            tenant_id=tenant.tenant_id,
+            platform_user_id=owner,
+            route=second_route,
+        )
+    schedule, revision = await _seed_schedule(
+        tenant, owner=owner, agent=agent, route_id=first_route_id
+    )
+    execution = await _seed_execution(
+        tenant, schedule, revision, owner=owner, agent=agent
+    )
+
+    async def two_targets(session, task):
+        del session, task
+        return [
+            outbox_module._PushRoute(
+                route=first_route,
+                target_key=delivery_target_key(first_route),
+                route_id=first_route_id,
+            ),
+            outbox_module._PushRoute(
+                route=second_route,
+                target_key=delivery_target_key(second_route),
+                route_id=second_route_id,
+            ),
+        ]
+
+    monkeypatch.setattr(
+        "muad_agent_worker.application.terminal_tasks._identity_push_routes",
+        two_targets,
+    )
+    assert await _finish(tenant, execution.id, TerminalStatus.COMPLETED) is True
+
+    assert await _outbox_rows(tenant, execution.id) == []
+    deliveries = await _task_deliveries(tenant, execution.id)
+    assert len(deliveries) == 2
+    assert {row.delivery_route_id for row in deliveries} == {
+        first_route_id,
+        second_route_id,
+    }
+    assert {row.delivery_key for row in deliveries} == {
+        f"execution:{execution.id}:final"
+    }
+
+
 async def test_child_task_never_writes_outbox_or_direct_delivery(
     outbox_tenant: _Tenant,
 ) -> None:
@@ -652,6 +709,56 @@ async def test_transport_failure_backs_off_without_failing_outbox(
     assert stored.status == "PENDING"
     assert stored.last_error_code == "MESSAGE_DELIVERY_TRANSPORT_ERROR"
     assert stored.next_attempt_at > datetime.now(UTC)
+
+
+async def test_runtime_accepts_direct_child_artifact_for_parent_result(
+    outbox_tenant: _Tenant, runtime_client: AsyncClient
+) -> None:
+    """BATCH 父任务的结果可以携带直接子任务的产物。"""
+    tenant = outbox_tenant.context
+    owner, agent = uuid.uuid4(), uuid.uuid4()
+    await _seed_route(tenant, platform_user_id=owner)
+    parent = await persist_task(
+        tenant,
+        agent_id=agent,
+        actor_user_id=owner,
+        status="COMPLETED",
+        trigger_type="SCHEDULED",
+        result_json={"summary": "父任务完成"},
+        finished_at=datetime.now(UTC),
+    )
+    child = await persist_task(
+        tenant,
+        agent_id=agent,
+        actor_user_id=owner,
+        parent_id=parent.id,
+        root_id=parent.id,
+        task_type="SKILL",
+        status="COMPLETED",
+        result_json={"summary": "子任务完成"},
+        finished_at=datetime.now(UTC),
+    )
+    attachment = await _seed_artifact(
+        outbox_tenant, child.id, filename="child.txt", content=b"child"
+    )
+
+    request = MessageDeliveryEnqueueRequest(
+        tenant_id=tenant.tenant_id,
+        owner_type="TASK",
+        owner_id=parent.id,
+        message_key=f"execution:{parent.id}:final",
+        kind="TASK_RESULT",
+        target_key=delivery_target_key(_sample_route()),
+        route=_sample_route(),
+        payload={"text": "父任务完成", "attachments": [attachment]},
+    )
+    response = await runtime_client.post(
+        "/internal/message-deliveries",
+        json=request.model_dump(mode="json"),
+        headers=internal_service_headers(tenant.tenant_id),
+    )
+
+    assert response.status_code == 200, response.text
 
 
 async def test_runtime_message_delivery_endpoint_is_idempotent(

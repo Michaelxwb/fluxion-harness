@@ -52,6 +52,15 @@ _ROUTE_QUERY = sa.text(
     "AND status = :active AND is_deleted = false "
     "LIMIT 1"
 )
+#: 根任务允许携带直接子任务产出的附件（BATCH 聚合结果）。
+_TASK_EXECUTION = sa.table(
+    "task_execution",
+    sa.column("id", sa.Uuid()),
+    sa.column("parent_id", sa.Uuid()),
+    sa.column("tenant_id", sa.String()),
+    sa.column("is_deleted", sa.Boolean()),
+    schema="task",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -172,11 +181,19 @@ async def _owned_attachments(
     if not requested:
         return []
     artifact_ids = [attachment.artifact_id for attachment in requested]
+    child_ids = sa.select(_TASK_EXECUTION.c.id).where(
+        _TASK_EXECUTION.c.tenant_id == tenant_id,
+        _TASK_EXECUTION.c.parent_id == task_id,
+        _TASK_EXECUTION.c.is_deleted.is_(False),
+    )
     rows = (
         await session.scalars(
             sa.select(Artifact).where(
                 Artifact.tenant_id == tenant_id,
-                Artifact.task_id == task_id,
+                sa.or_(
+                    Artifact.task_id == task_id,
+                    Artifact.task_id.in_(child_ids),
+                ),
                 Artifact.id.in_(artifact_ids),
                 Artifact.is_deleted.is_(False),
             )
