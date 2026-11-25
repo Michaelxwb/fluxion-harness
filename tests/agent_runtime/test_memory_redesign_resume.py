@@ -39,14 +39,18 @@ async def test_single_candidate_stays_pending_and_model_answers(async_tool_datab
 
 async def test_explicit_selection_binds_the_original_task_ref(async_tool_database, monkeypatch):
     factory, run, _, _ = await source(async_tool_database)
-    keys = await seed_tasks(async_tool_database, run)
+    await seed_tasks(async_tool_database, run)
     await inbound(factory, run, "继续上次任务")
     listed = (await events(factory, run, "MEMORY_RESUME_OPTIONS"))[0]
 
     second, _ = await inbound(factory, run, "第2个")
     result = await decision(factory, run, second)
     assert result.reference is not None
-    assert result.reference.memory_key == listed.payload_json["items"][1]["memory_key"]
+    selected = listed.payload_json["items"][1]
+    assert result.reference.memory_key == selected["memory_key"]
+    assert result.hint is not None
+    assert "已明确选择第 2 个任务线索" in result.hint
+    assert selected["title"] in result.hint
     resolved = (await events(factory, run, "MEMORY_RESUME_RESOLVED"))[0]
     assert resolved.source_event_id == listed.id
     assert resolved.payload_json["outcome"] == "SELECTED"
