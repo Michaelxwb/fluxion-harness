@@ -16,6 +16,9 @@
 DELETE FROM control.platform_setting_idempotency;
 DELETE FROM control.platform_setting;
 
+-- 受理策略是平台设置 revision 的 PG 投影；旧 revision 会让新 Run 判 stale
+DELETE FROM runtime.run_admission_policy;
+
 -- Agent 级压缩覆盖整块删除，其他 runtime_config 保留
 UPDATE control.agent_definition
 SET runtime_config_json = runtime_config_json #- '{budget,compaction}',
@@ -38,6 +41,7 @@ WHERE event_type = 'CONTEXT_SUMMARY';
 SELECT count(*) FROM control.platform_setting;
 SELECT count(*) FROM control.agent_definition
 WHERE runtime_config_json #> '{budget,compaction}' IS NOT NULL;
+SELECT count(*) FROM runtime.run_admission_policy;
 SELECT count(*) FROM runtime.canonical_event
 WHERE event_type = 'CONTEXT_SUMMARY';
 ```
