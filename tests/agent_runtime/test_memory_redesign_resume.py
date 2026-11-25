@@ -28,7 +28,8 @@ async def test_single_candidate_stays_pending_and_model_answers(async_tool_datab
     assert result.reference is None
     assert result.hint is not None
     assert "季度报告" in result.hint and "未经确认" in result.hint
-    assert keys[0] in result.hint
+    assert "1. 季度报告 — `" in result.hint
+    assert f"`{keys[0]}`" in result.hint
 
     async with model_endpoint([]) as (url, captured):
         results = await run_stream(factory, run, submission, url, monkeypatch)
