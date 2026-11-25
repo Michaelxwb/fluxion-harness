@@ -7,7 +7,8 @@
 - **到期领取**：只认 `PENDING` + `next_attempt_at <= now` + `attempt_count < max_attempts`；
   谓词与 `ix_message_delivery_due` 同形。领取本身不授租约，状态转换在 `reserve` 行锁内完成。
 - **诚实结局**：`DELIVERED` 是直发成功；`DEGRADED` 是降级成功（带取件链接）；`NOT_SENT`
-  回 `PENDING` 退避；没拿到结论 `UNKNOWN`（保留核实，不自动重发）；显式路由失效 `FAILED`。
+  回 `PENDING` 退避；没拿到结论 `UNKNOWN`（保留核实，不自动重发）；显式路由失效 `FAILED`；
+  冻结载荷永久无效的单行直接 `FAILED`，不重试，也不阻塞同批其它投递。
 - **失约即停手**：续租失败即取消本地发送且不 ack；旧 epoch 的回执由状态机拒绝。
 - Task 侧 outbox → Runtime 的迁移是 TASK-004；本泵不读 `task_delivery`，也不写它。
 """
@@ -21,6 +22,7 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Any, Literal, Protocol
 
+import sqlalchemy as sa
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_common.db_counters import db_stage_scope
@@ -67,6 +69,8 @@ logger = get_logger(__name__)
 
 #: 投递泵的单次结局（词表与 message_delivery 状态机一致，不含 NOT_SENT——它落回 PENDING）。
 MessageDeliveryOutcome = Literal["DELIVERED", "DEGRADED", "UNKNOWN", "FAILED"]
+#: 冻结载荷永久无效：不重试，直接终态；由 `claim_due` 在领取时隔离。
+DELIVERY_PAYLOAD_INVALID = "DELIVERY_PAYLOAD_INVALID"
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,16 +186,48 @@ class MessageDeliveryPump:
             return []
         async with self._sessions()() as session:
             now = await database_now(session)
-            rows = (
+            rows = list(
+                (
+                    await session.execute(
+                        message_delivery_due_statement(
+                            now=now,
+                            max_attempts=self._policy.max_attempts,
+                            limit=limit,
+                        )
+                    )
+                ).scalars()
+            )
+            intents: list[MessageDeliveryIntent] = []
+            invalid: list[MessageDelivery] = []
+            for row in rows:
+                try:
+                    intents.append(_intent(row))
+                except AppError:
+                    invalid.append(row)
+                    logger.warning(
+                        "message_delivery_payload_invalid",
+                        extra={"delivery_id": str(row.id), "tenant_id": row.tenant_id},
+                    )
+                    record_outcome(CHANNEL_DELIVERY_METRIC, MESSAGE_FAILED)
+                    record_reason(CHANNEL_DELIVERY_FAILURE_METRIC, "payload_invalid")
+            if invalid:
                 await session.execute(
-                    message_delivery_due_statement(
-                        now=now,
-                        max_attempts=self._policy.max_attempts,
-                        limit=limit,
+                    sa.update(MessageDelivery)
+                    .where(
+                        MessageDelivery.id.in_([row.id for row in invalid]),
+                        MessageDelivery.status == MESSAGE_PENDING,
+                    )
+                    .values(
+                        status=MESSAGE_FAILED,
+                        last_error_code=DELIVERY_PAYLOAD_INVALID,
+                        last_error_message=(
+                            "delivery payload must carry text, attachments or terminal status"
+                        ),
+                        update_time=now,
                     )
                 )
-            ).scalars()
-            return [_intent(row) for row in rows]
+                await session.commit()
+            return intents
 
     async def run_once(self) -> int:
         limit = min(self._policy.batch_size, self.free_slots)

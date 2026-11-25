@@ -37,6 +37,7 @@ from muad_agent_runtime.application.channel_notifications import (
 from muad_agent_runtime.application.message_delivery import (
     MESSAGE_DEGRADED,
     MESSAGE_DELIVERED,
+    MESSAGE_FAILED,
     MESSAGE_PENDING,
     MESSAGE_UNKNOWN,
     MessageDeliveryPayload,
@@ -47,6 +48,7 @@ from muad_agent_runtime.application.message_delivery import (
     run_terminal_message_key,
 )
 from muad_agent_runtime.application.message_delivery_pump import (
+    DELIVERY_PAYLOAD_INVALID,
     MessageDeliveryIntent,
     MessageDeliveryPump,
     MessageSendOutcome,
@@ -680,6 +682,54 @@ async def test_pump_delivers_payload_with_multiple_attachments(
     assert [item.status for item in await _attempts(delivery_runtime, row.id)] == [
         MESSAGE_DELIVERED
     ]
+
+
+async def test_pump_quarantines_invalid_payload_without_blocking_valid_batch(
+    delivery_runtime: async_sessionmaker[AsyncSession], tenant: MessageTenant
+) -> None:
+    bad_id = uuid.uuid4()
+    async with delivery_runtime() as session, session.begin():
+        session.add(
+            MessageDelivery(
+                id=bad_id,
+                tenant_id=tenant.tenant_id,
+                owner_type="RUN",
+                owner_id=uuid.uuid4(),
+                message_key=f"run:{uuid.uuid4()}:terminal",
+                kind="TERMINAL",
+                target_key=delivery_target_key(_route()),
+                route_json=_route().model_dump(mode="json"),
+                payload_json={},
+                status=MESSAGE_PENDING,
+                agent_id=tenant.agent_id,
+                platform_user_id=tenant.user_id,
+            )
+        )
+    good = await _enqueue(delivery_runtime, tenant)
+    sender = ScriptedSender()
+    pump = MessageDeliveryPump(
+        runtime_db.get_session_factory,
+        TenantMessageDelivery(runtime_db.get_session_factory, MessageSettings()),
+        sender,
+        _pump_policy(),
+    )
+
+    claimed = await pump.claim_due(limit=10)
+
+    assert [intent.delivery_id for intent in claimed] == [good.id], (
+        "坏载荷只能淘汰自己，不能阻塞同批合法投递"
+    )
+    bad = await _row(delivery_runtime, bad_id)
+    assert bad.status == MESSAGE_FAILED
+    assert bad.last_error_code == DELIVERY_PAYLOAD_INVALID
+    assert bad.attempt_count == 0, "没有真实发送尝试，不能伪造 attempt"
+    assert bad.last_error_message
+    assert await _attempts(delivery_runtime, bad_id) == []
+
+    assert [intent.delivery_id for intent in await pump.claim_due(limit=10)] == [good.id]
+    assert await pump.run_once() == 1
+    await pump.drain()
+    assert (await _row(delivery_runtime, good.id)).status == MESSAGE_DELIVERED
 
 
 async def test_pump_timeout_becomes_unknown_and_stops_retrying(
