@@ -1,7 +1,7 @@
 ---
 {
   "description": "Run/Task 快照冻结",
-  "next_rule": 4
+  "next_rule": 5
 }
 ---
 
@@ -16,6 +16,8 @@
 - [RULE-002] Run 的 policy_json 冻结 locale.default_locale；旧行缺失时不追加语言段，失败文案回落默认语言。Draft 创建时读取当前 locale.default_timezone 属于 authoring 输入，不替代执行期冻结；Worker AGENTIC 在 admission 把用户 memory 的 language 偏好冻结进 SnapshotMemory.block.language，执行期与平台默认经同一 resolve_reply_locale 裁决，配置变化只影响后续新执行。
 
 - [RULE-003] 已完成工具调用以持久化的规范结果作为恢复事实。实时与恢复使用同一进展判定，并按调用与消费水位去重。已准备但没有可核实完成或未派发事实的调用视为结果未知。重试门禁基于冻结安全性、受信执行阶段和幂等身份，恢复及同一会话后续运行不能靠变参或换能力入口重做未核实的外部操作。
+
+- [RULE-004] 上下文压缩以 Run/Task 创建时冻结的 history_budget_tokens 作为唯一历史预算；装配只读且按预算分页读取，只有请求边界做一次保头保尾裁剪，任何未进入请求的历史必须带可见省略标记与审计。摘要只处理从 covered_seq 起的连续材料区间，替换只移除该材料区间并保留头部、独立尾部与 pinned；coverage 只推进到实际材料末条，不覆盖当前输入。冻结压缩配置严格解析，旧键、旧 policy、旧摘要和旧平台设置不保留兼容解析。
 
 ## Conventions
 
@@ -51,3 +53,5 @@
 - {"source":"2026-11-21/agent-output-and-platform-defaults/agent-output-and-platform-defaults.md#TASK-007#DELTA-005","op":"add","rule":"RULE-002","payload_sha256":"c31b695ec19d13f2d7acc4c91bbede6d85f946a66fb4cc41ab852c8cd88f0f95","at":"2026-11-21T07:54:54.594Z"}
 
 - {"source":"2026-11-24/skill-results-conversation-finalization/skill-results-conversation-finalization.md#TASK-004#DELTA-001","op":"add","rule":"RULE-003","payload_sha256":"5c797b6a277cd93fffd6ead1a546b41b55935c717d1aeb9845c9eca2926dea11","at":"2026-11-24T09:27:16.306Z"}
+
+- {"source":"2026-11-23/conversation-context-retention/conversation-context-retention.md#TASK-001#DELTA-001","op":"add","rule":"RULE-004","payload_sha256":"ab1d8ffd91d48f91153b6601a1c803feaf450503d193b0c4e11dab034f7c909a","at":"2026-11-25T11:49:15.144Z"}
