@@ -25,7 +25,12 @@ def _fields(goal: str = "goal") -> SummaryFields:
 def _working_group(index: int) -> tuple[ModelMessage, ...]:
     call = ModelToolCall(f"call-{index}", "echo", {})
     return (
-        ModelMessage(role=ModelRole.ASSISTANT, content="", tool_calls=(call,), source_event_seq=100 + index * 2),
+        ModelMessage(
+            role=ModelRole.ASSISTANT,
+            content="",
+            tool_calls=(call,),
+            source_event_seq=100 + index * 2,
+        ),
         ModelMessage(
             role=ModelRole.TOOL,
             content="x" * 400,

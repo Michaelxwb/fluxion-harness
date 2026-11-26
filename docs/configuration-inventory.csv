@@ -70,7 +70,7 @@ apps/agent-runtime/src/muad_agent_runtime/application/attachments/task_artifacts
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/task_artifacts.py,54,TASK_ARTIFACT_SIZE_LIMIT,MAX_OUTPUT_BYTES,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/task_artifacts.py,56,_TASK_OWNER_SQL,"sa.text('SELECT tenant_id, actor_user_id, agent_id, attempt FROM task.task_execution WHERE id = :execution_id AND tenant_id = :tenant_id AND is_deleted = false')",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/task_artifacts.py,62,_TASK_EXECUTION_TABLE,"sa.table('task_execution', sa.column('id', sa.Uuid()), sa.column('tenant_id', sa.String()), sa.column('actor_user_id', sa.Uuid()), sa.column('agent_id', sa.Uuid()), sa.column('is_deleted', sa.Boolean()), schema='task')",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tool_results.py,29,TOOL_RESULT_ARTIFACT_TYPE,'TOOL_RESULT',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tool_results.py,28,TOOL_RESULT_ARTIFACT_TYPE,'TOOL_RESULT',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,74,READ_ATTACHMENT_TOOL,'read_attachment',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,75,VIEW_IMAGE_TOOL,'view_image',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,76,WRITE_ARTIFACT_TOOL,'write_artifact',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -322,10 +322,12 @@ apps/agent-runtime/src/muad_agent_runtime/application/message_delivery.py,69,MES
 apps/agent-runtime/src/muad_agent_runtime/application/message_delivery.py,72,_MESSAGE_STATES,"DeliveryStates(pending=MESSAGE_PENDING, delivering=MESSAGE_DELIVERING, delivered=MESSAGE_DELIVERED, unknown=MESSAGE_UNKNOWN, not_required=None, ack_states={'DELIVERED': MESSAGE_DELIVERED, 'DEGRADED': MESSAGE_DEGRADED, 'NOT_SENT': MESSAGE_PENDING, 'UNKNOWN': MESSAGE_UNKNOWN, 'FAILED': MESSAGE_FAILED}, replay_states=frozenset({MESSAGE_DELIVERED, MESSAGE_DEGRADED}), no_lease_states=frozenset({MESSAGE_UNKNOWN, MESSAGE_FAILED}))",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/message_delivery.py,89,MAX_DELIVERY_TEXT_CHARS,20000,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/message_delivery.py,90,MAX_DELIVERY_ATTACHMENTS,20,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/message_delivery_pump.py,73,DELIVERY_PAYLOAD_INVALID,'DELIVERY_PAYLOAD_INVALID',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/message_delivery_registration.py,40,TASK_COMPLETED,'COMPLETED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/message_delivery_registration.py,41,ROUTE_ACTIVE,'ACTIVE',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/message_delivery_registration.py,43,_TASK_OWNER_QUERY,"sa.text('SELECT actor_user_id, agent_id, status FROM task.task_execution WHERE id = :owner_id AND tenant_id = :tenant_id AND is_deleted = false')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/message_delivery_registration.py,47,_ROUTE_QUERY,sa.text('SELECT 1 FROM task.delivery_route WHERE tenant_id = :tenant_id AND platform_user_id = :platform_user_id AND channel = :channel AND bot_id = :bot_id AND external_user_id = :external_user_id AND external_conversation_id IS NOT DISTINCT FROM :external_conversation_id AND status = :active AND is_deleted = false LIMIT 1'),python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/message_delivery_registration.py,56,_TASK_EXECUTION,"sa.table('task_execution', sa.column('id', sa.Uuid()), sa.column('parent_id', sa.Uuid()), sa.column('tenant_id', sa.String()), sa.column('is_deleted', sa.Boolean()), schema='task')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/model_allocator.py,65,DEFER_REASON_CAPACITY,'NO_CAPACITY',python-constant,code,状态或错误码，不是时间参数
 apps/agent-runtime/src/muad_agent_runtime/application/model_allocator.py,67,DEFER_REASON_WORKLOAD,'WORKLOAD_SHARE',python-constant,code,状态或错误码，不是时间参数
 apps/agent-runtime/src/muad_agent_runtime/application/model_allocator.py,190,_SELECT_RETRY_BASE_SEC,0.001,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
@@ -854,13 +856,13 @@ apps/agent-worker/src/muad_agent_worker/application/task_message_outbox.py,210,_
 apps/agent-worker/src/muad_agent_worker/application/task_service.py,38,INITIAL_PRIORITY,100,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
 apps/agent-worker/src/muad_agent_worker/application/task_service.py,39,TERMINAL_STATUSES,"(str(TaskStatus.COMPLETED), str(TaskStatus.FAILED), str(TaskStatus.CANCELLED))",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/application/task_service.py,40,CANCELABLE_STATUSES,"(str(TaskStatus.QUEUED), str(TaskStatus.WAITING_EXTERNAL), str(TaskStatus.WAITING_HUMAN))",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,55,NON_TERMINAL,"(TaskStatus.QUEUED.value, TaskStatus.RUNNING.value, TaskStatus.WAITING_EXTERNAL.value, TaskStatus.WAITING_HUMAN.value)",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,61,DELIVERY_INTENT_PUSH,str(DeliveryIntent.PUSH),python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,62,JSON_OBJECT,"TypeAdapter(dict[str, JsonValue])",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,63,RESULT_STATUS_KEY,'result_status',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,64,RESULT_TEXT_KEY,'text',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,65,NO_CHANGE_STATUS,'no_change',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,66,MAX_REMEMBERED_RESULT_CHARS,4000,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,58,NON_TERMINAL,"(TaskStatus.QUEUED.value, TaskStatus.RUNNING.value, TaskStatus.WAITING_EXTERNAL.value, TaskStatus.WAITING_HUMAN.value)",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,64,DELIVERY_INTENT_PUSH,str(DeliveryIntent.PUSH),python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,65,JSON_OBJECT,"TypeAdapter(dict[str, JsonValue])",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,66,RESULT_STATUS_KEY,'result_status',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,67,RESULT_TEXT_KEY,'text',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,68,NO_CHANGE_STATUS,'no_change',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,69,MAX_REMEMBERED_RESULT_CHARS,4000,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/delivery/artifact_client.py,18,RESOLVE_PATH,'/internal/artifacts',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/delivery/artifact_client.py,19,RESOLVE_TIMEOUT_SEC,5.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/agent-worker/src/muad_agent_worker/delivery/client.py,12,DELIVERY_PATH,'/internal/deliveries',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1442,47 +1444,52 @@ apps/console-platform/backend/src/muad_console_platform/spa.py,28,RESERVED_SEGME
 apps/im-connector/src/muad_im_connector/__init__.py,7,SERVICE_NAME,'muad-im-connector',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-connector/src/muad_im_connector/channels/probe.py,30,CONNECTED,'CONNECTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-connector/src/muad_im_connector/channels/probe.py,31,DISCONNECTED,'DISCONNECTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,75,DEFAULT_BACKOFF_BASE_SEC,1.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,76,DEFAULT_BACKOFF_MAX_SEC,30.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,77,DEFAULT_STREAM_FLUSH_INTERVAL_SEC,0.5,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,79,DEFAULT_LIVENESS_INTERVAL_SEC,1.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,83,MEDIA_REF_TTL_SEC,300.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,85,MEDIA_REF_CAPACITY,256,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,89,RUN_REPLY_TTL_SEC,3600.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,91,RUN_REPLY_CAPACITY,512,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,92,TEXT_MESSAGE_TYPE,'text',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,93,IMAGE_MESSAGE_TYPE,'image',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,94,FILE_MESSAGE_TYPE,'file',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,95,MIXED_MESSAGE_TYPE,'mixed',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,97,MIXED_TEXT_SEPARATOR,'\n',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,99,ACCEPTED_MEDIA_TYPES,"frozenset({IMAGE_MESSAGE_TYPE, FILE_MESSAGE_TYPE})",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,101,ACCEPTED_MESSAGE_TYPES,"frozenset({TEXT_MESSAGE_TYPE, MIXED_MESSAGE_TYPE}) | ACCEPTED_MEDIA_TYPES",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,102,_UNSUPPORTED_MESSAGE_TYPES,"{'voice': 'VOICE', 'video': 'VIDEO'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,103,STREAM_HEADER_KEY,'headers',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,104,STREAM_REPLY_ID_KEY,'req_id',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,105,CONNECTED_GAUGE,'wecom_ws_connected',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,106,CONNECTED_GAUGE_HELP,'WeCom bot WebSocket connection state (1=CONNECTED)',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,112,CONNECTING,'CONNECTING',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,113,CONNECTED,'CONNECTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,114,BACKOFF,'BACKOFF',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,115,DISCONNECTED,'DISCONNECTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,116,STOPPING,'STOPPING',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,43,MEDIA_TIMEOUT_SEC,30.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,49,ENCRYPTION_OVERHEAD_BYTES,16,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,51,_CHUNK_BYTES,64 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,52,_OCTET_STREAM,'application/octet-stream',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,54,_MAGIC_TYPES,"((b'\x89PNG\r\n\x1a\n', 'image/png'), (b'\xff\xd8\xff', 'image/jpeg'), (b'GIF87a', 'image/gif'), (b'GIF89a', 'image/gif'), (b'%PDF-', 'application/pdf'))",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,64,_EXTENSION_TYPES,{},python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,70,_FILENAME_UTF8_RE,"re.compile(""filename\\*=UTF-8''([^;\\s]+)"", re.IGNORECASE)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,71,_FILENAME_RE,"re.compile('filename=""?([^"";\\s]+)""?', re.IGNORECASE)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,199,UPLOAD_CHUNK_BYTES,512 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,202,MAX_UPLOAD_CHUNKS,100,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,204,UPLOAD_INIT_CMD,'aibot_upload_media_init',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,205,UPLOAD_CHUNK_CMD,'aibot_upload_media_chunk',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,206,UPLOAD_FINISH_CMD,'aibot_upload_media_finish',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,78,DEFAULT_BACKOFF_BASE_SEC,1.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,79,DEFAULT_BACKOFF_MAX_SEC,30.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,80,DEFAULT_STREAM_FLUSH_INTERVAL_SEC,0.5,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,82,DEFAULT_LIVENESS_INTERVAL_SEC,1.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,86,MEDIA_REF_TTL_SEC,300.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,88,MEDIA_REF_CAPACITY,256,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,92,RUN_REPLY_TTL_SEC,3600.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,94,RUN_REPLY_CAPACITY,512,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,95,TEXT_MESSAGE_TYPE,'text',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,96,IMAGE_MESSAGE_TYPE,'image',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,97,FILE_MESSAGE_TYPE,'file',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,98,MIXED_MESSAGE_TYPE,'mixed',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,100,MIXED_TEXT_SEPARATOR,'\n',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,102,ACCEPTED_MEDIA_TYPES,"frozenset({IMAGE_MESSAGE_TYPE, FILE_MESSAGE_TYPE})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,104,ACCEPTED_MESSAGE_TYPES,"frozenset({TEXT_MESSAGE_TYPE, MIXED_MESSAGE_TYPE}) | ACCEPTED_MEDIA_TYPES",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,105,_UNSUPPORTED_MESSAGE_TYPES,"{'voice': 'VOICE', 'video': 'VIDEO'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,106,STREAM_HEADER_KEY,'headers',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,107,STREAM_REPLY_ID_KEY,'req_id',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,108,CONNECTED_GAUGE,'wecom_ws_connected',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,109,CONNECTED_GAUGE_HELP,'WeCom bot WebSocket connection state (1=CONNECTED)',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,115,CONNECTING,'CONNECTING',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,116,CONNECTED,'CONNECTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,117,BACKOFF,'BACKOFF',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,118,DISCONNECTED,'DISCONNECTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,119,STOPPING,'STOPPING',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,45,MEDIA_TIMEOUT_SEC,30.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,51,ENCRYPTION_OVERHEAD_BYTES,16,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,53,_CHUNK_BYTES,64 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,54,_OCTET_STREAM,'application/octet-stream',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,56,_MAGIC_TYPES,"((b'\x89PNG\r\n\x1a\n', 'image/png'), (b'\xff\xd8\xff', 'image/jpeg'), (b'GIF87a', 'image/gif'), (b'GIF89a', 'image/gif'), (b'%PDF-', 'application/pdf'))",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,66,_EXTENSION_TYPES,{},python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,72,_FILENAME_UTF8_RE,"re.compile(""filename\\*=UTF-8''([^;\\s]+)"", re.IGNORECASE)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,73,_FILENAME_RE,"re.compile('filename=""?([^"";\\s]+)""?', re.IGNORECASE)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,76,_URL_IN_TEXT_RE,"re.compile('https?://[^\\s\'\\""]+')",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,77,_URL_PLACEHOLDER,'<url>',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,79,_CAUSE_DEPTH_LIMIT,8,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,81,_CAUSE_TEXT_LIMIT,200,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,253,UPLOAD_CHUNK_BYTES,512 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,256,MAX_UPLOAD_CHUNKS,100,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,258,UPLOAD_INIT_CMD,'aibot_upload_media_init',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,259,UPLOAD_CHUNK_CMD,'aibot_upload_media_chunk',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,260,UPLOAD_FINISH_CMD,'aibot_upload_media_finish',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-connector/src/muad_im_connector/channels/wecom/reply.py,20,STATUS_SEND_TIMEOUT_SEC,5.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-connector/src/muad_im_connector/channels/wecom/reply.py,24,FINISH_ATTEMPTS,3,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-connector/src/muad_im_connector/channels/wecom/reply.py,25,FINISH_RETRY_DELAY_SEC,0.5,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/sdk_logging.py,16,DEFAULT_PREFIX,'AiBotSDK',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-connector/src/muad_im_connector/lease.py,24,ACQUIRE_SCRIPT,"""\nlocal lease_key = KEYS[1]\nlocal epoch_key = KEYS[2]\nlocal owner = ARGV[1]\nlocal ttl_ms = tonumber(ARGV[2])\nlocal ttl_sec = tonumber(ARGV[3])\nlocal now_parts = redis.call('TIME')\nlocal now = tonumber(now_parts[1]) + tonumber(now_parts[2]) / 1000000\nlocal current = redis.call('GET', lease_key)\nif current then\n  local decoded = cjson.decode(current)\n  local expires = tonumber(decoded['expires_at']) or 0\n  if expires > now and decoded['owner_id'] ~= owner then\n    return {0, tonumber(decoded['epoch']) or 0, expires}\n  end\nend\nlocal epoch = redis.call('INCR', epoch_key)\nif epoch < 1 then\n  epoch = 1\n  redis.call('SET', epoch_key, epoch)\nend\nlocal record = cjson.encode({owner_id=owner, epoch=epoch, expires_at=now + ttl_sec})\nredis.call('SET', lease_key, record, 'PX', ttl_ms)\nreturn {1, epoch, now + ttl_sec}\n""",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-connector/src/muad_im_connector/lease.py,50,RENEW_SCRIPT,"""\nlocal lease_key = KEYS[1]\nlocal owner = ARGV[1]\nlocal epoch = tonumber(ARGV[2])\nlocal ttl_ms = tonumber(ARGV[3])\nlocal ttl_sec = tonumber(ARGV[4])\nlocal current = redis.call('GET', lease_key)\nif not current then\n  return {0, epoch, 0}\nend\nlocal decoded = cjson.decode(current)\nif decoded['owner_id'] ~= owner or tonumber(decoded['epoch']) ~= epoch then\n  return {0, tonumber(decoded['epoch']) or 0, tonumber(decoded['expires_at']) or 0}\nend\nlocal now_parts = redis.call('TIME')\nlocal now = tonumber(now_parts[1]) + tonumber(now_parts[2]) / 1000000\nlocal record = cjson.encode({owner_id=owner, epoch=epoch, expires_at=now + ttl_sec})\nredis.call('SET', lease_key, record, 'PX', ttl_ms)\nreturn {1, epoch, now + ttl_sec}\n""",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-connector/src/muad_im_connector/lease.py,71,RELEASE_SCRIPT,"""\nlocal lease_key = KEYS[1]\nlocal owner = ARGV[1]\nlocal epoch = tonumber(ARGV[2])\nlocal current = redis.call('GET', lease_key)\nif not current then\n  return 0\nend\nlocal decoded = cjson.decode(current)\nif decoded['owner_id'] ~= owner or tonumber(decoded['epoch']) ~= epoch then\n  return 0\nend\nredis.call('DEL', lease_key)\nreturn 1\n""",python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -2229,151 +2236,153 @@ packages/common/src/muad_common/db_counters.py,55,_SERVICE_LABEL,'service',pytho
 packages/common/src/muad_common/notification_keys.py,8,NOTIFICATION_WATERMARK_PREFIX,'muad:webchat:notify:seq:',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/common/src/muad_common/notification_keys.py,10,NOTIFICATION_WATERMARK_TTL_SEC,30 * 24 * 3600,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/common/src/muad_common/session_store.py,23,SESSION_KEY_PREFIX,'muad:webchat:session:',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/common/src/muad_common/settings.py,15,env,'dev',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,16,log_dir,'./.data/logs',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,17,log_level,'INFO',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,18,default_tenant_id,'default',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,19,api_messages_file,'./config/api-messages.yaml',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,21,database_url,"Field(default=None, repr=False)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,22,redis_url,"Field(default=None, repr=False)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,23,internal_service_token,"Field(default=None, repr=False)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,24,channel_probe_url,None,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,26,wecom_ws_url,None,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,27,wecom_ws_ca_file,None,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,30,gateway_webhook_channels,"Field(default='', repr=False)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
-packages/common/src/muad_common/settings.py,31,webhook_timestamp_tolerance_sec,"Field(default=300, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
-packages/common/src/muad_common/settings.py,35,gateway_routed_channels,Field(default=''),shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
-packages/common/src/muad_common/settings.py,37,inbound_stream_shards,"Field(default=32, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
-packages/common/src/muad_common/settings.py,38,inbound_stream_maxlen,"Field(default=5000, ge=100)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
-packages/common/src/muad_common/settings.py,39,inbound_stream_lost_after_sec,"Field(default=60, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
-packages/common/src/muad_common/settings.py,41,delivery_stream_wait_sec,"Field(default=10.0, gt=0)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
-packages/common/src/muad_common/settings.py,43,artifact_root,'./.data/artifacts',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,44,skill_cache_root,'./.data/skill-cache',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,47,skill_draft_quota_mib,"Field(default=100, ge=1)",shared-setting,environment,进程启动环境配置；按部署单元注入
-packages/common/src/muad_common/settings.py,48,skill_draft_file_max_bytes,"Field(default=5 * 1024 * 1024, ge=1)",shared-setting,environment,进程启动环境配置；按部署单元注入
-packages/common/src/muad_common/settings.py,49,skill_draft_file_limit,"Field(default=2000, ge=1)",shared-setting,environment,进程启动环境配置；按部署单元注入
-packages/common/src/muad_common/settings.py,51,workspace_root,'./.data/workspaces',shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
-packages/common/src/muad_common/settings.py,53,workspace_quota_mib,"Field(default=500, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
-packages/common/src/muad_common/settings.py,54,workspace_user_quota_mib,"Field(default=500, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
-packages/common/src/muad_common/settings.py,55,workspace_file_limit,"Field(default=5000, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
-packages/common/src/muad_common/settings.py,57,workspace_data_ttl_days,"Field(default=30, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
-packages/common/src/muad_common/settings.py,60,sandbox_mode,'bwrap',shared-setting,environment,进程启动环境配置；按部署单元注入
-packages/common/src/muad_common/settings.py,62,sandbox_bwrap_path,None,shared-setting,environment,进程启动环境配置；按部署单元注入
-packages/common/src/muad_common/settings.py,64,sandbox_tmpfs_bytes,"Field(default=64 * 1024 * 1024, ge=1024 * 1024)",shared-setting,environment,进程启动环境配置；按部署单元注入
-packages/common/src/muad_common/settings.py,66,sandbox_output_limit_bytes,"Field(default=64 * 1024, ge=1024)",shared-setting,environment,进程启动环境配置；按部署单元注入
-packages/common/src/muad_common/settings.py,68,skill_output_max_files,"Field(default=100, ge=1)",shared-setting,environment,进程启动环境配置；按部署单元注入
-packages/common/src/muad_common/settings.py,69,skill_output_max_file_mib,"Field(default=16, ge=1)",shared-setting,environment,进程启动环境配置；按部署单元注入
-packages/common/src/muad_common/settings.py,70,skill_output_max_total_mib,"Field(default=64, ge=1)",shared-setting,environment,进程启动环境配置；按部署单元注入
-packages/common/src/muad_common/settings.py,71,migrations_dir,'./migrations/versions',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,76,external_assertion_platforms_json,"Field(default='', repr=False)",shared-setting,environment,启动期环境配置（§2.4 environment）
-packages/common/src/muad_common/settings.py,83,external_assertion_max_session_age_sec,"Field(default=86400, ge=0)",shared-setting,environment,启动期环境配置（§2.4 environment）
-packages/common/src/muad_common/settings.py,85,external_assertion_cache_ttl_sec,"Field(default=60, ge=1)",shared-setting,environment,启动期环境配置（§2.4 environment）
-packages/common/src/muad_common/settings.py,87,console_platform_url,'http://127.0.0.1:8000',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,88,agent_runtime_url,'http://127.0.0.1:8001',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,89,agent_worker_url,'http://127.0.0.1:8002',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,90,im_gateway_url,'http://127.0.0.1:8003',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,92,im_progress_updates_per_second,"Field(default=10.0, ge=1.0)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,96,runtime_execution_concurrency,"Field(default=256, ge=1, le=256)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,99,runtime_admission_queue_limit,"Field(default=256, ge=0, le=10000)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
-packages/common/src/muad_common/settings.py,101,memory_consolidation_queue_max,"Field(default=10000, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
-packages/common/src/muad_common/settings.py,102,worker_execution_concurrency,"Field(default=8, ge=1, le=64)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,103,gateway_max_concurrent_handlers,"Field(default=8, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,104,gateway_max_pending_handlers,"Field(default=256, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,105,gateway_max_pending_per_route,"Field(default=8, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,106,gateway_max_pending_commands,"Field(default=32, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,107,gateway_max_sse_subscribers,"Field(default=1100, ge=1, le=100000)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,108,runtime_max_sse_subscribers,"Field(default=1100, ge=1, le=100000)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,111,execution_export_max_events,"Field(default=10000, ge=1)",shared-setting,environment,启动配置
-packages/common/src/muad_common/settings.py,112,execution_export_max_task_events,"Field(default=10000, ge=1)",shared-setting,environment,启动配置
-packages/common/src/muad_common/settings.py,113,execution_export_max_task_children,"Field(default=500, ge=1)",shared-setting,environment,启动配置
-packages/common/src/muad_common/settings.py,114,execution_export_max_bytes,"Field(default=20 * 1024 * 1024, ge=1024)",shared-setting,environment,启动配置
-packages/common/src/muad_common/settings.py,115,execution_export_event_excerpt_before,"Field(default=5, ge=0)",shared-setting,environment,启动配置
-packages/common/src/muad_common/settings.py,116,execution_export_event_excerpt_after,"Field(default=5, ge=0)",shared-setting,environment,启动配置
-packages/common/src/muad_common/settings.py,118,db_pool_size,"Field(default=10, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,119,db_max_overflow,"Field(default=0, ge=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,120,db_pool_timeout_sec,"Field(default=5.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,121,redis_max_connections,"Field(default=50, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,124,control_http_max_connections,"Field(default=32, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,125,control_http_max_keepalive,"Field(default=16, ge=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,126,stream_http_max_connections,"Field(default=1100, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,127,stream_http_max_keepalive,"Field(default=64, ge=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,128,model_http_max_connections,"Field(default=256, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,129,model_http_max_keepalive,"Field(default=32, ge=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,130,mcp_http_max_connections,"Field(default=16, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,131,mcp_http_max_keepalive,"Field(default=8, ge=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,132,mcp_max_inflight,"Field(default=8, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,135,egress_http_max_connections,"Field(default=1024, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,136,egress_http_max_keepalive,"Field(default=256, ge=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,137,egress_max_inflight,"Field(default=8, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,138,egress_meter_domain,"Field(default='fluxion-egress', min_length=1, pattern='^[^{}\\s]+$')",shared-setting,environment,SDK计量域与生命周期运行参数；业务接口限制由管理端配置
-packages/common/src/muad_common/settings.py,139,egress_meter_epoch,"Field(default='managed-v1', min_length=1, max_length=128)",shared-setting,environment,SDK计量域与生命周期运行参数；业务接口限制由管理端配置
-packages/common/src/muad_common/settings.py,140,egress_cleanup_sec,"Field(default=2.0, gt=0)",shared-setting,environment,SDK计量域与生命周期运行参数；业务接口限制由管理端配置
-packages/common/src/muad_common/settings.py,141,egress_renewal_interval_sec,"Field(default=1.0, gt=0)",shared-setting,environment,SDK计量域与生命周期运行参数；业务接口限制由管理端配置
-packages/common/src/muad_common/settings.py,142,egress_source_refresh_sec,"Field(default=1.0, gt=0)",shared-setting,environment,SDK计量域与生命周期运行参数；业务接口限制由管理端配置
-packages/common/src/muad_common/settings.py,143,egress_stop_margin_sec,"Field(default=12.0, gt=0)",shared-setting,environment,SDK计量域与生命周期运行参数；业务接口限制由管理端配置
-packages/common/src/muad_common/settings.py,144,upload_http_max_connections,"Field(default=8, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,145,upload_http_max_keepalive,"Field(default=4, ge=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,147,http_connect_timeout_sec,"Field(default=5.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,148,http_pool_timeout_sec,"Field(default=2.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,149,control_http_read_timeout_sec,"Field(default=10.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,150,stream_http_read_timeout_sec,"Field(default=45.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,151,model_http_read_timeout_sec,"Field(default=60.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,152,upload_http_read_timeout_sec,"Field(default=60.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,153,mcp_http_read_timeout_sec,"Field(default=30.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,154,egress_http_read_timeout_sec,"Field(default=30.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,156,run_lease_sec,"Field(default=60, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,157,run_heartbeat_sec,"Field(default=20, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,158,run_reaper_interval_sec,"Field(default=30, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,160,learning_scheduler_interval_sec,"Field(default=60, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,161,run_event_heartbeat_sec,"Field(default=15, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,162,run_event_fallback_poll_sec,"Field(default=5.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,163,model_call_lease_sec,"Field(default=60, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,164,model_call_heartbeat_sec,"Field(default=20, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,165,stream_delta_flush_interval_ms,"Field(default=300, ge=10, le=500)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,166,stream_delta_flush_bytes,"Field(default=8192, ge=1024, le=65536)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,167,sse_event_max_bytes,"Field(default=262144, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,168,sse_subscriber_buffer_bytes,"Field(default=1048576, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,169,sse_total_buffer_bytes,"Field(default=67108864, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,171,chat_auth_recheck_sec,"Field(default=15.0, gt=0, le=60)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,172,chat_exchange_max_body_bytes,"Field(default=4096, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,173,chat_exchange_per_ip_per_minute,"Field(default=6000, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,174,chat_message_hard_max_bytes,"Field(default=1048576, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,175,chat_upload_hard_max_bytes,"Field(default=52428800, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,177,channel_delivery_concurrency,"Field(default=4, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,178,channel_delivery_timeout_sec,"Field(default=12.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,179,channel_delivery_lease_sec,"Field(default=30.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,180,channel_delivery_poll_sec,"Field(default=1.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,181,channel_delivery_batch_size,"Field(default=32, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,182,channel_delivery_retry_base_sec,"Field(default=1.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,183,channel_delivery_retry_cap_sec,"Field(default=30.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,184,channel_delivery_max_attempts,"Field(default=20, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
-packages/common/src/muad_common/settings.py,186,task_lease_sec,"Field(default=60, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,187,task_heartbeat_sec,"Field(default=20, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,188,task_cancel_check_sec,"Field(default=2, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,189,worker_poll_interval_sec,"Field(default=5, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,191,model_context_window_min_tokens,"Field(default=128000, ge=1)",shared-setting,environment,启动期环境配置（§2.4 environment）
-packages/common/src/muad_common/settings.py,192,batch_platform_limit,"Field(default=16, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,193,scheduler_poll_interval_sec,"Field(default=10, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,194,scheduler_batch_size,"Field(default=100, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,195,task_deadline_sweep_interval_sec,"Field(default=30, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,196,delivery_poll_interval_sec,"Field(default=5, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,197,delivery_batch_size,"Field(default=20, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,199,async_tool_dispatch_timeout_sec,"Field(default=5, gt=0)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,200,async_tool_dispatch_lease_sec,"Field(default=30, gt=5)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,201,async_tool_dispatch_poll_sec,"Field(default=1, gt=0)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,202,async_tool_dispatch_batch_size,"Field(default=32, ge=1, le=1000)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,203,async_tool_dispatch_retry_base_sec,"Field(default=1, gt=0)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,204,async_tool_dispatch_retry_cap_sec,"Field(default=30, gt=0)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,205,async_tool_dispatch_max_attempts,"Field(default=20, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,208,bot_snapshot_poll_sec,"Field(default=30.0, gt=0)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,210,redis_mode,'standalone',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,211,redis_cluster_seeds,'',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,213,inbound_stream_retention_sec,"Field(default=600, ge=60)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
-packages/common/src/muad_common/settings.py,214,outbound_stream_retention_sec,"Field(default=3600, ge=300)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
-packages/common/src/muad_common/settings.py,217,worker_supervision_interval_sec,"Field(default=5.0, gt=0)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,219,worker_loop_stale_factor,"Field(default=3, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,220,worker_loop_restart_backoff_sec,"Field(default=1.0, gt=0)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,222,worker_loop_shutdown_timeout_sec,"Field(default=30.0, gt=0)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,17,env,'dev',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,18,log_dir,'./.data/logs',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,19,log_level,'INFO',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,20,default_tenant_id,'default',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,21,api_messages_file,'./config/api-messages.yaml',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,23,database_url,"Field(default=None, repr=False)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,24,redis_url,"Field(default=None, repr=False)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,25,internal_service_token,"Field(default=None, repr=False)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,26,channel_probe_url,None,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,28,wecom_ws_url,None,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,29,wecom_ws_ca_file,None,shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,32,wecom_media_max_tls_version,None,shared-setting,environment,启动期环境配置（§2.4 environment）
+packages/common/src/muad_common/settings.py,35,gateway_webhook_channels,"Field(default='', repr=False)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
+packages/common/src/muad_common/settings.py,36,webhook_timestamp_tolerance_sec,"Field(default=300, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
+packages/common/src/muad_common/settings.py,40,gateway_routed_channels,Field(default=''),shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
+packages/common/src/muad_common/settings.py,42,inbound_stream_shards,"Field(default=32, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
+packages/common/src/muad_common/settings.py,43,inbound_stream_maxlen,"Field(default=5000, ge=100)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
+packages/common/src/muad_common/settings.py,44,inbound_stream_lost_after_sec,"Field(default=60, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
+packages/common/src/muad_common/settings.py,46,delivery_stream_wait_sec,"Field(default=10.0, gt=0)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
+packages/common/src/muad_common/settings.py,48,artifact_root,'./.data/artifacts',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,49,skill_cache_root,'./.data/skill-cache',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,52,skill_draft_quota_mib,"Field(default=100, ge=1)",shared-setting,environment,进程启动环境配置；按部署单元注入
+packages/common/src/muad_common/settings.py,53,skill_draft_file_max_bytes,"Field(default=5 * 1024 * 1024, ge=1)",shared-setting,environment,进程启动环境配置；按部署单元注入
+packages/common/src/muad_common/settings.py,54,skill_draft_file_limit,"Field(default=2000, ge=1)",shared-setting,environment,进程启动环境配置；按部署单元注入
+packages/common/src/muad_common/settings.py,56,workspace_root,'./.data/workspaces',shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
+packages/common/src/muad_common/settings.py,58,workspace_quota_mib,"Field(default=500, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
+packages/common/src/muad_common/settings.py,59,workspace_user_quota_mib,"Field(default=500, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
+packages/common/src/muad_common/settings.py,60,workspace_file_limit,"Field(default=5000, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
+packages/common/src/muad_common/settings.py,62,workspace_data_ttl_days,"Field(default=30, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
+packages/common/src/muad_common/settings.py,65,sandbox_mode,'bwrap',shared-setting,environment,进程启动环境配置；按部署单元注入
+packages/common/src/muad_common/settings.py,67,sandbox_bwrap_path,None,shared-setting,environment,进程启动环境配置；按部署单元注入
+packages/common/src/muad_common/settings.py,69,sandbox_tmpfs_bytes,"Field(default=64 * 1024 * 1024, ge=1024 * 1024)",shared-setting,environment,进程启动环境配置；按部署单元注入
+packages/common/src/muad_common/settings.py,71,sandbox_output_limit_bytes,"Field(default=64 * 1024, ge=1024)",shared-setting,environment,进程启动环境配置；按部署单元注入
+packages/common/src/muad_common/settings.py,73,skill_output_max_files,"Field(default=100, ge=1)",shared-setting,environment,进程启动环境配置；按部署单元注入
+packages/common/src/muad_common/settings.py,74,skill_output_max_file_mib,"Field(default=16, ge=1)",shared-setting,environment,进程启动环境配置；按部署单元注入
+packages/common/src/muad_common/settings.py,75,skill_output_max_total_mib,"Field(default=64, ge=1)",shared-setting,environment,进程启动环境配置；按部署单元注入
+packages/common/src/muad_common/settings.py,76,migrations_dir,'./migrations/versions',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,81,external_assertion_platforms_json,"Field(default='', repr=False)",shared-setting,environment,启动期环境配置（§2.4 environment）
+packages/common/src/muad_common/settings.py,88,external_assertion_max_session_age_sec,"Field(default=86400, ge=0)",shared-setting,environment,启动期环境配置（§2.4 environment）
+packages/common/src/muad_common/settings.py,90,external_assertion_cache_ttl_sec,"Field(default=60, ge=1)",shared-setting,environment,启动期环境配置（§2.4 environment）
+packages/common/src/muad_common/settings.py,92,console_platform_url,'http://127.0.0.1:8000',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,93,agent_runtime_url,'http://127.0.0.1:8001',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,94,agent_worker_url,'http://127.0.0.1:8002',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,95,im_gateway_url,'http://127.0.0.1:8003',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,97,im_progress_updates_per_second,"Field(default=10.0, ge=1.0)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,101,runtime_execution_concurrency,"Field(default=256, ge=1, le=256)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,104,runtime_admission_queue_limit,"Field(default=256, ge=0, le=10000)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
+packages/common/src/muad_common/settings.py,106,memory_consolidation_queue_max,"Field(default=10000, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
+packages/common/src/muad_common/settings.py,107,worker_execution_concurrency,"Field(default=8, ge=1, le=64)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,108,gateway_max_concurrent_handlers,"Field(default=8, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,109,gateway_max_pending_handlers,"Field(default=256, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,110,gateway_max_pending_per_route,"Field(default=8, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,111,gateway_max_pending_commands,"Field(default=32, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,112,gateway_max_sse_subscribers,"Field(default=1100, ge=1, le=100000)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,113,runtime_max_sse_subscribers,"Field(default=1100, ge=1, le=100000)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,116,execution_export_max_events,"Field(default=10000, ge=1)",shared-setting,environment,启动配置
+packages/common/src/muad_common/settings.py,117,execution_export_max_task_events,"Field(default=10000, ge=1)",shared-setting,environment,启动配置
+packages/common/src/muad_common/settings.py,118,execution_export_max_task_children,"Field(default=500, ge=1)",shared-setting,environment,启动配置
+packages/common/src/muad_common/settings.py,119,execution_export_max_bytes,"Field(default=20 * 1024 * 1024, ge=1024)",shared-setting,environment,启动配置
+packages/common/src/muad_common/settings.py,120,execution_export_event_excerpt_before,"Field(default=5, ge=0)",shared-setting,environment,启动配置
+packages/common/src/muad_common/settings.py,121,execution_export_event_excerpt_after,"Field(default=5, ge=0)",shared-setting,environment,启动配置
+packages/common/src/muad_common/settings.py,123,db_pool_size,"Field(default=10, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,124,db_max_overflow,"Field(default=0, ge=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,125,db_pool_timeout_sec,"Field(default=5.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,126,redis_max_connections,"Field(default=50, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,129,control_http_max_connections,"Field(default=32, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,130,control_http_max_keepalive,"Field(default=16, ge=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,131,stream_http_max_connections,"Field(default=1100, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,132,stream_http_max_keepalive,"Field(default=64, ge=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,133,model_http_max_connections,"Field(default=256, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,134,model_http_max_keepalive,"Field(default=32, ge=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,135,mcp_http_max_connections,"Field(default=16, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,136,mcp_http_max_keepalive,"Field(default=8, ge=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,137,mcp_max_inflight,"Field(default=8, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,140,egress_http_max_connections,"Field(default=1024, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,141,egress_http_max_keepalive,"Field(default=256, ge=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,142,egress_max_inflight,"Field(default=8, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,143,egress_meter_domain,"Field(default='fluxion-egress', min_length=1, pattern='^[^{}\\s]+$')",shared-setting,environment,SDK计量域与生命周期运行参数；业务接口限制由管理端配置
+packages/common/src/muad_common/settings.py,144,egress_meter_epoch,"Field(default='managed-v1', min_length=1, max_length=128)",shared-setting,environment,SDK计量域与生命周期运行参数；业务接口限制由管理端配置
+packages/common/src/muad_common/settings.py,145,egress_cleanup_sec,"Field(default=2.0, gt=0)",shared-setting,environment,SDK计量域与生命周期运行参数；业务接口限制由管理端配置
+packages/common/src/muad_common/settings.py,146,egress_renewal_interval_sec,"Field(default=1.0, gt=0)",shared-setting,environment,SDK计量域与生命周期运行参数；业务接口限制由管理端配置
+packages/common/src/muad_common/settings.py,147,egress_source_refresh_sec,"Field(default=1.0, gt=0)",shared-setting,environment,SDK计量域与生命周期运行参数；业务接口限制由管理端配置
+packages/common/src/muad_common/settings.py,148,egress_stop_margin_sec,"Field(default=12.0, gt=0)",shared-setting,environment,SDK计量域与生命周期运行参数；业务接口限制由管理端配置
+packages/common/src/muad_common/settings.py,149,upload_http_max_connections,"Field(default=8, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,150,upload_http_max_keepalive,"Field(default=4, ge=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,152,http_connect_timeout_sec,"Field(default=5.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,153,http_pool_timeout_sec,"Field(default=2.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,154,control_http_read_timeout_sec,"Field(default=10.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,155,stream_http_read_timeout_sec,"Field(default=45.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,156,model_http_read_timeout_sec,"Field(default=60.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,157,upload_http_read_timeout_sec,"Field(default=60.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,158,mcp_http_read_timeout_sec,"Field(default=30.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,159,egress_http_read_timeout_sec,"Field(default=30.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,161,run_lease_sec,"Field(default=60, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,162,run_heartbeat_sec,"Field(default=20, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,163,run_reaper_interval_sec,"Field(default=30, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,165,learning_scheduler_interval_sec,"Field(default=60, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,166,run_event_heartbeat_sec,"Field(default=15, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,167,run_event_fallback_poll_sec,"Field(default=5.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,168,model_call_lease_sec,"Field(default=60, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,169,model_call_heartbeat_sec,"Field(default=20, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,170,stream_delta_flush_interval_ms,"Field(default=300, ge=10, le=500)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,171,stream_delta_flush_bytes,"Field(default=8192, ge=1024, le=65536)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,172,sse_event_max_bytes,"Field(default=262144, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,173,sse_subscriber_buffer_bytes,"Field(default=1048576, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,174,sse_total_buffer_bytes,"Field(default=67108864, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,176,chat_auth_recheck_sec,"Field(default=15.0, gt=0, le=60)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,177,chat_exchange_max_body_bytes,"Field(default=4096, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,178,chat_exchange_per_ip_per_minute,"Field(default=6000, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,179,chat_message_hard_max_bytes,"Field(default=1048576, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,180,chat_upload_hard_max_bytes,"Field(default=52428800, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,182,channel_delivery_concurrency,"Field(default=4, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,183,channel_delivery_timeout_sec,"Field(default=12.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,184,channel_delivery_lease_sec,"Field(default=30.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,185,channel_delivery_poll_sec,"Field(default=1.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,186,channel_delivery_batch_size,"Field(default=32, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,187,channel_delivery_retry_base_sec,"Field(default=1.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,188,channel_delivery_retry_cap_sec,"Field(default=30.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,189,channel_delivery_max_attempts,"Field(default=20, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,191,task_lease_sec,"Field(default=60, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,192,task_heartbeat_sec,"Field(default=20, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,193,task_cancel_check_sec,"Field(default=2, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,194,worker_poll_interval_sec,"Field(default=5, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,196,model_context_window_min_tokens,"Field(default=128000, ge=1)",shared-setting,environment,启动期环境配置（§2.4 environment）
+packages/common/src/muad_common/settings.py,197,batch_platform_limit,"Field(default=16, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,198,scheduler_poll_interval_sec,"Field(default=10, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,199,scheduler_batch_size,"Field(default=100, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,200,task_deadline_sweep_interval_sec,"Field(default=30, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,201,delivery_poll_interval_sec,"Field(default=5, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,202,delivery_batch_size,"Field(default=20, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,204,async_tool_dispatch_timeout_sec,"Field(default=5, gt=0)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,205,async_tool_dispatch_lease_sec,"Field(default=30, gt=5)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,206,async_tool_dispatch_poll_sec,"Field(default=1, gt=0)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,207,async_tool_dispatch_batch_size,"Field(default=32, ge=1, le=1000)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,208,async_tool_dispatch_retry_base_sec,"Field(default=1, gt=0)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,209,async_tool_dispatch_retry_cap_sec,"Field(default=30, gt=0)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,210,async_tool_dispatch_max_attempts,"Field(default=20, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,213,bot_snapshot_poll_sec,"Field(default=30.0, gt=0)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,215,redis_mode,'standalone',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,216,redis_cluster_seeds,'',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,218,inbound_stream_retention_sec,"Field(default=600, ge=60)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
+packages/common/src/muad_common/settings.py,219,outbound_stream_retention_sec,"Field(default=3600, ge=300)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
+packages/common/src/muad_common/settings.py,222,worker_supervision_interval_sec,"Field(default=5.0, gt=0)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,224,worker_loop_stale_factor,"Field(default=3, ge=1)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,225,worker_loop_restart_backoff_sec,"Field(default=1.0, gt=0)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,227,worker_loop_shutdown_timeout_sec,"Field(default=30.0, gt=0)",shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/tls.py,13,TLS_MAX_VERSIONS,"{'TLSv1_2': ssl.TLSVersion.TLSv1_2, 'TLSv1_3': ssl.TLSVersion.TLSv1_3}",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/common/src/muad_common/workspaces.py,15,DRAFT_ACTIVITY_MARKER,'.draft-activity',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/attachments.py,24,SUPPORTED_UPLOAD_FORMATS,"(AttachmentFormat(media_type='image/png', extensions=('.png',)), AttachmentFormat(media_type='image/jpeg', extensions=('.jpg', '.jpeg')), AttachmentFormat(media_type='image/gif', extensions=('.gif',)), AttachmentFormat(media_type='image/webp', extensions=('.webp',)), AttachmentFormat(media_type='application/pdf', extensions=('.pdf',)), AttachmentFormat(media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document', extensions=('.docx',)), AttachmentFormat(media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', extensions=('.xlsx',)), AttachmentFormat(media_type='application/vnd.openxmlformats-officedocument.presentationml.presentation', extensions=('.pptx',)), AttachmentFormat(media_type='text/plain', extensions=('.txt',)), AttachmentFormat(media_type='text/markdown', extensions=('.md',)), AttachmentFormat(media_type='text/csv', extensions=('.csv',)), AttachmentFormat(media_type='application/zip', extensions=('.zip',)), AttachmentFormat(media_type='application/x-zip-compressed', extensions=('.zip',)))",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/attachments.py,50,ALLOWED_ATTACHMENT_MEDIA_TYPES,frozenset((item.media_type for item in SUPPORTED_UPLOAD_FORMATS)),python-constant,code,协议标识、枚举、schema、文本或实现常量

@@ -8,7 +8,7 @@ from muad_agent_core.context.compactor import (
     history_bytes,
     split_groups,
 )
-from muad_agent_core.context.plan import ContextPlan, RunInput
+from muad_agent_core.context.plan import ContextPlan
 from muad_agent_core.model import ModelMessage, ModelRole, ModelToolCall
 
 
@@ -64,7 +64,11 @@ def test_fit_protects_head_current_and_latest_round_and_marks_the_gap() -> None:
     assert layer is not None and layer.fired
     contents = [message.content for group in compacted.older for message in group]
     assert "old-0" in contents and "old-1" in contents, "head anchor kept"
-    assert any(OMISSION_MARKER_PREFIX in str(message.content) for group in compacted.older for message in group)
+    assert any(
+        OMISSION_MARKER_PREFIX in str(message.content)
+        for group in compacted.older
+        for message in group
+    )
     assert compacted.pinned == plan.pinned
     assert compacted.working == plan.working, "latest complete tool round kept"
     assert layer.dropped_records >= 1
@@ -91,7 +95,11 @@ def test_gap_without_loaded_drop_still_gets_a_marker_and_no_coverage() -> None:
     assert layer is not None and layer.fired and layer.groups == 0
     assert compacted.covered_seq == plan.covered_seq
     assert compacted.material_end_seq == 0
-    assert any(OMISSION_MARKER_PREFIX in str(message.content) for group in compacted.older for message in group)
+    assert any(
+        OMISSION_MARKER_PREFIX in str(message.content)
+        for group in compacted.older
+        for message in group
+    )
 
 
 def test_groups_never_leave_an_orphan_tool_message() -> None:

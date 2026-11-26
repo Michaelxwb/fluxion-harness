@@ -112,8 +112,9 @@ export function SettingsFieldRow({
       <InputNumber
         id={inputId}
         value={typeof value === 'number' ? value : undefined}
-        min={meta.min}
-        max={meta.max}
+        // 不传 min/max：Semi 会在失焦/回车时把越界值夹到边界上，用户填的非法值会被
+        // 悄悄改掉（E-11 要求「输入保留」并显示后端字段级错误）。范围仍由 meta 展示在
+        // 参考信息里，越界由后端校验并以 `details[].path` 回填到本行。
         disabled={disabled}
         validateStatus={validateStatus}
         style={{ width: 200 }}

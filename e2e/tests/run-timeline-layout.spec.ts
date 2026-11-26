@@ -19,7 +19,7 @@ const nodeDetail: RunEventDetail = {
   fields: [{ key: 'tool_name', value: 'mcp::weather::query_' + 'long'.repeat(60) }, { key: 'status', value: 'OK' }, { key: 'duration_ms', value: 1250 }],
   arguments: [{ name: 'query', value: '深圳' }, { name: 'api_key', value: '***' }],
   attachments: [{ id: 'artifact-' + 'long'.repeat(40), filename: 'question.txt', media_type: 'text/plain', size: 128 }],
-  compaction: [{ layer: 'snip', groups: 3, bytes_saved: 2048 }],
+  compaction: [{ layer: 'budget', groups: 3, bytes_saved: 2048 }],
   model_state: null, model_summary: null
 };
 

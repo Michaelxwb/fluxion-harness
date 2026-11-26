@@ -774,7 +774,7 @@ async def test_e03_memory_redesign_admin_preference_visible_after_new_conversati
 async def test_e05_memory_redesign_default_consolidation_then_new_conversation_resume(
     gateway_stack: GatewayStack,
 ) -> None:
-    """默认设置提炼未决项；/new 后自然语言续接进入真实模型请求。"""
+    """默认设置提炼未决项；/new 后自然语言续接以**候选清单**进入真实模型请求（不自动绑定）。"""
     await _reset_memories(gateway_stack)
     title = f"季度报告{uuid.uuid4().hex[:4]}"
     _set_script(
@@ -805,9 +805,12 @@ async def test_e05_memory_redesign_default_consolidation_then_new_conversation_r
         {"tenant": gateway_stack.tenant_id},
     )
     assert await _conversation_of(resumed) != conversation_a, (conversation_a, conversations)
+    # 设计 D6：单候选也**不自动绑定**——自然语言续接只把候选清单（hint）送进真实请求；
+    # 用户显式选择编号/key/标题之后，下一 Run 才注入 task_state。
     block = _system_text(_last_business_request(gateway_stack))
-    assert original_key in block, "唯一未决线索必须装进真实模型请求"
-    assert "task_state" in block and "未确认" in block
+    assert original_key in block, "唯一未决线索必须以候选清单形式装进真实模型请求"
+    assert "请回复完整编号" in block, "候选清单缺少选择指引（hint 未进入请求）"
+    assert "task_state" not in block, "单候选不得自动绑定（D6）"
     assert rows[0]["content_json"]["title"] == title, rows[0]["content_json"]
 
 
@@ -847,7 +850,6 @@ async def test_e05_memory_redesign_second_option_selection_enters_real_request(
 
     _set_script(gateway_stack, final_text="已记录。", consolidation_text=EMPTY_BATCH)
     await _new_conversation(gateway_stack)
-    replies_before = len(_replies(gateway_stack))
     run_c = await _started_run(gateway_stack, "继续上次任务")
     conversation_c = await _conversation_of(run_c)
     TENANT_HOLDER[0] = gateway_stack.tenant_id
@@ -869,13 +871,11 @@ async def test_e05_memory_redesign_second_option_selection_enters_real_request(
     target = next(item for item in items if item["number"] == 2)
     assert {item["memory_key"] for item in items} == {key_a, key_b}, items
     await _wait_run_terminal(run_c)
-    # 候选清单属于「产生 options 的那一轮」的推送；必须在发起「第2个」之前观察，
-    # 否则会把上一轮的辅助消息错当成选择后的新回复（E05 在 CI 上因此超时）。
-    await _wait_for(
-        lambda: "请回复完整编号" in "\n".join(_replies(gateway_stack)[replies_before:]),
-        what="候选清单未经真实 SSE 渲染投递到 WS 帧",
-        timeout=REPLY_TIMEOUT_SEC,
-    )
+    # 设计 D6：运行时不再把候选清单直接推成消息；它以 hint 进入**真实模型请求**，由模型
+    # 转述给用户（脚本化探针固定返回 final_text，所以这里断言请求而不是回复文本）。
+    offered = _system_text(_last_business_request(gateway_stack))
+    assert "请回复完整编号" in offered, "候选清单未进入真实模型请求"
+    assert key_a in offered and key_b in offered, offered[:400]
 
     # 下一条真实用户消息先消费未消费的 options（单次消费）：编号选择须落真实结果事件
     second_run = await _started_run(gateway_stack, "第2个")
@@ -921,22 +921,30 @@ async def test_e05_memory_redesign_completion_retires_original_and_large_checkpo
     assert job_a["status"] == "DONE", job_a
     root_key = f"task.{(await _conversation_of(run_a)).replace('-', '')}"
 
-    # A→B→C：每次续接都固定原任务根，不新增 task 身份
+    async def select_first() -> None:
+        """显式选择唯一候选：D6 下续接不再自动绑定，只有选择后的 Run 才冻结 resume_ref。"""
+        chosen = await _started_run(gateway_stack, "第1个")
+        await _wait_run_terminal(chosen)
+        await _wait_job_terminal(chosen)
+
+    # A→B→C：每次续接都**显式选择**原任务根，不新增 task 身份（不选则提炼按新会话算根）
     for _ in range(2):
         _set_script(gateway_stack, final_text="已记录。", consolidation_text=EMPTY_BATCH)
         await _new_conversation(gateway_stack)
         step = await _started_run(gateway_stack, "继续上次任务")
         await _wait_run_terminal(step)
         await _wait_job_terminal(step)
+        await select_first()
         rows = await _task_state_rows(gateway_stack)
         assert [row["memory_key"] for row in rows] == [root_key], rows
 
-    # 完成：续接提炼声明 task_completed → 原 key 退休，无旧未决残留
+    # 完成：显式绑定后再提炼 task_completed → 原 key 退休，无旧未决残留
     _set_script(gateway_stack, final_text="已记录。", consolidation_text=COMPLETED_BATCH)
     await _new_conversation(gateway_stack)
     completing = await _started_run(gateway_stack, "继续上次任务")
     await _wait_run_terminal(completing)
     await _wait_job_terminal(completing)
+    await select_first()
     rows = await _task_state_rows(gateway_stack)
     assert [row["memory_key"] for row in rows] == [root_key], rows
     assert rows[0]["is_deleted"] is True and rows[0]["retirement_reason"] == "TASK_COMPLETE", rows
@@ -962,6 +970,9 @@ async def test_e05_memory_redesign_completion_retires_original_and_large_checkpo
         await _new_conversation(gateway_stack)
         large = await _started_run(gateway_stack, "继续上次任务")
         await _wait_run_terminal(large)
+        # D6：续接只给候选清单；显式选择后的 Run 才注入 task_state（有界引用在这里验证）
+        chosen = await _started_run(gateway_stack, "第1个")
+        await _wait_run_terminal(chosen)
         block = _system_text(_last_business_request(gateway_stack))
         assert '"omitted":true' in block, (block, await _task_state_rows(gateway_stack))
         assert long_title in block and long_goal not in block, block
@@ -976,8 +987,11 @@ async def test_e05_memory_redesign_completion_retires_original_and_large_checkpo
         await _new_conversation(gateway_stack)
         tiny = await _started_run(gateway_stack, "继续上次任务")
         await _wait_run_terminal(tiny)
+        chosen = await _started_run(gateway_stack, "第1个")
+        await _wait_run_terminal(chosen)
         block = _system_text(_last_business_request(gateway_stack))
-        assert "task_state" not in block and long_title not in block, block
+        # 注入块整条省略（候选标题仍出现在 D6 的清单 hint 里，不能拿标题当判据）
+        assert "task_state" not in block, block
         dropped_after = _counters(gateway_stack).get(
             'memory_inject_dropped_total{reason="bytes"}', 0.0
         )

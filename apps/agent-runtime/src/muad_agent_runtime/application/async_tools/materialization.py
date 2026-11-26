@@ -4,6 +4,12 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 from uuid import NAMESPACE_URL, UUID, uuid5
 
+from muad_agent_core.tools.result_budget import (
+    RoundCandidate,
+    ToolResultBudget,
+    derive_tool_result_budget,
+    select_round_persists,
+)
 from muad_common import process_settings
 from muad_contracts import OperationStatus, canonical_json
 from muad_logging import get_logger
@@ -20,13 +26,6 @@ from ...infrastructure.models.runtime import (
     RuntimeSnapshot,
 )
 from ...metrics import CONTEXT_COMPACTION_METRIC, record_outcome
-from muad_agent_core.tools.result_budget import (
-    RoundCandidate,
-    ToolResultBudget,
-    derive_tool_result_budget,
-    select_round_persists,
-)
-
 from ..attachments.tool_results import (
     ArtifactResultWriter,
     PreparedToolResults,

@@ -35,6 +35,9 @@ service:
     limits:
       cpu: '2'
       memory: 2Gi
+  #: 每进程执行槽（`WORKER_EXECUTION_CONCURRENCY`）。HPA 的 `task_queue_depth` 目标由它推导
+  #: （2 × 本值），不要再单独写死目标值。
+  executionConcurrency: 8
   extraEnv: []
   name: muad-agent-worker
   image: muad-agent-worker

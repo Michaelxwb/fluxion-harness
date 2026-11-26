@@ -551,6 +551,51 @@ def test_helm_gateway_and_connector_do_not_mount_workspaces(chart: str) -> None:
     )
 
 
+#: 执行槽在 Helm 里是单一旋钮：Deployment env 与 HPA 队列目标必须同源（目标 = 2 × 槽数）。
+#: 第三项是上限，与 `SharedSettings` 字段约束/supervisor 构造校验的区间一致。
+HELM_SLOT_CHARTS = {
+    "muad-agent-worker": ("WORKER_EXECUTION_CONCURRENCY", "task_queue_depth", 64),
+    "muad-agent-runtime": ("RUNTIME_EXECUTION_CONCURRENCY", "runtime_queue_depth", 256),
+}
+
+
+def _helm_env(chart: str, overrides: tuple[str, ...] = ()) -> dict[str, str]:
+    container = _helm_pod_spec(chart, overrides)["containers"][0]
+    return {item["name"]: str(item.get("value", "")) for item in container.get("env", [])}
+
+
+def _helm_hpa_target(chart: str, metric: str, overrides: tuple[str, ...] = ()) -> str:
+    hpas = [doc for doc in _helm_documents(chart, overrides) if doc.get("kind") == "HorizontalPodAutoscaler"]
+    assert len(hpas) == 1, f"{chart}: 预期恰好一个 HPA"
+    for item in hpas[0]["spec"]["metrics"]:
+        if item.get("type") == "Pods" and item["pods"]["metric"]["name"] == metric:
+            return str(item["pods"]["target"]["averageValue"])
+    raise AssertionError(f"{chart}: HPA 缺 {metric} 目标")
+
+
+@pytest.mark.parametrize("chart", tuple(HELM_SLOT_CHARTS))
+def test_helm_execution_slots_drive_env_and_hpa_target(chart: str) -> None:
+    """执行槽只有一个 Helm 旋钮：`service.executionConcurrency` 同时驱动 env 与 HPA 目标。
+
+    实例（2026-11-26 内网）：chart 写死槽数 4、HPA 目标写死 8，与代码/清单的 8 长期不一致，
+    进程静默按 4 跑——两个写死的数字之间没有任何约束。
+    """
+    slot_env, queue_metric, max_slots = HELM_SLOT_CHARTS[chart]
+    declared = int(_helm_env(chart)[slot_env])
+    assert 1 <= declared <= max_slots, f"{chart}: {slot_env} 必须在 1～{max_slots}（设置校验区间）"
+    assert int(_helm_hpa_target(chart, queue_metric)) == declared * 2, (
+        f"{chart}: HPA {queue_metric} 目标必须等于 2 × 执行槽"
+    )
+
+    override = (f"service.executionConcurrency={declared + 3}",)
+    assert int(_helm_env(chart, override)[slot_env]) == declared + 3, (
+        f"{chart}: service.executionConcurrency 必须驱动 {slot_env}"
+    )
+    assert int(_helm_hpa_target(chart, queue_metric, override)) == (declared + 3) * 2, (
+        f"{chart}: service.executionConcurrency 必须同时驱动 HPA {queue_metric} 目标"
+    )
+
+
 def test_workspace_pvc_is_collected_and_not_mounted_by_gateway() -> None:
     resources = next(
         doc for doc in yaml.safe_load_all((BASE / "kustomization.yaml").read_text(encoding="utf-8"))

@@ -17,19 +17,31 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
+import http.server
+import ipaddress
 import logging
+import ssl
+import threading
 import time
 from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
 import pytest
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
 from muad_contracts import BotSnapshotItem
 from muad_im_connector.channels.wecom.adapter import WeComAdapter, _AibotClientPort
 from muad_im_connector.channels.wecom.media import (
     _filename_from_disposition,
     _media_type,
+    _safe_cause,
+    build_media_ssl_context,
     download_media,
 )
 from muad_im_connector.channels.wecom.sdk_port import (
@@ -513,3 +525,252 @@ def test_media_type_is_detected_after_decryption(
 def test_filename_parsing_covers_both_disposition_forms(header: str | None, expected: str | None) -> None:
     """RFC 5987 形式优先于 `filename=`：真实服务对非 ASCII 名只发前者。"""
     assert _filename_from_disposition(header) == expected
+
+
+# --------------------------------------------------------------------------- TLS 版本上限
+#
+# 内网实测（2026-11-26）：connector 到企微媒体 CDN 的 TLS 1.3 握手被安全设备 RST，TLS 1.2 正常。
+# 这里用**真实 TLS 栈**（本地自签服务）验证上限确实作用在握手层，而不是只断言参数被传下去。
+
+
+def _self_signed_cert(tmp_path: Path) -> tuple[Path, Path]:
+    """自签证书（CA + 127.0.0.1 SAN）：让测试客户端能真正验证服务端。"""
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "localhost")])
+    now = datetime.now(UTC)
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - timedelta(minutes=5))
+        .not_valid_after(now + timedelta(days=1))
+        .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+        .add_extension(
+            x509.SubjectAlternativeName(
+                [
+                    x509.DNSName("localhost"),
+                    x509.IPAddress(ipaddress.ip_address("127.0.0.1")),
+                ]
+            ),
+            critical=False,
+        )
+        .sign(key, hashes.SHA256())
+    )
+    cert_path = tmp_path / "cert.pem"
+    key_path = tmp_path / "key.pem"
+    cert_path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+    key_path.write_bytes(
+        key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+    )
+    return cert_path, key_path
+
+
+class _QuietServer(http.server.ThreadingHTTPServer):
+    """TLS 握手失败发生在 accept 线程：默认会向 stderr 打 traceback，这里静音。"""
+
+    daemon_threads = True
+
+    def handle_error(self, request: object, client_address: object) -> None:
+        pass
+
+
+class TlsMediaServer:
+    """真实 TLS 的媒体端点，协议版本区间由测试指定（只为把版本上限变成可判定的事实）。"""
+
+    path = "/media"
+
+    def __init__(
+        self,
+        cert_path: Path,
+        key_path: Path,
+        *,
+        minimum: ssl.TLSVersion,
+        maximum: ssl.TLSVersion,
+    ) -> None:
+        self.body = b""
+        media = self
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"
+
+            def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler 的约定命名
+                if self.path != media.path:
+                    self.send_error(404)
+                    return
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(media.body)))
+                self.end_headers()
+                self.wfile.write(media.body)
+
+            def log_message(self, *args: object) -> None:
+                pass
+
+        self._server = _QuietServer(("127.0.0.1", 0), Handler)
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(certfile=str(cert_path), keyfile=str(key_path))
+        context.minimum_version = minimum
+        context.maximum_version = maximum
+        self._server.socket = context.wrap_socket(self._server.socket, server_side=True)
+        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
+        self._thread.start()
+
+    def url(self) -> str:
+        host, port = self._server.server_address[:2]
+        return f"https://{host}:{port}{self.path}"
+
+    def close(self) -> None:
+        self._server.shutdown()
+        self._server.server_close()
+
+
+def _trusting_context(cert_path: Path, *, maximum: ssl.TLSVersion | None = None) -> ssl.SSLContext:
+    """信任测试自签 CA 的客户端 context；`maximum` 为空 = 不设上限。"""
+    context = ssl.create_default_context(cafile=str(cert_path))
+    if maximum is not None:
+        context.maximum_version = maximum
+    return context
+
+
+@pytest.mark.unit
+def test_no_cap_keeps_the_httpx_default() -> None:
+    assert build_media_ssl_context(None) is None
+    assert build_media_ssl_context("") is None
+
+
+@pytest.mark.unit
+def test_cap_keeps_certificate_verification_and_only_lowers_the_version() -> None:
+    context = build_media_ssl_context("TLSv1_2")
+
+    assert context is not None
+    assert context.maximum_version is ssl.TLSVersion.TLSv1_2
+    assert context.check_hostname is True
+    assert context.verify_mode is ssl.CERT_REQUIRED
+
+
+@pytest.mark.unit
+def test_unknown_cap_value_fails_loudly() -> None:
+    with pytest.raises(ValueError, match="TLSv1_2"):
+        build_media_ssl_context("TLSv1")
+
+
+@pytest.mark.unit
+def test_safe_cause_reports_the_innermost_reason_without_urls() -> None:
+    outer = RuntimeError("wrapped")
+    outer.__cause__ = ConnectionResetError(104, "Connection reset by peer")
+    assert _safe_cause(outer) == "ConnectionResetError: [Errno 104] Connection reset by peer"
+
+    leaky = RuntimeError("failed at https://cdn.test/media?q-signature=SECRET")
+    text = _safe_cause(leaky)
+    assert "SECRET" not in text and "<url>" in text
+
+    long_text = _safe_cause(RuntimeError("x" * 400))
+    assert long_text.endswith("…") and len(long_text) <= 220  # 200 文本 + 类型前缀 + 省略号
+
+
+@pytest.mark.integration
+async def test_capping_to_tls12_rejects_a_tls13_only_server(tmp_path: Path) -> None:
+    """先把上限做错：TLS 1.3 独占的服务端 + 限到 1.2 的客户端必然握手失败。"""
+    cert_path, key_path = _self_signed_cert(tmp_path)
+    server = TlsMediaServer(
+        cert_path,
+        key_path,
+        minimum=ssl.TLSVersion.TLSv1_3,
+        maximum=ssl.TLSVersion.TLSv1_3,
+    )
+    server.body = wecom_ciphertext(PNG_BYTES)
+    try:
+        with pytest.raises(WeComMediaNetworkError):
+            await download_media(
+                server.url(),
+                AES_KEY,
+                max_bytes=1024 * 1024,
+                timeout_sec=5.0,
+                ssl_context=_trusting_context(cert_path, maximum=ssl.TLSVersion.TLSv1_2),
+            )
+    finally:
+        server.close()
+
+
+@pytest.mark.integration
+async def test_same_server_is_reachable_without_the_cap(tmp_path: Path) -> None:
+    """同一服务端、同一信任链，不设上限即可下载 —— 差异只来自版本上限。"""
+    cert_path, key_path = _self_signed_cert(tmp_path)
+    server = TlsMediaServer(
+        cert_path,
+        key_path,
+        minimum=ssl.TLSVersion.TLSv1_3,
+        maximum=ssl.TLSVersion.TLSv1_3,
+    )
+    server.body = wecom_ciphertext(PNG_BYTES)
+    try:
+        content = await download_media(
+            server.url(),
+            AES_KEY,
+            max_bytes=1024 * 1024,
+            timeout_sec=5.0,
+            ssl_context=_trusting_context(cert_path),
+        )
+    finally:
+        server.close()
+
+    assert content.data == PNG_BYTES
+    assert content.media_type == "image/png"
+
+
+@pytest.mark.integration
+async def test_capped_client_still_downloads_from_a_tls12_server(tmp_path: Path) -> None:
+    """内网实际路径：TLS 1.2 服务端 + 限到 1.2 的客户端必须能取到附件。"""
+    cert_path, key_path = _self_signed_cert(tmp_path)
+    server = TlsMediaServer(
+        cert_path,
+        key_path,
+        minimum=ssl.TLSVersion.TLSv1_2,
+        maximum=ssl.TLSVersion.TLSv1_2,
+    )
+    server.body = wecom_ciphertext(PNG_BYTES)
+    try:
+        content = await download_media(
+            server.url(),
+            AES_KEY,
+            max_bytes=1024 * 1024,
+            timeout_sec=5.0,
+            ssl_context=_trusting_context(cert_path, maximum=ssl.TLSVersion.TLSv1_2),
+        )
+    finally:
+        server.close()
+
+    assert content.data == PNG_BYTES
+
+
+@pytest.mark.integration
+async def test_port_passes_the_media_ssl_context_to_the_download(monkeypatch: pytest.MonkeyPatch) -> None:
+    """适配器端口把装配期构造的 context 原样交给下载函数（不在调用点丢参数）。"""
+    captured: dict[str, object] = {}
+
+    async def fake_download(
+        url: str,
+        aes_key: str | None,
+        *,
+        max_bytes: int,
+        ssl_context: ssl.SSLContext | None = None,
+    ) -> WeComMediaContent:
+        captured["ssl_context"] = ssl_context
+        return WeComMediaContent(
+            data=PNG_BYTES, media_type="image/png", filename=None, checksum="0" * 64
+        )
+
+    monkeypatch.setattr(
+        "muad_im_connector.channels.wecom.adapter.download_media_content", fake_download
+    )
+    context = ssl.create_default_context()
+    port = _AibotClientPort(StubRawClient(), bot_id=BOT_ID, media_ssl_context=context)
+
+    await port.download_media("https://cdn.test/media", AES_KEY, max_bytes=1024)
+
+    assert captured["ssl_context"] is context

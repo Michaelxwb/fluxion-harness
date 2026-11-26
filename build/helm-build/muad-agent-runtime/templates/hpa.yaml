@@ -44,7 +44,7 @@ spec:
           name: runtime_queue_depth
         target:
           type: AverageValue
-          averageValue: "512"
+          averageValue: {{ mul .Values.service.executionConcurrency 2 | quote }}
     - type: Pods
       pods:
         metric:

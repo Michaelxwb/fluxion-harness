@@ -1164,15 +1164,36 @@ def _long_history() -> tuple[ModelMessage, ...]:
     seq = 1
     for index in range(12):
         call = ModelToolCall(f"call-{index}", "echo", {})
-        messages.append(ModelMessage(role=ModelRole.USER, content=f"问题 {index}", message_id=f"q-{index}", source_event_seq=seq))
+        messages.append(
+            ModelMessage(
+                role=ModelRole.USER,
+                content=f"问题 {index}",
+                message_id=f"q-{index}",
+                source_event_seq=seq,
+            )
+        )
         seq += 1
-        messages.append(ModelMessage(role=ModelRole.ASSISTANT, content="", tool_calls=(call,), source_event_seq=seq))
+        messages.append(
+            ModelMessage(
+                role=ModelRole.ASSISTANT,
+                content="",
+                tool_calls=(call,),
+                source_event_seq=seq,
+            )
+        )
         seq += 1
         messages.append(
             ModelMessage(role=ModelRole.TOOL, content="x" * 400, tool_call_id=call.id, source_event_seq=seq)
         )
         seq += 1
-    messages.append(ModelMessage(role=ModelRole.USER, content="当前问题", message_id="current", source_event_seq=seq))
+    messages.append(
+        ModelMessage(
+            role=ModelRole.USER,
+            content="当前问题",
+            message_id="current",
+            source_event_seq=seq,
+        )
+    )
     return tuple(messages)
 
 
@@ -1296,11 +1317,11 @@ async def test_summary_is_archived_before_it_replaces_history(tenant: TenantCont
 
 async def test_round_artifact_selection_and_rollback(tenant: TenantContext) -> None:
     """整轮外置：超阈值/超轮预算才落盘；写失败抛出 ⇒ Kernel 保留内联结果。"""
+    from muad_agent_core.tools.result_budget import RoundCandidate, ToolResultBudget
     from muad_agent_worker.application.agentic.artifacts import (
         TaskArtifactRoundWriter,
         select_round_persists,
     )
-    from muad_agent_core.tools.result_budget import RoundCandidate, ToolResultBudget
 
     settings = ToolResultBudget(
         persist_threshold_bytes=100,

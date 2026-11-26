@@ -389,6 +389,7 @@ kubectl -n muad create secret docker-registry regcred \
 --set serviceAccount.create=true \
 --set service.image=muad-agent-runtime \
 --set service.port=8001 \
+--set service.executionConcurrency=8 \
 --set autoscaling.minReplicas=8 \
 --set autoscaling.maxReplicas=8 \
 --set service.type=ClusterIP \
@@ -413,6 +414,7 @@ kubectl -n muad create secret docker-registry regcred \
 --set serviceAccount.create=true \
 --set service.image=muad-agent-worker \
 --set service.port=8002 \
+--set service.executionConcurrency=8 \
 --set autoscaling.minReplicas=4 \
 --set autoscaling.maxReplicas=4 \
 --set service.type=ClusterIP \
@@ -580,8 +582,6 @@ data:
 
   IM_PROGRESS_UPDATES_PER_SECOND: "10"
 
-  RUNTIME_EXECUTION_CONCURRENCY: "8"
-  WORKER_EXECUTION_CONCURRENCY: "8"
   GATEWAY_MAX_CONCURRENT_HANDLERS: "8"
   GATEWAY_MAX_PENDING_HANDLERS: "256"
   GATEWAY_MAX_PENDING_PER_ROUTE: "8"
@@ -589,6 +589,8 @@ data:
   GATEWAY_MAX_SSE_SUBSCRIBERS: "1100"
   RUNTIME_MAX_SSE_SUBSCRIBERS: "1100"
   BOT_SNAPSHOT_POLL_SEC: "30"
+  # 内网到企微媒体 CDN 的 TLS 1.3 握手被安全设备 RST；媒体下载上限降到 TLS 1.2（空 = 不限制）
+  WECOM_MEDIA_MAX_TLS_VERSION: "TLSv1_2"
 
   GATEWAY_ROUTED_CHANNELS: WECOM
   DELIVERY_STREAM_WAIT_SEC: "2.0"
@@ -790,6 +792,12 @@ Redis 拓扑自检（Gateway 的 `/readyz` detail 会带 `redis_mode`）：
 ```bash
 kubectl -n muad port-forward svc/muad-im-gateway 8003:8003
 curl -fsS http://127.0.0.1:8003/readyz   # data.redis_mode 应为 "cluster"
+```
+
+进程级配置真的进了 Pod（ConfigMap 改完不重启不会生效）：
+
+```bash
+kubectl -n muad exec deploy/muad-im-connector -- printenv WECOM_MEDIA_MAX_TLS_VERSION   # TLSv1_2
 ```
 
 端口：
