@@ -11,7 +11,7 @@ from types import SimpleNamespace
 import pytest
 from muad_platform_sdk.egress_identity_registry import IdentityUnavailable
 from muad_platform_sdk.egress_segments import FencedRedisMeter, SegmentGrant
-from muad_platform_sdk.egress_source_authority import AuthorizedSegment
+from muad_platform_sdk.egress_source_authority import AuthorizedSegment, SourceDeadlineReached
 from muad_platform_sdk.shared_redis import MeteringUnavailable
 
 from tests.sdk.test_shared_redis_meter import policy
@@ -186,6 +186,35 @@ async def test_expired_source_cannot_report_success_when_watch_is_delayed(enviro
         return "late-success"
     with pytest.raises(IdentityUnavailable, match="stop deadline"):
         await supervisor.run(work)
+
+
+@pytest.mark.parametrize("close_confirmed", [True, False])
+async def test_execution_deadline_maps_only_after_owned_work_stops(environment, close_confirmed):
+    supervisor, authority, _, closed = environment
+    deadline = time.monotonic() + .25
+    stopped = asyncio.Event()
+
+    async def authorize(execution_id, claim, reader):
+        return AuthorizedSegment(authority.grant, deadline, bounded_by_execution_deadline=True)
+
+    async def work():
+        try:
+            await asyncio.Event().wait()
+        finally:
+            stopped.set()
+
+    async def close():
+        if not close_confirmed:
+            raise RuntimeError("cannot confirm owned process stopped")
+        closed.append("closed")
+
+    authority.authorize = authorize
+    supervisor._close_clients = close
+    with pytest.raises(IdentityUnavailable) as caught:
+        await asyncio.wait_for(supervisor.run(work), 1)
+    assert isinstance(caught.value, SourceDeadlineReached) is close_confirmed
+    assert stopped.is_set()
+    assert closed == (["closed"] if close_confirmed else [])
 
 
 async def test_stuck_close_is_bounded_and_does_not_allow_takeover(environment):

@@ -49,6 +49,16 @@ class FailureEvidence:
     failure_layer: str = "TOOL"
     exit_code: int | None = None
     retryable: bool = False
+    agent_disposition: str = "CONTINUE"
+    retry_disposition: str = "ALLOW"
+    scope: str = "CALL"
+    sent: bool = False
+    outcome_known: bool = True
+    evidence_status: str = "CONFIRMED"
+    retry_after: str | None = None
+    security_disposition: str = "NORMAL"
+    boundary_kind: str = "NONE"
+    stop_confirmed: bool = True
     evidence_preview: str = ""
     occurred_at: str = ""
 
@@ -69,6 +79,16 @@ class FailureEvidence:
             "failure_layer": self.failure_layer,
             "exit_code": self.exit_code,
             "retryable": self.retryable,
+            "agent_disposition": self.agent_disposition,
+            "retry_disposition": self.retry_disposition,
+            "scope": self.scope,
+            "sent": self.sent,
+            "outcome_known": self.outcome_known,
+            "evidence_status": self.evidence_status,
+            "retry_after": self.retry_after,
+            "security_disposition": self.security_disposition,
+            "boundary_kind": self.boundary_kind,
+            "stop_confirmed": self.stop_confirmed,
             "evidence_preview": self.evidence_preview,
             "occurred_at": self.occurred_at,
         }
@@ -89,6 +109,20 @@ class FailureEvidence:
             failure_layer=str(payload.get("failure_layer") or "TOOL"),
             exit_code=_optional_int(payload.get("exit_code")),
             retryable=payload.get("retryable") is True,
+            agent_disposition=str(payload.get("agent_disposition") or "CONTINUE"),
+            retry_disposition=str(payload.get("retry_disposition") or "ALLOW"),
+            scope=str(payload.get("scope") or "CALL"),
+            sent=payload.get("sent") is True,
+            outcome_known=payload.get("outcome_known") is not False,
+            evidence_status=str(payload.get("evidence_status") or "CONFIRMED"),
+            retry_after=(
+                str(payload.get("retry_after"))
+                if payload.get("retry_after") is not None
+                else None
+            ),
+            security_disposition=str(payload.get("security_disposition") or "NORMAL"),
+            boundary_kind=str(payload.get("boundary_kind") or "NONE"),
+            stop_confirmed=payload.get("stop_confirmed") is not False,
             evidence_preview=str(payload.get("evidence_preview") or ""),
             occurred_at=str(payload.get("occurred_at") or ""),
         )

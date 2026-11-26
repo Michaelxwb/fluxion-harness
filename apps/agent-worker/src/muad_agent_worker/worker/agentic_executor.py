@@ -36,6 +36,7 @@ from muad_api.error_codes import ErrorCode
 from muad_contracts import WaitKind
 from muad_logging import get_logger
 from muad_platform_sdk.egress_identity_registry import IdentityUnavailable
+from muad_platform_sdk.egress_source_authority import SourceDeadlineReached
 from muad_platform_sdk.host_egress_execution import HostEgressExecution
 from muad_platform_sdk.shared_redis import MeteringUnavailable
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -125,7 +126,7 @@ class AgenticTaskExecutor:
             outcome = await self._run_agentic(task, frozen, identity, resume)
         except RunnerCancelled as exc:
             return _cancelled(exc)
-        except RunnerDeadlineExceeded as exc:
+        except (RunnerDeadlineExceeded, SourceDeadlineReached) as exc:
             raise TaskExecutionError(TASK_DEADLINE_EXCEEDED, str(exc), retryable=False) from exc
         except (ModelPoolError, CredentialResolutionError) as exc:
             code = getattr(exc, "code", "MODEL_UNAVAILABLE")
@@ -241,7 +242,8 @@ def _envelope(outcome: AgenticOutcome, task: TaskExecution) -> dict[str, Any]:
                 f"{outcome.last_failure.get('code')}: {outcome.last_failure.get('message')})"
             )
         raise TaskExecutionError(
-            TASK_NO_PROGRESS, f"agentic execution made no progress{detail}", retryable=False
+            TASK_NO_PROGRESS, outcome.failure_reply or f"agentic execution made no progress{detail}",
+            retryable=False,
         )
     return {
         "status": str(SkillExecutionStatus.SUCCEEDED),

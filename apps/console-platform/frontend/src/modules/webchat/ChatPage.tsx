@@ -111,7 +111,7 @@ import { createTaskCenterClient } from './services/taskCenterApi';
 import type { ChatAuthenticationSnapshot, ChatIdentityCleanup } from './authenticationState';
 import type { ClientConfigSnapshot } from './clientConfig';
 import type { ConversationLimitsPort, ConversationSelectionSnapshot } from './conversationState';
-import { isTerminalRunStatus } from './runState';
+import { isTerminalRunStatus, withoutPersistedReply } from './runState';
 import type { ActiveRunState, RunConnectionSnapshot, StreamingReplyProps } from './runState';
 import type {
   WebchatAttachment,
@@ -990,7 +990,7 @@ function ChatStreamingReply(props: {
           data-phase={streaming.phase}
           data-run-id={streaming.runId}
         >
-          <MessageContent text={visible} />
+          <MessageContent text={target === '' ? '' : visible} />
           {typing ? <span className="chat-message-cursor" aria-hidden="true" /> : null}
         </div>
         {streaming.attachments.length === 0 ? null : (
@@ -1135,7 +1135,7 @@ function ChatMessageArea(props: ChatMessageAreaProps) {
       />
       {thinkingAnchor === undefined ? null : <ChatThinking />}
       <ChatStreamingReply
-        streaming={props.streaming}
+        streaming={withoutPersistedReply(props.streaming, history.items)}
         drafts={liveDrafts}
         draftConfirmation={props.draftConfirmation}
         onDownloadAttachment={props.onDownloadAttachment}

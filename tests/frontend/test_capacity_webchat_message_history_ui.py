@@ -48,6 +48,7 @@ ATTACHMENT_DOWNLOAD_TS = MODULE / "attachmentDownload.ts"
 MESSAGES_TS = MODULE / "hooks/useMessages.ts"
 SHELL_TSX = MODULE / "components/WebchatShell.tsx"
 CONVERSATION_STATE_TS = MODULE / "conversationState.ts"
+RUN_STATE_TS = MODULE / "runState.ts"
 CLIENT_CONFIG_TS = MODULE / "clientConfig.ts"
 SERVICE_TS = MODULE / "services/webchatApi.ts"
 TYPES_TS = MODULE / "types.ts"
@@ -174,6 +175,7 @@ LOGIC_ENTRY = """export * from '{thread}';
 export * from '{download}';
 export * from '{messages}';
 export * from '{state}';
+export {{ withoutPersistedReply }} from '{run_state}';
 export * from '{config}';
 export * from '{service}';
 export * from '{types}';
@@ -215,7 +217,8 @@ const {
   parseMessageBlocks,
   parseInlineTokens,
   safeLinkHref,
-  formatAttachmentSize
+  formatAttachmentSize,
+  withoutPersistedReply
 } = mod;
 
 const CONTEXT_A = '__CONTEXT_A__';
@@ -223,6 +226,8 @@ const ENTRY_A = '__ENTRY_A__';
 const AGENT_A = '__AGENT_A__';
 const CONVERSATION_1 = '__CONVERSATION_1__';
 const RUN_1 = '__RUN_1__';
+const waitReply = {runId: RUN_1, text: 'Waiting for the result.', replySeq: 8, attachments:[{filename:'report'}]};
+const storedWait = {run_id:RUN_1, role:'ASSISTANT', seq:10, text:waitReply.text};
 const ARTIFACT_A = '__ARTIFACT_A__';
 const HISTORY_PAGE_SIZE = __HISTORY_PAGE_SIZE__;
 const RETAINED_TOTAL = __RETAINED_TOTAL__;
@@ -367,6 +372,14 @@ const controller = async () => {
 };
 
 const obs = {};
+const deduped = withoutPersistedReply(waitReply, [storedWait]);
+obs.joinReplay = {
+  replay: deduped.text,
+  attachments: deduped.attachments,
+  nextRound: withoutPersistedReply({...waitReply, replySeq: 12}, [storedWait]).text,
+  otherRun: withoutPersistedReply(waitReply, [{...storedWait, run_id:'another-run'}]).text,
+  newBody: withoutPersistedReply({...waitReply, text:'Result received.'}, [storedWait]).text
+};
 
 // ---- 1) 安全渲染原语：白名单子集、HTML/MDX 只能是文本、链接限安全协议 ---------------------------
 {
@@ -837,6 +850,7 @@ const MESSAGES = [
     seq: 2,
     run_id: RUN_1,
     role: 'ASSISTANT',
+    technical_details: ['Technical details (for support):', '- Error code: FORBIDDEN', 'Run ID: example'],
     text: '__HTML_TEXT__\n__MDX_TEXT__\n[危险](javascript:alert(3))\n[协议相对](//evil.example/x)',
     attachments: []
   },
@@ -1175,6 +1189,7 @@ def message_logic(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
             download=ATTACHMENT_DOWNLOAD_TS,
             messages=MESSAGES_TS,
             state=CONVERSATION_STATE_TS,
+            run_state=RUN_STATE_TS,
             config=CLIENT_CONFIG_TS,
             service=SERVICE_TS,
             types=TYPES_TS,
@@ -1508,6 +1523,27 @@ def test_b280_local_failures_map_to_stable_codes(message_logic: dict[str, Any]) 
 
 
 # --------------------------------------------------------------------------- 真实组件渲染
+
+
+def test_join_reply_replay_does_not_duplicate_durable_history(message_logic: dict[str, Any]) -> None:
+    assert message_logic["joinReplay"] == {
+        "replay": "",
+        "attachments": [{"filename": "report"}],
+        "nextRound": "Waiting for the result.",
+        "otherRun": "Waiting for the result.",
+        "newBody": "Result received.",
+    }
+
+
+def test_failure_details_strip_stored_list_markers(message_render: dict[str, Any]) -> None:
+    markup = message_render["markup"]["thread-zh"]["shell"]
+    details = markup.split('<details class="chat-message-technical-details">', 1)[1].split("</details>", 1)[0]
+    assert "<summary>技术详情</summary>" in details
+    assert '<ul role="list">' in details
+    assert "<li>Technical details (for support):</li>" in details
+    assert "<li>Error code: FORBIDDEN</li>" in details
+    assert "<li>Run ID: example</li>" in details
+    assert "<li>- " not in details
 
 
 def test_b280_thread_renders_roles_markdown_and_escapes_html(

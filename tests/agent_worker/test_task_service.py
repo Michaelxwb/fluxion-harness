@@ -13,6 +13,7 @@ from muad_agent_worker.infrastructure.models.task import (
 )
 from muad_agent_worker.main import app
 from muad_api import AppError
+from muad_contracts import CompletionMode, RuntimeOperationInput
 from muad_contracts.platform_settings import (
     TASK_EXECUTION_TIMEOUT_MAX_SEC,
     default_platform_settings,
@@ -316,6 +317,36 @@ async def test_snapshot_is_stored_verbatim(tenant: TenantContext) -> None:
     assert task.execution_snapshot_json == payload.execution_snapshot
     assert task.snapshot_hash == payload.snapshot_hash
     assert task.execution_snapshot_schema_version == payload.execution_snapshot_schema_version
+
+
+@pytest.mark.parametrize("egress_enabled", [True, False])
+async def test_runtime_operation_preserves_the_frozen_egress_snapshot(
+    tenant: TenantContext, egress_enabled: bool,
+) -> None:
+    from muad_agent_worker.application.ports import PlatformSettingsSnapshot
+
+    class SettingsClient:
+        async def fetch_snapshot(self, **kwargs):
+            return PlatformSettingsSnapshot(
+                1, {"egress": {"enabled": not egress_enabled, "rules_json": "[]"}},
+            )
+
+    run_id = uuid.uuid4()
+    base = create_task_payload(tenant, with_route=False)
+    payload = create_task_payload(
+        tenant, with_route=False, source_run_id=run_id,
+        runtime_operation=RuntimeOperationInput(
+            operation_id=uuid.uuid4(), source_run_id=run_id, source_tool_call_id="test-call",
+            completion_mode=CompletionMode.DETACH,
+        ),
+        execution_snapshot={**base.execution_snapshot, "egress_enabled": egress_enabled},
+    )
+    async with tenant.session_factory() as session:
+        task = await TaskService(session, tenant.settings, settings_client=SettingsClient()).create(payload)
+        await session.commit()
+    stored = await fetch_task(tenant, task.id)
+    assert stored.execution_snapshot_json == payload.execution_snapshot
+    assert stored.snapshot_hash == payload.snapshot_hash
 
 
 class _FailingNotifier:

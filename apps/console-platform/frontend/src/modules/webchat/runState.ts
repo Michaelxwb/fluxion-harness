@@ -40,6 +40,7 @@ import type {
   WebchatConfirmation,
   WebchatConversationDetail,
   WebchatExecutionStatus,
+  WebchatHistoryMessage,
   WebchatScheduleDraftReady
 } from './types';
 
@@ -104,6 +105,7 @@ export interface ActiveRunState {
   /** 已应用水位：只在事件应用成功后单调推进（checkpoint 不推进）。 */
   lastAppliedSeq: number;
   replyGeneration: number | null;
+  replySeq: number | null;
   text: string;
   errorCode: string | null;
   retryable: boolean | null;
@@ -128,6 +130,7 @@ export type RunReplyPhase = 'queued' | 'running' | 'waiting-tool' | 'waiting-inp
 export interface StreamingReplyProps {
   runId: string;
   text: string;
+  replySeq: number | null;
   /** 本 Run 已发布的附件（实时卡片）：与历史读取同一份发布事实。 */
   attachments: WebchatAttachment[];
   /** 本 Run 已发布的定时任务 Draft 卡片（持久事件；刷新后历史里同一份事实还在）。 */
@@ -256,6 +259,7 @@ export function streamingReply(
   return {
     runId: run.runId,
     text: run.text,
+    replySeq: run.replySeq,
     attachments: run.attachments,
     drafts: run.drafts,
     phase: replyPhase(run.status, status),
@@ -265,6 +269,19 @@ export function streamingReply(
     startedAt: status === null ? null : status.started_at,
     connectionState: connection.state
   };
+}
+
+/** Do not render the replayed text again when its later, durable message is already visible. */
+export function withoutPersistedReply(
+  reply: StreamingReplyProps | null,
+  history: readonly WebchatHistoryMessage[]
+): StreamingReplyProps | null {
+  if (reply === null || reply.text === '' || reply.replySeq === null) return reply;
+  const { replySeq, runId, text } = reply;
+  return history.some(
+    (message) => message.run_id === runId && message.role === 'ASSISTANT' &&
+      message.seq > replySeq && message.text === text
+  ) ? { ...reply, text: '' } : reply;
 }
 
 /** 可见 Run 目标：只由所选会话的权威详情派生（无会话/无活跃 Run/终态都不订阅）。 */
@@ -316,6 +333,7 @@ function initialRunState(target: RunSubscriptionTarget): ActiveRunState {
     drafts: [],
     lastAppliedSeq: 0,
     replyGeneration: null,
+    replySeq: null,
     text: '',
     errorCode: null,
     retryable: null,
@@ -532,6 +550,7 @@ function applyApplied(
   if (update.kind === 'delta' || update.kind === 'snapshot') {
     run.text = update.text;
     run.replyGeneration = update.replyGeneration;
+    run.replySeq = update.seq;
   } else if (update.kind === 'stage') {
     applyStage(run, update.data);
   } else if (update.kind === 'tool') {
@@ -660,6 +679,7 @@ async function recoverFromHistory(
   // 跳过的区间可能含 snapshot：正文与代号在状态层一并清掉，由新游标之后的事件重建。
   run.text = '';
   run.replyGeneration = null;
+  run.replySeq = null;
   sub.resetBody = true;
   reopen(runtime, sub);
 }

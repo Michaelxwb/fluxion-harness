@@ -59,24 +59,44 @@ class SourceLease:
 class AuthorizedSegment:
     grant: SegmentGrant
     local_deadline: float = field(repr=False)
+    bounded_by_execution_deadline: bool = False
 
     def remaining_seconds(self) -> float:
         remaining = self.local_deadline - time.monotonic()
         if remaining <= 0:
-            raise IdentityUnavailable("source lease expired during authorization")
+            raise self.expiry_error("source lease expired during authorization")
         return remaining
+
+    def expiry_error(self, message: str) -> IdentityUnavailable:
+        if self.bounded_by_execution_deadline:
+            return SourceDeadlineReached(message)
+        return SourceLeaseEnded(message)
 
 
 SourceReader = Callable[[AsyncSession, SourceClaim], Awaitable[SourceLease]]
 
 
+class SourceCancellationRequested(IdentityUnavailable):
+    """The current source owner requested cancellation."""
+
+
+class SourceDeadlineReached(IdentityUnavailable):
+    """The source's absolute execution deadline limits safe work."""
+
+
+class SourceLeaseEnded(IdentityUnavailable):
+    """The acquired source lease no longer allows safe execution."""
+
+
 def _validate_source(lease: SourceLease, claim: SourceClaim) -> None:
     actual = (lease.tenant_id, lease.source_kind, lease.source_id, lease.owner, lease.epoch)
     expected = (claim.tenant_id, claim.source_kind, claim.source_id, claim.owner, claim.epoch)
-    if (actual != expected or lease.status != "RUNNING" or lease.cancel_requested or
+    if (actual != expected or lease.status != "RUNNING" or
             lease.is_deleted or lease.expires_at is None or lease.expires_at.tzinfo is None or
             (lease.deadline_at is not None and lease.deadline_at.tzinfo is None)):
         raise IdentityUnavailable("source execution lease lost")
+    if lease.cancel_requested:
+        raise SourceCancellationRequested("source execution cancellation requested")
 
 
 async def _database_now(session: AsyncSession) -> datetime:
@@ -104,14 +124,19 @@ class PGSegmentAuthority:
                 expires = lease.expires_at
                 if expires is None:
                     raise IdentityUnavailable("source execution lease missing")
-                deadline = min(expires, lease.deadline_at) if lease.deadline_at is not None else expires
+                execution_deadline = lease.deadline_at
+                deadline = min(expires, execution_deadline) if execution_deadline is not None else expires
                 remaining = (deadline - now).total_seconds()
                 if not math.isfinite(remaining) or remaining <= 0:
-                    raise IdentityUnavailable("source execution lease expired")
+                    if deadline < expires and now >= deadline:
+                        raise SourceDeadlineReached("source execution deadline reached")
+                    raise SourceLeaseEnded("source execution lease expired")
                 if row.current_fence > claim.epoch:
                     raise IdentityUnavailable("source fencing epoch is stale")
                 row.current_fence, row.update_time = claim.epoch, now
-                bound = AuthorizedSegment(self._grant(execution_id, claim), started + remaining)
+                bound = AuthorizedSegment(
+                    self._grant(execution_id, claim), started + remaining, deadline < expires,
+                )
         except SQLAlchemyError as exc:
             raise IdentityUnavailable("source authority storage unavailable") from exc
         bound.remaining_seconds()  # Commit/lock latency must not extend a source lease.

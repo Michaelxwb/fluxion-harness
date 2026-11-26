@@ -31,9 +31,19 @@ MCP_TOOL_PREFIX = "mcp"
 class McpToolError(RuntimeError):
     """MCP 传输/协议/工具执行失败；只携带共享 client 的稳定 code。"""
 
-    def __init__(self, code: str, detail: str, *, retryable: bool = False) -> None:
+    def __init__(
+        self,
+        code: str,
+        detail: str,
+        *,
+        retryable: bool = False,
+        status_code: int | None = None,
+        retry_after: str | None = None,
+    ) -> None:
         self.code, self.detail = code, detail
         self.retryable = retryable
+        self.status_code = status_code
+        self.retry_after = retry_after
         super().__init__(f"{code}: {detail}")
 
 
@@ -109,7 +119,12 @@ class McpToolBox:
                 call_id=call_id,
             )
         except McpError as exc:
-            raise McpToolError(exc.code, exc.message, retryable=exc.retryable) from exc
+            raise McpToolError(
+                exc.code, exc.message,
+                retryable=exc.retryable,
+                status_code=exc.status_code,
+                retry_after=exc.retry_after,
+            ) from exc
         if result.artifacts and self._artifact_writer is None:
             raise McpToolError(
                 "MCP_ARTIFACT_UNAVAILABLE",

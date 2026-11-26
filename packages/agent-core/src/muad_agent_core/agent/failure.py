@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
-from ..tools.outcome import FAILURE_STATUSES, BusinessStatus, FailureLayer
+from ..tools.outcome import (
+    FAILURE_STATUSES,
+    AgentDisposition,
+    BusinessStatus,
+    FailureLayer,
+    FailureScope,
+    SecurityDisposition,
+)
 from .termination import FailureEvidence, FailureState
 
 
@@ -18,6 +25,16 @@ class FailureSignal:
     message: str = ""
     exit_code: int | None = None
     retryable: bool = False
+    agent_disposition: str = "CONTINUE"
+    retry_disposition: str = "ALLOW"
+    scope: str = "CALL"
+    sent: bool = False
+    outcome_known: bool = True
+    evidence_status: str = "CONFIRMED"
+    retry_after: str | None = None
+    security_disposition: str = "NORMAL"
+    boundary_kind: str = "NONE"
+    stop_confirmed: bool = True
     evidence_preview: str = ""
     occurred_at: str = ""
     attempt: str | None = None
@@ -40,6 +57,16 @@ def attempt_identity(scope: str, args_hash: str) -> str:
     return f"{scope}:{args_hash}"
 
 
+def is_hard_tool_failure(failure: FailureEvidence) -> bool:
+    return (
+        failure.code in {"LOCAL_BUDGET_EXHAUSTED", "EGRESS_STOP_UNCONFIRMED", "EGRESS_METERING_UNAVAILABLE"}
+        or failure.agent_disposition == AgentDisposition.STOP
+        or failure.scope == FailureScope.RUN
+        or failure.security_disposition == SecurityDisposition.VIOLATION
+        or not failure.stop_confirmed
+    )
+
+
 def update_failure_state(
     state: FailureState,
     signal: FailureSignal | None,
@@ -48,8 +75,12 @@ def update_failure_state(
 ) -> FailureState:
     if signal is None:
         return state
-    if signal.error_code == "LOCAL_BUDGET_EXHAUSTED" and signal.business_status in FAILURE_STATUSES:
-        return replace(state, last_failure=_evidence(signal), no_progress=True)
+    if state.no_progress and state.last_failure is not None and is_hard_tool_failure(state.last_failure):
+        return state
+    if signal.business_status in FAILURE_STATUSES:
+        evidence = _evidence(signal)
+        if is_hard_tool_failure(evidence):
+            return replace(state, last_failure=evidence, no_progress=True)
     if signal.review_progress is not None:
         return _review_progress(state, signal, max_identical_failures=max_identical_failures)
     status = signal.business_status
@@ -87,6 +118,16 @@ def _evidence(signal: FailureSignal) -> FailureEvidence:
         failure_layer=signal.failure_layer,
         exit_code=signal.exit_code,
         retryable=signal.retryable,
+        agent_disposition=signal.agent_disposition,
+        retry_disposition=signal.retry_disposition,
+        scope=signal.scope,
+        sent=signal.sent,
+        outcome_known=signal.outcome_known,
+        evidence_status=signal.evidence_status,
+        retry_after=signal.retry_after,
+        security_disposition=signal.security_disposition,
+        boundary_kind=signal.boundary_kind,
+        stop_confirmed=signal.stop_confirmed,
         evidence_preview=signal.evidence_preview,
         occurred_at=signal.occurred_at,
     )

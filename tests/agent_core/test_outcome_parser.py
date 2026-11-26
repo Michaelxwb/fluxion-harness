@@ -94,13 +94,28 @@ def test_skill_failure_without_envelope_is_deterministic() -> None:
     assert outcome.retryable is False
 
 
-def test_skill_timeout_is_retryable_content_failure() -> None:
+def test_skill_timeout_is_unknown_boundary_failure_not_safe_to_repeat() -> None:
     outcome = skill_execution_outcome(_skill_payload("TIMED_OUT", stderr="too slow"))
     assert outcome is not None
     assert outcome.business_status is BusinessStatus.TIMED_OUT
     assert outcome.failure_layer is FailureLayer.CONTENT
-    assert outcome.retryable is True
+    assert outcome.retryable is False
+    assert outcome.control.boundary_kind.value == "TIME"
+    assert outcome.control.outcome_known is False
+    assert outcome.control.evidence_status.value == "PARTIAL"
+    assert outcome.control.retry_disposition.value == "BLOCK"
     assert outcome.is_failure is True
+
+
+def test_skill_output_truncation_is_partial_boundary_evidence() -> None:
+    outcome = skill_execution_outcome(
+        _skill_payload("SUCCEEDED", stdout='{"answer": 42}', result={"answer": 42}, output_truncated=True)
+    )
+    assert outcome is not None
+    assert outcome.business_status is BusinessStatus.SUCCEEDED
+    assert outcome.control.boundary_kind.value == "OUTPUT"
+    assert outcome.control.evidence_status.value == "PARTIAL"
+    assert outcome.control.outcome_known is False
 
 
 def test_skill_cancelled_is_not_a_failure() -> None:

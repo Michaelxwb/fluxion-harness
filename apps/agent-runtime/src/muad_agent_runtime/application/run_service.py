@@ -65,6 +65,11 @@ from muad_contracts.platform_settings import (
     validate_task_execution_timeout,
 )
 from muad_logging import get_logger
+from muad_platform_sdk.egress_source_authority import (
+    SourceCancellationRequested,
+    SourceDeadlineReached,
+    SourceLeaseEnded,
+)
 from pydantic import ValidationError
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -204,6 +209,7 @@ from .finalization import (
     render_finalization,
     tool_call_record,
 )
+from .finalization.maintenance import frozen_run_locale, partial_submission_reply, write_maintenance_failure
 from .finalization.render import render_technical_details
 from .memory_confirmation_resume import (
     ConfirmationBinding,
@@ -577,6 +583,7 @@ class SegmentResult:
     terminal_seen: bool = True
     #: Kernel 的终止事实；异常出口从 `RunnerError.termination` 取同一份快照。
     snapshot: TerminationSnapshot | None = None
+    failure_reply: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -769,25 +776,13 @@ async def _reap_one(factory: async_sessionmaker[AsyncSession], candidate: RunRec
             return 0
         # 接管后的终态释放：与回收同事务，重复回收不再递减（CAS 幂等）。
         await release_admission_in(session, run=run)
-        terminal_event_id = uuid.uuid4()
-        await EventWriter(session).append(
-            tenant_id=run.tenant_id,
-            conversation_id=run.conversation_id,
-            run_id=run.id,
-            event_type="RUN_FAILED",
-            stream_type=RUN_FAILED_EVENT,
-            payload={"status": str(RunStatus.FAILED), "error_code": RUN_ABANDONED},
-            event_id=terminal_event_id,
-        )
-        # 回收也是用户可见的终态：通知与终态同一事务（design §3.6）。
-        await write_run_notification(
-            session,
-            run=run,
-            kind=KIND_RUN_COMPLETED,
-            delivery_key=run_terminal_delivery_key(run.id),
-            event_id=terminal_event_id,
-            push_messages=True,
-        )
+        seq = await write_maintenance_failure(session, run, RUN_ABANDONED)
+        await session.execute(sa.update(RunSubmission).where(
+            RunSubmission.tenant_id == run.tenant_id, RunSubmission.run_id == run.id,
+            RunSubmission.status == "OPEN", RunSubmission.is_deleted.is_(False),
+        ).values(status=SUBMISSION_CLOSED, last_seq=seq, update_time=now,
+                 terminal_result_json={"status": "FAILED", "error_code": RUN_ABANDONED}))
+    await get_event_tail_hub().publish(tenant_id=run.tenant_id, conversation_id=run.conversation_id)
     return 1
 
 
@@ -1920,18 +1915,6 @@ class RunService:
         if snapshot is None:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
         return snapshot
-
-    @staticmethod
-    async def _frozen_locale(session: AsyncSession, run: RunRecord) -> str | None:
-        """Read the Run's frozen default locale without re-reading platform settings."""
-        if run.snapshot_id is None:
-            return None
-        policy = await session.scalar(
-            sa.select(RuntimeSnapshot.policy_json).where(
-                RuntimeSnapshot.id == run.snapshot_id
-            )
-        )
-        return _optional_str(_section(policy or {}, "locale").get("default_locale"))
 
     async def _resolve_conversation(self, request: RunRequest, tenant_id: str) -> Conversation:
         """会话解析（design §3.4 API-06 / ADR-07）：
@@ -3189,19 +3172,22 @@ class RunService:
                 SegmentResult | None,
                 await self._consume_executor(run, submission_id, await build()),
             )
-        except ExecutionLeaseLost:
-            # 删除会话会让批量事件写入拒绝剩余增量；若仍是本执行者且已请求取消，
-            # 继续走取消终态，不能把它当成真正的租约丢失而遗留 RUNNING。
+        except (ExecutionLeaseLost, SourceCancellationRequested, SourceLeaseEnded) as exc:
+            # 任期仍有效才能收尾；真正失权后只能由维护回收方写终态。
             async with get_session_factory()() as session:
                 current = await session.scalar(sa.select(RunRecord).where(RunRecord.id == run.id))
-                if current is not None and current.cancel_requested:
+                if current is not None and (current.cancel_requested or isinstance(exc, SourceLeaseEnded)):
                     try:
                         ensure_execution(current, ExecutionIdentity.of(run), await database_now(session))
                     except ExecutionLeaseLost:
-                        logger.debug("cancelled_run_execution_lease_lost", extra={"run_id": str(run.id)})
+                        logger.debug("run_segment_owner_unavailable", extra={"run_id": str(run.id)})
                     else:
-                        return SegmentResult(terminal_seen=False)
+                        return SegmentResult(
+                            failure=None if current.cancel_requested else exc, terminal_seen=False,
+                        )
             return None
+        except SourceDeadlineReached as exc:
+            return SegmentResult(failure=RunnerDeadlineExceeded(str(exc)))
         except asyncio.CancelledError:
             await self._finalize_failed(
                 run, submission_id, RunnerShutdown("runtime shutdown"), agent_key=agent_key
@@ -3227,6 +3213,7 @@ class RunService:
         text, outcome = "", AgentRunStatus.COMPLETED
         terminal_seen = False
         snapshot: TerminationSnapshot | None = None
+        failure_reply: str | None = None
         consume_started = time.monotonic()
         first_event = True
         first_delta_ms: int | None = None
@@ -3251,6 +3238,8 @@ class RunService:
                     outcome = AgentRunStatus(event.data["status"])
                     text = str(event.data.get("final_text", text))
                     snapshot = TerminationSnapshot.from_payload(event.data.get("termination"))
+                    reply = event.data.get("failure_reply")
+                    failure_reply = reply if isinstance(reply, str) else None
                     terminal_seen = True
                     continue
                 is_first_delta = event.type == "message.delta" and first_delta_ms is None
@@ -3281,7 +3270,9 @@ class RunService:
             record_latency(RUN_CONSUME_SECONDS, total, {"stage": "total"})
             record_latency(RUN_CONSUME_SECONDS, persist_seconds, {"stage": "persist"})
             record_latency(RUN_CONSUME_SECONDS, max(0.0, total - persist_seconds), {"stage": "wait"})
-        return SegmentResult(outcome, text, terminal_seen=terminal_seen, snapshot=snapshot)
+        return SegmentResult(
+            outcome, text, terminal_seen=terminal_seen, snapshot=snapshot, failure_reply=failure_reply,
+        )
 
     async def _timed_finalize(self, finalize: Awaitable[ExecutorEvent]) -> ExecutorEvent:
         """终态收尾计时：终态事件/通知/记忆入队的整段事务耗时（容量诊断，成功失败都记）。"""
@@ -3324,6 +3315,7 @@ class RunService:
                     RunnerNoProgress("identical tool failures reached the configured limit"),
                     agent_key=agent_key,
                     snapshot=result.snapshot,
+                    failure_reply=result.failure_reply,
                 )
             )
         if (
@@ -3382,7 +3374,12 @@ class RunService:
             flush_now=flush_now,
             on_commit=lambda: self._wake_tail(tenant_id, conversation_id),
         )
-        seq = await get_event_batcher(get_session_factory).submit(entry)
+        try:
+            seq = await get_event_batcher(get_session_factory).submit(entry)
+        except SQLAlchemyError as exc:
+            raise AppError(
+                ErrorCode.RUN_EVENT_PERSISTENCE_FAILED, data={"event_type": entry.event_type},
+            ) from exc
         return ExecutorEvent(type=sse_type, data=data, seq=int(seq), timestamp=_utcnow().isoformat())
 
     @db_stage_scope("finalize")
@@ -3413,7 +3410,7 @@ class RunService:
             ensure_execution(row, ExecutionIdentity.of(run), await database_now(session))
             marker = mark("lock", marker)
             cancelled = row.cancel_requested
-            locale = await self._frozen_locale(session, row) if cancelled else None
+            locale = await frozen_run_locale(session, row) if cancelled else None
             if cancelled:
                 await cancel_operations(session, row)
             marker = mark("cancel", marker)
@@ -3630,6 +3627,7 @@ class RunService:
         *,
         agent_key: str,
         snapshot: TerminationSnapshot | None = None,
+        failure_reply: str | None = None,
     ) -> ExecutorEvent:
         code = _error_code_for(exc)
         async with get_session_factory()() as session:
@@ -3648,9 +3646,11 @@ class RunService:
                 error_code=code,
                 snapshot=snapshot,
             )
-            locale = await self._frozen_locale(session, current)
-            suffix = render_finalization(facts, locale=locale, include_technical=False)
-            partial, generation = await self._partial_submission_reply(session, current, submission_id)
+            locale = await frozen_run_locale(session, current)
+            suffix = (failure_reply or "").strip() or render_finalization(
+                facts, locale=locale, include_technical=False,
+            )
+            partial, generation = await partial_submission_reply(session, current, submission_id)
             delta = f"\n\n{suffix}" if partial else suffix
             final_text = partial + delta
             technical_details = render_technical_details(facts, locale=locale, run_id=str(current.id))
@@ -3745,31 +3745,6 @@ class RunService:
             seq=int(seq),
             timestamp=_utcnow().isoformat(),
         )
-
-    async def _partial_submission_reply(
-        self, session: AsyncSession, run: RunRecord, submission_id: uuid.UUID,
-    ) -> tuple[str, int]:
-        event = CanonicalEvent
-        rows = await session.execute(
-            sa.select(event.stream_type, event.payload_json).where(
-                event.tenant_id == run.tenant_id, event.run_id == run.id,
-                event.submission_id == submission_id, event.is_deleted.is_(False),
-                event.stream_type.in_(("message.snapshot", "message.delta")),
-            ).order_by(event.seq)
-        )
-        generation = 0
-        chunks: list[str] = []
-        for kind, payload in rows:
-            current = payload.get("reply_generation", 0)
-            if type(current) is not int or current < generation:
-                continue
-            if current > generation or kind == "message.snapshot":
-                generation = current
-                chunks.clear()
-            text = payload.get("text" if kind == "message.snapshot" else "delta")
-            if isinstance(text, str):
-                chunks.append(text)
-        return "".join(chunks), generation
 
     async def _terminal_event(self, session: AsyncSession, run: RunRecord) -> ExecutorEvent:
         """已有终态（并发收尾/Reaper）：返回已持久化的终态事件或按 Run 记录合成。"""
@@ -4059,6 +4034,8 @@ async def _submitted_detached_task(session: AsyncSession, run: RunRecord) -> boo
 
 
 def _error_code_for(exc: Exception) -> str:
+    if isinstance(exc, SourceLeaseEnded):
+        return RUN_ABANDONED
     if isinstance(exc, RunnerNoProgress):
         return str(ErrorCode.RUN_NO_PROGRESS)
     if isinstance(exc, RunnerBudgetExceeded):

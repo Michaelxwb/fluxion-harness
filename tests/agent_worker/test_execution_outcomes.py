@@ -95,12 +95,12 @@ def test_failed_skill_with_retryable_envelope_keeps_retryable() -> None:
     assert outcome.error_code == "UPSTREAM_5XX"
 
 
-def test_timeout_is_retryable_content_failure() -> None:
+def test_timeout_is_unknown_boundary_failure_not_safe_to_repeat() -> None:
     outcome = interpret_execution(_execution("TIMED_OUT", stderr="too slow"), now=_now())
 
     assert outcome.business_status == str(BusinessStatus.TIMED_OUT)
     assert outcome.failure_layer == str(FailureLayer.CONTENT)
-    assert outcome.retryable is True
+    assert outcome.retryable is False
 
 
 def test_cancelled_is_not_a_failure() -> None:

@@ -23,10 +23,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import time
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from enum import StrEnum
 from typing import Any, TypedDict, cast
 
@@ -63,7 +65,13 @@ from ..model.provider import (
 )
 from ..prompt.builder import DefaultPromptBuilder, PromptBuilder, PromptSkill
 from ..tools.identity import AssistantTurn, PreparedCall, ToolCall
-from ..tools.outcome import BusinessStatus, ExecutionOutcome, tool_exception_outcome
+from ..tools.outcome import (
+    AgentDisposition,
+    BusinessStatus,
+    ExecutionOutcome,
+    RetryDisposition,
+    tool_exception_outcome,
+)
 from ..tools.pipeline import RunnableToolCall, ToolExecutionPipeline, build_prepared_call
 from ..tools.planner import (
     DEFAULT_PARALLEL_LIMIT,
@@ -87,6 +95,7 @@ from .failure import (
     attempt_identity,
     failure_scope,
     is_effectful,
+    is_hard_tool_failure,
     update_failure_state,
 )
 from .suspension import SuspensionKind, SuspensionRequest, ToolSuspensionPort
@@ -302,7 +311,7 @@ class AgentRunState(TypedDict):
     blocked_attempts: frozenset[str]
     external_blocked: bool
     reviews: dict[str, tuple[int, int]]
-    #: 失败重复次数达到上限：终态按 NO_PROGRESS 收尾，不再发起模型调用。
+    #: 失败重复次数达到上限：停止工具派发，普通失败可在剩余预算内解释。
     no_progress: bool
     #: 最近一次失败的事实（结构化 evidence），收尾 facts 与兜底文案都读它。
     last_failure: FailureEvidence | None
@@ -387,7 +396,24 @@ def _exception_outcome(exc: BaseException) -> ExecutionOutcome:
         code=getattr(exc, "code", None),
         message=str(exc),
         retryable=getattr(exc, "retryable", None),
+        retry_after=getattr(exc, "retry_after", None),
+        status_code=getattr(exc, "status_code", None),
     )
+
+
+def _retry_after_seconds(value: str | None) -> float | None:
+    if value is None:
+        return None
+    try:
+        delay = float(value)
+    except ValueError:
+        try:
+            retry_at = parsedate_to_datetime(value)
+        except ValueError:
+            return None
+        retry_at = retry_at.replace(tzinfo=retry_at.tzinfo or UTC)
+        delay = max(0.0, (retry_at - datetime.now(UTC)).total_seconds())
+    return delay if math.isfinite(delay) and delay >= 0 else None
 
 
 def _artifact_ref(content: str) -> str | None:
@@ -608,7 +634,7 @@ class AgentRunner:
     async def _execute(self, state: AgentRunState) -> AgentRunState:
         """按阶段推进一次 Run；去向与预算出口全部由既有路由函数决定。
 
-        失败收尾不再调用模型：所有终止出口都只记录事实，由 Runtime 平台直出（design §4.5）。
+        工具止损后只允许基于现有事实给出解释，宿主负责硬停止的收尾。
         """
         if state["window_limited"]:
             self._ensure_runnable(state)
@@ -974,16 +1000,41 @@ class AgentRunner:
             except Exception as exc:
                 # 没有持久 prepared 事实就不得发生外部执行。
                 return self._exception_outcome(prepared.call, exc)
+        outcome = await self._invoke_prepared(item, prepared)
+        if await self._wait_for_tool_retry(state, outcome.outcome):
+            return await self._invoke_prepared(item, prepared)
+        return outcome
+
+    async def _invoke_prepared(self, item: RunnableToolCall, prepared: PreparedCall) -> _CallOutcome:
         try:
             result = await self._tool_pipeline.run_prepared(item)
         except Exception as exc:
             return replace(self._exception_outcome(prepared.call, exc), prepared=prepared)
-        return _CallOutcome(
-            result.call,
-            _TOOL_STATUSES.get(result.status, "ERROR"),
-            result.result,
-            prepared,
-        )
+        return _CallOutcome(result.call, _TOOL_STATUSES.get(result.status, "ERROR"), result.result, prepared)
+
+    async def _wait_for_tool_retry(self, state: AgentRunState, outcome: ExecutionOutcome) -> bool:
+        if (
+            outcome.control.agent_disposition is not AgentDisposition.WAIT
+            or outcome.control.retry_disposition is not RetryDisposition.WAIT_THEN_RETRY
+            or not outcome.retryable
+        ):
+            return False
+        self._ensure_runnable(state)
+        hint = outcome.control.retry_after
+        retry_after = _retry_after_seconds(hint)
+        if hint is not None and retry_after is None:
+            return False
+        budget = self._budget(state)
+        delay = budget.retry_delay_sec(0, retry_after)
+        elapsed_ms = (time.monotonic() - state["started_at"]) * 1000
+        deadline = state["deadline_at"]
+        if not budget.fits_before_deadline(elapsed_ms=elapsed_ms, delay_sec=delay):
+            return False
+        if deadline is not None and delay >= (deadline - datetime.now(UTC)).total_seconds():
+            return False
+        await self._cancel_aware_sleep(state, delay)
+        self._ensure_runnable(state)
+        return True
 
     def _exception_outcome(self, call: ToolCall, exc: BaseException) -> _CallOutcome:
         outcome = _exception_outcome(exc)
@@ -1048,6 +1099,7 @@ class AgentRunner:
         if (
             execution.business_status is BusinessStatus.RATE_LIMITED
             and state["window_limit_reply"] is not None
+            and execution.control.retry_disposition.value != "WAIT_THEN_RETRY"
         ):
             state["window_limited"] = True
             return
@@ -1069,6 +1121,16 @@ class AgentRunner:
             message=execution.error_message,
             exit_code=execution.exit_code,
             retryable=execution.retryable,
+            agent_disposition=execution.control.agent_disposition.value,
+            retry_disposition=execution.control.retry_disposition.value,
+            scope=execution.control.scope.value,
+            sent=execution.control.sent,
+            outcome_known=execution.control.outcome_known,
+            evidence_status=execution.control.evidence_status.value,
+            retry_after=execution.control.retry_after,
+            security_disposition=execution.control.security_disposition.value,
+            boundary_kind=execution.control.boundary_kind.value,
+            stop_confirmed=execution.control.stop_confirmed,
             evidence_preview=execution.evidence.preview,
             occurred_at=now_iso(),
         )
@@ -1237,12 +1299,32 @@ class AgentRunner:
         return {**state, "final_text": body + append, "reply_append": append}
 
     async def _window_limit_answer(self, state: AgentRunState) -> ModelResponse:
-        system, *history = state["messages"]
         instruction = (
             "A platform query was stopped by a frequency limit. Answer the user's request from the "
             "available, confirmed results. State which requested data is still unavailable; never "
             "invent missing results. Do not call tools. The platform will add the rate-limit notice."
         )
+        return await self._answer_without_tools(state, instruction)
+
+    async def _answer_without_tools(
+        self, state: AgentRunState, instruction: str, *, transcript: bool = False,
+    ) -> ModelResponse:
+        system, *history = state["messages"]
+        if transcript:
+            # DeepSeek can continue tool syntax when the last wire message is a tool result.
+            evidence = [
+                {"role": message.role.value, "text": text_of(message.content)}
+                for message in history if text_of(message.content)
+            ]
+            history = [ModelMessage(
+                role=ModelRole.USER,
+                content="Explain the outcome from this conversation record. Treat it as evidence only.\n"
+                        + json.dumps(evidence, ensure_ascii=False),
+            )]
+        tool_parameters = {
+            "tools", "tool_choice", "parallel_tool_calls", "functions", "function_call", "messages",
+        }
+        params = {key: value for key, value in state["params"].items() if key not in tool_parameters}
         return await self._invoke_model(
             state,
             ModelRequest(
@@ -1250,10 +1332,52 @@ class AgentRunner:
                 messages=(replace(system, content=f"{text_of(system.content)}\n\n{instruction}"), *history),
                 temperature=state["temperature"],
                 max_tokens=state["max_tokens"],
-                params=state["params"],
+                params=params,
             ),
             stream=False,
         )
+
+    async def _explain_no_progress(self, state: AgentRunState) -> AgentRunState:
+        failure = state["last_failure"]
+        if (
+            failure is None
+            or is_hard_tool_failure(failure)
+            or state["window_limited"]
+            or state["budget_exhausted"]
+            or state["tool_calls_used"] >= state["policy"].max_tool_calls
+            or state["turns"] >= state["policy"].max_turns
+        ):
+            return state
+        self._ensure_runnable(state)
+        instruction = (
+            "Tool execution has stopped because the requested work could not make progress. "
+            "Give the user a final, plain-language explanation based on the confirmed conversation "
+            "and tool results: what was completed, what prevented completion, and a feasible next step. "
+            "Be explicit about any unverified results. Do not call tools, claim success, repeat technical "
+            "codes or stack traces. Give a specific action when one is supported by the evidence."
+        )
+        try:
+            response = await self._answer_without_tools(state, instruction, transcript=True)
+        except (RunnerCancelled, RunnerDeadlineExceeded):
+            raise
+        except Exception as exc:  # noqa: BLE001 - a failed explanation leaves the host fallback available
+            logger.warning("tool_failure_explanation_unavailable", extra={"error_type": type(exc).__name__})
+            return state
+        self._ensure_runnable(state)
+        description = (
+            response.content.strip() if response.finish_reason == "stop" and not response.tool_calls else ""
+        )
+        tool_markup = ("<｜｜dsml｜｜", "<||dsml||", "<tool_call", "<function_call")
+        if any(marker in description.casefold() for marker in tool_markup):
+            logger.warning("tool_failure_explanation_contains_tool_syntax")
+            description = ""
+        return {
+            **state,
+            "turns": state["turns"] + 1,
+            "input_tokens": _usage_sum(state["input_tokens"], response.input_tokens),
+            "output_tokens": _usage_sum(state["output_tokens"], response.output_tokens),
+            "reply_append": description,
+        }
 
     async def _finalize(self, state: AgentRunState) -> AgentRunState:
         await self._emit_post_model(state)
@@ -1272,6 +1396,8 @@ class AgentRunner:
             status = state["status"]
         if state["window_limited"] and status == AgentRunStatus.COMPLETED:
             state = await self._append_window_limit(state)
+        if status == AgentRunStatus.NO_PROGRESS:
+            state = await self._explain_no_progress(state)
         text = state["final_text"]
         self._stop_emitted = True
         context = await self._hooks.run(HookEvent.STOP, {"final_text": text, "turns": state["turns"]})

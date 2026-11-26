@@ -16,7 +16,7 @@ from muad_logging import get_logger
 
 from .egress_identity_registry import IdentityUnavailable
 from .egress_segments import FencedRedisMeter
-from .egress_source_authority import PGSegmentAuthority, SourceClaim, SourceReader
+from .egress_source_authority import AuthorizedSegment, PGSegmentAuthority, SourceClaim, SourceReader
 from .shared_redis import MeteringUnavailable
 
 logger = get_logger(__name__)
@@ -36,7 +36,12 @@ class SourceSegmentSupervisor:
         self._refresh_seconds, self._stop_margin = refresh_seconds, stop_margin_seconds
         self._close_clients = close_clients
         self._stop_at: float | None = None
+        self._bound: AuthorizedSegment | None = None
         self._used = False
+
+    def _stop_deadline_error(self) -> IdentityUnavailable:
+        message = "source execution reached its safe stop deadline"
+        return self._bound.expiry_error(message) if self._bound else IdentityUnavailable(message)
 
     async def _refresh(self) -> None:
         # Refresh cadence is not an I/O timeout. PG pool checkout/pre-ping may
@@ -52,14 +57,16 @@ class SourceSegmentSupervisor:
                     raise IdentityUnavailable("source authorization changed execution segment")
                 stop_at = bound.local_deadline - self._stop_margin
                 if stop_at <= time.monotonic():
-                    raise IdentityUnavailable("source lease has no safe execution interval")
+                    raise bound.expiry_error("source lease has no safe execution interval")
                 async with asyncio.timeout(max(stop_at - time.monotonic(), 0)):
                     await self._meter.activate(lease_seconds=bound.remaining_seconds(),
                                                stop_margin_seconds=self._stop_margin)
                 if time.monotonic() >= stop_at:
-                    raise IdentityUnavailable("source lease expired during activation")
-                self._stop_at = stop_at
+                    raise bound.expiry_error("source lease expired during activation")
+                self._stop_at, self._bound = stop_at, bound
         except TimeoutError as exc:
+            if self._stop_at is not None and time.monotonic() >= self._stop_at:
+                raise self._stop_deadline_error() from exc
             logger.error(
                 "egress_source_renewal_timeout",
                 extra={
@@ -75,8 +82,10 @@ class SourceSegmentSupervisor:
         while self._stop_at is not None:
             remaining = self._stop_at - time.monotonic()
             if remaining <= 0:
-                raise IdentityUnavailable("source execution lease reached stop deadline")
+                raise self._stop_deadline_error()
             await asyncio.sleep(min(self._refresh_seconds, remaining))
+            if self._stop_at is not None and time.monotonic() >= self._stop_at:
+                raise self._stop_deadline_error()
             await self._refresh()
 
     async def _stop[T](self, work: asyncio.Task[T]) -> None:
@@ -117,7 +126,7 @@ class SourceSegmentSupervisor:
             if watch.done():
                 await watch
             if self._stop_at is None or time.monotonic() >= self._stop_at:
-                raise IdentityUnavailable("source execution lease reached stop deadline")
+                raise self._stop_deadline_error()
             return await work
         finally:
             watch.cancel()

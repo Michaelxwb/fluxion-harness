@@ -24,6 +24,7 @@ from muad_agent_core.tools import (
 )
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_contracts import ToolRetrySafety
 from muad_platform_sdk.mcp_audit import McpAuditEvent, McpAuditPort
 from muad_platform_sdk.mcp_client import McpClient, McpError, McpServerConfig
 from muad_platform_sdk.mcp_content import McpArtifact, McpArtifactWriter, McpResult
@@ -191,6 +192,7 @@ class McpRuntimeAdapter:
                         description=tool.description,
                         input_schema=tool.input_schema,
                         effect=_effect(tool.effect),
+                        retry_safety=_retry_safety(tool.retry_safety),
                         handler=self._make_handler(server, tool),
                         capabilities=frozenset({ToolCapability.MCP_CALL}),
                     )
@@ -286,9 +288,7 @@ def _effect(raw: str) -> ToolEffect:
         return ToolEffect.WRITE
 
 
-def _retry_safety(raw: str) -> Any:
-    from muad_contracts import ToolRetrySafety
-
+def _retry_safety(raw: str) -> ToolRetrySafety:
     try:
         return ToolRetrySafety(raw)
     except ValueError:

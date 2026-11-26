@@ -274,7 +274,10 @@ def test_resolved_server_definition_carries_headers_and_secret_header() -> None:
         endpoint="http://mcp-probe/mcp",
         catalog_revision=3,
         catalog_hash="sha256:" + "b" * 64,
-        definitions=[{"name": TOOL_NAME}],
+        definitions=[
+            {"name": TOOL_NAME, "retry_safety": "READ_ONLY"},
+            {"name": "other", "effect": "READ", "readOnlyHint": True},
+        ],
         headers={"X-App-Id": "sdspmcp"},
         secret_header="X-Api-Key",
     )
@@ -284,6 +287,8 @@ def test_resolved_server_definition_carries_headers_and_secret_header() -> None:
     assert definition.headers == {"X-App-Id": "sdspmcp"}
     assert definition.secret_header == "X-Api-Key"
     assert definition.auth_secret == SECRET
+    assert definition.tools[0].retry_safety == "READ_ONLY"
+    assert definition.tools[1].retry_safety == "NON_RETRYABLE"
 
 
 def _snapshot_inputs() -> tuple[ResolvedAgent, ResolvedModel, ResolvedSkill, WorkspaceRef]:

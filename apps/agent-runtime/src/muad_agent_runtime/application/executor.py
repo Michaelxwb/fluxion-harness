@@ -535,6 +535,16 @@ class _ExecutorEventEmitter:
                 failure_layer=str(completed.outcome.failure_layer),
                 error_code=completed.outcome.error_code,
                 retryable=completed.outcome.retryable,
+                agent_disposition=completed.outcome.control.agent_disposition.value,
+                retry_disposition=completed.outcome.control.retry_disposition.value,
+                scope=completed.outcome.control.scope.value,
+                sent=completed.outcome.control.sent,
+                outcome_known=completed.outcome.control.outcome_known,
+                evidence_status=completed.outcome.control.evidence_status.value,
+                retry_after=completed.outcome.control.retry_after,
+                security_disposition=completed.outcome.control.security_disposition.value,
+                boundary_kind=completed.outcome.control.boundary_kind.value,
+                stop_confirmed=completed.outcome.control.stop_confirmed,
                 evidence_preview=completed.outcome.evidence.preview,
                 exit_code=completed.outcome.exit_code,
                 execution_status=(
@@ -715,6 +725,9 @@ class AgentRunnerExecutor:
                 data={
                     "status": str(result.status),
                     "final_text": result.final_text,
+                    "failure_reply": (
+                        result.reply_append if result.status == AgentRunStatus.NO_PROGRESS else None
+                    ),
                     "termination": (
                         result.termination.as_payload() if result.termination is not None else None
                     ),
@@ -1881,7 +1894,9 @@ class ToolCallRecorder:
         status = (
             "OK" if event.status == "SUCCEEDED" else "DENY" if event.status == "POLICY_DENIED" else "ERROR"
         )
-        preview = self._previews.pop(call.call_id)
+        previous = self._round.get(call.call_id)
+        # A transport retry reuses the prepared call and publishes one final ToolResult.
+        preview = previous.args_preview if previous is not None else self._previews.pop(call.call_id)
         if call.tool_name == "remember":
             preview["status"] = status
         record_outcome(
@@ -2091,8 +2106,8 @@ def _mcp_server_definition(
                 description=str(tool.get("description") or ""),
                 input_schema=dict(tool.get("input_schema") or {"type": "object", "properties": {}}),
                 effect=str(tool.get("effect") or "READ"),
-                # MCP 目录来自外部 server，不承载 Owner 的重放声明；未声明即不可重试。
-                retry_safety="NON_RETRYABLE",
+                # Console 的发现逻辑不复制远端重放提示，只消费控制面冻结的显式声明。
+                retry_safety=str(tool.get("retry_safety") or "NON_RETRYABLE"),
             )
             for tool in server.definitions
             if tool.get("name")
@@ -2123,6 +2138,7 @@ def _task_submission_context(request: ExecutorRequest) -> TaskSubmissionContext 
         trace_id=current_trace_id(),
         locale=current_locale(),
         execution_timeout_sec=execution_defaults_for(request).task_execution_timeout_sec,
+        egress_enabled=execution_defaults_for(request).egress_enabled,
     )
 
 

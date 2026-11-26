@@ -914,7 +914,7 @@ async def test_unexecuted_results_preserve_the_original_failure(harness: AsyncHa
 
 
 async def test_recovery_restores_the_identical_failure_threshold(harness: AsyncHarness) -> None:
-    """连续两次同因失败达到冻结阈值后，恢复不得再发起模型回合。"""
+    """恢复后继续停止工具派发，并保留 Agent 对失败的解释。"""
     tenant = harness.tenant
     task = await insert_task(tenant, agentic_snapshot(), status=TaskStatus.RUNNING)
     sink = TaskEventSink(
@@ -929,12 +929,13 @@ async def test_recovery_restores_the_identical_failure_threshold(harness: AsyncH
     state = await _failure_state_from_events(harness, task)
     assert state is not None and state["no_progress"] is True
 
-    harness.factory.script = []
+    harness.factory.script = [text_reply("平台超时，本次任务没有完成。")]
     with pytest.raises(TaskExecutionError) as stopped:
         await harness.outcome(await fetch(tenant, task.id))
 
     assert stopped.value.code == "TASK_NO_PROGRESS"
-    assert harness.model_calls == 0, "threshold-stop must survive recovery"
+    assert str(stopped.value) == "平台超时，本次任务没有完成。"
+    assert harness.model_calls == 1
 
 
 async def test_recovery_compares_the_prepared_hash_not_the_assistant_arguments(

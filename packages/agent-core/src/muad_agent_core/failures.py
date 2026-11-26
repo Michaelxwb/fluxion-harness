@@ -176,6 +176,20 @@ def _run_hint(code: str) -> _Hint | None:
             zh_next="请缩小范围或延长期限后重试。",
             en_next="Narrow the task or extend the deadline, then retry.",
         )
+    if code == "RUN_EVENT_PERSISTENCE_FAILED":
+        return _Hint(
+            zh_title="无法保存本轮执行记录，已停止。",
+            en_title="The run stopped because its execution record could not be saved.",
+            zh_next="请稍后重试；如涉及写入，请先核对是否已生效。",
+            en_next="Retry later. Check whether any changes took effect before retrying.",
+        )
+    if code == "RUN_ABANDONED":
+        return _Hint(
+            zh_title="本轮与执行服务失去连接，已停止。",
+            en_title="The run lost its execution service and stopped.",
+            zh_next="可在当前对话继续；如涉及写入，请先核对是否已生效。",
+            en_next="Continue in this chat. Check whether any changes took effect before retrying.",
+        )
     if code == "RUN_NO_PROGRESS":
         return _Hint(
             zh_title="执行失败且无法继续，已停止。",

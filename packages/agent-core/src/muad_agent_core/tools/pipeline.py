@@ -278,6 +278,7 @@ class ToolExecutionPipeline:
                     code=error,
                     message=str(exc),
                     retryable=getattr(exc, "retryable", None),
+                    retry_after=getattr(exc, "retry_after", None),
                 ),
             )
             raise
