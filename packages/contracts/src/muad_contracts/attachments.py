@@ -51,6 +51,11 @@ ALLOWED_ATTACHMENT_MEDIA_TYPES: frozenset[str] = frozenset(
     item.media_type for item in SUPPORTED_UPLOAD_FORMATS
 )
 
+#: 支持类型的人类可读扩展名清单（去重、保持声明顺序），用于「仅支持 xxx」提示。
+SUPPORTED_UPLOAD_EXTENSIONS_TEXT: str = "、".join(
+    dict.fromkeys(ext for item in SUPPORTED_UPLOAD_FORMATS for ext in item.extensions)
+)
+
 #: 按压缩包处理的类型。`x-zip-compressed` 是 Windows 浏览器对 `.zip` 的常见写法。
 ARCHIVE_MEDIA_TYPES: frozenset[str] = frozenset(
     {"application/zip", "application/x-zip-compressed"}

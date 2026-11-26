@@ -1855,7 +1855,7 @@
   "chat.composer.error.textTooLong": "消息内容超过长度上限，请精简后发送",
   "chat.composer.error.tooManyFiles": "附件数量超过上限，请减少后发送",
   "chat.composer.error.fileTooLarge": "附件超过大小上限，请更换后发送",
-  "chat.composer.error.typeNotAllowed": "该附件类型不受支持，请更换后发送",
+  "chat.composer.error.typeNotAllowed": "不支持该附件类型，仅支持：{{allowed}}",
   "chat.composer.error.uploadFailed": "附件上传失败，可重试",
   "chat.composer.error.stagingExpired": "附件暂存已过期，请重新上传后再发送",
   "chat.composer.error.conversationExpired": "该会话已超过保留期，无法继续，请新建会话",

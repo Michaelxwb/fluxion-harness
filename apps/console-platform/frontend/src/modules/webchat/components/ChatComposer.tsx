@@ -176,15 +176,17 @@ function ComposerPhaseNote(props: { phase: PendingSendPhase }) {
 }
 
 /** 输入侧预检失败：就地提示（与发送失败分开呈现）。 */
-function ComposerInputError(props: { code: string }) {
+function ComposerInputError(props: { code: string; allowed?: string }) {
   const { t } = useTranslation();
+  // 附件类型不支持时把「仅支持 xxx」一并显示，让用户知道可选范围。
+  const vars = props.code === 'ATTACHMENT_TYPE_NOT_ALLOWED' ? { allowed: props.allowed ?? '' } : undefined;
   return (
     <div
       className="chat-composer-input-error"
       data-testid="chat-composer-input-error"
       data-error-code={props.code}
     >
-      {t(pendingSendErrorKey(props.code))}
+      {t(pendingSendErrorKey(props.code), vars)}
     </div>
   );
 }
@@ -355,7 +357,12 @@ function ComposerNotices(props: ComposerNoticesProps) {
     <>
       {props.policy === null ? null : <ComposerHints policy={props.policy} />}
       <ComposerPhaseNote phase={props.phase} />
-      {props.inputErrorCode === null ? null : <ComposerInputError code={props.inputErrorCode} />}
+      {props.inputErrorCode === null ? null : (
+        <ComposerInputError
+          code={props.inputErrorCode}
+          allowed={props.policy === null ? undefined : formatAcceptedExtensions(props.policy.upload_formats)}
+        />
+      )}
       {props.errorCode === null ? null : (
         <ComposerSendError
           phase={props.phase}
