@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
@@ -11,10 +12,11 @@ import sqlalchemy as sa
 from muad_agent_core.agent.recovery import fold_events
 from muad_agent_core.context.compactor import Group, split_groups, split_protected_prefix
 from muad_agent_core.context.summary import summary_from_payload, summary_message
+from muad_agent_core.model.budget import MESSAGE_PROTOCOL_OVERHEAD_BYTES
 from muad_agent_core.model.provider import ModelMessage, ModelRole, ModelToolCall, text_of
-from muad_contracts.platform_settings import default_compaction_settings
 from pydantic import JsonValue
 from sqlalchemy import select, true
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.db import SessionFactoryProvider
@@ -35,13 +37,23 @@ HISTORY_EVENT_TYPES = (
     "TOOL_SUBMISSION_FAILED",
 )
 
+#: keyset 分页的单页事件数：只是查询分块，不是历史上限。
+READ_PAGE_SIZE = 20
+#: 尾部读取留出的组边界余量。
+READ_HEADROOM = 1.25
+#: 头部锚点最多保留的组数（首个 user 组 + 其后首个 assistant/tool 组）。
+HEAD_ANCHOR_GROUPS = 2
+
 
 @dataclass(frozen=True, slots=True)
-class BudgetPolicy:
-    # `max_messages` 是**取事件的查询守卫**（`_recent_events` 按它 ×4 限流），不是请求预算本身：
-    # 请求里的条数由压缩层按冻结配置的 `history_budget_messages` 兜底，两边用的是同一个值。
-    # 默认值**派生自 compaction schema**（不写第二套字面量）：两者必须同源，否则守卫与裁剪会漂移。
-    max_messages: int = default_compaction_settings().history_budget_messages
+class LoadedHistory:
+    """History assembly result: messages plus the seq boundaries needed by the request boundary."""
+
+    messages: tuple[ModelMessage, ...] = ()
+    covered_seq: int = 0
+    material_scan_end_seq: int = 0
+    head_end_seq: int | None = None
+    earlier_records: int | None = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,14 +74,8 @@ class ActiveSkillContext:
 
 
 class DbBackedContextBuilder:
-    def __init__(
-        self,
-        *,
-        session_factory: SessionFactoryProvider,
-        budget: BudgetPolicy | None = None,
-    ) -> None:
+    def __init__(self, *, session_factory: SessionFactoryProvider) -> None:
         self._session_factory = session_factory
-        self._budget = budget or BudgetPolicy()
 
     async def load_skill_context(
         self, *, tenant_id: str, conversation_id: uuid.UUID, run_id: uuid.UUID
@@ -96,14 +102,15 @@ class DbBackedContextBuilder:
         tenant_id: str,
         conversation_id: uuid.UUID,
         user_id: uuid.UUID | None,
-        budget_messages: int | None = None,
+        budget_tokens: int,
+        current_message_id: str | None = None,
         through_seq: int | None = None,
         unconsumed_run_id: uuid.UUID | None = None,
         consumed_event_seq: int = 0,
-        max_history_tool_rounds: int = default_compaction_settings().max_history_tool_rounds,
-    ) -> tuple[ModelMessage, ...]:
-        """Read owned canonical history; memory and compression belong to the derived request."""
-        budget = budget_messages or self._budget.max_messages
+    ) -> LoadedHistory:
+        """Read owned canonical history within the token read budget; never trim or write."""
+        if isinstance(budget_tokens, bool) or budget_tokens < 1:
+            raise ValueError("history budget must be a positive integer")
         async with self._session_factory()() as session:
             if user_id is not None:
                 owned = await session.scalar(
@@ -115,104 +122,339 @@ class DbBackedContextBuilder:
                     )
                 )
                 if owned is None:
-                    return ()
+                    return LoadedHistory()
+
             summary_row = await latest_summary(session, tenant_id, conversation_id)
             summary_payload = summary_row.payload_json if summary_row is not None else None
-            covered = covered_up_to(summary_payload)
+            summary_fields = (
+                summary_from_payload((summary_payload or {}).get("summary"))
+                if summary_row is not None
+                else None
+            )
+            covered = covered_up_to(summary_payload) if summary_fields is not None else 0
             protected = protected_event_ids(summary_payload)
-            events = await self._recent_events(
+
+            tail_events, tail_reached_boundary = await self._read_tail(
                 session,
                 tenant_id,
                 conversation_id,
-                budget,
-                after_seq=covered,
-                protected_event_ids=protected,
+                budget_tokens,
+                covered=covered,
                 through_seq=through_seq,
                 unconsumed_run_id=unconsumed_run_id,
                 consumed_event_seq=consumed_event_seq,
             )
-            history = await self._to_messages(session, tenant_id, events, max_history_tool_rounds)
-        summaries: list[ModelMessage] = []
-        if summary_row is not None:
-            fields = summary_from_payload((summary_row.payload_json or {}).get("summary"))
-            if fields is not None:
-                summaries.append(
-                    replace(
-                        summary_message(fields),
-                        source_event_id=str(summary_row.id),
-                        source_event_seq=summary_row.seq,
-                        origin="SUMMARY",
-                    )
-                )
-        return (*summaries, *history)
+            material_events, material_scan_end = await self._read_material(
+                session,
+                tenant_id,
+                conversation_id,
+                budget_tokens,
+                covered=covered,
+                tail_events=tail_events,
+                tail_reached_boundary=tail_reached_boundary,
+                current_message_id=current_message_id,
+                through_seq=through_seq,
+                unconsumed_run_id=unconsumed_run_id,
+                consumed_event_seq=consumed_event_seq,
+            )
+            head_events, head_end = await self._read_head_anchor(
+                session,
+                tenant_id,
+                conversation_id,
+                budget_tokens,
+                covered=covered,
+                current_message_id=current_message_id,
+                through_seq=through_seq,
+                unconsumed_run_id=unconsumed_run_id,
+                consumed_event_seq=consumed_event_seq,
+            )
+            protected_events = await self._read_protected(
+                session,
+                tenant_id,
+                conversation_id,
+                protected,
+                through_seq=through_seq,
+            )
+            events = _merge_events(head_events, material_events, tail_events, protected_events)
+            references = await self._artifact_references(
+                session, tenant_id, [event.artifact_id for event in events if event.artifact_id]
+            )
+            earlier = await self._earlier_records(
+                session,
+                tenant_id,
+                conversation_id,
+                gap_start=max(material_scan_end, head_end or 0),
+                tail_start=min((event.seq for event in tail_events), default=None),
+                protected=protected,
+                through_seq=through_seq,
+                unconsumed_run_id=unconsumed_run_id,
+                consumed_event_seq=consumed_event_seq,
+            )
 
-    async def _recent_events(
-        self,
-        session: Any,
-        tenant_id: str,
-        conversation_id: uuid.UUID,
-        budget: int,
-        *,
-        after_seq: int = 0,
-        protected_event_ids: Sequence[str] = (),
-        through_seq: int | None = None,
-        unconsumed_run_id: uuid.UUID | None = None,
-        consumed_event_seq: int = 0,
-    ) -> list[CanonicalEvent]:
-        """取最近 `budget * 4` 条业务事件（倒序取再反转），保证长会话保留最新轮次。
-
-        `after_seq` 是摘要覆盖边界：被摘要覆盖的原始事件不再进入装配（它们的历史由摘要承载）。
-        一轮工具往返会落好几条事件（assistant 回合 + 每个工具结果），故守卫是条数的 4 倍——它只
-        保证"取够了料"，裁多少由压缩层决定。
-        """
-        rows = (
-            (
-                await session.execute(
-                    select(CanonicalEvent)
-                    .where(
-                        CanonicalEvent.tenant_id == tenant_id,
-                        CanonicalEvent.conversation_id == conversation_id,
-                        CanonicalEvent.event_type.in_(HISTORY_EVENT_TYPES),
-                        sa.or_(
-                            CanonicalEvent.seq > after_seq,
-                            CanonicalEvent.id.in_(protected_event_ids),
-                        )
-                        if protected_event_ids
-                        else CanonicalEvent.seq > after_seq,
-                        CanonicalEvent.is_deleted.is_(False),
-                        CanonicalEvent.seq <= through_seq if through_seq is not None else true(),
-                        ~(
-                            (CanonicalEvent.run_id == unconsumed_run_id)
-                            & CanonicalEvent.event_type.in_(
-                                ("TOOL_TASK_ACCEPTED", "BACKGROUND_RESULT", "TOOL_SUBMISSION_FAILED")
-                            )
-                            & (CanonicalEvent.seq > consumed_event_seq)
-                        )
-                        if unconsumed_run_id is not None
-                        else true(),
-                    )
-                    .order_by(CanonicalEvent.seq.desc())
-                    .limit(max(budget, 1) * 4)
+        messages: list[ModelMessage] = []
+        if summary_row is not None and summary_fields is not None:
+            messages.append(
+                replace(
+                    summary_message(summary_fields),
+                    source_event_id=str(summary_row.id),
+                    source_event_seq=summary_row.seq,
+                    origin="SUMMARY",
                 )
             )
-            .scalars()
-            .all()
+        messages.extend(
+            message
+            for value, message in _history_entries(
+                events, _paired_tool_results(events, references)
+            )
         )
-        return list(reversed(rows))
+        return LoadedHistory(
+            messages=tuple(messages),
+            covered_seq=covered,
+            material_scan_end_seq=material_scan_end,
+            head_end_seq=head_end,
+            earlier_records=earlier,
+        )
 
-    async def _to_messages(
+    async def _read_tail(
         self,
         session: AsyncSession,
         tenant_id: str,
-        events: list[CanonicalEvent],
-        max_history_tool_rounds: int,
-    ) -> list[ModelMessage]:
-        references = await self._artifact_references(
-            session, tenant_id, [event.artifact_id for event in events if event.artifact_id]
+        conversation_id: uuid.UUID,
+        budget_tokens: int,
+        *,
+        covered: int,
+        through_seq: int | None,
+        unconsumed_run_id: uuid.UUID | None,
+        consumed_event_seq: int,
+    ) -> tuple[list[CanonicalEvent], bool]:
+        events: list[CanonicalEvent] = []
+        cursor: int | None = None
+        reached_boundary = False
+        while True:
+            statement = select(CanonicalEvent).where(
+                *self._history_conditions(
+                    tenant_id,
+                    conversation_id,
+                    covered=covered,
+                    through_seq=through_seq,
+                    unconsumed_run_id=unconsumed_run_id,
+                    consumed_event_seq=consumed_event_seq,
+                ),
+                CanonicalEvent.seq > covered,
+                CanonicalEvent.seq < cursor if cursor is not None else true(),
+            ).order_by(CanonicalEvent.seq.desc()).limit(READ_PAGE_SIZE)
+            page = list((await session.execute(statement)).scalars().all())
+            if not page:
+                reached_boundary = True
+                break
+            events.extend(page)
+            if _estimate_events_tokens(events) >= budget_tokens * READ_HEADROOM:
+                break
+            if len(page) < READ_PAGE_SIZE:
+                reached_boundary = True
+                break
+            cursor = min(event.seq for event in page)
+        events.sort(key=lambda event: event.seq)
+        return events, reached_boundary
+
+    async def _read_material(
+        self,
+        session: AsyncSession,
+        tenant_id: str,
+        conversation_id: uuid.UUID,
+        budget_tokens: int,
+        *,
+        covered: int,
+        tail_events: Sequence[CanonicalEvent],
+        tail_reached_boundary: bool,
+        current_message_id: str | None,
+        through_seq: int | None,
+        unconsumed_run_id: uuid.UUID | None,
+        consumed_event_seq: int,
+    ) -> tuple[list[CanonicalEvent], int]:
+        if tail_reached_boundary:
+            complete = [
+                event
+                for event in tail_events
+                if not _is_current_input(event, current_message_id)
+            ]
+            return complete, max((event.seq for event in complete), default=0)
+
+        material: list[CanonicalEvent] = []
+        cursor: int | None = None
+        while True:
+            statement = select(CanonicalEvent).where(
+                *self._history_conditions(
+                    tenant_id,
+                    conversation_id,
+                    covered=covered,
+                    through_seq=through_seq,
+                    unconsumed_run_id=unconsumed_run_id,
+                    consumed_event_seq=consumed_event_seq,
+                ),
+                CanonicalEvent.seq > covered,
+                CanonicalEvent.seq > cursor if cursor is not None else true(),
+            ).order_by(CanonicalEvent.seq).limit(READ_PAGE_SIZE)
+            page = [
+                event
+                for event in (await session.execute(statement)).scalars().all()
+                if not _is_current_input(event, current_message_id)
+            ]
+            if not page:
+                break
+            material.extend(page)
+            if _estimate_events_tokens(material) >= budget_tokens:
+                break
+            if len(page) < READ_PAGE_SIZE:
+                break
+            cursor = max(event.seq for event in page)
+        return material, max((event.seq for event in material), default=0)
+
+    async def _read_head_anchor(
+        self,
+        session: AsyncSession,
+        tenant_id: str,
+        conversation_id: uuid.UUID,
+        budget_tokens: int,
+        *,
+        covered: int,
+        current_message_id: str | None,
+        through_seq: int | None,
+        unconsumed_run_id: uuid.UUID | None,
+        consumed_event_seq: int,
+    ) -> tuple[list[CanonicalEvent], int | None]:
+        if covered != 0:
+            return [], None
+        statement = select(CanonicalEvent).where(
+            *self._history_conditions(
+                tenant_id,
+                conversation_id,
+                covered=0,
+                through_seq=through_seq,
+                unconsumed_run_id=unconsumed_run_id,
+                consumed_event_seq=consumed_event_seq,
+            ),
+            CanonicalEvent.seq > 0,
+        ).order_by(CanonicalEvent.seq).limit(READ_PAGE_SIZE)
+        rows = [
+            event
+            for event in (await session.execute(statement)).scalars().all()
+            if not _is_current_input(event, current_message_id)
+        ]
+        user_index = next(
+            (index for index, event in enumerate(rows) if event.event_type == "USER_MESSAGE"),
+            None,
         )
-        entries = _history_entries(events, _paired_tool_results(events, references))
-        keep = _kept_tool_rounds([value for value, _ in entries], max_history_tool_rounds)
-        return [message for value, message in entries if value == 0 or value in keep]
+        if user_index is None:
+            return [], None
+        selected = [rows[user_index]]
+        for event in rows[user_index + 1 :]:
+            if event.event_type in ("ASSISTANT_TURN", "ASSISTANT_MESSAGE"):
+                selected.append(event)
+                if event.event_type == "ASSISTANT_TURN":
+                    following_index = rows.index(event) + 1
+                    for following in rows[following_index:]:
+                        if following.event_type != "TOOL_CALL":
+                            break
+                        selected.append(following)
+                break
+            if event.event_type == "TOOL_CALL":
+                selected.append(event)
+                continue
+            break
+        if len(selected) > 1 and _estimate_events_tokens(selected) > (budget_tokens / 2):
+            selected = [rows[user_index]]
+        return selected, max(event.seq for event in selected)
+
+    async def _read_protected(
+        self,
+        session: AsyncSession,
+        tenant_id: str,
+        conversation_id: uuid.UUID,
+        protected: Sequence[str],
+        *,
+        through_seq: int | None,
+    ) -> list[CanonicalEvent]:
+        if not protected:
+            return []
+        statement = select(CanonicalEvent).where(
+            CanonicalEvent.tenant_id == tenant_id,
+            CanonicalEvent.conversation_id == conversation_id,
+            CanonicalEvent.id.in_(protected),
+            CanonicalEvent.is_deleted.is_(False),
+            CanonicalEvent.seq <= through_seq if through_seq is not None else true(),
+        )
+        return list((await session.execute(statement)).scalars().all())
+
+    async def _earlier_records(
+        self,
+        session: AsyncSession,
+        tenant_id: str,
+        conversation_id: uuid.UUID,
+        *,
+        gap_start: int,
+        tail_start: int | None,
+        protected: Sequence[str],
+        through_seq: int | None,
+        unconsumed_run_id: uuid.UUID | None,
+        consumed_event_seq: int,
+    ) -> int | None:
+        if tail_start is None or tail_start <= gap_start:
+            return 0
+        conditions = self._history_conditions(
+            tenant_id,
+            conversation_id,
+            covered=gap_start,
+            through_seq=through_seq,
+            unconsumed_run_id=unconsumed_run_id,
+            consumed_event_seq=consumed_event_seq,
+        )
+        statement = select(sa.func.count()).select_from(CanonicalEvent).where(
+            *conditions,
+            CanonicalEvent.seq > gap_start,
+            CanonicalEvent.seq < tail_start,
+            ~CanonicalEvent.id.in_(protected) if protected else true(),
+        )
+        try:
+            return int((await session.scalar(statement)) or 0)
+        except SQLAlchemyError as exc:
+            from muad_logging import get_logger
+
+            get_logger(__name__).warning(
+                "context_earlier_records_failed",
+                extra={"conversation_id": str(conversation_id), "error_type": type(exc).__name__},
+            )
+            return None
+
+    @staticmethod
+    def _history_conditions(
+        tenant_id: str,
+        conversation_id: uuid.UUID,
+        *,
+        covered: int,
+        through_seq: int | None,
+        unconsumed_run_id: uuid.UUID | None,
+        consumed_event_seq: int,
+    ) -> tuple[Any, ...]:
+        conditions: list[Any] = [
+            CanonicalEvent.tenant_id == tenant_id,
+            CanonicalEvent.conversation_id == conversation_id,
+            CanonicalEvent.event_type.in_(HISTORY_EVENT_TYPES),
+            CanonicalEvent.is_deleted.is_(False),
+            CanonicalEvent.seq > covered,
+            CanonicalEvent.seq <= through_seq if through_seq is not None else true(),
+        ]
+        if unconsumed_run_id is not None:
+            conditions.append(
+                ~(
+                    (CanonicalEvent.run_id == unconsumed_run_id)
+                    & CanonicalEvent.event_type.in_(
+                        ("TOOL_TASK_ACCEPTED", "BACKGROUND_RESULT", "TOOL_SUBMISSION_FAILED")
+                    )
+                    & (CanonicalEvent.seq > consumed_event_seq)
+                )
+            )
+        return tuple(conditions)
 
     async def _artifact_references(
         self,
@@ -249,6 +491,29 @@ class DbBackedContextBuilder:
             }
             for row in rows
         }
+
+
+def _is_current_input(event: CanonicalEvent, current_message_id: str | None) -> bool:
+    if current_message_id is None:
+        return False
+    payload = event.payload_json or {}
+    return payload.get("message_id") == current_message_id
+
+
+def _estimate_events_tokens(events: Sequence[CanonicalEvent]) -> int:
+    return sum(
+        len(json.dumps(event.payload_json or {}, ensure_ascii=False).encode("utf-8"))
+        + MESSAGE_PROTOCOL_OVERHEAD_BYTES
+        for event in events
+    )
+
+
+def _merge_events(*groups: Sequence[CanonicalEvent]) -> list[CanonicalEvent]:
+    unique: dict[uuid.UUID, CanonicalEvent] = {}
+    for events in groups:
+        for event in events:
+            unique[event.id] = event
+    return sorted(unique.values(), key=lambda event: event.seq)
 
 
 def _active_skill_context(
@@ -440,11 +705,7 @@ def _tool_calls(raw: JsonValue) -> tuple[ModelToolCall, ...]:
 
 
 def _tool_message_content(payload: Mapping[str, JsonValue], artifact_ref: dict[str, JsonValue] | None) -> str:
-    """TOOL 消息的正文：外置过 ⇒ 当时那条引用 JSON；没外置 ⇒ 落库的有界预览；都没有才回落工具名。
-
-    第三条兜底只该出现在**老数据**（预览上线前落的行）与工具自己写脏引用的场景：那时
-    `artifact_id` 解析得出、Artifact 行却不存在，既没有引用也没有预览。
-    """
+    """TOOL 消息的正文：外置过 ⇒ 当时那条引用 JSON；没外置 ⇒ 落库的有界预览；都没有才回落工具名。"""
     if artifact_ref is not None:
         return reference_payload(artifact_ref)
     preview = payload.get("preview")
@@ -453,11 +714,9 @@ def _tool_message_content(payload: Mapping[str, JsonValue], artifact_ref: dict[s
     return f"[tool:{payload.get('tool_name')}]"
 
 
-def _kept_tool_rounds(present: list[int], limit: int) -> set[int]:
-    """Apply the frozen round budget to complete tool exchanges; zero omits them."""
-    if not 0 <= limit <= 50:
-        raise ValueError("invalid frozen history tool round budget")
-    if limit == 0:
-        return set()
-    rounds = sorted({value for value in present if value > 0})
-    return set(rounds[-limit:])
+__all__ = [
+    "ActiveSkillContext",
+    "DbBackedContextBuilder",
+    "HISTORY_EVENT_TYPES",
+    "LoadedHistory",
+]

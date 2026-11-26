@@ -16,7 +16,7 @@ from tests.agent_runtime.memory_context_support import memory_text
 pytestmark = pytest.mark.e2e
 
 
-@pytest.mark.parametrize("layer", ["micro", "snip", "summary"])
+@pytest.mark.parametrize("layer", ["budget", "summary"])
 def test_e01_memory_redesign_real_runtime_protects_prefix_and_refreshes_only_component(
     live_stack, http, layer
 ):

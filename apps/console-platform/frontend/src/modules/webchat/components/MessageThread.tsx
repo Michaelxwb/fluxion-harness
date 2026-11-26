@@ -172,6 +172,7 @@ const LIST_ITEM_PATTERN = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
 const QUOTE_PATTERN = /^\s*>\s?(.*)$/;
 const HR_PATTERN = /^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/;
 const TABLE_SEPARATOR_PATTERN = /^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/;
+const TASK_MEMORY_KEY_PATTERN = /\btask\.[0-9a-f]{32}\b/g;
 
 /** 链接协议白名单：只接受可独立解析的 http/https/mailto（相对/协议相对/伪协议一律 null）。 */
 export function safeLinkHref(raw: string): string | null {
@@ -184,11 +185,19 @@ export function safeLinkHref(raw: string): string | null {
   return SAFE_LINK_PROTOCOLS.includes(url.protocol) ? raw : null;
 }
 
-/** 纯文本入队：换行切成 `break`，空片段不产出（不构造任何标记）。 */
+/** 纯文本入队：换行切成 `break`；任务 key 自动成为行内 code，避免长串标识混在正文里。 */
 function pushText(tokens: MessageInlineToken[], value: string): void {
   value.split('\n').forEach((line, index) => {
     if (index > 0) tokens.push({ kind: 'break' });
-    if (line !== '') tokens.push({ kind: 'text', value: line });
+    if (line === '') return;
+    let cursor = 0;
+    for (const match of line.matchAll(TASK_MEMORY_KEY_PATTERN)) {
+      const start = match.index ?? 0;
+      if (start > cursor) tokens.push({ kind: 'text', value: line.slice(cursor, start) });
+      tokens.push({ kind: 'code', value: match[0] });
+      cursor = start + match[0].length;
+    }
+    if (cursor < line.length) tokens.push({ kind: 'text', value: line.slice(cursor) });
   });
 }
 

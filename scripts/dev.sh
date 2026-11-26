@@ -258,14 +258,19 @@ ensure_local_egress_hook() {
 }
 
 # ------------------------------------------------------------------ 4. 启动后端服务
-#: Worker/Runtime 会监听 `.data/workspaces` 下的草稿写入；不排除 `.data/**` 时，
+#: Worker/Runtime 会监听 `.data/workspaces` 下的草稿写入；不排除 `.data` 时，
 #: Agent 一改草稿就会触发 `--reload` 重启，正在跑的 Run 会断流（浏览器表现为
 #: 「网络异常 / 会话暂时不可用」）。Gateway 的入口快照保持 1s 刷新。
+#: 排除值必须是**目录本身**（`.data`），不能写成通配 `.data/**`：uvicorn 会把
+#: 通配符展开成 `.data` 下每一个子目录，再做 O(n²) 的父子关系比较——本地
+#: `.data/workspaces` 攒到上万个目录后，reload 进程会在启动前空转几分钟到几小时
+#: （表现为 uvicorn 100% CPU、日志空白、端口不监听）。目录形式的排除由
+#: `FileFilter.exclude_dirs` 按子树剪枝，语义相同且是 O(1)。
 start_backend() {
   local name="$1" module="$2" app_dir="$3" port="$4"
   local args=(--app-dir "$app_dir" --reload)
   if [ "$name" = "worker" ] || [ "$name" = "runtime" ]; then
-    args+=(--reload-exclude ".data/**")
+    args+=(--reload-exclude ".data")
   fi
   args+=(--port "$port")
   if [ "$name" = "gateway" ]; then

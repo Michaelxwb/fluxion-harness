@@ -6,7 +6,7 @@
     "smoke_platform"
   ],
   "runtime": "script",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "capabilities": [],
   "longTask": false,
   "entrypoint": "scripts/run.py"

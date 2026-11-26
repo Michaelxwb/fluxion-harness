@@ -78,6 +78,20 @@ def test_immediate_task_sends_the_input_itself_to_stdin() -> None:
     assert frozen_skill_input(task) == {"customers": ["A"]}
 
 
+def test_scheduled_batch_child_sends_the_item_itself_to_stdin() -> None:
+    """BATCH 子任务继承 SCHEDULED，但 input_json 已是业务项，不能再拆信封。"""
+    task = TaskExecution(
+        trigger_type="SCHEDULED",
+        parent_id=uuid4(),
+        input_json={"target": "target-1", "item_key": "1-target-1"},
+    )
+
+    assert frozen_skill_input(task) == {
+        "target": "target-1",
+        "item_key": "1-target-1",
+    }
+
+
 def test_old_scheduled_envelope_without_kind_only_sends_input_to_stdin() -> None:
     task = TaskExecution(
         trigger_type="SCHEDULED",

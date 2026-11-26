@@ -5,18 +5,18 @@ from __future__ import annotations
 import uuid
 
 import pytest
+from muad_agent_core.tools.result_budget import derive_tool_result_budget
 from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import Artifact, Conversation
-from muad_contracts.platform_settings import ToolResultSettings
 
 TENANT = f"art-{uuid.uuid4()}"
 CONV_ID = uuid.uuid4()
 RUN_ID = uuid.uuid4()
 USER_ID = uuid.uuid4()
 
-#: 预览头尾字节只从 schema 取（TASK-011 收敛：源码里不再有第二套默认常量）。
-_PREVIEW = ToolResultSettings()
+#: 预览头尾由冻结压缩配置派生（唯一的阈值来源仍是 schema）。
+_PREVIEW = derive_tool_result_budget()
 
 
 @pytest.fixture()

@@ -166,6 +166,10 @@ def frozen_skill_input(task: TaskExecution) -> dict[str, Any]:
     旧 Scheduled 任务的 `input` 缺省按空对象处理，不回退成整个信封。
     """
     payload = task.input_json if isinstance(task.input_json, Mapping) else {}
+    # BATCH 子任务的 input_json 已经是扇出项本身；它继承父任务的 SCHEDULED 触发方式，
+    # 但不能按 Fire 信封再解一层，否则子任务会拿到空输入并重新扇出（递归爆炸）。
+    if task.parent_id is not None:
+        return dict(payload)
     if task.trigger_type != str(TriggerType.SCHEDULED):
         return dict(payload)
     business = payload.get("input")

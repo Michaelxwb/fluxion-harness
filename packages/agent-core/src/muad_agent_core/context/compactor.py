@@ -1,18 +1,7 @@
-"""请求构建缝的压缩前两层纯逻辑：snip（保头保尾 + 省略标记）与 micro（旧工具结果降级）。
+"""Request-boundary context fitting and omission marker.
 
-design §3.2 的四层流水线里，这里是第 2、3 层（第 1 层是整轮批次落盘，第 4 层是摘要）。纯函数：
-同输入同输出、不碰库、不读环境——"换 Pod 结果一致"（FEAT-08）靠的正是这一点。
-
-两条贯穿的不变量：
-- **成对性（RULE-01）**：任何切法都不得留下孤儿 `tool` 消息；组是"assistant(带 tool_calls) +
-  它的工具结果"这个最小不可分单元，压缩只在组边界上发生。
-- **字节口径（RULE-02）**：一律按 UTF-8 字节判定，不是字符数（一个汉字 3 字节）。
-
-micro 只降级**能被找回的**结果——即带 `artifact_id` 的外置产物。没外置的短结果换成占位
-等于净丢信息（模型无从回溯），故一律放行。
-
-第三层的**受保护前缀**见 `split_protected_prefix`：系统提示、memory 注入、摘要前缀都在其中，
-任何**会删消息**的层（snip、条数兜底）都只在它之后的对话区上工作。
+This module is pure logic: same input, same output; no DB, environment or model calls. The
+`ContextPlan` is the only input; `fit_history` is the only place that drops history messages.
 """
 
 from __future__ import annotations
@@ -22,8 +11,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
-from muad_contracts.platform_settings import MicroSettings, SnipSettings
-
+from ..model.budget import MESSAGE_PROTOCOL_OVERHEAD_BYTES
 from ..model.provider import ModelMessage, ModelRole, text_of
 
 if TYPE_CHECKING:
@@ -32,8 +20,7 @@ if TYPE_CHECKING:
 Group = tuple[ModelMessage, ...]
 
 #: 被省掉的历史用一条 SYSTEM 消息顶位，形状与语义都区别于真实历史。
-SNIP_MARKER_PREFIX = "[历史省略]"
-MICRO_PLACEHOLDER_SUFFIX = "，需要原文时用 read_attachment 读取。"
+OMISSION_MARKER_PREFIX = "[历史裁剪]"
 
 
 def message_bytes(message: ModelMessage) -> int:
@@ -50,8 +37,17 @@ def message_bytes(message: ModelMessage) -> int:
 
 
 def history_bytes(messages: Sequence[ModelMessage]) -> int:
-    """整段历史的字节数——**单遍**，不逐条重复编码（design §3.5 的性能口径）。"""
+    """整段历史的字节数——**单遍**，不逐条重复编码。"""
     return sum(message_bytes(message) for message in messages)
+
+
+def estimate_message_tokens(message: ModelMessage) -> int:
+    """保守估算：1 token ≈ 1 UTF-8 字节 + 每条消息协议开销。"""
+    return message_bytes(message) + MESSAGE_PROTOCOL_OVERHEAD_BYTES
+
+
+def estimate_messages_tokens(messages: Sequence[ModelMessage]) -> int:
+    return sum(estimate_message_tokens(message) for message in messages)
 
 
 def _declares(group: Group, tool_call_id: str | None) -> bool:
@@ -81,30 +77,12 @@ def split_groups(messages: Sequence[ModelMessage]) -> tuple[Group, ...]:
     return tuple(groups)
 
 
-def _sanitized(messages: Sequence[ModelMessage]) -> tuple[ModelMessage, ...]:
-    """丢掉孤儿 TOOL 后的扁平历史——**每一层都以它为输入**。
-
-    这样"输出永不含孤儿 tool 消息"（RULE-01）成为压缩器的不变量，而不是"只在触发时才成立"：
-    层未触发时输出的是这份净化结果，不是原样的输入。
-    """
-    return tuple(message for group in split_groups(messages) for message in group)
-
-
 def split_protected_prefix(
     messages: Sequence[ModelMessage],
 ) -> tuple[tuple[ModelMessage, ...], tuple[ModelMessage, ...]]:
-    """切成（**受保护前缀**, 可压缩的对话区）。
+    """切成（受保护前缀, 可压缩的对话区）。
 
-    前缀是开头连续的一段 `role=SYSTEM`：`AgentRunner` 的系统提示、memory 注入、摘要前缀
-    （`summary_message` 渲染出来也是 SYSTEM）都在这一段里。它们不是"历史"，而是每次请求都必须
-    原样带上的**权威上下文**：
-
-    - 系统提示被裁掉等于 agent 失忆（它定义了身份与指令）；
-    - memory 注入的既有口径就是"以 SYSTEM 前置且**不进预算**"（`context_builder` 的注入措辞
-      依赖这一点，否则用户可写内容会静默消失）；
-    - 摘要前缀本身就是"被压缩掉的那段历史"——裁掉它，那段历史净消失（FEAT-08 的确定性重建）。
-
-    所以压缩的边界是**对话区**，不是整条消息列表。只换内容不删消息的层（micro）不需要它。
+    前缀是开头连续的一段 `role=SYSTEM`：系统提示、memory 注入、摘要前缀都在这一段里。
     """
     index = 0
     while index < len(messages) and messages[index].role is ModelRole.SYSTEM:
@@ -112,24 +90,9 @@ def split_protected_prefix(
     return tuple(messages[:index]), tuple(messages[index:])
 
 
-def _artifact_id(content: Any) -> str | None:
-    """从工具结果的 JSON 里取 `artifact.artifact_id`；不是外置结果就返回 None。"""
-    try:
-        payload = json.loads(text_of(content))
-    except (TypeError, ValueError):
-        return None
-    if not isinstance(payload, Mapping):
-        return None
-    artifact = payload.get("artifact")
-    if not isinstance(artifact, Mapping):
-        return None
-    value = artifact.get("artifact_id")
-    return value if isinstance(value, str) and value else None
-
-
 @dataclass(frozen=True, slots=True)
 class LayerOutcome:
-    """一层压缩的结果。`groups` 的含义按层而定：snip 是**被省略**的组数，micro 是**被降级**的组数。"""
+    """一层压缩的结果。`groups` 是丢弃/降级的组数；`dropped_records` 是事件级计数。"""
 
     layer: str
     fired: bool
@@ -137,282 +100,200 @@ class LayerOutcome:
     bytes_before: int
     bytes_after: int
     messages: tuple[ModelMessage, ...]
+    dropped_records: int = 0
+    retained_from_seq: int | None = None
 
     @property
     def bytes_saved(self) -> int:
         return max(0, self.bytes_before - self.bytes_after)
 
     def as_layer_payload(self) -> dict[str, Any]:
-        """审计事件 `layers{layer: {fired, groups, bytes_saved}}` 的直接输入。"""
         return {
             "layer": self.layer,
             "fired": self.fired,
             "groups": self.groups,
             "bytes_saved": self.bytes_saved,
+            "dropped_records": self.dropped_records,
+            "retained_from_seq": self.retained_from_seq,
         }
 
 
-def _unchanged(layer: str, messages: Sequence[ModelMessage], size: int) -> LayerOutcome:
-    return LayerOutcome(layer, False, 0, size, size, tuple(messages))
+def _group_seq(group: Group) -> int:
+    return max((message.source_event_seq or 0 for message in group), default=0)
 
 
-def _group_tool_names(group: Group) -> list[str]:
-    return [call.name for message in group for call in message.tool_calls]
-
-
-def _group_artifact_ids(group: Group) -> list[str]:
-    ids = [_artifact_id(message.content) for message in group if message.role is ModelRole.TOOL]
-    return [value for value in ids if value]
-
-
-def _snip_marker(omitted: Sequence[Group]) -> ModelMessage:
-    names = [name for group in omitted for name in _group_tool_names(group)]
-    artifacts = [value for group in omitted for value in _group_artifact_ids(group)]
-    detail = ""
-    if names:
-        detail += f" 工具：{'、'.join(dict.fromkeys(names))}；"
-    if artifacts:
-        detail += f" 产物：{'、'.join(dict.fromkeys(artifacts))}；"
-    content = (
-        f"{SNIP_MARKER_PREFIX} 中间 {len(omitted)} 组历史已省略（按消息组计）。{detail}"
-        "需要时用 read_attachment 取回产物原文。"
+def _group_source_ids(group: Group) -> tuple[str, ...]:
+    return tuple(
+        message.source_event_id
+        for message in group
+        if message.source_event_id
     )
-    return ModelMessage(role=ModelRole.SYSTEM, content=content)
 
 
-def _current_turn_start(groups: Sequence[Group]) -> int | None:
-    """最近一条 `user` 消息所在组的下标——**当前回合从它开始，永远不参与省略**。
+def _dropped_record_count(dropped: Sequence[Group]) -> int:
+    ids = {source for group in dropped for source in _group_source_ids(group)}
+    return len(ids) if ids else len(dropped)
 
-    与条数兜底"从最近一条 USER 起切"是同一条口径（`trim_history`），只是这里按组算：模型必须
-    知道自己在回答什么，否则它只能对着一串工具名猜。没有 `user` 组时返回 None（退化为按组数）。
-    """
-    for index in range(len(groups) - 1, -1, -1):
-        if any(message.role is ModelRole.USER for message in groups[index]):
+
+def _latest_complete_tool_round(working: Sequence[Group]) -> int | None:
+    for index in range(len(working) - 1, -1, -1):
+        if any(message.tool_calls for message in working[index]):
             return index
     return None
 
 
-def snip(messages: Sequence[ModelMessage], settings: SnipSettings) -> LayerOutcome:
-    """保留最前 `keep_head_groups` 组 + 最近 `keep_tail_groups` 组，中间换一条省略标记。
-
-    触发条件是**组数严格大于** `max_groups`（RULE-02 的严格大于口径；`max_groups` 是阈值不是
-    保留总数）。尾部下界还受**当前回合**约束（`_current_turn_start`）：最近一条 `user` 起到末尾
-    全保，所以实际保留的组数可能多于 `keep_tail_groups`；两者之间没有更早的历史时不触发。
-    """
-    sanitized = _sanitized(messages)
-    before = history_bytes(sanitized)
-    if not settings.enabled:
-        return _unchanged("snip", sanitized, before)
-
-    prefix, region = split_protected_prefix(sanitized)
-    groups = split_groups(region)
-    if len(groups) <= settings.max_groups:
-        return _unchanged("snip", sanitized, before)
-
-    head = groups[: settings.keep_head_groups]
-    tail_count = max(0, min(settings.keep_tail_groups, len(groups) - len(head) - 1))
-    start = len(groups) - tail_count
-    current_turn = _current_turn_start(groups)
-    if current_turn is not None:
-        start = min(start, current_turn)
-
-    omitted = groups[len(head) : start]
-    if not omitted:
-        # 头 N 组之后全是当前回合：没有"更早的历史"可省。插一条省略标记只会让模型以为丢了
-        # 东西（还多花字节），所以不触发——层未触发时输出仍是净化后的输入。
-        return _unchanged("snip", sanitized, before)
-
-    emitted: list[ModelMessage] = [*prefix]
-    emitted.extend(message for group in head for message in group)
-    emitted.append(_snip_marker(omitted))
-    emitted.extend(message for group in groups[start:] for message in group)
-    compacted = tuple(emitted)
-    return LayerOutcome(
-        "snip", True, len(omitted), before, history_bytes(compacted), compacted
-    )
+def _protected_current_index(plan: ContextPlan) -> int | None:
+    """Fallback current-turn index in older when the plan has no current pinned group."""
+    if any(
+        message.role is ModelRole.USER
+        for group in plan.pinned
+        for message in group
+    ):
+        return None
+    if plan.run_input is not None:
+        return None
+    for index in range(len(plan.older) - 1, -1, -1):
+        if any(message.role is ModelRole.USER for message in plan.older[index]):
+            return index
+    return None
 
 
-def _micro_placeholder(tool_name: str, artifact_id: str) -> str:
+def _marker_content(dropped: Sequence[Group], earlier_records: int | None) -> str:
+    known = _dropped_record_count(dropped)
+    if earlier_records is None:
+        count = max(1, known + 1)
+        amount = f"至少 {count} 条"
+    else:
+        amount = f"{known + earlier_records} 条"
     return (
-        f"[工具结果已外置] {tool_name} 的返回内容已存为产物 artifact_id={artifact_id}"
-        f"{MICRO_PLACEHOLDER_SUFFIX}"
+        f"{OMISSION_MARKER_PREFIX} 本次请求省略了中间的 {amount} 对话记录"
+        "（消息与工具调用），它们不在当前上下文中；保留的是会话开头目标与最近对话。"
+        "需要时请让用户重新提供被省略的内容。"
     )
 
 
-def _degrade_group(group: Group) -> Group | None:
-    """把组里带 artifact 的 tool 结果换成占位；一条都换不动就返回 None（整组不动）。"""
-    declared = {call.id: call.name for message in group for call in message.tool_calls}
-    changed = False
-    degraded: list[ModelMessage] = []
-    for message in group:
-        artifact_id = _artifact_id(message.content) if message.role is ModelRole.TOOL else None
-        if artifact_id is None:
-            degraded.append(message)
-            continue
-        placeholder = _micro_placeholder(declared.get(message.tool_call_id or "", "工具"), artifact_id)
-        if len(placeholder.encode("utf-8")) >= message_bytes(message):
-            degraded.append(message)  # 占位不短于原文 ⇒ 跳过，免得历史反而变长
-            continue
-        changed = True
-        degraded.append(ModelMessage(
-            role=message.role,
-            content=placeholder,
-            tool_call_id=message.tool_call_id,
-        ))
-    return tuple(degraded) if changed else None
-
-
-def micro(messages: Sequence[ModelMessage], settings: MicroSettings) -> LayerOutcome:
-    """只保留最近 `keep_recent_tool_groups` 个工具交换组的原文，更早的结果内容换占位符。
-
-    `tool_calls` 与参数、`reasoning_content` 一律原样保留（RULE-01 的成对性，以及供应商对
-    思考模式回合的硬要求）。
-    """
-    sanitized = _sanitized(messages)
-    before = history_bytes(sanitized)
-    if not settings.enabled:
-        return _unchanged("micro", sanitized, before)
-
-    groups = split_groups(sanitized)
-    tool_group_indexes = [
-        index for index, group in enumerate(groups) if _group_artifact_ids(group)
-    ]
-    keep = max(0, settings.keep_recent_tool_groups)
-    targets = tool_group_indexes[: len(tool_group_indexes) - keep] if keep else tool_group_indexes
-
-    degraded_groups = 0
-    rebuilt: list[ModelMessage] = []
-    for index, group in enumerate(groups):
-        replacement = _degrade_group(group) if index in targets else None
-        if replacement is None:
-            rebuilt.extend(group)
-            continue
-        degraded_groups += 1
-        rebuilt.extend(replacement)
-
-    if degraded_groups == 0:
-        return _unchanged("micro", sanitized, before)
-    compacted = tuple(rebuilt)
-    return LayerOutcome(
-        "micro", True, degraded_groups, before, history_bytes(compacted), compacted
-    )
-
-
-def trim_history(messages: Sequence[ModelMessage], budget: int) -> tuple[ModelMessage, ...]:
-    """消息条数兜底：**对话区**保留尾部 `budget` 条，并从最近一条 USER 起切（不产生半截回合）。
-
-    这是第一个任务里 `context_builder._trim` 搬到这里的版本——搬家的理由是"历史压缩只有一处"
-    （design §3.1 方案 A 的漂移面）：条数兜底与 snip/micro 同源、同口径、可单测，装配侧不再压第二遍。
-
-    受保护前缀（系统提示 / memory / 摘要）不参与这个预算，见 `split_protected_prefix`。
-    """
-    prefix, region = split_protected_prefix(_sanitized(messages))
-    if budget < 1 or len(region) <= budget:
-        return (*prefix, *region)
-    tail = region[-budget:]
-    for index, message in enumerate(tail):
-        if message.role is ModelRole.USER:
-            return (*prefix, *tail[index:])
-    # 尾部整段都在一个回合中间（没有任何 USER 可切）：切点只能落在组中间，故按组净化一次，
-    # 免得开头的工具结果失去它的 assistant 声明而变成孤儿（RULE-01）。
-    return (*prefix, *_sanitized(tail))
-
-
-def compact_history(
-    messages: Sequence[ModelMessage],
+def fit_history(
+    plan: ContextPlan,
     *,
-    snip_settings: SnipSettings,
-    micro_settings: MicroSettings,
-    history_budget_messages: int | None = None,
-) -> tuple[tuple[ModelMessage, ...], tuple[LayerOutcome, ...]]:
-    """前三层里可离线完成的部分：micro → snip（→ 条数兜底），返回新历史与各层结论。
+    budget_tokens: int,
+) -> tuple[ContextPlan, LayerOutcome | None]:
+    """Protect prefix/pinned/head/latest round, then fill the budget from newest to oldest."""
+    if isinstance(budget_tokens, bool) or budget_tokens < 1:
+        raise ValueError("budget_tokens must be a positive integer")
 
-    顺序按 design §3.2 的流水线（先便宜后昂贵）：先降级旧结果，再按组裁头尾。摘要那一层要调
-    模型，由调用方在拿到这里的结果后决定要不要做。
-    """
-    layers: list[LayerOutcome] = []
-    current = _sanitized(messages)
-    micro_outcome = micro(current, micro_settings)
-    layers.append(micro_outcome)
-    snip_outcome = snip(micro_outcome.messages, snip_settings)
-    layers.append(snip_outcome)
-    current = snip_outcome.messages
-    if history_budget_messages is not None:
-        bounded = trim_history(current, history_budget_messages)
-        if bounded != current:
-            before = history_bytes(current)
-            layers.append(
-                LayerOutcome(
-                    "budget", True, 0, before, history_bytes(bounded), bounded
-                )
-            )
-            current = bounded
-    return current, tuple(layers)
+    older = list(plan.older)
+    working = list(plan.working)
+    head_indexes = {
+        index
+        for index, group in enumerate(older)
+        if plan.head_end_seq is not None and 0 < _group_seq(group) <= plan.head_end_seq
+    }
+    if not plan.pinned:
+        fallback = _protected_current_index(plan)
+    else:
+        fallback = None
+
+    latest_round = _latest_complete_tool_round(working)
+    protected_working = (
+        set(range(latest_round, len(working)))
+        if latest_round is not None
+        else ({len(working) - 1} if working else set())
+    )
+    protected_older = set(head_indexes)
+    if fallback is not None:
+        protected_older.add(fallback)
+    protected_groups = [
+        *(older[index] for index in protected_older),
+        *plan.pinned,
+        *(working[index] for index in protected_working),
+    ]
+    used = sum(estimate_messages_tokens(group) for group in protected_groups)
+
+    kept_older = set(protected_older)
+    for index in range(len(older) - 1, -1, -1):
+        if index in kept_older:
+            continue
+        size = estimate_messages_tokens(older[index])
+        if used + size <= budget_tokens:
+            kept_older.add(index)
+            used += size
+
+    kept_working = set(protected_working)
+    for index in range(len(working) - 1, -1, -1):
+        if index in kept_working:
+            continue
+        size = estimate_messages_tokens(working[index])
+        if used + size <= budget_tokens:
+            kept_working.add(index)
+            used += size
+
+    dropped_older = [group for index, group in enumerate(older) if index not in kept_older]
+    dropped_working = [group for index, group in enumerate(working) if index not in kept_working]
+    dropped = [*dropped_older, *dropped_working]
+    if not dropped and plan.earlier_records == 0:
+        return plan, None
+
+    retained_older = [group for index, group in enumerate(older) if index in kept_older]
+    retained_working = [group for index, group in enumerate(working) if index in kept_working]
+    marker_position = sum(1 for index in sorted(kept_older) if index in head_indexes)
+    older_with_marker = [
+        *retained_older[:marker_position],
+        (ModelMessage(role=ModelRole.SYSTEM, content=_marker_content(dropped, plan.earlier_records)),),
+        *retained_older[marker_position:],
+    ]
+    before = history_bytes(
+        [*(message for group in older for message in group), *(m for group in working for m in group)]
+    )
+    after_messages = [
+        *(message for group in older_with_marker for message in group),
+        *(message for group in retained_working for message in group),
+    ]
+    after = history_bytes(after_messages)
+    retained_seqs = [
+        _group_seq(group)
+        for group in [*retained_older, *retained_working]
+        if _group_seq(group) > (plan.head_end_seq or 0)
+    ]
+    return (
+        replace(
+            plan,
+            older=tuple(older_with_marker),
+            working=tuple(retained_working),
+            material_end_seq=0,
+        ),
+        LayerOutcome(
+            layer="budget",
+            fired=True,
+            groups=len(dropped),
+            bytes_before=before,
+            bytes_after=after,
+            messages=tuple(after_messages),
+            dropped_records=(
+                _dropped_record_count(dropped)
+                + (plan.earlier_records if plan.earlier_records is not None else 0)
+            ),
+            retained_from_seq=min(retained_seqs, default=None),
+        ),
+    )
 
 
 @runtime_checkable
 class ContextCompactor(Protocol):
-    """请求构建缝上的压缩钩子（design §3.2 的第二条集成缝）。
+    """Request-boundary compression hook; implementations must degrade to no compression."""
 
-    实现**必须自己吞掉所有异常**（RULE-04：压缩失败一律退化到不压缩，不得让 Run 失败），
-    所以这里的契约就一句：拿到一个显式 ContextPlan，返回可发给模型的 ContextPlan。
-    """
-
-    async def compact_plan(self, plan: ContextPlan) -> ContextPlan: ...
+    async def compact_plan(self, plan: ContextPlan, *, budget_ratio: float = 1.0) -> ContextPlan: ...
 
 
 __all__ = [
     "ContextCompactor",
+    "Group",
     "LayerOutcome",
-    "compact_history",
-    "compact_plan",
+    "OMISSION_MARKER_PREFIX",
+    "estimate_message_tokens",
+    "estimate_messages_tokens",
+    "fit_history",
     "history_bytes",
     "message_bytes",
-    "micro",
-    "snip",
     "split_groups",
     "split_protected_prefix",
-    "trim_history",
-    "trim_older_history",
 ]
-
-def compact_plan(
-    plan: ContextPlan,
-    *,
-    snip_settings: SnipSettings,
-    micro_settings: MicroSettings,
-    history_budget_messages: int | None = None,
-) -> tuple[ContextPlan, tuple[LayerOutcome, ...]]:
-    """对 **older** 做 micro → snip → 条数兜底；`working`（当前回合）不在这里处理。
-
-    摘要层由 `muad_agent_core.context.layers.compact_plan_layered` 统一编排：摘要成功时
-    这段函数根本不跑；摘要未触发/拒绝/失败时，它才是对**原始 older** 的可见兜底。
-    `working` 只做 micro（旧工具结果降级），因为 snip 会把模型正在推理的结果换掉。
-    """
-    older_messages = tuple(message for group in plan.older for message in group)
-    micro_outcome = micro(older_messages, micro_settings)
-    snip_outcome = snip(micro_outcome.messages, snip_settings)
-    layers: list[LayerOutcome] = [micro_outcome, snip_outcome]
-    plan = replace(plan, older=split_groups(snip_outcome.messages))
-    plan, budget = trim_older_history(plan, history_budget_messages)
-    if budget is not None:
-        layers.append(budget)
-    return plan, tuple(layers)
-
-
-def trim_older_history(
-    plan: ContextPlan, keep_messages: int | None
-) -> tuple[ContextPlan, LayerOutcome | None]:
-    """Message-count fallback for older; only call it when no summary replaced the interval."""
-    if keep_messages is None:
-        return plan, None
-    older_messages = tuple(message for group in plan.older for message in group)
-    bounded = trim_history(older_messages, keep_messages)
-    if bounded == older_messages:
-        return plan, None
-    return (
-        replace(plan, older=split_groups(bounded)),
-        LayerOutcome(
-            "budget", True, 0, history_bytes(older_messages), history_bytes(bounded), bounded
-        ),
-    )

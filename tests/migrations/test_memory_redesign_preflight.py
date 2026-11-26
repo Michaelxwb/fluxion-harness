@@ -1,10 +1,12 @@
 """B-20: a failed preflight leaves the old revision and data untouched."""
 
+from dataclasses import asdict
 from uuid import uuid4
 
 import pytest
 import sqlalchemy as sa
 from muad_contracts.canonical import canonical_json
+from muad_contracts.platform_settings import default_compaction_settings
 
 from tests.migrations.memory_redesign_support import (
     legacy_memory_database as legacy_memory_database,
@@ -53,7 +55,7 @@ async def test_b20_settings_migration_uses_active_revision_and_keeps_deleted_ver
         current = [item for item in rows if not item.is_deleted][-1]
         assert current.settings_json["agent"]["max_turns"] == 12
         assert "memory" not in current.settings_json["compaction"]
-        assert current.settings_json["compaction"]["max_history_tool_rounds"] == 6
+        assert current.settings_json["compaction"] == asdict(default_compaction_settings())
         assert "memory" in current.settings_json
         assert (
             await connection.execute(

@@ -64,6 +64,12 @@ from muad_agent_core.tools.pipeline import (
     ToolPolicyDecision,
 )
 from muad_agent_core.tools.registry import ToolHandler
+from muad_agent_core.tools.result_budget import (
+    RoundCandidate,
+    ToolResultBudget,
+    derive_tool_result_budget,
+    select_round_persists,
+)
 from muad_api import AppError
 from muad_api.context import current_locale, current_trace_id
 from muad_api.error_codes import ErrorCode
@@ -101,7 +107,6 @@ from muad_contracts.platform_settings import (
     LocaleSettings,
     MemoryPolicySettings,
     TaskSettings,
-    ToolResultSettings,
 )
 from muad_logging import get_logger
 from muad_logging.redaction import redact_text
@@ -136,10 +141,8 @@ from .attachments.output_service import (
 )
 from .attachments.tool_results import (
     ArtifactResultWriter,
-    RoundCandidate,
     preview_head_tail,
     reference_payload,
-    select_round_persists,
 )
 from .attachments.tools import AttachmentToolSet
 from .context_compaction import RuntimeContextCompactor, SummaryRunner, make_summary_runner
@@ -314,6 +317,13 @@ class ExecutorRequest:
     skills: tuple[ResolvedSkill, ...] = ()
     mcp_servers: tuple[ResolvedMcpServer, ...] = ()
     history: tuple[ModelMessage, ...] = ()
+    #: 历史装配的 seq 元数据；由 history loader 注入，逐层传给 ContextPlan。
+    covered_seq: int = 0
+    material_scan_end_seq: int = 0
+    head_end_seq: int | None = None
+    earlier_records: int | None = 0
+    #: 未确认的任务线索提示；只作为 SYSTEM 数据块进入受保护前缀，不授予权限。
+    resume_hint: str | None = None
     active_skills: tuple[str, ...] = ()
     credentials: ExecutorCredentials = ExecutorCredentials()
     run_context: ExecutorRunContext | None = None
@@ -579,7 +589,7 @@ class _ExecutorEventEmitter:
             # 未外置的结果：正文在这里留一份**有界预览**（沿用引用预览的同一组字节上限）。
             # 不留就只有工具名进 canonical 行，下一 Run 重建历史时这条结果净丢（2026-10-06
             # review）。外置过的结果不带这个键——它有 artifact_id，重建按引用还原。
-            settings = tool_result_settings(self._request)
+            settings = tool_result_budget(self._request)
             data["preview"] = preview_head_tail(
                 completed.content,
                 head_bytes=settings.preview_head_bytes,
@@ -753,6 +763,11 @@ class AgentRunnerExecutor:
             origin=MessageOrigin.USER_INPUT.value,
         )
         messages = _with_current_turn(tuple(self._request.history), current)
+        if self._request.resume_hint:
+            messages = (
+                ModelMessage(role=ModelRole.SYSTEM, content=self._request.resume_hint),
+                *messages,
+            )
         run_input = (
             RunInput(
                 message_id=message_id,
@@ -768,6 +783,10 @@ class AgentRunnerExecutor:
             skills=self._catalog_skills(),
             messages=messages,
             run_input=run_input,
+            covered_seq=self._request.covered_seq,
+            material_scan_end_seq=self._request.material_scan_end_seq,
+            head_end_seq=self._request.head_end_seq,
+            earlier_records=self._request.earlier_records,
             active_skills=self._request.active_skills,
             policy=agent_policy_for(self._request),
             reply_locale=execution_defaults_for(self._request).locale,
@@ -1820,13 +1839,13 @@ class ToolCallRecorder:
         context: ExecutorRunContext,
         audit_writer: RuntimeAuditWriter | None,
         artifact_writer: ArtifactResultWriter | None,
-        settings: ToolResultSettings | None = None,
+        settings: ToolResultBudget | None = None,
         credential_canaries: tuple[str, ...] = (),
     ) -> None:
         self._context = context
         self._audit = audit_writer
         self._artifacts = artifact_writer
-        self._settings = settings or ToolResultSettings()
+        self._settings = settings or derive_tool_result_budget()
         self._round: dict[str, _RoundCall] = {}
         self._credential_canaries = credential_canaries
         self._previews: dict[str, dict[str, JsonValue]] = {}
@@ -2225,7 +2244,7 @@ def _register_run_artifacts(
         ),
     )
     ArchiveToolSet(
-        receipt_limit_bytes=tool_result_settings(request).persist_threshold_bytes,
+        receipt_limit_bytes=tool_result_budget(request).persist_threshold_bytes,
         max_archive_files=execution.max_archive_files,
         writer=writer,
     ).register(registry)
@@ -2364,9 +2383,9 @@ def _recent_user_texts(history: tuple[ModelMessage, ...]) -> tuple[str, ...]:
     )
 
 
-def tool_result_settings(request: ExecutorRequest) -> ToolResultSettings:
-    """整轮批次预算与预览阈值：取自**冻结**配置，没有冻结配置时回落 schema 默认值。"""
-    return request.compaction.tool_result if request.compaction is not None else ToolResultSettings()
+def tool_result_budget(request: ExecutorRequest) -> ToolResultBudget:
+    """从冻结压缩配置派生整轮外置预算与预览长度。"""
+    return derive_tool_result_budget(request.compaction)
 
 
 @dataclass(frozen=True, slots=True)
@@ -2514,7 +2533,7 @@ def _recorder_for(
         context=request.run_context,
         audit_writer=audit,
         artifact_writer=artifact_writer,
-        settings=tool_result_settings(request),
+        settings=tool_result_budget(request),
         credential_canaries=tuple(
             value for value in (request.model.api_key, *request.credentials.mcp_secrets.values()) if value
         ),

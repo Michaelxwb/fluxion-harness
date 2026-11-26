@@ -50,7 +50,6 @@ from muad_agent_runtime.application.async_tools.operations import reserve_operat
 from muad_agent_runtime.application.async_tools.supervisor import ExecutionSupervisor
 from muad_agent_runtime.application.context_builder import (
     HISTORY_EVENT_TYPES,
-    BudgetPolicy,
     DbBackedContextBuilder,
 )
 from muad_agent_runtime.application.execution_status import (
@@ -1140,13 +1139,15 @@ async def test_b236_model_wait_projects_reason_and_bounded_deadline_then_resumes
         assert "queue projection" in request_text
         assert "RUN_STAGE" not in HISTORY_EVENT_TYPES
         conversation_id = uuid.UUID(str(finished["conversation_id"]))
-        history = await DbBackedContextBuilder(
-            session_factory=get_session_factory, budget=BudgetPolicy()
+        loaded = await DbBackedContextBuilder(
+            session_factory=get_session_factory
         ).load_history(
             tenant_id=tenant.tenant_id,
             conversation_id=conversation_id,
             user_id=tenant.platform_user_id,
+            budget_tokens=100_000,
         )
+        history = loaded.messages
         assert history, "完成后的会话必须有真实历史"
         history_text = " ".join(_content_text(message.content) for message in history)
         assert "WAITING" not in history_text and "正在等待" not in history_text

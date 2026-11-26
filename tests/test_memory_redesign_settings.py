@@ -83,17 +83,20 @@ def test_memory_bool_fields_do_not_coerce_other_types(name, value):
 
 
 @pytest.mark.unit
-def test_memory_lease_margin_and_removed_ratio_and_history_rounds():
+def test_memory_lease_margin_and_removed_ratio_and_legacy_history_keys():
     with pytest.raises(PlatformSettingsError):
         parse_platform_settings({"memory": {"consolidation_timeout_sec": 30, "consolidation_lease_sec": 44}})
     boundary = parse_platform_settings({"memory": {"consolidation_lease_sec": 45}})
     assert boundary.memory.consolidation_lease_sec == 45
-    assert default_platform_settings().compaction.max_history_tool_rounds == 6
-    for value in (0, 50):
-        assert parse_platform_settings({"compaction": {"max_history_tool_rounds": value}})
-    for value in (-1, 51, True):
+    assert default_platform_settings().compaction.history_budget_tokens == 16384
+    for legacy in (
+        {"max_history_tool_rounds": 6},
+        {"history_budget_messages": 40},
+        {"snip": {"enabled": True}},
+        {"micro": {"enabled": True}},
+    ):
         with pytest.raises(PlatformSettingsError):
-            parse_platform_settings({"compaction": {"max_history_tool_rounds": value}})
+            parse_platform_settings({"compaction": legacy})
     with pytest.raises(PlatformSettingsError):
         parse_platform_settings({"compaction": {"memory": {"budget_ratio": 0.2}}})
     with pytest.raises(PlatformSettingsError):

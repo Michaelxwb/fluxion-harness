@@ -25,7 +25,9 @@ from muad_contracts.platform_settings import (
     PlatformSettingsError,
     merge_compaction_payload,
     parse_compaction_settings,
+    parse_frozen_compaction_settings,
     parse_platform_settings,
+    validate_history_budget_tokens,
 )
 
 from .model_allocator import dispatch_policy_hash
@@ -223,6 +225,7 @@ def resolve_compaction_settings(
     agent_runtime_config: Mapping[str, Any] | None,
     *,
     platform_overrides: Mapping[str, Any] | None,
+    model_context_window_min_tokens: int | None = None,
 ) -> CompactionSettings:
     """把**平台设置快照**（`compaction` 分组）与 Agent 显式覆盖合并成完整压缩配置。
 
@@ -233,21 +236,20 @@ def resolve_compaction_settings(
     if not isinstance(budget, Mapping):
         raise CompactionConfigError("runtime_config.budget 必须是对象")
     payload = merge_compaction_payload(base=platform_overrides, override=budget.get("compaction"))
-    return parse_compaction_settings(payload)
+    settings = parse_compaction_settings(payload)
+    validate_history_budget_tokens(
+        settings.history_budget_tokens,
+        model_context_window_min_tokens=model_context_window_min_tokens,
+    )
+    return settings
 
 
-def compaction_settings_of(policy: Mapping[str, Any] | None) -> CompactionSettings | None:
-    """从**已冻结**的 `policy_json` 还原压缩配置；缺键或形状坏返回 None（等于不压缩）。
-
-    resume 走这条：在跑的 Run 用的永远是它自己那一份冻结值，不吃当前配置。
-    """
+def compaction_settings_of(policy: Mapping[str, Any] | None) -> CompactionSettings:
+    """从**已冻结**的 `policy_json` 严格还原压缩配置；缺键/旧键/形状坏显式失败。"""
     compaction = (policy or {}).get(COMPACTION_POLICY_KEY)
     if not isinstance(compaction, Mapping):
-        return None
-    try:
-        return parse_compaction_settings(compaction)
-    except CompactionConfigError:
-        return None
+        raise CompactionConfigError("已冻结 policy 缺少 compaction 配置")
+    return parse_frozen_compaction_settings(compaction)
 
 
 __all__ = [

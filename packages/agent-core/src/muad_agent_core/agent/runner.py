@@ -233,6 +233,11 @@ class AgentRunRequest:
     memory_language: str | None = None
     #: 当前 Run 的显式输入；缺失时由宿主消息边界推导一次（不在 ContextPlan 内推断）。
     run_input: RunInput | None = None
+    #: 历史装配的 seq 元数据；摘要/裁剪只读这些事实，不在 plan 内重新推断。
+    covered_seq: int = 0
+    material_scan_end_seq: int = 0
+    head_end_seq: int | None = None
+    earlier_records: int | None = 0
     #: 已成功 load_skill 的 key；恢复时由宿主重建后注入。
     active_skills: tuple[str, ...] = ()
     temperature: float | None = None
@@ -277,6 +282,10 @@ class AgentRunState(TypedDict):
     messages: list[ModelMessage]
     pending_tool_calls: list[ToolCall]
     run_input: RunInput | None
+    covered_seq: int
+    material_scan_end_seq: int
+    head_end_seq: int | None
+    earlier_records: int | None
     active_skills: set[str]
     final_text: str
     turns: int
@@ -557,6 +566,10 @@ class AgentRunner:
             messages=[ModelMessage(role=ModelRole.SYSTEM, content=system), *request.messages],
             pending_tool_calls=[],
             run_input=run_input,
+            covered_seq=request.covered_seq,
+            material_scan_end_seq=request.material_scan_end_seq,
+            head_end_seq=request.head_end_seq,
+            earlier_records=request.earlier_records,
             active_skills=set(request.active_skills),
             final_text=progress.recovered_window_text if recovered_limit else "",
             turns=progress.turns,
@@ -1466,6 +1479,10 @@ class AgentRunner:
                 messages,
                 run_input=state["run_input"],
                 active_skills=tuple(state["active_skills"]),
+                covered_seq=state["covered_seq"],
+                material_scan_end_seq=state["material_scan_end_seq"],
+                head_end_seq=state["head_end_seq"],
+                earlier_records=state["earlier_records"],
             )
             compacted = await self._context_compactor.compact_plan(plan)
             return render_context(compacted)

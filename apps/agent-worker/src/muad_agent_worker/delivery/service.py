@@ -1259,7 +1259,11 @@ async def _insert_question_deliveries(
                 ]
             )
             .on_conflict_do_nothing(
-                index_elements=[TaskDelivery.tenant_id, TaskDelivery.delivery_key],
+                index_elements=[
+                    TaskDelivery.tenant_id,
+                    TaskDelivery.delivery_key,
+                    TaskDelivery.delivery_route_id,
+                ],
                 index_where=TaskDelivery.is_deleted == false(),
             )
             .returning(TaskDelivery.id, TaskDelivery.tenant_id)

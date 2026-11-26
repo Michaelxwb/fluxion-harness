@@ -32,6 +32,7 @@ from muad_agent_core.model import (
     text_of,
 )
 from muad_agent_core.tools import ToolCall, ToolDefinition, ToolEffect, ToolRegistry, ToolResult
+from muad_agent_core.tools.result_budget import derive_tool_result_budget
 from muad_agent_runtime.api.deps import get_executor_factory
 from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
 from muad_agent_runtime.application.executor import (
@@ -44,7 +45,6 @@ from muad_agent_runtime.application.executor import (
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import Artifact, CanonicalEvent
 from muad_agent_runtime.main import app
-from muad_contracts.platform_settings import ToolResultSettings
 
 from agent_runtime.conftest import TenantContext, parse_sse
 
@@ -130,7 +130,7 @@ def _factory(tmp_path: Path, provider: _TwoRunProvider) -> ExecutorFactory:
             context=context,
             audit_writer=None,
             artifact_writer=ArtifactResultWriter(tmp_path),
-            settings=ToolResultSettings(),
+            settings=derive_tool_result_budget(),
         )
         runner = AgentRunner(
             provider=provider,

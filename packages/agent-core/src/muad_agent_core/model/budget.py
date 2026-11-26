@@ -22,6 +22,8 @@ from muad_contracts.platform_settings import AgentSettings
 
 #: 单次模型请求上限（算法参数，不开放为设置）：请求预算先被它夹住。
 MAX_MODEL_REQUEST_MS = 120_000
+#: 单条消息协议开销（role/字段名/分隔符）的保守估算；Runtime 与 Worker 共用。
+MESSAGE_PROTOCOL_OVERHEAD_BYTES = 32
 #: 指数退避基数（算法参数，不开放为设置）：两次重试循环共用的唯一基数。
 RETRY_BASE_SEC = 0.1
 

@@ -66,6 +66,12 @@ DELETE_LEASES = text(
     "(SELECT id FROM task.workspace WHERE tenant_id = :tenant_id)"
 )
 DELETE_WORKSPACES = text("DELETE FROM task.workspace WHERE tenant_id = :tenant_id")
+DELETE_MESSAGE_DELIVERY_ATTEMPTS = text(
+    "DELETE FROM runtime.message_delivery_attempt WHERE tenant_id = :tenant_id"
+)
+DELETE_MESSAGE_DELIVERIES = text(
+    "DELETE FROM runtime.message_delivery WHERE tenant_id = :tenant_id"
+)
 SWEEP_LEASES = text(
     "DELETE FROM task.workspace_lease WHERE workspace_id IN "
     "(SELECT id FROM task.workspace WHERE tenant_id LIKE 'test-%')"
@@ -298,6 +304,9 @@ async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
                     text(f"DELETE FROM task.{table} WHERE tenant_id = :tenant_id"),
                     {"tenant_id": tenant_id},
                 )
+            # 读面夹具会直接种 runtime.message_delivery；残留会被 dev 投递泵扫到。
+            await session.execute(DELETE_MESSAGE_DELIVERY_ATTEMPTS, {"tenant_id": tenant_id})
+            await session.execute(DELETE_MESSAGE_DELIVERIES, {"tenant_id": tenant_id})
             await session.commit()
 
 

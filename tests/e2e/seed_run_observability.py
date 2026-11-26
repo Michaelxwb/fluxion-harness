@@ -135,7 +135,20 @@ def _timeline_detail_seed(
         ),
         6: ("ASSISTANT_TURN", {"text": "已为你查询深圳天气", "reasoning_content": CREDENTIAL_MARKER,
                                "tool_calls": [{"id": "call_content_audit", "name": "run_obs_content_tool"}]}),
-        8: ("CONTEXT_COMPACTED", {"layers": {"snip": {"fired": True, "groups": 3, "bytes_saved": 2048}}}),
+        8: (
+            "CONTEXT_COMPACTED",
+            {
+                "layers": {
+                    "budget": {
+                        "fired": True,
+                        "groups": 3,
+                        "bytes_saved": 2048,
+                        "dropped_records": 5,
+                        "retained_from_seq": 7,
+                    }
+                }
+            },
+        ),
         9: ("TOOL_TASK_ACCEPTED", {"task_id": str(task_id), "tool_call_id": "call_content_join"}),
     }
     return events.get(seq, (None, {}))

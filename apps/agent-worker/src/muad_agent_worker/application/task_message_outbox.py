@@ -269,13 +269,13 @@ async def _identity_push_routes(
         seen.add(key)
         # Runtime 的收件人校验读 `task.delivery_route`；扇出的每个目标都要先落成
         # owner-scoped route，否则第二个 bot 会被判为 DELIVERY_ROUTE_UNAVAILABLE。
-        await upsert_delivery_route(
+        route_id = await upsert_delivery_route(
             session,
             tenant_id=task.tenant_id,
             platform_user_id=task.actor_user_id,
             route=route,
         )
-        pushes.append(_PushRoute(route=route, target_key=key))
+        pushes.append(_PushRoute(route=route, target_key=key, route_id=route_id))
     return pushes
 
 
@@ -322,7 +322,11 @@ async def _route_row_to_push(
             extra={"task_id": str(task.id), "route_id": str(route_row.id)},
         )
         return None
-    return _PushRoute(route=route, target_key=delivery_target_key(route))
+    return _PushRoute(
+        route=route,
+        target_key=delivery_target_key(route),
+        route_id=route_row.id,
+    )
 
 
 async def _output_attachments(
@@ -390,11 +394,18 @@ def _result_text(task: TaskExecution, fresh: Mapping[str, Any] | None = None) ->
 
 
 class _PushRoute:
-    __slots__ = ("route", "target_key")
+    __slots__ = ("route", "target_key", "route_id")
 
-    def __init__(self, *, route: DeliveryRouteInput, target_key: str) -> None:
+    def __init__(
+        self,
+        *,
+        route: DeliveryRouteInput,
+        target_key: str,
+        route_id: uuid.UUID | None = None,
+    ) -> None:
         self.route = route
         self.target_key = target_key
+        self.route_id = route_id
 
 
 __all__ = [

@@ -65,7 +65,8 @@ async def selected_job(factory, run, placeholder):
         row = await session.get(RunRecord, run.id)
         row.status = "RUNNING"
         await session.delete(await session.get(MemoryConsolidationJob, placeholder.id))
-    await inbound(factory, run, "继续")
+    await inbound(factory, run, "继续")  # 只列出候选，不再自动绑定
+    await inbound(factory, run, "第1个")  # 显式选择才产生 resume ref
     async with factory.begin() as session:
         row = await session.get(RunRecord, run.id)
         row.status = "COMPLETED"

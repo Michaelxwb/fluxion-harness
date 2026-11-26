@@ -70,7 +70,7 @@ ENTRY_ID = uuid.uuid4()
 LISTEN_TIMEOUT_SEC = 15.0
 #: 内部服务身份：与 Console `require_service_identity` 同源（env `INTERNAL_SERVICE_TOKEN`）。
 INTERNAL_TOKEN = "test-internal-token"
-DEFAULT_MAX_GROUPS = default_compaction_settings().snip.max_groups  # schema 默认（无平台设置时）
+DEFAULT_HISTORY_BUDGET = default_compaction_settings().history_budget_tokens  # schema 默认（无平台设置时）
 
 
 @pytest.fixture(autouse=True)
@@ -134,7 +134,9 @@ async def _seed_platform_setting(tenant_id: str, revision: int, document: dict[s
         await session.commit()
 
 
-async def _seed_agent_with_compaction_override(tenant_id: str, *, max_groups: int) -> dict[str, Any]:
+async def _seed_agent_with_compaction_override(
+    tenant_id: str, *, history_budget_tokens: int
+) -> dict[str, Any]:
     """真实 `control.agent_definition` 行，其 `runtime_config_json.budget.compaction` 非空。"""
     async with console_session_factory()() as session:
         model = ModelDefinition(
@@ -147,7 +149,9 @@ async def _seed_agent_with_compaction_override(tenant_id: str, *, max_groups: in
         )
         session.add(model)
         await session.flush()
-        runtime_config = {"budget": {"compaction": {"snip": {"max_groups": max_groups}}}}
+        runtime_config = {
+            "budget": {"compaction": {"history_budget_tokens": history_budget_tokens}}
+        }
         agent = AgentDefinition(
             tenant_id=tenant_id,
             key=f"agent-{uuid.uuid4()}",
@@ -379,16 +383,18 @@ async def test_e07_agent_override_precedence_over_platform_default(
     Agent 的 `runtime_config.budget.compaction` 覆盖平台默认（该键取 Agent 值）；
     平台设置里 Agent 没覆盖的键仍生效；admin 读接口如实返回压缩分组的资源覆盖数。
     """
-    override_groups = 60
-    platform_groups = 40
-    runtime_config = await _seed_agent_with_compaction_override(tenant.tenant_id, max_groups=override_groups)
+    override_budget = 12000
+    platform_budget = 20000
+    runtime_config = await _seed_agent_with_compaction_override(
+        tenant.tenant_id, history_budget_tokens=override_budget
+    )
     fake = FakeResolveClient(response=_resolved_with_override(tenant, runtime_config))
 
     async with _console_server() as console_url:
         await _seed_platform_setting(
             tenant.tenant_id,
             revision=1,
-            document={"compaction": {"snip": {"max_groups": platform_groups}, "micro": {"enabled": True}}},
+            document={"compaction": {"history_budget_tokens": platform_budget}},
         )
         run_id = await _start_run(tenant, console_url, fake, executor_factory)
         policy = await _frozen_policy(run_id)
@@ -399,12 +405,11 @@ async def test_e07_agent_override_precedence_over_platform_default(
             assert read.status_code == 200, read.text
             groups = read.json()["data"]["groups"]
 
-    # 覆盖值优先：Agent 显式 60 胜过平台 40
-    assert policy["compaction"]["snip"]["max_groups"] == override_groups
-    # 平台生效：Agent 未覆盖的 micro 用平台值
-    assert policy["compaction"]["micro"]["enabled"] is True
+    # 覆盖值优先：Agent 显式 12000 胜过平台 20000
+    assert policy["compaction"]["history_budget_tokens"] == override_budget
     # 未覆盖的 leaf 回落 schema 默认
-    assert policy["compaction"]["snip"]["keep_head_groups"] == 3
+    assert policy["compaction"]["tool_result"]["persist_threshold_bytes"] == 8192
+    assert policy["compaction"]["summary"]["enabled"] is False
 
     compaction_group = next(group for group in groups if group["key"] == "compaction")
     overridden = {field["overridden_by_resources"] for field in compaction_group["fields"]}
@@ -426,23 +431,23 @@ async def test_e08_new_revision_without_restart(
     **新构造**的 service + client 建 Run 2，必须读到新 revision。若把进程级 TTL 单例加回来，
     Run 2 会在这 10 秒窗口里读到缓存旧值（= schema 默认），本用例即变红。
     """
-    new_groups = 41
+    new_budget = 12000
     async with _console_server() as console_url:
         run1 = await _start_run(tenant, console_url, fake_resolve, executor_factory)
         policy1 = await _frozen_policy(run1)
-        assert policy1["compaction"]["snip"]["max_groups"] == DEFAULT_MAX_GROUPS
+        assert policy1["compaction"]["history_budget_tokens"] == DEFAULT_HISTORY_BUDGET
 
         await _seed_platform_setting(
             tenant.tenant_id,
             revision=1,
-            document={"compaction": {"snip": {"max_groups": new_groups}}},
+            document={"compaction": {"history_budget_tokens": new_budget}},
         )
 
         # 紧接保存之后（远早于旧设计的 10s TTL 到期），全新 service + 全新 client
         run2 = await _start_run(tenant, console_url, fake_resolve, executor_factory)
         policy2 = await _frozen_policy(run2)
 
-    assert policy2["compaction"]["snip"]["max_groups"] == new_groups, (
+    assert policy2["compaction"]["history_budget_tokens"] == new_budget, (
         "保存后的新 Run 必须立即读到新 revision（无 TTL、无重启、无等待窗口）"
     )
     assert run1 != run2
@@ -515,7 +520,7 @@ async def test_settings_client_does_not_cache_snapshots_between_calls(
             await _seed_platform_setting(
                 tenant.tenant_id,
                 revision=1,
-                document={"compaction": {"snip": {"max_groups": 41}}},
+                document={"compaction": {"history_budget_tokens": 41000}},
             )
             second = await client.fetch_snapshot(tenant_id=tenant.tenant_id)
         finally:

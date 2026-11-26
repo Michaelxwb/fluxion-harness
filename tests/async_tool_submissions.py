@@ -6,6 +6,7 @@ from uuid import uuid4
 from muad_agent_runtime.application.task_client import TaskSubmissionContext
 from muad_agent_runtime.infrastructure.models.runtime import Conversation, RunRecord, RuntimeSnapshot
 from muad_contracts import ResolvedAgent, ResolvedModel, ResolvedSkill, RunStatus, SkillExecutionMode
+from muad_contracts.platform_settings import compaction_payload, default_compaction_settings
 
 
 async def seed_submission(factory, *, pending_limit=1, resolved=None, tenant=None, actor=None, run_id=None):
@@ -54,7 +55,10 @@ async def seed_submission(factory, *, pending_limit=1, resolved=None, tenant=Non
             if resolved
             else [skill.model_dump(mode="json")],
             mcp_catalog_json=[],
-            policy_json={"async_tools": {"pending_operation_limit": pending_limit}},
+            policy_json={
+                "async_tools": {"pending_operation_limit": pending_limit},
+                "compaction": compaction_payload(default_compaction_settings()),
+            },
             prompt_template_version="1",
             schema_version=1,
             content_hash="sha256:" + "b" * 64,

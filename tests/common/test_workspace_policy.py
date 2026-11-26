@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from muad_common import SharedSettings, workspace_policy_from_settings
 
 
 def test_workspace_policy_converts_mib_and_keeps_limits() -> None:
+    root = str(Path("/tmp/ws-test").resolve())
     settings = SharedSettings(
         _env_file=None,
-        workspace_root="/tmp/ws-test",
+        workspace_root=root,
         workspace_quota_mib=7,
         workspace_user_quota_mib=9,
         workspace_file_limit=11,
@@ -17,7 +20,7 @@ def test_workspace_policy_converts_mib_and_keeps_limits() -> None:
 
     policy = workspace_policy_from_settings(settings)
 
-    assert policy.root == "/tmp/ws-test"
+    assert policy.root == root
     assert policy.quota_bytes == 7 * 1024 * 1024
     assert policy.user_quota_bytes == 9 * 1024 * 1024
     assert policy.file_limit == 11

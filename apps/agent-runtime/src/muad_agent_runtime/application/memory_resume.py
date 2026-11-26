@@ -17,7 +17,7 @@ from ..infrastructure.models.runtime import CanonicalEvent, RunRecord
 from ..metrics import MEMORY_RESUME_METRIC, record_counter
 from .memory_queries import ExperienceSnapshot, MemoryQueries, MemoryReadScope
 from .memory_resume_metrics import committed_resume_metric
-from .memory_resume_options import build_options, options_prompt, task_candidates, valid_option
+from .memory_resume_options import build_options, task_candidates, valid_option
 from .memory_resume_queries import owned_conversation, pending_options, resume_decision
 from .run_events import EventWriter
 
@@ -62,11 +62,8 @@ class MemoryResumeService:
             await self._pending(
                 session, run, submission_id, user_id, pending, text, snapshot if enabled else None
             )
-        elif enabled and intent is not None:
-            if snapshot is None:
-                await self._notice(session, run, submission_id, "任务线索暂时不可读，请稍后重试。")
-            else:
-                await self._offer(session, run, submission_id, user_id, intent, snapshot)
+        elif enabled and intent is not None and snapshot is not None:
+            await self._offer(session, run, submission_id, user_id, intent, snapshot)
         return seq
 
     async def _read(
@@ -105,16 +102,11 @@ class MemoryResumeService:
     ) -> None:
         rows = task_candidates(snapshot.records, intent.theme)
         if not rows:
-            await self._notice(session, run, submission_id, "没有可用的任务线索，请提供具体主题或任务内容。")
             return
         options = build_options(
             rows, user_id=run.user_id, source_user_event_id=user_id, theme=intent.theme, now=snapshot.as_of
         )
         option_id = uuid4()
-        show = relist or len(rows) != 1
-        payload = options.model_dump(mode="json")
-        if show:
-            payload["delta"] = options_prompt(options)
         await EventWriter(session).append(
             tenant_id=run.tenant_id,
             conversation_id=run.conversation_id,
@@ -122,11 +114,8 @@ class MemoryResumeService:
             event_type="MEMORY_RESUME_OPTIONS",
             submission_id=submission_id,
             event_id=option_id,
-            payload=payload,
-            stream_type="message.delta" if show else None,
+            payload=options.model_dump(mode="json"),
         )
-        if not show:
-            await self._resolve(session, run, submission_id, user_id, option_id, "SELECTED", options.items[0])
 
     async def _pending(
         self,
@@ -210,14 +199,3 @@ class MemoryResumeService:
             payload=payload,
         )
         committed_resume_metric(session, outcome)
-
-    async def _notice(self, session: AsyncSession, run: RunRecord, submission_id: UUID, text: str) -> None:
-        await EventWriter(session).append(
-            tenant_id=run.tenant_id,
-            conversation_id=run.conversation_id,
-            run_id=run.id,
-            event_type="MEMORY_RESUME_NOTICE",
-            submission_id=submission_id,
-            payload={"delta": text},
-            stream_type="message.delta",
-        )

@@ -1,479 +1,111 @@
-"""[B-01 / B-03 / RULE-01 / RULE-02] 压缩前两层纯逻辑：消息组切分 + snip + micro。
-
-真实边界：纯函数（同输入同输出），不碰库、不读环境。用例同时钉住两条业务规则：
-- RULE-01 压缩后不得出现孤儿 `tool` 消息，带 `tool_calls` 的 assistant 回合与工具结果同进同出；
-- RULE-02 阈值一律按 **UTF-8 字节**判定（一个汉字 3 字节），且边界为**严格大于**。
-"""
+"""Request-boundary fit_history invariants."""
 
 from __future__ import annotations
 
-import json
-from typing import Any
-
 from muad_agent_core.context.compactor import (
-    compact_history,
+    OMISSION_MARKER_PREFIX,
+    fit_history,
     history_bytes,
-    message_bytes,
-    micro,
-    snip,
     split_groups,
-    split_protected_prefix,
-    trim_history,
 )
+from muad_agent_core.context.plan import ContextPlan, RunInput
 from muad_agent_core.model import ModelMessage, ModelRole, ModelToolCall
-from muad_contracts.platform_settings import MicroSettings, SnipSettings
 
 
-def _user(text: str) -> ModelMessage:
-    return ModelMessage(role=ModelRole.USER, content=text)
-
-
-def _assistant(text: str) -> ModelMessage:
-    return ModelMessage(role=ModelRole.ASSISTANT, content=text)
-
-
-def _externalized_result(call_id: str, artifact_id: str) -> ModelMessage:
-    return ModelMessage(
-        role=ModelRole.TOOL,
-        tool_call_id=call_id,
-        content=json.dumps(
-            {"artifact": {"artifact_id": artifact_id, "type": "TOOL_RESULT", "preview": "x" * 100}}
+def _plan(*, older_count: int = 4, earlier: int | None = 0) -> ContextPlan:
+    older = tuple(
+        (
+            ModelMessage(
+                role=ModelRole.USER if index % 2 == 0 else ModelRole.ASSISTANT,
+                content=f"old-{index}",
+                source_event_id=f"old-{index}",
+                source_event_seq=index + 1,
+            ),
+        )
+        for index in range(older_count)
+    )
+    current = ModelMessage(
+        role=ModelRole.USER,
+        content="current",
+        message_id="current",
+        source_event_id="current",
+        source_event_seq=99,
+    )
+    working = (
+        (
+            ModelMessage(
+                role=ModelRole.ASSISTANT,
+                content="",
+                tool_calls=(ModelToolCall("call-1", "echo", {}),),
+                source_event_seq=100,
+            ),
+            ModelMessage(
+                role=ModelRole.TOOL,
+                content="tool result",
+                tool_call_id="call-1",
+                source_event_seq=101,
+            ),
         ),
     )
-
-
-def _tool_group(call_id: str, name: str, text: str, artifact_id: str | None = None) -> list[ModelMessage]:
-    """一个工具交换组：assistant(tool_calls) + 它的 tool 结果（RULE-01 的成对单元）。"""
-    assistant = ModelMessage(
-        role=ModelRole.ASSISTANT,
-        content=text,
-        tool_calls=(ModelToolCall(id=call_id, name=name, arguments={"q": "值"}),),
-        reasoning_content=f"思考 {call_id}",
-    )
-    if artifact_id is None:
-        result = ModelMessage(role=ModelRole.TOOL, tool_call_id=call_id, content=f"结果 {call_id}")
-    else:
-        result = _externalized_result(call_id, artifact_id)
-    return [assistant, result]
-
-
-def _messages() -> list[ModelMessage]:
-    """1 条 user + 5 个工具组，共 6 组（组 0 是 user）。"""
-    messages = [_user("最初的诉求：别忘了我")]
-    for index in range(5):
-        messages.extend(_tool_group(f"call-{index}", f"tool_{index}", f"回合 {index}", f"art-{index}"))
-    return messages
-
-
-def _conversation() -> list[ModelMessage]:
-    """一段有**历史**的对话，共 8 组：更早的一轮（1 user + 4 工具组 + 一句结论）+ 当前回合。
-
-    当前回合是 1 条 user + 1 个工具组。snip 只在"头 N 组之外还有**不属于当前回合**的历史"时
-    才有东西可省 —— 单回合的 `_messages()` 在新口径下没有可省的东西（见
-    `test_b01_snip_does_not_fire_when_everything_is_the_current_turn`）。
-    """
-    messages = [_user("最初的诉求：别忘了我")]
-    for index in range(4):
-        messages.extend(_tool_group(f"old-{index}", f"tool_{index}", f"旧回合 {index}", f"art-{index}"))
-    messages.append(_assistant("先前的结论"))
-    messages.append(_user("现在的追问"))
-    messages.extend(_tool_group("now-0", "tool_now", "当前回合", "art-now"))
-    return messages
-
-
-# ---- B-01：消息组切分与头尾保留 ----
-
-
-def test_b01_split_groups_keeps_assistant_and_its_tool_results_together() -> None:
-    groups = split_groups(_messages())
-    assert len(groups) == 6, "1 条 user + 5 个工具交换组"
-    assert [message.role for message in groups[0]] == [ModelRole.USER]
-    for group in groups[1:]:
-        assert [message.role for message in group] == [ModelRole.ASSISTANT, ModelRole.TOOL]
-
-
-def test_b01_snip_keeps_head_and_tail_and_counts_omitted_groups() -> None:
-    messages = _conversation()
-    outcome = snip(messages, SnipSettings(keep_head_groups=2, keep_tail_groups=2, max_groups=4))
-
-    assert outcome.fired
-    assert outcome.groups == 4, "8 组留下头 2 + 当前回合 2 ⇒ 省略中间 4 组"
-    assert outcome.bytes_saved > 0
-    assert outcome.messages[0].content == "最初的诉求：别忘了我", "开头诉求必须留下"
-
-    markers = [message for message in outcome.messages if "省略" in str(message.content)]
-    assert len(markers) == 1, "中间只留**一条**省略标记"
-    marker = str(markers[0].content)
-    assert "4 组" in marker, "标记按**组**报数"
-    assert "tool_1" in marker and "tool_2" in marker, "标记要列出被省掉的工具名"
-    assert "art-1" in marker or "art-2" in marker, "标记要列出被省掉的产物名"
-
-    kept = [str(message.content) for message in outcome.messages]
-    assert "现在的追问" in kept, "当前回合不受尾窗口限制，必须整段留下"
-
-
-def test_b01_snip_is_off_at_or_below_the_threshold() -> None:
-    """RULE-02 的严格大于：组数恰好等于 `max_groups` 时不触发。"""
-    messages = _conversation()
-    exact = snip(messages, SnipSettings(keep_head_groups=2, keep_tail_groups=2, max_groups=8))
-    assert exact.fired is False
-    assert exact.messages == tuple(messages)
-
-    over = snip(messages, SnipSettings(keep_head_groups=2, keep_tail_groups=2, max_groups=7))
-    assert over.fired is True
-
-
-def test_b01_snip_disabled_is_identity() -> None:
-    messages = _conversation()
-    outcome = snip(
-        messages,
-        SnipSettings(enabled=False, keep_head_groups=1, keep_tail_groups=1, max_groups=1),
-    )
-    assert outcome.fired is False
-    assert outcome.messages == tuple(messages)
-
-
-def test_b01_snip_keeps_the_current_turn_whole() -> None:
-    """**当前回合（从最近一条 `user` 起到末尾）永不省略**——它不是"历史"。
-
-    反例现场（修复前）：一个回合内的工具轮次超过 `keep_tail_groups` 时，正在回答的那个问题被
-    省掉，模型只看到一串工具名，只能靠猜。生产默认值下要"单回合 > 20 个工具组"才够得着。
-    """
-    messages = [
-        _user("最初的诉求"),
-        *_tool_group("old-0", "tool_old", "旧回合 0"),
-        _assistant("先前的结论"),
-        _user("现在的追问：请核对这份清单"),
-        *[
-            message
-            for index in range(5)
-            for message in _tool_group(f"now-{index}", f"tool_now_{index}", f"当前回合 {index}")
-        ],
-    ]
-    outcome = snip(messages, SnipSettings(keep_head_groups=1, keep_tail_groups=2, max_groups=3))
-
-    assert outcome.fired
-    texts = [str(message.content) for message in outcome.messages]
-    assert "最初的诉求" in texts, "开头诉求必须留下（保头）"
-    assert "现在的追问：请核对这份清单" in texts, "当前正在回答的问题被省略了"
-    for index in range(5):
-        assert f"当前回合 {index}" in texts, f"当前回合的工具组 {index} 被省略了"
-    assert "先前的结论" not in texts, "被省的只能是更早的历史"
-    assert outcome.groups == 2, "省略的是'旧回合 0'与'先前的结论'两组"
-
-
-def test_b01_snip_is_unchanged_when_the_tail_window_already_covers_the_current_turn() -> None:
-    """对照：最近一条 `user` 组落在尾窗口**之内**时，锚定不改变任何结果。"""
-    outcome = snip(
-        _conversation(), SnipSettings(keep_head_groups=2, keep_tail_groups=5, max_groups=3)
+    return ContextPlan(
+        prefix=(),
+        older=older,
+        pinned=((current,),),
+        working=working,
+        head_end_seq=2,
+        earlier_records=earlier,
     )
 
-    assert outcome.fired
-    assert outcome.groups == 1, "尾窗口已覆盖当前回合 ⇒ 只省头 2 组之后的那一组"
-    assert "现在的追问" in [str(message.content) for message in outcome.messages]
+
+def test_fit_protects_head_current_and_latest_round_and_marks_the_gap() -> None:
+    plan = _plan()
+    compacted, layer = fit_history(plan, budget_tokens=1)
+
+    assert layer is not None and layer.fired
+    contents = [message.content for group in compacted.older for message in group]
+    assert "old-0" in contents and "old-1" in contents, "head anchor kept"
+    assert any(OMISSION_MARKER_PREFIX in str(message.content) for group in compacted.older for message in group)
+    assert compacted.pinned == plan.pinned
+    assert compacted.working == plan.working, "latest complete tool round kept"
+    assert layer.dropped_records >= 1
+    assert layer.retained_from_seq is not None
 
 
-def test_b01_snip_does_not_fire_when_everything_is_the_current_turn() -> None:
-    """头 N 组之后没有更早的历史 ⇒ 没有可省的东西：**不触发**，且输出逐字节等于净化后的输入。
+def test_no_drop_and_no_gap_returns_the_original_plan() -> None:
+    plan = _plan(older_count=2, earlier=0)
+    compacted, layer = fit_history(plan, budget_tokens=100_000)
 
-    凭空插一条省略标记会让模型以为丢了历史，实际什么都没省（还多花字节）。
-    """
-    messages = _messages()
-    outcome = snip(messages, SnipSettings(keep_head_groups=2, keep_tail_groups=2, max_groups=4))
-
-    assert outcome.fired is False
-    assert outcome.messages == tuple(messages)
-    assert outcome.bytes_saved == 0
-
-
-def test_b01_snip_without_any_user_group_falls_back_to_the_group_window() -> None:
-    """历史里一个 `user` 组都没有（例如摘要边界把更早的都切掉了）⇒ 退化为按组数的原口径。"""
-    messages = [
-        message
-        for index in range(4)
-        for message in _tool_group(f"c-{index}", f"t{index}", f"回合 {index}")
-    ]
-    outcome = snip(messages, SnipSettings(keep_head_groups=1, keep_tail_groups=1, max_groups=2))
-
-    assert outcome.fired
-    assert outcome.groups == 2
-    _assert_paired(outcome.messages)
-
-
-def test_rule01_snip_never_leaves_an_orphan_tool_message() -> None:
-    """RULE-01：任意头/尾切法下，输出里每条 tool 都必须紧跟带 tool_calls 的 assistant。"""
-    messages = _messages()
-    for head in (1, 2, 3):
-        for tail in (1, 2, 3):
-            outcome = snip(
-                messages, SnipSettings(keep_head_groups=head, keep_tail_groups=tail, max_groups=4)
-            )
-            _assert_paired(outcome.messages)
-
-
-def _assert_paired(messages: tuple[ModelMessage, ...]) -> None:
-    declared: set[str] = set()
-    for message in messages:
-        if message.role is ModelRole.TOOL:
-            assert message.tool_call_id in declared, "出现孤儿 tool 消息（RULE-01）"
-            continue
-        for call in message.tool_calls:
-            declared.add(call.id)
-
-
-def test_rule01_orphan_tool_in_input_is_dropped_not_propagated() -> None:
-    """输入里本来就有孤儿 TOOL（历史坏形状）时，压缩必须**丢弃**它而不是原样带下去。"""
-    orphan = ModelMessage(role=ModelRole.TOOL, tool_call_id="ghost", content="无主的工具结果")
-    messages = [_user("问"), orphan, *_tool_group("c0", "t0", "回合", "art-0")]
-
-    groups = split_groups(messages)
-    assert len(groups) == 2, "孤儿 TOOL 不并入任何组"
-    assert all(message.tool_call_id != "ghost" for group in groups for message in group)
-
-    outcome = snip(messages, SnipSettings(keep_head_groups=1, keep_tail_groups=1, max_groups=1))
-    assert all(message.tool_call_id != "ghost" for message in outcome.messages)
-    _assert_paired(outcome.messages)
-
-    kept = micro(messages, MicroSettings(enabled=True, keep_recent_tool_groups=1))
-    assert all(message.tool_call_id != "ghost" for message in kept.messages)
-    _assert_paired(kept.messages)
-
-
-def test_rule01_assistant_with_tool_calls_survives_its_result() -> None:
-    """反方向：工具组被保留时，声明与结果必须**成对**出现，不能只留其一。"""
-    messages = [
-        _user("最初的诉求"),
-        *_tool_group("old", "t_old", "旧回合", "art-old"),
-        _assistant("先前的结论"),
-        _user("现在的追问"),
-        *_tool_group("c1", "t1", "当前回合", "art-1"),
-    ]
-    outcome = snip(messages, SnipSettings(keep_head_groups=1, keep_tail_groups=1, max_groups=3))
-
-    assert outcome.fired
-    _assert_paired(outcome.messages)
-    assert any(message.tool_calls for message in outcome.messages), "尾部工具组的 assistant 必须在"
-    surviving = [message for message in outcome.messages if message.role is ModelRole.TOOL]
-    assert [message.tool_call_id for message in surviving] == ["c1"], "尾部工具组的结果必须与声明一起来"
-    assert all(message.tool_call_id != "old" for message in outcome.messages), "被省的组整组退场"
-
-
-# ---- B-03：micro 降级 ----
-
-
-def test_b03_micro_degrades_only_older_tool_groups() -> None:
-    messages = _messages()
-    outcome = micro(messages, MicroSettings(enabled=True, keep_recent_tool_groups=2))
-
-    assert outcome.fired
-    assert outcome.groups == 3, "5 个工具组里最近 2 组留原文 ⇒ 降级 3 组"
-
-    tool_messages = [message for message in outcome.messages if message.role is ModelRole.TOOL]
-    degraded = [message for message in tool_messages if "已外置" in str(message.content)]
-    assert len(degraded) == 3
-    assert "art-0" in str(degraded[0].content), "占位符必须带 artifact_id"
-    assert "tool_0" in str(degraded[0].content), "占位符必须带工具名"
-    for message in tool_messages[-2:]:
-        assert "已外置" not in str(message.content), "最近 2 组必须保留原文"
-    assert "art-4" in str(tool_messages[-1].content), "保留原样的那组仍是原始外置结果"
-
-
-def test_b03_micro_preserves_tool_calls_and_arguments() -> None:
-    messages = _messages()
-    outcome = micro(messages, MicroSettings(enabled=True, keep_recent_tool_groups=1))
-
-    assistants = [message for message in outcome.messages if message.tool_calls]
-    assert len(assistants) == 5, "结构不变：assistant 一条不删"
-    for message in assistants:
-        assert message.tool_calls[0].arguments == {"q": "值"}, "参数原样保留"
-        assert message.reasoning_content, "带 tool_calls 的 assistant 必须保留 reasoning_content"
-    _assert_paired(outcome.messages)
-
-
-def _unshrinkable_group() -> list[ModelMessage]:
-    """外置 JSON 极短、工具名极长 ⇒ 占位符必然更长，该组降不动。"""
-    long_name = "t" * 200
-    return [
-        ModelMessage(
-            role=ModelRole.ASSISTANT,
-            content="a",
-            tool_calls=(ModelToolCall(id="c-long", name=long_name, arguments={}),),
-        ),
-        ModelMessage(
-            role=ModelRole.TOOL, tool_call_id="c-long", content='{"artifact":{"artifact_id":"a"}}'
-        ),
-    ]
-
-
-def test_b03_micro_skips_when_placeholder_is_not_shorter() -> None:
-    """占位符不短于原文则跳过——否则"降级"反而让历史变长。
-
-    构造成本要够：被跳过的组必须真的落在降级集里（`keep_recent_tool_groups=1` ⇒ 降级集是
-    除最近一组外的所有工具组），否则用例空转。
-    """
-    messages = [_user("短"), *_unshrinkable_group(), *_tool_group("c1", "t1", "回合 1", "art-1")]
-    outcome = micro(messages, MicroSettings(enabled=True, keep_recent_tool_groups=1))
-
-    assert outcome.fired is False, "唯一的目标组降不动 ⇒ 整层不触发"
-    assert outcome.messages == tuple(messages), "不该动的组必须逐条原样"
-
-
-def test_b03_micro_lower_bound_skips_only_the_unshrinkable_group() -> None:
-    """混合：降不动的那组原样保留，其余目标组照常降级，且历史不得变长。"""
-    messages = [
-        _user("短"),
-        *_unshrinkable_group(),
-        *_tool_group("c1", "t1", "回合 1", "art-1"),
-        *_tool_group("c2", "t2", "回合 2", "art-2"),
-    ]
-    outcome = micro(messages, MicroSettings(enabled=True, keep_recent_tool_groups=1))
-
-    assert outcome.fired is True
-    assert outcome.groups == 1, "降级集是 [组 1, 组 2]，其中组 1 被跳过 ⇒ 只降 1 组"
-    first_result = next(message for message in outcome.messages if message.role is ModelRole.TOOL)
-    assert first_result.content == '{"artifact":{"artifact_id":"a"}}', "降不动的组原样保留"
-    assert outcome.bytes_after < outcome.bytes_before, "降级必须真的省字节"
-
-
-def test_b03_micro_never_degrades_a_result_without_artifact() -> None:
-    """没有 artifact_id 的结果不可回溯，micro 必须放它一马（换占位等于净丢信息）。"""
-    messages = [
-        _user("问"),
-        *_tool_group("c0", "plain", "r0", artifact_id=None),
-        *_tool_group("c1", "plain", "r1", artifact_id=None),
-    ]
-    outcome = micro(messages, MicroSettings(enabled=True, keep_recent_tool_groups=1))
-    assert outcome.fired is False
-    assert outcome.messages == tuple(messages)
-
-
-def test_b03_micro_disabled_is_identity() -> None:
-    messages = _messages()
-    outcome = micro(messages, MicroSettings(enabled=False, keep_recent_tool_groups=1))
-    assert outcome.fired is False
-    assert outcome.messages == tuple(messages)
-
-
-# ---- RULE-02：UTF-8 字节口径 ----
-
-
-def test_rule02_byte_size_is_utf8_not_characters() -> None:
-    chinese = "中文" * 10
-    assert message_bytes(_user(chinese)) == len(chinese.encode("utf-8")) == 60
-    assert message_bytes(_user(chinese)) != len(chinese)
-    assert history_bytes([_user(chinese), _assistant(chinese)]) == 120
-
-
-def test_rule02_message_bytes_counts_reasoning_and_tool_arguments() -> None:
-    plain = ModelMessage(role=ModelRole.ASSISTANT, content="x")
-    rich = ModelMessage(
-        role=ModelRole.ASSISTANT,
-        content="x",
-        tool_calls=(ModelToolCall(id="c", name="t", arguments={"key": "值"}),),
-        reasoning_content="思维链",
+    assert compacted is plan
+    assert layer is None
+    assert not any(
+        OMISSION_MARKER_PREFIX in str(message.content)
+        for group in compacted.older
+        for message in group
     )
-    assert message_bytes(rich) > message_bytes(plain), "reasoning 与参数都要计入（否则会低估真实请求体）"
 
 
-def test_rule02_snip_reports_real_byte_savings() -> None:
-    messages = _conversation()
-    outcome = snip(messages, SnipSettings(keep_head_groups=1, keep_tail_groups=1, max_groups=2))
-    assert outcome.bytes_before > outcome.bytes_after
-    assert outcome.bytes_saved == outcome.bytes_before - outcome.bytes_after
+def test_gap_without_loaded_drop_still_gets_a_marker_and_no_coverage() -> None:
+    plan = _plan(older_count=2, earlier=5)
+    compacted, layer = fit_history(plan, budget_tokens=100_000)
+
+    assert layer is not None and layer.fired and layer.groups == 0
+    assert compacted.covered_seq == plan.covered_seq
+    assert compacted.material_end_seq == 0
+    assert any(OMISSION_MARKER_PREFIX in str(message.content) for group in compacted.older for message in group)
 
 
-def test_outcome_payload_shape_matches_audit_event() -> None:
-    """审计事件要的 `layers{layer: {fired, groups, bytes_saved}}` 形状必须能直接取到。"""
-    outcome = snip(
-        _conversation(), SnipSettings(keep_head_groups=1, keep_tail_groups=1, max_groups=2)
+def test_groups_never_leave_an_orphan_tool_message() -> None:
+    plan = _plan()
+    compacted, _ = fit_history(plan, budget_tokens=1)
+    groups = split_groups(
+        tuple(message for group in compacted.older for message in group)
+        + tuple(message for group in compacted.working for message in group)
     )
-    payload: dict[str, Any] = outcome.as_layer_payload()
-    assert payload["layer"] == "snip"
-    assert payload["fired"] is True
-    assert payload["groups"] == 5, "8 组留下头 1 + 当前回合 2 ⇒ 省略中间 5 组"
-    assert payload["bytes_saved"] > 0
-    assert set(payload) == {"layer", "fired", "groups", "bytes_saved"}
-
-
-# ---- 受保护前缀：系统提示 / memory 注入 / 摘要不参与压缩（FEAT-08 与注入措辞的前提） ----
-
-
-def _prefix() -> list[ModelMessage]:
-    """`AgentRunner` 组装出来的头部：系统提示 + 两条 memory 注入 + 摘要前缀，都是 SYSTEM。"""
-    return [
-        ModelMessage(role=ModelRole.SYSTEM, content="你是客服助手"),
-        ModelMessage(role=ModelRole.SYSTEM, content="[记忆·用户明确要求] 偏好 = zh-CN（仅供参考）"),
-        ModelMessage(role=ModelRole.SYSTEM, content="[历史摘要] 更早的对话已压缩"),
-    ]
-
-
-def test_protected_prefix_is_the_leading_system_run() -> None:
-    prefix, region = split_protected_prefix([*_prefix(), _user("你好"), _assistant("在的")])
-    assert [message.role for message in prefix] == [ModelRole.SYSTEM] * 3
-    assert [str(message.content) for message in region] == ["你好", "在的"]
-    # 没有 SYSTEM 开头（纯对话历史）时前缀为空，整段都可压
-    assert split_protected_prefix([_user("你好")])[0] == ()
-
-
-def test_snip_never_counts_or_omits_the_protected_prefix() -> None:
-    """snip 的"保头"是**对话区**的头：系统提示/memory/摘要既不被算进组数也不被省掉。"""
-    messages = [*_prefix(), *_conversation()]
-    outcome = snip(messages, SnipSettings(keep_head_groups=1, keep_tail_groups=1, max_groups=2))
-
-    assert outcome.fired
-    assert [m.role for m in outcome.messages[:3]] == [ModelRole.SYSTEM] * 3, "前缀逐条原样保留"
-    assert str(outcome.messages[0].content) == "你是客服助手"
-    assert "省略" not in str(outcome.messages[1].content), "memory 注入不得被省略标记顶掉"
-
-
-def test_trim_history_keeps_prefix_and_cuts_the_conversation() -> None:
-    """条数兜底只裁对话区：前缀（系统提示/memory/摘要）不参与预算。"""
-    prefix = _prefix()
-    messages = [*prefix, _user("第一条"), _assistant("一"), _user("第二条"), _assistant("二")]
-    out = trim_history(messages, 2)
-
-    assert [m.role for m in out[:3]] == [ModelRole.SYSTEM] * 3
-    assert [str(m.content) for m in out[3:]] == ["第二条", "二"], "保留最近 2 条，且从 USER 起切"
-
-
-def test_trim_history_never_leaves_an_orphan_tool_message() -> None:
-    """切点落在一个工具回合中间时，半截的 tool 结果整条丢弃（RULE-01）。
-
-    尾部没有 USER 可切 ⇒ 只能按条数硬切；若直接返回尾片，开头那条 tool 结果就失去了声明它的
-    assistant 回合，供应商会拒绝**整个**请求。这里的尾部（预算 3）恰好从 call-0 的结果中间开始。
-    """
-    messages = [
-        *_prefix(),
-        _user("最初的诉求"),
-        *_tool_group("call-0", "tool_0", "回合 0"),
-        *_tool_group("call-1", "tool_1", "回合 1"),
-    ]
-    out = trim_history(messages, 3)
-
-    declared = {call.id for message in out for call in message.tool_calls}
-    orphans = [m for m in out if m.role is ModelRole.TOOL and m.tool_call_id not in declared]
-    assert not orphans, f"裁剪留下了孤儿 TOOL：{orphans}"
-    # 被切掉半截的那个回合整组退场，存活的那个回合成对留下
-    assert [m.role for m in out[3:]] == [ModelRole.ASSISTANT, ModelRole.TOOL]
-    assert out[4].tool_call_id == "call-1"
-
-
-def test_trim_history_is_identity_at_or_below_the_budget() -> None:
-    messages = [*_prefix(), _user("只说一句")]
-    assert trim_history(messages, 40) == tuple(messages)
-
-
-def test_micro_output_is_the_input_of_snip() -> None:
-    """micro 的降级必须进入 snip 的输入，不能被提前求值的元组覆盖回原文。"""
-    output, layers = compact_history(
-        _messages(),
-        micro_settings=MicroSettings(enabled=True, keep_recent_tool_groups=0),
-        snip_settings=SnipSettings(
-            enabled=True, max_groups=3, keep_head_groups=1, keep_tail_groups=1
-        ),
+    declared = {call.id for group in groups for message in group for call in message.tool_calls}
+    assert all(
+        message.tool_call_id in declared
+        for group in groups
+        for message in group
+        if message.role is ModelRole.TOOL
     )
-    micro_layer = next(layer for layer in layers if layer.layer == "micro")
-    assert micro_layer.fired and micro_layer.bytes_saved > 0
-    rendered = "\n".join(str(message.content) for message in output)
-    assert '"artifact"' not in rendered, "micro 的占位必须留在最终历史里"
-    assert "read_attachment" in rendered
+    assert history_bytes([message for group in compacted.older for message in group]) > 0

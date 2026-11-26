@@ -364,13 +364,13 @@ async def test_e20_memory_injection_caps_from_frozen_policy() -> None:
     tenant, conversation_id, user_id = await _seed_injection_tenant(count=5, value_chars=16)
     try:
         builder = DbBackedContextBuilder(session_factory=get_session_factory)
-        history = await builder.load_history(
+        loaded = await builder.load_history(
             tenant_id=tenant,
             conversation_id=conversation_id,
             user_id=user_id,
-            budget_messages=10,
+            budget_tokens=10,
         )
-        assert all(message.role.value != "system" for message in history)
+        assert all(message.role.value != "system" for message in loaded.messages)
         cache = MemoryCandidateCache(
             MemoryQueries(get_session_factory()),
             scope=MemoryReadScope(tenant_id=tenant, user_id=user_id),

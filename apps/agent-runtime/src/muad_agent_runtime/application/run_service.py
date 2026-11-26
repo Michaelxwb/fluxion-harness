@@ -165,7 +165,7 @@ from .channel_uploads import (
     resolve_message_uploads,
     upload_limits_from_settings,
 )
-from .context_builder import ActiveSkillContext, BudgetPolicy, DbBackedContextBuilder
+from .context_builder import ActiveSkillContext, DbBackedContextBuilder, LoadedHistory
 from .context_settings import (
     PoolExecutionPolicy,
     compaction_settings_of,
@@ -487,24 +487,6 @@ def execution_defaults_from_platform(document: Mapping[str, Any] | None) -> Exec
         timezone=parsed.locale.default_timezone,
         egress_enabled=parsed.egress.enabled,
     )
-
-
-def history_budget_of(policy: Mapping[str, Any] | None) -> int | None:
-    """从已冻结的 `policy_json` 取历史预算（消息条数）；缺失/形状不对时返回 None。
-
-    这一个值有两个消费者，且**必须是同一个**：装配侧的取数守卫（`load_history`）与压缩层的条数
-    兜底（`trim_history`）。返回 None 让两边各自回落默认值——resume 读到的是**这一行当时**冻结的
-    预算，而不是当前配置，配置改动因此只影响后续新 Run。
-    """
-    compaction = (policy or {}).get("compaction")
-    value = compaction.get("history_budget_messages") if isinstance(compaction, Mapping) else None
-    return value if isinstance(value, int) and not isinstance(value, bool) else None
-
-
-def history_tool_rounds_of(policy: Mapping[str, Any]) -> int:
-    """Use the source Run's frozen tool history budget, including its zero value."""
-    settings = compaction_settings_of(policy)
-    return (settings or default_compaction_settings()).max_history_tool_rounds
 
 
 #: 「无平台设置时」的 schema 默认策略快照（导入期求值一次）。它不是运行期动态默认源：
@@ -1218,7 +1200,6 @@ class RunService:
         self._submissions = submissions or RunSubmissionService(get_session_factory)
         self._context_builder = context_builder or DbBackedContextBuilder(
             session_factory=get_session_factory,
-            budget=BudgetPolicy(max_messages=default_compaction_settings().history_budget_messages),
         )
         self._settings = process_settings()
         # 共享事件追尾（ADR-02）：同进程按会话共享上游读取、提交后唤醒、超时按 PG 有界补查。
@@ -1438,6 +1419,7 @@ class RunService:
         compaction = resolve_compaction_settings(
             resolved.agent.runtime_config,
             platform_overrides=materials.settings.settings.get("compaction"),
+            model_context_window_min_tokens=self._settings.model_context_window_min_tokens,
         )
         summary_model = await self._resolve_summary_model(
             tenant_id, compaction, run_id=run_id, actor_user_id=request.platform_user_id
@@ -2268,14 +2250,14 @@ class RunService:
         await self._wake_tail(tenant_id, conversation.id)  # 提交后唤醒（ADR-02）：受理事务已落库
         mark("wake")
 
-        async def load_history() -> tuple[ModelMessage, ...]:
+        async def load_history() -> LoadedHistory:
             # 历史是执行材料，不是受理事实：放到后台 launch 任务里读，202 不再等它。
             return await self._load_history(
                 conversation.id,
                 tenant_id,
                 request.platform_user_id,
-                budget_messages=compaction.history_budget_messages,
-                max_history_tool_rounds=compaction.max_history_tool_rounds,
+                budget_tokens=compaction.history_budget_tokens,
+                current_message_id=run.input_message_id,
             )
 
         mark("history_deferred")
@@ -2391,13 +2373,15 @@ class RunService:
             )
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from None
 
-        async def load_resume_history() -> tuple[ModelMessage, ...]:
+        compaction = compaction_settings_of(snapshot.policy_json)
+
+        async def load_resume_history() -> LoadedHistory:
             return await self._load_history(
                 run.conversation_id,
                 run.tenant_id,
                 run.user_id,
-                budget_messages=history_budget_of(snapshot.policy_json),
-                max_history_tool_rounds=history_tool_rounds_of(snapshot.policy_json),
+                budget_tokens=compaction.history_budget_tokens,
+                current_message_id=run.input_message_id,
             )
 
         stream = self._stream_run(
@@ -2410,7 +2394,7 @@ class RunService:
             history_loader=load_resume_history,
             submission_id=submission.id,
             resumed=True,
-            compaction=compaction_settings_of(snapshot.policy_json),
+            compaction=compaction,
             execution=execution_defaults_of(snapshot.policy_json),
             summary_model=summary_model,
             current_text=input_text,
@@ -2859,16 +2843,16 @@ class RunService:
         tenant_id: str,
         user_id: uuid.UUID,
         *,
-        budget_messages: int | None = None,
-        max_history_tool_rounds: int = default_compaction_settings().max_history_tool_rounds,
-    ) -> tuple[ModelMessage, ...]:
+        budget_tokens: int,
+        current_message_id: str | None = None,
+    ) -> LoadedHistory:
         """Read canonical history; the executor owns request-time memory refresh."""
         return await self._context_builder.load_history(
             tenant_id=tenant_id,
             conversation_id=conversation_id,
             user_id=user_id,
-            budget_messages=budget_messages,
-            max_history_tool_rounds=max_history_tool_rounds,
+            budget_tokens=budget_tokens,
+            current_message_id=current_message_id,
         )
 
     def _build_snapshot(
@@ -2976,7 +2960,7 @@ class RunService:
         skills: Sequence[ResolvedSkill],
         mcp_servers: Sequence[ResolvedMcpServer],
         mcp_secrets: dict[str, str],
-        history: Sequence[ModelMessage],
+        history: LoadedHistory,
         *,
         compaction: CompactionSettings | None = None,
         execution: ExecutionDefaults | None = None,
@@ -2985,6 +2969,7 @@ class RunService:
         current_attachments: tuple[PersistedAttachment, ...] | None = None,
         submission_id: uuid.UUID | None = None,
         memory_resume_ref: MemoryResumeRef | None = None,
+        resume_hint: str | None = None,
         pool: PoolExecutionPolicy | None = None,
         members: Sequence[MemberRef] | None = None,
         summary_members: Sequence[MemberRef] | None = None,
@@ -3005,6 +2990,7 @@ class RunService:
             )
             if run.execution_epoch > 1 else ActiveSkillContext()
         )
+        merged_messages = skill_context.merge(history.messages)
         return await self._executor_factory(
             ExecutorRequest(
                 agent=agent,
@@ -3023,7 +3009,12 @@ class RunService:
                 ).check,
                 skills=tuple(skills),
                 mcp_servers=tuple(mcp_servers),
-                history=skill_context.merge(history),
+                history=merged_messages,
+                covered_seq=history.covered_seq,
+                material_scan_end_seq=history.material_scan_end_seq,
+                head_end_seq=history.head_end_seq,
+                earlier_records=history.earlier_records,
+                resume_hint=resume_hint,
                 active_skills=skill_context.keys,
                 compaction=compaction,
                 execution=execution,
@@ -3059,18 +3050,23 @@ class RunService:
     async def _restored_history(
         self,
         run: RunRecord,
-        history: Sequence[ModelMessage],
+        history: LoadedHistory,
         progress: RunnerCheckpoint,
         compaction: CompactionSettings | None,
-    ) -> tuple[ModelMessage, ...]:
-        if run.execution_epoch <= 1 and history:
-            return tuple(history)
+    ) -> LoadedHistory:
+        if run.execution_epoch <= 1 and history.messages:
+            return history
+        budget_tokens = (
+            compaction.history_budget_tokens
+            if compaction is not None
+            else default_compaction_settings().history_budget_tokens
+        )
         return await self._context_builder.load_history(
             tenant_id=run.tenant_id,
             conversation_id=run.conversation_id,
             user_id=run.user_id,
-            budget_messages=compaction.history_budget_messages if compaction else None,
-            max_history_tool_rounds=(compaction or default_compaction_settings()).max_history_tool_rounds,
+            budget_tokens=budget_tokens,
+            current_message_id=run.input_message_id,
             unconsumed_run_id=run.id,
             consumed_event_seq=progress.consumed_event_seq,
         )
@@ -3084,8 +3080,8 @@ class RunService:
         skills: Sequence[ResolvedSkill],
         mcp_servers: Sequence[ResolvedMcpServer],
         mcp_secrets: dict[str, str],
-        history: Sequence[ModelMessage] | None = None,
-        history_loader: Callable[[], Awaitable[Sequence[ModelMessage]]] | None = None,
+        history: LoadedHistory | Sequence[ModelMessage] | None = None,
+        history_loader: Callable[[], Awaitable[LoadedHistory]] | None = None,
         submission_id: uuid.UUID,
         resumed: bool,
         compaction: CompactionSettings | None = None,
@@ -3107,6 +3103,8 @@ class RunService:
                     raise ValueError("history or history_loader is required")
                 with db_stage("turn:history"):
                     history = await history_loader()
+            elif not isinstance(history, LoadedHistory):
+                history = LoadedHistory(messages=tuple(history))
             with db_stage("turn:start"):
                 start_event = await self._start_segment_event(run, submission_id, resumed)
             yield start_event
@@ -3130,17 +3128,14 @@ class RunService:
                         current_attachments=current_attachments,
                         submission_id=submission_id,
                         memory_resume_ref=resume.reference,
+                        resume_hint=resume.hint,
                         pool=pool,
                         members=members,
                         summary_members=summary_members,
                     )
 
             with db_stage("turn:segment"):
-                result = (
-                    SegmentResult(final_text=resume.message)
-                    if resume.message is not None
-                    else await self._run_segment(run, submission_id, agent.key, build)
-                )
+                result = await self._run_segment(run, submission_id, agent.key, build)
             if result is not None:
                 terminal = await self._finish_segment(run, submission_id, agent.key, result)
                 if terminal is not None:

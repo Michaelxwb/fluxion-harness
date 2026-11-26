@@ -43,7 +43,7 @@ from muad_agent_runtime.infrastructure.audit_writer import RuntimeAuditWriter
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import Artifact, CanonicalEvent, ToolCallAudit
 from muad_agent_runtime.main import app
-from muad_contracts.platform_settings import ToolResultSettings
+from muad_agent_core.tools.result_budget import ToolResultBudget
 
 from agent_runtime.conftest import TenantContext, parse_sse
 
@@ -111,10 +111,12 @@ def _wrapped_registry(recorder: ToolCallRecorder) -> ToolRegistry:
     return wrapped
 
 
-def _settings(*, round_budget_bytes: int = ROUND_BUDGET_BYTES) -> ToolResultSettings:
-    return ToolResultSettings(
+def _settings(*, round_budget_bytes: int = ROUND_BUDGET_BYTES) -> ToolResultBudget:
+    return ToolResultBudget(
         persist_threshold_bytes=PERSIST_THRESHOLD_BYTES,
         round_budget_bytes=round_budget_bytes,
+        preview_head_bytes=2048,
+        preview_tail_bytes=2048,
     )
 
 
@@ -122,7 +124,7 @@ def _factory(
     tmp_path: Path,
     provider: _ThreeToolProvider,
     *,
-    settings: ToolResultSettings | None = None,
+    settings: ToolResultBudget | None = None,
     writer: ArtifactResultWriter | None = None,
 ) -> ExecutorFactory:
     """按生产同款装配：注册表与 `AgentRunner` 共用**同一个** recorder（ADR-04）。"""

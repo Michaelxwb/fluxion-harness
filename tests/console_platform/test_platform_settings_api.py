@@ -99,14 +99,17 @@ async def test_invalid_payload_returns_400_with_field_path_and_no_new_version(
     limit = SharedSettings().batch_platform_limit
     cases = [
         (_bad_payload(0, {"task": {"max_attempts": 0}}), "task.max_attempts"),
-        (_bad_payload(0, {"compaction": {"snip": {"max_groups": 1}}}), "snip.max_groups"),
+        (_bad_payload(0, {"compaction": {"history_budget_tokens": 0}}), "history_budget_tokens"),
         (
             _bad_payload(0, {"task": {"batch_max_concurrency": limit + 1}}),
             "task.batch_max_concurrency",
         ),
         (_bad_payload(0, {"task": {"nope": 1}}), "task.nope"),
         (_bad_payload(0, {"bogus": {"x": 1}}), "bogus"),
-        (_bad_payload(0, {"compaction": {"snip": {"enabled": "yes"}}}), "snip.enabled"),
+        (
+            _bad_payload(0, {"compaction": {"tool_result": {"persist_threshold_bytes": "yes"}}}),
+            "tool_result.persist_threshold_bytes",
+        ),
     ]
     for payload, expected_path in cases:
         response = await _put(client, payload)

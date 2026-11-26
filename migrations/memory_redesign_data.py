@@ -189,10 +189,10 @@ def preflight_memory(bind: Connection) -> None:
 
 def _settings_document(raw: object) -> dict[str, JsonValue]:
     document = _document(raw)
-    compaction = _document(document.get("compaction"))
-    compaction.pop("memory", None)
-    compaction.setdefault("max_history_tool_rounds", 6)
-    document["compaction"] = compaction
+    # 0020 早于压缩配置收敛：旧 compaction 键（memory/snip/micro/条数/回合）不再被当前
+    # schema 解析。该需求按 cutover runbook 重置旧平台设置，这里同样回到 schema 默认，
+    # 不做旧键迁移或兼容读取。
+    document["compaction"] = {}
     try:
         return asdict(parse_platform_settings(document))
     except (ValidationError, ValueError, TypeError):

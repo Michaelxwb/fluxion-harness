@@ -232,6 +232,7 @@ const ITEM_HEIGHT = __ITEM_HEIGHT__;
 const HTML_TEXT = '__HTML_TEXT__';
 const MDX_TEXT = '__MDX_TEXT__';
 const LINK_TEXT = '__LINK_TEXT__';
+const TASK_KEY = 'task.' + 'a'.repeat(32);
 
 // ---- 数据构造 ----------------------------------------------------------------------------------
 const conversationPage = (items, page, pageSize, total) => ({
@@ -396,6 +397,7 @@ const obs = {};
     bold: parseInlineTokens('**加粗** 与 `代码`'),
     markdown: parseMessageBlocks('## 标题\n\n- 一\n- 二\n\n1. A\n2. B\n\n> 引用\n\n| A | B |\n| --- | --- |\n| 1 | 2 |'),
     inline: parseInlineTokens('**粗** *斜* ~~删~~ [x](https://e.com)'),
+    taskKey: parseInlineTokens(`任务 ${TASK_KEY} 结束`),
     blank: parseMessageBlocks(''),
     sizes: [0, -5, 512, 2048, 1572864].map(formatAttachmentSize)
   };
@@ -1333,6 +1335,11 @@ def test_b280_text_stays_text_and_links_need_safe_protocols(message_logic: dict[
         {"kind": "text", "value": " 与 "},
         {"kind": "code", "value": "代码"},
     ], "加粗与行内代码是白名单内的真实标记"
+    assert observed["taskKey"] == [
+        {"kind": "text", "value": "任务 "},
+        {"kind": "code", "value": "task." + "a" * 32},
+        {"kind": "text", "value": " 结束"},
+    ], "任务 key 自动使用行内代码样式，不混在正文里"
     assert observed["blank"] == [], "空文本不产出任何块"
     assert observed["sizes"] == ["0 B", "0 B", "512 B", "2.0 KB", "1.5 MB"], "附件大小按字节展示"
 

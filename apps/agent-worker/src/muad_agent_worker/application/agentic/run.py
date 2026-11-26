@@ -31,6 +31,8 @@ from muad_agent_core.agent.continuation import RunnerCheckpoint
 from muad_agent_core.agent.recovery import active_skills as folded_active_skills
 from muad_agent_core.agent.recovery import fold_events, history_messages, replay_failure_state
 from muad_agent_core.agent.termination import FailureState
+from muad_agent_core.context.compactor import split_groups
+from muad_agent_core.context.plan import RunInput
 from muad_agent_core.hooks import HookPipeline
 from muad_agent_core.model import ModelMessage, ModelRole, ModelUsage
 from muad_agent_core.prompt import PromptSkill, resolve_zone
@@ -38,6 +40,7 @@ from muad_agent_core.sandbox import WorkspaceStore
 from muad_agent_core.skill import SkillArtifactResolver, SkillExecutor
 from muad_agent_core.tools import AttachmentReadTools, ResolvedAttachment, ToolExecutionPipeline
 from muad_agent_core.tools.attachments import TextCursor, read_text_segment
+from muad_agent_core.tools.result_budget import derive_tool_result_budget
 from muad_api import AppError
 from muad_common import SharedSettings
 from muad_contracts import OperationWatermark
@@ -395,11 +398,18 @@ async def execute_agentic(
         answer_verifier=build_verifier(frozen.output_contract),
         verification_max_attempts=1,
     )
+    history_messages = resume.messages if resume is not None else base_messages(frozen, scheduled)
+    run_input = task_run_input(frozen, scheduled)
+    material_scan_end, head_end = _worker_history_meta(history_messages, run_input)
     request = AgentRunRequest(
         model_id=target.model_name,
         instructions=frozen.instructions,
-        messages=resume.messages if resume is not None else base_messages(frozen, scheduled),
-        run_input=task_run_input(frozen, scheduled),
+        messages=history_messages,
+        run_input=run_input,
+        covered_seq=0,
+        material_scan_end_seq=material_scan_end,
+        head_end_seq=head_end,
+        earlier_records=0,
         skills=prompt_skills(frozen),
         active_skills=resume.active_skills if resume is not None else (),
         policy=agent_policy(frozen),
@@ -487,7 +497,7 @@ def _round_writer(
 ) -> TaskArtifactRoundWriter | None:
     if deps.artifacts is None:
         return None
-    settings = compaction_settings(frozen.snapshot.policy).tool_result
+    settings = derive_tool_result_budget(compaction_settings(frozen.snapshot.policy))
     return TaskArtifactRoundWriter(
         deps.artifacts,
         settings,
@@ -496,9 +506,32 @@ def _round_writer(
     )
 
 
+def _worker_history_meta(
+    messages: Sequence[ModelMessage], run_input: RunInput
+) -> tuple[int, int | None]:
+    """Worker has no durable summary coverage: all older is material; keep first task goal."""
+    groups = split_groups(messages)
+    material_end = max((message.source_event_seq or 0 for message in messages), default=0)
+    head_end = None
+    for index, group in enumerate(groups):
+        if not any(message.role.value == "user" for message in group):
+            continue
+        if any(message.message_id == run_input.message_id for message in group):
+            break
+        end = max(message.source_event_seq or 0 for message in group)
+        if index + 1 < len(groups):
+            end = max(
+                end,
+                max(message.source_event_seq or 0 for message in groups[index + 1]),
+            )
+        head_end = end or None
+        break
+    return material_end, head_end
+
+
 def _compactor(
     frozen: FrozenAgenticExecution, deps: AgenticDependencies, pool: CapacityModelPool
-) -> TaskContextCompactor | None:
+) -> TaskContextCompactor:
     settings = compaction_settings(frozen.snapshot.policy)
     summary: SummaryGenerator | None = None
     if settings.summary.enabled:
@@ -509,8 +542,6 @@ def _compactor(
                 model_name=summary_target.model_name,
                 max_tokens=_int_param(summary_target.params, "max_tokens"),
             )
-    if not settings.snip.enabled and not settings.micro.enabled and summary is None:
-        return None
     return TaskContextCompactor(
         settings,
         tenant_id=frozen.tenant_id,

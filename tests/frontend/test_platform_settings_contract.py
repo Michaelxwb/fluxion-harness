@@ -109,8 +109,8 @@ def test_settings_page_does_not_hardcode_field_or_group_lists() -> None:
     assert "groups={groups}" in page, "分组导航必须由元数据渲染"
     assert "groups.find((group) => group.key === activeKey)" in page, "当前面板分组必须由元数据派生"
     assert "SettingsGroupPanel" in page
-    # 页面不得出现具体字段路径字面量（如 'snip.max_groups'），否则即第二套字段清单。
-    assert "snip." not in page, "页面不得内联字段路径"
+    # 页面不得出现具体字段路径字面量（如 'history_budget_tokens'），否则即第二套字段清单。
+    assert "history_budget_tokens" not in page, "页面不得内联字段路径"
 
 
 def test_egress_rules_use_list_and_modal_editor() -> None:
@@ -154,6 +154,19 @@ def test_applies_to_labels_cover_all_five_values() -> None:
         key = f"settings.appliesTo.{value}"
         for locale, payload in locales.items():
             assert payload.get(key), f"{locale} 缺少生效方式词条 {key}"
+
+
+def test_compaction_group_has_exactly_four_fields_and_no_legacy_keys() -> None:
+    groups = build_groups(PlatformSettings(), overrides={})
+    compaction = next(group for group in groups if group["key"] == "compaction")
+    paths = {field["path"] for field in compaction["fields"]}
+    assert paths == {
+        "history_budget_tokens",
+        "summary.enabled",
+        "summary.model_ref",
+        "tool_result.persist_threshold_bytes",
+    }
+    assert not any("snip." in path or "micro." in path for path in paths)
 
 
 def test_backend_catalog_label_keys_are_translated_in_both_locales() -> None:

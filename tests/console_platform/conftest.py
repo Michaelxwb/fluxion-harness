@@ -150,6 +150,9 @@ async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
                 "DELETE FROM control.external_identity WHERE tenant_id = :tenant_id",
                 "DELETE FROM control.platform_user WHERE tenant_id = :tenant_id",
                 "DELETE FROM control.config_audit_log WHERE tenant_id = :tenant_id",
+                # 运行读面夹具会直接种 message_delivery；先删 attempt 再删消息。
+                "DELETE FROM runtime.message_delivery_attempt WHERE tenant_id = :tenant_id",
+                "DELETE FROM runtime.message_delivery WHERE tenant_id = :tenant_id",
                 # 记忆表：history 的 origin_id 指向 user_memory，必须先删 history。
                 "DELETE FROM runtime.user_memory_history WHERE tenant_id = :tenant_id",
                 "DELETE FROM runtime.user_memory WHERE tenant_id = :tenant_id",

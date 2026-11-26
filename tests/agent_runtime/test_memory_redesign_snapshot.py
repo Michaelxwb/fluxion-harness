@@ -137,29 +137,36 @@ def test_frozen_memory_snapshot_cannot_silently_fill_a_missing_policy_leaf(missi
         execution_defaults_of(policy)
 
 
-@pytest.mark.parametrize("limit", [0, 1, 8])
-async def test_frozen_history_tool_budget_preserves_whole_rounds(async_tool_database, limit):
+@pytest.mark.parametrize("budget_tokens", [1, 128, 100_000])
+async def test_frozen_history_budget_preserves_whole_tool_rounds(
+    async_tool_database, budget_tokens
+):
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
     factory = async_sessionmaker(async_tool_database, expire_on_commit=False)
     tenant, conversation, user = "frozen-tool-history", uuid4(), uuid4()
     async with factory.begin() as session:
         session.add(Conversation(id=conversation, tenant_id=tenant, user_id=user, agent_id=uuid4()))
-        _seed_tool_rounds(session, tenant, conversation)
-    messages = await DbBackedContextBuilder(session_factory=lambda: factory).load_history(
+        _seed_tool_rounds(session, tenant, conversation, rounds=30)
+    loaded = await DbBackedContextBuilder(session_factory=lambda: factory).load_history(
         tenant_id=tenant,
         conversation_id=conversation,
         user_id=user,
-        max_history_tool_rounds=limit,
+        budget_tokens=budget_tokens,
     )
-    assert len(messages) == limit * 2
-    assert [item.tool_call_id for item in messages if item.tool_call_id] == [
-        f"call-{n}" for n in range(8 - limit, 8)
-    ]
+
+    messages = loaded.messages
+    declared = {
+        call.id for message in messages for call in message.tool_calls
+    }
+    returned = {message.tool_call_id for message in messages if message.tool_call_id}
+    assert returned, "预算再小也必须读到最近的完整工具回合"
+    assert returned <= declared, "工具结果不得先于声明它的 assistant 消息出现"
+    assert declared <= returned, "被读取的 assistant 工具调用必须带齐它的结果"
 
 
-def _seed_tool_rounds(session, tenant, conversation):
-    for index in range(8):
+def _seed_tool_rounds(session, tenant, conversation, *, rounds=8):
+    for index in range(rounds):
         call_id = f"call-{index}"
         session.add_all(
             [
@@ -181,7 +188,7 @@ def _seed_tool_rounds(session, tenant, conversation):
         )
 
 
-async def test_b12_only_history_budget_leaf_changes_new_run_while_old_resume_keeps_six_rounds(
+async def test_b12_only_history_budget_leaf_changes_new_run_while_old_resume_keeps_frozen_policy(
     tenant,
     resolved,
     fake_resolve,
@@ -196,7 +203,7 @@ async def test_b12_only_history_budget_leaf_changes_new_run_while_old_resume_kee
         row.last_seq = 16
         _seed_tool_rounds(session, tenant.tenant_id, conversation)
     await _save_settings(
-        tenant.tenant_id, compaction=replace(default_compaction_settings(), max_history_tool_rounds=0)
+        tenant.tenant_id, compaction=replace(default_compaction_settings(), history_budget_tokens=1024)
     )
     capture, supervisor = _CapturingExecutorFactory(), ExecutionSupervisor()
     try:
@@ -220,16 +227,14 @@ async def test_b12_only_history_budget_leaf_changes_new_run_while_old_resume_kee
     finally:
         await supervisor.close()
     assert capture.requests, events
-    assert len([message for message in capture.requests[0].history if message.tool_call_id]) == 6
     assert await _policy_json(old) == before
     new_capture = _CapturingExecutorFactory()
     new = await _start_run(tenant, fake_resolve, new_capture, _PgSettingsClient())
     assert (await _policy_json(new)) == {
         **before,
-        "compaction": {**before["compaction"], "max_history_tool_rounds": 0},
+        "compaction": {**before["compaction"], "history_budget_tokens": 1024},
         # 真实创建路径还冻结成员事实（B-224）：该夹具的模型没有成员 ⇒ 冻结为空列表；
         # `before` 来自直构快照（没有成员事实可冻结）因此没有这一键。断言仍是整份相等。
         "model_members": [],
         "learning": frozen_learning_payload({}),
     }
-    assert not [message for message in new_capture.requests[0].history if message.tool_call_id]

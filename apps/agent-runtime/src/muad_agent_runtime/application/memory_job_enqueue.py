@@ -114,7 +114,7 @@ async def _reference(session: AsyncSession, run: RunRecord, through_seq: int) ->
                 CanonicalEvent.tenant_id == run.tenant_id,
                 CanonicalEvent.run_id == run.id,
                 CanonicalEvent.event_type.in_(
-                    ("MEMORY_RESUME_RESOLVED", "MEMORY_RESUME_OPTIONS", "MEMORY_RESUME_NOTICE")
+                    ("MEMORY_RESUME_RESOLVED", "MEMORY_RESUME_OPTIONS")
                 ),
                 CanonicalEvent.seq <= through_seq,
                 CanonicalEvent.is_deleted.is_(False),
@@ -122,4 +122,5 @@ async def _reference(session: AsyncSession, run: RunRecord, through_seq: int) ->
             .order_by(CanonicalEvent.seq.desc())
         )
     )
-    return _decision(events, run.id).reference
+    # 完成 Run 的入队看整条 Run 的最终决定；submission 过滤只属于单次请求的 resume_decision。
+    return _decision(events, None).reference

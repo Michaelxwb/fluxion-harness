@@ -1,140 +1,79 @@
-"""Summary coverage uses the older boundary, never the conversation's max seq."""
+"""Material interval and summary replacement coverage."""
 
 from __future__ import annotations
 
-from muad_agent_core.agent.recovery import active_skills, fold_events
-from muad_agent_core.context.compactor import compact_plan
-from muad_agent_core.context.plan import RunInput, plan_context
-from muad_agent_core.model import ModelMessage, ModelRole, ModelToolCall
-from muad_contracts.platform_settings import MicroSettings, SnipSettings
+from muad_agent_core.context.plan import (
+    ContextPlan,
+    RunInput,
+    material_groups,
+    plan_context,
+    with_summary,
+)
+from muad_agent_core.model import ModelMessage, ModelRole
 
 
-def test_coverage_includes_tool_group_max_seq() -> None:
-    assistant = ModelMessage(
-        role=ModelRole.ASSISTANT,
-        content="",
-        tool_calls=(ModelToolCall("c1", "search", {}),),
-        source_event_seq=4,
+def test_material_groups_are_a_contiguous_seq_interval() -> None:
+    older = tuple(
+        (ModelMessage(role=ModelRole.USER, content=f"m-{index}", source_event_seq=index),)
+        for index in range(1, 6)
     )
-    result = ModelMessage(
-        role=ModelRole.TOOL,
-        content="done",
-        tool_call_id="c1",
-        source_event_seq=5,
+    # plan_context computes material_end_seq from the actual older groups.
+    plan = plan_context(
+        tuple(message for group in older for message in group),
+        run_input=None,
+        covered_seq=1,
+        material_scan_end_seq=4,
     )
+
+    assert [message.content for group in material_groups(plan) for message in group] == [
+        "m-2",
+        "m-3",
+        "m-4",
+    ]
+    assert plan.material_end_seq == 4
+
+
+def test_summary_replacement_removes_only_material_and_keeps_tail() -> None:
+    plan = ContextPlan(
+        prefix=(ModelMessage(role=ModelRole.SYSTEM, content="system"),),
+        older=(
+            (ModelMessage(role=ModelRole.USER, content="material", source_event_seq=1),),
+            (ModelMessage(role=ModelRole.USER, content="tail", source_event_seq=5),),
+        ),
+        pinned=((ModelMessage(role=ModelRole.USER, content="current"),),),
+        working=(),
+        covered_seq=0,
+        material_end_seq=1,
+        head_end_seq=1,
+    )
+
+    updated = with_summary(plan, ModelMessage(role=ModelRole.SYSTEM, content="[历史摘要] new"))
+
+    assert [message.content for group in updated.older for message in group] == ["tail"]
+    assert updated.covered_seq == 1
+    assert updated.material_end_seq == 0
+    assert updated.pinned == plan.pinned
+
+
+def test_current_input_is_never_part_of_material() -> None:
     current = ModelMessage(
         role=ModelRole.USER,
-        content="next",
+        content="current",
         message_id="current",
         source_event_seq=9,
     )
     plan = plan_context(
-        (assistant, result, current),
-        run_input=RunInput(message_id="current", content="next"),
+        (
+            ModelMessage(role=ModelRole.USER, content="old", source_event_seq=1),
+            current,
+        ),
+        run_input=RunInput(message_id="current", content="current"),
+        covered_seq=0,
+        material_scan_end_seq=20,
     )
 
-    assert plan.coverage_seq == 5
-    assert len(plan.older) == 1
-    assert plan.pinned[0][0].content == "next"
-
-
-def test_pinned_event_ids_survive_coverage() -> None:
-    load_assistant = ModelMessage(
-        role=ModelRole.ASSISTANT,
-        content="",
-        tool_calls=(ModelToolCall("load-1", "load_skill", {"skill_key": "k"}),),
-        source_event_seq=2,
-    )
-    load_result = ModelMessage(
-        role=ModelRole.TOOL,
-        content='{"instructions":"keep"}',
-        tool_call_id="load-1",
-        source_event_id="event-load",
-        source_event_seq=3,
-    )
-    current = ModelMessage(
-        role=ModelRole.USER,
-        content="now",
-        message_id="current",
-        source_event_seq=8,
-    )
-    plan = plan_context(
-        (load_assistant, load_result, current),
-        run_input=RunInput(message_id="current", content="now"),
-        active_skills=("k",),
-    )
-
-    assert "event-load" in plan.protected_event_ids
-    assert plan.coverage_seq == 0
-
-
-def test_older_budget_does_not_move_coverage() -> None:
-    older = (
-        ModelMessage(role=ModelRole.USER, content="old-1", source_event_seq=1),
-        ModelMessage(role=ModelRole.ASSISTANT, content="old-answer", source_event_seq=2),
-        ModelMessage(role=ModelRole.USER, content="old-2", source_event_seq=3),
-    )
-    current = ModelMessage(
-        role=ModelRole.USER,
-        content="now",
-        message_id="current",
-        source_event_seq=10,
-    )
-    plan = plan_context(
-        (*older, current),
-        run_input=RunInput(message_id="current", content="now"),
-    )
-    compacted, _ = compact_plan(
-        plan,
-        snip_settings=SnipSettings(enabled=False),
-        micro_settings=MicroSettings(enabled=False),
-        history_budget_messages=1,
-    )
-
-    assert compacted.coverage_seq == plan.coverage_seq == 3
-    assert len(compacted.older) == 1
-
-
-def test_active_skills_rebuilt_from_completed_load_skill_events() -> None:
-    fold = fold_events(
-        [
-            {
-                "event_type": "ASSISTANT_TURN",
-                "payload": {
-                    "text": "",
-                    "tool_calls": [
-                        {
-                            "id": "load-1",
-                            "name": "load_skill",
-                            "registry_name": "load_skill",
-                            "arguments": {"skill_key": "weather"},
-                        }
-                    ],
-                },
-            },
-            {
-                "event_type": "TOOL_CALL",
-                "payload": {
-                    "state": "STARTED",
-                    "tool_call_id": "load-1",
-                    "tool_name": "load_skill",
-                    "name": "load_skill",
-                    "args_hash": "sha256:x",
-                    "source": "PLATFORM",
-                    "retry_safety": "NON_RETRYABLE",
-                },
-            },
-            {
-                "event_type": "TOOL_CALL",
-                "payload": {
-                    "state": "COMPLETED",
-                    "tool_call_id": "load-1",
-                    "tool_name": "load_skill",
-                    "status": "OK",
-                    "content": '{"instructions":"x"}',
-                },
-            },
-        ]
-    )
-
-    assert active_skills(fold) == ("weather",)
+    assert plan.material_end_seq == 1
+    assert current in [message for group in plan.pinned for message in group]
+    assert "current" not in [
+        message.content for group in material_groups(plan) for message in group
+    ]

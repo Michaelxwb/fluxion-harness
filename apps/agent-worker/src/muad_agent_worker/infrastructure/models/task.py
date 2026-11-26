@@ -506,6 +506,7 @@ class TaskDelivery(StandardColumnsMixin, Base):
             "uq_task_delivery_key",
             "tenant_id",
             "delivery_key",
+            "delivery_route_id",
             unique=True,
             postgresql_where=sa.text("is_deleted = false"),
         ),

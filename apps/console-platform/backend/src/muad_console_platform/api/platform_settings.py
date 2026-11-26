@@ -97,6 +97,7 @@ def _parse_settings(document: dict[str, Any], resources: Any) -> PlatformSetting
             document, batch_platform_limit=resources.batch_platform_limit,
             chat_message_hard_max_bytes=resources.chat_message_hard_max_bytes,
             chat_upload_hard_max_bytes=resources.chat_upload_hard_max_bytes,
+            model_context_window_min_tokens=resources.model_context_window_min_tokens,
         )
     except PlatformSettingsError as error:
         _record_save(SAVE_VALIDATION_FAILED)
@@ -138,6 +139,7 @@ async def read_platform_settings(
             snapshot.settings, overrides=overrides,
             chat_message_hard_max_bytes=resources.chat_message_hard_max_bytes,
             chat_upload_hard_max_bytes=resources.chat_upload_hard_max_bytes,
+            model_context_window_min_tokens=resources.model_context_window_min_tokens,
         ),
         "readonly_notes": readonly_notes(),
     }

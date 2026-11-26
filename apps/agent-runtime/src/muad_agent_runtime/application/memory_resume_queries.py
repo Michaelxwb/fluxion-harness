@@ -5,7 +5,7 @@ from uuid import UUID
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts.memory import MemoryResumeRef
+from muad_contracts.memory import MemoryResumeOptions, MemoryResumeRef
 from muad_logging import get_logger
 from sqlalchemy import exists, select
 from sqlalchemy.exc import SQLAlchemyError
@@ -15,6 +15,7 @@ from sqlalchemy.orm import aliased
 from ..infrastructure.db import SessionFactory
 from ..infrastructure.models.runtime import CanonicalEvent, Conversation, RunRecord
 from ..metrics import MEMORY_RESUME_METRIC, record_counter
+from .memory_resume_options import options_prompt, selected_prompt
 
 logger = get_logger(__name__)
 
@@ -22,7 +23,7 @@ logger = get_logger(__name__)
 @dataclass(frozen=True, slots=True)
 class MemoryResumeDecision:
     reference: MemoryResumeRef | None = None
-    message: str | None = None
+    hint: str | None = None
 
 
 async def owned_conversation(session: AsyncSession, run: RunRecord, *, lock: bool = False) -> None:
@@ -88,7 +89,7 @@ async def _resume_events(factory: SessionFactory, run: RunRecord) -> list[Canoni
                     CanonicalEvent.run_id == run.id,
                     CanonicalEvent.is_deleted.is_(False),
                     CanonicalEvent.event_type.in_(
-                        ("MEMORY_RESUME_OPTIONS", "MEMORY_RESUME_NOTICE", "MEMORY_RESUME_RESOLVED")
+                        ("MEMORY_RESUME_OPTIONS", "MEMORY_RESUME_RESOLVED")
                     ),
                 )
                 .order_by(CanonicalEvent.seq.desc())
@@ -97,8 +98,29 @@ async def _resume_events(factory: SessionFactory, run: RunRecord) -> list[Canoni
     return rows
 
 
-def _decision(rows: list[CanonicalEvent], submission_id: UUID) -> MemoryResumeDecision:
+def _selected_hint(
+    rows: list[CanonicalEvent], reference: MemoryResumeRef
+) -> str | None:
     for row in rows:
+        if row.id != reference.options_event_id:
+            continue
+        if row.event_type != "MEMORY_RESUME_OPTIONS":
+            return None
+        options = MemoryResumeOptions.model_validate(
+            {key: value for key, value in row.payload_json.items() if key != "delta"}
+        )
+        option = next(
+            (item for item in options.items if item.memory_key == reference.memory_key),
+            None,
+        )
+        return selected_prompt(option) if option is not None else None
+    return None
+
+
+def _decision(rows: list[CanonicalEvent], submission_id: UUID | None) -> MemoryResumeDecision:
+    for row in rows:
+        if submission_id is not None and row.submission_id != submission_id:
+            continue
         if row.event_type == "MEMORY_RESUME_RESOLVED":
             if row.payload_json.get("outcome") == "SELECTED":
                 reference = MemoryResumeRef.model_validate(row.payload_json.get("resume_ref"))
@@ -107,10 +129,16 @@ def _decision(rows: list[CanonicalEvent], submission_id: UUID) -> MemoryResumeDe
                     or reference.options_event_id != row.source_event_id
                 ):
                     raise ValueError("resume reference does not match its canonical outcome")
-                return MemoryResumeDecision(reference=reference)
+                return MemoryResumeDecision(
+                    reference=reference, hint=_selected_hint(rows, reference)
+                )
             return MemoryResumeDecision()
-        if row.submission_id == submission_id:
-            message = row.payload_json.get("delta")
-            if isinstance(message, str):
-                return MemoryResumeDecision(message=message)
+        if row.event_type == "MEMORY_RESUME_OPTIONS":
+            if submission_id is None:
+                # 入队只关心最终选择；未消费的候选不能遮住更早的 SELECTED。
+                continue
+            options = MemoryResumeOptions.model_validate(
+                {key: value for key, value in row.payload_json.items() if key != "delta"}
+            )
+            return MemoryResumeDecision(hint=options_prompt(options))
     return MemoryResumeDecision()

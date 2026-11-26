@@ -187,6 +187,8 @@ class SharedSettings(BaseSettings):
     task_heartbeat_sec: int = Field(default=20, ge=1)
     task_cancel_check_sec: int = Field(default=2, ge=1)
     worker_poll_interval_sec: int = Field(default=5, ge=1)
+    #: 部署最小模型窗口（token）；历史预算保存/准入不得超过它减去预留。
+    model_context_window_min_tokens: int = Field(default=128000, ge=1)
     batch_platform_limit: int = Field(default=16, ge=1)
     scheduler_poll_interval_sec: int = Field(default=10, ge=1)
     scheduler_batch_size: int = Field(default=100, ge=1)

@@ -309,8 +309,14 @@ async def test_artifact_metadata_and_preview_are_joined_without_storage_path(
             "CONTEXT_COMPACTED",
             {
                 "layers": {
-                    "snip": {"fired": True, "groups": 3, "bytes_saved": 1000},
-                    "micro": {"fired": False},
+                    "budget": {
+                        "fired": True,
+                        "groups": 3,
+                        "bytes_saved": 1000,
+                        "dropped_records": 5,
+                        "retained_from_seq": 7,
+                    },
+                    "summary": {"fired": False},
                     "bad": [],
                 }
             },
@@ -340,7 +346,15 @@ async def test_event_whitelists_tolerate_missing_and_malformed_fields(
     detail = await read_detail(client, run)
     assert "canary" not in json.dumps(detail)
     if kind == "CONTEXT_COMPACTED":
-        assert detail["compaction"] == [{"layer": "snip", "groups": 3, "bytes_saved": 1000}]
+        assert detail["compaction"] == [
+            {
+                "layer": "budget",
+                "groups": 3,
+                "bytes_saved": 1000,
+                "dropped_records": 5,
+                "retained_from_seq": 7,
+            }
+        ]
     elif kind == "CONTEXT_SUMMARY":
         assert len(detail["fields"]) == 3
     elif kind == "USER_MESSAGE":
