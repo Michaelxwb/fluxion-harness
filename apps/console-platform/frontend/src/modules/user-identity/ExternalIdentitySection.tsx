@@ -120,6 +120,12 @@ export function ExternalIdentitySection(props: ExternalIdentitySectionProps) {
   );
 
   const load = useCallback(async () => {
+    // 用户 id 尚未就绪时不发请求，避免打到 /users//external-identities 之类的无效路径
+    if (!props.userId) {
+      setLoading(false);
+      setFailed(false);
+      return;
+    }
     setLoading(true);
     setFailed(false);
     try {
@@ -129,7 +135,9 @@ export function ExternalIdentitySection(props: ExternalIdentitySectionProps) {
       ]);
       setPlatforms(platformList);
       setIdentities(identityList);
-    } catch {
+    } catch (err) {
+      // 不要静默吞错：失败原因必须能在 Console 看到，便于定位是接口还是解析
+      console.error('[ExternalIdentitySection] load failed', err);
       setFailed(true);
     } finally {
       setLoading(false);

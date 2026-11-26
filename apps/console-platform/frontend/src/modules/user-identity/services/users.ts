@@ -79,11 +79,18 @@ export interface AgentSummary {
   enabled: boolean;
 }
 
-async function unwrap<T>(response: { data: ApiResponse<T> }): Promise<T> {
-  if (response.data.data === null) {
-    throw response.data;
+function unwrap<T>(response: { data: ApiResponse<T> | T }): T {
+  const body = response.data as unknown;
+  // 标准封套 { code, msg, data }：取 data；data 为 null 视为业务失败。
+  if (body !== null && typeof body === 'object' && 'code' in body && 'data' in (body as object)) {
+    const envelope = body as ApiResponse<T>;
+    if (envelope.data === null) {
+      throw envelope;
+    }
+    return envelope.data;
   }
-  return response.data.data;
+  // 兼容裸响应：某些部署形态/前置代理会直接回裸数据（数组/对象）而不加封套。
+  return body as T;
 }
 
 export async function listUsers(params: {
@@ -365,10 +372,11 @@ export async function listExternalPlatforms(
   const platforms = unwrap(
     await api.get<ApiResponse<ExternalPlatformItem[]>>('/external-platforms', options)
   );
-  // 契约是数组：异形响应（网关错误页、代理包裹对象等）按失败处理，交给调用方降级，
+  // 契约是数组：异形响应（网关错误页、代理包裹对象等）降级为空列表并记录真实形态，
   // 避免详情侧滑在 `platforms.filter(...)` 处抛 TypeError 白屏。
   if (!Array.isArray(platforms)) {
-    throw new TypeError('external-platforms response is not an array');
+    console.error('[listExternalPlatforms] non-array payload:', platforms);
+    return [];
   }
   return platforms;
 }
@@ -397,9 +405,14 @@ export async function listExternalIdentities(
   id: string,
   options: RequestOptions = {}
 ): Promise<ExternalIdentityItem[]> {
-  return unwrap(
+  const identities = unwrap(
     await api.get<ApiResponse<ExternalIdentityItem[]>>(`/users/${id}/external-identities`, options)
   );
+  if (!Array.isArray(identities)) {
+    console.error('[listExternalIdentities] non-array payload:', identities);
+    return [];
+  }
+  return identities;
 }
 
 export async function upsertExternalIdentity(
