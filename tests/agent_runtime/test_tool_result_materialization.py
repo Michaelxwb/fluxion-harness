@@ -7,6 +7,7 @@ import httpx
 import pytest
 from muad_agent_core.agent.continuation import RunnerCheckpoint
 from muad_agent_core.model import ModelMessage, ModelRequest, ModelRole, OpenAICompatibleProvider
+from muad_agent_core.tools.result_budget import ToolResultBudget
 from muad_agent_runtime.application.async_tools.continuation_service import checkpoint_execution
 from muad_agent_runtime.application.async_tools.materialization import materialize_results, result_text
 from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
@@ -15,7 +16,6 @@ from muad_agent_runtime.application.context_compaction import RuntimeContextComp
 from muad_agent_runtime.infrastructure.models.async_tools import ToolResultInbox
 from muad_agent_runtime.infrastructure.models.runtime import Artifact, CanonicalEvent, RunRecord
 from muad_contracts import canonical_json
-from muad_agent_core.tools.result_budget import ToolResultBudget
 from muad_contracts.platform_settings import CompactionSettings, SummarySettings
 from muad_platform_sdk.types import SecretValue
 from sqlalchemy import func, select
@@ -170,7 +170,12 @@ async def test_b03_multi_result_round_budget_selects_whole_batch(async_tool_data
         factory,
         identity,
         writer=ArtifactResultWriter(tmp_path),
-        settings=ToolResultBudget(persist_threshold_bytes=10_000, round_budget_bytes=600, preview_head_bytes=0, preview_tail_bytes=0),
+        settings=ToolResultBudget(
+            persist_threshold_bytes=10_000,
+            round_budget_bytes=600,
+            preview_head_bytes=0,
+            preview_tail_bytes=0,
+        ),
     )
     assert len(events) == 3 and sum(row.artifact_id is not None for row in events) == 2
     assert [row.payload_json["source_tool_call_id"] for row in events] == [
@@ -205,7 +210,15 @@ async def test_e10_batch_io_failure_rolls_back_all_artifacts_and_summary_keeps_h
     before = render_metrics()
     with caplog.at_level(logging.WARNING):
         events = await materialize_results(
-            factory, identity, writer=writer, settings=ToolResultBudget(persist_threshold_bytes=50, round_budget_bytes=100_000, preview_head_bytes=0, preview_tail_bytes=0)
+            factory,
+            identity,
+            writer=writer,
+            settings=ToolResultBudget(
+                persist_threshold_bytes=50,
+                round_budget_bytes=100_000,
+                preview_head_bytes=0,
+                preview_tail_bytes=0,
+            ),
         )
     assert len(events) == 2 and all(row.artifact_id is None for row in events)
     assert not list(tmp_path.rglob("result.bin"))
@@ -282,7 +295,15 @@ async def test_e10_real_artifact_transaction_failure_rolls_back_whole_batch(
     monkeypatch.setattr(writer, "prepare_round", duplicate_identity)
     with caplog.at_level(logging.WARNING):
         events = await materialize_results(
-            factory, identity, writer=writer, settings=ToolResultBudget(persist_threshold_bytes=50, round_budget_bytes=100_000, preview_head_bytes=0, preview_tail_bytes=0)
+            factory,
+            identity,
+            writer=writer,
+            settings=ToolResultBudget(
+                persist_threshold_bytes=50,
+                round_budget_bytes=100_000,
+                preview_head_bytes=0,
+                preview_tail_bytes=0,
+            ),
         )
     assert len(events) == 2 and all(row.artifact_id is None for row in events)
     assert not list(tmp_path.rglob("result.bin"))
@@ -311,7 +332,15 @@ async def test_b03_epoch_change_during_artifact_io_rolls_back_unreferenced_batch
     monkeypatch.setattr(writer, "prepare_round", take_over)
     with pytest.raises(ExecutionLeaseLost):
         await materialize_results(
-            factory, identity, writer=writer, settings=ToolResultBudget(persist_threshold_bytes=50, round_budget_bytes=100_000, preview_head_bytes=0, preview_tail_bytes=0)
+            factory,
+            identity,
+            writer=writer,
+            settings=ToolResultBudget(
+                persist_threshold_bytes=50,
+                round_budget_bytes=100_000,
+                preview_head_bytes=0,
+                preview_tail_bytes=0,
+            ),
         )
     assert not list(tmp_path.rglob("result.bin"))
     async with factory() as session:
@@ -338,8 +367,19 @@ async def test_e10_cancel_during_file_publication_removes_prepared_files(async_t
                 assert release.wait(timeout=5)
             finally:
                 done.set()
-    task = asyncio.create_task(materialize_results(factory, identity, writer=GatedWriter(tmp_path),
-        settings=ToolResultBudget(persist_threshold_bytes=1, round_budget_bytes=100_000, preview_head_bytes=0, preview_tail_bytes=0)))
+    task = asyncio.create_task(
+        materialize_results(
+            factory,
+            identity,
+            writer=GatedWriter(tmp_path),
+            settings=ToolResultBudget(
+                persist_threshold_bytes=1,
+                round_budget_bytes=100_000,
+                preview_head_bytes=0,
+                preview_tail_bytes=0,
+            ),
+        )
+    )
     assert await asyncio.to_thread(started.wait, 5)
     task.cancel()
     release.set()

@@ -16,6 +16,7 @@ from typing import Any
 import pytest
 from httpx import AsyncClient  # noqa: F401  (保持与同目录用例一致的测试依赖面)
 from muad_agent_core.model import ModelMessage, ModelRole, ModelToolCall
+from muad_agent_core.tools.result_budget import derive_tool_result_budget
 from muad_agent_runtime.application.attachments.tool_results import (
     ArtifactResultWriter,
     preview_head_tail,
@@ -26,7 +27,6 @@ from muad_agent_runtime.application.attachments.transcripts import (
 )
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import Artifact
-from muad_agent_core.tools.result_budget import derive_tool_result_budget
 
 from agent_runtime.conftest import TenantContext
 
