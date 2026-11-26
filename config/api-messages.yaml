@@ -818,8 +818,8 @@ codes:
   ATTACHMENT_TYPE_NOT_ALLOWED:
     http_status: 400
     messages:
-      zh-CN: 这个文件类型暂不支持，未接收
-      en-US: This file type is not supported and was not accepted.
+      zh-CN: 不支持该附件类型（{type}），仅支持：{allowed}
+      en-US: Unsupported attachment type ({type}). Accepted types are {allowed}.
 
   ATTACHMENT_TOO_LARGE:
     http_status: 400

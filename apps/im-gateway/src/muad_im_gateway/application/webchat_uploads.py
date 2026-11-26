@@ -34,7 +34,7 @@ from typing import Any, BinaryIO, Protocol
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_artifact_store import NfsArtifactStore
-from muad_contracts import ALLOWED_ATTACHMENT_MEDIA_TYPES
+from muad_contracts import ALLOWED_ATTACHMENT_MEDIA_TYPES, SUPPORTED_UPLOAD_EXTENSIONS_TEXT
 from muad_contracts.channel import AttachmentKind
 from muad_contracts.webchat import WebchatUpload, WebchatUploadRegistration
 from muad_logging import get_logger
@@ -471,7 +471,13 @@ def _allowed_media_type(value: str | None) -> str:
     """部件 MIME 必须在既有附件白名单内（可执行内容默认拒绝），否则显式拒绝。"""
     media_type = (value or "").strip().lower()
     if media_type not in ALLOWED_ATTACHMENT_MEDIA_TYPES:
-        raise AppError(ErrorCode.ATTACHMENT_TYPE_NOT_ALLOWED)
+        raise AppError(
+            ErrorCode.ATTACHMENT_TYPE_NOT_ALLOWED,
+            message_args={
+                "type": media_type or "未知类型",
+                "allowed": SUPPORTED_UPLOAD_EXTENSIONS_TEXT,
+            },
+        )
     return media_type
 
 

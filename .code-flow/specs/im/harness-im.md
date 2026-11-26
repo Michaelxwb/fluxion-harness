@@ -63,6 +63,7 @@
 
 **统一内核、WebChat 与 Connector**：
 
+- **任务中心（含 `ask_user` 人工提问）按 surface 自动挂载，不写死平台名**：人工输入待处理、定时结果与产物读取都走同一套 `build_task_center_router(surface)`；内置 `WEBCHAT` 与每个外部 JWT 平台通道（`EXTERNAL_ASSERTION_PLATFORMS_JSON` 解析出的 surface，通道名即 `ConfirmationSurface`）都在装配期各自挂一份 task-center 路由，路由前缀取 `<channel 小写>`。新增外部平台只改配置，无需改代码即可获得提问/待处理能力。✅ 配置新增 `acmeweb` 通道后 `/api/v1/acmeweb/task-center/pending` 直接可用；❌ 在装配期按 `if channel == "MSSWWEB"` 单独挂载，或让外部平台缺 task-center 而只能回纯文本提问（`main.py` 装配、`application/task_center.py`）。
 - **统一消息内核在 `packages/im-core`，Gateway/Connector 只做适配**：`MessageGateway.admit_sync` / `admit_async` 是两条受理路径；`ChannelAdapter` / `InboundPublisher` / `BotSnapshotCache` / stream keys 共用同一实现。新增通道只实现 SPI，不在应用层按通道分叉。
 - **WebChat 是 SYNC 通道，不走队列也不回源解析身份**：网页提交在请求内等 Runtime 受理裁决，返回 202 + 受理投影；`SyncPrincipal` 来自 Console 已核验的 CHAT 主体与入口解析，Gateway 不再回调 Console 解析身份（WEBCHAT 的 `iter_events()` 刻意为空）。✅ 只把渠道中立事件映射成 `RunRequest`；❌ 另建 webchat 身份解析，或把 SYNC 提交塞进 ASYNC 队列。
 - **会话数量与保留期是平台设置**：单个 `(tenant,user,agent,入口)` 活跃会话上限默认 50，达限自动归档最旧且无活跃 Run 的会话；保留期默认 30 天，`0` 表示永不过期；超期历史与续聊统一 `CONVERSATION_EXPIRED`（`contracts.platform_settings.WebchatSettings`、`application/conversation_policy.py`）。

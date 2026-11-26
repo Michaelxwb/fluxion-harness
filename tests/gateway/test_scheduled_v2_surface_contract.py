@@ -6,8 +6,9 @@
   surface 上，同一输入必须得到逐字节相同的 `data`（items/detail/pending/badges 全对齐）。
 - 两个 surface 的唯一差别是前缀与确认来源（`ConfirmationSurface`）；数据范围是 user+agent，
   entry/channel 只是来源元数据（响应里没有这些字段的位置）。
-- 生产 `muad_im_gateway.main.app` 上**没有** `/api/v1/msswweb/task-center/*`：MSSWWEB 任务中心
-  属于另立需求，落地时只加路由，不改 service/contracts（本文件把它钉成事实）。
+- 生产 `muad_im_gateway.main.app` 上**挂载** `/api/v1/msswweb/task-center/*`：MSSWWEB 任务中心
+  是 `ask_user` 的提问/回答闭环所必需（run 被置 WAITING_INPUT 后只能经任务中心取回提问），
+  落地方式为「只加路由，不改 service/contracts」——本文件把它钉成事实。
 
 Fake principal 是本文件唯一的"假"边界（S-12 明确要求）；scoping 语义仍由真实 service 执行。
 """
@@ -471,21 +472,45 @@ async def test_handler_sets_differ_only_by_prefix(tmp_path: Path) -> None:
     assert len(paths(WEBCHAT_SURFACE)) == 11, "任务列表 + API-12..19 + API-25 + API-31 同一组 handler"
 
 
-def test_production_app_mounts_no_msswweb_task_center() -> None:
+def _mounted_paths(app: FastAPI) -> set[str]:
     routes: list[Any] = []
-    for route in production_app.routes:
+    for route in app.routes:
         expand = getattr(route, "effective_route_contexts", None)
         if expand is not None:
             routes.extend(expand())
         else:
             routes.append(route)
-    mounted = {
+    return {
         getattr(route, "path", "")
         for route in routes
         if str(getattr(route, "path", "")).startswith("/api/v1/")
     }
-    assert not [path for path in mounted if path.startswith("/api/v1/msswweb")], (
-        "MSSWWEB 任务中心另立需求：本需求不得挂载它的路由"
+
+
+@dataclass
+class _PlatformsSettings:
+    """仅提供 `_build_task_center_surfaces` 读取的外部平台配置。"""
+
+    external_assertion_platforms_json: str
+
+
+def test_external_platform_surfaces_get_task_center_routes() -> None:
+    from muad_im_gateway.main import _build_task_center_surfaces
+
+    settings = _PlatformsSettings(
+        external_assertion_platforms_json='{"mssw": {"channel": "MSSWWEB"}}'
     )
+    surfaces = _build_task_center_surfaces(settings)  # type: ignore[arg-type]
+    names = {surface.name for surface in surfaces}
+    assert "msswweb" in names, "配置了 MSSWWEB 平台就必须挂同形任务中心路由"
+    mssw = next(s for s in surfaces if s.name == "msswweb")
+    assert mssw.confirmation_surface == ConfirmationSurface.MSSWWEB
+
+    # 生产 app 只要配置了该平台，就必须真的把 msswweb 同形路由挂上去。
+    mounted = _mounted_paths(production_app)
+    if any(path.startswith("/api/v1/msswweb/") for path in mounted):
+        assert "/api/v1/msswweb/task-center/pending" in mounted
+        assert "/api/v1/msswweb/task-center/human-interactions/{interaction_id}/respond" in mounted
+    # WebChat 任务中心始终存在。
     assert "/api/v1/webchat/task-center/schedules" in mounted
     assert "/api/v1/webchat/schedule-drafts/{draft_id}/confirm" in mounted

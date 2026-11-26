@@ -203,7 +203,7 @@ async def test_e02_all_rejected_sends_only_the_rejection_not_a_receipt(
         bot_id=BOT_ID, frame=_callback(message_id, reply_id, _mixed(*items))
     )
 
-    texts = await _collect_after(probe, reply_id, "未接收")
+    texts = await _collect_after(probe, reply_id, "不支持")
 
     rejection = CATALOG.message(TYPE_NOT_ALLOWED, LOCALE)
     assert texts.count(rejection) == 1, f"拒绝说明恰好一条，实收：{texts!r}"

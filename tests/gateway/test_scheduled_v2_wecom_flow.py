@@ -200,7 +200,7 @@ async def test_confirm_command_uses_the_server_side_hash_and_inbound_reference(
     confirm = owner.confirm_calls[0]
     # hash 只来自服务端读到的 Draft；用户给的只有 id。
     assert confirm["payload"] == {"draft_hash": DRAFT_HASH}
-    assert confirm["surface"] is ConfirmationSurface.WECOM
+    assert confirm["surface"] == ConfirmationSurface.WECOM
     # 一次用户动作 = 一个稳定引用 = 同一条入站消息（重投不重复生效）。
     assert confirm["ref"] == "msg-1"
     assert confirm["idempotency_key"] == "msg-1"

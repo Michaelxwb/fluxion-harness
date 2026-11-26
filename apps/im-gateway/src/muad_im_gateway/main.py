@@ -25,6 +25,7 @@ from muad_common.redis_client import (
     verify_redis_topology,
 )
 from muad_common.session_store import RedisSessionStore
+from muad_contracts import ConfirmationSurface
 from muad_im_core import BotSnapshotCache, InboundPublisher
 from muad_logging import configure_logging, get_logger
 from redis.crc import key_slot
@@ -47,7 +48,7 @@ from .application.inbound_schedules import ChatScheduleService
 from .application.inbound_streams import InboundStreamConsumer
 from .application.notification_streams import NotificationStreamHub
 from .application.runtime_client import RuntimeClient
-from .application.task_center import WEBCHAT_SURFACE
+from .application.task_center import WEBCHAT_SURFACE, TaskCenterSurface
 from .application.webchat_core import ChatSurface
 from .application.webchat_streams import SseBufferLedger
 from .application.worker_client import WorkerClient
@@ -546,6 +547,23 @@ def _build_webchat_surfaces(settings: SharedSettings) -> dict[str, ChatSurface]:
     return surfaces
 
 
+def _build_task_center_surfaces(settings: SharedSettings) -> list[TaskCenterSurface]:
+    """为每个外部平台生成任务中心 surface（前缀 `/api/v1/<channel 小写>`）。
+
+    `ask_user` 在 msswweb 等外部平台通道会把 run 置为 WAITING_INPUT，提问/回答只能经
+    任务中心取回与提交，所以每个外部平台面都要挂同形任务中心路由，否则前端永远看不到
+    提问卡片。通道名已在 `parse_external_platform_surfaces` 阶段校验为合法外部通道名
+    （`^[A-Za-z0-9]+web$`），因此直接按配置生成 surface，不再依赖固定枚举白名单。
+    """
+    return [
+        TaskCenterSurface(
+            name=channel.lower(),
+            confirmation_surface=ConfirmationSurface(channel),
+        )
+        for channel, _header in parse_external_platform_surfaces(settings).values()
+    ]
+
+
 def _external_prefix_for(channel: str) -> str:
     """外部断言面的路由前缀，统一为 `/api/v1/<channel 小写>`。
 
@@ -568,8 +586,12 @@ def mount_webchat_surfaces(target_app: FastAPI, settings: SharedSettings) -> Non
 
 mount_webchat_surfaces(app, SharedSettings())
 # 任务中心表面（TASK-024）：WebChat 的任务读面/用户动作/产物下载见
-# `api/task_center.py`；MSSWWEB 的同形路由另立需求，本进程不挂。
+# `api/task_center.py`。MSSWWEB 等外部平台同样需要「挂起提问 → 人工回答」的闭环
+# （`ask_user` 在该通道会置 run 为 WAITING_INPUT，但提问条目只能经任务中心取回），
+# 因此为每个能映射到合法 ConfirmationSurface 外部平台的 surface 一并挂载同形路由。
 app.include_router(build_task_center_router(WEBCHAT_SURFACE))
+for _surface in _build_task_center_surfaces(SharedSettings()):
+    app.include_router(build_task_center_router(_surface))
 install_gateway_metrics(app)
 # 最后注册 = 最外层：必须包在 api-kit 的异常/封套中间件之外，才能看到最终的 5xx 状态。
 app.add_middleware(_ServerErrorLogMiddleware)

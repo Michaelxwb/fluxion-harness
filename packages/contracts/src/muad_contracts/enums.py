@@ -2,6 +2,7 @@ import json
 import re
 from collections.abc import Iterable
 from enum import StrEnum
+from typing import ClassVar, cast
 
 # 通道名的**唯一**声明处。契约字段是**开放的 string**（新增通道只写适配器，不改这里：
 # 路由由 `ChannelRegistry` 的适配器名决定）；下面列出的是内建通道名，供默认值/文档与
@@ -357,12 +358,38 @@ class DraftStatus(StrEnum):
     REJECTED = "REJECTED"
 
 
-class ConfirmationSurface(StrEnum):
-    """Draft 的确认来源 surface（一次用户动作只能确认一个 Draft）。"""
+class ConfirmationSurface(str):
+    """Draft 的确认来源 surface（一次用户动作只能确认一个 Draft）。
 
-    WEBCHAT = "WEBCHAT"
-    WECOM = "WECOM"
-    MSSWWEB = "MSSWWEB"
+    `WEBCHAT`/`WECOM` 是内置平台，取值固定不变；此外任何**合法的外部平台通道名**
+    （满足 `is_valid_external_channel_name`，即 `^[A-Za-z0-9]+web$`，如 `MSSWWEB`、
+    `MSSPWEB`）都自动合法——外部平台的确认/任务中心按配置扩展，不需要改这份清单。
+    """
+
+    WEBCHAT: ClassVar["ConfirmationSurface"] = cast("ConfirmationSurface", "WEBCHAT")
+    WECOM: ClassVar["ConfirmationSurface"] = cast("ConfirmationSurface", "WECOM")
+    MSSWWEB: ClassVar["ConfirmationSurface"] = cast("ConfirmationSurface", "MSSWWEB")
+
+    def __new__(cls, value: str) -> "ConfirmationSurface":
+        normalized = (value or "").strip().upper()
+        if normalized not in _BUILTIN_CONFIRMATION_SURFACES and not is_valid_external_channel_name(
+            normalized
+        ):
+            raise ValueError(f"invalid confirmation surface: {value!r}")
+        return super().__new__(cls, normalized)
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type: object, handler: object) -> object:
+        """让 pydantic 按 str 校验再走 `__new__` 规范化/拒绝，开放取值。"""
+        from pydantic_core import core_schema
+
+        return core_schema.no_info_after_validator_function(
+            cls, core_schema.str_schema()
+        )
+
+
+#: 内置确认来源（固定不变）；其余合法值必须是外部平台通道名。
+_BUILTIN_CONFIRMATION_SURFACES = frozenset({"WEBCHAT", "WECOM"})
 
 
 class DeliveryIntent(StrEnum):

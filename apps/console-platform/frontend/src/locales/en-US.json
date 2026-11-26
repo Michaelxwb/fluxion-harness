@@ -1846,7 +1846,7 @@
   "chat.composer.error.textTooLong": "Message exceeds the length limit, please shorten it",
   "chat.composer.error.tooManyFiles": "Too many attachments, please remove some",
   "chat.composer.error.fileTooLarge": "Attachment exceeds the size limit, please replace it",
-  "chat.composer.error.typeNotAllowed": "This attachment type is not supported, please replace it",
+  "chat.composer.error.typeNotAllowed": "Unsupported attachment type; only these are accepted: {{allowed}}",
   "chat.composer.error.uploadFailed": "Attachment upload failed, you can retry",
   "chat.composer.error.stagingExpired": "Attachment staging expired, upload again before sending",
   "chat.composer.error.conversationExpired": "This conversation is beyond its retention period and cannot be continued. Start a new conversation.",

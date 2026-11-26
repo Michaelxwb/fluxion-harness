@@ -1,6 +1,7 @@
 from .attachments import (
     ALLOWED_ATTACHMENT_MEDIA_TYPES,
     ARCHIVE_MEDIA_TYPES,
+    SUPPORTED_UPLOAD_EXTENSIONS_TEXT,
     SUPPORTED_UPLOAD_FORMATS,
     AttachmentFormat,
     is_archive_media_type,
@@ -552,6 +553,7 @@ __all__ = [
     "WaitKind",
     "ALLOWED_ATTACHMENT_MEDIA_TYPES",
     "ARCHIVE_MEDIA_TYPES",
+    "SUPPORTED_UPLOAD_EXTENSIONS_TEXT",
     "SUPPORTED_UPLOAD_FORMATS",
     "AttachmentFormat",
     "is_archive_media_type",

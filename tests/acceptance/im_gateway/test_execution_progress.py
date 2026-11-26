@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import time
 from uuid import uuid4
 
@@ -51,7 +52,14 @@ async def test_s401_real_run_switches_model_tool_and_elapsed(gateway_stack: Gate
     contents = [frame_text(frame) for frame in frames]
     assert any("🔵 思考中" in content for content in contents)
     assert any("⚙️ 执行中" in content for content in contents)
-    assert any("已执行 00:01" in content for content in contents)
+    # 计时按「已执行 mm:ss」渲染，但 tick 只在事件流空档触发，会直接跳秒（实测 00:00 → 00:02），
+    # 不保证每个整秒各出现一帧。断言「计时确实推进到 ≥1 秒」而不是锁死某一具体读数。
+    clock = [
+        int(m.group(1)) * 60 + int(m.group(2))
+        for m in (re.search(r"已执行 (\d{2}):(\d{2})", content) for content in contents)
+        if m is not None
+    ]
+    assert any(seconds >= 1 for seconds in clock), f"elapsed never advanced past 00:00: {contents}"
     assert contents[-1] == marker
     assert len({frame["body"]["stream"]["id"] for frame in frames}) == 1
     assert sum(frame["body"]["stream"]["finish"] for frame in frames) == 1
