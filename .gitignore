@@ -33,3 +33,8 @@ skills/*.zip
 .code-flow/launcher/hook.cmd
 .code-flow/launcher/hook.ps1
 .opencode/plugins/code-flow/index.js
+
+# 本地临时脚手架 / 调试脚本，勿入库（会污染 CI lint）
+.claude/temp/
+.tmp_ci/
+devops/
