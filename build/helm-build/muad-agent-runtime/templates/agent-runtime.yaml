@@ -79,7 +79,7 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: RUNTIME_EXECUTION_CONCURRENCY
-              value: "256"
+              value: {{ .Values.service.executionConcurrency | quote }}
             - name: CHANNEL_DELIVERY_CONCURRENCY
               value: "4"
             - name: CONTROL_HTTP_MAX_CONNECTIONS

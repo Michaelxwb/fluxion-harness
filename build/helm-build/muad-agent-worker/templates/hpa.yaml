@@ -44,5 +44,5 @@ spec:
           name: task_queue_depth
         target:
           type: AverageValue
-          averageValue: "8"
+          averageValue: {{ mul .Values.service.executionConcurrency 2 | quote }}
 {{- end }}

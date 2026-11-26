@@ -35,6 +35,10 @@ service:
     limits:
       cpu: '2'
       memory: 4Gi
+  #: 每进程执行槽（`RUNTIME_EXECUTION_CONCURRENCY`）。内网按 8 部署（8 副本 × 8 = 64 并发 Run），
+  #: 与 `SharedSettings` 的 typed 默认 256 不同——这是内网容量选择，不是默认值。
+  #: HPA 的 `runtime_queue_depth` 目标由它推导（2 × 本值）。
+  executionConcurrency: 8
   extraEnv: []
   name: muad-agent-runtime
   image: muad-agent-runtime

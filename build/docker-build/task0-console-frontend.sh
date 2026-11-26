@@ -60,6 +60,25 @@ echo "${DIST_VERSION}" > "${CACHE_DIR}/DIST_VERSION"
 # frontend dist.
 TAG_CACHE_DIR="${TAG_CACHE_DIR:-/tmp/muad-helm/tag}"
 mkdir -p "${TAG_CACHE_DIR}"
+
+# /tmp/muad-helm is a persistent cross-run cache: Qianliu restores it before this
+# first node runs and uploads it again at the end. Any release-<service>.env or
+# chart a previous run left here would otherwise be read by the deploy stage as
+# if it belonged to this run — a service whose own release env was not rewritten
+# this run silently deploys the old tag (instance: nginx kept an 11-16 tag). Clear
+# last run's per-run artifacts here, keeping only the tag/ anchor directory this
+# node is about to rewrite. The image-build metadata under /tmp/muad-image-* is
+# cleared by build-image.sh/nginx-build/build.sh at their own start.
+HELM_CACHE_DIR="${HELM_CACHE_DIR:-/tmp/muad-helm}"
+if [[ -d "${HELM_CACHE_DIR}" ]]; then
+  find "${HELM_CACHE_DIR}" -maxdepth 1 -type f \
+    \( -name 'release.env' -o -name 'release-*.env' -o -name 'HELM_PKG' \
+       -o -name 'HELM_PKGS' -o -name 'HELM_VERSION' -o -name 'muad-*.tgz' \) \
+    -delete
+  rm -rf "${HELM_CACHE_DIR}/dist"
+  log "cleared previous-run helm artifacts in ${HELM_CACHE_DIR}"
+fi
+
 # This is the first node of the pipeline, so it is the only writer. Clearing
 # first means a leftover anchor from an earlier run can never be reused.
 rm -f "${TAG_CACHE_DIR}/TIMESTAMP"

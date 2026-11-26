@@ -61,6 +61,15 @@ STEP=0
 step() { STEP=$((STEP + 1)); log "[${STEP}/${TOTAL_STEPS}] $*"; }
 
 step "resolve chart version"
+# Drop this service's release env before doing anything else. /tmp/muad-helm is a
+# persistent cross-run cache restored before this node runs; an earlier run's
+# release-<service>.env would otherwise be sourced by the deploy stage as if it
+# belonged to this run (instance: nginx deployed an 11-20 tag in a 11-26 run).
+# Deleting up front — not only in the "no image metadata" branch below — means a
+# failure anywhere after this point leaves no env at all, so the deploy stage
+# fails loudly instead of silently shipping the previous run's tag.
+rm -f "${HELM_CACHE_DIR}/release-${SERVICE}.env"
+
 # Prefer the image tag written by build-image.sh so image and chart versions
 # stay aligned. The fallback keeps the historical 1.0.<timestamp> scheme.
 if [[ -z "${HELM_VERSION:-}" ]]; then
@@ -123,6 +132,17 @@ printf '%s\n' "${HELM_VERSION}" > "${HELM_CACHE_DIR}/HELM_VERSION"
 # 部署流水线可 source 这个文件拿镜像 tag / chart 版本 / helm 仓库
 image_ref="$(cat "${IMAGE_CACHE_DIR}/image.txt" 2>/dev/null || true)"
 if [[ -n "${image_ref}" ]]; then
+  # Guard against stale image metadata. The tag carries the run timestamp
+  # (1.0.0.<yyMMddHHmm><branch>); the frontend node seeds that timestamp in the
+  # shared helm cache anchor. If image.txt does not carry this run's timestamp it
+  # came from an earlier run (e.g. a leftover /tmp/muad-image-* dir), and writing
+  # it into release-<service>.env would deploy the old image. Fail loudly.
+  anchor_file="${TAG_CACHE_DIR:-${HELM_CACHE_DIR}/tag}/${TAG_ANCHOR_NAME:-TIMESTAMP}"
+  run_ts="$(tr -d '[:space:]' < "${anchor_file}" 2>/dev/null || true)"
+  image_tag_from_ref="${image_ref##*:}"
+  if [[ -n "${run_ts}" && "${image_tag_from_ref}" != *"${run_ts}"* ]]; then
+    die "stale image metadata: ${image_tag_from_ref} is not from this run (anchor ${run_ts} in ${anchor_file})"
+  fi
   {
     printf 'CHART=%s\n' "${CHART}"
     printf 'IMAGE_NAMESPACE=%s\n' "${image_ref%/*}"
@@ -133,6 +153,16 @@ if [[ -n "${image_ref}" ]]; then
   } > "${HELM_CACHE_DIR}/release.env"
   cp -f "${HELM_CACHE_DIR}/release.env" "${HELM_CACHE_DIR}/release-${SERVICE}.env"
   log "release env: ${HELM_CACHE_DIR}/release.env, release-${SERVICE}.env"
+else
+  # No image metadata means this service's image was not built in this run, so
+  # its release env would carry a stale tag if an earlier run left one behind.
+  # Drop it rather than let the deploy stage source a previous run's values; in
+  # CI fail loudly instead of shipping a chart with no release env.
+  rm -f "${HELM_CACHE_DIR}/release-${SERVICE}.env"
+  if [[ -n "${CI_PIPELINE_ID:-}" ]]; then
+    die "image metadata missing: ${IMAGE_CACHE_DIR}/image.txt (build ran before packaging?)"
+  fi
+  log "no image metadata in ${IMAGE_CACHE_DIR}; cleared release-${SERVICE}.env, release env not written"
 fi
 
 log "metadata=${HELM_CACHE_DIR} (HELM_PKG, HELM_VERSION, release.env)"

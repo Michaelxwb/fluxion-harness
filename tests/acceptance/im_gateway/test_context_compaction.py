@@ -53,11 +53,14 @@ FOLLOW_UP = "把剩下的也核对一遍"
 FINAL_TEXT = "核对完毕"
 TOOL_ROUNDS = 4
 
-#: 只压历史预算：短会话就会触发真实的请求边界裁剪，保头保尾仍是生产实现。
+#: 历史预算两个阶段（配置在 Run 建立时冻结，见 `_arm_history_budget`）：
+#: - 前两个来回用**宽松预算**跑完 4 个工具回合。按设计，当前回合中段的旧工具往返在预算
+#:   不足时可以被省略；用 100 token 连当前回合都装不下，模型会看不到本轮已拿到的工具结果而
+#:   反复调用同一工具（实测跑到轮次上限，RUN_BUDGET_EXCEEDED）。这是设计行为，不是裁剪缺陷。
+#: - 第三个来回收紧到很小的预算，本次 Run 的请求缝必须真的触发裁剪（保头保尾仍是生产实现）。
 #: 预算必须是 schema 允许的正整数；非法值会在 Run 建立前被拒（表现是"推了消息却没有 Run"）。
-COMPACTION_RUNTIME_CONFIG: dict[str, Any] = {
-    "budget": {"compaction": {"history_budget_tokens": 100}}
-}
+WIDE_HISTORY_BUDGET = 100_000
+SMALL_HISTORY_BUDGET = 100
 
 WAIT_TIMEOUT_SEC = 150.0
 MARKER = "[历史裁剪]"
@@ -93,18 +96,24 @@ async def _wait_for(predicate: Callable[[], Any], *, what: str, timeout: float =
     raise AssertionError(what)
 
 
-def _arm_small_history_budget(stack: GatewayStack) -> None:
-    """把该 Agent 的历史预算压到很小（真实 `control.agent_definition` 行）。
+def _arm_history_budget(stack: GatewayStack, tokens: int) -> None:
+    """把该 Agent 的历史预算设为 `tokens`（真实 `control.agent_definition` 行）。
 
-    必须在**本条会话的第一次 Run 之前**写完：压缩配置在 Run 建立时解析并冻结进
-    `policy_json`（E-04），之后改配置只影响后续新 Run。
+    必须在目标 Run **建立之前**写完：压缩配置在 Run 建立时解析并冻结进 `policy_json`
+    （E-04），之后改配置只影响后续新 Run。
     """
 
     async def run() -> None:
         await _execute(
             "UPDATE control.agent_definition SET runtime_config_json = CAST(:cfg AS jsonb) "
             "WHERE tenant_id = :t AND key = 'e2e_im_agent'",
-            {"t": TENANT, "cfg": json.dumps(COMPACTION_RUNTIME_CONFIG, ensure_ascii=False)},
+            {
+                "t": TENANT,
+                "cfg": json.dumps(
+                    {"budget": {"compaction": {"history_budget_tokens": tokens}}},
+                    ensure_ascii=False,
+                ),
+            },
         )
 
     _run_in_thread(run)
@@ -217,15 +226,15 @@ def _assert_no_orphan_tools(messages: list[dict[str, Any]]) -> None:
 
 async def test_s01_compaction_composes_on_the_real_chain(gateway_stack: GatewayStack) -> None:
     stack = gateway_stack
-    _arm_small_history_budget(stack)
+    _arm_history_budget(stack, WIDE_HISTORY_BUDGET)
     await _wait_for_bot_connection(stack)
 
     # 第一个来回：建立"会话开头"。这轮不调工具，让 OPENING 成为对话区的第一组。
     _clear_script(stack)
     assert await _send_until_terminal(stack, OPENING) == "COMPLETED"
 
-    # 第二个来回：四个工具回合 —— 它们**全部落成 older 历史**（当前回合永不压缩，
-    # 否则模型会看不到自己刚产出的工具结果，表现为重复调用同一工具直到预算耗尽）。
+    # 第二个来回：四个工具回合 —— 它们随后**全部落成 older 历史**。宽松预算必须覆盖整个
+    # 当前回合：预算不足时当前回合中段会被省略，模型看不到本轮已拿到的工具结果。
     _script_tool_rounds(stack, TOOL_ROUNDS)
     try:
         assert await _send_until_terminal(stack, MIDDLE) == "COMPLETED"
@@ -233,6 +242,8 @@ async def test_s01_compaction_composes_on_the_real_chain(gateway_stack: GatewayS
         _clear_script(stack)
 
     # 第三个来回：older 已超预算，裁剪必须在**本次请求缝**真的触发。
+    # 仍要求「保头保尾」：开头诉求与本轮追问都必须留在请求里。
+    _arm_history_budget(stack, SMALL_HISTORY_BUDGET)
     assert await _send_until_terminal(stack, FOLLOW_UP) == "COMPLETED"
 
     requests = _probe_requests(stack)

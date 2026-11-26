@@ -67,7 +67,7 @@ spec:
                   name: {{ .Values.global.existingSecret }}
                   key: INTERNAL_SERVICE_TOKEN
             - name: WORKER_EXECUTION_CONCURRENCY
-              value: "4"
+              value: {{ .Values.service.executionConcurrency | quote }}
             - name: CONTROL_HTTP_MAX_CONNECTIONS
               value: "32"
             - name: CONTROL_HTTP_MAX_KEEPALIVE

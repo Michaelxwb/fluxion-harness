@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import re
+import ssl
 from collections.abc import Callable
 from typing import Any
 
 import pytest
 from muad_im_connector.channels.wecom.adapter import _AibotClientPort, build_wecom_sdk_client
+from muad_im_connector.channels.wecom.sdk_logging import LocalTimeSdkLogger
 from muad_im_connector.channels.wecom.sdk_port import (
     WeComInboundEvent,
     WeComInboundMessage,
@@ -208,3 +211,68 @@ def test_build_wecom_sdk_client_constructs_port_without_connecting() -> None:
 
     assert port.is_connected is False
     port.disconnect()
+
+
+def _stub_shared_settings(monkeypatch: pytest.MonkeyPatch, *, max_tls: str | None) -> None:
+    """不让装配读开发机的 `.env`：本用例只验证「设置 → 端口」这段映射。"""
+    from muad_common import SharedSettings
+
+    def factory() -> SharedSettings:
+        return SharedSettings(_env_file=None, wecom_media_max_tls_version=max_tls)
+
+    monkeypatch.setattr(
+        "muad_im_connector.channels.wecom.adapter.SharedSettings", factory
+    )
+
+
+def test_build_wecom_sdk_client_applies_the_media_tls_cap(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`WECOM_MEDIA_MAX_TLS_VERSION` 落在媒体下载端口上（装配期构造，不是下载时临时解析）。"""
+    _stub_shared_settings(monkeypatch, max_tls="TLSv1_2")
+
+    port = build_wecom_sdk_client("bot-1", "unit-test-secret")
+    try:
+        context = port._media_ssl_context  # noqa: SLF001 - 装配契约由本用例锁定
+        assert context is not None
+        assert context.maximum_version is ssl.TLSVersion.TLSv1_2
+        assert context.verify_mode is ssl.CERT_REQUIRED
+    finally:
+        port.disconnect()
+
+
+def test_build_wecom_sdk_client_keeps_default_handshake_without_cap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _stub_shared_settings(monkeypatch, max_tls=None)
+
+    port = build_wecom_sdk_client("bot-1", "unit-test-secret")
+    try:
+        assert port._media_ssl_context is None  # noqa: SLF001 - 默认不设上限
+    finally:
+        port.disconnect()
+
+
+#: 与 `muad_logging.formatter` 相同的行首：本地时区 + 毫秒 + `%z`。
+SDK_LINE_RE = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} [+-]\d{4} \[AiBotSDK\] ")
+
+
+@pytest.mark.parametrize(
+    ("method", "level"),
+    [("debug", "DEBUG"), ("info", "INFO"), ("warn", "WARN"), ("error", "ERROR")],
+)
+def test_sdk_logger_changes_only_the_timestamp(
+    capsys: pytest.CaptureFixture[str], method: str, level: str
+) -> None:
+    """SDK 日志只统一时间格式：stderr、前缀、级别标签、消息体与 `*args` 语义都保持原样。"""
+    getattr(LocalTimeSdkLogger(), method)("received %s", "frame")
+
+    line = capsys.readouterr().err
+    assert SDK_LINE_RE.match(line) is not None, line
+    assert line.endswith(f"[{level}] received %s frame\n"), line
+
+
+def test_build_wecom_sdk_client_uses_the_local_time_sdk_logger() -> None:
+    port = build_wecom_sdk_client("bot-1", "unit-test-secret")
+    try:
+        assert isinstance(port._client._logger, LocalTimeSdkLogger)  # noqa: SLF001 - 装配契约
+    finally:
+        port.disconnect()

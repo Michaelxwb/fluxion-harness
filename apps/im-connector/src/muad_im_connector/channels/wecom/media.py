@@ -21,9 +21,11 @@ from __future__ import annotations
 
 import hashlib
 import re
+import ssl
 from urllib.parse import unquote
 
 import httpx
+from muad_common.tls import parse_max_tls_version
 from muad_contracts import SUPPORTED_UPLOAD_FORMATS
 from muad_logging import get_logger
 
@@ -70,6 +72,47 @@ del _format, _extension
 _FILENAME_UTF8_RE = re.compile(r"filename\*=UTF-8''([^;\s]+)", re.IGNORECASE)
 _FILENAME_RE = re.compile(r'filename="?([^";\s]+)"?', re.IGNORECASE)
 
+#: 异常链里可能出现的 URL（签名在 query 里）：记录根因前先抹掉。
+_URL_IN_TEXT_RE = re.compile(r"https?://[^\s'\"]+")
+_URL_PLACEHOLDER = "<url>"
+#: 取根因时的链路深度上限：异常链可能自引用，遍历必须有界。
+_CAUSE_DEPTH_LIMIT = 8
+#: 根因文本长度上限：只留能定位问题的部分，不把整段响应栈塞进日志。
+_CAUSE_TEXT_LIMIT = 200
+
+
+def build_media_ssl_context(max_tls_version: str | None) -> ssl.SSLContext | None:
+    """按配置构造媒体下载的 TLS context；不设上限时返回 `None`（保持 httpx 默认行为）。
+
+    信任源与 httpx 默认一致（certifi / `SSL_CERT_FILE`），只改协议上限；
+    `check_hostname` 与 `CERT_REQUIRED` 保持默认——**只降版本，不放松校验**。
+    """
+    version = parse_max_tls_version(max_tls_version)
+    if version is None:
+        return None
+    context = httpx.create_ssl_context()
+    context.maximum_version = version
+    return context
+
+
+def _safe_cause(exc: BaseException) -> str:
+    """链路最内层的原因（类型 + 文本）：`ConnectError` 四个字不足以定位握手失败。
+
+    文本里的 URL 换成占位符（签名是凭据），长度有界；异常链遍历同样有界。
+    """
+    cause = exc
+    seen: set[int] = set()
+    while id(cause) not in seen and len(seen) < _CAUSE_DEPTH_LIMIT:
+        seen.add(id(cause))
+        inner = cause.__cause__ or cause.__context__
+        if inner is None:
+            break
+        cause = inner
+    text = _URL_IN_TEXT_RE.sub(_URL_PLACEHOLDER, str(cause)).strip()
+    if len(text) > _CAUSE_TEXT_LIMIT:
+        text = f"{text[:_CAUSE_TEXT_LIMIT]}…"
+    return f"{type(cause).__name__}: {text}" if text else type(cause).__name__
+
 
 async def download_media(
     url: str,
@@ -77,6 +120,7 @@ async def download_media(
     *,
     max_bytes: int,
     timeout_sec: float = MEDIA_TIMEOUT_SEC,
+    ssl_context: ssl.SSLContext | None = None,
 ) -> WeComMediaContent:
     """下载并解密一个企微媒体文件。
 
@@ -92,7 +136,10 @@ async def download_media(
     """
     try:
         encrypted, filename = await _fetch_encrypted(
-            url, max_bytes=max_bytes, timeout_sec=timeout_sec
+            url,
+            max_bytes=max_bytes,
+            timeout_sec=timeout_sec,
+            ssl_context=ssl_context,
         )
         data = _decrypt(encrypted, aes_key)
         if len(data) > max_bytes:
@@ -115,17 +162,24 @@ async def _fetch_encrypted(
     *,
     max_bytes: int,
     timeout_sec: float,
+    ssl_context: ssl.SSLContext | None = None,
 ) -> tuple[bytes, str | None]:
     """取回**未解密**的原始字节与文件名（文件名来自 `Content-Disposition`）。
 
     `max_bytes` 是**明文**上限：流式累计到"明文上限 + 加密开销"即中止（密文必然略长），
     但报出去的仍是产品上限 —— 这一层不该让调用方看到内部余量。
 
-    异常消息里**不含 `url`**：httpx 的异常文本可能带完整地址（含签名），只取类名。
+    异常消息里**不含 `url`**：取的是异常链最内层原因，并先把文本里的 URL 换成占位符
+    （httpx 的异常文本可能带完整地址，签名在 query 里）。只有类名时定位不了握手失败，
+    所以这点细节必须留下。
     """
     abort_at = max_bytes + ENCRYPTION_OVERHEAD_BYTES
     try:
-        async with httpx.AsyncClient(timeout=timeout_sec, follow_redirects=True) as client:
+        # `verify` 只接受显式 context：不设上限时传 `True`，与 httpx 默认路径完全一致。
+        verify = ssl_context if ssl_context is not None else True
+        async with httpx.AsyncClient(
+            timeout=timeout_sec, follow_redirects=True, verify=verify
+        ) as client:
             async with client.stream("GET", url) as response:
                 response.raise_for_status()
                 filename = _filename_from_disposition(response.headers.get("content-disposition"))
@@ -142,7 +196,7 @@ async def _fetch_encrypted(
         raise WeComMediaTimeoutError("wecom media download timed out") from exc
     except httpx.HTTPError as exc:
         raise WeComMediaNetworkError(
-            f"wecom media download failed: {type(exc).__name__}"
+            f"wecom media download failed: {_safe_cause(exc)}"
         ) from exc
 
 

@@ -6,6 +6,8 @@ from typing import Self
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from .tls import parse_max_tls_version
+
 
 class SharedSettings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -25,6 +27,9 @@ class SharedSettings(BaseSettings):
     # WeCom SDK 连接地址与 CA：仅用于本地真实协议探针（默认空 = SDK 官方地址 + certifi 校验）
     wecom_ws_url: str | None = None
     wecom_ws_ca_file: str | None = None
+    #: 企微媒体下载的 TLS 版本上限（空 = 不限制）。只降协议版本，证书校验不变；
+    #: 合法值见 `muad_common.tls`（`TLSv1_2` / `TLSv1_3`）。
+    wecom_media_max_tls_version: str | None = None
     #: Gateway 的**通用 webhook 通道**配置（JSON 数组：channel/secret/reply_url）。空 = 无 webhook
     #: 通道。secret 是验签密钥，不是 bot 连接密钥；bot secret 只流向持有长连接的 Connector。
     gateway_webhook_channels: str = Field(default="", repr=False)
@@ -245,6 +250,17 @@ class SharedSettings(BaseSettings):
             if isfinite(number):
                 return number
         raise ValueError("resource budget must be a finite number")
+
+    @field_validator("wecom_media_max_tls_version", mode="before")
+    @classmethod
+    def _validate_wecom_media_max_tls_version(cls, value: object) -> object:
+        """空 = 不设上限；其它值必须是白名单——配置写错在启动期失败，不等第一次握手。"""
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise ValueError("wecom_media_max_tls_version must be a string")
+        parse_max_tls_version(value)
+        return value or None
 
     @model_validator(mode="after")
     def _validate_resource_budgets(self) -> Self:

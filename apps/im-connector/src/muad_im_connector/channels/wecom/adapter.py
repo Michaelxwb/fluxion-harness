@@ -48,11 +48,13 @@ from .media import (
     UPLOAD_CHUNK_CMD,
     UPLOAD_FINISH_CMD,
     UPLOAD_INIT_CMD,
+    build_media_ssl_context,
     chunk_upload,
     uploadable_media_type,
 )
 from .media import download_media as download_media_content
 from .reply import ReplySession, StatusBudget
+from .sdk_logging import LocalTimeSdkLogger
 from .sdk_port import (
     EventCallback,
     MessageCallback,
@@ -448,9 +450,17 @@ class _AibotClient(Protocol):
 
 
 class _AibotClientPort:
-    def __init__(self, client: _AibotClient, *, bot_id: str) -> None:
+    def __init__(
+        self,
+        client: _AibotClient,
+        *,
+        bot_id: str,
+        media_ssl_context: ssl.SSLContext | None = None,
+    ) -> None:
         self._client = client
         self._bot_id = bot_id
+        #: 媒体下载的 TLS context；`None` = httpx 默认（不设版本上限）。
+        self._media_ssl_context = media_ssl_context
 
     @property
     def is_connected(self) -> bool:
@@ -579,7 +589,9 @@ class _AibotClientPort:
     async def download_media(self, url: str, aes_key: str | None, *, max_bytes: int) -> WeComMediaContent:
         """取件不走 SDK（`WSClient.download_file` 无字节上限、超时不可配、密钥缺失返回密文），
         只复用它的解密函数——细节见 `media` 模块文档串。"""
-        return await download_media_content(url, aes_key, max_bytes=max_bytes)
+        return await download_media_content(
+            url, aes_key, max_bytes=max_bytes, ssl_context=self._media_ssl_context
+        )
 
     def _deliver_message(self, frame: object, callback: MessageCallback) -> None:
         message = self._to_inbound_message(frame)
@@ -648,11 +660,17 @@ def build_wecom_sdk_client(bot_id: str, secret: str) -> WeComSdkPort:
         secret=secret,
         max_reconnect_attempts=0,
         ws_url=settings.wecom_ws_url or "",
+        # SDK 不走 logging：注入只剩「时间格式与 muad_logging 一致」的出口，其余保持原样。
+        logger=LocalTimeSdkLogger(),
     )
     if settings.wecom_ws_ca_file:
         _trust_local_ws_ca(settings.wecom_ws_ca_file)
     client: _AibotClient = WSClient(options)
-    return _AibotClientPort(client, bot_id=bot_id)
+    # 媒体 CDN 的 TLS 上限：与 WS 的 CA 覆盖同理，配置只在显式给出时生效。
+    media_ssl_context = build_media_ssl_context(settings.wecom_media_max_tls_version)
+    return _AibotClientPort(
+        client, bot_id=bot_id, media_ssl_context=media_ssl_context
+    )
 
 
 def _trust_local_ws_ca(ca_file: str) -> None:
