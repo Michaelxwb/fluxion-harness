@@ -70,7 +70,7 @@ apps/agent-runtime/src/muad_agent_runtime/application/attachments/task_artifacts
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/task_artifacts.py,54,TASK_ARTIFACT_SIZE_LIMIT,MAX_OUTPUT_BYTES,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/task_artifacts.py,56,_TASK_OWNER_SQL,"sa.text('SELECT tenant_id, actor_user_id, agent_id, attempt FROM task.task_execution WHERE id = :execution_id AND tenant_id = :tenant_id AND is_deleted = false')",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/task_artifacts.py,62,_TASK_EXECUTION_TABLE,"sa.table('task_execution', sa.column('id', sa.Uuid()), sa.column('tenant_id', sa.String()), sa.column('actor_user_id', sa.Uuid()), sa.column('agent_id', sa.Uuid()), sa.column('is_deleted', sa.Boolean()), schema='task')",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tool_results.py,29,TOOL_RESULT_ARTIFACT_TYPE,'TOOL_RESULT',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tool_results.py,28,TOOL_RESULT_ARTIFACT_TYPE,'TOOL_RESULT',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,74,READ_ATTACHMENT_TOOL,'read_attachment',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,75,VIEW_IMAGE_TOOL,'view_image',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,76,WRITE_ARTIFACT_TOOL,'write_artifact',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -322,10 +322,12 @@ apps/agent-runtime/src/muad_agent_runtime/application/message_delivery.py,69,MES
 apps/agent-runtime/src/muad_agent_runtime/application/message_delivery.py,72,_MESSAGE_STATES,"DeliveryStates(pending=MESSAGE_PENDING, delivering=MESSAGE_DELIVERING, delivered=MESSAGE_DELIVERED, unknown=MESSAGE_UNKNOWN, not_required=None, ack_states={'DELIVERED': MESSAGE_DELIVERED, 'DEGRADED': MESSAGE_DEGRADED, 'NOT_SENT': MESSAGE_PENDING, 'UNKNOWN': MESSAGE_UNKNOWN, 'FAILED': MESSAGE_FAILED}, replay_states=frozenset({MESSAGE_DELIVERED, MESSAGE_DEGRADED}), no_lease_states=frozenset({MESSAGE_UNKNOWN, MESSAGE_FAILED}))",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/message_delivery.py,89,MAX_DELIVERY_TEXT_CHARS,20000,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/message_delivery.py,90,MAX_DELIVERY_ATTACHMENTS,20,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/message_delivery_pump.py,73,DELIVERY_PAYLOAD_INVALID,'DELIVERY_PAYLOAD_INVALID',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/message_delivery_registration.py,40,TASK_COMPLETED,'COMPLETED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/message_delivery_registration.py,41,ROUTE_ACTIVE,'ACTIVE',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/message_delivery_registration.py,43,_TASK_OWNER_QUERY,"sa.text('SELECT actor_user_id, agent_id, status FROM task.task_execution WHERE id = :owner_id AND tenant_id = :tenant_id AND is_deleted = false')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/message_delivery_registration.py,47,_ROUTE_QUERY,sa.text('SELECT 1 FROM task.delivery_route WHERE tenant_id = :tenant_id AND platform_user_id = :platform_user_id AND channel = :channel AND bot_id = :bot_id AND external_user_id = :external_user_id AND external_conversation_id IS NOT DISTINCT FROM :external_conversation_id AND status = :active AND is_deleted = false LIMIT 1'),python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/message_delivery_registration.py,56,_TASK_EXECUTION,"sa.table('task_execution', sa.column('id', sa.Uuid()), sa.column('parent_id', sa.Uuid()), sa.column('tenant_id', sa.String()), sa.column('is_deleted', sa.Boolean()), schema='task')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/model_allocator.py,65,DEFER_REASON_CAPACITY,'NO_CAPACITY',python-constant,code,状态或错误码，不是时间参数
 apps/agent-runtime/src/muad_agent_runtime/application/model_allocator.py,67,DEFER_REASON_WORKLOAD,'WORKLOAD_SHARE',python-constant,code,状态或错误码，不是时间参数
 apps/agent-runtime/src/muad_agent_runtime/application/model_allocator.py,190,_SELECT_RETRY_BASE_SEC,0.001,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
@@ -854,13 +856,13 @@ apps/agent-worker/src/muad_agent_worker/application/task_message_outbox.py,210,_
 apps/agent-worker/src/muad_agent_worker/application/task_service.py,38,INITIAL_PRIORITY,100,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
 apps/agent-worker/src/muad_agent_worker/application/task_service.py,39,TERMINAL_STATUSES,"(str(TaskStatus.COMPLETED), str(TaskStatus.FAILED), str(TaskStatus.CANCELLED))",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/application/task_service.py,40,CANCELABLE_STATUSES,"(str(TaskStatus.QUEUED), str(TaskStatus.WAITING_EXTERNAL), str(TaskStatus.WAITING_HUMAN))",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,55,NON_TERMINAL,"(TaskStatus.QUEUED.value, TaskStatus.RUNNING.value, TaskStatus.WAITING_EXTERNAL.value, TaskStatus.WAITING_HUMAN.value)",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,61,DELIVERY_INTENT_PUSH,str(DeliveryIntent.PUSH),python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,62,JSON_OBJECT,"TypeAdapter(dict[str, JsonValue])",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,63,RESULT_STATUS_KEY,'result_status',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,64,RESULT_TEXT_KEY,'text',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,65,NO_CHANGE_STATUS,'no_change',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,66,MAX_REMEMBERED_RESULT_CHARS,4000,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,58,NON_TERMINAL,"(TaskStatus.QUEUED.value, TaskStatus.RUNNING.value, TaskStatus.WAITING_EXTERNAL.value, TaskStatus.WAITING_HUMAN.value)",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,64,DELIVERY_INTENT_PUSH,str(DeliveryIntent.PUSH),python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,65,JSON_OBJECT,"TypeAdapter(dict[str, JsonValue])",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,66,RESULT_STATUS_KEY,'result_status',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,67,RESULT_TEXT_KEY,'text',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,68,NO_CHANGE_STATUS,'no_change',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,69,MAX_REMEMBERED_RESULT_CHARS,4000,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/delivery/artifact_client.py,18,RESOLVE_PATH,'/internal/artifacts',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/delivery/artifact_client.py,19,RESOLVE_TIMEOUT_SEC,5.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/agent-worker/src/muad_agent_worker/delivery/client.py,12,DELIVERY_PATH,'/internal/deliveries',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1442,31 +1444,31 @@ apps/console-platform/backend/src/muad_console_platform/spa.py,28,RESERVED_SEGME
 apps/im-connector/src/muad_im_connector/__init__.py,7,SERVICE_NAME,'muad-im-connector',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-connector/src/muad_im_connector/channels/probe.py,30,CONNECTED,'CONNECTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-connector/src/muad_im_connector/channels/probe.py,31,DISCONNECTED,'DISCONNECTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,75,DEFAULT_BACKOFF_BASE_SEC,1.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,76,DEFAULT_BACKOFF_MAX_SEC,30.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,77,DEFAULT_STREAM_FLUSH_INTERVAL_SEC,0.5,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,79,DEFAULT_LIVENESS_INTERVAL_SEC,1.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,83,MEDIA_REF_TTL_SEC,300.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,85,MEDIA_REF_CAPACITY,256,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,89,RUN_REPLY_TTL_SEC,3600.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,91,RUN_REPLY_CAPACITY,512,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,92,TEXT_MESSAGE_TYPE,'text',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,93,IMAGE_MESSAGE_TYPE,'image',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,94,FILE_MESSAGE_TYPE,'file',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,95,MIXED_MESSAGE_TYPE,'mixed',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,97,MIXED_TEXT_SEPARATOR,'\n',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,99,ACCEPTED_MEDIA_TYPES,"frozenset({IMAGE_MESSAGE_TYPE, FILE_MESSAGE_TYPE})",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,101,ACCEPTED_MESSAGE_TYPES,"frozenset({TEXT_MESSAGE_TYPE, MIXED_MESSAGE_TYPE}) | ACCEPTED_MEDIA_TYPES",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,102,_UNSUPPORTED_MESSAGE_TYPES,"{'voice': 'VOICE', 'video': 'VIDEO'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,103,STREAM_HEADER_KEY,'headers',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,104,STREAM_REPLY_ID_KEY,'req_id',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,105,CONNECTED_GAUGE,'wecom_ws_connected',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,106,CONNECTED_GAUGE_HELP,'WeCom bot WebSocket connection state (1=CONNECTED)',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,112,CONNECTING,'CONNECTING',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,113,CONNECTED,'CONNECTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,114,BACKOFF,'BACKOFF',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,115,DISCONNECTED,'DISCONNECTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,116,STOPPING,'STOPPING',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,76,DEFAULT_BACKOFF_BASE_SEC,1.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,77,DEFAULT_BACKOFF_MAX_SEC,30.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,78,DEFAULT_STREAM_FLUSH_INTERVAL_SEC,0.5,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,80,DEFAULT_LIVENESS_INTERVAL_SEC,1.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,84,MEDIA_REF_TTL_SEC,300.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,86,MEDIA_REF_CAPACITY,256,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,90,RUN_REPLY_TTL_SEC,3600.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,92,RUN_REPLY_CAPACITY,512,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,93,TEXT_MESSAGE_TYPE,'text',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,94,IMAGE_MESSAGE_TYPE,'image',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,95,FILE_MESSAGE_TYPE,'file',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,96,MIXED_MESSAGE_TYPE,'mixed',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,98,MIXED_TEXT_SEPARATOR,'\n',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,100,ACCEPTED_MEDIA_TYPES,"frozenset({IMAGE_MESSAGE_TYPE, FILE_MESSAGE_TYPE})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,102,ACCEPTED_MESSAGE_TYPES,"frozenset({TEXT_MESSAGE_TYPE, MIXED_MESSAGE_TYPE}) | ACCEPTED_MEDIA_TYPES",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,103,_UNSUPPORTED_MESSAGE_TYPES,"{'voice': 'VOICE', 'video': 'VIDEO'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,104,STREAM_HEADER_KEY,'headers',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,105,STREAM_REPLY_ID_KEY,'req_id',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,106,CONNECTED_GAUGE,'wecom_ws_connected',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,107,CONNECTED_GAUGE_HELP,'WeCom bot WebSocket connection state (1=CONNECTED)',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,113,CONNECTING,'CONNECTING',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,114,CONNECTED,'CONNECTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,115,BACKOFF,'BACKOFF',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,116,DISCONNECTED,'DISCONNECTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,117,STOPPING,'STOPPING',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-connector/src/muad_im_connector/channels/wecom/media.py,43,MEDIA_TIMEOUT_SEC,30.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-connector/src/muad_im_connector/channels/wecom/media.py,49,ENCRYPTION_OVERHEAD_BYTES,16,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-connector/src/muad_im_connector/channels/wecom/media.py,51,_CHUNK_BYTES,64 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1733,12 +1735,12 @@ apps/im-gateway/src/muad_im_gateway/infrastructure/platform_settings_client.py,2
 apps/im-gateway/src/muad_im_gateway/infrastructure/platform_settings_client.py,22,PLATFORM_SETTINGS_TIMEOUT_SEC,5.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/infrastructure/platform_settings_client.py,23,GATEWAY_CALLER,'gateway',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/infrastructure/streams.py,23,RESULT_POLL_SEC,0.1,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/main.py,66,WEBCHAT_API_PREFIX,'/api/v1/webchat',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/main.py,71,MSSWWEB_API_PREFIX,'/api/v1/msswweb',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/main.py,75,SERVICE_NAME,'muad-im-gateway',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/main.py,78,SNAPSHOT_LOOP_NAME,'gateway.snapshot',python-constant,code,生命周期后台任务的装配根命名（快照刷新循环；TASK-096）
-apps/im-gateway/src/muad_im_gateway/main.py,79,INBOUND_LOOP_NAME_PREFIX,'gateway.inbound.',python-constant,code,生命周期后台任务的装配根命名前缀（每适配器入站消费循环；TASK-096）
-apps/im-gateway/src/muad_im_gateway/main.py,80,INBOUND_STREAM_LOOP_NAME,'gateway.inbound.stream',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/main.py,67,WEBCHAT_API_PREFIX,'/api/v1/webchat',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/main.py,72,MSSWWEB_API_PREFIX,'/api/v1/msswweb',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/main.py,76,SERVICE_NAME,'muad-im-gateway',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/main.py,79,SNAPSHOT_LOOP_NAME,'gateway.snapshot',python-constant,code,生命周期后台任务的装配根命名（快照刷新循环；TASK-096）
+apps/im-gateway/src/muad_im_gateway/main.py,80,INBOUND_LOOP_NAME_PREFIX,'gateway.inbound.',python-constant,code,生命周期后台任务的装配根命名前缀（每适配器入站消费循环；TASK-096）
+apps/im-gateway/src/muad_im_gateway/main.py,81,INBOUND_STREAM_LOOP_NAME,'gateway.inbound.stream',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/metrics.py,43,COUNTER,'counter',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/metrics.py,44,GAUGE,'gauge',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/metrics.py,46,PLATFORM_SETTINGS_FETCH_METRIC,'platform_settings_fetch_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -2377,7 +2379,8 @@ packages/common/src/muad_common/settings.py,222,worker_loop_shutdown_timeout_sec
 packages/common/src/muad_common/workspaces.py,15,DRAFT_ACTIVITY_MARKER,'.draft-activity',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/attachments.py,24,SUPPORTED_UPLOAD_FORMATS,"(AttachmentFormat(media_type='image/png', extensions=('.png',)), AttachmentFormat(media_type='image/jpeg', extensions=('.jpg', '.jpeg')), AttachmentFormat(media_type='image/gif', extensions=('.gif',)), AttachmentFormat(media_type='image/webp', extensions=('.webp',)), AttachmentFormat(media_type='application/pdf', extensions=('.pdf',)), AttachmentFormat(media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document', extensions=('.docx',)), AttachmentFormat(media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', extensions=('.xlsx',)), AttachmentFormat(media_type='application/vnd.openxmlformats-officedocument.presentationml.presentation', extensions=('.pptx',)), AttachmentFormat(media_type='text/plain', extensions=('.txt',)), AttachmentFormat(media_type='text/markdown', extensions=('.md',)), AttachmentFormat(media_type='text/csv', extensions=('.csv',)), AttachmentFormat(media_type='application/zip', extensions=('.zip',)), AttachmentFormat(media_type='application/x-zip-compressed', extensions=('.zip',)))",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/attachments.py,50,ALLOWED_ATTACHMENT_MEDIA_TYPES,frozenset((item.media_type for item in SUPPORTED_UPLOAD_FORMATS)),python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/attachments.py,55,ARCHIVE_MEDIA_TYPES,"frozenset({'application/zip', 'application/x-zip-compressed'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/attachments.py,55,SUPPORTED_UPLOAD_EXTENSIONS_TEXT,'、'.join(dict.fromkeys((ext for item in SUPPORTED_UPLOAD_FORMATS for ext in item.extensions))),python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/attachments.py,60,ARCHIVE_MEDIA_TYPES,"frozenset({'application/zip', 'application/x-zip-compressed'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/channel.py,12,DEFAULT_PAGE_SIZE,20,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 packages/contracts/src/muad_contracts/channel.py,13,MAX_PAGE_SIZE,100,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 packages/contracts/src/muad_contracts/channel_delivery.py,35,DELIVERY_LEASE_MIN_SEC,5,python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -2393,163 +2396,164 @@ packages/contracts/src/muad_contracts/delivery.py,34,TERMINAL_DELIVERY_KEY,re.co
 packages/contracts/src/muad_contracts/delivery.py,36,_RUN_SCOPED_KEY,re.compile('^run:([0-9a-fA-F-]{36}):'),python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/delivery.py,39,MAX_MESSAGE_DELIVERY_TEXT_CHARS,20000,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/delivery.py,40,MAX_MESSAGE_DELIVERY_ATTACHMENTS,20,python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,10,BUILTIN_CHANNEL_NAMES,"('WECOM', 'WEBCHAT', 'MSSWWEB')",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,15,WEB_SURFACE_CHANNELS,"('WEBCHAT', 'MSSWWEB')",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,21,DEFAULT_EXTERNAL_CHANNEL,'MSSWWEB',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,29,EXTERNAL_CHANNEL_NAME_PATTERN,'^[A-Za-z0-9]+[wW][eE][bB]$',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,30,_EXTERNAL_CHANNEL_NAME_RE,re.compile(EXTERNAL_CHANNEL_NAME_PATTERN),python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,130,CREATED,'CREATED',python-constant,code,状态或错误码，不是时间参数
-packages/contracts/src/muad_contracts/enums.py,131,RUNNING,'RUNNING',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,132,WAITING_TOOL,'WAITING_TOOL',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,133,WAITING_INPUT,'WAITING_INPUT',python-constant,code,状态或错误码，不是时间参数
-packages/contracts/src/muad_contracts/enums.py,134,COMPLETED,'COMPLETED',python-constant,code,状态或错误码，不是时间参数
-packages/contracts/src/muad_contracts/enums.py,135,FAILED,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,136,CANCELLED,'CANCELLED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,146,QUEUED,'QUEUED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,147,RUNNING,'RUNNING',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,148,WAITING_EXTERNAL,'WAITING_EXTERNAL',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,149,WAITING_HUMAN,'WAITING_HUMAN',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,150,COMPLETED,'COMPLETED',python-constant,code,状态或错误码，不是时间参数
-packages/contracts/src/muad_contracts/enums.py,151,FAILED,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,152,CANCELLED,'CANCELLED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,156,JOIN,'JOIN',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,157,DETACH,'DETACH',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,161,COMPLETED,'COMPLETED',python-constant,code,状态或错误码，不是时间参数
-packages/contracts/src/muad_contracts/enums.py,162,FAILED,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,163,CANCELLED,'CANCELLED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,167,SUBMIT_PENDING,'SUBMIT_PENDING',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,168,SUBMITTED,'SUBMITTED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,169,TASK_ACCEPTED,'TASK_ACCEPTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,170,RUNNING,'RUNNING',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,171,RESULT_RECEIVED,'RESULT_RECEIVED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,172,MATERIALIZED,'MATERIALIZED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,173,COMPLETED,'COMPLETED',python-constant,code,状态或错误码，不是时间参数
-packages/contracts/src/muad_contracts/enums.py,174,FAILED,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,175,CANCELLED,'CANCELLED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,176,LATE,'LATE',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,180,PENDING,'PENDING',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,181,SENT,'SENT',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,182,FAILED,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,186,SUBMIT,'SUBMIT',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,187,CANCEL_OPERATION,'CANCEL_OPERATION',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,191,PENDING,'PENDING',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,192,RECEIVED,'RECEIVED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,193,MATERIALIZED,'MATERIALIZED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,194,LATE,'LATE',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,195,FAILED,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,199,SUBMISSION,'SUBMISSION',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,200,TASK_RESULT,'TASK_RESULT',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,201,RESUME_READY,'RESUME_READY',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,205,SUBMIT,'SUBMIT',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,206,EXECUTE,'EXECUTE',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,212,SKILL,'SKILL',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,213,REMINDER,'REMINDER',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,214,AGENTIC,'AGENTIC',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,215,BATCH,'BATCH',python-constant,code,状态或错误码，不是时间参数
-packages/contracts/src/muad_contracts/enums.py,219,IMMEDIATE,'IMMEDIATE',python-constant,code,状态或错误码，不是时间参数
-packages/contracts/src/muad_contracts/enums.py,220,SCHEDULED,'SCHEDULED',python-constant,code,状态或错误码，不是时间参数
-packages/contracts/src/muad_contracts/enums.py,226,ACTIVE,'ACTIVE',python-constant,code,状态或错误码，不是时间参数
-packages/contracts/src/muad_contracts/enums.py,227,PAUSED,'PAUSED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,228,NEEDS_ATTENTION,'NEEDS_ATTENTION',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,229,ENDED,'ENDED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,230,CANCELLED,'CANCELLED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,237,COMPLETED,'COMPLETED',python-constant,code,状态或错误码，不是时间参数
-packages/contracts/src/muad_contracts/enums.py,239,MISSED,'MISSED',python-constant,code,状态或错误码，不是时间参数
-packages/contracts/src/muad_contracts/enums.py,241,EXHAUSTED,'EXHAUSTED',python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,243,ADMISSION_FAILED,'ADMISSION_FAILED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,244,USER_CANCELLED,'USER_CANCELLED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,250,REMINDER,'REMINDER',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,251,SKILL,'SKILL',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,252,AGENTIC,'AGENTIC',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,258,REMINDER,'REMINDER',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,259,SKILL_PLAN,'SKILL_PLAN',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,260,AGENT_TURN,'AGENT_TURN',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,264,CRON,'CRON',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,265,ONCE,'ONCE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,270,SKIP_IF_RUNNING,'SKIP_IF_RUNNING',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,272,QUEUE,'QUEUE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,274,ALLOW_PARALLEL,'ALLOW_PARALLEL',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,279,SKIP,'SKIP',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,284,FIRST,'FIRST',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,290,FOLD_FIRST,'FOLD_FIRST',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,296,DST_GAP_SKIPPED,'DST_GAP_SKIPPED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,297,DST_FOLD_SECOND_SKIPPED,'DST_FOLD_SECOND_SKIPPED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,304,CREATED,'CREATED',python-constant,code,状态或错误码，不是时间参数
-packages/contracts/src/muad_contracts/enums.py,305,EXECUTION_CREATED,'EXECUTION_CREATED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,306,SKIPPED,'SKIPPED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,307,FAILED_ADMISSION,'FAILED_ADMISSION',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,308,CANCELLED,'CANCELLED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,315,OVERLAP,'OVERLAP',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,317,MISFIRE,'MISFIRE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,318,QUOTA,'QUOTA',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,320,PAUSED_BY_UPDATE,'PAUSED_BY_UPDATE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,326,ASYNC_OPERATION,'ASYNC_OPERATION',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,327,EXTERNAL_POLL,'EXTERNAL_POLL',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,328,BATCH_FANIN,'BATCH_FANIN',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,332,BUSINESS,'BUSINESS',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,333,CONFIG,'CONFIG',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,334,TIMEOUT,'TIMEOUT',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,335,HUMAN_TIMEOUT,'HUMAN_TIMEOUT',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,336,ASYNC_FAILED,'ASYNC_FAILED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,337,ATTEMPTS_EXHAUSTED,'ATTEMPTS_EXHAUSTED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,343,FUTURE_ONLY,'FUTURE_ONLY',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,344,ALL_ACTIVE,'ALL_ACTIVE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,348,CREATE,'CREATE',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,349,UPDATE,'UPDATE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,353,PENDING,'PENDING',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,354,CONFIRMED,'CONFIRMED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,355,CANCELLED,'CANCELLED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,356,EXPIRED,'EXPIRED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,357,REJECTED,'REJECTED',python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,363,WEBCHAT,'WEBCHAT',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,364,WECOM,'WECOM',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,365,MSSWWEB,'MSSWWEB',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,371,PUSH,'PUSH',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,372,NONE,'NONE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,378,READ_ONLY,'READ_ONLY',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,384,RUN,'RUN',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,385,TASK,'TASK',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,389,OPEN,'OPEN',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,390,RESOLVED,'RESOLVED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,391,TIMED_OUT,'TIMED_OUT',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,392,CANCELLED,'CANCELLED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,404,NONE,'NONE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,405,ANSWERED,'ANSWERED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,406,CLARIFY,'CLARIFY',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,407,REJECTED,'REJECTED',python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,411,FINAL_ONLY,'FINAL_ONLY',python-constant,code,状态或错误码，不是时间参数
-packages/contracts/src/muad_contracts/enums.py,412,NONE,'NONE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,416,PENDING,'PENDING',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,417,SENT,'SENT',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,418,FAILED,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,419,NONE,'NONE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,423,SYNC,'SYNC',python-constant,code,状态或错误码，不是时间参数
-packages/contracts/src/muad_contracts/enums.py,424,ASYNC,'ASYNC',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,425,AUTO,'AUTO',python-constant,code,状态或错误码，不是时间参数
-packages/contracts/src/muad_contracts/enums.py,429,SYSTEM,'SYSTEM',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,430,ADMIN,'ADMIN',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,431,USER,'USER',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,435,PENDING,'PENDING',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,436,APPROVED,'APPROVED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,437,REJECTED,'REJECTED',python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,438,SUPERSEDED,'SUPERSEDED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,442,ALL,'ALL',python-constant,code,状态或错误码，不是时间参数
-packages/contracts/src/muad_contracts/enums.py,443,SELECTED,'SELECTED',python-constant,code,状态或错误码，不是时间参数
-packages/contracts/src/muad_contracts/enums.py,447,USER_ONLY,'USER_ONLY',python-constant,code,状态或错误码，不是时间参数
-packages/contracts/src/muad_contracts/enums.py,448,SHARED_ONLY,'SHARED_ONLY',python-constant,code,状态或错误码，不是时间参数
-packages/contracts/src/muad_contracts/enums.py,449,USER_THEN_SHARED,'USER_THEN_SHARED',python-constant,code,状态或错误码，不是时间参数
-packages/contracts/src/muad_contracts/enums.py,450,NONE,'NONE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,454,ACTIVE,'ACTIVE',python-constant,code,状态或错误码，不是时间参数
-packages/contracts/src/muad_contracts/enums.py,455,INVALID,'INVALID',python-constant,code,状态或错误码，不是时间参数
-packages/contracts/src/muad_contracts/enums.py,459,WAITING,'WAITING',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,460,RESOLVED,'RESOLVED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,461,CANCELLED,'CANCELLED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,465,READY,'READY',python-constant,code,状态或错误码，不是时间参数
-packages/contracts/src/muad_contracts/enums.py,466,REJECTED,'REJECTED',python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
-packages/contracts/src/muad_contracts/enums.py,471,DEFAULT_CHANNEL,'WECOM',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,477,OUTBOUND_CHANNELS,frozenset({'WECOM'}),python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,480,CHANNEL_DISPLAY_LABELS,"{'WECOM': '企微', 'WEBCHAT': 'Web'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/enums.py,485,LOCAL_STREAM_CHANNELS,frozenset(WEB_SURFACE_CHANNELS),python-constant,code,实现常量；由 AST 盘点补录（2026-11-08）
+packages/contracts/src/muad_contracts/enums.py,11,BUILTIN_CHANNEL_NAMES,"('WECOM', 'WEBCHAT', 'MSSWWEB')",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,16,WEB_SURFACE_CHANNELS,"('WEBCHAT', 'MSSWWEB')",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,22,DEFAULT_EXTERNAL_CHANNEL,'MSSWWEB',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,30,EXTERNAL_CHANNEL_NAME_PATTERN,'^[A-Za-z0-9]+[wW][eE][bB]$',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,31,_EXTERNAL_CHANNEL_NAME_RE,re.compile(EXTERNAL_CHANNEL_NAME_PATTERN),python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,131,CREATED,'CREATED',python-constant,code,状态或错误码，不是时间参数
+packages/contracts/src/muad_contracts/enums.py,132,RUNNING,'RUNNING',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,133,WAITING_TOOL,'WAITING_TOOL',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,134,WAITING_INPUT,'WAITING_INPUT',python-constant,code,状态或错误码，不是时间参数
+packages/contracts/src/muad_contracts/enums.py,135,COMPLETED,'COMPLETED',python-constant,code,状态或错误码，不是时间参数
+packages/contracts/src/muad_contracts/enums.py,136,FAILED,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,137,CANCELLED,'CANCELLED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,147,QUEUED,'QUEUED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,148,RUNNING,'RUNNING',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,149,WAITING_EXTERNAL,'WAITING_EXTERNAL',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,150,WAITING_HUMAN,'WAITING_HUMAN',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,151,COMPLETED,'COMPLETED',python-constant,code,状态或错误码，不是时间参数
+packages/contracts/src/muad_contracts/enums.py,152,FAILED,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,153,CANCELLED,'CANCELLED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,157,JOIN,'JOIN',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,158,DETACH,'DETACH',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,162,COMPLETED,'COMPLETED',python-constant,code,状态或错误码，不是时间参数
+packages/contracts/src/muad_contracts/enums.py,163,FAILED,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,164,CANCELLED,'CANCELLED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,168,SUBMIT_PENDING,'SUBMIT_PENDING',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,169,SUBMITTED,'SUBMITTED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,170,TASK_ACCEPTED,'TASK_ACCEPTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,171,RUNNING,'RUNNING',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,172,RESULT_RECEIVED,'RESULT_RECEIVED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,173,MATERIALIZED,'MATERIALIZED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,174,COMPLETED,'COMPLETED',python-constant,code,状态或错误码，不是时间参数
+packages/contracts/src/muad_contracts/enums.py,175,FAILED,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,176,CANCELLED,'CANCELLED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,177,LATE,'LATE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,181,PENDING,'PENDING',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,182,SENT,'SENT',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,183,FAILED,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,187,SUBMIT,'SUBMIT',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,188,CANCEL_OPERATION,'CANCEL_OPERATION',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,192,PENDING,'PENDING',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,193,RECEIVED,'RECEIVED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,194,MATERIALIZED,'MATERIALIZED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,195,LATE,'LATE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,196,FAILED,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,200,SUBMISSION,'SUBMISSION',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,201,TASK_RESULT,'TASK_RESULT',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,202,RESUME_READY,'RESUME_READY',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,206,SUBMIT,'SUBMIT',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,207,EXECUTE,'EXECUTE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,213,SKILL,'SKILL',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,214,REMINDER,'REMINDER',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,215,AGENTIC,'AGENTIC',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,216,BATCH,'BATCH',python-constant,code,状态或错误码，不是时间参数
+packages/contracts/src/muad_contracts/enums.py,220,IMMEDIATE,'IMMEDIATE',python-constant,code,状态或错误码，不是时间参数
+packages/contracts/src/muad_contracts/enums.py,221,SCHEDULED,'SCHEDULED',python-constant,code,状态或错误码，不是时间参数
+packages/contracts/src/muad_contracts/enums.py,227,ACTIVE,'ACTIVE',python-constant,code,状态或错误码，不是时间参数
+packages/contracts/src/muad_contracts/enums.py,228,PAUSED,'PAUSED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,229,NEEDS_ATTENTION,'NEEDS_ATTENTION',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,230,ENDED,'ENDED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,231,CANCELLED,'CANCELLED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,238,COMPLETED,'COMPLETED',python-constant,code,状态或错误码，不是时间参数
+packages/contracts/src/muad_contracts/enums.py,240,MISSED,'MISSED',python-constant,code,状态或错误码，不是时间参数
+packages/contracts/src/muad_contracts/enums.py,242,EXHAUSTED,'EXHAUSTED',python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,244,ADMISSION_FAILED,'ADMISSION_FAILED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,245,USER_CANCELLED,'USER_CANCELLED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,251,REMINDER,'REMINDER',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,252,SKILL,'SKILL',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,253,AGENTIC,'AGENTIC',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,259,REMINDER,'REMINDER',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,260,SKILL_PLAN,'SKILL_PLAN',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,261,AGENT_TURN,'AGENT_TURN',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,265,CRON,'CRON',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,266,ONCE,'ONCE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,271,SKIP_IF_RUNNING,'SKIP_IF_RUNNING',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,273,QUEUE,'QUEUE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,275,ALLOW_PARALLEL,'ALLOW_PARALLEL',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,280,SKIP,'SKIP',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,285,FIRST,'FIRST',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,291,FOLD_FIRST,'FOLD_FIRST',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,297,DST_GAP_SKIPPED,'DST_GAP_SKIPPED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,298,DST_FOLD_SECOND_SKIPPED,'DST_FOLD_SECOND_SKIPPED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,305,CREATED,'CREATED',python-constant,code,状态或错误码，不是时间参数
+packages/contracts/src/muad_contracts/enums.py,306,EXECUTION_CREATED,'EXECUTION_CREATED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,307,SKIPPED,'SKIPPED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,308,FAILED_ADMISSION,'FAILED_ADMISSION',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,309,CANCELLED,'CANCELLED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,316,OVERLAP,'OVERLAP',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,318,MISFIRE,'MISFIRE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,319,QUOTA,'QUOTA',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,321,PAUSED_BY_UPDATE,'PAUSED_BY_UPDATE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,327,ASYNC_OPERATION,'ASYNC_OPERATION',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,328,EXTERNAL_POLL,'EXTERNAL_POLL',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,329,BATCH_FANIN,'BATCH_FANIN',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,333,BUSINESS,'BUSINESS',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,334,CONFIG,'CONFIG',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,335,TIMEOUT,'TIMEOUT',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,336,HUMAN_TIMEOUT,'HUMAN_TIMEOUT',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,337,ASYNC_FAILED,'ASYNC_FAILED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,338,ATTEMPTS_EXHAUSTED,'ATTEMPTS_EXHAUSTED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,344,FUTURE_ONLY,'FUTURE_ONLY',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,345,ALL_ACTIVE,'ALL_ACTIVE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,349,CREATE,'CREATE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,350,UPDATE,'UPDATE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,354,PENDING,'PENDING',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,355,CONFIRMED,'CONFIRMED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,356,CANCELLED,'CANCELLED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,357,EXPIRED,'EXPIRED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,358,REJECTED,'REJECTED',python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,369,WEBCHAT,"cast('ConfirmationSurface', 'WEBCHAT')",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,370,WECOM,"cast('ConfirmationSurface', 'WECOM')",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,371,MSSWWEB,"cast('ConfirmationSurface', 'MSSWWEB')",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,392,_BUILTIN_CONFIRMATION_SURFACES,"frozenset({'WEBCHAT', 'WECOM'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,398,PUSH,'PUSH',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,399,NONE,'NONE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,405,READ_ONLY,'READ_ONLY',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,411,RUN,'RUN',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,412,TASK,'TASK',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,416,OPEN,'OPEN',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,417,RESOLVED,'RESOLVED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,418,TIMED_OUT,'TIMED_OUT',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,419,CANCELLED,'CANCELLED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,431,NONE,'NONE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,432,ANSWERED,'ANSWERED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,433,CLARIFY,'CLARIFY',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,434,REJECTED,'REJECTED',python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,438,FINAL_ONLY,'FINAL_ONLY',python-constant,code,状态或错误码，不是时间参数
+packages/contracts/src/muad_contracts/enums.py,439,NONE,'NONE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,443,PENDING,'PENDING',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,444,SENT,'SENT',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,445,FAILED,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,446,NONE,'NONE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,450,SYNC,'SYNC',python-constant,code,状态或错误码，不是时间参数
+packages/contracts/src/muad_contracts/enums.py,451,ASYNC,'ASYNC',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,452,AUTO,'AUTO',python-constant,code,状态或错误码，不是时间参数
+packages/contracts/src/muad_contracts/enums.py,456,SYSTEM,'SYSTEM',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,457,ADMIN,'ADMIN',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,458,USER,'USER',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,462,PENDING,'PENDING',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,463,APPROVED,'APPROVED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,464,REJECTED,'REJECTED',python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,465,SUPERSEDED,'SUPERSEDED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,469,ALL,'ALL',python-constant,code,状态或错误码，不是时间参数
+packages/contracts/src/muad_contracts/enums.py,470,SELECTED,'SELECTED',python-constant,code,状态或错误码，不是时间参数
+packages/contracts/src/muad_contracts/enums.py,474,USER_ONLY,'USER_ONLY',python-constant,code,状态或错误码，不是时间参数
+packages/contracts/src/muad_contracts/enums.py,475,SHARED_ONLY,'SHARED_ONLY',python-constant,code,状态或错误码，不是时间参数
+packages/contracts/src/muad_contracts/enums.py,476,USER_THEN_SHARED,'USER_THEN_SHARED',python-constant,code,状态或错误码，不是时间参数
+packages/contracts/src/muad_contracts/enums.py,477,NONE,'NONE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,481,ACTIVE,'ACTIVE',python-constant,code,状态或错误码，不是时间参数
+packages/contracts/src/muad_contracts/enums.py,482,INVALID,'INVALID',python-constant,code,状态或错误码，不是时间参数
+packages/contracts/src/muad_contracts/enums.py,486,WAITING,'WAITING',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,487,RESOLVED,'RESOLVED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,488,CANCELLED,'CANCELLED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,492,READY,'READY',python-constant,code,状态或错误码，不是时间参数
+packages/contracts/src/muad_contracts/enums.py,493,REJECTED,'REJECTED',python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
+packages/contracts/src/muad_contracts/enums.py,498,DEFAULT_CHANNEL,'WECOM',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,504,OUTBOUND_CHANNELS,frozenset({'WECOM'}),python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,507,CHANNEL_DISPLAY_LABELS,"{'WECOM': '企微', 'WEBCHAT': 'Web'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/enums.py,512,LOCAL_STREAM_CHANNELS,frozenset(WEB_SURFACE_CHANNELS),python-constant,code,实现常量；由 AST 盘点补录（2026-11-08）
 packages/contracts/src/muad_contracts/i18n.py,13,SUPPORTED_LOCALES,"('zh-CN', 'en-US')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/i18n.py,14,DEFAULT_LOCALE,SUPPORTED_LOCALES[0],python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/im.py,46,TEXT,'TEXT',python-constant,code,协议标识、枚举、schema、文本或实现常量
