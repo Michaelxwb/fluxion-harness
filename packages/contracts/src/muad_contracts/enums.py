@@ -2,6 +2,7 @@ import json
 import re
 from collections.abc import Iterable
 from enum import StrEnum
+from typing import ClassVar, cast
 
 # 通道名的**唯一**声明处。契约字段是**开放的 string**（新增通道只写适配器，不改这里：
 # 路由由 `ChannelRegistry` 的适配器名决定）；下面列出的是内建通道名，供默认值/文档与
@@ -365,9 +366,9 @@ class ConfirmationSurface(str):
     `MSSPWEB`）都自动合法——外部平台的确认/任务中心按配置扩展，不需要改这份清单。
     """
 
-    WEBCHAT = "WEBCHAT"
-    WECOM = "WECOM"
-    MSSWWEB = "MSSWWEB"
+    WEBCHAT: ClassVar["ConfirmationSurface"] = cast("ConfirmationSurface", "WEBCHAT")
+    WECOM: ClassVar["ConfirmationSurface"] = cast("ConfirmationSurface", "WECOM")
+    MSSWWEB: ClassVar["ConfirmationSurface"] = cast("ConfirmationSurface", "MSSWWEB")
 
     def __new__(cls, value: str) -> "ConfirmationSurface":
         normalized = (value or "").strip().upper()
