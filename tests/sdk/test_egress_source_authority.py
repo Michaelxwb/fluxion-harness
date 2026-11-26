@@ -10,7 +10,13 @@ from muad_agent_runtime.infrastructure.models.runtime import Conversation, RunRe
 from muad_platform_sdk.egress_identity_registry import ExecutionRegistration, IdentityRegistry
 from muad_platform_sdk.egress_segment_supervisor import SourceSegmentSupervisor
 from muad_platform_sdk.egress_segments import FencedRedisMeter
-from muad_platform_sdk.egress_source_authority import PGSegmentAuthority, SourceClaim
+from muad_platform_sdk.egress_source_authority import (
+    PGSegmentAuthority,
+    SourceCancellationRequested,
+    SourceClaim,
+    SourceDeadlineReached,
+    SourceLeaseEnded,
+)
 from muad_platform_sdk.persistent_egress import PersistentEgressScopes
 from muad_platform_sdk.shared_redis import MeteringUnavailable
 
@@ -59,10 +65,31 @@ async def test_run_authority_is_stable_within_source_claim(run_source):
     assert first.grant.execution_id == str(scope.id)
     assert first.grant.fence == 1
     assert 0 < first.remaining_seconds() <= 300
+    assert not first.bounded_by_execution_deadline
     async with sessions() as session:
         statement = sa.text("SELECT current_fence FROM runtime.egress_execution WHERE id=:id")
         fence = await session.scalar(statement, {"id": scope.id})
         assert fence == 1
+
+
+async def test_run_absolute_deadline_is_distinct_from_lease_expiry(run_source):
+    sessions, authority, scope, claim = run_source
+    async with sessions.begin() as session:
+        run = await session.get(RunRecord, claim.source_id)
+        now = await session.scalar(sa.select(sa.func.statement_timestamp()))
+        run.deadline_at = now + timedelta(minutes=1)
+    bound = await authority.authorize(scope.id, claim, read_run_source_lease)
+    assert bound.bounded_by_execution_deadline
+    async with sessions.begin() as session:
+        run = await session.get(RunRecord, claim.source_id)
+        run.deadline_at = now - timedelta(seconds=1)
+    with pytest.raises(SourceDeadlineReached):
+        await authority.authorize(scope.id, claim, read_run_source_lease)
+    async with sessions.begin() as session:
+        run = await session.get(RunRecord, claim.source_id)
+        run.lease_until = now - timedelta(seconds=2)
+    with pytest.raises(SourceLeaseEnded):
+        await authority.authorize(scope.id, claim, read_run_source_lease)
 
 
 async def test_pg_source_loss_stops_supervised_work_before_segment_takeover(run_source, identity_environment):
@@ -88,7 +115,7 @@ async def test_pg_source_loss_stops_supervised_work_before_segment_takeover(run_
             await asyncio.Event().wait()
         finally:
             stopped.set()
-    with pytest.raises(MeteringUnavailable, match="source execution lease lost"):
+    with pytest.raises(SourceCancellationRequested):
         await asyncio.wait_for(supervisor.run(work), 3)
     assert stopped.is_set() and closed.is_set()
 

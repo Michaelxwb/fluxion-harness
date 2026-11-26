@@ -437,6 +437,61 @@ async def test_rate_limit_honors_retry_after() -> None:
     assert elapsed >= 0.05
 
 
+@pytest.mark.parametrize(
+    ("code", "status_code", "retryable", "retry_after", "expected_calls"),
+    [
+        ("MCP_TRANSPORT_FAILED", 429, True, "0.02", 2),
+        ("MCP_TRANSPORT_FAILED", 429, True, None, 2),
+        ("MCP_TRANSPORT_FAILED", 429, False, "0.02", 1),
+        ("MCP_TRANSPORT_FAILED", 429, True, "60", 1),
+        ("MCP_TRANSPORT_FAILED", 429, True, "Infinity", 1),
+        ("MCP_TRANSPORT_FAILED", 503, True, "0.02", 1),
+        ("LOCAL_RATE_LIMITED", None, True, None, 2),
+    ],
+)
+async def test_tool_throttle_retries_same_call_within_deadline(
+    code: str,
+    status_code: int | None,
+    retryable: bool,
+    retry_after: str | None,
+    expected_calls: int,
+) -> None:
+    class TransportFailure(Exception):
+        code: str
+        status_code: int | None
+        retryable: bool
+        retry_after: str | None
+
+    error = TransportFailure("tool temporarily unavailable")
+    error.code = code
+    error.status_code = status_code
+    error.retryable = retryable
+    error.retry_after = retry_after
+    attempts: list[tuple[str, float]] = []
+
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        attempts.append((call.call_id, time.monotonic()))
+        if len(attempts) == 1:
+            raise error
+        return ToolResult("lookup recovered")
+
+    registry = ToolRegistry()
+    registry.register(ToolDefinition("lookup", "lookup", {"type": "object"}, ToolEffect.READ, handler))
+    provider = ScriptedModelProvider([_tool_call("c1", "lookup"), _text("done")])
+    request = _request(AgentPolicy(deadline_ms=5000))
+
+    result = await AgentRunner(provider=provider, registry=registry).run(request)
+
+    assert result.status is AgentRunStatus.COMPLETED
+    assert [call_id for call_id, _ in attempts] == ["c1"] * expected_calls
+    observed = provider.requests[1].messages[-1].content
+    if expected_calls == 2:
+        assert attempts[1][1] - attempts[0][1] >= float(retry_after or "0.1") - 0.001
+        assert observed == "lookup recovered"
+    else:
+        assert "tool temporarily unavailable" in observed
+
+
 async def test_deadline_exceeded_between_steps() -> None:
     class SlowProvider:
         async def complete(self, request: ModelRequest) -> ModelResponse:
@@ -812,6 +867,7 @@ async def test_retryable_failures_follow_the_configured_threshold() -> None:
         [
             _tool_call("c1", "failing", {"code": "NET", "retryable": True}),
             _tool_call("c2", "failing", {"code": "NET", "retryable": True}),
+            _text("The lookup did not complete."),
         ]
     )
     registry = ToolRegistry()
@@ -820,7 +876,9 @@ async def test_retryable_failures_follow_the_configured_threshold() -> None:
     result = await AgentRunner(provider=provider, registry=registry).run(_request())
 
     assert result.status is AgentRunStatus.NO_PROGRESS
-    assert len(provider.requests) == 2, "两次真实失败后停止，不再有模型收尾回合"
+    assert len(provider.requests) == 3
+    assert not provider.requests[-1].tools
+    assert result.reply_append == "The lookup did not complete."
 
 
 async def test_different_retryable_codes_do_not_accumulate() -> None:
@@ -858,7 +916,8 @@ async def test_an_unrelated_success_does_not_reset_failure_counter() -> None:
     result = await AgentRunner(provider=provider, registry=registry).run(_request())
 
     assert result.status is AgentRunStatus.NO_PROGRESS
-    assert len(provider.requests) == 3
+    assert len(provider.requests) == 4
+    assert not provider.requests[-1].tools
 
 
 async def test_threshold_comes_from_the_policy() -> None:
@@ -905,7 +964,7 @@ async def test_parallel_success_cannot_reopen_a_stopped_run() -> None:
     script = [_tool_call("prior", "fail")]
     script.extend([
         _multi_tool_call(("c1", "fail"), ("c2", "read"), ("c3", "write")),
-        _text("must not run"),
+        _text("The write could not complete."),
     ])
     provider = ScriptedModelProvider(script)
     result = await AgentRunner(provider=provider, registry=registry).run(
@@ -915,13 +974,16 @@ async def test_parallel_success_cannot_reopen_a_stopped_run() -> None:
     assert result.status is AgentRunStatus.NO_PROGRESS
     assert "read" in calls, "the independent read in the same batch still completes"
     assert "write" not in calls, "the later write batch must remain stopped"
-    assert len(provider.requests) == 2
+    assert len(provider.requests) == 3
+    assert not provider.requests[-1].tools
 
 
-async def test_failure_does_not_append_a_model_finalization_turn() -> None:
-    """失败收尾不追加 USER 指令、不调用模型：事实交给 Runtime 平台直出。"""
+async def test_failure_explanation_can_read_tool_fact_without_reissuing_calls() -> None:
     provider = ScriptedModelProvider(
-        [_tool_call("c1", "rejecting"), _tool_call("c2", "rejecting"), _tool_call("c3", "rejecting")]
+        [
+            _tool_call("c1", "rejecting"), _tool_call("c2", "rejecting"), _tool_call("c3", "rejecting"),
+            _text("The requested action was refused."),
+        ]
     )
     registry = ToolRegistry()
     _error_returning_tool(registry)
@@ -929,11 +991,52 @@ async def test_failure_does_not_append_a_model_finalization_turn() -> None:
     result = await AgentRunner(provider=provider, registry=registry).run(_request())
 
     assert result.status is AgentRunStatus.NO_PROGRESS
-    assert len(provider.requests) == 3
-    user_messages = [m for m in provider.requests[-1].messages if m.role is ModelRole.USER]
-    assert [message.content for message in user_messages] == ["hi"], "不得追加收尾 USER 指令"
+    assert len(provider.requests) == 4
+    assert not provider.requests[-1].tools
+    assert result.reply_append == "The requested action was refused."
+    messages = provider.requests[-1].messages
+    assert [message.role for message in messages] == [ModelRole.SYSTEM, ModelRole.USER]
+    assert "PLATFORM_AUTH_REJECTED" in messages[-1].content
+    assert '"role": "user", "text": "hi"' in messages[-1].content
     assert result.last_failure is not None
     assert result.last_failure["code"] == "TOOL_RETRY_UNSAFE"
+
+
+async def test_hard_tool_budget_stop_skips_failure_explanation() -> None:
+    provider = ScriptedModelProvider([_tool_call("c1", "failing", {"code": "LOCAL_BUDGET_EXHAUSTED"})])
+    registry = ToolRegistry()
+    _failing_tool(registry)
+
+    result = await AgentRunner(provider=provider, registry=registry).run(_request())
+
+    assert result.status is AgentRunStatus.NO_PROGRESS
+    assert result.reply_append is None
+    assert len(provider.requests) == 1
+
+
+@pytest.mark.parametrize("response", [
+    _tool_call("c3", "echo"), _text(""), _text('<｜｜DSML｜｜invoke name="echo">'),
+    ModelUnavailableError("down"),
+])
+async def test_unusable_failure_explanation_falls_back_without_dispatch(
+    response: ModelResponse | Exception,
+) -> None:
+    provider = ScriptedModelProvider([
+        _tool_call("c1", "failing", {"retryable": True}),
+        _tool_call("c2", "failing", {"retryable": True}),
+        response,
+    ])
+    registry = ToolRegistry()
+    _failing_tool(registry)
+    calls: list[dict[str, Any]] = []
+    _echo_tool(registry, calls)
+
+    result = await AgentRunner(provider=provider, registry=registry).run(_request())
+
+    assert result.status is AgentRunStatus.NO_PROGRESS
+    assert not result.reply_append
+    assert len(provider.requests) == 3
+    assert not calls
 
 
 async def test_policy_denied_tool_gets_a_structured_failure() -> None:

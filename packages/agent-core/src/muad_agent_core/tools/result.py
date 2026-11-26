@@ -107,12 +107,14 @@ class ToolError(Exception):
         *,
         detail: Mapping[str, Any] | None = None,
         retryable: bool | None = None,
+        retry_after: str | None = None,
         platform_sessions: Mapping[str, Any] | None = None,
     ) -> None:
         self.code = code
         self.message = message
         self.detail = dict(detail) if detail else None
         self.retryable = retryable
+        self.retry_after = retry_after
         self.platform_sessions = dict(platform_sessions) if platform_sessions else None
         super().__init__(message)
 
@@ -134,6 +136,7 @@ class ToolError(Exception):
             code=self.code,
             message=self.message,
             retryable=self.retryable,
+            retry_after=self.retry_after,
             evidence_text=evidence_text,
         )
 

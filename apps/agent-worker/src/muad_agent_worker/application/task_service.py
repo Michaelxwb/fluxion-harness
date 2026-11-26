@@ -148,7 +148,11 @@ class TaskService:
         task_id = uuid.uuid4()
         now = datetime.now(UTC)
         snapshot, frozen_hash = _creation_snapshot(payload, task_settings)
-        if egress_enabled or "egress_enabled" in snapshot:
+        if payload.runtime_operation is not None:
+            frozen_egress = snapshot.get("egress_enabled")
+            if type(frozen_egress) is not bool and (egress_enabled or "egress_enabled" in snapshot):
+                raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+        elif egress_enabled or "egress_enabled" in snapshot:
             snapshot = {**snapshot, "egress_enabled": egress_enabled}
             frozen_hash = snapshot_hash(snapshot)
         return {

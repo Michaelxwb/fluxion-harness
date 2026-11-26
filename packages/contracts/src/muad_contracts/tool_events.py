@@ -36,6 +36,18 @@ class ToolEventOutcome(_ToolEventModel):
     failure_layer: str
     error_code: str | None = None
     retryable: bool = False
+    agent_disposition: Literal["CONTINUE", "WAIT", "STOP"] = "CONTINUE"
+    retry_disposition: Literal["ALLOW", "WAIT_THEN_RETRY", "BLOCK"] = "ALLOW"
+    scope: Literal["CALL", "OPERATION", "RUN", "DELIVERY"] = "CALL"
+    sent: bool = False
+    outcome_known: bool = True
+    evidence_status: Literal["NONE", "PARTIAL", "CONFIRMED", "UNKNOWN"] = "CONFIRMED"
+    retry_after: str | None = None
+    security_disposition: Literal["NORMAL", "DENIED", "VIOLATION"] = "NORMAL"
+    boundary_kind: Literal[
+        "NONE", "TIME", "OUTPUT", "RESOURCE", "TERMINATION", "CONTEXT", "OBSERVABILITY"
+    ] = "NONE"
+    stop_confirmed: bool = True
     evidence_preview: str = ""
     exit_code: int | None = None
     execution_status: str | None = None

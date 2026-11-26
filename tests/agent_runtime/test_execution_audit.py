@@ -18,7 +18,15 @@ from muad_agent_core.model import (
     ModelRequestError,
     ModelResponse,
 )
-from muad_agent_core.tools import ToolCall, ToolDefinition, ToolEffect, ToolRegistry, ToolResult
+from muad_agent_core.tools import (
+    ToolCall,
+    ToolDefinition,
+    ToolEffect,
+    ToolExecutionPipeline,
+    ToolRegistry,
+    ToolResult,
+)
+from muad_agent_core.tools.pipeline import RunnableToolCall
 from muad_agent_runtime.api.deps import get_executor_factory
 from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
 from muad_agent_runtime.application.executor import (
@@ -270,6 +278,45 @@ async def test_tool_recorder_audits_failure_status() -> None:
         assert audit.tool_kind == "MCP"
         assert audit.status == "ERROR"
         assert audit.error_code == "COMMON_INTERNAL_ERROR"
+
+
+async def test_tool_recorder_accepts_retry_of_same_prepared_call() -> None:
+    recorder = ToolCallRecorder(
+        context=ExecutorRunContext(
+            tenant_id=TENANT, run_id=RUN_ID, conversation_id=CONV_ID, user_id=USER_ID
+        ),
+        audit_writer=_writer(),
+        artifact_writer=None,
+    )
+    attempts = 0
+
+    async def handler(arguments: Any, *, call: ToolCall) -> ToolResult:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise RuntimeError("first transport attempt failed")
+        return ToolResult("recovered")
+
+    registry = ToolRegistry()
+    registry.register(ToolDefinition("lookup", "lookup", {"type": "object"}, ToolEffect.READ, handler))
+    pipeline = ToolExecutionPipeline(registry=registry, audit=recorder)
+    prepared = await pipeline.prepare_execution(
+        pipeline.prepare(call_id="same-call", tool_name="lookup", arguments={"query": "example"})
+    )
+    assert isinstance(prepared, RunnableToolCall)
+    with pytest.raises(RuntimeError, match="first transport attempt failed"):
+        await pipeline.run_prepared(prepared)
+    completed = await pipeline.run_prepared(prepared)
+    results = await recorder.finish_round((completed.result,))
+    assert results[0].content == "recovered"
+
+    async with get_session_factory()() as session:
+        audit = (
+            await session.scalars(sa.select(ToolCallAudit).where(ToolCallAudit.tenant_id == TENANT))
+        ).one()
+        assert audit.tool_call_id == "same-call"
+        assert audit.status == "OK"
+        assert audit.args_preview_json == {"query": "example"}
 
 
 async def test_coded_tool_error_is_recorded_with_its_own_code(tenant: TenantContext) -> None:

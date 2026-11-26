@@ -70,6 +70,7 @@ class TaskSubmissionContext:
     trace_id: str = ""
     locale: str = "zh-CN"
     execution_timeout_sec: int = field(default_factory=lambda: TaskSettings().execution_timeout_sec)
+    egress_enabled: bool = False
 
 
 def build_task_snapshot(

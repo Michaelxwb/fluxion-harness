@@ -389,6 +389,11 @@ def _register_mcp(
             if schema is None:
                 continue
             trust = mcp_tool_trust(tuple(frozen.snapshot.tools), tool_name)
+            # SnapshotTool is keyed by name. The server-scoped definition must corroborate replay safety.
+            retry_safety = (
+                _retry_safety(trust) if trust and definition.get("retry_safety") == trust.retry_safety
+                else ToolRetrySafety.NON_RETRYABLE
+            )
             name = mcp_tool_name(server.key, tool_name)
             registry.register(
                 ToolDefinition(
@@ -396,8 +401,8 @@ def _register_mcp(
                     description=str(definition.get("description") or tool_name),
                     input_schema=schema,
                     effect=ToolEffect.READ,
-                    retry_safety=_retry_safety(trust),
-                    handler=_mcp_handler(mcp, server.server_id, tool_name, _retry_safety(trust)),
+                    retry_safety=retry_safety,
+                    handler=_mcp_handler(mcp, server.server_id, tool_name, retry_safety),
                     capabilities=frozenset({ToolCapability.MCP_CALL}),
                 )
             )

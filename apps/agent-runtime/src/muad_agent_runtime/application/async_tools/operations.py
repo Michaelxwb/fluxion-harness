@@ -114,6 +114,7 @@ def _submission(
 ) -> CreateTaskRequest:
     operation_id = uuid4()
     snapshot, _ = build_task_snapshot(context, skill, argv=argv)
+    snapshot["egress_enabled"] = context.egress_enabled
     budget = JSON_OBJECT.validate_python(snapshot["budget"])
     budget.update({"max_attempts": 1, "async_tools": policy.model_dump(mode="json")})
     # 冻结一次（design §3.6）：可信 retry_safety 只认 Owner 侧工具声明，未知/未声明/非法一律

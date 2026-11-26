@@ -150,6 +150,7 @@ class ErrorCode(StrEnum):
     RUN_CAPACITY_EXCEEDED = "RUN_CAPACITY_EXCEEDED"
     RUN_QUEUE_TIMEOUT = "RUN_QUEUE_TIMEOUT"
     RUN_DEADLINE_EXCEEDED = "RUN_DEADLINE_EXCEEDED"
+    RUN_EVENT_PERSISTENCE_FAILED = "RUN_EVENT_PERSISTENCE_FAILED"
     #: 运行预算用尽（最大轮次/工具调用上限）：与截止期限区分，便于用户知道是"轮次打满"而不是超时。
     RUN_BUDGET_EXCEEDED = "RUN_BUDGET_EXCEEDED"
     #: 同一 (工具, 错误码) 连续失败达到上限：确定性失败原地打转，主动停止。

@@ -9,7 +9,7 @@ import pytest
 import sqlalchemy as sa
 from muad_agent_runtime.application.run_service import RUN_ABANDONED, reap_abandoned_runs
 from muad_agent_runtime.infrastructure.db import get_session_factory
-from muad_agent_runtime.infrastructure.models.runtime import Conversation, RunRecord
+from muad_agent_runtime.infrastructure.models.runtime import CanonicalEvent, Conversation, RunRecord
 
 TENANT = f"reap-{uuid.uuid4()}"
 
@@ -72,6 +72,7 @@ async def test_e04_reaper_cas_on_expired_running_only() -> None:
     waiting = await _seed("WAITING_INPUT", expired=True)
 
     await reap_abandoned_runs(get_session_factory())
+    await reap_abandoned_runs(get_session_factory())
     ids = {expired, fresh, completed, waiting}
     # 其它测试可能残留过期 run；只断言我们的三个的状态
     async with get_session_factory()() as session:
@@ -97,3 +98,12 @@ async def test_e04_reaper_cas_on_expired_running_only() -> None:
             )
         ).scalar()
         assert conv_active == 0
+        events = (await session.scalars(sa.select(CanonicalEvent).where(
+            CanonicalEvent.run_id == expired,
+        ).order_by(CanonicalEvent.seq))).all()
+        assert [event.event_type for event in events] == [
+            "ASSISTANT_MESSAGE", "ASSISTANT_DELTA", "RUN_FAILED",
+        ]
+        assert "失去连接，已停止" in events[0].payload_json["text"]
+        assert any(RUN_ABANDONED in line for line in events[0].payload_json["technical_details"])
+        assert events[2].payload_json["final_text"] == events[0].payload_json["text"]

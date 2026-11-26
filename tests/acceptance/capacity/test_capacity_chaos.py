@@ -485,7 +485,7 @@ def test_e08_runtime_kill_reaps_run_and_resumes_sse_without_duplicates(
 
     断言位置：① 执行中的 Runtime 被 SIGKILL 后，在飞公开 SSE 真实断开且无终态；
     ② 原地重启后 Reaper 落 FAILED/RUN_ABANDONED（不静默、不凭空重跑）；③ 按游标重连
-    读到该终态，seq 严格向前，正文是已提交前缀；④ 终态事件/通知各一条、模型只调用一次
+    读到该终态，seq 严格向前，保留已提交前缀并追加一次失败说明；④ 终态事件/通知各一条、模型只调用一次
     （无双执行、无重复投递）。
     """
     stack, seeded, session = chaos_harness.stack, chaos_harness.seeded, chaos_harness.session
@@ -519,8 +519,16 @@ def test_e08_runtime_kill_reaps_run_and_resumes_sse_without_duplicates(
     )
     _assert_cursor_continuity(first, second, run_id)
     replayed = apply_public_frames((*first.frames, *second.frames))
-    assert replayed, "已提交前缀必须可 replay（正文不得为空）"
-    assert RUNTIME_BODY.startswith(replayed), f"replay 正文必须是真实前缀：{replayed!r}"
+    prefix, separator, explanation = replayed.partition("\n\n")
+    assert prefix and RUNTIME_BODY.startswith(prefix), f"已提交正文必须是真实前缀：{prefix!r}"
+    assert separator and explanation.count("本轮与执行服务失去连接，已停止") == 1
+    replies = db_rows(
+        stack.database_url,
+        "SELECT payload_json->>'text' AS text FROM runtime.canonical_event"
+        " WHERE run_id = $1 AND event_type = 'ASSISTANT_MESSAGE' AND NOT is_deleted",
+        uuid.UUID(run_id),
+    )
+    assert [row["text"] for row in replies] == [replayed], "历史与 SSE 只保留同一条最终说明"
     assert int(probe_state(probe.url)["call_count"]) == calls_before + 1, (
         "崩溃回收不得重跑模型（无双执行）"
     )

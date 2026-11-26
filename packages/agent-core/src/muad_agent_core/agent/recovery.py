@@ -86,6 +86,10 @@ class CompletedFact:
     review_progress: tuple[str, int, int] | None = None
     artifacts: tuple[Mapping[str, Any], ...] = ()
     follow_ups: tuple[Mapping[str, Any], ...] = ()
+    agent_disposition: str = "CONTINUE"
+    scope: str = "CALL"
+    security_disposition: str = "NORMAL"
+    stop_confirmed: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -224,6 +228,10 @@ def replay_failure_state(fold: RecoveryFold, *, max_identical_failures: int) -> 
                 business_status=completed.business_status, failure_layer=completed.failure_layer,
                 error_code=completed.error_code, exit_code=completed.exit_code,
                 retryable=completed.retryable, evidence_preview=completed.content[:1024],
+                agent_disposition=completed.agent_disposition,
+                scope=completed.scope,
+                security_disposition=completed.security_disposition,
+                stop_confirmed=completed.stop_confirmed,
                 attempt=attempt_identity(scope, prepared.args_hash) if prepared else None,
                 external_started=effectful, review_progress=completed.review_progress,
             ),
@@ -384,6 +392,10 @@ def _completed_fact(call_id: str, payload: Mapping[str, Any]) -> CompletedFact:
         retryable=outcome_map.get("retryable") is True,
         exit_code=outcome_map.get("exit_code") if type(outcome_map.get("exit_code")) is int else None,
         review_progress=_progress_fact(outcome_map.get("review_progress")),
+        agent_disposition=str(outcome_map.get("agent_disposition") or "CONTINUE"),
+        scope=str(outcome_map.get("scope") or "CALL"),
+        security_disposition=str(outcome_map.get("security_disposition") or "NORMAL"),
+        stop_confirmed=outcome_map.get("stop_confirmed") is not False,
 
         artifacts=tuple(
             item for item in payload.get("artifacts") or () if isinstance(item, Mapping)

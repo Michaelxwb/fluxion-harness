@@ -138,6 +138,7 @@ class AgenticOutcome:
     last_failure: dict[str, str] | None = None
     #: `record_result` 的结构化结论（`no_change/progress/done/blocked/needs_attention`）。
     result_status: str | None = None
+    failure_reply: str | None = None
 
 
 def agent_policy(frozen: FrozenAgenticExecution) -> AgentPolicy:
@@ -449,6 +450,7 @@ async def execute_agentic(
         boundary=suspension.take(),
         last_failure=result.last_failure,
         result_status=final_status if result.status is AgentRunStatus.COMPLETED else None,
+        failure_reply=result.reply_append if result.status is AgentRunStatus.NO_PROGRESS else None,
     )
 
 

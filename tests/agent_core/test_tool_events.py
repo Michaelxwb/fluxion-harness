@@ -159,6 +159,8 @@ async def test_assistant_prepared_and_completed_events_carry_identity() -> None:
     )
     assert completed_event.schema_version == 2
     assert completed_event.state == "COMPLETED"
+    assert completed_event.outcome.boundary_kind == "NONE"
+    assert completed_event.outcome.stop_confirmed is True
 
 
 async def test_prepared_event_write_failure_aborts_handler_io() -> None:

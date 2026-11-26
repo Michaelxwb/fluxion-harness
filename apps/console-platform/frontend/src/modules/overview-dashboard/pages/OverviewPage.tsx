@@ -1,7 +1,6 @@
 import { Banner, Button } from '@douyinfe/semi-ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 import { PageHeader, PageSection } from '../../../components/common/ConsolePage';
 import { ErrorState } from '../../../components/common/ErrorState';
 import { AttentionSummary } from '../components/AttentionSummary';
@@ -49,7 +48,6 @@ export function OverviewPage() {
           />
         }
       />
-      <Link to="/egress">{t('overview.views.egress')}</Link>
       {overview.error && overview.data !== null ? (
         <Banner
           type="warning"

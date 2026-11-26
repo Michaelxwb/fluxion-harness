@@ -1,7 +1,7 @@
 ---
 {
   "description": "Run/Task 快照冻结",
-  "next_rule": 5
+  "next_rule": 7
 }
 ---
 
@@ -19,9 +19,14 @@
 
 - [RULE-004] 上下文压缩以 Run/Task 创建时冻结的 history_budget_tokens 作为唯一历史预算；装配只读且按预算分页读取，只有请求边界做一次保头保尾裁剪，任何未进入请求的历史必须带可见省略标记与审计。摘要只处理从 covered_seq 起的连续材料区间，替换只移除该材料区间并保留头部、独立尾部与 pinned；coverage 只推进到实际材料末条，不覆盖当前输入。冻结压缩配置严格解析，旧键、旧 policy、旧摘要和旧平台设置不保留兼容解析。
 
+- [RULE-005] 工具完成事件记录失败控制事实；检查点保留失败状态、待完成操作和调用去重所需事实。实时执行与检查点恢复使用同一控制判定，不能通过重解析当前工具定义或更换入口重做未知外部操作。
+
+- [RULE-006] 执行边界异常必须以通用事实归一化：边界来源、停止是否确认、发送/结果事实和证据完整性共同决定 CONTINUE/WAIT/STOP。底层错误码只作为诊断来源，不得让不同适配器复制不同恢复流程；停止未确认或执行权/关键事实不可保证时不得继续派发可能产生副作用的调用。
+
 ## Conventions
 
 - **恢复期间使用已持久化的工具事实**（RULE-003）：✅ 待核实的外部操作保留原身份和重试限制；❌ 通过更换工具入口或参数重做效果仍未知的操作。
+- **按边界事实决定是否继续**：✅ 停止已确认时，可将截断输出标为部分证据交给 Agent；❌ 停止未确认或执行权丢失时继续派发可能产生副作用的调用。
 
 - **后台 Skill 的 CLI 参数随执行快照冻结**：独立的 `argv` 与 JSON stdin 分开存储，纳入快照 hash 和 operation 输入指纹；Worker 重试只读取原快照并校验参数，省略表示没有 CLI 参数。✅ 同一 call 改参数返回幂等冲突，重试原样执行；❌ 从当前 Skill 说明重建参数、将控制字段混入业务 input、不同参数复用旧操作。
 
@@ -55,3 +60,7 @@
 - {"source":"2026-11-24/skill-results-conversation-finalization/skill-results-conversation-finalization.md#TASK-004#DELTA-001","op":"add","rule":"RULE-003","payload_sha256":"5c797b6a277cd93fffd6ead1a546b41b55935c717d1aeb9845c9eca2926dea11","at":"2026-11-24T09:27:16.306Z"}
 
 - {"source":"2026-11-23/conversation-context-retention/conversation-context-retention.md#TASK-001#DELTA-001","op":"add","rule":"RULE-004","payload_sha256":"ab1d8ffd91d48f91153b6601a1c803feaf450503d193b0c4e11dab034f7c909a","at":"2026-11-25T11:49:15.144Z"}
+
+- {"source":"2026-11-26/agent-tool-failure-recovery/agent-tool-failure-recovery.md#TASK-001#DELTA-002","op":"add","rule":"RULE-005","payload_sha256":"3cfa9c44a658563bfb7e262c0c3f1136fb0cb70d56f5c416cfa63970b2acd879","at":"2026-11-26T12:11:20.731Z"}
+
+- {"source":"2026-11-26/agent-tool-failure-recovery/agent-tool-failure-recovery.md#TASK-006#DELTA-005","op":"add","rule":"RULE-006","payload_sha256":"a031846d2bdadcc86d18f34e150240fde04de72d84df738e50aae3445933f182","at":"2026-11-26T12:11:20.732Z"}

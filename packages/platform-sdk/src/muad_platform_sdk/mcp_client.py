@@ -323,7 +323,7 @@ class McpClient:
         except SharedLimitExceeded as exc:
             code = "LOCAL_BUDGET_EXHAUSTED" if exc.kind == "TOTAL" else "LOCAL_RATE_LIMITED"
             raise McpError(
-                code, str(exc), recoverable=False, sent=False, outcome_known=True
+                code, str(exc), recoverable=exc.kind != "TOTAL", sent=False, outcome_known=True
             ) from exc
         except MeteringUnavailable as exc:
             raise McpError(

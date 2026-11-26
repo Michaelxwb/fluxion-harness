@@ -23,7 +23,7 @@ def test_egress_monitoring_has_a_dedicated_management_view() -> None:
     overview = source("pages/OverviewPage.tsx")
     monitor = source("pages/EgressPage.tsx")
     page = (MODULE.parent / "egress-management/EgressManagementPage.tsx").read_text()
-    assert '<Link to="/egress">' in overview
+    assert '"/egress"' not in overview and "overview.views.egress" not in overview
     assert 'data-testid="egress-monitoring-page"' in monitor and "<EgressSummary" in monitor
     assert "<EgressMonitor" in page and "overview.views.egress" in page
     assert "rulesOpen && !isAdmin" in page and '<Navigate to="/egress" replace' in page

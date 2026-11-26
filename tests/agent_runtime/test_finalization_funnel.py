@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
+import pytest
 import sqlalchemy as sa
 from muad_agent_core.agent.termination import (
     BudgetKind,
@@ -27,15 +28,29 @@ from muad_agent_runtime.infrastructure.models.runtime import (
     ToolCallAudit,
 )
 from muad_contracts import RunStatus
+from muad_platform_sdk.egress_source_authority import (
+    SourceCancellationRequested,
+    SourceDeadlineReached,
+    SourceLeaseEnded,
+)
 
 from tests.async_tool_continuations import running_source
 
 
 class _OutcomeExecutor:
-    def __init__(self, data: dict | None) -> None:
+    def __init__(
+        self, data: dict | None, failure: Exception | None = None, *, fail_prepared: bool = False,
+    ) -> None:
         self._data = data
+        self._failure = failure
+        self._fail_prepared = fail_prepared
 
     async def run(self):
+        if self._fail_prepared:
+            yield ExecutorEvent(type="tool.started", data={"tool_call_id": "probe"})
+            pytest.fail("tool must not dispatch after its prepared event failed to persist")
+        if self._failure is not None:
+            raise self._failure
         if self._data is not None:
             yield ExecutorEvent(type="runner.outcome", data=self._data)
 
@@ -48,12 +63,14 @@ async def _stream(
     data: dict | None,
     cancel: bool = False,
     prepare=None,
+    failure: Exception | None = None,
+    fail_prepared: bool = False,
 ):
     factory, context, _, run, identity = await running_source(async_tool_database)
     monkeypatch.setattr(run_service, "get_session_factory", lambda: factory)
 
     async def executor_factory(request):
-        return _OutcomeExecutor(data)
+        return _OutcomeExecutor(data, failure, fail_prepared=fail_prepared)
 
     supervisor = ExecutionSupervisor()
     async with factory() as session:
@@ -106,6 +123,59 @@ def _outcome_data(status: str, snapshot: TerminationSnapshot) -> dict:
         "final_text": "",
         "termination": snapshot.as_payload(),
     }
+
+
+@pytest.mark.parametrize(("error_type", "code", "reason"), [
+    (SourceDeadlineReached, "RUN_DEADLINE_EXCEEDED", "超过期限"),
+    (SourceLeaseEnded, "RUN_ABANDONED", "失去连接"),
+])
+async def test_source_cutoff_is_a_visible_failed_run(
+    async_tool_database, monkeypatch, fake_resolve, error_type, code, reason,
+):
+    factory, run, events = await _stream(
+        async_tool_database, monkeypatch, fake_resolve, data=None,
+        failure=error_type("internal egress detail"),
+    )
+    assert events[-1].data["error_code"] == code
+    async with factory() as session:
+        reply = await session.scalar(sa.select(CanonicalEvent).where(
+            CanonicalEvent.run_id == run.id, CanonicalEvent.event_type == "ASSISTANT_MESSAGE",
+        ))
+    assert reason in reply.payload_json["text"]
+    assert "internal egress detail" not in reply.payload_json["text"]
+
+
+async def test_prepared_event_write_failure_has_safe_explicit_closeout(
+    async_tool_database, monkeypatch, fake_resolve,
+):
+    async def reject_prepared(factory, _run):
+        async with factory.begin() as session:
+            await session.execute(sa.text("""
+                CREATE FUNCTION runtime.reject_prepared_probe() RETURNS trigger LANGUAGE plpgsql AS $$
+                BEGIN RAISE EXCEPTION 'fixture database detail'; END; $$
+            """))
+            await session.execute(sa.text("""
+                CREATE TRIGGER reject_prepared_probe BEFORE INSERT ON runtime.canonical_event
+                FOR EACH ROW WHEN (NEW.event_type = 'TOOL_CALL_STARTED')
+                EXECUTE FUNCTION runtime.reject_prepared_probe()
+            """))
+
+    factory, run, events = await _stream(
+        async_tool_database, monkeypatch, fake_resolve, data=None,
+        prepare=reject_prepared, fail_prepared=True,
+    )
+    terminal = events[-1].data
+    assert terminal["error_code"] == "RUN_EVENT_PERSISTENCE_FAILED"
+    assert "无法保存本轮执行记录" in terminal["final_text"]
+    assert "fixture database detail" not in str(terminal)
+    assert "RUN_EVENT_PERSISTENCE_FAILED" in " ".join(terminal["technical_details"])
+    async with factory() as session:
+        stored = await session.scalars(sa.select(CanonicalEvent.event_type).where(
+            CanonicalEvent.run_id == run.id,
+        ))
+        kinds = list(stored)
+    assert kinds.count("RUN_FAILED") == 1
+    assert "TOOL_CALL_STARTED" not in kinds
 
 
 async def _insert_audit(factory, run, **fields) -> None:
@@ -181,8 +251,9 @@ async def test_turn_budget_persists_platform_finalization_and_message(
         assert message.payload_json["text"] == payload["final_text"]
 
 
+@pytest.mark.parametrize("failure_reply", [None, "没有完成查询，平台拒绝了当前登录状态。请重新登录后再试。"])
 async def test_business_failure_is_read_from_tool_audit(
-    async_tool_database, monkeypatch, fake_resolve
+    async_tool_database, monkeypatch, fake_resolve, failure_reply
 ) -> None:
     snapshot = TerminationSnapshot(
         status="NO_PROGRESS",
@@ -221,7 +292,7 @@ async def test_business_failure_is_read_from_tool_audit(
         async_tool_database,
         monkeypatch,
         fake_resolve,
-        data=_outcome_data("NO_PROGRESS", snapshot),
+        data={**_outcome_data("NO_PROGRESS", snapshot), "failure_reply": failure_reply},
         prepare=prepare,
     )
     try:
@@ -233,12 +304,23 @@ async def test_business_failure_is_read_from_tool_audit(
         assert evidence["decisive_failure"]["tool"] == "execute"
         assert "PLATFORM_AUTH_REJECTED" not in payload["final_text"]
         assert any("PLATFORM_AUTH_REJECTED" in line for line in payload["technical_details"])
+        if failure_reply:
+            assert payload["final_text"] == failure_reply
+            async with factory() as session:
+                messages = (
+                    await session.scalars(sa.select(CanonicalEvent).where(
+                        CanonicalEvent.run_id == run.id,
+                        CanonicalEvent.event_type == "ASSISTANT_MESSAGE",
+                    ))
+                ).all()
+                assert [message.payload_json["text"] for message in messages] == [failure_reply]
     finally:
         await _cleanup_audit(factory, run.tenant_id)
 
 
+@pytest.mark.parametrize("failure", [None, SourceCancellationRequested("source cancelled")])
 async def test_cancel_writes_completed_cancelled_without_run_failed(
-    async_tool_database, monkeypatch, fake_resolve
+    async_tool_database, monkeypatch, fake_resolve, failure
 ) -> None:
     factory, run, events = await _stream(
         async_tool_database,
@@ -246,6 +328,7 @@ async def test_cancel_writes_completed_cancelled_without_run_failed(
         fake_resolve,
         data=None,
         cancel=True,
+        failure=failure,
     )
 
     terminal = events[-1]

@@ -632,7 +632,11 @@ function MessageItem(props: MessageItemProps) {
         {message.technical_details?.length ? (
           <details className="chat-message-technical-details">
             <summary>{t('chat.message.technicalDetails')}</summary>
-            <ul>{message.technical_details.map((line, index) => <li key={index}>{line}</li>)}</ul>
+            <ul role="list">
+              {message.technical_details.map((line, index) => (
+                <li key={index}>{line.replace(/^-\s+/, '')}</li>
+              ))}
+            </ul>
           </details>
         ) : null}
         {message.attachments.length === 0 ? null : (

@@ -472,9 +472,13 @@ html.chat-route-active body {
   flex-direction: column;
   gap: 0.55em;
   color: var(--semi-color-text-0);
+  overflow-wrap: anywhere;
+}
+
+.chat-message-content,
+.chat-message-technical-details {
   font-size: 14px;
   line-height: 1.75;
-  overflow-wrap: anywhere;
 }
 
 .chat-message-content > :first-child {
@@ -659,11 +663,19 @@ html.chat-route-active body {
 }
 
 .chat-message-technical-details {
+  margin-block-start: 4px;
+  color: var(--semi-color-text-1);
   overflow-wrap: anywhere;
 }
 
 .chat-message-technical-details > summary {
   cursor: pointer;
+}
+
+.chat-message-technical-details > ul {
+  margin: 4px 0 0;
+  padding-inline-start: 1em;
+  list-style: none;
 }
 
 .chat-message-attachments {

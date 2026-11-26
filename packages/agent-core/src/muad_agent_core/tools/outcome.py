@@ -51,6 +51,78 @@ class FailureLayer(StrEnum):
     CONTENT = "CONTENT"
 
 
+class AgentDisposition(StrEnum):
+    CONTINUE = "CONTINUE"
+    WAIT = "WAIT"
+    STOP = "STOP"
+
+
+class RetryDisposition(StrEnum):
+    ALLOW = "ALLOW"
+    WAIT_THEN_RETRY = "WAIT_THEN_RETRY"
+    BLOCK = "BLOCK"
+
+
+class FailureScope(StrEnum):
+    CALL = "CALL"
+    OPERATION = "OPERATION"
+    RUN = "RUN"
+    DELIVERY = "DELIVERY"
+
+
+class EvidenceStatus(StrEnum):
+    NONE = "NONE"
+    PARTIAL = "PARTIAL"
+    CONFIRMED = "CONFIRMED"
+    UNKNOWN = "UNKNOWN"
+
+
+class SecurityDisposition(StrEnum):
+    NORMAL = "NORMAL"
+    DENIED = "DENIED"
+    VIOLATION = "VIOLATION"
+
+
+class ExecutionBoundary(StrEnum):
+    NONE = "NONE"
+    TIME = "TIME"
+    OUTPUT = "OUTPUT"
+    RESOURCE = "RESOURCE"
+    TERMINATION = "TERMINATION"
+    CONTEXT = "CONTEXT"
+    OBSERVABILITY = "OBSERVABILITY"
+
+
+@dataclass(frozen=True, slots=True)
+class FailureControl:
+    """控制失败后续行为；不把 Agent 续行与原调用重试合并。"""
+
+    agent_disposition: AgentDisposition = AgentDisposition.CONTINUE
+    retry_disposition: RetryDisposition = RetryDisposition.ALLOW
+    scope: FailureScope = FailureScope.CALL
+    sent: bool = False
+    outcome_known: bool = True
+    evidence_status: EvidenceStatus = EvidenceStatus.CONFIRMED
+    retry_after: str | None = None
+    security_disposition: SecurityDisposition = SecurityDisposition.NORMAL
+    boundary_kind: ExecutionBoundary = ExecutionBoundary.NONE
+    stop_confirmed: bool = True
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "agent_disposition": self.agent_disposition.value,
+            "retry_disposition": self.retry_disposition.value,
+            "scope": self.scope.value,
+            "sent": self.sent,
+            "outcome_known": self.outcome_known,
+            "evidence_status": self.evidence_status.value,
+            "retry_after": self.retry_after,
+            "security_disposition": self.security_disposition.value,
+            "boundary_kind": self.boundary_kind.value,
+            "stop_confirmed": self.stop_confirmed,
+        }
+
+
 FAILURE_STATUSES = frozenset(
     (BusinessStatus.FAILED, BusinessStatus.TIMED_OUT, BusinessStatus.DENIED)
 )
@@ -80,6 +152,7 @@ class ExecutionOutcome:
     error_message: str = ""
     exit_code: int | None = None
     retryable: bool = False
+    control: FailureControl = field(default_factory=FailureControl)
     evidence: ExecutionEvidence = field(default_factory=ExecutionEvidence)
     execution_status: SkillCallStatus | None = None
     review_progress: tuple[str, int, int] | None = None
@@ -101,6 +174,7 @@ class ExecutionOutcome:
             error_message=self.error_message,
             exit_code=self.exit_code,
             retryable=self.retryable,
+            control=self.control,
             evidence=self.evidence,
             execution_status=self.execution_status,
             review_progress=self.review_progress,
@@ -196,6 +270,8 @@ def tool_exception_outcome(
     code: str | None,
     message: str,
     retryable: bool | None = None,
+    retry_after: str | None = None,
+    status_code: int | None = None,
     evidence_text: str | None = None,
 ) -> ExecutionOutcome:
     """处理器宣告的失败 → TOOL 失败；错误码沿用异常自带的 `.code`（缺失为内部错误）。
@@ -204,13 +280,28 @@ def tool_exception_outcome(
     `evidence_text` 允许宿主把已脱敏的附加事实（如逐平台报告）并入证据预览。
     """
     resolved = code or "COMMON_INTERNAL_ERROR"
+    resolved_retryable = _retryable_for(resolved, retryable)
+    rate_limited = resolved == "LOCAL_RATE_LIMITED" or (
+        resolved == "MCP_TRANSPORT_FAILED" and status_code == 429
+    )
+    waitable_rate_limit = rate_limited and resolved_retryable
     return ExecutionOutcome(
         transport_status="ERROR",
         business_status=BusinessStatus.FAILED,
         failure_layer=FailureLayer.TOOL,
         error_code=resolved,
         error_message=message,
-        retryable=_retryable_for(resolved, retryable),
+        retryable=resolved_retryable,
+        control=FailureControl(
+            retry_disposition=(
+                RetryDisposition.WAIT_THEN_RETRY if waitable_rate_limit
+                else RetryDisposition.ALLOW if resolved_retryable
+                else RetryDisposition.BLOCK
+            ),
+            agent_disposition=AgentDisposition.WAIT if waitable_rate_limit else AgentDisposition.CONTINUE,
+            retry_after=retry_after,
+            evidence_status=EvidenceStatus.CONFIRMED,
+        ),
         evidence=evidence_for(evidence_text or message),
     )
 
@@ -222,7 +313,11 @@ def policy_denied_outcome(code: str, message: str) -> ExecutionOutcome:
         failure_layer=FailureLayer.TOOL,
         error_code=code,
         error_message=message,
-        retryable=_retryable_for(code, None),
+        retryable=False,
+        control=FailureControl(
+            retry_disposition=RetryDisposition.BLOCK,
+            security_disposition=SecurityDisposition.DENIED,
+        ),
         evidence=evidence_for(message),
     )
 
@@ -344,6 +439,11 @@ def skill_result_outcome(
             ),
             exit_code=exit_code,
             evidence=ExecutionEvidence(output_truncated=output_truncated),
+            control=FailureControl(
+                evidence_status=EvidenceStatus.PARTIAL if output_truncated else EvidenceStatus.CONFIRMED,
+                outcome_known=not output_truncated,
+                boundary_kind=ExecutionBoundary.OUTPUT if output_truncated else ExecutionBoundary.NONE,
+            ),
         )
     if status == "CANCELLED":
         return ExecutionOutcome(
@@ -355,7 +455,9 @@ def skill_result_outcome(
         )
     if status in ("FAILED", "TIMED_OUT"):
         code, message, envelope_retryable = _failure_envelope(stderr)
-        retryable = True if status == "TIMED_OUT" else envelope_retryable is True
+        boundary = ExecutionBoundary.TIME if status == "TIMED_OUT" else ExecutionBoundary.NONE
+        retryable = envelope_retryable is True
+        partial = output_truncated or status == "TIMED_OUT"
         return ExecutionOutcome(
             business_status=(
                 BusinessStatus.TIMED_OUT if status == "TIMED_OUT" else BusinessStatus.FAILED
@@ -369,6 +471,16 @@ def skill_result_outcome(
             ),
             exit_code=exit_code,
             retryable=retryable,
+            control=FailureControl(
+                retry_disposition=(
+                    RetryDisposition.BLOCK
+                    if status == "TIMED_OUT" or output_truncated
+                    else (RetryDisposition.ALLOW if retryable else RetryDisposition.BLOCK)
+                ),
+                outcome_known=False if partial else True,
+                evidence_status=EvidenceStatus.PARTIAL if partial else EvidenceStatus.CONFIRMED,
+                boundary_kind=boundary,
+            ),
             review_progress=(
                 _review_progress(result)
                 if execution_status is SkillCallStatus.FAILED and result_error_code is None else None
@@ -387,6 +499,11 @@ def skill_result_outcome(
             failure_layer=FailureLayer.NONE,
             exit_code=exit_code,
             evidence=evidence_for(stdout, output_truncated=output_truncated),
+            control=FailureControl(
+                evidence_status=EvidenceStatus.PARTIAL if output_truncated else EvidenceStatus.UNKNOWN,
+                outcome_known=False,
+                boundary_kind=ExecutionBoundary.OUTPUT if output_truncated else ExecutionBoundary.NONE,
+            ),
         )
     return ExecutionOutcome(
         business_status=BusinessStatus.SUCCEEDED,
@@ -394,6 +511,11 @@ def skill_result_outcome(
         exit_code=exit_code,
         # 成功调用不落正文预览：证据只服务失败/诊断（design §4.7）。
         evidence=ExecutionEvidence(output_truncated=output_truncated),
+        control=FailureControl(
+            evidence_status=EvidenceStatus.PARTIAL if output_truncated else EvidenceStatus.CONFIRMED,
+            outcome_known=not output_truncated,
+            boundary_kind=ExecutionBoundary.OUTPUT if output_truncated else ExecutionBoundary.NONE,
+        ),
     )
 
 
