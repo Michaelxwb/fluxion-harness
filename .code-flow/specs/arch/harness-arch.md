@@ -1,7 +1,7 @@
 ---
 {
   "description": "部署单元、边界与容量",
-  "next_rule": 5
+  "next_rule": 6
 }
 ---
 
@@ -17,12 +17,14 @@
 
 - [RULE-003] 单次工具失败应作为结构化事实交给正常 Agent 回合。不可重试约束原操作重做，能否继续由剩余权限、预算、期限、副作用门禁和进展决定。执行进入硬停止或模型不可用时，由宿主依据已持久化事实确定性收尾，不补发模型调用。正文说明已完成范围、真实障碍和可行下一步，保留可交付结果。技术码、Run ID 与脱敏诊断只进技术详情。本条覆盖 Conventions 中确定性失败第一次即停和追加模型收尾的旧口径。
 
-- [RULE-004] 聊天 Skill 因本次调用中经出站准入确认的平台接口窗口限流而中断时，超限请求必须继续在外发前拦截并审计，工具结果明确记录查询受限。仅由该限流结束的聊天轮次保留已有正文，在正常助手回复末尾追加受限提示并停止派发后续工具；仅展示已验证可交付的部分结果。独立故障继续按其真实原因收尾。
+- [RULE-004] 超出平台出站准入窗口的请求必须在外发前拦截并审计。对被判定为可等待且可安全重试的工具调用，在冻结 Run 预算、截止时间、取消和租约约束内按 Retry-After 或退避等待，沿用同一调用身份重试；不满足门禁时不得重发。聊天 Skill 仅因出站窗口限流结束时，保留已有正文和经核实可交付的部分结果，在回复末尾追加受限说明并停止派发后续工具；独立故障按其真实原因收尾。
+
+- [RULE-005] 工具失败控制必须区分 Agent 是否继续、原调用是否允许重试、是否需要等待、失败作用域以及是否必须由宿主硬停止。retryable=false 禁止原调用重做，不单独推出 Run 终止；身份或能力完整性受损、关键事实不可持久化、模型不可用、执行权丢失、截止时间到期、总预算耗尽或停止未确认时，由宿主安全收尾。
 
 ## Conventions
-- **聊天窗口限流提示**（RULE-004）
-  - ✅ 查询确实被出站准入拦截，且本轮仅因该限流结束时，保留已有回复并在末尾提示。
-  - ❌ 用限流提示覆盖已输出正文，或将独立故障按限流处理。
+- **限流与失败收尾**（RULE-004、RULE-005）
+  - ✅ 可安全重试的短时限流在剩余预算内沿用原调用身份；仅因出站窗口限流结束时，保留已有正文并补充提示。普通不可重试的工具失败仍可交给 Agent 选择其他安全路径。
+  - ❌ 因限流放行超限请求、重发结果未知的写入，或用限流提示覆盖独立故障。硬停止后不得继续派发工具。
 
 
 - **容量压测的副本基线由 profile 声明**：Console 固定 1 Pod；Gateway/Connector 的副本按目标 profile 的 `max_replica_counts`/`process_counts` 核算；Runtime/Worker 仍可横向扩展。✅ 每轮压测前执行 `check_agent_capacity_deployment.py --live-namespace`，核对期望/实际/就绪副本与 HPA，缩容结束再施压；❌ 清单写 1 却沿用多副本，或把非目标拓扑的完成率当目标容量。
@@ -91,3 +93,7 @@
 - {"source":"2026-11-23/chat-egress-rate-limit-notice/chat-egress-rate-limit-notice.md#TASK-002#DELTA-001","op":"add","rule":"RULE-004","payload_sha256":"517fc9693939f052dffaf5e73df2f16bb8678618d52df1cd6701781815a29b1d","at":"2026-11-23T07:47:20.774Z"}
 
 - {"source":"2026-11-24/skill-results-conversation-finalization/skill-results-conversation-finalization.md#TASK-006#DELTA-001","op":"update","rule":"RULE-003","payload_sha256":"541b70dac6d63b110935e01f80b0085f93bfdf6a21732346eb3f13876b3f6114","at":"2026-11-24T09:27:16.307Z"}
+
+- {"source":"2026-11-26/agent-tool-failure-recovery/agent-tool-failure-recovery.md#TASK-001#DELTA-001","op":"add","rule":"RULE-005","payload_sha256":"5153ae36588bb3cdd7f3e18b6ab21864b6a2f3d5dffbce79ce4cbc1a1e687bf3","at":"2026-11-26T12:11:20.729Z"}
+
+- {"source":"2026-11-26/agent-tool-failure-recovery/agent-tool-failure-recovery.md#TASK-002#DELTA-003","op":"update","rule":"RULE-004","payload_sha256":"1533befa31f721cba4f620472f6f727a0b13b1b4bef0ae131e81fd69521f8644","at":"2026-11-26T12:11:20.731Z"}

@@ -242,7 +242,7 @@ apps/agent-runtime/src/muad_agent_runtime/application/executor.py,210,MCP_TOOL_P
 apps/agent-runtime/src/muad_agent_runtime/application/executor.py,212,POOL_RESELECTION_LIMIT,3,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/executor.py,214,POOL_CAPACITY_RETRY_INTERVAL_SEC,0.25,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/executor.py,216,MESSAGE_PROTOCOL_OVERHEAD_BYTES,32,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/executor.py,2327,SKILL_FAMILY_TOOLS,frozenset({'execute'}),python-constant,code,实现常量；不开放任意修改
+apps/agent-runtime/src/muad_agent_runtime/application/executor.py,2343,SKILL_FAMILY_TOOLS,frozenset({'execute'}),python-constant,code,实现常量；不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/experience_candidates.py,39,EXPERIENCE_TTL,timedelta(days=365),python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/experience_candidates.py,40,PROCEDURE,MemoryCategory.PROCEDURE,python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/finalization/facts.py,21,SCHEMA_VERSION,1,python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -282,8 +282,8 @@ apps/agent-runtime/src/muad_agent_runtime/application/learning_signals.py,24,REW
 apps/agent-runtime/src/muad_agent_runtime/application/learning_signals.py,26,NEGATION_MARKERS,"('不对', '错了', '不是这个', '重新', '再来', '改一下', '修正', '有问题', 'wrong', 'not what', 'redo', 'again', 'no,')",python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/learning_signals.py,41,REASK_THRESHOLD,0.9,python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/learning_signals.py,42,REWRITE_THRESHOLD,0.6,python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
-apps/agent-runtime/src/muad_agent_runtime/application/mcp_runtime_adapter.py,36,MCP_CALL_TIMEOUT_SEC,10.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/agent-runtime/src/muad_agent_runtime/application/mcp_runtime_adapter.py,38,EGRESS_TARGET_TYPE,'MCP',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/mcp_runtime_adapter.py,37,MCP_CALL_TIMEOUT_SEC,10.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+apps/agent-runtime/src/muad_agent_runtime/application/mcp_runtime_adapter.py,39,EGRESS_TARGET_TYPE,'MCP',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/memory_confirmation_outcome.py,9,CONFIRMATION_OUTCOME_TEXT,"{'CONFIRMED': '记忆已保存。', 'REJECTED': '已拒绝保存该记忆。', 'STALE': '原提议已失效，未保存记忆；请重新展示候选后确认。', 'EXPIRED': '记忆提议已过期，未保存；可以继续对话或重新提出记忆请求。'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/memory_confirmation_resume.py,45,_ANSWER,"re.compile(f'({CONFIRM_VERB}|{REJECT_VERB})\\s+([0-9a-f]{{8}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{12}})[。.!！]?', re.I)",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/memory_confirmation_resume.py,51,_SHORT_ANSWER,"re.compile(f'({CONFIRM_VERB}|{REJECT_VERB})[。.!！]?', re.I)",python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -346,31 +346,31 @@ apps/agent-runtime/src/muad_agent_runtime/application/public_events.py,61,PUBLIC
 apps/agent-runtime/src/muad_agent_runtime/application/public_events.py,67,PUBLIC_STREAM_EVENT_TYPES,"{'message.delta': 'message.delta', 'message.snapshot': 'message.snapshot', 'run.stage': 'run.stage', 'run.completed': 'run.terminal', 'run.failed': 'run.error', 'artifact.created': 'artifact.created', 'interrupt.required': 'confirmation.required', 'memory.confirmation_required': 'confirmation.required', 'schedule.draft.ready': 'schedule.draft.ready'}",python-constant,code,公开流事件白名单（canonical stream_type → TASK-006 公开事件类型；B-251）
 apps/agent-runtime/src/muad_agent_runtime/application/run_admission.py,46,CAPACITY_SECTION,'capacity',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/run_admission.py,48,QUEUE_STAGE_WAITING_RUNTIME,'WAITING_RUNTIME',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_deadline.py,29,ACTIVE_STATUSES,"(RunStatus.CREATED, RunStatus.RUNNING, RunStatus.WAITING_INPUT, RunStatus.WAITING_TOOL)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_deadline.py,23,ACTIVE_STATUSES,"(RunStatus.CREATED, RunStatus.RUNNING, RunStatus.WAITING_INPUT, RunStatus.WAITING_TOOL)",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/run_events.py,25,RUN_STAGE_EVENT,'RUN_STAGE',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/run_events.py,26,RUN_STAGE_STREAM_TYPE,'run.stage',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/run_events.py,29,FIRST_REPLY_GENERATION,0,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,251,ACTIVE_RUN_STATUSES,"(RunStatus.CREATED, RunStatus.RUNNING, RunStatus.WAITING_INPUT, RunStatus.WAITING_TOOL)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,252,TERMINAL_RUN_STATUSES,"(RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,253,PROMPT_TEMPLATE_VERSION,'1',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,494,DEFAULT_POLICY,snapshot_policy(),python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,495,RUN_ABANDONED,'RUN_ABANDONED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,497,RUN_QUEUE_TIMEOUT,'RUN_QUEUE_TIMEOUT',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,498,ASSISTANT_MESSAGE_EVENT,'ASSISTANT_MESSAGE',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,499,CANCEL_EVENT,'CANCEL',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,500,RUN_CREATED_EVENT,'run.created',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,501,RUN_COMPLETED_EVENT,'run.completed',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,502,RUN_FAILED_EVENT,'run.failed',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,503,INTERRUPT_WAITING,'WAITING',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,504,INTERRUPT_RESOLVED,'RESOLVED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,505,INTERRUPT_CANCELLED,'CANCELLED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,506,TERMINAL_STREAM_TYPES,"(RUN_COMPLETED_EVENT, RUN_FAILED_EVENT)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,525,STREAM_BUSINESS_TYPES,"{RUN_CREATED_EVENT: 'RUN_CREATED', 'message.delta': 'ASSISTANT_DELTA', 'message.snapshot': 'ASSISTANT_DELTA', 'model.started': 'MODEL_CALL_STARTED', 'model.completed': 'MODEL_CALL_COMPLETED', 'tool.started': 'TOOL_CALL_STARTED', 'tool.completed': 'TOOL_CALL', 'assistant.turn': 'ASSISTANT_TURN', 'skill.loaded': 'SKILL_LOADED', 'artifact.created': 'ARTIFACT_CREATED', 'interrupt.required': 'INTERRUPT_REQUIRED', 'task.accepted': 'TASK_ACCEPTED', RUN_COMPLETED_EVENT: ASSISTANT_MESSAGE_EVENT, RUN_FAILED_EVENT: 'RUN_FAILED'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,545,MODEL_MEMBERS_POLICY_KEY,'model_members',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,547,SUMMARY_MODEL_MEMBERS_POLICY_KEY,'summary_model_members',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,549,FROZEN_MEMBER_KEYS,"('deployment_id', 'credential_id', 'weight')",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,981,ADMISSION_CONCURRENCY_LIMIT,64,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,1115,CANCEL_DB_FALLBACK_SEC,5.0,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,257,ACTIVE_RUN_STATUSES,"(RunStatus.CREATED, RunStatus.RUNNING, RunStatus.WAITING_INPUT, RunStatus.WAITING_TOOL)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,258,TERMINAL_RUN_STATUSES,"(RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,259,PROMPT_TEMPLATE_VERSION,'1',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,500,DEFAULT_POLICY,snapshot_policy(),python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,501,RUN_ABANDONED,'RUN_ABANDONED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,503,RUN_QUEUE_TIMEOUT,'RUN_QUEUE_TIMEOUT',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,504,ASSISTANT_MESSAGE_EVENT,'ASSISTANT_MESSAGE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,505,CANCEL_EVENT,'CANCEL',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,506,RUN_CREATED_EVENT,'run.created',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,507,RUN_COMPLETED_EVENT,'run.completed',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,508,RUN_FAILED_EVENT,'run.failed',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,509,INTERRUPT_WAITING,'WAITING',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,510,INTERRUPT_RESOLVED,'RESOLVED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,511,INTERRUPT_CANCELLED,'CANCELLED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,512,TERMINAL_STREAM_TYPES,"(RUN_COMPLETED_EVENT, RUN_FAILED_EVENT)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,531,STREAM_BUSINESS_TYPES,"{RUN_CREATED_EVENT: 'RUN_CREATED', 'message.delta': 'ASSISTANT_DELTA', 'message.snapshot': 'ASSISTANT_DELTA', 'model.started': 'MODEL_CALL_STARTED', 'model.completed': 'MODEL_CALL_COMPLETED', 'tool.started': 'TOOL_CALL_STARTED', 'tool.completed': 'TOOL_CALL', 'assistant.turn': 'ASSISTANT_TURN', 'skill.loaded': 'SKILL_LOADED', 'artifact.created': 'ARTIFACT_CREATED', 'interrupt.required': 'INTERRUPT_REQUIRED', 'task.accepted': 'TASK_ACCEPTED', RUN_COMPLETED_EVENT: ASSISTANT_MESSAGE_EVENT, RUN_FAILED_EVENT: 'RUN_FAILED'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,551,MODEL_MEMBERS_POLICY_KEY,'model_members',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,553,SUMMARY_MODEL_MEMBERS_POLICY_KEY,'summary_model_members',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,555,FROZEN_MEMBER_KEYS,"('deployment_id', 'credential_id', 'weight')",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,976,ADMISSION_CONCURRENCY_LIMIT,64,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/agent-runtime/src/muad_agent_runtime/application/run_service.py,1110,CANCEL_DB_FALLBACK_SEC,5.0,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py,23,SUBMISSION_OPEN,'OPEN',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py,24,SUBMISSION_CLOSED,'CLOSED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py,25,ENDPOINT_CREATE_RUN,'create-run',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1011,12 +1011,12 @@ apps/agent-worker/src/muad_agent_worker/scheduler/service.py,73,TASK_DEADLINE_EX
 apps/agent-worker/src/muad_agent_worker/scheduler/service.py,74,NON_TERMINAL_TASK_STATUSES,"('QUEUED', 'RUNNING', 'WAITING_EXTERNAL', 'WAITING_HUMAN')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/scheduler/templates.py,23,VARIABLE_PATTERN,re.compile('\\{\\{\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*\\}\\}'),python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/scheduler/templates.py,24,ALLOWED_VARIABLES,"frozenset({'fire_date', 'previous_day', 'fire_time'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/worker/agentic_executor.py,75,AGENTIC_EXECUTION_FAILED,'AGENTIC_EXECUTION_FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/worker/agentic_executor.py,77,HUMAN_RESUME_REASON,'HUMAN',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
-apps/agent-worker/src/muad_agent_worker/worker/agentic_executor.py,79,EXTERNAL_RESUME_REASON,'EXTERNAL',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
-apps/agent-worker/src/muad_agent_worker/worker/agentic_executor.py,80,TASK_DEADLINE_EXCEEDED,'TASK_DEADLINE_EXCEEDED',python-constant,code,状态或错误码，不是时间参数
-apps/agent-worker/src/muad_agent_worker/worker/agentic_executor.py,81,ASYNC_WAIT_SEC,60,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/worker/agentic_executor.py,82,HUMAN_INPUT_KIND,'HUMAN_INPUT',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/worker/agentic_executor.py,76,AGENTIC_EXECUTION_FAILED,'AGENTIC_EXECUTION_FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/worker/agentic_executor.py,78,HUMAN_RESUME_REASON,'HUMAN',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
+apps/agent-worker/src/muad_agent_worker/worker/agentic_executor.py,80,EXTERNAL_RESUME_REASON,'EXTERNAL',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
+apps/agent-worker/src/muad_agent_worker/worker/agentic_executor.py,81,TASK_DEADLINE_EXCEEDED,'TASK_DEADLINE_EXCEEDED',python-constant,code,状态或错误码，不是时间参数
+apps/agent-worker/src/muad_agent_worker/worker/agentic_executor.py,82,ASYNC_WAIT_SEC,60,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/worker/agentic_executor.py,83,HUMAN_INPUT_KIND,'HUMAN_INPUT',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/worker/agentic_skills.py,81,VALID_SKILL_SOURCES,"frozenset({'SYSTEM', 'ADMIN', 'USER'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/worker/agentic_skills.py,82,ASYNC_RECEIPT_KEY,'async_operation',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/worker/agentic_skills.py,83,MIN_TOOL_TIMEOUT_SEC,1.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1776,30 +1776,30 @@ packages/agent-core/src/muad_agent_core/agent/recovery.py,42,OPERATION_WITHOUT_C
 packages/agent-core/src/muad_agent_core/agent/recovery.py,43,DENIED_BEFORE_PREPARED,'DENIED_BEFORE_PREPARED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/agent/recovery.py,44,SYNC_UNKNOWN,'SYNC_UNKNOWN',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/agent/recovery.py,45,COMPLETED,'COMPLETED',python-constant,code,状态或错误码，不是时间参数
-packages/agent-core/src/muad_agent_core/agent/runner.py,104,NODE_PREPARE_CONTEXT,'prepare_context',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,105,NODE_MODEL,'model',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,106,NODE_TOOLS,'tools',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,107,NODE_FINALIZE,'finalize',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,108,NODE_DECIDE,'decide',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,109,TOOL_BUDGET_EXHAUSTED,'tool call budget exhausted',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,110,TOOL_NOT_EXECUTED_CODE,'TOOL_NOT_EXECUTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,111,TOOL_NOT_EXECUTED,'tool call not executed after a deterministic failure',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,112,UNKNOWN_TOOL_TEMPLATE,'unknown tool: {name}',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,114,EMPTY_REPLY_NUDGE,'你上一轮没有输出任何正文。请直接给出结论；如果工具调用失败了，如实说明失败原因与下一步。',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,117,TOOL_BLOCKED_TEMPLATE,'tool blocked before execution: {reason}',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,118,TOOL_FAILED_TEMPLATE,'tool failed: {reason}',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,178,COMPLETED,'COMPLETED',python-constant,code,状态或错误码，不是时间参数
-packages/agent-core/src/muad_agent_core/agent/runner.py,179,WAITING_TOOL,'WAITING_TOOL',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,180,WAITING_INPUT,'WAITING_INPUT',python-constant,code,状态或错误码，不是时间参数
-packages/agent-core/src/muad_agent_core/agent/runner.py,181,BUDGET_EXCEEDED,'BUDGET_EXCEEDED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,183,NO_PROGRESS,'NO_PROGRESS',python-constant,code,实现常量；由 AST 盘点补录（2026-11-08）
-packages/agent-core/src/muad_agent_core/agent/runner.py,188,_SUSPENDED_STATUSES,"frozenset((str(AgentRunStatus.WAITING_INPUT), str(AgentRunStatus.WAITING_TOOL)))",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/agent-core/src/muad_agent_core/agent/runner.py,195,max_turns,DEFAULT_MAX_TURNS,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
-packages/agent-core/src/muad_agent_core/agent/runner.py,196,max_tool_calls,DEFAULT_MAX_TOOL_CALLS,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
-packages/agent-core/src/muad_agent_core/agent/runner.py,197,deadline_ms,DEFAULT_DEADLINE_MS,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
-packages/agent-core/src/muad_agent_core/agent/runner.py,198,max_model_retries,DEFAULT_MAX_MODEL_RETRIES,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
-packages/agent-core/src/muad_agent_core/agent/runner.py,199,max_identical_failures,DEFAULT_MAX_IDENTICAL_FAILURES,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
-packages/agent-core/src/muad_agent_core/agent/runner.py,354,_TOOL_STATUSES,"{'SUCCEEDED': 'OK', 'FAILED': 'ERROR', 'POLICY_DENIED': 'BLOCKED', 'NOT_FOUND': 'NOT_FOUND'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,113,NODE_PREPARE_CONTEXT,'prepare_context',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,114,NODE_MODEL,'model',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,115,NODE_TOOLS,'tools',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,116,NODE_FINALIZE,'finalize',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,117,NODE_DECIDE,'decide',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,118,TOOL_BUDGET_EXHAUSTED,'tool call budget exhausted',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,119,TOOL_NOT_EXECUTED_CODE,'TOOL_NOT_EXECUTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,120,TOOL_NOT_EXECUTED,'tool call not executed after a deterministic failure',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,121,UNKNOWN_TOOL_TEMPLATE,'unknown tool: {name}',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,123,EMPTY_REPLY_NUDGE,'你上一轮没有输出任何正文。请直接给出结论；如果工具调用失败了，如实说明失败原因与下一步。',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,126,TOOL_BLOCKED_TEMPLATE,'tool blocked before execution: {reason}',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,127,TOOL_FAILED_TEMPLATE,'tool failed: {reason}',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,187,COMPLETED,'COMPLETED',python-constant,code,状态或错误码，不是时间参数
+packages/agent-core/src/muad_agent_core/agent/runner.py,188,WAITING_TOOL,'WAITING_TOOL',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,189,WAITING_INPUT,'WAITING_INPUT',python-constant,code,状态或错误码，不是时间参数
+packages/agent-core/src/muad_agent_core/agent/runner.py,190,BUDGET_EXCEEDED,'BUDGET_EXCEEDED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,192,NO_PROGRESS,'NO_PROGRESS',python-constant,code,实现常量；由 AST 盘点补录（2026-11-08）
+packages/agent-core/src/muad_agent_core/agent/runner.py,197,_SUSPENDED_STATUSES,"frozenset((str(AgentRunStatus.WAITING_INPUT), str(AgentRunStatus.WAITING_TOOL)))",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/agent-core/src/muad_agent_core/agent/runner.py,204,max_turns,DEFAULT_MAX_TURNS,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
+packages/agent-core/src/muad_agent_core/agent/runner.py,205,max_tool_calls,DEFAULT_MAX_TOOL_CALLS,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
+packages/agent-core/src/muad_agent_core/agent/runner.py,206,deadline_ms,DEFAULT_DEADLINE_MS,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
+packages/agent-core/src/muad_agent_core/agent/runner.py,207,max_model_retries,DEFAULT_MAX_MODEL_RETRIES,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
+packages/agent-core/src/muad_agent_core/agent/runner.py,208,max_identical_failures,DEFAULT_MAX_IDENTICAL_FAILURES,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
+packages/agent-core/src/muad_agent_core/agent/runner.py,363,_TOOL_STATUSES,"{'SUCCEEDED': 'OK', 'FAILED': 'ERROR', 'POLICY_DENIED': 'BLOCKED', 'NOT_FOUND': 'NOT_FOUND'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/agent/suspension.py,34,HUMAN_INPUT,'HUMAN_INPUT',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 packages/agent-core/src/muad_agent_core/agent/suspension.py,35,TOOL_OPERATION,'TOOL_OPERATION',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 packages/agent-core/src/muad_agent_core/agent/suspension.py,40,TERMINAL_OPERATION_STATUSES,"frozenset((OperationStatus.COMPLETED, OperationStatus.FAILED, OperationStatus.CANCELLED, OperationStatus.LATE))",python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1976,9 +1976,33 @@ packages/agent-core/src/muad_agent_core/tools/outcome.py,45,UNKNOWN,'UNKNOWN',py
 packages/agent-core/src/muad_agent_core/tools/outcome.py,49,NONE,'NONE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 packages/agent-core/src/muad_agent_core/tools/outcome.py,50,TOOL,'TOOL',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/tools/outcome.py,51,CONTENT,'CONTENT',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/tools/outcome.py,54,FAILURE_STATUSES,"frozenset((BusinessStatus.FAILED, BusinessStatus.TIMED_OUT, BusinessStatus.DENIED))",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/tools/outcome.py,58,NON_FAILURE_STATUSES,"frozenset((BusinessStatus.SUCCEEDED, BusinessStatus.NOT_APPLICABLE, BusinessStatus.UNKNOWN))",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/tools/outcome.py,261,_SKILL_STATUSES,"frozenset(('SUCCEEDED', 'FAILED', 'TIMED_OUT', 'CANCELLED'))",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/outcome.py,55,CONTINUE,'CONTINUE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/outcome.py,56,WAIT,'WAIT',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/outcome.py,57,STOP,'STOP',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/outcome.py,61,ALLOW,'ALLOW',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/outcome.py,62,WAIT_THEN_RETRY,'WAIT_THEN_RETRY',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/outcome.py,63,BLOCK,'BLOCK',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/outcome.py,67,CALL,'CALL',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/outcome.py,68,OPERATION,'OPERATION',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/outcome.py,69,RUN,'RUN',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/agent-core/src/muad_agent_core/tools/outcome.py,70,DELIVERY,'DELIVERY',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/agent-core/src/muad_agent_core/tools/outcome.py,74,NONE,'NONE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/agent-core/src/muad_agent_core/tools/outcome.py,75,PARTIAL,'PARTIAL',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/outcome.py,76,CONFIRMED,'CONFIRMED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/agent-core/src/muad_agent_core/tools/outcome.py,77,UNKNOWN,'UNKNOWN',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/agent-core/src/muad_agent_core/tools/outcome.py,81,NORMAL,'NORMAL',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/agent-core/src/muad_agent_core/tools/outcome.py,82,DENIED,'DENIED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/outcome.py,83,VIOLATION,'VIOLATION',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/outcome.py,87,NONE,'NONE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/agent-core/src/muad_agent_core/tools/outcome.py,88,TIME,'TIME',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/outcome.py,89,OUTPUT,'OUTPUT',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/outcome.py,90,RESOURCE,'RESOURCE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/outcome.py,91,TERMINATION,'TERMINATION',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/outcome.py,92,CONTEXT,'CONTEXT',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/outcome.py,93,OBSERVABILITY,'OBSERVABILITY',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/outcome.py,126,FAILURE_STATUSES,"frozenset((BusinessStatus.FAILED, BusinessStatus.TIMED_OUT, BusinessStatus.DENIED))",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/outcome.py,130,NON_FAILURE_STATUSES,"frozenset((BusinessStatus.SUCCEEDED, BusinessStatus.NOT_APPLICABLE, BusinessStatus.UNKNOWN))",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/outcome.py,356,_SKILL_STATUSES,"frozenset(('SUCCEEDED', 'FAILED', 'TIMED_OUT', 'CANCELLED'))",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/tools/pipeline.py,30,JSON_OBJECT,"TypeAdapter(dict[str, JsonValue])",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/tools/pipeline.py,31,REDACTED_KEYS,"frozenset({'api_key', 'secret', 'token', 'password'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/tools/planner.py,22,DEFAULT_PARALLEL_LIMIT,4,python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -2145,68 +2169,69 @@ packages/api-kit/src/muad_api/error_codes.py,149,REQUEST_BODY_TOO_LARGE,'REQUEST
 packages/api-kit/src/muad_api/error_codes.py,150,RUN_CAPACITY_EXCEEDED,'RUN_CAPACITY_EXCEEDED',python-constant,code,状态或错误码，不是时间参数
 packages/api-kit/src/muad_api/error_codes.py,151,RUN_QUEUE_TIMEOUT,'RUN_QUEUE_TIMEOUT',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/api-kit/src/muad_api/error_codes.py,152,RUN_DEADLINE_EXCEEDED,'RUN_DEADLINE_EXCEEDED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/api-kit/src/muad_api/error_codes.py,154,RUN_BUDGET_EXCEEDED,'RUN_BUDGET_EXCEEDED',python-constant,code,实现常量；由 AST 盘点补录（2026-11-08）
-packages/api-kit/src/muad_api/error_codes.py,156,RUN_NO_PROGRESS,'RUN_NO_PROGRESS',python-constant,code,实现常量；由 AST 盘点补录（2026-11-08）
-packages/api-kit/src/muad_api/error_codes.py,157,MODEL_CAPACITY_UNAVAILABLE,'MODEL_CAPACITY_UNAVAILABLE',python-constant,code,状态或错误码，不是时间参数
-packages/api-kit/src/muad_api/error_codes.py,158,MODEL_WAIT_TIMEOUT,'MODEL_WAIT_TIMEOUT',python-constant,code,状态或错误码，不是时间参数
-packages/api-kit/src/muad_api/error_codes.py,159,MODEL_CAPACITY_DRAIN_REQUIRED,'MODEL_CAPACITY_DRAIN_REQUIRED',python-constant,code,状态或错误码，不是时间参数
-packages/api-kit/src/muad_api/error_codes.py,160,MODEL_CALL_OUTCOME_UNKNOWN,'MODEL_CALL_OUTCOME_UNKNOWN',python-constant,code,状态或错误码，不是时间参数
-packages/api-kit/src/muad_api/error_codes.py,161,MODEL_CREDENTIAL_EXISTS,'MODEL_CREDENTIAL_EXISTS',python-constant,code,状态或错误码，不是时间参数
-packages/api-kit/src/muad_api/error_codes.py,162,MODEL_CREDENTIAL_IN_USE,'MODEL_CREDENTIAL_IN_USE',python-constant,code,状态或错误码，不是时间参数
-packages/api-kit/src/muad_api/error_codes.py,163,MODEL_DEPLOYMENT_EXISTS,'MODEL_DEPLOYMENT_EXISTS',python-constant,code,状态或错误码，不是时间参数
-packages/api-kit/src/muad_api/error_codes.py,164,MODEL_QUOTA_GROUP_EXISTS,'MODEL_QUOTA_GROUP_EXISTS',python-constant,code,状态或错误码，不是时间参数
-packages/api-kit/src/muad_api/error_codes.py,165,MODEL_QUOTA_GROUP_IN_USE,'MODEL_QUOTA_GROUP_IN_USE',python-constant,code,状态或错误码，不是时间参数
-packages/api-kit/src/muad_api/error_codes.py,166,MODEL_PROVIDER_MISMATCH,'MODEL_PROVIDER_MISMATCH',python-constant,code,状态或错误码，不是时间参数
-packages/api-kit/src/muad_api/error_codes.py,167,MODEL_CREDENTIAL_CHANGED,'MODEL_CREDENTIAL_CHANGED',python-constant,code,状态或错误码，不是时间参数
-packages/api-kit/src/muad_api/error_codes.py,168,MODEL_CALL_LEASE_LOST,'MODEL_CALL_LEASE_LOST',python-constant,code,状态或错误码，不是时间参数
-packages/api-kit/src/muad_api/error_codes.py,169,CONVERSATION_MODEL_MISMATCH,'CONVERSATION_MODEL_MISMATCH',python-constant,code,状态或错误码，不是时间参数
-packages/api-kit/src/muad_api/error_codes.py,170,CONVERSATION_EXPIRED,'CONVERSATION_EXPIRED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/api-kit/src/muad_api/error_codes.py,171,CONVERSATION_LIMIT_REACHED,'CONVERSATION_LIMIT_REACHED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/api-kit/src/muad_api/error_codes.py,172,CURSOR_EXPIRED,'CURSOR_EXPIRED',python-constant,code,状态或错误码，不是时间参数
-packages/api-kit/src/muad_api/error_codes.py,173,CURSOR_AHEAD,'CURSOR_AHEAD',python-constant,code,状态或错误码，不是时间参数
-packages/api-kit/src/muad_api/error_codes.py,174,CURSOR_RUN_MISMATCH,'CURSOR_RUN_MISMATCH',python-constant,code,状态或错误码，不是时间参数
-packages/api-kit/src/muad_api/error_codes.py,175,UPLOAD_EXPIRED,'UPLOAD_EXPIRED',python-constant,code,状态或错误码，不是时间参数
-packages/api-kit/src/muad_api/error_codes.py,176,DELIVERY_RECEIPT_EXPIRED,'DELIVERY_RECEIPT_EXPIRED',python-constant,code,状态或错误码，不是时间参数
-packages/api-kit/src/muad_api/error_codes.py,177,DELIVERY_LEASE_LOST,'DELIVERY_LEASE_LOST',python-constant,code,状态或错误码，不是时间参数
-packages/api-kit/src/muad_api/error_codes.py,178,EXECUTION_OUTCOME_UNKNOWN,'EXECUTION_OUTCOME_UNKNOWN',python-constant,code,状态或错误码，不是时间参数
-packages/api-kit/src/muad_api/error_codes.py,179,SKILL_IN_USE,'SKILL_IN_USE',python-constant,code,状态或错误码，不是时间参数
-packages/api-kit/src/muad_api/error_codes.py,181,EXTERNAL_ASSERTION_INVALID,'EXTERNAL_ASSERTION_INVALID',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/api-kit/src/muad_api/error_codes.py,182,EXTERNAL_ASSERTION_EXPIRED,'EXTERNAL_ASSERTION_EXPIRED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/api-kit/src/muad_api/error_codes.py,183,EXTERNAL_ASSERTION_UNBOUND,'EXTERNAL_ASSERTION_UNBOUND',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/api-kit/src/muad_api/error_codes.py,184,EXTERNAL_ASSERTION_NOT_GRANTED,'EXTERNAL_ASSERTION_NOT_GRANTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/api-kit/src/muad_api/error_codes.py,185,EXTERNAL_ASSERTION_USER_DISABLED,'EXTERNAL_ASSERTION_USER_DISABLED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/api-kit/src/muad_api/error_codes.py,186,EXTERNAL_PLATFORM_UNAVAILABLE,'EXTERNAL_PLATFORM_UNAVAILABLE',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/api-kit/src/muad_api/error_codes.py,188,EXTERNAL_PLATFORM_NOT_CONFIGURED,'EXTERNAL_PLATFORM_NOT_CONFIGURED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/api-kit/src/muad_api/error_codes.py,189,IDENTITY_KEYS_MISMATCH,'IDENTITY_KEYS_MISMATCH',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/api-kit/src/muad_api/error_codes.py,192,SCHEDULE_DRAFT_INVALID,'SCHEDULE_DRAFT_INVALID',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/api-kit/src/muad_api/error_codes.py,193,SCHEDULE_NO_FUTURE_OCCURRENCE,'SCHEDULE_NO_FUTURE_OCCURRENCE',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/api-kit/src/muad_api/error_codes.py,194,SCHEDULE_TIMEZONE_REQUIRED,'SCHEDULE_TIMEZONE_REQUIRED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/api-kit/src/muad_api/error_codes.py,195,SCHEDULE_DEPENDENCY_MISSING,'SCHEDULE_DEPENDENCY_MISSING',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/api-kit/src/muad_api/error_codes.py,196,SCHEDULE_INVOCATION_CONTRACT_MISSING,'SCHEDULE_INVOCATION_CONTRACT_MISSING',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/api-kit/src/muad_api/error_codes.py,197,SCHEDULE_ARGV_INVALID,'SCHEDULE_ARGV_INVALID',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/api-kit/src/muad_api/error_codes.py,198,SCHEDULE_INPUT_INVALID,'SCHEDULE_INPUT_INVALID',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/api-kit/src/muad_api/error_codes.py,199,SCHEDULE_GRANT_DENIED,'SCHEDULE_GRANT_DENIED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/api-kit/src/muad_api/error_codes.py,200,SCHEDULE_PARAMETER_INCOMPLETE,'SCHEDULE_PARAMETER_INCOMPLETE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/api-kit/src/muad_api/error_codes.py,201,SCHEDULE_DRAFT_EXPIRED,'SCHEDULE_DRAFT_EXPIRED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/api-kit/src/muad_api/error_codes.py,202,SCHEDULE_CONFIRMATION_REQUIRED,'SCHEDULE_CONFIRMATION_REQUIRED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/api-kit/src/muad_api/error_codes.py,203,SCHEDULE_VERSION_CONFLICT,'SCHEDULE_VERSION_CONFLICT',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/api-kit/src/muad_api/error_codes.py,204,SCHEDULE_NOT_FOUND,'SCHEDULE_NOT_FOUND',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/api-kit/src/muad_api/error_codes.py,205,SCHEDULE_STATE_INVALID,'SCHEDULE_STATE_INVALID',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/api-kit/src/muad_api/error_codes.py,206,SCHEDULE_AMBIGUOUS,'SCHEDULE_AMBIGUOUS',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/api-kit/src/muad_api/error_codes.py,207,SCHEDULE_OCCURRENCE_DUPLICATE,'SCHEDULE_OCCURRENCE_DUPLICATE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/api-kit/src/muad_api/error_codes.py,208,SCHEDULE_ADMISSION_FAILED,'SCHEDULE_ADMISSION_FAILED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/api-kit/src/muad_api/error_codes.py,209,SCHEDULE_QUOTA_EXCEEDED,'SCHEDULE_QUOTA_EXCEEDED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/api-kit/src/muad_api/error_codes.py,210,SCHEDULE_DELIVERY_UNSUPPORTED,'SCHEDULE_DELIVERY_UNSUPPORTED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/api-kit/src/muad_api/error_codes.py,211,SCHEDULE_TOOL_WILDCARD_UNSUPPORTED,'SCHEDULE_TOOL_WILDCARD_UNSUPPORTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/api-kit/src/muad_api/error_codes.py,212,SNAPSHOT_TOO_LARGE,'SNAPSHOT_TOO_LARGE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/api-kit/src/muad_api/error_codes.py,213,ASYNC_OPERATION_UNAVAILABLE,'ASYNC_OPERATION_UNAVAILABLE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/api-kit/src/muad_api/error_codes.py,214,TASK_ARTIFACT_NOT_FOUND,'TASK_ARTIFACT_NOT_FOUND',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/api-kit/src/muad_api/error_codes.py,215,ARTIFACT_VERSION_CONFLICT,'ARTIFACT_VERSION_CONFLICT',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/api-kit/src/muad_api/error_codes.py,216,SCHEDULE_CONFIRMATION_REPLAY,'SCHEDULE_CONFIRMATION_REPLAY',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/api-kit/src/muad_api/error_codes.py,217,TOOL_OPERATION_INPUT_MISMATCH,'TOOL_OPERATION_INPUT_MISMATCH',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/api-kit/src/muad_api/error_codes.py,218,EXECUTION_NOT_RESUMABLE,'EXECUTION_NOT_RESUMABLE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/api-kit/src/muad_api/error_codes.py,219,HUMAN_INTERACTION_EXPIRED,'HUMAN_INTERACTION_EXPIRED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/api-kit/src/muad_api/error_codes.py,220,TASK_ACCESS_DENIED,'TASK_ACCESS_DENIED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/api-kit/src/muad_api/error_codes.py,153,RUN_EVENT_PERSISTENCE_FAILED,'RUN_EVENT_PERSISTENCE_FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/api-kit/src/muad_api/error_codes.py,155,RUN_BUDGET_EXCEEDED,'RUN_BUDGET_EXCEEDED',python-constant,code,实现常量；由 AST 盘点补录（2026-11-08）
+packages/api-kit/src/muad_api/error_codes.py,157,RUN_NO_PROGRESS,'RUN_NO_PROGRESS',python-constant,code,实现常量；由 AST 盘点补录（2026-11-08）
+packages/api-kit/src/muad_api/error_codes.py,158,MODEL_CAPACITY_UNAVAILABLE,'MODEL_CAPACITY_UNAVAILABLE',python-constant,code,状态或错误码，不是时间参数
+packages/api-kit/src/muad_api/error_codes.py,159,MODEL_WAIT_TIMEOUT,'MODEL_WAIT_TIMEOUT',python-constant,code,状态或错误码，不是时间参数
+packages/api-kit/src/muad_api/error_codes.py,160,MODEL_CAPACITY_DRAIN_REQUIRED,'MODEL_CAPACITY_DRAIN_REQUIRED',python-constant,code,状态或错误码，不是时间参数
+packages/api-kit/src/muad_api/error_codes.py,161,MODEL_CALL_OUTCOME_UNKNOWN,'MODEL_CALL_OUTCOME_UNKNOWN',python-constant,code,状态或错误码，不是时间参数
+packages/api-kit/src/muad_api/error_codes.py,162,MODEL_CREDENTIAL_EXISTS,'MODEL_CREDENTIAL_EXISTS',python-constant,code,状态或错误码，不是时间参数
+packages/api-kit/src/muad_api/error_codes.py,163,MODEL_CREDENTIAL_IN_USE,'MODEL_CREDENTIAL_IN_USE',python-constant,code,状态或错误码，不是时间参数
+packages/api-kit/src/muad_api/error_codes.py,164,MODEL_DEPLOYMENT_EXISTS,'MODEL_DEPLOYMENT_EXISTS',python-constant,code,状态或错误码，不是时间参数
+packages/api-kit/src/muad_api/error_codes.py,165,MODEL_QUOTA_GROUP_EXISTS,'MODEL_QUOTA_GROUP_EXISTS',python-constant,code,状态或错误码，不是时间参数
+packages/api-kit/src/muad_api/error_codes.py,166,MODEL_QUOTA_GROUP_IN_USE,'MODEL_QUOTA_GROUP_IN_USE',python-constant,code,状态或错误码，不是时间参数
+packages/api-kit/src/muad_api/error_codes.py,167,MODEL_PROVIDER_MISMATCH,'MODEL_PROVIDER_MISMATCH',python-constant,code,状态或错误码，不是时间参数
+packages/api-kit/src/muad_api/error_codes.py,168,MODEL_CREDENTIAL_CHANGED,'MODEL_CREDENTIAL_CHANGED',python-constant,code,状态或错误码，不是时间参数
+packages/api-kit/src/muad_api/error_codes.py,169,MODEL_CALL_LEASE_LOST,'MODEL_CALL_LEASE_LOST',python-constant,code,状态或错误码，不是时间参数
+packages/api-kit/src/muad_api/error_codes.py,170,CONVERSATION_MODEL_MISMATCH,'CONVERSATION_MODEL_MISMATCH',python-constant,code,状态或错误码，不是时间参数
+packages/api-kit/src/muad_api/error_codes.py,171,CONVERSATION_EXPIRED,'CONVERSATION_EXPIRED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/api-kit/src/muad_api/error_codes.py,172,CONVERSATION_LIMIT_REACHED,'CONVERSATION_LIMIT_REACHED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/api-kit/src/muad_api/error_codes.py,173,CURSOR_EXPIRED,'CURSOR_EXPIRED',python-constant,code,状态或错误码，不是时间参数
+packages/api-kit/src/muad_api/error_codes.py,174,CURSOR_AHEAD,'CURSOR_AHEAD',python-constant,code,状态或错误码，不是时间参数
+packages/api-kit/src/muad_api/error_codes.py,175,CURSOR_RUN_MISMATCH,'CURSOR_RUN_MISMATCH',python-constant,code,状态或错误码，不是时间参数
+packages/api-kit/src/muad_api/error_codes.py,176,UPLOAD_EXPIRED,'UPLOAD_EXPIRED',python-constant,code,状态或错误码，不是时间参数
+packages/api-kit/src/muad_api/error_codes.py,177,DELIVERY_RECEIPT_EXPIRED,'DELIVERY_RECEIPT_EXPIRED',python-constant,code,状态或错误码，不是时间参数
+packages/api-kit/src/muad_api/error_codes.py,178,DELIVERY_LEASE_LOST,'DELIVERY_LEASE_LOST',python-constant,code,状态或错误码，不是时间参数
+packages/api-kit/src/muad_api/error_codes.py,179,EXECUTION_OUTCOME_UNKNOWN,'EXECUTION_OUTCOME_UNKNOWN',python-constant,code,状态或错误码，不是时间参数
+packages/api-kit/src/muad_api/error_codes.py,180,SKILL_IN_USE,'SKILL_IN_USE',python-constant,code,状态或错误码，不是时间参数
+packages/api-kit/src/muad_api/error_codes.py,182,EXTERNAL_ASSERTION_INVALID,'EXTERNAL_ASSERTION_INVALID',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/api-kit/src/muad_api/error_codes.py,183,EXTERNAL_ASSERTION_EXPIRED,'EXTERNAL_ASSERTION_EXPIRED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/api-kit/src/muad_api/error_codes.py,184,EXTERNAL_ASSERTION_UNBOUND,'EXTERNAL_ASSERTION_UNBOUND',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/api-kit/src/muad_api/error_codes.py,185,EXTERNAL_ASSERTION_NOT_GRANTED,'EXTERNAL_ASSERTION_NOT_GRANTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/api-kit/src/muad_api/error_codes.py,186,EXTERNAL_ASSERTION_USER_DISABLED,'EXTERNAL_ASSERTION_USER_DISABLED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/api-kit/src/muad_api/error_codes.py,187,EXTERNAL_PLATFORM_UNAVAILABLE,'EXTERNAL_PLATFORM_UNAVAILABLE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/api-kit/src/muad_api/error_codes.py,189,EXTERNAL_PLATFORM_NOT_CONFIGURED,'EXTERNAL_PLATFORM_NOT_CONFIGURED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/api-kit/src/muad_api/error_codes.py,190,IDENTITY_KEYS_MISMATCH,'IDENTITY_KEYS_MISMATCH',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/api-kit/src/muad_api/error_codes.py,193,SCHEDULE_DRAFT_INVALID,'SCHEDULE_DRAFT_INVALID',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/api-kit/src/muad_api/error_codes.py,194,SCHEDULE_NO_FUTURE_OCCURRENCE,'SCHEDULE_NO_FUTURE_OCCURRENCE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/api-kit/src/muad_api/error_codes.py,195,SCHEDULE_TIMEZONE_REQUIRED,'SCHEDULE_TIMEZONE_REQUIRED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/api-kit/src/muad_api/error_codes.py,196,SCHEDULE_DEPENDENCY_MISSING,'SCHEDULE_DEPENDENCY_MISSING',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/api-kit/src/muad_api/error_codes.py,197,SCHEDULE_INVOCATION_CONTRACT_MISSING,'SCHEDULE_INVOCATION_CONTRACT_MISSING',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/api-kit/src/muad_api/error_codes.py,198,SCHEDULE_ARGV_INVALID,'SCHEDULE_ARGV_INVALID',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/api-kit/src/muad_api/error_codes.py,199,SCHEDULE_INPUT_INVALID,'SCHEDULE_INPUT_INVALID',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/api-kit/src/muad_api/error_codes.py,200,SCHEDULE_GRANT_DENIED,'SCHEDULE_GRANT_DENIED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/api-kit/src/muad_api/error_codes.py,201,SCHEDULE_PARAMETER_INCOMPLETE,'SCHEDULE_PARAMETER_INCOMPLETE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/api-kit/src/muad_api/error_codes.py,202,SCHEDULE_DRAFT_EXPIRED,'SCHEDULE_DRAFT_EXPIRED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/api-kit/src/muad_api/error_codes.py,203,SCHEDULE_CONFIRMATION_REQUIRED,'SCHEDULE_CONFIRMATION_REQUIRED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/api-kit/src/muad_api/error_codes.py,204,SCHEDULE_VERSION_CONFLICT,'SCHEDULE_VERSION_CONFLICT',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/api-kit/src/muad_api/error_codes.py,205,SCHEDULE_NOT_FOUND,'SCHEDULE_NOT_FOUND',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/api-kit/src/muad_api/error_codes.py,206,SCHEDULE_STATE_INVALID,'SCHEDULE_STATE_INVALID',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/api-kit/src/muad_api/error_codes.py,207,SCHEDULE_AMBIGUOUS,'SCHEDULE_AMBIGUOUS',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/api-kit/src/muad_api/error_codes.py,208,SCHEDULE_OCCURRENCE_DUPLICATE,'SCHEDULE_OCCURRENCE_DUPLICATE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/api-kit/src/muad_api/error_codes.py,209,SCHEDULE_ADMISSION_FAILED,'SCHEDULE_ADMISSION_FAILED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/api-kit/src/muad_api/error_codes.py,210,SCHEDULE_QUOTA_EXCEEDED,'SCHEDULE_QUOTA_EXCEEDED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/api-kit/src/muad_api/error_codes.py,211,SCHEDULE_DELIVERY_UNSUPPORTED,'SCHEDULE_DELIVERY_UNSUPPORTED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/api-kit/src/muad_api/error_codes.py,212,SCHEDULE_TOOL_WILDCARD_UNSUPPORTED,'SCHEDULE_TOOL_WILDCARD_UNSUPPORTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/api-kit/src/muad_api/error_codes.py,213,SNAPSHOT_TOO_LARGE,'SNAPSHOT_TOO_LARGE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/api-kit/src/muad_api/error_codes.py,214,ASYNC_OPERATION_UNAVAILABLE,'ASYNC_OPERATION_UNAVAILABLE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/api-kit/src/muad_api/error_codes.py,215,TASK_ARTIFACT_NOT_FOUND,'TASK_ARTIFACT_NOT_FOUND',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/api-kit/src/muad_api/error_codes.py,216,ARTIFACT_VERSION_CONFLICT,'ARTIFACT_VERSION_CONFLICT',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/api-kit/src/muad_api/error_codes.py,217,SCHEDULE_CONFIRMATION_REPLAY,'SCHEDULE_CONFIRMATION_REPLAY',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/api-kit/src/muad_api/error_codes.py,218,TOOL_OPERATION_INPUT_MISMATCH,'TOOL_OPERATION_INPUT_MISMATCH',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/api-kit/src/muad_api/error_codes.py,219,EXECUTION_NOT_RESUMABLE,'EXECUTION_NOT_RESUMABLE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/api-kit/src/muad_api/error_codes.py,220,HUMAN_INTERACTION_EXPIRED,'HUMAN_INTERACTION_EXPIRED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/api-kit/src/muad_api/error_codes.py,221,TASK_ACCESS_DENIED,'TASK_ACCESS_DENIED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 packages/api-kit/src/muad_api/locale.py,1,SUPPORTED_LOCALES,"('zh-CN', 'en-US')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/api-kit/src/muad_api/metrics.py,37,PROMETHEUS_CONTENT_TYPE,'text/plain; version=0.0.4; charset=utf-8',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/api-kit/src/muad_api/metrics.py,38,DEFAULT_KIND,'gauge',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改

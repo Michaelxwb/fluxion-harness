@@ -1,7 +1,7 @@
 ---
 {
   "description": "IM 网关、通道与 WebChat",
-  "next_rule": 15
+  "next_rule": 16
 }
 ---
 
@@ -39,7 +39,11 @@
 
 - [RULE-014] 外部 JWT 平台的通道名必须匹配 ^[A-Za-z0-9]+web$（不区分大小写地以 web 结尾、其余为字母数字），该约束在平台配置解析期显式校验：Console 抛 PlatformConfigError 硬失败，Gateway 跳过该平台并记 ERROR，判定口径唯一来自 muad_contracts.is_valid_external_channel_name。通道名决定路由前缀 /api/v1/<channel 小写>，反代用一条正则覆盖所有外部平台前缀且不误吞 Console 的 /api/v1/* 业务前缀与 webchat；契约层 ChannelName 不约束字符集，故须在解析期校验，不合规名会导致运行期静默 404。环境/部署标识（如 UAT/PRD）放 display_name，不得进入 channel。✅ MSSWWEB、MSSPWEB；❌ MSSPWEBUAT、mssp-web、custom-channel。
 
+- [RULE-015] 业务执行、产物生成和渠道交付必须是可独立对账的事实。交付可重试时沿用稳定交付身份，不得重跑业务；发送结果未知时不得自动重发。DEGRADED 只有在实际交付替代形式时成立，未交付不得渲染为已送达。
+
 ## Conventions
+
+- **执行与交付分别对账**（RULE-015）：✅ 已完成的任务保留产物，仅以原交付身份重试确定未发出的投递；❌ 把已入队标成已送达，或者在发送结果未知时自动重发。
 
 **记忆命令与确认事件**：
 
@@ -133,3 +137,5 @@
 - {"source":"2026-11-13/mssw-external-im-channel/mssw-external-im-channel.md#TASK-002#DELTA-001","op":"add","rule":"RULE-013","payload_sha256":"9b4f9146bdc11f65f952dbda08b70477643997ea36d0d86417dd27f5600a9a23","at":"2026-11-24T03:55:12.828Z"}
 
 - {"source":"2026-11-13/mssw-external-im-channel/mssw-external-im-channel.md#TASK-014#DELTA-014","op":"add","rule":"RULE-014","payload_sha256":"23ceed2672500e8e54ae33d36f9e8f351fe8523108d908fc51385e13006a960e","at":"2026-11-24T03:55:12.849Z"}
+
+- {"source":"2026-11-26/agent-tool-failure-recovery/agent-tool-failure-recovery.md#TASK-004#DELTA-004","op":"add","rule":"RULE-015","payload_sha256":"8ebe63b58d664f4b4db36c2384c495399828588b3492dfc7ed7f03bd4152fd52","at":"2026-11-26T12:11:20.731Z"}
