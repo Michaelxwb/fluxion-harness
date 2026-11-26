@@ -45,7 +45,13 @@ from muad_agent_runtime.application.model_capacity_service import ModelCapacityS
 from muad_agent_runtime.application.ports import NullPlatformSettingsClient, PlatformSettingsSnapshot
 from muad_agent_runtime.application.run_service import RunService, reap_abandoned_runs
 from muad_agent_runtime.infrastructure.db import get_session_factory
-from muad_agent_runtime.infrastructure.models.runtime import RunRecord, RunSubmission
+from muad_agent_runtime.infrastructure.models.runtime import (
+    CanonicalEvent,
+    ChannelNotification,
+    MessageDelivery,
+    RunRecord,
+    RunSubmission,
+)
 from muad_agent_worker.infrastructure import db as worker_db
 from muad_agent_worker.infrastructure.db import get_session_factory as worker_session_factory
 from muad_agent_worker.infrastructure.models.task import (
@@ -469,7 +475,7 @@ async def test_b235_absolute_deadline_sweep_follows_pg_clock(
 
 
 async def test_b235_absolute_deadline_writes_terminal_channel_notification(
-    runtime_factory: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch
+    runtime_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     """绝对期限收尾必须同时写通道出站意图，否则 Gateway 交付时拿不到 intent。"""
     factory = runtime_factory
@@ -481,16 +487,31 @@ async def test_b235_absolute_deadline_writes_terminal_channel_notification(
         lease_until=pg + timedelta(seconds=300),
         deadline_at=pg - timedelta(seconds=1),
     )
-    calls: dict[str, object] = {}
-
-    async def fake_write(session, **kwargs):  # type: ignore[no-untyped-def]
-        calls.update(kwargs)
-        return None
-
-    monkeypatch.setattr(run_deadline, "write_run_notification", fake_write)
+    async with factory() as session, session.begin():
+        await session.execute(sa.update(RunRecord).where(RunRecord.id == run.id).values(
+            channel_json=ChannelContext(
+                type="WECOM", entry_id=ENTRY_ID, bot_id="deadline-probe",
+                external_user_id="deadline-user", external_conversation_id="deadline-thread",
+            ).model_dump(mode="json"),
+        ))
     assert await run_deadline.expire_runs(factory) == 1
-    assert calls["delivery_key"] == f"run:{run.id}:terminal"
-    assert calls["kind"] == "RUN_COMPLETED"
+    assert await run_deadline.expire_runs(factory) == 0
+    async with factory() as session:
+        notification = (await session.scalars(sa.select(ChannelNotification).where(
+            ChannelNotification.tenant_id == run.tenant_id, ChannelNotification.run_id == run.id,
+        ))).one()
+        delivery = (await session.scalars(sa.select(MessageDelivery).where(
+            MessageDelivery.tenant_id == run.tenant_id,
+            MessageDelivery.owner_type == "RUN", MessageDelivery.owner_id == run.id,
+        ))).one()
+        event = await session.get(CanonicalEvent, notification.event_id)
+    assert notification.delivery_key == f"run:{run.id}:terminal"
+    assert notification.kind == "RUN_COMPLETED"
+    assert notification.delivery_state == "NOT_REQUIRED"
+    assert event is not None and event.event_type == "RUN_FAILED"
+    assert delivery.status == "PENDING"
+    assert delivery.payload_json["error_code"] == RUN_DEADLINE_EXCEEDED
+    assert delivery.payload_json["text"] == event.payload_json["final_text"]
 
 
 # --------------------------------------------------------------------------------------
