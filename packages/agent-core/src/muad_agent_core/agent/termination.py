@@ -134,7 +134,8 @@ class FailureState:
     identical_failures: Mapping[str, int] = field(default_factory=dict)
     no_progress: bool = False
     blocked_attempts: frozenset[str] = frozenset()
-    external_blocked: bool = False
+    unknown_write_targets: frozenset[str] = frozenset()
+    unknown_write_operations: Mapping[str, frozenset[str]] = field(default_factory=dict)
     reviews: Mapping[str, tuple[int, int]] = field(default_factory=dict)
 
     def as_payload(self) -> dict[str, Any]:
@@ -143,7 +144,8 @@ class FailureState:
             "identical_failures": dict(self.identical_failures),
             "no_progress": self.no_progress,
             "blocked_attempts": sorted(self.blocked_attempts),
-            "external_blocked": self.external_blocked,
+            "unknown_write_targets": sorted(self.unknown_write_targets),
+            "unknown_write_operations": {key: sorted(v) for key, v in self.unknown_write_operations.items()},
             "reviews": {key: list(value) for key, value in self.reviews.items()},
         }
 
@@ -158,6 +160,8 @@ class FailureState:
                 if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
                     counts[str(key)] = value
         blocked = payload.get("blocked_attempts")
+        unknown = payload.get("unknown_write_targets")
+        operations = payload.get("unknown_write_operations")
         raw_reviews = payload.get("reviews")
         reviews = {}
         if isinstance(raw_reviews, Mapping):
@@ -170,7 +174,12 @@ class FailureState:
         return cls(
             blocked_attempts=frozenset(v for v in blocked if isinstance(v, str)) if isinstance(blocked, list)
             else frozenset(),
-            external_blocked=payload.get("external_blocked") is True,
+            unknown_write_targets=frozenset(v for v in unknown if isinstance(v, str))
+            if isinstance(unknown, list) else frozenset(),
+            unknown_write_operations={
+                key: frozenset(v for v in targets if isinstance(v, str))
+                for key, targets in operations.items() if isinstance(key, str) and isinstance(targets, list)
+            } if isinstance(operations, Mapping) else {},
             reviews=reviews,
             last_failure=FailureEvidence.from_payload(payload.get("last_failure")),
             identical_failures=counts,

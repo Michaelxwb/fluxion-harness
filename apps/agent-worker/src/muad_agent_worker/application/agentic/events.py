@@ -99,6 +99,8 @@ class TaskEventSink:
                 execution_mode=prepared.execution_mode,
                 retry_safety=str(prepared.retry_safety),
                 effect=prepared.effect,
+                write_targets=tuple(sorted(prepared.write_targets)),
+                write_operation_key=prepared.write_operation_key,
             ).model_dump(mode="json"),
         )
 
@@ -109,6 +111,8 @@ class TaskEventSink:
                 tool_call_id=completed.tool_call_id,
                 tool_name=completed.tool_name,
                 status=completed.status,
+                handler_entered=completed.handler_entered,
+                attempt=completed.attempt,
                 outcome=ToolEventOutcome(
                     business_status=str(completed.outcome.business_status),
                     failure_layer=str(completed.outcome.failure_layer),

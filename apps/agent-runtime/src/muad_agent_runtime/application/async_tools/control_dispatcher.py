@@ -394,6 +394,7 @@ async def _admit(
             "event_version": 1,
             "operation_id": str(operation.id),
             "task_id": str(task_id),
+            "source_tool_call_id": operation.source_tool_call_id,
             "task_status": data["status"],
             "completion_mode": operation.completion_mode.value,
         },
@@ -416,6 +417,7 @@ async def _fail_submission(
         payload={
             "event_version": 1,
             "operation_id": str(operation.id),
+            "source_tool_call_id": operation.source_tool_call_id,
             "error_phase": "SUBMIT",
             "error_code": "SUBMISSION_UNCONFIRMED",
             "cause": error,

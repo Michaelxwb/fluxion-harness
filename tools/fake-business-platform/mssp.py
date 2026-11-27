@@ -742,9 +742,24 @@ class MsspService:
             ]
         offset = max(0, int(payload.get("offset") or 0))
         limit = max(1, int(payload.get("limit") or 10))
+        fault = company.get("asset_page_fault")
+        drop_positions: set[int] = set()
+        duplicate_offset = -1
+        if isinstance(fault, dict):
+            duplicate_offset = int(fault.get("duplicate_offset", -1))
+            drop_positions = {int(item) for item in fault.get("drop_positions") or []}
         page = []
-        for row in assets[offset : offset + limit]:
-            page.append({key: value for key, value in row.items() if key != "_first_time_sec"})
+        for index in range(offset, min(offset + limit, len(assets))):
+            if index in drop_positions:
+                continue
+            page.append(
+                {key: value for key, value in assets[index].items() if key != "_first_time_sec"}
+            )
+        if duplicate_offset == offset and 0 <= offset < len(assets):
+            page.insert(
+                0,
+                {key: value for key, value in assets[offset].items() if key != "_first_time_sec"},
+            )
         return success({"total": len(assets), "list": page})
 
     def _all_assets(self, company: dict[str, Any]) -> list[dict[str, Any]]:
@@ -798,7 +813,54 @@ class MsspService:
                 "update_time": first_time,
                 "_first_time_sec": first_time,
             }
+        for row in self._bulk_assets(company):
+            explicit.setdefault(row["asset"], row)
         return list(explicit.values())
+
+    def _bulk_assets(self, company: dict[str, Any]) -> list[dict[str, Any]]:
+        """Deterministically expand ``asset_bulk`` fixtures.
+
+        The daily-report fixtures stay small; this knob gives the asset-query
+        acceptance a customer large enough to force truncation and file export
+        without shipping a thousand literal rows in JSON.
+        """
+        spec = company.get("asset_bulk")
+        if not isinstance(spec, dict):
+            return []
+        try:
+            count = int(spec.get("count") or 0)
+        except (TypeError, ValueError):
+            return []
+        if count <= 0:
+            return []
+        prefix = str(spec.get("prefix") or "10.99").strip().strip(".")
+        if not prefix:
+            return []
+        first_time = parse_iso("2025-01-01T00:00:00+08:00") or 0
+        rows: list[dict[str, Any]] = []
+        for index in range(count):
+            # 10.60.0.1 .. 10.60.4.184 for the default 1200-row fixture.
+            third = (index // 254) % 254
+            fourth = index % 254 + 1
+            ip = f"{prefix}.{third}.{fourth}"
+            rows.append(
+                {
+                    "_id": f"asset-{company['company_id']}-bulk-{index:04d}",
+                    "asset_id": f"asset-{company['company_id']}-bulk-{index:04d}",
+                    "asset": ip,
+                    "business_name": f"{company.get('name')}批量业务{index % 5 + 1}",
+                    "hostname": f"bulk-host-{index:04d}",
+                    "asset_group_name": "批量资产组",
+                    "asset_type": "server",
+                    "authorization_type": [1, 2],
+                    "service_status": 1,
+                    "is_alive": 1,
+                    "first_time": first_time,
+                    "update_time": first_time,
+                    "_first_time_sec": first_time,
+                }
+            )
+        return rows
 
     def _asset_ip(self, item: dict[str, Any]) -> str:
         value = item.get("asset") or item.get("ip")

@@ -66,6 +66,7 @@ def test_fit_protects_head_current_and_latest_round_and_marks_the_gap() -> None:
     assert "old-0" in contents and "old-1" in contents, "head anchor kept"
     assert any(
         OMISSION_MARKER_PREFIX in str(message.content)
+        and "当前输入仍然保留" in str(message.content)
         for group in compacted.older
         for message in group
     )

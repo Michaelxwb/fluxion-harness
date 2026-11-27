@@ -49,6 +49,7 @@ from muad_agent_runtime.application.message_delivery import (
 )
 from muad_agent_runtime.application.message_delivery_pump import (
     DELIVERY_PAYLOAD_INVALID,
+    GatewayMessageDeliverySender,
     MessageDeliveryIntent,
     MessageDeliveryPump,
     MessageSendOutcome,
@@ -65,7 +66,14 @@ from muad_agent_runtime.infrastructure.models.runtime import (
 )
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts import AttachmentRef, ChannelContext, DeliveryRouteInput, RunStatus
+from muad_contracts import (
+    AttachmentRef,
+    ChannelContext,
+    DeliveryRequest,
+    DeliveryResponse,
+    DeliveryRouteInput,
+    RunStatus,
+)
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 pytestmark = pytest.mark.integration
@@ -809,6 +817,28 @@ async def test_run_terminal_push_is_written_to_message_delivery_not_channel_push
     assert count == 1
 
 
+async def test_waiting_question_on_deleted_conversation_does_not_raise(
+    delivery_runtime: async_sessionmaker[AsyncSession], tenant: MessageTenant
+) -> None:
+    seed = await _seed_run(delivery_runtime, tenant)
+    async with delivery_runtime() as session, session.begin():
+        await session.execute(
+            sa.update(Conversation)
+            .where(Conversation.id == seed.conversation_id)
+            .values(is_deleted=True)
+        )
+    async with delivery_runtime() as session, session.begin():
+        receipt = await write_run_notification(
+            session,
+            run=seed.run,
+            kind=KIND_RUN_WAITING_INPUT,
+            delivery_key=run_waiting_delivery_key(seed.run.id, seed.interrupt_id),
+            event_id=seed.terminal_event_id,
+            push_messages=True,
+        )
+    assert receipt is None
+
+
 async def test_run_waiting_push_is_human_question_with_stable_key(
     delivery_runtime: async_sessionmaker[AsyncSession], tenant: MessageTenant
 ) -> None:
@@ -832,3 +862,28 @@ async def test_run_waiting_push_is_human_question_with_stable_key(
     assert row is not None
     assert row.message_key == f"run:{seed.run.id}:message:{seed.interrupt_id}"
     assert row.status == MESSAGE_PENDING
+
+
+async def test_human_question_remains_deliverable_after_the_original_reply_stream() -> None:
+    requests: list[DeliveryRequest] = []
+
+    class Transport:
+        async def deliver(self, request: DeliveryRequest) -> DeliveryResponse:
+            requests.append(request)
+            return DeliveryResponse(accepted=True, delivered=True, deduplicated=False)
+
+    run_id, interrupt_id = uuid.uuid4(), uuid.uuid4()
+    route = DeliveryRouteInput(channel="WECOM", bot_id=BOT_ID, external_user_id=EXTERNAL_USER_ID)
+    key = f"run:{run_id}:message:{interrupt_id}"
+    intent = MessageDeliveryIntent(
+        uuid.uuid4(), "test", key, delivery_target_key(route), "HUMAN_QUESTION", "RUN", run_id,
+        route, MessageDeliveryPayload(text="请回复客户 ID"), 0, "closed-stream", None, None,
+    )
+
+    sender = GatewayMessageDeliverySender(Transport())
+    result = await sender.send(intent, attempt_id=uuid.uuid4(), lease_epoch=1)
+
+    assert result.outcome == MESSAGE_DELIVERED
+    assert requests[0].delivery_key == key
+    assert requests[0].message_id is None
+    assert requests[0].message.text == "请回复客户 ID"

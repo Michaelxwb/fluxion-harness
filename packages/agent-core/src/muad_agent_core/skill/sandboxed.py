@@ -204,8 +204,9 @@ def _confirmed_window_limit(sandbox_result: SandboxResult, request: SkillExecuti
 
 async def _sandbox_outcome(
     runner: SandboxRunner, spec: SandboxSpec, request: SkillExecutionRequest, egress: ScriptEgressEnvironment,
-) -> tuple[SandboxResult, SkillExecutionStatus, str | None, bool]:
+) -> tuple[SandboxResult, SkillExecutionStatus, str | None, bool, bool | None]:
     limited = False
+    execution_started: bool | None = True
     try:
         sandbox_result = await _run_controlled(runner, spec, request, egress)
         status = (
@@ -235,13 +236,14 @@ async def _sandbox_outcome(
     except SandboxUnavailable:
         raise
     except SandboxError as exc:
+        execution_started = True if exc.result is not None else None
         sandbox_result = exc.result or SandboxResult(
             exit_code=None, stdout="", stderr=str(exc), duration_ms=0
         )
         status = SkillExecutionStatus.FAILED
         output_notice = None
 
-    return sandbox_result, status, output_notice, limited
+    return sandbox_result, status, output_notice, limited, execution_started
 
 
 class SandboxedSkillExecutor:
@@ -380,12 +382,14 @@ class SandboxedSkillExecutor:
                              stdout_limit_bytes=self._stdout_limit_bytes)
         started = time.monotonic()
         try:
-            sandbox_result, status, output_notice, limited = await _sandbox_outcome(
+            sandbox_result, status, output_notice, limited, execution_started = await _sandbox_outcome(
                 runner, spec, request, egress,
             )
         except SandboxUnavailable as exc:
             self._emit_failure(source, started)
-            raise SkillExecutionError(str(exc), code="SANDBOX_UNAVAILABLE") from exc
+            raise SkillExecutionError(
+                str(exc), code="SANDBOX_UNAVAILABLE", outcome_known=not exc.started
+            ) from exc
 
         outputs: tuple[OutputFile, ...] = ()
         try:
@@ -396,6 +400,7 @@ class SandboxedSkillExecutor:
         duration_ms = sandbox_result.duration_ms or int((time.monotonic() - started) * 1000)
         result = SkillExecutionResult(
             status=status,
+            execution_started=execution_started,
             stdout=sandbox_result.stdout,
             stderr=sandbox_result.stderr,
             result=parse_result(sandbox_result.stdout) if status is SkillExecutionStatus.SUCCEEDED else None,

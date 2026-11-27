@@ -8,7 +8,7 @@
 
 ## 两小时滑动过期
 
-Redis 登录态的空闲 TTL 固定为 7200 秒。每次执行声明了平台依赖的 Skill（execute_skill 或 run_skill_script）时，受信执行上下文先解析该用户/共享账号的当前凭据并 acquire 对应 Session：缓存有效则重置 TTL，缺失/失效则登录并缓存。
+Redis 登录态的空闲 TTL 固定为 7200 秒。每次执行声明了平台依赖的 Skill（`execute(target=skill)`）时，受信执行上下文先解析该用户/共享账号的当前凭据并 acquire 对应 Session：缓存有效则重置 TTL，缺失/失效则登录并缓存。
 
 例如 10:00 执行后空闲过期点为 12:00；11:30 再执行同平台 Skill，过期点移至 13:30。普通聊天、检索/读取 Skill 说明、访问配置页都不续期。后台 Worker 实际开始执行或重试 Skill 时也续期，不是提交任务时提前续期。
 

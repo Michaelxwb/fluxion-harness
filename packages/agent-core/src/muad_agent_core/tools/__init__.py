@@ -45,6 +45,7 @@ from .registry import (
     ToolHandler,
     ToolNotFoundError,
     ToolRegistry,
+    static_write_targets,
 )
 from .result import (
     ArtifactRef,
@@ -100,6 +101,7 @@ __all__ = [
     "ToolPolicyDecision",
     "ToolRegistry",
     "ToolResult",
+    "static_write_targets",
     "RetryDisposition",
     "SecurityDisposition",
     "build_prepared_call",

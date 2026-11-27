@@ -5,8 +5,8 @@ from dataclasses import replace
 from typing import Any
 
 from muad_agent_core.agent.continuation import RunnerCheckpoint
-from muad_agent_core.agent.failure import FailureSignal, update_failure_state
-from muad_agent_core.agent.recovery import NOT_EXECUTED_CODE, fold_events, replay_failure_state
+from muad_agent_core.agent.failure import FailureSignal, record_unverified_write, update_failure_state
+from muad_agent_core.agent.recovery import NOT_EXECUTED_CODE, fold_events, prepared_fact, replay_failure_state
 from muad_agent_core.agent.termination import FailureState
 from muad_agent_core.tools.outcome import FAILURE_STATUSES, BusinessStatus
 from muad_contracts import AsyncToolPolicy
@@ -114,7 +114,15 @@ async def _replay_state(
             CanonicalEvent.conversation_id == run.conversation_id,
             CanonicalEvent.run_id == run.id,
             CanonicalEvent.is_deleted.is_(False),
-            CanonicalEvent.event_type.in_(["ASSISTANT_TURN", "TOOL_CALL"]),
+            CanonicalEvent.event_type.in_(
+                [
+                    "ASSISTANT_TURN",
+                    "TOOL_CALL",
+                    "TOOL_TASK_ACCEPTED",
+                    "BACKGROUND_RESULT",
+                    "TOOL_SUBMISSION_FAILED",
+                ]
+            ),
         )
         .order_by(CanonicalEvent.seq)
     )
@@ -124,8 +132,11 @@ async def _replay_state(
     return replay_failure_state(fold, max_identical_failures=limit)
 
 
-async def _previous_unverified_external(session: AsyncSession, run: RunRecord) -> bool:
+async def _inherit_unverified_writes(
+    session: AsyncSession, run: RunRecord, state: FailureState,
+) -> FailureState:
     event, done = CanonicalEvent, aliased(CanonicalEvent)
+    outcome = done.payload_json["outcome"]
     prior_completed_safely = (
         select(done.id)
         .where(
@@ -136,23 +147,48 @@ async def _previous_unverified_external(session: AsyncSession, run: RunRecord) -
             done.is_deleted.is_(False),
             done.payload_json["state"].as_string() == "COMPLETED",
             done.payload_json["tool_call_id"].as_string() == event.payload_json["tool_call_id"].as_string(),
-            func.coalesce(done.payload_json["outcome"]["failure_layer"].as_string(), "NONE") == "NONE",
+            done.seq > event.seq,
+            or_(
+                done.payload_json["handler_entered"].as_boolean().is_(False),
+                and_(
+                    outcome["outcome_known"].as_boolean().is_(True),
+                    or_(
+                        done.payload_json["handler_entered"].as_boolean().is_(True),
+                        outcome["sent"].as_boolean().is_(True),
+                        outcome["business_status"].as_string() == BusinessStatus.SUCCEEDED,
+                    ),
+                ),
+            ),
         )
         .exists()
     )
-    return bool(await session.scalar(select(
-        select(event.id).where(
+    rows = await session.scalars(
+        select(event.payload_json).where(
             event.tenant_id == run.tenant_id,
             event.conversation_id == run.conversation_id,
             event.run_id != run.id,
             event.is_deleted.is_(False),
             event.event_type == "TOOL_CALL",
             event.payload_json["state"].as_string() == "STARTED",
-            event.payload_json["effect"].as_string().in_(["WRITE", "EXTERNAL"]),
-            event.payload_json["retry_safety"].as_string() != "READ_ONLY",
+            or_(
+                event.payload_json["effect"].as_string().is_distinct_from("READ"),
+                event.payload_json["source"].as_string() == "MCP",
+            ),
+            event.payload_json["retry_safety"].as_string().is_distinct_from("READ_ONLY"),
             ~prior_completed_safely,
-        ).exists()
-    )))
+        )
+    )
+    for payload in rows:
+        call_id = payload.get("tool_call_id") if payload else None
+        if isinstance(call_id, str):
+            prepared = prepared_fact(call_id, payload)
+            state = record_unverified_write(
+                state,
+                prepared.write_targets,
+                prepared.write_operation_key,
+                fallback_target=f"tool:{prepared.tool_name or 'unknown'}",
+            )
+    return state
 
 
 async def execution_checkpoint(
@@ -180,8 +216,7 @@ async def execution_checkpoint(
             await _replay_state(session, run, snapshot.policy_json)
             if run.execution_epoch > 1 else FailureState()
         )
-        if await _previous_unverified_external(session, run):
-            state = replace(state, external_blocked=True)
+        state = await _inherit_unverified_writes(session, run, state)
         checkpoint = replace(checkpoint, failure_state=state.as_payload())
         if run.execution_epoch > 1:
             text, completed = await _latest_completed_tools(session, run)

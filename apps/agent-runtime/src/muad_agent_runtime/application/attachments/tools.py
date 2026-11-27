@@ -24,6 +24,9 @@ import sqlalchemy as sa
 from muad_agent_core.model import ImagePart, ModelMessage, ModelRole
 from muad_agent_core.skill import OutputFile, checksum_file
 from muad_agent_core.tools import (
+    BusinessStatus,
+    ExecutionOutcome,
+    FailureControl,
     ToolCall,
     ToolCapability,
     ToolDefinition,
@@ -31,6 +34,7 @@ from muad_agent_core.tools import (
     ToolError,
     ToolRegistry,
     ToolResult,
+    static_write_targets,
 )
 from muad_agent_core.tools.attachments import TextCursor, decode_cursor, encode_cursor, read_text_segment
 from muad_artifact_store import NfsArtifactStore
@@ -44,11 +48,13 @@ from muad_contracts import (
     web_surface_channels_from_settings,
 )
 from muad_contracts.enums import OUTBOUND_CHANNELS
+from muad_contracts.tool_runtime import ToolRetrySafety
 from muad_logging import get_logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...infrastructure.db import SessionFactoryProvider
 from ...infrastructure.gateway_delivery_client import (
+    DeliveryNotSentError,
     DeliveryUnavailableError,
     GatewayDeliveryClient,
 )
@@ -72,6 +78,7 @@ from .task_artifacts import task_owner_predicate
 from .tool_results import TOOL_RESULT_ARTIFACT_TYPE
 
 READ_ATTACHMENT_TOOL = "read_attachment"
+READ_WORKSPACE_FILE_TOOL = "read_workspace_file"
 VIEW_IMAGE_TOOL = "view_image"
 WRITE_ARTIFACT_TOOL = "write_artifact"
 SEARCH_ATTACHMENT_TOOL = "search_attachment"
@@ -90,6 +97,12 @@ READ_ATTACHMENT_DESCRIPTION = (
     "attachment id. Long documents come back one segment at a time: pass the returned cursor "
     "to continue without re-scanning earlier text. Returns extracted text for documents; for "
     "images use view_image instead."
+)
+READ_WORKSPACE_FILE_DESCRIPTION = (
+    "Read a text file from the current workspace by its workspace-relative path. This is a "
+    "read-only check: it never executes a command, so it is the safe way to inspect a file after "
+    "an unknown write before deciding whether another operation is needed. Long files come back "
+    "one segment at a time; pass the returned cursor to continue."
 )
 SEARCH_ATTACHMENT_DESCRIPTION = (
     "Find where a keyword occurs in a file's extracted text and return the matching fragments "
@@ -114,13 +127,55 @@ _DEGRADED_OUTCOME = "DEGRADED"
 DELIVERY_RESULT_DELIVERED = "已交付产物 {artifact_id} 到当前会话（{filename}）"
 DELIVERY_RESULT_DEGRADED = "已发送取件链接（当前渠道不支持直发文件）：{url}"
 DELIVERY_RESULT_FAILED = "交付失败（{reason}）：产物已保留（id={artifact_id}），可重试"
+DELIVERY_RESULT_UNCONFIRMED = "暂无法确认产物是否送达（id={artifact_id}），请勿重复发送"
+
+def _unconfirmed_delivery_outcome() -> ExecutionOutcome:
+    return ExecutionOutcome(
+        business_status=BusinessStatus.NOT_APPLICABLE,
+        control=FailureControl(sent=True, outcome_known=False),
+    )
+
+
+def _artifact_write_targets(arguments: Mapping[str, Any]) -> frozenset[str]:
+    artifact_id = arguments.get("artifact_id")
+    if isinstance(artifact_id, str) and artifact_id:
+        return frozenset({f"artifact:{artifact_id}"})
+    return frozenset({"artifact"})
+
+
+def _delivery_write_targets(arguments: Mapping[str, Any]) -> frozenset[str]:
+    artifact_id = arguments.get("artifact_id")
+    if isinstance(artifact_id, str) and artifact_id:
+        return frozenset({f"delivery:{artifact_id}"})
+    path = arguments.get("path")
+    if isinstance(path, str) and path:
+        return frozenset({f"delivery:path:{path}"})
+    return frozenset({"delivery"})
+
+
+def _delivery_operation_key(arguments: Mapping[str, Any]) -> str | None:
+    artifact_id = arguments.get("artifact_id")
+    if isinstance(artifact_id, str) and artifact_id:
+        return f"delivery:{artifact_id}"
+    path = arguments.get("path")
+    if isinstance(path, str) and path:
+        return f"delivery:path:{path}"
+    return None
+
 
 DELIVER_ARTIFACT_DESCRIPTION = (
     "Send a file to the user you are talking to. This covers both files you produced in this run "
     'and files the user sent into this conversation (you can hand one back, e.g. "send me that '
     'image again"). Writing a file does NOT send it — call this when the user should actually '
     "receive it. Internal tool results are refused unless the user explicitly asks for one; "
-    "in that case set allow_internal=true."
+    "in that case set allow_internal=true. Honor the user's requested output format. Otherwise "
+    "choose an artifact that suits the actual data and its intended use. Deliver an existing "
+    "artifact_id or the workspace-relative path of a file generated directly from the full result. "
+    "Verify that it opens and matches the requested scope. If you only have a truncated preview, "
+    "recover the original safely or label the result partial. If the complete result fits the "
+    "chat reply and the user did not ask for a file, respond directly in text. If it exceeds the "
+    "reply limit or needs an artifact, deliver the artifact in this run, then give one short final "
+    "reply explaining its contents, scope, and actual delivery status. Do not send a separate preview."
 )
 APPEND_ARTIFACT_DESCRIPTION = (
     "Append more text to a file you produced earlier in this run. Use it to build a long document "
@@ -192,8 +247,9 @@ VIEW_IMAGE_RESULT_PREFIX = "已重新附上图片（附件 ID "
 WRITE_ARTIFACT_RESULT_PREFIX = "已写出产物（附件 ID "
 
 WRITE_ARTIFACT_DESCRIPTION = (
-    "Write the result you produced as a file the user can receive, and return its attachment id. "
-    "Use it when the outcome is a document rather than a short chat reply."
+    "Write complete Markdown text as a file and return its attachment id. "
+    "For another output type, produce it with an appropriate skill or workspace program and "
+    "use deliver_artifact with its artifact_id or workspace-relative path."
 )
 
 _DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -332,12 +388,8 @@ def _task_id_argument(value: object) -> uuid.UUID:
         ) from exc
 
 
-def resolve_workspace_file(workspace_dir: Path, value: object) -> OutputFile:
-    """校验 workspace 相对路径并返回可登记的产物事实。
-
-    只接受当前 agent 目录内的常规文件：绝对路径、``..``、反斜杠、NUL、symlink 逃逸
-    与超大文件都被拒绝。
-    """
+def resolve_workspace_path(workspace_dir: Path, value: object) -> Path:
+    """校验 workspace 相对路径并返回常规文件路径（不计算 checksum）。"""
     if not isinstance(value, str) or not value.strip():
         raise AttachmentToolError(ATTACHMENT_PATH_INVALID, "path must be a non-empty string")
     raw = value.strip()
@@ -352,13 +404,24 @@ def resolve_workspace_file(workspace_dir: Path, value: object) -> OutputFile:
         )
     if not target.is_file():
         raise AttachmentToolError(ATTACHMENT_NOT_FOUND, "文件不存在或路径不可访问")
+    return target
+
+
+def resolve_workspace_file(workspace_dir: Path, value: object) -> OutputFile:
+    """校验 workspace 相对路径并返回可登记的产物事实。
+
+    只接受当前 agent 目录内的常规文件：绝对路径、``..``、反斜杠、NUL、symlink 逃逸
+    与超大文件都被拒绝。
+    """
+    raw = value.strip() if isinstance(value, str) else ""
+    target = resolve_workspace_path(workspace_dir, value)
     size = target.stat().st_size
     if size > MAX_OUTPUT_BYTES:
         raise AttachmentToolError(
             ATTACHMENT_TOO_LARGE, f"文件超过可交付上限（{MAX_OUTPUT_BYTES} 字节）"
         )
     return OutputFile(
-        relative_path=relative.as_posix(),
+        relative_path=PurePosixPath(raw).as_posix(),
         size=size,
         checksum=checksum_file(target),
         path=target,
@@ -430,6 +493,29 @@ class AttachmentToolSet:
                 externalizable_result=False,
             )
         )
+        if self._workspace_dir is not None:
+            registry.register(
+                ToolDefinition(
+                    name=READ_WORKSPACE_FILE_TOOL,
+                    description=READ_WORKSPACE_FILE_DESCRIPTION,
+                    input_schema={
+                        "type": "object",
+                        "properties": {
+                            "path": string_schema,
+                            "offset": {**integer_schema, "minimum": 0},
+                            "cursor": {"type": "string"},
+                            "limit": {**integer_schema, "minimum": 1, "maximum": MAX_TEXT_CHARS},
+                        },
+                        "required": ["path"],
+                        "additionalProperties": False,
+                    },
+                    effect=ToolEffect.READ,
+                    handler=self.read_workspace_file,
+                    capabilities=frozenset({ToolCapability.ATTACHMENT_READ}),
+                    # Same as read_attachment: this content is the answer the model must read.
+                    externalizable_result=False,
+                )
+            )
         registry.register(
             ToolDefinition(
                 name=SEARCH_ATTACHMENT_TOOL,
@@ -486,6 +572,7 @@ class AttachmentToolSet:
                     "additionalProperties": False,
                 },
                 effect=ToolEffect.WRITE,
+                write_targets=_artifact_write_targets,
                 handler=self.append_artifact,
                 capabilities=frozenset({ToolCapability.ATTACHMENT_WRITE}),
             )
@@ -511,6 +598,9 @@ class AttachmentToolSet:
                     "additionalProperties": False,
                 },
                 effect=ToolEffect.WRITE,
+                retry_safety=ToolRetrySafety.IDEMPOTENT,
+                write_targets=_delivery_write_targets,
+                write_operation_key=_delivery_operation_key,
                 handler=self.deliver_artifact,
                 capabilities=frozenset({ToolCapability.ATTACHMENT_DELIVER}),
             )
@@ -541,6 +631,7 @@ class AttachmentToolSet:
                     "additionalProperties": False,
                 },
                 effect=ToolEffect.WRITE,
+                write_targets=static_write_targets("artifact"),
                 handler=self.write_artifact,
                 capabilities=frozenset({ToolCapability.ATTACHMENT_WRITE}),
             )
@@ -601,6 +692,46 @@ class AttachmentToolSet:
             lines.append(segment)
         lines.append(_segment_note(offset, limit, len(text)))
         return ToolResult("\n".join(lines))
+
+    async def read_workspace_file(
+        self, arguments: Mapping[str, Any], *, call: ToolCall
+    ) -> ToolResult:
+        """Trusted read-only inspection of a workspace file (no shell, no side effects)."""
+        if self._workspace_dir is None:
+            raise AttachmentToolError(
+                ATTACHMENT_WRITE_UNAVAILABLE, "当前运行没有可读取的 workspace"
+            )
+        path = await asyncio.to_thread(
+            resolve_workspace_path, self._workspace_dir, arguments.get("path")
+        )
+        size = await asyncio.to_thread(path.stat)
+        if size.st_size > MAX_READ_BYTES:
+            raise AttachmentToolError(
+                ATTACHMENT_TOO_LARGE,
+                f"workspace 文件超过可读取上限（{MAX_READ_BYTES} 字节）",
+            )
+        offset = _require_int(arguments, "offset", DEFAULT_OFFSET, ATTACHMENT_OFFSET_INVALID)
+        limit = _require_int(arguments, "limit", MAX_TEXT_CHARS, ATTACHMENT_LIMIT_INVALID)
+        cursor = _cursor_arg(arguments)
+        if cursor is not None and offset:
+            raise AttachmentToolError(
+                "COMMON_VALIDATION_ERROR", "offset and cursor cannot be used together"
+            )
+        try:
+            validate_text_window(offset, limit)
+        except AttachmentToolError as exc:
+            raise AttachmentToolError(exc.code, f"{path.name}：{exc.message}") from exc
+        data, total, next_cursor = await asyncio.to_thread(
+            read_text_segment, path, offset, limit, cursor
+        )
+        segment = data.decode("utf-8", errors="replace")
+        start = cursor.chars if cursor is not None else offset
+        note = f"[workspace:{path.name}] 字符 {start}..{start + len(segment)}"
+        if total is not None:
+            note += f" / 共 {total} 字符"
+        if next_cursor is not None:
+            note += f"；继续读请用 cursor={encode_cursor(next_cursor)}"
+        return ToolResult("\n".join([note, segment]) if segment else note)
 
     async def search_attachment(
         self, arguments: Mapping[str, Any], *, call: ToolCall
@@ -939,7 +1070,7 @@ class AttachmentToolSet:
         ):
             content = await self._publish_to_conversation(row, allow_internal=allow_internal)
         elif channel in OUTBOUND_CHANNELS:
-            content = await self._deliver_via_gateway(row)
+            return await self._deliver_via_gateway(row)
         else:
             raise AttachmentToolError(ATTACHMENT_WRITE_UNAVAILABLE, "当前通道不支持交付产物")
         return ToolResult(content)
@@ -971,7 +1102,7 @@ class AttachmentToolSet:
             )
         return DELIVERY_RESULT_DELIVERED.format(artifact_id=row.id, filename=_filename(row))
 
-    async def _deliver_via_gateway(self, row: Artifact) -> str:
+    async def _deliver_via_gateway(self, row: Artifact) -> ToolResult:
         """外部推送通道的交付：网关负责真实发送，结论只认它回来的真实结局。"""
         if self._delivery_client is None or self._delivery_route is None:
             raise AttachmentToolError(ATTACHMENT_WRITE_UNAVAILABLE, "当前会话没有可交付的通道，产物发不出去")
@@ -979,6 +1110,8 @@ class AttachmentToolSet:
             tenant_id=self._tenant_id,
             delivery_key=f"run:{self._run_id}:{row.id}",
             route=self._delivery_route,
+            agent_id=self._agent_id,
+            platform_user_id=self._user_id,
             message=DeliveryMessage(
                 type="image" if artifact_kind(row) == "IMAGE" else "artifact",
                 artifact=attachment_ref(row),
@@ -986,14 +1119,27 @@ class AttachmentToolSet:
         )
         try:
             response = await self._delivery_client.deliver(request)
-        except DeliveryUnavailableError as exc:
-            # 没拿到结论（超时/传输/网关拒绝）⇒ 一律按"失败可重试"报，**绝不**说已交付
-            return DELIVERY_RESULT_FAILED.format(reason=str(exc), artifact_id=row.id)
+        except DeliveryNotSentError as exc:
+            return ToolResult(DELIVERY_RESULT_FAILED.format(reason=str(exc), artifact_id=row.id))
+        except DeliveryUnavailableError:
+            return ToolResult(
+                DELIVERY_RESULT_UNCONFIRMED.format(artifact_id=row.id),
+                outcome=_unconfirmed_delivery_outcome(),
+            )
+        if not response.delivered or (
+            response.outcome == _DEGRADED_OUTCOME and not response.fallback_url
+        ):
+            return ToolResult(
+                DELIVERY_RESULT_UNCONFIRMED.format(artifact_id=row.id),
+                outcome=_unconfirmed_delivery_outcome(),
+            )
         if response.outcome == _DEGRADED_OUTCOME:
             await self._publish_explicit_delivery(row)
-            return DELIVERY_RESULT_DEGRADED.format(url=response.fallback_url or "")
+            return ToolResult(DELIVERY_RESULT_DEGRADED.format(url=response.fallback_url or ""))
         await self._publish_explicit_delivery(row)
-        return DELIVERY_RESULT_DELIVERED.format(artifact_id=row.id, filename=_filename(row))
+        return ToolResult(
+            DELIVERY_RESULT_DELIVERED.format(artifact_id=row.id, filename=_filename(row))
+        )
 
     async def _publish_explicit_delivery(self, row: Artifact) -> None:
         """显式交付成功后落一条会话事实：终态消息按附件身份去重，不再重复推同一文件。"""
@@ -1119,8 +1265,13 @@ class AttachmentToolSet:
             raise AttachmentToolError(
                 ATTACHMENT_WRITE_UNAVAILABLE, "当前运行没有可交付的 workspace"
             )
-        output = resolve_workspace_file(self._workspace_dir, value)
-        artifact_id = await self._output_registrar.register(output)
+        try:
+            output = await asyncio.to_thread(resolve_workspace_file, self._workspace_dir, value)
+            artifact_id = await self._output_registrar.register(output)
+        except OutputArtifactError as exc:
+            raise AttachmentToolError(exc.code, exc.message) from exc
+        except OSError as exc:
+            raise AttachmentToolError(ATTACHMENT_NOT_FOUND, "文件不存在或路径不可访问") from exc
         return await self._load(artifact_id)
 
     async def _load(self, artifact_id: object) -> Artifact:

@@ -135,6 +135,7 @@ class ScriptSkillExecutor:
         stderr = decode_capped(stderr_bytes)
         result = SkillExecutionResult(
             status=status,
+            execution_started=True,
             stdout=stdout,
             stderr=stderr,
             result=parse_result(stdout) if status is SkillExecutionStatus.SUCCEEDED else None,

@@ -19,7 +19,9 @@ from typing import Any
 from muad_contracts.platform_settings import (
     HISTORY_BUDGET_RESERVE_TOKENS,
     HISTORY_BUDGET_TOKENS_MAX,
+    MAX_IDENTICAL_FAILURES,
     MEMORY_SETTING_BOUNDS,
+    MIN_IDENTICAL_FAILURES,
     PlatformSettings,
     default_platform_settings,
 )
@@ -63,7 +65,11 @@ _FIELD_META: dict[str, dict[str, Any]] = {
     "agent.max_tool_calls": {"min": 0},
     "agent.deadline_ms": {"min": 1, "unit_key": "settings.unit.ms"},
     "agent.max_model_retries": {"min": 0},
-    "agent.max_identical_failures": {"min": 1, "max": 10},
+    "agent.max_identical_failures": {
+        "min": MIN_IDENTICAL_FAILURES,
+        "max": MAX_IDENTICAL_FAILURES,
+        "effect_key": "settings.effect.identical_failures",
+    },
     "task.default_deadline_hours": {"min": 1, "unit_key": "settings.unit.hours"},
     "task.execution_timeout_sec": {"effect_key": "settings.effect.task_execution_timeout"},
     "task.max_attempts": {"min": 1},

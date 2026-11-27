@@ -23,6 +23,7 @@ from muad_agent_core.agent import (
 from muad_agent_core.agent.continuation import ExecutionEventPort, RunnerCheckpoint
 from muad_agent_core.agent.runner import AgentRunResult, AgentRunStatus
 from muad_agent_core.context.plan import MessageOrigin, RunInput
+from muad_agent_core.failures import SKILL_NOT_EFFECTIVE, skill_not_effective_message
 from muad_agent_core.hooks import HookPipeline
 from muad_agent_core.model import (
     DeltaCallback,
@@ -365,9 +366,9 @@ def execution_defaults_for(request: ExecutorRequest) -> ExecutionDefaults:
 def agent_policy_for(request: ExecutorRequest) -> AgentPolicy:
     """执行期 AgentPolicy：平台设置（冻结后注入）为基，Agent runtime_config 覆盖优先级更高。
 
-    `execution.agent_policy` 由 Run 创建边界从平台设置快照冻结（四叶：`max_turns` /
-    `max_tool_calls` / `deadline_ms` / `max_model_retries`），经 `ExecutorRequest` 显式传入；
-    缺失时回落 schema 默认。
+    `execution.agent_policy` 由 Run 创建边界从平台设置快照冻结（五叶：`max_turns` /
+    `max_tool_calls` / `deadline_ms` / `max_model_retries` / `max_identical_failures`），
+    经 `ExecutorRequest` 显式传入；缺失时回落 schema 默认。
     """
     base = request.execution.agent_policy if request.execution is not None else AgentPolicy()
     return AgentPolicy.from_runtime_config(request.agent.runtime_config, base=base)
@@ -486,6 +487,8 @@ class _ExecutorEventEmitter:
             execution_mode=prepared.execution_mode,
             retry_safety=str(prepared.retry_safety),
             effect=prepared.effect,
+            write_targets=tuple(sorted(prepared.write_targets)),
+            write_operation_key=prepared.write_operation_key,
         ).model_dump(mode="json")
         await self.emit(ExecutorEvent(type=TOOL_STARTED_EVENT, data=data))
 
@@ -530,6 +533,8 @@ class _ExecutorEventEmitter:
             tool_call_id=completed.tool_call_id,
             tool_name=completed.tool_name,
             status=completed.status,
+            handler_entered=completed.handler_entered,
+            attempt=completed.attempt,
             outcome=ToolEventOutcome(
                 business_status=str(completed.outcome.business_status),
                 failure_layer=str(completed.outcome.failure_layer),
@@ -2664,15 +2669,18 @@ def _frozen_tool_policy(request: ExecutorRequest) -> Callable[[PreparedToolCall]
 
     def authorize(call: PreparedToolCall) -> ToolPolicyDecision:
         is_unified_skill = call.tool_name == "execute" and call.arguments.get("target") == "skill"
-        if call.tool_name in ("load_skill", "read_skill_resource", "execute_skill", "run_skill_script") or (
-            is_unified_skill
-        ):
+        if is_unified_skill or call.tool_name in ("load_skill", "read_skill_resource"):
             key = call.arguments.get("skill_key")
-            skill = skills.get(key) if isinstance(key, str) else None
+            if not isinstance(key, str) or not key.strip():
+                return ToolPolicyDecision(
+                    False, "skill_key must be a non-empty string", "COMMON_VALIDATION_ERROR",
+                )
+            key = key.strip()
+            skill = skills.get(key)
             if skill is None:
-                return ToolPolicyDecision(False, "Skill is not effective for this Run", "FORBIDDEN")
+                return ToolPolicyDecision(False, skill_not_effective_message(key), SKILL_NOT_EFFECTIVE)
             if (
-                (call.tool_name == "execute_skill" or is_unified_skill)
+                is_unified_skill
                 and skill.execution_mode.value == "SYNC"
                 and "completion_mode" in call.arguments
             ):

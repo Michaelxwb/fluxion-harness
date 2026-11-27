@@ -53,6 +53,7 @@ class SkillExecutionError(RuntimeError):
         detail: dict[str, object] | None = None,
         retryable: bool = False,
         platform_sessions: dict[str, object] | None = None,
+        outcome_known: bool = True,
     ) -> None:
         self.message = message
         self.code = code or message
@@ -61,6 +62,8 @@ class SkillExecutionError(RuntimeError):
         self.retryable = retryable
         #: 预登录/批量获取的逐平台最后报告；只含安全投影，不落盘。
         self.platform_sessions = platform_sessions
+        #: False = the execution boundary may have been crossed but the result is unknown.
+        self.outcome_known = outcome_known
         super().__init__(message)
 
 
@@ -174,6 +177,7 @@ class SkillExecutionResult:
     execution_status: SkillCallStatus | None = None
     business_conclusion: SkillBusinessConclusion | None = None
     result_error_code: str | None = None
+    execution_started: bool | None = None
 
 
 @dataclass(frozen=True, slots=True)

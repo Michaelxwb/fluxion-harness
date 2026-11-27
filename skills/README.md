@@ -14,6 +14,8 @@ zip 是**构建产物**，不进版本库：先跑 `./skills/package.sh`（无�
 | `smoke-platform-sample.zip` | `smoke_platform` 验证样例（健康检查、CSRF 业务接口、Traceid） |
 | `fake-platform-async-batch.zip` | ASYNC + BATCH 样例：读取 fake platform 目标，生成多个子任务，每个子任务产出 JSON/CSV |
 | `daily-duty-report-mssp-local.zip` | 每日值守日报手动验证：Smoke 测试平台 MSSP 端点，全资产/非全资产/空数据/场景 1-11，输出正文 + xlsx 附件 |
+| `weather-query.zip` | 只读天气查询样例：按城市调用 Open-Meteo 实时天气与 1–7 天预报，无需平台登录态 |
+| `mssp-asset-query-local.zip` | 本地 MSSP 资产查询夹具：客户资产 IP 明细、分页、关键字过滤与完整 CSV 导出；`9001` 提供 1200 条批量资产 |
 
 打包脚本：
 
@@ -38,6 +40,8 @@ Skill key 由 `SKILL.md` 的 `name` 生成，默认脚本取 manifest 的 `entry
 | `smoke-platform-sample` | 上表 zip 的源目录；本地端到端见 `tools/fake-business-platform/smoke_check.py` |
 | `fake-platform-async-batch` | ASYNC 批量报表样例；本地端到端见 `tools/fake-business-platform/services.sh async-batch` |
 | `daily-duty-report-mssp-local` | MSSP 日报手动验证源目录；fake 平台见 `tools/fake-business-platform` |
+| `weather-query` | 只读天气查询源目录；直接调用 Open-Meteo，不需要平台会话 |
+| `mssp-asset-query-local` | MSSP 资产查询源目录；需要 fake platform（18080），`9001` 为批量资产客户 |
 | `self-skill-creator` / `self-skill-review` / `self-skill-upload` | 自建 Skill 三件套源目录 |
 
 ## 自建 Skill 三件套说明

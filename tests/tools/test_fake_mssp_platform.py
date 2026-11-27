@@ -76,7 +76,7 @@ def test_ready_advertises_host_csrf_and_fixture_catalog() -> None:
         assert mssp["endpoints"]["company_list"] == PATH_COMPANY_LIST
         assert mssp["endpoints"]["xdr_alert_table"] == PATH_XDR_ALERT_TABLE
         companies = {row["company_id"] for row in mssp["companies"]}
-        assert {"1001", "1002", "1003", "1004"} <= companies
+        assert {"1001", "1002", "1003", "1004", "9001"} <= companies
         assert {f"21{index:02d}" for index in range(1, 12)} <= companies
 
 
@@ -362,6 +362,72 @@ def test_asset_device_and_whitelist_endpoints() -> None:
         assert whitelist["data"]["total"] == 1
         assert whitelist["data"]["list"][0]["online"] == 1
         assert whitelist["data"]["list"][0]["valid_time"] == REPORT_DATE
+
+
+def test_bulk_asset_fixture_supports_truncation_and_paging() -> None:
+    with running_mssp() as platform:
+        company = payload(platform.post(PATH_COMPANY_LIST, {"keyword": "9001"}))
+        assert company["data"]["total"] == 1
+        assert company["data"]["list"][0]["company_name"] == "批量资产客户"
+
+        first = payload(
+            platform.post(
+                PATH_ASSET_QUERY,
+                {"offset": 0, "limit": 50, "company_id": "9001"},
+                company_id="9001",
+            )
+        )
+        assert first["data"]["total"] == 1200
+        assert len(first["data"]["list"]) == 50
+        assert first["data"]["list"][0]["asset"] == "10.60.0.1"
+        assert first["data"]["list"][49]["asset"] == "10.60.0.50"
+
+        second = payload(
+            platform.post(
+                PATH_ASSET_QUERY,
+                {"offset": 50, "limit": 10, "company_id": "9001"},
+                company_id="9001",
+            )
+        )
+        assert second["data"]["list"][0]["asset"] == "10.60.0.51"
+
+        narrowed = payload(
+            platform.post(
+                PATH_ASSET_QUERY,
+                {
+                    "offset": 0,
+                    "limit": 10,
+                    "ip_url_keyword": "10.60.4.184",
+                    "company_id": "9001",
+                },
+                company_id="9001",
+            )
+        )
+        assert narrowed["data"]["total"] == 1
+        assert narrowed["data"]["list"][0]["asset"] == "10.60.4.184"
+
+
+def test_asset_page_fault_exposes_missing_and_duplicate_rows() -> None:
+    with running_mssp() as platform:
+        first = payload(
+            platform.post(
+                PATH_ASSET_QUERY,
+                {"offset": 0, "limit": 20, "company_id": "9002"},
+                company_id="9002",
+            )
+        )
+        assert first["data"]["total"] == 40
+        assert first["data"]["list"][0]["asset"] == first["data"]["list"][1]["asset"] == "10.70.0.1"
+        assert all(row["asset"] != "10.70.0.6" for row in first["data"]["list"])
+
+        second = payload(
+            platform.post(
+                PATH_ASSET_QUERY,
+                {"offset": 20, "limit": 20, "company_id": "9002"},
+                company_id="9002",
+            )
+        )
+        assert all(row["asset"] != "10.70.0.26" for row in second["data"]["list"])
 
 
 def test_threat_entity_modes_stats_and_object_filters() -> None:

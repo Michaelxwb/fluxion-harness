@@ -432,6 +432,47 @@ async def _inspect_limited_run(run_id: uuid.UUID) -> RunRecord:
 
 
 @pytest.mark.integration
+async def test_checkpoint_inherits_only_unverified_writes_in_the_same_tenant(client, tenant):
+    from muad_agent_core.agent.termination import FailureState
+    from muad_agent_runtime.application.execution_checkpoint import execution_checkpoint
+    from muad_agent_runtime.infrastructure.models.runtime import CanonicalEvent
+
+    response = await client.post("/v1/runs", json=_payload(tenant), headers=_headers(tenant))
+    assert response.status_code == 200
+    run_id = uuid.UUID(parse_sse(response.text)[0]["run_id"])
+    async with get_session_factory()() as session:
+        run = await session.get(RunRecord, run_id)
+        assert run is not None
+        prior_run = uuid.uuid4()
+        for seq, target, owner in (
+            (1000, "known", run.tenant_id),
+            (1002, "unknown", run.tenant_id),
+            (1004, "foreign", "other-tenant"),
+        ):
+            common = dict(tenant_id=owner, conversation_id=run.conversation_id, run_id=prior_run)
+            session.add(CanonicalEvent(
+                **common, seq=seq, event_type="TOOL_CALL", payload_json={
+                    "state": "STARTED", "tool_call_id": target, "name": "execute", "effect": "EXTERNAL",
+                    "retry_safety": "NON_RETRYABLE", "write_targets": [target],
+                },
+            ))
+            session.add(CanonicalEvent(
+                **common, seq=seq + 1, event_type="TOOL_CALL", payload_json={
+                    "state": "COMPLETED", "tool_call_id": target, "handler_entered": True,
+                    "outcome": {"failure_layer": "TOOL" if target == "known" else "NONE",
+                                "outcome_known": target == "known"},
+                },
+            ))
+        session.expunge(run)
+        await session.commit()
+
+    run.lease_owner = "recovery-test"
+    restored, _, _ = await execution_checkpoint(get_session_factory(), run)
+
+    assert FailureState.from_payload(restored.failure_state).unknown_write_targets == {"unknown"}
+
+
+@pytest.mark.integration
 async def test_window_limited_chat_completes_and_recovers_with_registered_output(client, tenant, tmp_path):
     from muad_agent_core.agent import AgentRunRequest
     from muad_agent_runtime.application.execution_checkpoint import execution_checkpoint

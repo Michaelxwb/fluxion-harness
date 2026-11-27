@@ -1,0 +1,7 @@
+{
+  "name": "uat-fail-retryable",
+  "author": "fluxion-harness",
+  "description": "B-02 阈值对照夹具：稳定返回可重试失败。",
+  "version": "1.0.0",
+  "entrypoint": "scripts/run.py"
+}

@@ -39,11 +39,15 @@ class McpToolError(RuntimeError):
         retryable: bool = False,
         status_code: int | None = None,
         retry_after: str | None = None,
+        sent: bool = False,
+        outcome_known: bool = True,
     ) -> None:
         self.code, self.detail = code, detail
         self.retryable = retryable
         self.status_code = status_code
         self.retry_after = retry_after
+        self.sent = sent
+        self.outcome_known = outcome_known
         super().__init__(f"{code}: {detail}")
 
 
@@ -124,11 +128,14 @@ class McpToolBox:
                 retryable=exc.retryable,
                 status_code=exc.status_code,
                 retry_after=exc.retry_after,
+                sent=exc.sent,
+                outcome_known=exc.outcome_known,
             ) from exc
         if result.artifacts and self._artifact_writer is None:
             raise McpToolError(
                 "MCP_ARTIFACT_UNAVAILABLE",
                 "MCP media requires an artifact writer",
+                sent=True,
             )
         return result
 

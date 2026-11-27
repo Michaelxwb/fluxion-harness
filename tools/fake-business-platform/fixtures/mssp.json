@@ -27,6 +27,23 @@
     "assets": []
   },
   "companies": {
+    "9001": {
+      "name": "批量资产客户",
+      "full_asset": true,
+      "logs": {"network": 0, "endpoint": 0},
+      "events": [],
+      "alerts": {"default": {"count": 0}},
+      "asset_bulk": {"count": 1200, "prefix": "10.60"}
+    },
+    "9002": {
+      "name": "分页异常客户",
+      "full_asset": true,
+      "logs": {"network": 0, "endpoint": 0},
+      "events": [],
+      "alerts": {"default": {"count": 0}},
+      "asset_bulk": {"count": 40, "prefix": "10.70"},
+      "asset_page_fault": {"duplicate_offset": 0, "drop_positions": [5, 25]}
+    },
     "1001": {
       "name": "华东制造集团",
       "full_asset": true,

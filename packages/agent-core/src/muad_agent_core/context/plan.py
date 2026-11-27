@@ -26,6 +26,7 @@ class MessageOrigin(StrEnum):
     TOOL = "TOOL"
     SUMMARY = "SUMMARY"
     MEMORY = "MEMORY"
+    PREVIOUS_EXCHANGE = "PREVIOUS_EXCHANGE"
     UNKNOWN = "UNKNOWN"
 
 
@@ -94,7 +95,7 @@ def plan_context(
     kept: list[Group] = []
     omitted: list[str] = []
     used = 0
-    for index in sorted(pinned_indexes, key=lambda value: _pinned_order(value, current_index)):
+    for index in sorted(pinned_indexes, key=lambda value: _pinned_order(value, current_index, groups)):
         group = groups[index]
         size = history_bytes(group)
         if budget > 0 and kept and used + size > budget:
@@ -102,7 +103,7 @@ def plan_context(
             continue
         kept.append(group)
         used += size
-    pinned_groups = tuple(kept)
+    pinned_groups = tuple(sorted(kept, key=lambda group: not _is_previous_exchange(group)))
     material_end = _material_end_seq(
         older_groups,
         covered_seq=covered_seq,
@@ -211,6 +212,8 @@ def _pinned_indexes(
         indexes.add(current_index)
     latest: dict[str, int] = {}
     for index, group in enumerate(groups):
+        if _is_previous_exchange(group):
+            indexes.add(index)
         for message in group:
             for call in message.tool_calls:
                 if call.name == "load_skill":
@@ -221,10 +224,16 @@ def _pinned_indexes(
     return indexes
 
 
-def _pinned_order(index: int, current_index: int | None) -> int:
+def _pinned_order(index: int, current_index: int | None, groups: Sequence[Group]) -> tuple[int, int]:
     if current_index is not None and index == current_index:
-        return -1
-    return index
+        return (0, index)
+    if _is_previous_exchange(groups[index]):
+        return (1, index)
+    return (2, index)
+
+
+def _is_previous_exchange(group: Group) -> bool:
+    return any(message.origin == MessageOrigin.PREVIOUS_EXCHANGE for message in group)
 
 
 def _flatten(groups: Sequence[Group]) -> tuple[ModelMessage, ...]:

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
+from muad_contracts.platform_settings import MIN_IDENTICAL_FAILURES
+
 from ..tools.outcome import (
     FAILURE_STATUSES,
     AgentDisposition,
@@ -39,6 +41,8 @@ class FailureSignal:
     occurred_at: str = ""
     attempt: str | None = None
     external_started: bool = False
+    write_targets: frozenset[str] = frozenset()
+    write_operation_key: str | None = None
     review_progress: tuple[str, int, int] | None = None
 
 
@@ -55,6 +59,63 @@ def failure_scope(tool: str, *, skill_key: str | None = None, skill_id: object =
 
 def attempt_identity(scope: str, args_hash: str) -> str:
     return f"{scope}:{args_hash}"
+
+
+#: Only for data that predates namespaced targets. New writes always carry a bounded target.
+UNKNOWN_WRITE_TARGET = "*"
+
+
+def overlaps_unknown_write(unknown: frozenset[str], targets: frozenset[str]) -> bool:
+    return bool(unknown and (UNKNOWN_WRITE_TARGET in unknown or unknown & targets))
+
+
+def has_unverified_write(
+    state: FailureState,
+    targets: frozenset[str],
+    operation_key: str | None,
+    *,
+    fallback_target: str,
+    retry_safety: str = "NON_RETRYABLE",
+) -> bool:
+    bounded_targets = targets or frozenset({fallback_target})
+    if overlaps_unknown_write(state.unknown_write_targets, bounded_targets):
+        return True
+    if operation_key is not None:
+        if operation_key not in state.unknown_write_operations:
+            return False
+        # An idempotent operation may safely repeat with the same host-owned key.
+        return retry_safety != "IDEMPOTENT"
+    return any(
+        overlaps_unknown_write(unknown, bounded_targets)
+        for unknown in state.unknown_write_operations.values()
+    )
+
+
+def record_unverified_write(
+    state: FailureState,
+    targets: frozenset[str],
+    operation_key: str | None,
+    *,
+    fallback_target: str,
+) -> FailureState:
+    bounded_targets = targets or frozenset({fallback_target})
+    if operation_key is None:
+        return replace(state, unknown_write_targets=state.unknown_write_targets | bounded_targets)
+    previous = state.unknown_write_operations.get(operation_key, frozenset())
+    return replace(state, unknown_write_operations={
+        **state.unknown_write_operations, operation_key: previous | bounded_targets,
+    })
+
+
+def clear_unverified_write(state: FailureState, operation_key: str | None) -> FailureState:
+    if operation_key is None or operation_key not in state.unknown_write_operations:
+        return state
+    return replace(
+        state,
+        unknown_write_operations={
+            key: value for key, value in state.unknown_write_operations.items() if key != operation_key
+        },
+    )
 
 
 def is_hard_tool_failure(failure: FailureEvidence) -> bool:
@@ -77,6 +138,13 @@ def update_failure_state(
         return state
     if state.no_progress and state.last_failure is not None and is_hard_tool_failure(state.last_failure):
         return state
+    if signal.external_started and not signal.outcome_known:
+        state = record_unverified_write(
+            state,
+            signal.write_targets,
+            signal.write_operation_key,
+            fallback_target=f"tool:{signal.tool}",
+        )
     if signal.business_status in FAILURE_STATUSES:
         evidence = _evidence(signal)
         if is_hard_tool_failure(evidence):
@@ -85,19 +153,21 @@ def update_failure_state(
         return _review_progress(state, signal, max_identical_failures=max_identical_failures)
     status = signal.business_status
     if status not in FAILURE_STATUSES or signal.failure_layer == FailureLayer.NONE:
-        if status == BusinessStatus.SUCCEEDED:
+        if (
+            status in {BusinessStatus.SUCCEEDED, BusinessStatus.NOT_APPLICABLE}
+            and signal.failure_layer == FailureLayer.NONE and signal.outcome_known
+        ):
             counts = {
                 key: count for key, count in state.identical_failures.items()
                 if not key.startswith(signal.tool + ":")
             }
+            state = clear_unverified_write(state, signal.write_operation_key)
             return replace(state, identical_failures=counts)
         return state
 
     blocked = state.blocked_attempts
     if not signal.retryable and signal.attempt is not None:
         blocked = blocked | {signal.attempt}
-    if signal.external_started:
-        state = replace(state, external_blocked=True)
     state = replace(state, blocked_attempts=blocked)
     key_code = signal.error_code or "TOOL_FAILED"
     if key_code == "TOOL_RETRY_UNSAFE":
@@ -140,7 +210,7 @@ def _count_failure(
     counts[key] = counts.get(key, 0) + 1
     return replace(
         state, last_failure=evidence, identical_failures=counts,
-        no_progress=state.no_progress or counts[key] >= max(2, max_identical_failures),
+        no_progress=state.no_progress or counts[key] >= max(MIN_IDENTICAL_FAILURES, max_identical_failures),
     )
 
 
@@ -159,4 +229,14 @@ def _review_progress(
     return _count_failure(state, evidence, key=key, max_identical_failures=max_identical_failures)
 
 
-__all__ = ["FailureSignal", "attempt_identity", "failure_scope", "is_effectful", "update_failure_state"]
+__all__ = [
+    "FailureSignal",
+    "attempt_identity",
+    "clear_unverified_write",
+    "failure_scope",
+    "has_unverified_write",
+    "is_effectful",
+    "overlaps_unknown_write",
+    "record_unverified_write",
+    "update_failure_state",
+]

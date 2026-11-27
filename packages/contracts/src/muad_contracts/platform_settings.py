@@ -36,6 +36,8 @@ TASK_EXECUTION_TIMEOUT_MAX_SEC = 18000
 HISTORY_BUDGET_TOKENS_MAX = 131072
 #: 预算之外必须留给系统提示、工具目录、摘要前缀与模型输出的保守预留。
 HISTORY_BUDGET_RESERVE_TOKENS = 4096
+MIN_IDENTICAL_FAILURES = 2
+MAX_IDENTICAL_FAILURES = 10
 
 
 class PlatformSettingsError(ValueError):
@@ -85,8 +87,8 @@ class AgentSettings:
     deadline_ms: int = 3_600_000
     max_model_retries: int = 3
     #: 同一 (工具, 错误码) 连续失败达到该次数即停止 Run：防止模型对确定性失败反复尝试，
-    #: 让用户误以为卡住。任一工具成功会清零计数。
-    max_identical_failures: int = 2
+    #: 让用户误以为卡住。成功的同一工具调用清零计数。
+    max_identical_failures: int = MIN_IDENTICAL_FAILURES
 
 
 @dataclass(frozen=True, slots=True)
@@ -668,9 +670,11 @@ def _validate_agent(agent: AgentSettings) -> None:
     _at_least("agent.deadline_ms", agent.deadline_ms, 1)
     _at_least("agent.max_model_retries", agent.max_model_retries, 0)
     # 上限 10：阈值过大等于没有刹车，用户仍会长时间等待"卡住"的 Run。
-    _at_least("agent.max_identical_failures", agent.max_identical_failures, 1)
-    if agent.max_identical_failures > 10:
-        raise PlatformSettingsError("agent.max_identical_failures 必须 ≤ 10")
+    _at_least("agent.max_identical_failures", agent.max_identical_failures, MIN_IDENTICAL_FAILURES)
+    if agent.max_identical_failures > MAX_IDENTICAL_FAILURES:
+        raise PlatformSettingsError(
+            f"agent.max_identical_failures 必须 ≤ {MAX_IDENTICAL_FAILURES}"
+        )
 
 
 def _validate_task(task: TaskSettings, batch_platform_limit: int | None) -> None:
@@ -901,6 +905,8 @@ __all__ = [
     "RECALL_MAX_LIMIT",
     "HISTORY_BUDGET_TOKENS_MAX",
     "HISTORY_BUDGET_RESERVE_TOKENS",
+    "MAX_IDENTICAL_FAILURES",
+    "MIN_IDENTICAL_FAILURES",
     "MIN_PASSWORD_LENGTH_FLOOR",
     "AgentSettings",
     "ArtifactSettings",

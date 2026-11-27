@@ -296,6 +296,7 @@ def skill_result_facts(result: SkillExecutionResult) -> dict[str, Any]:
         ),
         "error_code": result.result_error_code,
         "exit_code": result.exit_code,
+        "execution_started": result.execution_started,
     }
 
 

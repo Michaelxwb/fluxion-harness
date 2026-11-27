@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from muad_agent_core.agent.failure import FailureSignal, update_failure_state
+from muad_agent_core.agent.failure import (
+    FailureSignal,
+    has_unverified_write,
+    overlaps_unknown_write,
+    update_failure_state,
+)
 from muad_agent_core.agent.termination import FailureState
 
 
@@ -74,3 +79,83 @@ def test_no_business_outcome_does_not_reset_failures() -> None:
     assert updated.identical_failures == state.identical_failures
     assert updated.no_progress is False
     assert updated.last_failure is not None
+
+
+def test_unknown_business_outcome_retains_unverified_write_target() -> None:
+    signal = FailureSignal(
+        tool="execute", business_status="UNKNOWN", outcome_known=False,
+        external_started=True, write_targets=frozenset({"platform:a"}),
+    )
+
+    state = update_failure_state(FailureState(), signal, max_identical_failures=2)
+
+    restored = FailureState.from_payload(state.as_payload())
+    assert overlaps_unknown_write(restored.unknown_write_targets, frozenset({"platform:a"}))
+    assert not overlaps_unknown_write(restored.unknown_write_targets, frozenset())
+    assert not overlaps_unknown_write(restored.unknown_write_targets, frozenset({"platform:b"}))
+    assert not restored.no_progress
+
+
+def test_normal_load_skill_result_clears_the_tool_failure_counter() -> None:
+    refused = FailureSignal(tool="load_skill", business_status="DENIED", failure_layer="TOOL")
+    state = update_failure_state(FailureState(), refused, max_identical_failures=2)
+
+    state = update_failure_state(state, FailureSignal(tool="load_skill"), max_identical_failures=2)
+
+    assert not state.identical_failures
+
+
+def test_trusted_operation_identity_takes_precedence_over_the_target() -> None:
+    targets = frozenset({"platform:a"})
+    signal = FailureSignal(
+        tool="write", business_status="UNKNOWN", outcome_known=False,
+        external_started=True, write_targets=targets, write_operation_key="order:42",
+    )
+
+    state = update_failure_state(FailureState(), signal, max_identical_failures=2)
+    restored = FailureState.from_payload(state.as_payload())
+
+    assert has_unverified_write(
+        restored, targets, "order:42", fallback_target="tool:write"
+    )
+    assert has_unverified_write(restored, targets, None, fallback_target="tool:write")
+    assert not has_unverified_write(
+        restored, targets, "order:43", fallback_target="tool:write"
+    )
+    assert not has_unverified_write(
+        restored,
+        targets,
+        "order:42",
+        fallback_target="tool:write",
+        retry_safety="IDEMPOTENT",
+    )
+
+
+def test_trusted_success_clears_the_same_operation_key() -> None:
+    targets = frozenset({"platform:a"})
+    state = update_failure_state(
+        FailureState(),
+        FailureSignal(
+            tool="write",
+            business_status="UNKNOWN",
+            outcome_known=False,
+            external_started=True,
+            write_targets=targets,
+            write_operation_key="order:42",
+        ),
+        max_identical_failures=2,
+    )
+
+    state = update_failure_state(
+        state,
+        FailureSignal(
+            tool="write",
+            business_status="SUCCEEDED",
+            write_targets=targets,
+            write_operation_key="order:42",
+        ),
+        max_identical_failures=2,
+    )
+
+    assert not state.unknown_write_operations
+    assert state.unknown_write_targets == frozenset()

@@ -49,3 +49,5 @@ class PreparedCall:
     execution_mode: str | None = None
     retry_safety: ToolRetrySafety = DEFAULT_TOOL_RETRY_SAFETY
     effect: str = "EXTERNAL"
+    write_targets: frozenset[str] = frozenset()
+    write_operation_key: str | None = None

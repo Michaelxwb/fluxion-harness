@@ -180,7 +180,7 @@ PLATFORM_WECOM_WRITE=1 ./tools/fake-business-platform/services.sh restart platfo
 | POST | `/gateway/event-mgr/external/event_table/event` | 事件详情 |
 | POST | `/gateway/event-mgr/external/event_grading_type` | 风险等级 facet（带分页参数 → 9064） |
 | POST | `/gateway/event-mgr/external/manage_type` | 一级场景 facet（带 `manage_type` → 9064） |
-| POST | `/gateway/asset-mgr-service/order/v1/asset` | 资产台账（`first_time` 毫秒窗口） |
+| POST | `/gateway/asset-mgr-service/order/v1/asset` | 资产台账（`offset`/`limit`、`keyword`/`ip_url_keyword`、`first_time` 毫秒窗口；`9001` 支持批量资产） |
 | POST | `/gateway/customer-mgr-service/order/v1/branch/dev` | 组件清单（`type`/`status`） |
 | POST | `/order/v1/whitelist/alert_filter_list` | 白名单（`valid_time` 毫秒窗口） |
 | GET | `/gateway/api-proxy/api/apex/linkage/v1/autodispose/config/getresponsemode` | security / mock / disabled 三态 |
@@ -197,10 +197,19 @@ PLATFORM_WECOM_WRITE=1 ./tools/fake-business-platform/services.sh restart platfo
 | `1002` | 非全资产；日志 400；告警 8（持平）；有效事件 5；mock 威胁实体 |
 | `1003` | 空数据：计数/事件/实体全 0，报告仍可生成 |
 | `1004` | 智能对抗未开通（disabled） |
+| `9001` | 批量资产客户：`asset_bulk` 生成 1200 条确定性资产，用于截断、分页和完整 CSV 导出 |
 | `2101`..`2111` | 场景 1-11：新增资产/组件、原有/新增攻击源、平稳、类型变化、组件离线、新增白名单、下降、上期为零、原因不足 |
 
 fixtures 的 `report_date` 固定为 `2026-11-18`（上期 `2026-11-17`）。场景 1/2 的
 资产 `first_time`、组件 `create_time` 也落在该日，便于确定性断言。
+
+批量资产用 `asset_bulk` 声明，避免在 JSON 里写上千行：
+
+```json
+"asset_bulk": {"count": 1200, "prefix": "10.60"}
+```
+
+服务启动/查询时按 `prefix.<third>.<fourth>` 确定性展开；`9001` 使用该配置。
 
 ### 控制面（测试用）
 

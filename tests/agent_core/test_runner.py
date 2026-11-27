@@ -33,6 +33,7 @@ from muad_agent_core.model import (
     text_of,
 )
 from muad_agent_core.tools import (
+    PreparedToolCall,
     ToolCall,
     ToolConcurrency,
     ToolDefinition,
@@ -582,6 +583,11 @@ async def test_asyncio_cancellation_propagates() -> None:
         await task
 
 
+def test_agent_policy_rejects_threshold_below_shared_minimum() -> None:
+    with pytest.raises(ValueError, match="max_identical_failures"):
+        AgentPolicy(max_identical_failures=1)
+
+
 def test_policy_from_runtime_config_reads_valid_overrides() -> None:
     policy = AgentPolicy.from_runtime_config(
         {"max_turns": 5, "max_tool_calls": True, "deadline_ms": "soon", "max_model_retries": 0}
@@ -1002,6 +1008,35 @@ async def test_failure_explanation_can_read_tool_fact_without_reissuing_calls() 
     assert result.last_failure["code"] == "TOOL_RETRY_UNSAFE"
 
 
+@pytest.mark.parametrize("known", [True, False])
+async def test_write_retry_gate_uses_result_and_frozen_target(known: bool) -> None:
+    invoked: list[str] = []
+
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        invoked.append(call.name)
+        if call.name == "first":
+            raise ToolError("FORBIDDEN", "write failed", retryable=True, sent=not known, outcome_known=known)
+        return ToolResult("completed")
+
+    registry = ToolRegistry()
+    for name, target in [("first", "a"), ("alias", "a"), ("independent", "b")]:
+        registry.register(ToolDefinition(
+            name, name, {"type": "object"}, ToolEffect.WRITE, handler,
+            write_targets=lambda _arguments, target=target: frozenset({target}),
+        ))
+    provider = ScriptedModelProvider([
+        _tool_call("c1", "first", {"timeout_sec": 10}),
+        _tool_call("c2", "alias", {"timeout_sec": 20}),
+        _tool_call("c3", "independent"),
+        _text("done"),
+    ])
+
+    result = await AgentRunner(provider=provider, registry=registry).run(_request())
+
+    assert result.status is AgentRunStatus.COMPLETED
+    assert invoked == (["first", "alias", "independent"] if known else ["first", "independent"])
+
+
 async def test_hard_tool_budget_stop_skips_failure_explanation() -> None:
     provider = ScriptedModelProvider([_tool_call("c1", "failing", {"code": "LOCAL_BUDGET_EXHAUSTED"})])
     registry = ToolRegistry()
@@ -1039,6 +1074,33 @@ async def test_unusable_failure_explanation_falls_back_without_dispatch(
     assert not calls
 
 
+async def test_policy_denied_shape_is_gated_before_policy_runs_again() -> None:
+    decisions = 0
+
+    def policy(_call: PreparedToolCall) -> ToolPolicyDecision:
+        nonlocal decisions
+        decisions += 1
+        return ToolPolicyDecision(False, "该工具被策略拒绝", "POLICY_DENIED")
+
+    provider = ScriptedModelProvider([
+        _tool_call("c1", "echo", {"text": "x"}),
+        _tool_call("c2", "echo", {"text": "x"}),
+        _text("Denied."),
+    ])
+    registry = ToolRegistry()
+    _echo_tool(registry, [])
+    pipeline = ToolExecutionPipeline(registry=registry, policy=policy)
+
+    result = await AgentRunner(
+        provider=provider, registry=registry, tool_pipeline=pipeline
+    ).run(_request())
+
+    assert decisions == 1, "second identical call must be blocked before policy"
+    assert result.status is AgentRunStatus.COMPLETED
+    assert result.last_failure is not None
+    assert result.last_failure["code"] == "TOOL_RETRY_UNSAFE"
+
+
 async def test_policy_denied_tool_gets_a_structured_failure() -> None:
     """策略拒绝（canonical status=BLOCKED）必须记结构化失败：工具名 + 错误码。"""
     provider = ScriptedModelProvider([_tool_call("c1", "echo", {"text": "x"}), _text("Denied.")])
@@ -1051,7 +1113,7 @@ async def test_policy_denied_tool_gets_a_structured_failure() -> None:
 
     result = await AgentRunner(
         provider=provider, registry=registry, tool_pipeline=pipeline
-    ).run(_request(AgentPolicy(max_identical_failures=1)))
+    ).run(_request(AgentPolicy(max_identical_failures=2)))
 
     assert result.status is AgentRunStatus.COMPLETED
     assert result.last_failure is not None

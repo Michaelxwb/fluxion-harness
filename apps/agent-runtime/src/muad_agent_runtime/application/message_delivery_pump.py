@@ -54,6 +54,7 @@ from .message_delivery import (
     MESSAGE_DEGRADED,
     MESSAGE_DELIVERED,
     MESSAGE_FAILED,
+    MESSAGE_KIND_HUMAN_QUESTION,
     MESSAGE_PENDING,
     MESSAGE_UNKNOWN,
     MessageDeliveryConfirmation,
@@ -426,7 +427,9 @@ class GatewayMessageDeliverySender:
                 for attachment in payload.attachments
                 if attachment.artifact_id is not None
             ],
-            message_id=intent.message_id,
+            # A human question is an independent message to the original conversation.
+            # The connector drops ordinary text addressed to an already finished reply stream.
+            message_id=None if intent.kind == MESSAGE_KIND_HUMAN_QUESTION else intent.message_id,
             delivery_attempt_id=attempt_id,
             delivery_epoch=lease_epoch,
             target_key=intent.target_key,

@@ -27,13 +27,10 @@ CLI_SCRIPT = (
 ARGV = ["--company-id", "123", "--company-id", "456", "--start", "2026-11-07 10:00", "--notify-no-event"]
 
 
-@pytest.mark.parametrize("tool", ["execute_skill", "run_skill_script"])
-async def test_tools_run_unmodified_cli_scripts(tmp_path: Path, tool: str) -> None:
+async def test_tools_run_unmodified_cli_scripts(tmp_path: Path) -> None:
     env = _env_for(tmp_path, {"SKILL.md": SKILL_MD, "scripts/main.py": CLI_SCRIPT})
     arguments = {"skill_key": env.skill.key, "argv": ARGV, "input": {"unrelated": "stdin"}}
-    if tool == "run_skill_script":
-        arguments["script"] = "main.py"
-    result = await _call(env.registry, tool, arguments)
+    result = await _call(env.registry, "execute_skill", arguments)
     assert result["status"] == "SUCCEEDED", result
     assert result["result"] == {
         "args": {"company_id": ["123", "456"], "start": "2026-11-07 10:00", "notify_no_event": True},
@@ -41,11 +38,10 @@ async def test_tools_run_unmodified_cli_scripts(tmp_path: Path, tool: str) -> No
     }
 
 
-@pytest.mark.parametrize("tool", ["execute_skill", "run_skill_script"])
 @pytest.mark.parametrize("argv", [None, "--company-id 123", [123], ["bad\0argument"]])
-async def test_tool_rejects_invalid_argv_before_execution(tmp_path: Path, tool: str, argv: object) -> None:
+async def test_tool_rejects_invalid_argv_before_execution(tmp_path: Path, argv: object) -> None:
     env = _env_for(tmp_path, {"SKILL.md": SKILL_MD, "scripts/main.py": "raise RuntimeError('executed')"})
-    result = await _call(env.registry, tool, {"skill_key": env.skill.key, "script": "main.py", "argv": argv})
+    result = await _call(env.registry, "execute_skill", {"skill_key": env.skill.key, "argv": argv})
     assert result["error"]["code"] == "COMMON_VALIDATION_ERROR"
 
 

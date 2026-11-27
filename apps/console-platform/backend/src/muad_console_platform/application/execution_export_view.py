@@ -149,6 +149,39 @@ def _summary(bundle: ExecutionExportBundle, diagnosis: Diagnosis) -> dict[str, A
     }
 
 
+def _runtime_budget(raw_policy: object) -> dict[str, int | bool | None]:
+    policy = _mapping(raw_policy)
+    compaction = _mapping(policy.get("compaction"))
+    summary = _mapping(compaction.get("summary"))
+    enabled = summary.get("enabled")
+    threshold = _mapping(compaction.get("tool_result")).get("persist_threshold_bytes")
+    values = {
+        **{key: policy.get(key) for key in (
+            "max_turns", "max_tool_calls", "deadline_ms", "max_model_retries", "max_identical_failures",
+        )},
+        "history_budget_tokens": compaction.get("history_budget_tokens"),
+        "persist_threshold_bytes": threshold,
+    }
+    return {
+        **{key: value if type(value) is int else None for key, value in values.items()},
+        "summary_enabled": enabled if isinstance(enabled, bool) else None,
+        "summary_model_frozen": bool(policy.get("summary_model")) if isinstance(enabled, bool) else None,
+    }
+
+
+def _task_budget(raw_budget: object) -> dict[str, int | bool | None]:
+    budget = _mapping(raw_budget)
+    values = {
+        "max_turns": budget.get("max_steps"),
+        "max_tool_calls": budget.get("max_tool_calls"),
+        "deadline_ms": budget.get("deadline_ms"),
+        "max_model_retries": budget.get("max_model_retries"),
+        "max_identical_failures": budget.get("max_identical_failures"),
+        "execution_timeout_sec": budget.get("execution_timeout_sec"),
+    }
+    return {key: value if type(value) is int else None for key, value in values.items()}
+
+
 def _execution(bundle: ExecutionExportBundle) -> dict[str, Any]:
     record = bundle.record
     kind = bundle.kind
@@ -171,6 +204,7 @@ def _execution(bundle: ExecutionExportBundle) -> dict[str, Any]:
                 "prompt_template_version": snapshot_value.get("prompt_template_version"),
                 "mcp_catalog_revision": snapshot_value.get("mcp_catalog_revision"),
                 "mcp_catalog_hash": snapshot_value.get("mcp_catalog_hash"),
+                "effective_budget": _task_budget(snapshot_value.get("budget")),
             }
     elif snapshot_rows:
         row = snapshot_rows[0]
@@ -188,6 +222,7 @@ def _execution(bundle: ExecutionExportBundle) -> dict[str, Any]:
             "prompt_template_version": row.get("prompt_template_version"),
             "mcp_catalog_revision": mcp.get("revision"),
             "mcp_catalog_hash": mcp.get("hash"),
+            "effective_budget": _runtime_budget(row.get("policy_json")),
         }
     start = record.get("started_at") if task else record.get("start_time")
     end = record.get("end_time") or record.get("finished_at")

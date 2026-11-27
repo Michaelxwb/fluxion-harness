@@ -14,6 +14,8 @@ from muad_agent_core.sandbox import (
     SandboxPolicy,
     SandboxProfile,
     SandboxResult,
+    SandboxTimeout,
+    SandboxUnavailable,
     WorkspaceLayout,
     WorkspaceLeaseRecord,
     WorkspaceShellRunner,
@@ -146,7 +148,37 @@ def test_workspace_shell_is_registered_for_agent_without_skills(tmp_path) -> Non
     assert definition.input_schema["additionalProperties"] is False
     assert definition.input_schema["required"] == ["target"]
     properties = definition.input_schema["properties"]
-    assert {"target", "command", "platforms", "skill_key", "draft_id"} <= set(properties)
+    assert set(properties) == {"target", "command", "platforms", "cwd", "timeout_sec"}
+    assert properties["target"]["enum"] == ["workspace"]
+
+
+class _FailingRunner:
+    def __init__(self, error: Exception) -> None:
+        self._error = error
+
+    async def run(self, _request):
+        raise self._error
+
+
+@pytest.mark.parametrize(
+    ("error", "known"),
+    [
+        (SandboxTimeout("timeout", result=SandboxResult(None, "partial", "timeout", 10)), False),
+        (SandboxUnavailable("termination not confirmed", started=True), False),
+        (SandboxUnavailable("runner missing"), True),
+    ],
+)
+async def test_workspace_shell_propagates_execution_boundary_facts(
+    tmp_path, error: Exception, known: bool
+) -> None:
+    tool_set, _ = _tool_set(tmp_path, _MemoryMetadata())
+    tool_set._workspace_shell = _FailingRunner(error)  # type: ignore[assignment]
+
+    payload = await _invoke_execute(
+        tool_set, {"target": "workspace", "command": "true"}, "call-boundary"
+    )
+
+    assert payload["error"].get("outcome_known", True) is known
 
 
 async def _invoke_execute(tool_set, arguments, call_id):

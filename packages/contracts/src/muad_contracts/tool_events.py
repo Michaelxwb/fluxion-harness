@@ -84,6 +84,8 @@ class PreparedCallEvent(_ToolEventModel):
     execution_mode: str | None = None
     retry_safety: str
     effect: str = "EXTERNAL"
+    write_targets: tuple[str, ...] = ()
+    write_operation_key: str | None = None
 
 
 class ToolCompletedEvent(_ToolEventModel):
@@ -96,6 +98,8 @@ class ToolCompletedEvent(_ToolEventModel):
     content: str
     artifacts: list[ToolEventArtifact] = Field(default_factory=list)
     follow_ups: list[ToolEventFollowUp] = Field(default_factory=list)
+    handler_entered: bool | None = None
+    attempt: str | None = None
 
 
 __all__ = [

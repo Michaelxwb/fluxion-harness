@@ -271,7 +271,15 @@ export function streamingReply(
   };
 }
 
-/** Do not render the replayed text again when its later, durable message is already visible. */
+/**
+ * Do not render the replayed text again when the durable message is already visible.
+ *
+ * `>=` (not `>`): an assistant message that stopped the run for input is both the
+ * latest canonical message and the replayed streaming body. The history copy already
+ * carries the same seq; treating it as "later" would duplicate the question after a
+ * refresh. A truly newer message still advances past the reply seq and drops the
+ * stale streaming text.
+ */
 export function withoutPersistedReply(
   reply: StreamingReplyProps | null,
   history: readonly WebchatHistoryMessage[]
@@ -280,7 +288,7 @@ export function withoutPersistedReply(
   const { replySeq, runId, text } = reply;
   return history.some(
     (message) => message.run_id === runId && message.role === 'ASSISTANT' &&
-      message.seq > replySeq && message.text === text
+      message.seq >= replySeq && message.text === text
   ) ? { ...reply, text: '' } : reply;
 }
 

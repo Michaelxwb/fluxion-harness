@@ -208,7 +208,9 @@ def _signal_group(process: asyncio.subprocess.Process, sig: int) -> None:
     except ProcessLookupError:
         return
     except OSError as exc:
-        raise SandboxUnavailable("sandbox process group signal failed") from exc
+        raise SandboxUnavailable(
+            "sandbox process group signal failed", started=True
+        ) from exc
 
 
 async def _terminate(process: asyncio.subprocess.Process, wait_task: asyncio.Task[int]) -> None:
@@ -224,7 +226,9 @@ async def _terminate(process: asyncio.subprocess.Process, wait_task: asyncio.Tas
     try:
         await asyncio.wait_for(asyncio.shield(wait_task), TERMINATE_GRACE_SEC)
     except TimeoutError:
-        raise SandboxUnavailable("sandbox termination not confirmed") from None
+        raise SandboxUnavailable(
+            "sandbox termination not confirmed", started=True
+        ) from None
 
 
 async def _drain(task: asyncio.Task[None]) -> None:

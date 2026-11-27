@@ -269,8 +269,8 @@ def snapshot_policy(
 ) -> dict[str, Any]:
     """Run 侧 execution snapshot 的执行期策略——`policy_json` 的唯一构建口径。
 
-    `agent` 分组四叶（`max_turns` / `max_tool_calls` / `deadline_ms` / `max_model_retries`，见
-    ADR-07）、完整 `memory` 分组、`artifact.max_archive_files`、`locale.default_locale` /
+    `agent` 分组五叶（`max_turns` / `max_tool_calls` / `deadline_ms` / `max_model_retries` /
+    `max_identical_failures`）、完整 `memory` 分组、`artifact.max_archive_files`、`locale.default_locale` /
     `locale.default_timezone`、`task.execution_timeout_sec` 与压缩配置一并冻结在这里：配置变更
     只影响后续新 Run，在飞的 Run 用的是它自己那一份冻结值
     （`harness-snapshot#RULE-snapshot-001` 的"Run 侧等价载体"）。
@@ -305,6 +305,7 @@ def snapshot_policy(
         "max_tool_calls": agent.max_tool_calls,
         "deadline_ms": agent.deadline_ms,
         "max_model_retries": agent.max_model_retries,
+        "max_identical_failures": agent.max_identical_failures,
         "memory": asdict(memory),
         "artifact": {"max_archive_files": defaults.max_archive_files},
         "locale": {
@@ -651,7 +652,11 @@ def build_snapshot(
         if compaction is not None
         else resolve_compaction_settings(resolved.agent.runtime_config, platform_overrides={})
     )
-    policy = snapshot_policy(settings, execution, summary_model, pool, members, summary_members)
+    defaults = execution if execution is not None else ExecutionDefaults()
+    effective = replace(defaults, agent_policy=AgentPolicy.from_runtime_config(
+        resolved.agent.runtime_config, base=defaults.agent_policy,
+    ))
+    policy = snapshot_policy(settings, effective, summary_model, pool, members, summary_members)
     policy["egress_budget"] = resolve_egress_budget(
         resolved.agent.runtime_config.get("egress_budget", {})
     ).model_dump(mode="json")

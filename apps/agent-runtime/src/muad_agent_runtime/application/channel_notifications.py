@@ -170,10 +170,19 @@ async def write_run_notification(
         )
     _validate(kind=kind, delivery_state=state, task_id=task_id)
     attribution = await _entry_id_of(session, run)
+    requires_question_push = (
+        push_messages and delivery_state is None and kind == KIND_RUN_WAITING_INPUT
+        and (run.channel_json or {}).get("type") in OUTBOUND_CHANNELS
+    )
     if attribution.deleted:
         # 用户删除了会话：收尾中的 Run 仍会走这里，但入箱通知不再产生（口径：删除即收口）。
         logger.warning("run_notification_conversation_deleted run_id=%s kind=%s", run.id, kind)
         return None
+    if requires_question_push and (state != DELIVERY_PENDING or attribution.entry_id is None):
+        logger.error("human_question_delivery_route_missing run_id=%s", run.id)
+        raise AppError(
+            ErrorCode.COMMON_INTERNAL_ERROR, data={"reason": "human_question_delivery_route_missing"},
+        )
     entry_id = attribution.entry_id
     if entry_id is None:
         # 新会话必带入口；命中这里只可能是历史未归属会话（明确留痕，不静默）。
@@ -185,13 +194,15 @@ async def write_run_notification(
         and state != DELIVERY_NOT_REQUIRED
         and kind in (KIND_RUN_COMPLETED, KIND_RUN_WAITING_INPUT)
     ):
-        await _enqueue_run_push(
+        enqueued = await _enqueue_run_push(
             session,
             run=run,
             kind=kind,
             delivery_key=delivery_key,
             event_id=event_id,
         )
+        if requires_question_push and not enqueued:
+            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR, data={"reason": "human_question_not_enqueued"})
         # push 已由 message_delivery 接手；网页收件箱行不再产生出站意图。
         state = DELIVERY_NOT_REQUIRED
     feed_id = await _lock_feed(session, run.tenant_id, run.user_id)
@@ -238,14 +249,14 @@ async def _enqueue_run_push(
     kind: str,
     delivery_key: str,
     event_id: uuid.UUID | None,
-) -> None:
+) -> bool:
     """把 Run 终态/等待写进消息级 push 表（同事务；无有效企微路由则不产生 push）。"""
     route = delivery_route_of(run.channel_json)
     if route is None or route.channel not in OUTBOUND_CHANNELS:
-        return
+        return False
     if event_id is None:
         logger.error("run_push_event_missing run_id=%s kind=%s", run.id, kind)
-        return
+        return False
     event = await session.scalar(
         sa.select(CanonicalEvent).where(
             CanonicalEvent.id == event_id,
@@ -254,14 +265,14 @@ async def _enqueue_run_push(
     )
     if event is None:
         logger.error("run_push_event_not_found run_id=%s event_id=%s", run.id, event_id)
-        return
+        return False
     payload = event.payload_json or {}
     if kind == KIND_RUN_WAITING_INPUT:
         try:
             interrupt_id = uuid.UUID(delivery_key.rsplit(":", 1)[-1])
         except ValueError:
             logger.error("run_waiting_key_invalid run_id=%s key=%s", run.id, delivery_key)
-            return
+            return False
         message_key = run_waiting_message_key(run.id, interrupt_id)
         text = str(
             payload.get("text_prompt")
@@ -270,6 +281,9 @@ async def _enqueue_run_push(
         )
         status, error_code = "", None
         attachments: tuple[AttachmentRef, ...] = ()
+        if not text.strip():
+            logger.error("run_waiting_question_missing run_id=%s", run.id)
+            return False
     else:
         message_key = run_terminal_message_key(run.id)
         text = _deliverable_text(payload)
@@ -292,7 +306,7 @@ async def _enqueue_run_push(
         )
     except ValueError:
         logger.error("run_push_payload_invalid run_id=%s kind=%s", run.id, kind)
-        return
+        return False
     await enqueue_message_delivery(
         session,
         tenant_id=run.tenant_id,
@@ -311,6 +325,7 @@ async def _enqueue_run_push(
         agent_id=run.agent_id,
         platform_user_id=run.user_id,
     )
+    return True
 
 
 def _deliverable_text(payload: dict[str, object]) -> str:

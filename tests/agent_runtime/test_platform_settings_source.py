@@ -436,11 +436,15 @@ async def test_e08_new_revision_without_restart(
         run1 = await _start_run(tenant, console_url, fake_resolve, executor_factory)
         policy1 = await _frozen_policy(run1)
         assert policy1["compaction"]["history_budget_tokens"] == DEFAULT_HISTORY_BUDGET
+        assert policy1["max_identical_failures"] == 2
 
         await _seed_platform_setting(
             tenant.tenant_id,
             revision=1,
-            document={"compaction": {"history_budget_tokens": new_budget}},
+            document={
+                "compaction": {"history_budget_tokens": new_budget},
+                "agent": {"max_identical_failures": 5, "max_turns": 200, "max_tool_calls": 300},
+            },
         )
 
         # 紧接保存之后（远早于旧设计的 10s TTL 到期），全新 service + 全新 client
@@ -451,6 +455,9 @@ async def test_e08_new_revision_without_restart(
         "保存后的新 Run 必须立即读到新 revision（无 TTL、无重启、无等待窗口）"
     )
     assert run1 != run2
+    assert policy2["max_identical_failures"] == 5
+    assert (policy2["max_turns"], policy2["max_tool_calls"]) == (200, 300)
+    assert (await _frozen_policy(run1))["max_identical_failures"] == 2
 
 
 # ---- 附带：每个新 Run 恰好取一次快照（不进入每轮模型调用/工具执行）----

@@ -10,6 +10,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Protocol
 
 from muad_agent_core.agent import AgentPolicy
+from muad_agent_core.failures import SKILL_NOT_EFFECTIVE, skill_not_effective_message
 from muad_agent_core.prompt import PromptSkill, bounded_catalog, prompt_skill, render_skill_entry
 from muad_agent_core.sandbox import (
     WORKSPACE_MOUNT,
@@ -87,7 +88,6 @@ from muad_platform_sdk.skill_access import SkillPlatformContext
 from muad_skill_sdk.skill_package import (
     SkillPackage,
     SkillPackageError,
-    is_script_path,
     locate_package_root,
 )
 from pydantic import JsonValue, ValidationError
@@ -109,7 +109,6 @@ from .task_client import TaskSubmissionContext
 LOAD_SKILL_TOOL = "load_skill"
 READ_SKILL_RESOURCE_TOOL = "read_skill_resource"
 EXECUTE_SKILL_TOOL = "execute_skill"
-RUN_SKILL_SCRIPT_TOOL = "run_skill_script"
 SEARCH_SKILLS_TOOL = "search_skills"
 EXECUTE_TOOL = "execute"
 LOAD_SKILL_DESCRIPTION = "Load a skill's manifest and full SKILL.md instructions by skill key."
@@ -125,9 +124,7 @@ SEARCH_SKILLS_DESCRIPTION = (
 )
 
 MAX_RESOURCE_BYTES = 256 * 1024
-SKILL_NOT_EFFECTIVE = "SKILL_NOT_EFFECTIVE"
 SKILL_RESOURCE_NOT_FOUND = "SKILL_RESOURCE_NOT_FOUND"
-SKILL_SCRIPT_NOT_FOUND = "SKILL_SCRIPT_NOT_FOUND"
 SKILL_EXECUTION_FAILED = "SKILL_EXECUTION_FAILED"
 BACKGROUND_SUBMIT_FAILED = "BACKGROUND_SUBMIT_FAILED"
 _STRING_SCHEMA: Mapping[str, Any] = {"type": "string"}
@@ -192,6 +189,8 @@ class SkillToolError(ToolError):
         detail: dict[str, object] | None = None,
         retryable: bool | None = None,
         platform_sessions: dict[str, object] | None = None,
+        *,
+        outcome_known: bool = True,
     ) -> None:
         super().__init__(
             code,
@@ -199,6 +198,7 @@ class SkillToolError(ToolError):
             detail=detail,
             retryable=retryable,
             platform_sessions=platform_sessions,
+            outcome_known=outcome_known,
         )
 
 
@@ -252,7 +252,6 @@ def build_skill_registry(
     draft_shell: DraftShellRunner | None = None,
     draft_shell_context: DraftShellContext | None = None,
     draft_tools: SkillDraftTools | None = None,
-    enable_run_skill_script: bool = False,
     egress: HostEgressExecution | None = None,
     trace_observer: AttemptObserver | None = None,
     load_platform_base_urls: PlatformBaseURLLoader | None = None,
@@ -275,7 +274,6 @@ def build_skill_registry(
         draft_shell=draft_shell,
         draft_shell_context=draft_shell_context,
         draft_tools=draft_tools,
-        enable_run_skill_script=enable_run_skill_script,
         egress=egress,
         trace_observer=trace_observer,
         load_platform_base_urls=load_platform_base_urls,
@@ -304,7 +302,6 @@ class SkillToolSet:
         draft_shell: DraftShellRunner | None = None,
         draft_shell_context: DraftShellContext | None = None,
         draft_tools: SkillDraftTools | None = None,
-        enable_run_skill_script: bool = False,
         egress: HostEgressExecution | None = None,
         trace_observer: AttemptObserver | None = None,
         load_platform_base_urls: PlatformBaseURLLoader | None = None,
@@ -335,7 +332,6 @@ class SkillToolSet:
         self._draft_shell_context = draft_shell_context
         self._draft_tools = draft_tools
         #: 高级/调试工具，默认不暴露给模型：Skill 用 execute_skill 单一入口。
-        self._enable_run_skill_script = enable_run_skill_script
         # ASYNC Skill 的 Owner 侧重试安全声明（design §3.6）：默认 NON_RETRYABLE——未声明即未知，
         # 未知不得自动重做外部副作用。声明同时落在 EXECUTE_SKILL_TOOL 定义与操作提交上。
         self._async_retry_safety = async_retry_safety
@@ -371,15 +367,50 @@ class SkillToolSet:
             assembly.require(ToolCapability.DRAFT)
         return registry
 
-    async def execute(self, arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+    def _execute_write_targets(self, arguments: Mapping[str, Any]) -> frozenset[str]:
+        """Resolve the resource family for the unified execute entry."""
         target = arguments.get("target")
+        if target == "skill":
+            key = arguments.get("skill_key")
+            if not isinstance(key, str) or not key:
+                return frozenset({"skill"})
+            targets = {f"skill:{key}"}
+            skill = self._skills.get(key)
+            if skill is not None:
+                targets.update(
+                    f"platform:{platform_key}"
+                    for platform_key in skill_platform_keys(skill.frontmatter)
+                )
+            return frozenset(targets)
+        if target == "draft":
+            draft_id = arguments.get("draft_id")
+            return frozenset(
+                {f"draft:{draft_id}" if isinstance(draft_id, str) and draft_id else "draft"}
+            )
+        if target == "workspace":
+            return frozenset({"workspace"})
+        return frozenset({"execute"})
+
+    def _execute_targets(self) -> dict[str, set[str]]:
         allowed = {
-            "skill": {"target", "skill_key", "input", "argv", "script", "timeout_sec"},
+            "skill": {"target", "skill_key", "input", "argv", "timeout_sec"},
             "draft": {"target", "draft_id", "command", "cwd", "timeout_sec", "reset_data"},
             "workspace": {"target", "command", "cwd", "timeout_sec", "platforms"},
         }
+        if not self._skills:
+            del allowed["skill"]
+        if self._draft_shell is None or self._draft_shell_context is None:
+            del allowed["draft"]
+        if self._workspace_shell is None or self._workspace_shell_context is None:
+            del allowed["workspace"]
+        return allowed
+
+    async def execute(self, arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        target = arguments.get("target")
+        allowed = self._execute_targets()
         if not isinstance(target, str) or target not in allowed:
-            raise ToolError("COMMON_VALIDATION_ERROR", "target must be skill, draft or workspace")
+            targets = ", ".join(allowed)
+            raise ToolError("COMMON_VALIDATION_ERROR", f"Available execution targets: {targets or 'none'}")
         unsupported = sorted(set(arguments) - allowed[target])
         if unsupported:
             # 键名必须回给模型：只说"不匹配"会让它挨个换形状重试，永远猜不到是多带了哪个键。
@@ -390,68 +421,68 @@ class SkillToolSet:
             )
         payload = {key: value for key, value in arguments.items() if key != "target"}
         if target == "skill":
-            if "script" in payload:
-                if not self._enable_run_skill_script:
-                    raise ToolError("FORBIDDEN", "skill script debug execution is unavailable")
-                return await self.run_skill_script(payload, call=call)
             return await self.execute_skill(payload, call=call)
         if target == "draft":
             return await self.skill_draft_shell(payload, call=call)
         return await self.workspace_shell(payload, call=call)
 
     def _execute_definition(self) -> ToolDefinition:
+        targets = self._execute_targets()
+        properties = {
+            "target": {"type": "string", "enum": list(targets)},
+            "skill_key": _STRING_SCHEMA, "input": _OBJECT_SCHEMA, "argv": _ARGV_SCHEMA,
+            "draft_id": _STRING_SCHEMA, "command": _STRING_SCHEMA, "cwd": _STRING_SCHEMA,
+            "timeout_sec": _NUMBER_SCHEMA, "reset_data": {"type": "boolean"},
+            "platforms": {"type": "array", "items": _STRING_SCHEMA, "minItems": 1},
+        }
+        keys = {key for fields in targets.values() for key in fields}
+        schema = _input_schema({key: val for key, val in properties.items() if key in keys}, ("target",))
+        capabilities = {
+            "skill": ToolCapability.SKILL_EXECUTE,
+            "workspace": ToolCapability.WORKSPACE,
+            "draft": ToolCapability.DRAFT,
+        }
         return ToolDefinition(
             name=EXECUTE_TOOL,
-            description=(
-                "Execute a skill, a draft command, or a command in the current user's workspace. "
-                "Set target=skill with skill_key, input and optional argv. ASYNC skills are submitted as "
-                "background tasks and return an acceptance receipt; their results appear in the task center "
-                "and are delivered to the conversation. "
-                "Set target=draft with draft_id and command to test the draft copy. "
-                "Set target=workspace with command; the execution always provides session-manager and "
-                "optional platforms only narrow its allowed scope (fail-closed). "
-                "Workspace files are shared across the user's runs for this Agent. Test draft code with "
-                "target=draft, never by writing under skill-drafts/ in the workspace. "
-                "Draft commands run against a copy, with revision-checked writes; SKILL_DATA_DIR persists "
-                "for the draft, SKILL_OUTPUT_DIR is temporary, reset_data clears draft test data. "
-                "Skill argv are literal CLI arguments and input is JSON stdin; do not shell-quote argv. "
-                "target=skill accepts only skill_key, input, argv, timeout_sec and script; "
-                "command, cwd and reset_data belong to target=workspace or target=draft. "
-                "For instructions-only or MCP-only skills, load the skill and use its MCP tools directly. "
-                "Use session-manager list-platforms when the user asks to list platform sessions; "
-                "it checks actual login state and reports per-platform availability. For a Skill, "
-                "call session-manager get-state directly; do not run list first. For one platform "
-                "use get-state --platform <key>; use refresh --platform <key> only for an explicit "
-                "refresh. Read the per-platform result before answering. "
-                "Do not output or persist credentials."
-            ),
-            input_schema=_input_schema({
-                "target": {"type": "string", "enum": ["skill", "draft", "workspace"]},
-                "skill_key": _STRING_SCHEMA, "input": _OBJECT_SCHEMA, "argv": _ARGV_SCHEMA,
-                "script": _STRING_SCHEMA,
-                "draft_id": _STRING_SCHEMA, "command": _STRING_SCHEMA, "cwd": _STRING_SCHEMA,
-                "timeout_sec": _NUMBER_SCHEMA, "reset_data": {"type": "boolean"},
-                "platforms": {"type": "array", "items": _STRING_SCHEMA, "minItems": 1},
-            }, ("target",)),
+            description=self._execute_description(targets),
+            input_schema=schema,
             effect=ToolEffect.EXTERNAL,
+            write_targets=self._execute_write_targets,
             handler=self.execute,
-            capabilities=frozenset(
-                {
-                    ToolCapability.SKILL_EXECUTE,
-                    *(
-                        {ToolCapability.WORKSPACE}
-                        if self._workspace_shell is not None
-                        else set()
-                    ),
-                    *(
-                        {ToolCapability.DRAFT}
-                        if self._draft_shell is not None
-                        else set()
-                    ),
-                }
-            ),
+            capabilities=frozenset(capabilities[target] for target in targets),
             retry_safety=self._async_retry_safety,
         )
+
+    @staticmethod
+    def _execute_description(targets: Mapping[str, set[str]]) -> str:
+        descriptions = {
+            "skill": (
+                "Execute a skill with target=skill, skill_key, JSON input and optional literal argv. "
+                "SYNC skills accept timeout_sec. ASYNC skills return a background task receipt; "
+                "their results appear in the task center and are delivered to the conversation. "
+                "For instructions-only or MCP-only skills, load the skill and use its MCP tools directly. "
+                "For a Skill use session-manager get-state directly; do not run list first."
+            ),
+            "draft": (
+                "Test a draft copy with target=draft, draft_id and command. "
+                "Writes are revision-checked. SKILL_DATA_DIR persists and reset_data clears draft test data. "
+                "SKILL_OUTPUT_DIR is temporary."
+            ),
+            "workspace": (
+                "Run a command in the user's workspace with target=workspace and command. "
+                "Workspace files are shared across this user's runs for the agent. "
+                "For a complete user artifact, write the desired format directly to a workspace file. "
+                "Keep stdout bounded and use the generated file when stdout is truncated. "
+                "Optional platforms narrow the allowed scope. To check platform sessions, use "
+                "session-manager list-platforms and report per-platform availability. "
+                "Use get-state --platform <key> for one platform; refresh only when explicitly requested."
+            ),
+        }
+        parts = [descriptions[target] for target in targets]
+        if "draft" in targets and "workspace" in targets:
+            parts.append("Test draft code with target=draft. Do not write under skill-drafts/ in workspace.")
+        parts.append("Platform access is fail-closed. Do not output credentials.")
+        return " ".join(parts)
 
     async def load_skill(self, arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
         skill = self._require_skill(arguments)
@@ -498,37 +529,6 @@ class SkillToolSet:
         return await self._execute(
             package.root,
             input_data,
-            script=None,
-            skill=skill,
-            argv=argv,
-            timeout_sec=self._call_timeout(arguments),
-            call_id=call.call_id,
-        )
-
-    async def run_skill_script(
-        self, arguments: Mapping[str, Any], *, call: ToolCall
-    ) -> ToolResult:
-        skill = self._require_skill(arguments)
-        name = _require_string(arguments, "script")
-        input_data = _require_input(arguments)
-        argv = _require_argv(arguments)
-        package = await self._package(skill)
-        script = _select_script(package, name)
-        try:
-            default_entrypoint = select_entry_script(package.root)
-        except SkillExecutionError:
-            default_entrypoint = None
-        if (
-            default_entrypoint is not None
-            and script.resolve() == default_entrypoint.resolve()
-        ):
-            _guard_invocation(skill, input_data=input_data, argv=argv)
-        if skill.execution_mode is SkillExecutionMode.ASYNC:
-            _reject_async_entrypoint_bypass(package, script)
-        return await self._execute(
-            package.root,
-            input_data,
-            script=script,
             skill=skill,
             argv=argv,
             timeout_sec=self._call_timeout(arguments),
@@ -601,7 +601,11 @@ class SkillToolSet:
                     platform_context=self._platform_context,
                 )
             )
-        except (WorkspaceError, SandboxError) as exc:
+        except SandboxError as exc:
+            raise ToolError(
+                exc.code, exc.message, outcome_known=not exc.started
+            ) from exc
+        except WorkspaceError as exc:
             raise ToolError(exc.code, exc.message) from exc
         except ValueError as exc:
             raise ToolError(ErrorCode.COMMON_VALIDATION_ERROR.value, str(exc)) from exc
@@ -640,7 +644,11 @@ class SkillToolSet:
                 timeout_sec=timeout_sec,
                 platform_context=platform, egress_broker=broker,
             ))
-        except (WorkspaceError, SandboxError, SkillExecutionError) as exc:
+        except SandboxError as exc:
+            raise ToolError(
+                exc.code, exc.message, outcome_known=not exc.started,
+            ) from exc
+        except (WorkspaceError, SkillExecutionError) as exc:
             raise ToolError(exc.code, exc.message) from exc
         except PlatformAuthError as exc:
             failed = _failed_platform_keys(exc.platform_sessions)
@@ -808,7 +816,7 @@ class SkillToolSet:
         if skill is None:
             raise SkillToolError(
                 SKILL_NOT_EFFECTIVE,
-                f"skill is not effective for this run: {normalized}",
+                skill_not_effective_message(normalized),
             )
         return skill
 
@@ -838,7 +846,12 @@ class SkillToolSet:
                 argv=argv,
             )
         except AppError as exc:
-            raise SkillToolError(BACKGROUND_SUBMIT_FAILED, str(exc.code)) from exc
+            # The submitter can fail after persisting the operation. Only a confirmed rejection
+            # can be safely retried as a distinct model call.
+            known = exc.code in {
+                ErrorCode.FORBIDDEN, ErrorCode.TOOL_OPERATION_CAPACITY_EXCEEDED,
+            }
+            raise SkillToolError(BACKGROUND_SUBMIT_FAILED, str(exc.code), outcome_known=known) from exc
         return ToolResult(json.dumps(submitted, ensure_ascii=False))
 
     async def _default_background_route(
@@ -927,7 +940,6 @@ class SkillToolSet:
         ready_dir: Path,
         input_data: Mapping[str, Any],
         *,
-        script: Path | None,
         skill: ResolvedSkill,
         call_id: str,
         argv: tuple[str, ...] = (),
@@ -953,7 +965,6 @@ class SkillToolSet:
             result = await self._run_executor(
                 ready_dir,
                 input_data,
-                script=script,
                 skill=skill,
                 argv=argv,
                 execution_id=execution_id,
@@ -972,7 +983,6 @@ class SkillToolSet:
         ready_dir: Path,
         input_data: Mapping[str, Any],
         *,
-        script: Path | None,
         skill: ResolvedSkill,
         execution_id: str,
         workspace_dir: Path | None,
@@ -991,20 +1001,22 @@ class SkillToolSet:
                 source=str(skill.source),
                 workspace_dir=workspace_dir,
                 execution_id=execution_id,
-                script=script,
                 egress_broker=broker,
                 platform_context=platform_context,
             )
             return await self._execute_result_contract(request, skill)
         except SkillExecutionError as exc:
             if exc.code in {"LOCAL_BUDGET_EXHAUSTED", RESULT_INVALID}:
-                raise SkillToolError(exc.code, exc.message) from exc
+                raise SkillToolError(
+                    exc.code, exc.message, outcome_known=exc.outcome_known
+                ) from exc
             raise SkillToolError(
                 SKILL_EXECUTION_FAILED,
                 exc.message,
                 detail=exc.detail,
                 retryable=exc.retryable,
                 platform_sessions=exc.platform_sessions,
+                outcome_known=exc.outcome_known,
             ) from exc
         except SharedLimitExceeded as exc:
             code = "LOCAL_BUDGET_EXHAUSTED" if exc.kind == "TOTAL" else "LOCAL_RATE_LIMITED"
@@ -1015,10 +1027,7 @@ class SkillToolSet:
     async def _execute_result_contract(
         self, request: SkillExecutionRequest, skill: ResolvedSkill,
     ) -> SkillExecutionResult:
-        contract = (
-            frozen_skill_result_contract(skill.frontmatter, checksum=skill.checksum)
-            if request.script is None else None
-        )
+        contract = frozen_skill_result_contract(skill.frontmatter, checksum=skill.checksum)
         if contract is None:
             return await self._executor.execute(request)
         async with AsyncExitStack() as stack:
@@ -1247,76 +1256,6 @@ def _resolve_resource(root: Path, relative: str) -> Path:
     return target
 
 
-def _reject_async_entrypoint_bypass(package: SkillPackage, script: Path) -> None:
-    """ASYNC Skill 的主入口只能走 ``execute_skill``。
-
-    ``run_skill_script`` 不提交后台 Task，直接用主入口会在 Runtime 内联执行长任务，
-    绕开 Worker 的租约/重试/交付链路。辅助脚本仍允许按需 inline 执行。
-    """
-    try:
-        entrypoint = select_entry_script(package.root)
-    except SkillExecutionError:
-        return
-    if script.resolve() == entrypoint.resolve():
-        raise SkillToolError(
-            ErrorCode.COMMON_VALIDATION_ERROR.value,
-            "ASYNC skill entrypoints must be executed via execute_skill; "
-            "run_skill_script bypasses background task routing",
-        )
-
-
-def _select_script(package: SkillPackage, name: str) -> Path:
-    """解析 ``scripts/foo.py``、``foo.py`` 或包内相对路径 ``phase2/check.py``。
-
-    单段名字保留旧行为：在 ``scripts/`` 顶层按 basename 查找。多段路径按包根解析；
-    绝对路径、``..``、反斜杠、NUL 和跳出包根的符号链接一律拒绝。
-    """
-    text = name.strip()
-    if not text or "\x00" in text or "\\" in text:
-        raise SkillToolError(
-            ErrorCode.COMMON_VALIDATION_ERROR.value,
-            f"invalid script name: {name}",
-        )
-    relative = PurePosixPath(text)
-    if relative.is_absolute() or ".." in relative.parts or "." in relative.parts:
-        raise SkillToolError(
-            ErrorCode.COMMON_VALIDATION_ERROR.value,
-            f"invalid script name: {name}",
-        )
-    root = package.root.resolve()
-    if len(relative.parts) == 1:
-        for path in package.scripts():
-            if path.name == text:
-                target = path.resolve()
-                if root not in target.parents:
-                    raise SkillToolError(
-                        ErrorCode.COMMON_VALIDATION_ERROR.value,
-                        f"script escapes the skill package: {name}",
-                    )
-                if not is_script_path(target):
-                    raise SkillToolError(
-                        ErrorCode.COMMON_VALIDATION_ERROR.value,
-                        f"unsupported script extension: {name}",
-                    )
-                return target
-        raise SkillToolError(SKILL_SCRIPT_NOT_FOUND, f"script is not part of the skill: {name}")
-
-    target = (root / relative).resolve()
-    if root not in target.parents:
-        raise SkillToolError(
-            ErrorCode.COMMON_VALIDATION_ERROR.value,
-            f"script escapes the skill package: {name}",
-        )
-    if not target.is_file():
-        raise SkillToolError(SKILL_SCRIPT_NOT_FOUND, f"script is not part of the skill: {name}")
-    if not is_script_path(target):
-        raise SkillToolError(
-            ErrorCode.COMMON_VALIDATION_ERROR.value,
-            f"unsupported script extension: {name}",
-        )
-    return target
-
-
 def _guard_invocation(
     skill: ResolvedSkill,
     *,
@@ -1399,6 +1338,7 @@ def _skill_tool_result(result: SkillExecutionResult, outputs: Sequence[Mapping[s
             execution_status=result.execution_status,
             business_conclusion=result.business_conclusion,
             result_error_code=result.result_error_code,
+            execution_started=result.execution_started,
         ),
     )
 

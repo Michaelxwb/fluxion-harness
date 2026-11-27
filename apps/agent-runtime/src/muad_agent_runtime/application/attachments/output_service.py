@@ -13,6 +13,7 @@ from typing import Literal
 import sqlalchemy as sa
 from muad_agent_core.skill import OutputFile
 from muad_artifact_store import NfsArtifactStore
+from muad_contracts.attachments import ALLOWED_ATTACHMENT_MEDIA_TYPES
 
 from ...infrastructure.db import SessionFactoryProvider
 from ...infrastructure.models.runtime import Artifact
@@ -21,6 +22,7 @@ OUTPUT_ARTIFACT_TYPE = "OUTPUT"
 #: 旧名称保留为同一值的别名：调用方迁移期间不需要改 import，但落库类型只有 OUTPUT。
 AGENT_OUTPUT_ARTIFACT_TYPE = OUTPUT_ARTIFACT_TYPE
 MAX_OUTPUT_BYTES = 50 * 1024 * 1024
+OutputKind = Literal["IMAGE", "DOCUMENT", "OTHER"]
 
 
 class OutputArtifactError(RuntimeError):
@@ -59,7 +61,7 @@ class OutputArtifactWriter:
         *,
         filename: str,
         media_type: str,
-        kind: Literal["DOCUMENT", "OTHER"],
+        kind: OutputKind,
         metadata: dict[str, object] | None = None,
     ) -> Artifact:
         if self.scope.run_id is None:
@@ -107,7 +109,7 @@ class OutputArtifactWriter:
         *,
         filename: str,
         media_type: str,
-        kind: Literal["DOCUMENT", "OTHER"],
+        kind: OutputKind,
         metadata: dict[str, object] | None = None,
     ) -> Artifact:
         artifact_id = uuid.uuid4()
@@ -146,13 +148,12 @@ class SkillOutputArtifactRegistrar:
         self._writer = writer
 
     async def register(self, output: OutputFile) -> str:
-        data = await asyncio.to_thread(output.path.read_bytes)
+        data = await asyncio.to_thread(_read_output_snapshot, output)
         media_type = mimetypes.guess_type(output.relative_path)[0] or "application/octet-stream"
-        checksum = "sha256:" + hashlib.sha256(data).hexdigest()
         # 同一 Run 内对**同一路径同一内容**的重复登记复用原行：交付重试不该造出第二份产物
         # （否则用户会收到两张同一文件的卡片）。
         existing = await self._writer.find_registered(
-            relative_path=output.relative_path, checksum=checksum
+            relative_path=output.relative_path, checksum=output.checksum
         )
         if existing is not None:
             return str(existing)
@@ -160,7 +161,21 @@ class SkillOutputArtifactRegistrar:
             data,
             filename=Path(output.relative_path).name,
             media_type=media_type,
-            kind="DOCUMENT",
+            kind="IMAGE" if media_type.startswith("image/") and media_type in ALLOWED_ATTACHMENT_MEDIA_TYPES
+            else "DOCUMENT",
             metadata={"relative_path": output.relative_path, "skill_output": True},
         )
         return str(row.id)
+
+
+def _read_output_snapshot(output: OutputFile) -> bytes:
+    try:
+        with output.path.open("rb") as stream:
+            data = stream.read(min(output.size, MAX_OUTPUT_BYTES) + 1)
+    except OSError as exc:
+        raise OutputArtifactError("ATTACHMENT_NOT_FOUND", "产物文件不可读") from exc
+    if len(data) > MAX_OUTPUT_BYTES:
+        raise OutputArtifactError("ATTACHMENT_TOO_LARGE", "产物文件超过可交付上限")
+    if len(data) != output.size or "sha256:" + hashlib.sha256(data).hexdigest() != output.checksum:
+        raise OutputArtifactError("ARTIFACT_WRITE_FAILED", "产物文件已变化，请重新核验后交付")
+    return data

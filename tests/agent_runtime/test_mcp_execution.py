@@ -171,7 +171,7 @@ async def test_b116_tool_is_error_maps_to_error_audit() -> None:
 
     os.environ["MCP_PROBE_FAIL_CALL"] = "1"
     try:
-        with pytest.raises(McpToolError):
+        with pytest.raises(McpToolError) as caught:
             await adapter.execute_tool_result(
                 server=server,
                 tool=server.tools[0],
@@ -183,5 +183,7 @@ async def test_b116_tool_is_error_maps_to_error_audit() -> None:
 
     rows = await _egress_rows()
     assert rows and rows[0].result_status == "ERROR"
+    assert caught.value.sent
+    assert caught.value.outcome_known
     await adapter.aclose()
     await _cleanup_audits()

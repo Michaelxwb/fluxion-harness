@@ -362,7 +362,7 @@ python -E -s -B <script>
 
 - **`-E -s -B` 由框架 `script_command()` 统一注入，不写进每个 `SKILL.md`**；
 - `SKILL.md` 继续写 `python scripts/run.py`，业务调用方式不变；
-- `execute_skill` / `run_skill_script` 自动带这些参数；
+- `execute(target=skill)` 自动带这些参数；
 - Shell 工具里普通 `python scripts/run.py` 也可以工作；如果要和框架完全一致，
   可在 PATH 最前面放一个 `python` wrapper，或在 Shell 规范里使用
   `python -E -s -B`，但不需要改 Skill 文档；
@@ -389,7 +389,7 @@ python -E -s -B <script>
 - `SKILL_OUTPUT_DIR` 可能为空（非 Skill 上下文），脚本必须先判空；
 - `workspace_shell` 使用同一 workspace 根，但输出目录按本次命令生成，并始终注入
   执行级 session-manager；
-- `execute_skill` / `run_skill_script` 与 `workspace_shell` 共用目录约定，区别只在
+- `execute(target=skill)` 与 `execute(target=workspace)` 共用目录约定，区别只在
   Skill 包与 session-manager。
 
 ### 4.3 session-manager

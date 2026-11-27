@@ -11,6 +11,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+SKILL_NOT_EFFECTIVE = "SKILL_NOT_EFFECTIVE"
+
+
+def skill_not_effective_message(key: str) -> str:
+    return (
+        f"Skill '{key}' is not available in this execution. It may be disabled, unbound, "
+        "or unauthorized. Use the skills available in this execution or ask an administrator to verify."
+    )
+
 
 @dataclass(frozen=True, slots=True)
 class FailureHint:
@@ -130,6 +139,13 @@ def _platform_hint(code: str) -> _Hint | None:
 
 
 def _execution_hint(code: str, tool: str | None) -> _Hint | None:
+    if code == SKILL_NOT_EFFECTIVE:
+        return _Hint(
+            zh_title="所需技能在本次运行中不可用，可能已停用、未绑定或未授权。",
+            en_title="The required skill is unavailable. It may be disabled, unbound, or unauthorized.",
+            zh_next="请联系管理员检查技能状态、绑定和授权。",
+            en_next="Ask an administrator to check the skill status, bindings, and access.",
+        )
     if code.startswith("MODEL_"):
         return _Hint(
             zh_title="模型服务不可用或调用失败。",

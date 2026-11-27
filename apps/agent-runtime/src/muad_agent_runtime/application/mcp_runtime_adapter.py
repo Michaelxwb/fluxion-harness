@@ -21,6 +21,7 @@ from muad_agent_core.tools import (
     ToolHandler,
     ToolRegistry,
     ToolResult,
+    static_write_targets,
 )
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
@@ -50,12 +51,16 @@ class McpToolError(RuntimeError):
         status_code: int | None = None,
         retry_after: str | None = None,
         retryable: bool = False,
+        sent: bool = False,
+        outcome_known: bool = True,
     ) -> None:
         self.code = code
         self.detail = detail
         self.status_code = status_code
         self.retry_after = retry_after
         self.retryable = retryable
+        self.sent = sent
+        self.outcome_known = outcome_known
         super().__init__(f"{code}: {detail}")
 
 
@@ -193,6 +198,7 @@ class McpRuntimeAdapter:
                         input_schema=tool.input_schema,
                         effect=_effect(tool.effect),
                         retry_safety=_retry_safety(tool.retry_safety),
+                        write_targets=static_write_targets(f"mcp:{server.key}"),
                         handler=self._make_handler(server, tool),
                         capabilities=frozenset({ToolCapability.MCP_CALL}),
                     )
@@ -271,12 +277,15 @@ class McpRuntimeAdapter:
                 status_code=exc.status_code,
                 retry_after=exc.retry_after,
                 retryable=exc.retryable,
+                sent=exc.sent,
+                outcome_known=exc.outcome_known,
             ) from exc
         if result.artifacts and self._artifact_writer is None:
             raise McpToolError(
                 "MCP_ARTIFACT_UNAVAILABLE",
                 "MCP media requires an artifact writer",
                 retryable=False,
+                sent=True,
             )
         return result
 

@@ -988,6 +988,7 @@ const PROPS_KEYS = [
   'outcomeUnknown',
   'inputFrozen',
   'runActive',
+  'waitingInput',
   'stopDisabled'
 ];
 
@@ -1005,6 +1006,7 @@ function composerProps(scenario) {
     outcomeUnknown: false,
     inputFrozen: false,
     runActive: false,
+    waitingInput: false,
     stopDisabled: false
   };
   for (const key of PROPS_KEYS) {
@@ -1141,6 +1143,15 @@ SCENARIOS: tuple[dict[str, Any], ...] = (
         "text": "",
         "attachments": [],
         "runActive": True,
+    },
+    {
+        "id": "waiting-input-zh",
+        "locale": "zh-CN",
+        "phase": "IDLE",
+        "text": SEND_TEXT,
+        "attachments": [],
+        "runActive": True,
+        "waitingInput": True,
     },
     {
         "id": "disabled-zh",
@@ -1849,3 +1860,16 @@ def test_stop_action_is_the_same_icon_button_as_send(composer_render: dict[str, 
     assert 'aria-label="停止生成"' in _tag(markup, "chat-composer-stop")
     assert 'data-testid="chat-composer-send"' not in markup, "运行中同一位置只保留停止图标"
     assert not _is_disabled(markup, "chat-composer-stop")
+
+
+def test_waiting_input_keeps_send_enabled_and_stop_secondary(composer_render: dict[str, Any]) -> None:
+    """等待用户回答不是"运行中"：主操作必须是发送，停止保留为次要动作。"""
+    markup = composer_render["markup"]["waiting-input-zh"]
+    send = _tag(markup, "chat-composer-send")
+    stop = _tag(markup, "chat-composer-stop")
+    assert 'data-mode="send"' in send
+    assert 'aria-label="发送"' in send
+    assert not _is_disabled(markup, "chat-composer-send"), "有待发送文本时必须能提交答案"
+    assert 'data-mode="stop"' in stop
+    assert 'aria-label="停止生成"' in stop
+    assert 'data-testid="chat-composer-input"' in markup

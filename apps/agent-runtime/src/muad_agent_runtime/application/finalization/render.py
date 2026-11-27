@@ -111,8 +111,9 @@ def _reason_and_next(
             ),
             _pick(
                 zh,
-                "请拆分任务或减少排查轮次后重试。",
-                "Split the task or reduce diagnosis turns, then retry.",
+                "请拆分任务或减少排查轮次后重试；已完成的结果保留在会话中，可回复“继续”接着执行。",
+                "Split the task or reduce diagnosis turns, then retry; completed results "
+                "remain in the conversation, or reply \"continue\" to resume.",
             ),
         )
     if reason is TerminationReason.TOOL_BUDGET:
@@ -122,7 +123,12 @@ def _reason_and_next(
                 "本轮执行达到工具调用上限，已停止。",
                 "The run reached its tool-call limit and stopped.",
             ),
-            _pick(zh, "请拆分任务或减少工具调用后重试。", "Split the task or reduce tool calls, then retry."),
+            _pick(
+                zh,
+                "请缩小任务后重试；已完成的工具结果保留在会话中，可回复“继续”接着执行。",
+                "Narrow the task, then retry; completed tool results remain in the conversation, "
+                "or reply \"continue\" to resume.",
+            ),
         )
     if reason is TerminationReason.DEADLINE:
         return (
@@ -248,6 +254,13 @@ def _evidence_line(facts: FinalizationFacts, zh: bool) -> str:
 
 def _completion_line(facts: FinalizationFacts, zh: bool) -> str:
     if facts.completion.status == "UNKNOWN":
+        if facts.tool_outcomes.succeeded > 0:
+            return _pick(
+                zh,
+                f"完成情况：已取得 {facts.tool_outcomes.succeeded} 个工具结果，但未形成最终结论。",
+                f"Completion: {facts.tool_outcomes.succeeded} tool result(s) were obtained, "
+                "but no final conclusion was formed.",
+            )
         return _pick(
             zh,
             "完成情况：无法确认（没有交付物或输出契约可核对）。",

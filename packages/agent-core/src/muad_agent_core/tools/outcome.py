@@ -273,6 +273,8 @@ def tool_exception_outcome(
     retry_after: str | None = None,
     status_code: int | None = None,
     evidence_text: str | None = None,
+    sent: bool = False,
+    outcome_known: bool = True,
 ) -> ExecutionOutcome:
     """处理器宣告的失败 → TOOL 失败；错误码沿用异常自带的 `.code`（缺失为内部错误）。
 
@@ -284,7 +286,7 @@ def tool_exception_outcome(
     rate_limited = resolved == "LOCAL_RATE_LIMITED" or (
         resolved == "MCP_TRANSPORT_FAILED" and status_code == 429
     )
-    waitable_rate_limit = rate_limited and resolved_retryable
+    waitable_rate_limit = rate_limited and resolved_retryable and outcome_known
     return ExecutionOutcome(
         transport_status="ERROR",
         business_status=BusinessStatus.FAILED,
@@ -295,12 +297,14 @@ def tool_exception_outcome(
         control=FailureControl(
             retry_disposition=(
                 RetryDisposition.WAIT_THEN_RETRY if waitable_rate_limit
-                else RetryDisposition.ALLOW if resolved_retryable
+                else RetryDisposition.ALLOW if resolved_retryable and outcome_known
                 else RetryDisposition.BLOCK
             ),
             agent_disposition=AgentDisposition.WAIT if waitable_rate_limit else AgentDisposition.CONTINUE,
             retry_after=retry_after,
-            evidence_status=EvidenceStatus.CONFIRMED,
+            sent=sent,
+            outcome_known=outcome_known,
+            evidence_status=EvidenceStatus.CONFIRMED if outcome_known else EvidenceStatus.UNKNOWN,
         ),
         evidence=evidence_for(evidence_text or message),
     )
@@ -344,6 +348,7 @@ def shell_outcome(
         business_status=BusinessStatus.NOT_APPLICABLE,
         failure_layer=FailureLayer.NONE,
         exit_code=exit_code,
+        control=FailureControl(outcome_known=not output_truncated),
         evidence=evidence_for(
             stderr,
             stdout,
@@ -422,6 +427,7 @@ def skill_result_outcome(
     execution_status: SkillCallStatus | None = None,
     business_conclusion: SkillBusinessConclusion | None = None,
     result_error_code: str | None = None,
+    execution_started: bool | None = None,
 ) -> ExecutionOutcome:
     """`execute(target=skill)` 的**类型化执行事实** → `ExecutionOutcome`。
 
@@ -450,6 +456,7 @@ def skill_result_outcome(
             business_status=BusinessStatus.CANCELLED,
             execution_status=execution_status,
             failure_layer=FailureLayer.NONE,
+            control=FailureControl(outcome_known=execution_started is False),
             exit_code=exit_code,
             evidence=evidence_for(stderr, stdout, output_truncated=output_truncated),
         )
@@ -458,6 +465,7 @@ def skill_result_outcome(
         boundary = ExecutionBoundary.TIME if status == "TIMED_OUT" else ExecutionBoundary.NONE
         retryable = envelope_retryable is True
         partial = output_truncated or status == "TIMED_OUT"
+        known = execution_started is False or (not partial and code is not None)
         return ExecutionOutcome(
             business_status=(
                 BusinessStatus.TIMED_OUT if status == "TIMED_OUT" else BusinessStatus.FAILED
@@ -474,11 +482,14 @@ def skill_result_outcome(
             control=FailureControl(
                 retry_disposition=(
                     RetryDisposition.BLOCK
-                    if status == "TIMED_OUT" or output_truncated
+                    if not known
                     else (RetryDisposition.ALLOW if retryable else RetryDisposition.BLOCK)
                 ),
-                outcome_known=False if partial else True,
-                evidence_status=EvidenceStatus.PARTIAL if partial else EvidenceStatus.CONFIRMED,
+                outcome_known=known,
+                evidence_status=(
+                    EvidenceStatus.PARTIAL if partial
+                    else EvidenceStatus.CONFIRMED if known else EvidenceStatus.UNKNOWN
+                ),
                 boundary_kind=boundary,
             ),
             review_progress=(
@@ -536,8 +547,10 @@ def skill_execution_outcome(payload: Mapping[str, Any]) -> ExecutionOutcome | No
     execution_status = payload.get("execution_status")
     conclusion = payload.get("business_status")
     error = payload.get("error_code")
+    execution_started = payload.get("execution_started")
     return skill_result_outcome(
         status=status,
+        execution_started=execution_started if isinstance(execution_started, bool) else None,
         execution_status=(
             SkillCallStatus(execution_status)
             if isinstance(execution_status, str) and execution_status in SkillCallStatus._value2member_map_

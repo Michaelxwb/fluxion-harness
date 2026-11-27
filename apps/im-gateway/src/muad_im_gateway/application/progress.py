@@ -108,9 +108,9 @@ class ExecutionProgress:
             self._execution_phase()
         elif event.type == "message.delta":
             self.visible = False
-        elif event.type in _STOP_PHASES:
+        elif event.type in _STOP_PHASES or is_waiting_input_stage(event):
             self._stop_segment(self._moment(event))
-            self.phase = _STOP_PHASES[event.type]
+            self.phase = _STOP_PHASES.get(event.type, ProgressPhase.WAITING_INPUT)
             if event.data.get("status") == "CANCELLED":
                 self.phase = ProgressPhase.CANCELLED
             self._stopped = self._moment(event)
@@ -149,6 +149,10 @@ _STOP_PHASES = {
     "run.completed": ProgressPhase.COMPLETED,
     "run.failed": ProgressPhase.FAILED,
 }
+
+
+def is_waiting_input_stage(event: SseEvent) -> bool:
+    return event.type == "run.stage" and event.data.get("stage") == "WAITING_INPUT"
 
 #: 计时节拍的默认值/下界不再有第二来源：由平台设置 `im.progress_interval_sec` 提供，
 #: schema（`muad_contracts.platform_settings`）的 `ge=1.0` 是唯一来源（ADR-04）。

@@ -158,17 +158,22 @@ def _protected_current_index(plan: ContextPlan) -> int | None:
     return None
 
 
-def _marker_content(dropped: Sequence[Group], earlier_records: int | None) -> str:
+def _marker_content(
+    dropped: Sequence[Group], earlier_records: int | None, *, input_retained: bool,
+) -> str:
     known = _dropped_record_count(dropped)
     if earlier_records is None:
         count = max(1, known + 1)
         amount = f"至少 {count} 条"
     else:
         amount = f"{known + earlier_records} 条"
+    current = (
+        "当前输入仍然保留，请以当前输入和已保留的事实继续。"
+        if input_retained else "请使用已保留的对话。"
+    )
     return (
         f"{OMISSION_MARKER_PREFIX} 本次请求省略了中间的 {amount} 对话记录"
-        "（消息与工具调用），它们不在当前上下文中；保留的是会话开头目标与最近对话。"
-        "需要时请让用户重新提供被省略的内容。"
+        f"（消息与工具调用）。{current}只有缺少必要条件时才请用户补充。"
     )
 
 
@@ -236,9 +241,15 @@ def fit_history(
     retained_older = [group for index, group in enumerate(older) if index in kept_older]
     retained_working = [group for index, group in enumerate(working) if index in kept_working]
     marker_position = sum(1 for index in sorted(kept_older) if index in head_indexes)
+    input_retained = fallback is not None or any(
+        message.message_id == plan.run_input.message_id if plan.run_input is not None
+        else message.role is ModelRole.USER and message.origin != "PREVIOUS_EXCHANGE"
+        for group in plan.pinned for message in group
+    )
+    marker = _marker_content(dropped, plan.earlier_records, input_retained=input_retained)
     older_with_marker = [
         *retained_older[:marker_position],
-        (ModelMessage(role=ModelRole.SYSTEM, content=_marker_content(dropped, plan.earlier_records)),),
+        (ModelMessage(role=ModelRole.SYSTEM, content=marker),),
         *retained_older[marker_position:],
     ]
     before = history_bytes(

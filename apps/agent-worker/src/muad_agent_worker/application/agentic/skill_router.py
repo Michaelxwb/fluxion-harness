@@ -7,11 +7,11 @@ from dataclasses import dataclass
 from typing import Any
 
 import jsonschema
+from muad_agent_core.failures import SKILL_NOT_EFFECTIVE, skill_not_effective_message
 from muad_agent_core.tools import ToolError
 from muad_contracts import SnapshotSkill, SnapshotTool, ToolRetrySafety
 from muad_contracts.skill_invocation import validate_skill_argv
 
-SKILL_NOT_EFFECTIVE = "SKILL_NOT_EFFECTIVE"
 SKILL_TOOL_REQUIRED = "SKILL_TOOL_REQUIRED"
 SKILL_ARGUMENTS_INVALID = "SKILL_ARGUMENTS_INVALID"
 SKILL_NOT_EXECUTABLE = "SKILL_NOT_EXECUTABLE"
@@ -47,7 +47,7 @@ class SkillExecutionRouter:
             raise ToolError("COMMON_VALIDATION_ERROR", "skill_key must be a non-empty string")
         skill = self._skills.get(skill_key)
         if skill is None or str(skill.skill_id) not in self._skill_grants:
-            raise ToolError(SKILL_NOT_EFFECTIVE, f"skill is not effective for this task: {skill_key}")
+            raise ToolError(SKILL_NOT_EFFECTIVE, skill_not_effective_message(skill_key))
         executable = [
             tool
             for tool in self._tools

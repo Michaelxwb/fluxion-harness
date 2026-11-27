@@ -586,6 +586,7 @@ def _result_text(result: SkillExecutionResult) -> str | ToolResult:
                 execution_status=result.execution_status,
                 business_conclusion=result.business_conclusion, result_error_code=result.result_error_code,
                 output_truncated=result.output_truncated,
+                execution_started=result.execution_started,
             ),
         )
     if result.status is not SkillExecutionStatus.SUCCEEDED:

@@ -79,6 +79,8 @@ async def test_worker_mcp_is_error_is_a_logical_failure() -> None:
             )
 
     assert caught.value.code == "MCP_TOOL_FAILED"
+    assert caught.value.sent
+    assert caught.value.outcome_known
 
 
 async def test_worker_mcp_bearer_auth_sends_authorization_header() -> None:

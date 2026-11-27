@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from typing import Any
 
 import pytest
+from muad_agent_core.hooks import HookEvent, HookPipeline
 from muad_agent_core.tools import (
     ArtifactRef,
     BusinessStatus,
@@ -18,6 +19,7 @@ from muad_agent_core.tools import (
     ToolExecutionPipeline,
     ToolRegistry,
     ToolResult,
+    build_prepared_call,
 )
 
 
@@ -113,6 +115,46 @@ async def test_retryable_tool_error_keeps_the_declared_flag() -> None:
 
     assert execution.result.outcome.retryable is True
     assert json.loads(execution.result.content)["error"]["retryable"] is True
+
+
+async def test_post_hook_error_preserves_result_facts() -> None:
+    artifact = ArtifactRef("artifact-1", "text/plain", "result.txt")
+
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        error = ToolError("REMOTE_TIMEOUT", "timeout", sent=True, outcome_known=False)
+        return ToolResult("ok", outcome=error.outcome(), artifacts=(artifact,))
+
+    async def reject_result(_context: object) -> None:
+        raise RuntimeError("bad hook")
+
+    registry = ToolRegistry()
+    registry.register(_definition(handler))
+    hooks = HookPipeline()
+    hooks.register(HookEvent.POST_TOOL_USE, reject_result)
+    pipeline = ToolExecutionPipeline(registry=registry, hooks=hooks)
+
+    execution = await pipeline.execute(pipeline.prepare(call_id="c1", tool_name="echo", arguments={}))
+
+    assert execution.result.outcome.error_code == "TOOL_POST_PROCESSING_FAILED"
+    assert execution.result.outcome.control.sent
+    assert not execution.result.outcome.control.outcome_known
+    assert execution.result.artifacts == (artifact,)
+    assert "retryable" not in json.loads(execution.result.content)["error"]
+
+
+def test_effectful_tool_without_explicit_targets_stays_namespaced() -> None:
+    definition = ToolDefinition(
+        name="write",
+        description="write",
+        input_schema={"type": "object"},
+        effect=ToolEffect.WRITE,
+    )
+    pipeline = ToolExecutionPipeline(registry=ToolRegistry())
+    prepared = pipeline.prepare(call_id="c1", tool_name="write", arguments={})
+
+    call = build_prepared_call(prepared, definition)
+
+    assert call.write_targets == frozenset({"tool:write"})
 
 
 async def test_string_handler_return_is_a_contract_error() -> None:

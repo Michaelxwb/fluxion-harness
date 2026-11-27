@@ -92,6 +92,101 @@ async def test_retention_keeps_head_tail_and_excludes_current_input_from_materia
     assert loaded.head_end_seq is not None
     assert loaded.earlier_records is not None and loaded.earlier_records > 0
 
+    from muad_agent_core.context.compactor import fit_history
+    from muad_agent_core.context.plan import RunInput, plan_context, render_context
+
+    plan = plan_context(
+        loaded.messages, run_input=RunInput(current_message_id, "当前问题"),
+        head_end_seq=loaded.head_end_seq, earlier_records=loaded.earlier_records,
+    )
+    compacted, _ = fit_history(plan, budget_tokens=1)
+    visible = [message.content for message in render_context(compacted)]
+    assert visible.count("第 59 条用户目标") == 1
+    assert visible.count("第 59 条回答") == 1
+    assert visible[-1] == "当前问题"
+
+
+@pytest.mark.asyncio
+async def test_previous_exchange_projects_tool_results_within_budget(
+    tenant: TenantContext, database_guard: None
+) -> None:
+    conversation = Conversation(
+        id=uuid.uuid4(),
+        tenant_id=tenant.tenant_id,
+        user_id=tenant.platform_user_id,
+        agent_id=tenant.agent_id,
+        last_seq=0,
+    )
+    run_id = uuid.uuid4()
+    async with get_session_factory()() as session:
+        session.add(conversation)
+        await session.flush()
+        writer = EventWriter(session)
+        await writer.append(
+            tenant_id=tenant.tenant_id,
+            conversation_id=conversation.id,
+            run_id=run_id,
+            event_type="USER_MESSAGE",
+            payload={"text": "查客户资产", "message_id": "previous"},
+        )
+        await writer.append(
+            tenant_id=tenant.tenant_id,
+            conversation_id=conversation.id,
+            run_id=run_id,
+            event_type="ASSISTANT_TURN",
+            payload={
+                "text": "",
+                "tool_calls": [
+                    {
+                        "id": "call-1",
+                        "name": "execute",
+                        "registry_name": "execute",
+                        "arguments": {"target": "skill", "skill_key": "asset"},
+                    }
+                ],
+            },
+        )
+        await writer.append(
+            tenant_id=tenant.tenant_id,
+            conversation_id=conversation.id,
+            run_id=run_id,
+            event_type="TOOL_CALL",
+            payload={
+                "state": "COMPLETED",
+                "tool_call_id": "call-1",
+                "tool_name": "execute",
+                "status": "OK",
+                "preview": "asset-ip-result",
+            },
+        )
+        await writer.append(
+            tenant_id=tenant.tenant_id,
+            conversation_id=conversation.id,
+            run_id=run_id,
+            event_type="ASSISTANT_MESSAGE",
+            payload={"text": "上一轮结果"},
+        )
+        await writer.append(
+            tenant_id=tenant.tenant_id,
+            conversation_id=conversation.id,
+            run_id=run_id,
+            event_type="USER_MESSAGE",
+            payload={"text": "继续", "message_id": "current"},
+        )
+        await session.commit()
+
+    loaded = await DbBackedContextBuilder(session_factory=get_session_factory).load_history(
+        tenant_id=tenant.tenant_id,
+        conversation_id=conversation.id,
+        user_id=None,
+        budget_tokens=10_000,
+        current_message_id="current",
+    )
+
+    contents = [str(message.content) for message in loaded.messages]
+    assert "asset-ip-result" in contents
+    assert "上一轮结果" in contents
+
 
 @pytest.mark.asyncio
 async def test_full_history_is_loaded_without_trimming(

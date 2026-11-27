@@ -377,6 +377,7 @@ obs.joinReplay = {
   replay: deduped.text,
   attachments: deduped.attachments,
   nextRound: withoutPersistedReply({...waitReply, replySeq: 12}, [storedWait]).text,
+  sameSeq: withoutPersistedReply({...waitReply, replySeq: 10}, [storedWait]).text,
   otherRun: withoutPersistedReply(waitReply, [{...storedWait, run_id:'another-run'}]).text,
   newBody: withoutPersistedReply({...waitReply, text:'Result received.'}, [storedWait]).text
 };
@@ -1530,6 +1531,7 @@ def test_join_reply_replay_does_not_duplicate_durable_history(message_logic: dic
         "replay": "",
         "attachments": [{"filename": "report"}],
         "nextRound": "Waiting for the result.",
+        "sameSeq": "",
         "otherRun": "Waiting for the result.",
         "newBody": "Result received.",
     }

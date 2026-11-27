@@ -17,6 +17,12 @@ _MODEL_TOOL_NAME_MAX = 64
 _MODEL_TOOL_INVALID = re.compile(r"[^A-Za-z0-9_-]")
 
 
+def static_write_targets(*targets: str) -> Callable[[Mapping[str, Any]], frozenset[str]]:
+    """Declare a fixed write target set for a tool definition."""
+    frozen = frozenset(target for target in targets if target)
+    return lambda _arguments: frozen
+
+
 def _safe_model_tool_name(name: str) -> str:
     """OpenAI-compatible function names allow only letters, digits, `_` and `-`."""
     return _MODEL_TOOL_INVALID.sub("_", name)[:_MODEL_TOOL_NAME_MAX] or "tool"
@@ -95,6 +101,11 @@ class ToolDefinition:
     execution_mode: str | None = None
     #: 装配期能力声明；提示词承诺必须能在已注册工具里找到对应能力。
     capabilities: frozenset[ToolCapability] = frozenset()
+    #: Host-owned write targets for this call. The resolver sees the post-hook arguments;
+    #: an empty result falls back to the tool's own namespace, never a global wildcard.
+    write_targets: Callable[[Mapping[str, Any]], frozenset[str]] | None = None
+    #: Optional host-owned resolver for a canonical business operation key across entry points.
+    write_operation_key: Callable[[Mapping[str, Any]], str | None] | None = None
 
 
 class ToolNotFoundError(LookupError):

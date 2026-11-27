@@ -1156,7 +1156,7 @@ class SnapshotBudget(ContractModel):
     #: 0 = 不限制执行级累计 tokens；单次请求仍取模型参数。
     max_tokens: int | None = Field(default=None, ge=0)
     max_model_retries: int | None = Field(default=None, ge=1)
-    max_identical_failures: int | None = Field(default=None, ge=1)
+    max_identical_failures: int | None = Field(default=None, ge=2)
     #: agentic 期限；与 Task 绝对 deadline 取较早值。
     deadline_ms: int | None = Field(default=None, ge=1)
     #: 执行超时：定时任务在 Fire Admission 时冻结，Worker 只读快照。

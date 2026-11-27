@@ -19,6 +19,7 @@ from muad_agent_core.tools import (
     ToolError,
     ToolRegistry,
     ToolResult,
+    static_write_targets,
 )
 from muad_contracts.platform_settings import ArtifactSettings
 
@@ -207,6 +208,7 @@ class ArchiveToolSet:
                     },
                 },
                 effect=ToolEffect.WRITE,
+                write_targets=static_write_targets("archive"),
                 handler=self.create_archive,
                 capabilities=frozenset({ToolCapability.ATTACHMENT_WRITE}),
             )

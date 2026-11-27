@@ -33,6 +33,7 @@ from muad_agent_runtime.application.attachments.tools import (
     MAX_READ_BYTES,
     MAX_TEXT_CHARS,
     READ_ATTACHMENT_TOOL,
+    READ_WORKSPACE_FILE_TOOL,
     SEARCH_ATTACHMENT_TOOL,
     VIEW_IMAGE_TOOL,
     WRITE_ARTIFACT_RESULT_PREFIX,
@@ -53,7 +54,7 @@ from muad_agent_runtime.infrastructure.models.runtime import (
     RunRecord,
 )
 from muad_artifact_store import NfsArtifactStore
-from muad_contracts import DeliveryResponse, DeliveryRouteInput
+from muad_contracts import DeliveryResponse, DeliveryRouteInput, ToolRetrySafety
 
 from .conftest import TenantContext
 
@@ -1003,6 +1004,7 @@ async def test_deliver_artifact_reports_a_real_delivery(tenant, artifact_root) -
     sent = client.requests[0]
     assert sent.delivery_key == f"run:{tool_set._run_id}:{artifact_id}"
     assert sent.task_id is None, "会话形态不带 task_id"
+    assert sent.platform_user_id == tenant.platform_user_id
     assert sent.message.artifact is not None
     assert str(sent.message.artifact.artifact_id) == artifact_id, "适配器要拿 artifact_id 拼降级直链"
 
@@ -1023,22 +1025,46 @@ async def test_deliver_artifact_reports_a_degraded_link(tenant, artifact_root) -
     assert "取件链接" in result
 
 
-async def test_deliver_artifact_reports_failure_and_keeps_the_artifact(
-    tenant, artifact_root
+@pytest.mark.parametrize(
+    "client",
+    [
+        _FakeDeliveryClient(error=DeliveryUnavailableError("ReadTimeout")),
+        _FakeDeliveryClient(DeliveryResponse(accepted=True, delivered=False, deduplicated=True)),
+    ],
+)
+async def test_deliver_artifact_reports_unconfirmed_and_keeps_the_artifact(
+    tenant, artifact_root, client,
 ) -> None:
-    """没拿到结论 ⇒ **按失败报**，且明说产物已保留可重试。**绝不**说"已交付"。"""
-    client = _FakeDeliveryClient(error=DeliveryUnavailableError("ReadTimeout"))
     tool_set, artifact_id = await _deliverable(tenant, artifact_root, client=client)
+    registry = ToolRegistry()
+    tool_set.register(registry)
+    definition = registry.get(DELIVER_ARTIFACT_TOOL)
+    assert definition.retry_safety is ToolRetrySafety.IDEMPOTENT
 
-    result = await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"artifact_id": artifact_id})
+    delivered = await definition.handler(
+        {"artifact_id": artifact_id},
+        call=ToolCall(call_id="call-delivery", name=DELIVER_ARTIFACT_TOOL, arguments={}),
+    )
+    assert not delivered.outcome.control.outcome_known
+    result = delivered.content
 
-    assert "交付失败" in result and "可重试" in result
-    assert artifact_id in result, "要告诉模型产物还在，重试不用重写"
-    assert "已交付" not in result, "超时只说明没拿到结论，说得像发出去了就是谎报（RULE-03）"
+    assert "暂无法确认" in result
+    assert artifact_id in result
+    assert await _publication_rows(tenant, tool_set._run_id) == []
 
     # 产物确实还在（失败不回滚写入）
     read_back = await _call(tool_set, READ_ATTACHMENT_TOOL, {"artifact_id": artifact_id})
     assert "正文" in read_back
+
+
+async def test_deliver_artifact_describes_text_and_overflow_paths(tenant, artifact_root) -> None:
+    tool_set, _ = await _deliverable(tenant, artifact_root, client=_FakeDeliveryClient())
+    registry = ToolRegistry()
+    tool_set.register(registry)
+    description = registry.get(DELIVER_ARTIFACT_TOOL).description
+    assert "respond directly in text" in description
+    assert "one short final reply" in description
+    assert "actual delivery status" in description
 
 
 async def test_deliver_artifact_without_a_route_errors_explicitly(tenant, artifact_root) -> None:
@@ -1302,8 +1328,67 @@ async def test_deliver_artifact_on_an_unknown_channel_is_refused(
     assert await _publication_rows(tenant, run_id) == []
 
 
+async def test_read_workspace_file_is_a_safe_read_only_check(tmp_path) -> None:
+    """E-01：未知写入后用真实文件读取核实内容，不再经过任何 shell 命令。"""
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "uat-unknown.txt").write_text("partial-content", encoding="utf-8")
+    tool_set = AttachmentToolSet(
+        session_factory=get_session_factory,
+        artifact_root=tmp_path / "artifacts",
+        tenant_id="tenant-a",
+        workspace_dir=workspace,
+    )
+
+    content = await _call(tool_set, READ_WORKSPACE_FILE_TOOL, {"path": "uat-unknown.txt"})
+
+    assert "partial-content" in content
+    assert "uat-unknown.txt" in content
+    with pytest.raises(AttachmentToolError, match="workspace-relative"):
+        await _call(tool_set, READ_WORKSPACE_FILE_TOOL, {"path": "../secret.txt"})
+
+
+async def test_read_workspace_file_paginates_without_rescanning(tmp_path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "long.txt").write_text("a" * (MAX_TEXT_CHARS + 10), encoding="utf-8")
+    tool_set = AttachmentToolSet(
+        session_factory=get_session_factory,
+        artifact_root=tmp_path / "artifacts",
+        tenant_id="tenant-a",
+        workspace_dir=workspace,
+    )
+
+    first = await _call(tool_set, READ_WORKSPACE_FILE_TOOL, {"path": "long.txt"})
+    cursor = re.search(r"cursor=(v1:\d+:\d+)", first)
+    assert cursor is not None
+    second = await _call(
+        tool_set,
+        READ_WORKSPACE_FILE_TOOL,
+        {"path": "long.txt", "cursor": cursor.group(1)},
+    )
+    assert "cursor=" in first
+    assert "共" in second
+
+
+@pytest.mark.parametrize(
+    ("filename", "data", "media_type", "kind"),
+    [
+        ("result.json", b'{"ok": true}', "application/json", "DOCUMENT"),
+        ("report.txt", b"complete text\n" * 5000, "text/plain", "DOCUMENT"),
+        ("export.csv", b"id,name\n1,alpha\n2,beta\n", "text/csv", "DOCUMENT"),
+        (
+            "chart.png",
+            base64.b64decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+X2S8AAAAASUVORK5CYII="
+            ),
+            "image/png",
+            "IMAGE",
+        ),
+    ],
+)
 async def test_deliver_artifact_path_retry_reuses_the_same_artifact_and_publication(
-    tenant: TenantContext, artifact_root, tmp_path
+    tenant: TenantContext, artifact_root, tmp_path, filename: str, data: bytes, media_type: str, kind: str,
 ) -> None:
     """同一 Run 内对同一 workspace 文件的重复交付：复用产物行 ⇒ 只发布一次、只出一张卡。"""
     from muad_agent_runtime.application.attachments.output_service import (
@@ -1315,7 +1400,8 @@ async def test_deliver_artifact_path_retry_reuses_the_same_artifact_and_publicat
     run_id, conversation_id = await _seed_run(tenant)
     workspace = tmp_path / "ws"
     (workspace / "outputs").mkdir(parents=True)
-    (workspace / "outputs" / "result.json").write_text('{"ok": true}', encoding="utf-8")
+    relative_path = f"outputs/{filename}"
+    (workspace / relative_path).write_bytes(data)
     registrar = SkillOutputArtifactRegistrar(
         OutputArtifactWriter(
             artifact_root=artifact_root,
@@ -1344,8 +1430,10 @@ async def test_deliver_artifact_path_retry_reuses_the_same_artifact_and_publicat
         output_registrar=registrar,
     )
 
-    first = await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"path": "outputs/result.json"})
-    second = await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"path": "outputs/result.json"})
+    with pytest.raises(AttachmentToolError, match="workspace-relative"):
+        await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"path": f"../{filename}"})
+    first = await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"path": relative_path})
+    second = await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"path": relative_path})
 
     assert "已交付" in first and "已交付" in second
     assert client.requests == []
@@ -1355,7 +1443,10 @@ async def test_deliver_artifact_path_retry_reuses_the_same_artifact_and_publicat
                 Artifact.tenant_id == tenant.tenant_id, Artifact.run_id == run_id
             )
         )
-        assert len(list(artifacts)) == 1, "同路径同内容的重试不得造出第二份产物"
+        artifact = artifacts.one()
+        assert artifact.media_type == media_type
+        assert artifact.metadata_json["kind"] == kind
+        assert NfsArtifactStore(artifact_root).resolve(artifact.storage_key).read_bytes() == data
     assert len(await _publication_rows(tenant, run_id)) == 1, "只允许一条发布事实"
 
 

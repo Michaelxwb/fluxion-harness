@@ -808,7 +808,7 @@ def _fold_events(
     *,
     async_tools: Collection[str] = (),
     consumed_event_seq: int = 0,
-    max_identical_failures: int = 1,
+    max_identical_failures: int = 2,
 ) -> FoldedHistory:
     """事件 → 合法历史：保留**所有** assistant 声明，每个声明都有显式结果。"""
     events = [

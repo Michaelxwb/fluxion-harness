@@ -10,6 +10,7 @@ from muad_agent_core.agent.recovery import (
     fold_events,
     history_messages,
     recover_call,
+    replay_failure_state,
     turn_state,
 )
 
@@ -150,6 +151,53 @@ def test_completed_without_prepared_outside_denials_is_inconsistent() -> None:
         assert exc.call_id == "c1"
     else:  # pragma: no cover
         raise AssertionError("completed without prepared must not be guessed as success")
+
+
+def test_replay_tracks_pre_dispatch_denial_and_unverified_write_separately() -> None:
+    denial = {
+        **_completed("c1", "skill unavailable", code="SKILL_NOT_EFFECTIVE"),
+        "handler_entered": False,
+        "attempt": "skill:missing:sha256:x",
+    }
+    unknown = {
+        **_completed("c2", "returned without a result"),
+        "handler_entered": True,
+        "outcome": {"business_status": "UNKNOWN", "failure_layer": "NONE", "outcome_known": False},
+    }
+    fold = fold_events(_events(
+        calls=[_declaration("c1"), _declaration("c2")],
+        prepared=[{**_prepared("c2", mode="SYNC"), "write_targets": ["platform:x"]}],
+        completed=[denial, unknown],
+    ))
+
+    assert recover_call(fold.calls[0])[0] is RecoveryState.DENIED_BEFORE_PREPARED
+    failure = replay_failure_state(fold, max_identical_failures=2)
+    assert failure.blocked_attempts == {"skill:missing:sha256:x"}
+    assert failure.unknown_write_targets == {"platform:x"}
+    assert not failure.no_progress
+
+
+def test_prepared_async_with_accepted_operation_is_not_an_unknown_write() -> None:
+    events = _events(
+        calls=[_declaration("c1")],
+        prepared=[_prepared("c1", mode="ASYNC")],
+    )
+    events.append({
+        "event_type": "TOOL_TASK_ACCEPTED",
+        "payload": {
+            "source_tool_call_id": "c1",
+            "task_id": "task-1",
+            "task_status": "QUEUED",
+        },
+    })
+    fold = fold_events(events)
+
+    state, _content = recover_call(fold.calls[0], async_tools={"skill::s::run"})
+    failure = replay_failure_state(fold, max_identical_failures=2)
+
+    assert state is RecoveryState.OPERATION_PENDING
+    assert not failure.unknown_write_targets
+    assert not failure.unknown_write_operations
 
 
 def test_prepared_partial_classifies_the_turn() -> None:

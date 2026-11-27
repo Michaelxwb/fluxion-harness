@@ -11,6 +11,7 @@ from typing import Any
 import sqlalchemy as sa
 from muad_agent_core.agent.recovery import fold_events
 from muad_agent_core.context.compactor import Group, split_groups, split_protected_prefix
+from muad_agent_core.context.plan import MessageOrigin
 from muad_agent_core.context.summary import summary_from_payload, summary_message
 from muad_agent_core.model.budget import MESSAGE_PROTOCOL_OVERHEAD_BYTES
 from muad_agent_core.model.provider import ModelMessage, ModelRole, ModelToolCall, text_of
@@ -175,7 +176,19 @@ class DbBackedContextBuilder:
                 protected,
                 through_seq=through_seq,
             )
-            events = _merge_events(head_events, material_events, tail_events, protected_events)
+            previous_exchange = await self._read_previous_exchange(
+                session,
+                tenant_id,
+                conversation_id,
+                current_message_id,
+                through_seq,
+                budget_tokens,
+                covered=covered,
+            )
+            exchange_ids = {str(event.id) for event in previous_exchange}
+            events = _merge_events(
+                head_events, material_events, tail_events, protected_events, previous_exchange,
+            )
             references = await self._artifact_references(
                 session, tenant_id, [event.artifact_id for event in events if event.artifact_id]
             )
@@ -185,7 +198,7 @@ class DbBackedContextBuilder:
                 conversation_id,
                 gap_start=max(material_scan_end, head_end or 0),
                 tail_start=min((event.seq for event in tail_events), default=None),
-                protected=protected,
+                protected=(*protected, *exchange_ids),
                 through_seq=through_seq,
                 unconsumed_run_id=unconsumed_run_id,
                 consumed_event_seq=consumed_event_seq,
@@ -202,7 +215,8 @@ class DbBackedContextBuilder:
                 )
             )
         messages.extend(
-            message
+            replace(message, origin=MessageOrigin.PREVIOUS_EXCHANGE)
+            if message.source_event_id in exchange_ids else message
             for value, message in _history_entries(
                 events, _paired_tool_results(events, references)
             )
@@ -214,6 +228,70 @@ class DbBackedContextBuilder:
             head_end_seq=head_end,
             earlier_records=earlier,
         )
+
+    @staticmethod
+    async def _read_previous_exchange(
+        session: AsyncSession,
+        tenant_id: str,
+        conversation_id: uuid.UUID,
+        current_message_id: str | None,
+        through_seq: int | None,
+        budget_tokens: int,
+        *,
+        covered: int = 0,
+    ) -> list[CanonicalEvent]:
+        if not current_message_id:
+            return []
+        event = CanonicalEvent
+        base_scope = (
+            event.tenant_id == tenant_id,
+            event.conversation_id == conversation_id,
+            event.is_deleted.is_(False),
+            event.seq <= through_seq if through_seq is not None else true(),
+        )
+        current = select(sa.func.max(event.seq)).where(
+            *base_scope,
+            event.event_type == "USER_MESSAGE",
+            event.payload_json["message_id"].as_string() == current_message_id,
+        ).correlate(None).scalar_subquery()
+        previous = select(sa.func.max(event.seq)).where(
+            *base_scope, event.event_type == "USER_MESSAGE", event.seq < current,
+        ).correlate(None).scalar_subquery()
+        events = list(await session.scalars(
+            select(event)
+            .where(
+                *base_scope,
+                event.seq >= previous,
+                event.seq < current,
+                event.seq > covered,
+                event.event_type.in_(
+                    (
+                        "USER_MESSAGE",
+                        "ASSISTANT_TURN",
+                        "TOOL_CALL",
+                        "ASSISTANT_MESSAGE",
+                        "TOOL_TASK_ACCEPTED",
+                        "BACKGROUND_RESULT",
+                        "TOOL_SUBMISSION_FAILED",
+                    )
+                ),
+            )
+            .order_by(event.seq)
+        ))
+        if not events:
+            return []
+        if _estimate_events_tokens(events) <= budget_tokens // 2:
+            return events
+        # Keep the goal and the final answer when the full exchange cannot fit.
+        previous_user = events[0] if events[0].event_type == "USER_MESSAGE" else None
+        answer = next(
+            (item for item in reversed(events) if item.event_type == "ASSISTANT_MESSAGE"),
+            None,
+        )
+        fallback = [item for item in (previous_user, answer) if item is not None]
+        if not fallback or _estimate_events_tokens(fallback[:1]) > budget_tokens // 2:
+            return []
+        return fallback if _estimate_events_tokens(fallback) <= budget_tokens // 2 else fallback[:1]
 
     async def _read_tail(
         self,

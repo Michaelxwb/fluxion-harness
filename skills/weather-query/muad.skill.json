@@ -1,0 +1,6 @@
+{
+  "name": "weather-query",
+  "author": "fluxion-harness",
+  "version": "1.0.3",
+  "entrypoint": "scripts/main.py"
+}

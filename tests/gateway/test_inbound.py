@@ -330,6 +330,21 @@ async def test_stream_ending_without_terminal_event_replies_broken(catalog: Mess
     assert _sent_texts(adapter) == [BROKEN_STREAM_TEXT]
 
 
+async def test_persisted_waiting_stage_does_not_emit_a_broken_stream_notice(catalog: MessageCatalog) -> None:
+    console = FakeConsoleClient()
+    console.resolve_response = resolved_response()
+    runtime = FakeRuntimeClient([
+        SseEvent(type="run.created", data={"run_id": "run-waiting"}),
+        SseEvent(type="message.snapshot", data={"text": "请回复客户 ID"}),
+        SseEvent(type="run.stage", data={"stage": "WAITING_INPUT"}),
+    ])
+    adapter = FakeChannelAdapter()
+
+    await _pipeline(console, runtime, catalog=catalog).handle(adapter, make_envelope())
+
+    assert _sent_texts(adapter) == []
+
+
 async def test_run_failed_uses_catalog_error_code(tmp_path: Path) -> None:
     messages_file = tmp_path / "messages.yaml"
     messages_file.write_text(

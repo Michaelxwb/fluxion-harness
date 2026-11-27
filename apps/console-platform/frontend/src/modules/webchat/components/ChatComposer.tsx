@@ -235,6 +235,8 @@ interface ComposerActionsProps {
   disabled: boolean;
   canSend: boolean;
   runActive: boolean;
+  /** Waiting for user input: the primary action is send, with stop kept available. */
+  waitingInput: boolean;
   stopDisabled: boolean;
   /** 主操作文案词条（与 `onPrimary` 同一处推导，标签与行为不会分叉）。 */
   primaryLabel: string;
@@ -251,6 +253,8 @@ interface ComposerActionsProps {
 /** 动作行：文件选择 + 在途取消 + 发送/停止/重试主操作（发送与停止共用同一图标位）。 */
 function ComposerActions(props: ComposerActionsProps) {
   const { t } = useTranslation();
+  // Waiting for input is non-terminal, but send is the primary action there; stop stays secondary.
+  const stopPrimary = props.runActive && !props.waitingInput;
   const handleFiles = (event: ChangeEvent<HTMLInputElement>): void => {
     const selected = event.target.files;
     if (selected !== null && selected.length > 0) props.onAddFiles(Array.from(selected));
@@ -290,6 +294,20 @@ function ComposerActions(props: ComposerActionsProps) {
         disabled={props.disabled}
         onClick={() => props.fileInputRef.current?.click()}
       />
+      {props.waitingInput ? (
+        <Button
+          size="small"
+          theme="borderless"
+          className="chat-composer-waiting-stop"
+          data-testid="chat-composer-stop"
+          data-mode="stop"
+          icon={<IconStop />}
+          aria-label={t('chat.composer.stop')}
+          title={t('chat.composer.stop')}
+          disabled={props.stopDisabled}
+          onClick={props.onStop}
+        />
+      ) : null}
       {props.frozenRetry ? (
         <Button
           className="chat-composer-send chat-composer-retry"
@@ -304,13 +322,13 @@ function ComposerActions(props: ComposerActionsProps) {
           theme="solid"
           type="primary"
           className="chat-composer-send"
-          data-testid={props.runActive ? 'chat-composer-stop' : 'chat-composer-send'}
-          data-mode={props.runActive ? 'stop' : 'send'}
-          icon={props.runActive ? <IconStop /> : <IconSend />}
-          aria-label={t(props.runActive ? 'chat.composer.stop' : 'chat.composer.send')}
-          title={t(props.runActive ? 'chat.composer.stop' : 'chat.composer.send')}
-          disabled={props.runActive ? props.stopDisabled : !props.canSend}
-          onClick={props.runActive ? props.onStop : props.onPrimary}
+          data-testid={stopPrimary ? 'chat-composer-stop' : 'chat-composer-send'}
+          data-mode={stopPrimary ? 'stop' : 'send'}
+          icon={stopPrimary ? <IconStop /> : <IconSend />}
+          aria-label={t(stopPrimary ? 'chat.composer.stop' : 'chat.composer.send')}
+          title={t(stopPrimary ? 'chat.composer.stop' : 'chat.composer.send')}
+          disabled={stopPrimary ? props.stopDisabled : !props.canSend}
+          onClick={stopPrimary ? props.onStop : props.onPrimary}
         />
       )}
     </div>
@@ -391,8 +409,11 @@ function composerFlags(props: ChatComposerProps): ComposerFlags {
   const frozenRetry = props.phase === 'FAILED' && props.inputFrozen;
   const inputDisabled = props.disabled || props.inputFrozen;
   const empty = props.text.trim() === '' && props.attachments.length === 0;
+  // A run waiting for user input is still non-terminal, but the composer is the answer
+  // channel (the backend resumes the original run from the same conversation message).
+  const blockedByRun = props.runActive && !props.waitingInput;
   const canSubmit =
-    !props.runActive &&
+    !blockedByRun &&
     !props.disabled &&
     !busy &&
     (frozenRetry || (!inputDisabled && !empty));
@@ -434,8 +455,10 @@ export interface ChatComposerProps {
   outcomeUnknown: boolean;
   /** 输入冻结：在途发送或已提交待重试。 */
   inputFrozen: boolean;
-  /** 有活跃 Run 时主操作切换为停止；输入区不再显示独立停止按钮。 */
+  /** 有活跃 Run 时主操作切换为停止；等待用户输入时主操作仍是发送，停止降为次要操作。 */
   runActive: boolean;
+  /** Run 正在等待用户回答：输入区必须可提交，不能显示成只能停止。 */
+  waitingInput: boolean;
   stopDisabled: boolean;
   /** 停止确认/停止中/失败提示；由页面持有的停止状态机投影。 */
   stopNotice?: ReactNode;
@@ -498,6 +521,7 @@ export function ChatComposer(props: ChatComposerProps) {
           disabled={flags.inputDisabled}
           canSend={flags.canSubmit}
           runActive={props.runActive}
+          waitingInput={props.waitingInput}
           stopDisabled={props.stopDisabled}
           primaryLabel={flags.primaryLabel}
           frozenRetry={flags.frozenRetry}

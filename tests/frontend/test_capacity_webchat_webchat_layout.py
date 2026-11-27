@@ -558,6 +558,7 @@ export async function renderScenarios(scenarios) {
         outcomeUnknown: false,
         inputFrozen: false,
         runActive: false,
+        waitingInput: false,
         stopDisabled: false,
         onAddFiles: NOOP,
         onRemoveAttachment: NOOP,

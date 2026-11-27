@@ -78,15 +78,23 @@ class SandboxError(RuntimeError):
     """所有沙箱错误的基类：error code 走既有 `SANDBOX_*` 契约。"""
 
     code = "SANDBOX_ERROR"
+    #: Whether the process may have entered the execution boundary. Generic sandbox errors
+    #: default to "unknown/started" so callers conservatively keep side-effect uncertainty.
+    started = True
 
-    def __init__(self, message: str, *, result: SandboxResult | None = None) -> None:
+    def __init__(
+        self, message: str, *, result: SandboxResult | None = None, started: bool | None = None
+    ) -> None:
         self.message = message
         self.result = result
+        if started is not None:
+            self.started = started
         super().__init__(message)
 
 
 class SandboxUnavailable(SandboxError):
     code = "SANDBOX_UNAVAILABLE"
+    started = False
 
 
 class SandboxTimeout(SandboxError):

@@ -14,7 +14,14 @@ from enum import StrEnum
 from typing import Any
 
 from ..model.provider import ModelMessage, ModelRole, ModelToolCall
-from .failure import FailureSignal, attempt_identity, failure_scope, is_effectful, update_failure_state
+from .failure import (
+    FailureSignal,
+    attempt_identity,
+    failure_scope,
+    is_effectful,
+    record_unverified_write,
+    update_failure_state,
+)
 from .termination import FailureState
 
 NOT_EXECUTED_CODE = "TOOL_NOT_EXECUTED"
@@ -70,6 +77,8 @@ class PreparedFact:
     execution_mode: str | None = None
     retry_safety: str = "NON_RETRYABLE"
     effect: str = "EXTERNAL"
+    write_targets: frozenset[str] = frozenset()
+    write_operation_key: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,6 +99,10 @@ class CompletedFact:
     scope: str = "CALL"
     security_disposition: str = "NORMAL"
     stop_confirmed: bool = True
+    sent: bool = False
+    outcome_known: bool = True
+    handler_entered: bool | None = None
+    attempt: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,12 +198,39 @@ def fold_events(events: Sequence[Mapping[str, Any]]) -> RecoveryFold:
                 calls[call_id] = facts
                 current.append(facts)
             continue
+        if event_type in {"TOOL_TASK_ACCEPTED", "BACKGROUND_RESULT"}:
+            source_call_id = payload.get("source_tool_call_id")
+            if not isinstance(source_call_id, str) or source_call_id not in calls:
+                continue
+            if event_type == "TOOL_TASK_ACCEPTED":
+                task_id = payload.get("task_id")
+                operation = OperationFact(
+                    call_id=source_call_id,
+                    status=str(payload.get("task_status") or "SUBMITTED"),
+                    task_id=task_id if isinstance(task_id, str) else None,
+                )
+            else:
+                content = payload.get("content")
+                operation = OperationFact(
+                    call_id=source_call_id,
+                    status=str(payload.get("terminal_status") or "COMPLETED"),
+                    result=content if isinstance(content, str) else None,
+                    task_id=(
+                        str(payload["task_id"]) if isinstance(payload.get("task_id"), str) else None
+                    ),
+                )
+            calls[source_call_id] = replace(calls[source_call_id], operation=operation)
+            for index, item in enumerate(current):
+                if item.declaration.call_id == source_call_id:
+                    current[index] = calls[source_call_id]
+                    break
+            continue
         call_id = payload.get("tool_call_id")
         if not isinstance(call_id, str) or call_id not in calls:
             continue
         state = payload.get("state")
         if event_type == "TOOL_CALL" and state == "STARTED":
-            calls[call_id] = replace(calls[call_id], prepared=_prepared_fact(call_id, payload))
+            calls[call_id] = replace(calls[call_id], prepared=prepared_fact(call_id, payload))
         elif event_type == "TOOL_CALL" and state == "COMPLETED":
             calls[call_id] = replace(calls[call_id], completed=_completed_fact(call_id, payload))
         for index, item in enumerate(current):
@@ -211,8 +251,13 @@ def replay_failure_state(fold: RecoveryFold, *, max_identical_failures: int) -> 
         prepared, completed = call.prepared, call.completed
         effectful = bool(prepared and is_effectful(prepared.effect, prepared.retry_safety))
         if completed is None:
-            if effectful:
-                state = replace(state, external_blocked=True)
+            if prepared is not None and effectful and call.operation is None:
+                state = record_unverified_write(
+                    state,
+                    prepared.write_targets,
+                    prepared.write_operation_key,
+                    fallback_target=f"tool:{prepared.tool_name or call.declaration.tool_name}",
+                )
             continue
         if completed.error_code in {NOT_EXECUTED_CODE, "TOOL_BUDGET_EXHAUSTED"}:
             continue
@@ -221,6 +266,7 @@ def replay_failure_state(fold: RecoveryFold, *, max_identical_failures: int) -> 
             skill_key=prepared.skill_key if prepared else None,
             skill_id=prepared.skill_id if prepared else None,
         )
+        attempt = completed.attempt or (attempt_identity(scope, prepared.args_hash) if prepared else None)
         state = update_failure_state(
             state,
             FailureSignal(
@@ -232,8 +278,12 @@ def replay_failure_state(fold: RecoveryFold, *, max_identical_failures: int) -> 
                 scope=completed.scope,
                 security_disposition=completed.security_disposition,
                 stop_confirmed=completed.stop_confirmed,
-                attempt=attempt_identity(scope, prepared.args_hash) if prepared else None,
-                external_started=effectful, review_progress=completed.review_progress,
+                attempt=attempt,
+                external_started=effectful and completed.handler_entered is not False,
+                write_targets=prepared.write_targets if prepared else frozenset(),
+                write_operation_key=prepared.write_operation_key if prepared else None,
+                sent=completed.sent, outcome_known=completed.outcome_known,
+                review_progress=completed.review_progress,
             ),
             max_identical_failures=max_identical_failures,
         )
@@ -250,7 +300,11 @@ def recover_call(
     if facts.completed is not None:
         if facts.prepared is not None:
             return RecoveryState.COMPLETED, facts.completed.content
-        if facts.completed.error_code in DENIED_BEFORE_PREPARED_CODES:
+        if (
+            facts.completed.handler_entered is False
+            or facts.completed.status == "BLOCKED"
+            or facts.completed.error_code in DENIED_BEFORE_PREPARED_CODES
+        ):
             return RecoveryState.DENIED_BEFORE_PREPARED, facts.completed.content
         raise RecoveryConsistencyError(
             call.call_id,
@@ -344,12 +398,19 @@ def turn_state(calls: Sequence[CallFacts], *, async_tools: Collection[str] = ())
     return states[0]
 
 
-def _prepared_fact(call_id: str, payload: Mapping[str, Any]) -> PreparedFact:
+def prepared_fact(call_id: str, payload: Mapping[str, Any]) -> PreparedFact:
+    targets = payload.get("write_targets")
+    operation_key = payload.get("write_operation_key")
+    source = str(payload.get("source") or "PLATFORM")
+    retry_safety = str(payload.get("retry_safety") or "NON_RETRYABLE")
+    effect = str(payload.get("effect") or "EXTERNAL")
+    if source == "MCP" and retry_safety != "READ_ONLY":
+        effect = "EXTERNAL"
     return PreparedFact(
         call_id=call_id,
         tool_name=str(payload.get("name") or ""),
         args_hash=str(payload.get("args_hash") or ""),
-        source=str(payload.get("source") or "PLATFORM"),
+        source=source,
         skill_id=payload.get("skill_id") if isinstance(payload.get("skill_id"), str) else None,
         skill_key=payload.get("skill_key") if isinstance(payload.get("skill_key"), str) else None,
         execution_mode=(
@@ -357,8 +418,11 @@ def _prepared_fact(call_id: str, payload: Mapping[str, Any]) -> PreparedFact:
             if isinstance(payload.get("execution_mode"), str)
             else None
         ),
-        retry_safety=str(payload.get("retry_safety") or "NON_RETRYABLE"),
-        effect=str(payload.get("effect") or "EXTERNAL"),
+        retry_safety=retry_safety,
+        effect=effect,
+        write_targets=frozenset(v for v in targets if isinstance(v, str))
+        if isinstance(targets, list | tuple) else frozenset(),
+        write_operation_key=operation_key if isinstance(operation_key, str) and operation_key else None,
     )
 
 
@@ -373,6 +437,8 @@ def _progress_fact(value: object) -> tuple[str, int, int] | None:
 def _completed_fact(call_id: str, payload: Mapping[str, Any]) -> CompletedFact:
     outcome = payload.get("outcome")
     outcome_map = outcome if isinstance(outcome, Mapping) else {}
+    phase = payload.get("handler_entered")
+    attempt = payload.get("attempt")
     content = payload.get("content")
     if not isinstance(content, str):
         legacy = payload.get("result")
@@ -396,6 +462,10 @@ def _completed_fact(call_id: str, payload: Mapping[str, Any]) -> CompletedFact:
         scope=str(outcome_map.get("scope") or "CALL"),
         security_disposition=str(outcome_map.get("security_disposition") or "NORMAL"),
         stop_confirmed=outcome_map.get("stop_confirmed") is not False,
+        sent=outcome_map.get("sent") is True,
+        outcome_known=outcome_map.get("outcome_known") is not False,
+        handler_entered=phase if isinstance(phase, bool) else None,
+        attempt=attempt if isinstance(attempt, str) else None,
 
         artifacts=tuple(
             item for item in payload.get("artifacts") or () if isinstance(item, Mapping)
@@ -469,6 +539,7 @@ __all__ = [
     "active_skills",
     "fold_events",
     "history_messages",
+    "prepared_fact",
     "recover_call",
     "turn_state",
     "_pending_content",

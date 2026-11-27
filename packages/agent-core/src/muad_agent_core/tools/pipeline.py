@@ -11,8 +11,9 @@ from typing import Protocol
 from uuid import UUID
 
 import jsonschema
-from muad_contracts import canonical_json
+from muad_contracts import ToolRetrySafety, canonical_json
 from muad_contracts.canonical import ensure_strict_json
+from muad_logging import get_logger
 from muad_logging.redaction import redact_value
 from pydantic import JsonValue, TypeAdapter
 
@@ -20,12 +21,15 @@ from ..hooks.pipeline import HookEvent, HookPipeline
 from .identity import PreparedCall, ToolCall
 from .outcome import (
     ExecutionOutcome,
+    RetryDisposition,
     bounded_preview,
     policy_denied_outcome,
     tool_exception_outcome,
 )
-from .registry import ToolDefinition, ToolNotFoundError, ToolRegistry
+from .registry import ToolDefinition, ToolEffect, ToolNotFoundError, ToolRegistry
 from .result import ToolError, ToolExecutionResult, ToolResult, failure_result
+
+logger = get_logger(__name__)
 
 JSON_OBJECT = TypeAdapter(dict[str, JsonValue])
 REDACTED_KEYS = frozenset({"api_key", "secret", "token", "password"})
@@ -126,12 +130,36 @@ class RunnableToolCall:
     definition: ToolDefinition
 
 
+#: Runner-owned pre-dispatch gate. It runs after validation/hooks and before policy/handler,
+#: so policy denials and blocked attempts share one decision point.
+DispatchGate = Callable[[PreparedToolCall, ToolDefinition], ToolExecutionResult | None]
+
+
 def build_prepared_call(
     prepared: PreparedToolCall, definition: ToolDefinition
 ) -> PreparedCall:
     """把校验后的调用冻结成外部执行前的持久事实（参数只保留脱敏/有界预览）。"""
     source, skill_id, skill_key, tool_name = _call_source(
         prepared.tool_name, prepared.arguments
+    )
+    effect = definition.effect
+    if source == "MCP" and definition.retry_safety is not ToolRetrySafety.READ_ONLY:
+        effect = ToolEffect.EXTERNAL
+    targets = (
+        definition.write_targets(prepared.arguments)
+        if definition.write_targets is not None
+        else frozenset()
+    )
+    if (
+        not targets
+        and effect is not ToolEffect.READ
+        and definition.retry_safety is not ToolRetrySafety.READ_ONLY
+    ):
+        targets = frozenset({f"tool:{tool_name or prepared.tool_name}"})
+    operation_key = (
+        definition.write_operation_key(prepared.arguments)
+        if definition.write_operation_key is not None
+        else None
     )
     return PreparedCall(
         call=ToolCall(
@@ -148,7 +176,9 @@ def build_prepared_call(
         tool_name=tool_name,
         execution_mode=definition.execution_mode,
         retry_safety=definition.retry_safety,
-        effect=definition.effect.value,
+        effect=effect.value,
+        write_targets=frozenset(target for target in targets if isinstance(target, str) and target),
+        write_operation_key=operation_key if isinstance(operation_key, str) and operation_key else None,
     )
 
 
@@ -224,11 +254,12 @@ class ToolExecutionPipeline:
         return await self.run_prepared(outcome)
 
     async def prepare_execution(
-        self, prepared: PreparedToolCall
+        self, prepared: PreparedToolCall, *, gate: DispatchGate | None = None
     ) -> RunnableToolCall | ToolExecutionResult:
         """校验/授权（不含 handler IO）；未通过时返回终态结果并写审计。
 
         并发编排用：按原调用序先跑完这一段，TaskGroup 里只放 `run_prepared` 的 handler IO。
+        `gate` 在 policy 之前执行，保证 policy deny 不会绕过 blocked attempt / unknown write。
         """
         started_at, started = datetime.now(UTC), monotonic()
         if self._audit is not None:
@@ -242,7 +273,9 @@ class ToolExecutionPipeline:
             if self._audit is not None:
                 self._audit.prepare(prepared)
             jsonschema.validate(instance=prepared.arguments, schema=definition.input_schema)
-            execution = self._blocked(prepared, definition)
+            execution = gate(prepared, definition) if gate is not None else None
+            if execution is None:
+                execution = self._blocked(prepared, definition)
         except ToolNotFoundError:
             execution = self._failure(
                 prepared,
@@ -326,6 +359,8 @@ class ToolExecutionPipeline:
                     code=error,
                     message=str(exc),
                     retryable=getattr(exc, "retryable", None),
+                    sent=getattr(exc, "sent", False) is True,
+                    outcome_known=getattr(exc, "outcome_known", False) is True,
                 ),
             )
             raise
@@ -393,15 +428,38 @@ class ToolExecutionPipeline:
             raise TypeError(
                 f"tool {definition.name!r} returned {type(result).__name__}, expected ToolResult"
             )
-        context = await self._hooks.run(
-            HookEvent.POST_TOOL_USE,
-            {
-                "call_id": call.call_id,
-                "tool": call.tool_name,
-                "arguments": call.arguments,
-                "result": result.content,
-            },
-        )
+        try:
+            context = await self._hooks.run(
+                HookEvent.POST_TOOL_USE,
+                {
+                    "call_id": call.call_id,
+                    "tool": call.tool_name,
+                    "arguments": call.arguments,
+                    "result": result.content,
+                },
+            )
+        except Exception as exc:
+            control = result.outcome.control
+            error = ToolError(
+                "TOOL_POST_PROCESSING_FAILED",
+                "The tool ran, but its result could not be processed. Verify it before running it again.",
+                retryable=False,
+                sent=control.sent,
+                outcome_known=control.outcome_known,
+            )
+            failure = failure_result(identity, error)
+            outcome = replace(
+                failure.result.outcome,
+                control=replace(control, retry_disposition=RetryDisposition.BLOCK),
+            )
+            preserved = replace(
+                failure.result,
+                outcome=outcome,
+                artifacts=result.artifacts,
+                follow_ups=result.follow_ups,
+            )
+            logger.warning("post_tool_hook_failed", extra={"error_type": type(exc).__name__})
+            return replace(failure, result=preserved)
         updated = context.payload.get("result", result.content)
         if isinstance(updated, str) and updated != result.content:
             result = replace(result, content=updated)

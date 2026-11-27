@@ -23,6 +23,7 @@ from muad_agent_core.tools import (
     ToolError,
     ToolRegistry,
     ToolResult,
+    static_write_targets,
 )
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
@@ -239,6 +240,7 @@ class MemoryToolSet:
                 description=FORGET_DESCRIPTION,
                 input_schema=ForgetMemoryInput.model_json_schema(),
                 effect=ToolEffect.WRITE,
+                write_targets=static_write_targets("memory"),
                 handler=self.forget,
                 capabilities=frozenset({ToolCapability.MEMORY}),
                 externalizable_result=False,
@@ -251,6 +253,7 @@ class MemoryToolSet:
                     description=REMEMBER_DESCRIPTION,
                     input_schema=_remember_schema(),
                     effect=ToolEffect.WRITE,
+                    write_targets=static_write_targets("memory"),
                     handler=self.remember,
                 capabilities=frozenset({ToolCapability.MEMORY}),
                     externalizable_result=False,

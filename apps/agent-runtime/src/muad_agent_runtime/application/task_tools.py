@@ -36,6 +36,7 @@ from muad_agent_core.tools import (
     ToolHandler,
     ToolRegistry,
     ToolResult,
+    static_write_targets,
 )
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
@@ -474,6 +475,7 @@ class BackgroundTaskToolSet:
                 description=description,
                 input_schema=schema,
                 effect=effect,
+                write_targets=static_write_targets("task"),
                 handler=self._wrap(handler),
                 capabilities=frozenset({ToolCapability.TASK_QUERY}),
                 concurrency=concurrency,

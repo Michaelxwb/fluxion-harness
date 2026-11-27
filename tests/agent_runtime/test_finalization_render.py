@@ -87,7 +87,8 @@ def test_budget_rendering_states_facts_without_contradiction() -> None:
     assert "原因：本轮执行达到最大轮次上限，已停止。" in text
     assert "用量：轮次 20/20，工具 20/30" in text
     assert "证据状态：已确认无业务失败" in text
-    assert "完成情况：无法确认" in text
+    assert "完成情况：已取得 1 个工具结果，但未形成最终结论。" in text
+    assert "可回复“继续”接着执行" in text
     assert "没有任何工具调用" not in text
     assert "没有任何失败信息" not in text
 

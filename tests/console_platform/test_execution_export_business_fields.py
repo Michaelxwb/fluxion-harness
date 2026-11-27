@@ -204,6 +204,64 @@ def test_report_exposes_business_fields_and_finalization() -> None:
     assert report["data_quality"]["evidence_incomplete"] is True
 
 
+def test_report_projects_only_the_frozen_run_budget_facts() -> None:
+    bundle = _bundle()
+    name, section = _section("runtime.runtime_snapshot", [{
+        "policy_json": {
+            "max_turns": 200,
+            "max_tool_calls": 300,
+            "compaction": {"history_budget_tokens": 123904, "summary": {"enabled": True}},
+            "summary_model": {"api_key": "opaque-test-sentinel"},
+        },
+    }])
+    bundle.sections[name] = section
+
+    report = build_report(bundle, build_diagnosis(bundle))
+
+    budget = report["execution"]["snapshot"]["effective_budget"]
+    assert budget["max_turns"] == 200
+    assert budget["max_tool_calls"] == 300
+    assert budget["history_budget_tokens"] == 123904
+    assert budget["max_identical_failures"] is None
+    assert budget["summary_enabled"] and budget["summary_model_frozen"]
+    assert "opaque-test-sentinel" not in str(report)
+
+
+def test_task_report_projects_the_frozen_budget() -> None:
+    bundle = ExecutionExportBundle(
+        kind="TASK",
+        record={
+            "id": str(uuid.uuid4()),
+            "status": "COMPLETED",
+            "execution_snapshot_json": {
+                "schema_version": 4,
+                "agent": {"revision": 1},
+                "model": {"id": "m", "revision": 1},
+                "skills": [],
+                "budget": {
+                    "max_steps": 200,
+                    "max_tool_calls": 300,
+                    "deadline_ms": 3_600_000,
+                    "max_model_retries": 3,
+                    "max_identical_failures": 5,
+                    "execution_timeout_sec": 600,
+                },
+            },
+            "snapshot_hash": "sha256:" + "a" * 64,
+        },
+        sections={},
+        truncation={},
+        database_snapshot={"snapshot_time": "2026-11-19T00:00:10+00:00"},
+    )
+
+    report = build_report(bundle, build_diagnosis(bundle))
+
+    budget = report["execution"]["snapshot"]["effective_budget"]
+    assert budget["max_turns"] == 200
+    assert budget["max_tool_calls"] == 300
+    assert budget["max_identical_failures"] == 5
+
+
 def test_failures_csv_lists_confirmed_business_failure_only() -> None:
     report = build_report(_bundle(), build_diagnosis(_bundle()))
     text = render_failures_csv(report)

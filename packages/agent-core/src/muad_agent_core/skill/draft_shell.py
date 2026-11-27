@@ -96,6 +96,7 @@ class DraftShellError(ToolError):
         retryable: bool | None = None,
         data: Mapping[str, Any] | None = None,
         platform_sessions: dict[str, object] | None = None,
+        outcome_known: bool = True,
     ) -> None:
         if retryable is None and data:
             retryable = not code.startswith(
@@ -107,6 +108,7 @@ class DraftShellError(ToolError):
             detail=dict(data) if data else None,
             retryable=retryable,
             platform_sessions=platform_sessions,
+            outcome_known=outcome_known,
         )
         self.result = result
         #: Console 错误体里的可执行诊断（path/draft_id/repair 等），原样交给模型。
@@ -328,16 +330,16 @@ class DraftShellRunner:
                 "PLATFORM_SESSION_STORE_UNAVAILABLE",
                 "platform session store is unavailable",
             ) from None
-        except SandboxTimeout as exc:
-            raise DraftShellError("SANDBOX_TIMEOUT", exc.message, result=exc.result) from exc
-        except SandboxOutputLimit as exc:
-            raise DraftShellError("SANDBOX_OUTPUT_LIMIT", exc.message, result=exc.result) from exc
-        except SandboxCancelled as exc:
-            raise DraftShellError("SANDBOX_CANCELLED", exc.message, result=exc.result) from exc
+        except (SandboxTimeout, SandboxOutputLimit, SandboxCancelled) as exc:
+            raise DraftShellError(exc.code, exc.message, result=exc.result, outcome_known=False) from exc
         except SandboxUnavailable as exc:
-            raise DraftShellError("SANDBOX_UNAVAILABLE", exc.message) from exc
+            raise DraftShellError(
+                "SANDBOX_UNAVAILABLE", exc.message, outcome_known=not exc.started
+            ) from exc
         except SandboxError as exc:
-            raise DraftShellError("SANDBOX_ERROR", str(exc), result=exc.result) from exc
+            raise DraftShellError(
+                "SANDBOX_ERROR", str(exc), result=exc.result, outcome_known=not exc.started
+            ) from exc
 
     async def _execute_command(
         self,

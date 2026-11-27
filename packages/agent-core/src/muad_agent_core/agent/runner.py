@@ -32,6 +32,7 @@ from email.utils import parsedate_to_datetime
 from enum import StrEnum
 from typing import Any, TypedDict, cast
 
+from muad_contracts.platform_settings import MAX_IDENTICAL_FAILURES, MIN_IDENTICAL_FAILURES
 from muad_logging import get_logger
 
 from ..context.compactor import ContextCompactor
@@ -72,7 +73,13 @@ from ..tools.outcome import (
     RetryDisposition,
     tool_exception_outcome,
 )
-from ..tools.pipeline import RunnableToolCall, ToolExecutionPipeline, build_prepared_call
+from ..tools.pipeline import (
+    PreparedToolCall,
+    RunnableToolCall,
+    ToolExecutionPipeline,
+    build_prepared_call,
+    compute_args_hash,
+)
 from ..tools.planner import (
     DEFAULT_PARALLEL_LIMIT,
     PlannedToolCall,
@@ -80,13 +87,14 @@ from ..tools.planner import (
     plan_tool_batches,
     validate_parallel_limit,
 )
-from ..tools.registry import ToolNotFoundError, ToolRegistry
+from ..tools.registry import ToolDefinition, ToolNotFoundError, ToolRegistry
 from ..tools.result import (
     ToolCompleted,
     ToolError,
     ToolExecutionResult,
     ToolResult,
     completed_from_result,
+    failure_result,
 )
 from ..tools.round_results import ToolResultRoundPort
 from .continuation import ExecutionEventPort, RunnerCheckpoint, WaitDecision
@@ -94,6 +102,7 @@ from .failure import (
     FailureSignal,
     attempt_identity,
     failure_scope,
+    has_unverified_write,
     is_effectful,
     is_hard_tool_failure,
     update_failure_state,
@@ -144,9 +153,11 @@ def tool_failure_content(exc: BaseException) -> str:
     if isinstance(code, str) and code:
         message = getattr(exc, "message", None) or str(exc)
         error: dict[str, object] = {"code": code, "message": str(message)}
-        if getattr(exc, "retryable", False):
-            # 只有可重试失败才标注；缺省不写＝确定性失败，Run 第一次即终止。
+        outcome_known = getattr(exc, "outcome_known", True) is True
+        if getattr(exc, "retryable", False) and outcome_known:
             error["retryable"] = True
+        if not outcome_known:
+            error["outcome_known"] = False
         return json.dumps({"error": error}, ensure_ascii=False)
     return TOOL_FAILED_TEMPLATE.format(reason=f"{type(exc).__name__}: {exc}")
 
@@ -206,6 +217,13 @@ class AgentPolicy:
     deadline_ms: int = DEFAULT_DEADLINE_MS
     max_model_retries: int = DEFAULT_MAX_MODEL_RETRIES
     max_identical_failures: int = DEFAULT_MAX_IDENTICAL_FAILURES
+
+    def __post_init__(self) -> None:
+        if not MIN_IDENTICAL_FAILURES <= self.max_identical_failures <= MAX_IDENTICAL_FAILURES:
+            raise ValueError(
+                "max_identical_failures must be between "
+                f"{MIN_IDENTICAL_FAILURES} and {MAX_IDENTICAL_FAILURES}"
+            )
 
     @classmethod
     def from_runtime_config(
@@ -309,7 +327,8 @@ class AgentRunState(TypedDict):
     #: 同一 (工具, 错误码) 的连续失败计数；任一工具成功即清零（"有进展"）。
     identical_failures: dict[str, int]
     blocked_attempts: frozenset[str]
-    external_blocked: bool
+    unknown_write_targets: frozenset[str]
+    unknown_write_operations: Mapping[str, frozenset[str]]
     reviews: dict[str, tuple[int, int]]
     #: 失败重复次数达到上限：停止工具派发，普通失败可在剩余预算内解释。
     no_progress: bool
@@ -364,6 +383,7 @@ _TOOL_STATUSES = {
     "SUCCEEDED": "OK",
     "FAILED": "ERROR",
     "POLICY_DENIED": "BLOCKED",
+    "BLOCKED": "BLOCKED",
     "NOT_FOUND": "NOT_FOUND",
 }
 
@@ -376,6 +396,7 @@ class _CallOutcome:
     status: str
     result: ToolResult
     prepared: PreparedCall | None = None
+    handler_entered: bool = False
 
     @property
     def content(self) -> str:
@@ -390,7 +411,24 @@ class _CallOutcome:
         return self.result.follow_ups
 
 
-def _exception_outcome(exc: BaseException) -> ExecutionOutcome:
+def _failure_state_of(state: AgentRunState) -> FailureState:
+    return FailureState(
+        last_failure=state["last_failure"],
+        identical_failures=state["identical_failures"],
+        blocked_attempts=state["blocked_attempts"],
+        unknown_write_targets=state["unknown_write_targets"],
+        unknown_write_operations=state["unknown_write_operations"],
+        reviews=state["reviews"],
+        no_progress=state["no_progress"],
+    )
+
+
+def _attempt_of(prepared: PreparedCall) -> str:
+    scope = failure_scope(prepared.call.name, skill_key=prepared.skill_key, skill_id=prepared.skill_id)
+    return attempt_identity(scope, prepared.args_hash)
+
+
+def _exception_outcome(exc: BaseException, *, handler_entered: bool = False) -> ExecutionOutcome:
     """执行器边界上的异常 → TOOL 失败 outcome（与 `tool_failure_content` 同一错误码来源）。"""
     return tool_exception_outcome(
         code=getattr(exc, "code", None),
@@ -398,6 +436,8 @@ def _exception_outcome(exc: BaseException) -> ExecutionOutcome:
         retryable=getattr(exc, "retryable", None),
         retry_after=getattr(exc, "retry_after", None),
         status_code=getattr(exc, "status_code", None),
+        sent=getattr(exc, "sent", False) is True,
+        outcome_known=getattr(exc, "outcome_known", not handler_entered) is True,
     )
 
 
@@ -609,7 +649,8 @@ class AgentRunner:
             assistant_tool_text=progress.recovered_window_text if recovered_limit else "",
             identical_failures=dict(restored.identical_failures),
             blocked_attempts=restored.blocked_attempts,
-            external_blocked=restored.external_blocked,
+            unknown_write_targets=restored.unknown_write_targets,
+            unknown_write_operations=restored.unknown_write_operations,
             reviews=dict(restored.reviews),
             no_progress=restored.no_progress,
             last_failure=restored.last_failure,
@@ -796,6 +837,7 @@ class AgentRunner:
         self._ensure_runnable(state)
         messages = list(state["messages"])
         runnable, exhausted_calls, used = self._reserve_tool_calls(state)
+        state["tool_calls_used"] = used
         # 本回合真正执行过的调用：(消息下标, 调用 id, 工具名, 状态, outcome)。整批判定与
         # 完成事件都在回合末一次性收口（ADR-04）——不在循环里逐条报，否则产物 id 赶不上。
         executed: list[tuple[int, str, str, _CallOutcome]] = []
@@ -863,7 +905,6 @@ class AgentRunner:
             **state,
             "messages": messages,
             "pending_tool_calls": [],
-            "tool_calls_used": used,
             "unexecuted_tool_calls": [*state["unexecuted_tool_calls"], *unexecuted],
             "budget_exhausted": state["budget_exhausted"] or bool(exhausted_calls),
         }
@@ -929,7 +970,7 @@ class AgentRunner:
 
     async def _run_batch(self, state: AgentRunState, batch: ToolBatch) -> list[_CallOutcome]:
         """先按原序校验/授权，再把 handler IO 放进 TaskGroup（仅 lookup 与授权串行）。"""
-        prepared = [await self._prepare_call(call) for call in batch.calls]
+        prepared = [await self._prepare_call(state, call) for call in batch.calls]
         if not batch.parallel:
             return [await self._run_prepared(state, item) for item in prepared]
         return await self._run_concurrently(state, prepared)
@@ -949,13 +990,17 @@ class AgentRunner:
                 group.create_task(run(index, item))
         return [cast(_CallOutcome, outcome) for outcome in outcomes]
 
-    async def _prepare_call(self, call: PlannedToolCall) -> RunnableToolCall | _CallOutcome:
+    async def _prepare_call(
+        self, state: AgentRunState, call: PlannedToolCall
+    ) -> RunnableToolCall | _CallOutcome:
         """校验/授权（不含 handler IO）：失败转成对应失败 ToolResult，不撤销其他成功读。"""
         try:
             prepared = self._tool_pipeline.prepare(
                 call_id=call.call_id, tool_name=call.tool_name, arguments=call.arguments
             )
-            outcome = await self._tool_pipeline.prepare_execution(prepared)
+            outcome = await self._tool_pipeline.prepare_execution(
+                prepared, gate=self._dispatch_gate(state)
+            )
         except Exception as exc:
             return self._exception_outcome(
                 ToolCall(
@@ -967,12 +1012,53 @@ class AgentRunner:
                 exc,
             )
         if isinstance(outcome, ToolExecutionResult):
+            try:
+                definition = self._registry.get(outcome.call.name)
+            except ToolNotFoundError:
+                rejected = None
+            else:
+                rejected = build_prepared_call(replace(
+                    prepared,
+                    arguments=outcome.call.arguments,
+                    args_hash=compute_args_hash(outcome.call.arguments),
+                ), replace(definition, write_operation_key=None))
             return _CallOutcome(
                 outcome.call,
                 _TOOL_STATUSES.get(outcome.status, "ERROR"),
                 outcome.result,
+                rejected,
             )
         return outcome
+
+    def _dispatch_gate(self, state: AgentRunState) -> Callable[
+        [PreparedToolCall, ToolDefinition], ToolExecutionResult | None
+    ]:
+        """Single pre-policy gate for blocked attempts and unverified writes."""
+        failure_state = _failure_state_of(state)
+
+        def gate(prepared: PreparedToolCall, definition: ToolDefinition) -> ToolExecutionResult | None:
+            call = build_prepared_call(prepared, definition)
+            effectful = is_effectful(call.effect, call.retry_safety.value)
+            unknown = effectful and has_unverified_write(
+                failure_state,
+                call.write_targets,
+                call.write_operation_key,
+                fallback_target=f"tool:{call.tool_name or call.call.name}",
+                retry_safety=call.retry_safety.value,
+            )
+            if _attempt_of(call) not in state["blocked_attempts"] and not unknown:
+                return None
+            return failure_result(
+                call.call,
+                ToolError(
+                    "TOOL_RETRY_UNSAFE",
+                    "The previous operation cannot safely be run again before its result is verified.",
+                    retryable=False,
+                ),
+                status="BLOCKED",
+            )
+
+        return gate
 
     async def _run_prepared(
         self, state: AgentRunState, item: RunnableToolCall | _CallOutcome
@@ -980,19 +1066,7 @@ class AgentRunner:
         if isinstance(item, _CallOutcome):
             return item
         prepared = build_prepared_call(item.prepared, item.definition)
-        scope = failure_scope(prepared.call.name, skill_key=prepared.skill_key, skill_id=prepared.skill_id)
-        attempt = attempt_identity(scope, prepared.args_hash)
-        if attempt in state["blocked_attempts"] or (
-            state["external_blocked"] and is_effectful(prepared.effect, prepared.retry_safety.value)
-        ):
-            return self._exception_outcome(
-                prepared.call,
-                ToolError(
-                    "TOOL_RETRY_UNSAFE",
-                    "The previous operation cannot safely be run again before its result is verified.",
-                    retryable=False,
-                ),
-            )
+        effectful = is_effectful(prepared.effect, prepared.retry_safety.value)
         notify_prepared = state["on_tool_prepared"]
         if notify_prepared is not None:
             try:
@@ -1001,7 +1075,10 @@ class AgentRunner:
                 # 没有持久 prepared 事实就不得发生外部执行。
                 return self._exception_outcome(prepared.call, exc)
         outcome = await self._invoke_prepared(item, prepared)
-        if await self._wait_for_tool_retry(state, outcome.outcome):
+        if (not effectful or outcome.outcome.control.outcome_known) and await self._wait_for_tool_retry(
+            state, outcome.outcome
+        ):
+            state["tool_calls_used"] += 1
             return await self._invoke_prepared(item, prepared)
         return outcome
 
@@ -1009,14 +1086,23 @@ class AgentRunner:
         try:
             result = await self._tool_pipeline.run_prepared(item)
         except Exception as exc:
-            return replace(self._exception_outcome(prepared.call, exc), prepared=prepared)
-        return _CallOutcome(result.call, _TOOL_STATUSES.get(result.status, "ERROR"), result.result, prepared)
+            outcome = self._exception_outcome(
+                prepared.call, exc,
+                handler_entered=is_effectful(prepared.effect, prepared.retry_safety.value),
+            )
+            return replace(outcome, prepared=prepared, handler_entered=True)
+        return _CallOutcome(
+            result.call, _TOOL_STATUSES.get(result.status, "ERROR"), result.result, prepared,
+            handler_entered=True,
+        )
 
     async def _wait_for_tool_retry(self, state: AgentRunState, outcome: ExecutionOutcome) -> bool:
         if (
             outcome.control.agent_disposition is not AgentDisposition.WAIT
             or outcome.control.retry_disposition is not RetryDisposition.WAIT_THEN_RETRY
             or not outcome.retryable
+            or not outcome.control.stop_confirmed
+            or state["tool_calls_used"] >= state["policy"].max_tool_calls
         ):
             return False
         self._ensure_runnable(state)
@@ -1034,10 +1120,12 @@ class AgentRunner:
             return False
         await self._cancel_aware_sleep(state, delay)
         self._ensure_runnable(state)
-        return True
+        return state["tool_calls_used"] < state["policy"].max_tool_calls
 
-    def _exception_outcome(self, call: ToolCall, exc: BaseException) -> _CallOutcome:
-        outcome = _exception_outcome(exc)
+    def _exception_outcome(
+        self, call: ToolCall, exc: BaseException, *, handler_entered: bool = False,
+    ) -> _CallOutcome:
+        outcome = _exception_outcome(exc, handler_entered=handler_entered)
         return _CallOutcome(
             call,
             "ERROR",
@@ -1111,8 +1199,13 @@ class AgentRunner:
         )
         signal = FailureSignal(
             tool=scope,
-            attempt=attempt_identity(scope, prepared.args_hash) if prepared else None,
-            external_started=bool(prepared and is_effectful(prepared.effect, prepared.retry_safety.value)),
+            attempt=_attempt_of(prepared) if prepared else None,
+            external_started=bool(
+                outcome.handler_entered and prepared
+                and is_effectful(prepared.effect, prepared.retry_safety.value)
+            ),
+            write_targets=prepared.write_targets if prepared else frozenset(),
+            write_operation_key=prepared.write_operation_key if prepared else None,
             review_progress=execution.review_progress,
             tool_call_id=execution.call_id,
             business_status=str(execution.business_status),
@@ -1138,21 +1231,15 @@ class AgentRunner:
 
     def _apply_failure(self, state: AgentRunState, signal: FailureSignal | None) -> None:
         updated = update_failure_state(
-            FailureState(
-                last_failure=state["last_failure"],
-                identical_failures=dict(state["identical_failures"]),
-                blocked_attempts=state["blocked_attempts"],
-                external_blocked=state["external_blocked"],
-                reviews=state["reviews"],
-                no_progress=state["no_progress"],
-            ),
+            _failure_state_of(state),
             signal,
             max_identical_failures=state["policy"].max_identical_failures,
         )
         state["last_failure"] = updated.last_failure
         state["identical_failures"] = dict(updated.identical_failures)
         state["blocked_attempts"] = updated.blocked_attempts
-        state["external_blocked"] = updated.external_blocked
+        state["unknown_write_targets"] = updated.unknown_write_targets
+        state["unknown_write_operations"] = updated.unknown_write_operations
         state["reviews"] = dict(updated.reviews)
         state["no_progress"] = updated.no_progress
         self._latest_state = state
@@ -1195,7 +1282,11 @@ class AgentRunner:
             executed, results, strict=True
         ):
             messages[index] = replace(messages[index], content=result.content)
-            completed = completed_from_result(outcome.call, result, outcome.status)
+            completed = replace(
+                completed_from_result(outcome.call, result, outcome.status),
+                handler_entered=outcome.handler_entered,
+                attempt=_attempt_of(outcome.prepared) if outcome.prepared else None,
+            )
             await self._notify_tool_completed(
                 state,
                 call_id,
@@ -1435,14 +1526,7 @@ class AgentRunner:
             tool_calls_limit=policy.max_tool_calls,
             elapsed_ms=int((time.monotonic() - state["started_at"]) * 1000),
             deadline_ms=policy.deadline_ms,
-            failure_state=FailureState(
-                last_failure=state["last_failure"],
-                identical_failures=dict(state["identical_failures"]),
-                blocked_attempts=state["blocked_attempts"],
-                external_blocked=state["external_blocked"],
-                reviews=state["reviews"],
-                no_progress=state["no_progress"],
-            ),
+            failure_state=_failure_state_of(state),
             pending_tool_calls=tuple(pending),
         )
 
@@ -1486,14 +1570,7 @@ class AgentRunner:
         `CheckpointStore` 就能恢复，不需要第二套私有约定。失败状态可选随 checkpoint 持久化，
         旧 checkpoint 缺失时按空状态恢复，不臆造失败。
         """
-        failure_state = FailureState(
-            last_failure=state["last_failure"],
-            identical_failures=dict(state["identical_failures"]),
-            blocked_attempts=state["blocked_attempts"],
-            external_blocked=state["external_blocked"],
-            reviews=state["reviews"],
-            no_progress=state["no_progress"],
-        )
+        failure_state = _failure_state_of(state)
         return RunnerCheckpoint(
             state["turns"],
             state["tool_calls_used"],

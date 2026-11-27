@@ -1,0 +1,9 @@
+{
+  "base_url": "http://127.0.0.1:18080",
+  "host_header": "soar-inner.sangfor.com.cn",
+  "fixed_csrf_token": "6c5c52cd-3ebb-47e2-946c-15c2569836e7",
+  "endpoints": {
+    "company_list": "/order/v1/user/company_simple_info",
+    "asset_query": "/gateway/asset-mgr-service/order/v1/asset"
+  }
+}

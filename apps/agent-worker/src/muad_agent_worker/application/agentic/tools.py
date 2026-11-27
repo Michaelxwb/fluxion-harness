@@ -37,6 +37,7 @@ from muad_agent_core.tools import (
     ToolPolicyDecision,
     ToolRegistry,
     ToolResult,
+    static_write_targets,
 )
 from muad_agent_core.tools.pipeline import compute_args_hash
 from muad_contracts import (
@@ -365,6 +366,11 @@ def _register_human(
     allowed[ASK_USER_TOOL] = RegisteredTool(ASK_USER_TOOL, ASK_USER_ALLOWLIST_KEY, "PLATFORM")
 
 
+def _skill_write_targets(arguments: Mapping[str, Any]) -> frozenset[str]:
+    key = arguments.get("skill_key")
+    return frozenset({f"skill:{key}" if isinstance(key, str) and key else "skill"})
+
+
 def _register_mcp(
     frozen: FrozenAgenticExecution,
     registry: ToolRegistry,
@@ -402,6 +408,7 @@ def _register_mcp(
                     input_schema=schema,
                     effect=ToolEffect.READ,
                     retry_safety=retry_safety,
+                    write_targets=static_write_targets(f"mcp:{server.key}"),
                     handler=_mcp_handler(mcp, server.server_id, tool_name, retry_safety),
                     capabilities=frozenset({ToolCapability.MCP_CALL}),
                 )
@@ -429,6 +436,10 @@ def _mcp_handler(
                 exc.code,
                 str(exc),
                 retryable=exc.retryable,
+                retry_after=exc.retry_after,
+                status_code=exc.status_code,
+                sent=exc.sent,
+                outcome_known=exc.outcome_known,
             ) from exc
         return ToolResult(
             result.text,
@@ -512,6 +523,7 @@ def _register_execute(
                 },
             },
             effect=ToolEffect.EXTERNAL,
+            write_targets=_skill_write_targets,
             handler=execute,
             capabilities=frozenset({ToolCapability.SKILL_EXECUTE}),
         )

@@ -1,0 +1,7 @@
+{
+  "name": "mssp-asset-query-local",
+  "author": "fluxion-harness",
+  "description": "本地 MSSP 资产查询夹具：客户资产 IP 明细、分页、关键字过滤和完整 CSV 导出。",
+  "version": "1.1.0",
+  "entrypoint": "scripts/run.py"
+}

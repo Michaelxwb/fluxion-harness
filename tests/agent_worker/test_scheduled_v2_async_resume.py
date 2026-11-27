@@ -522,7 +522,10 @@ async def test_no_checkpoint_recovery_rebuilds_counters_and_failure_state(
     assert resume.checkpoint.tool_calls == 1
     assert resume.checkpoint.failure_state is not None
     assert resume.checkpoint.failure_state["no_progress"] is False
-    assert resume.checkpoint.failure_state["external_blocked"] is True
+    assert resume.checkpoint.failure_state["unknown_write_targets"] == []
+    assert resume.checkpoint.failure_state["blocked_attempts"] == [
+        f"write_tool:{compute_args_hash(call.arguments)}"
+    ]
     assert resume.checkpoint.failure_state["last_failure"]["code"] == "PLATFORM_AUTH_REJECTED"
 
 
@@ -871,8 +874,8 @@ async def _failure_state_from_events(harness: AsyncHarness, task: TaskExecution)
     return resume.checkpoint.failure_state
 
 
-async def test_recovery_retains_failure_counter_after_a_neutral_result(harness: AsyncHarness) -> None:
-    """没有业务结论的工具结果不会清零已经确认的失败。"""
+async def test_recovery_clears_failure_counter_after_a_normal_tool_result(harness: AsyncHarness) -> None:
+    """已知正常的非业务结果打断同一工具的失败序列。"""
     tenant = harness.tenant
     task = await insert_task(tenant, agentic_snapshot(), status=TaskStatus.RUNNING)
     sink = TaskEventSink(
@@ -888,8 +891,8 @@ async def test_recovery_retains_failure_counter_after_a_neutral_result(harness: 
     state = await _failure_state_from_events(harness, task)
 
     assert state is not None
-    assert state["no_progress"] is True
-    assert sum(state["identical_failures"].values()) == 2
+    assert state["no_progress"] is False
+    assert sum(state["identical_failures"].values()) == 1
 
 
 @pytest.mark.parametrize("code", ["TOOL_NOT_EXECUTED", "TOOL_BUDGET_EXHAUSTED"])
@@ -1069,7 +1072,10 @@ async def test_checkpoint_failure_state_does_not_mask_newer_events(harness: Asyn
     assert resume is not None
     assert resume.checkpoint.failure_state is not None
     assert resume.checkpoint.failure_state["no_progress"] is False
-    assert resume.checkpoint.failure_state["external_blocked"] is True
+    assert resume.checkpoint.failure_state["unknown_write_targets"] == []
+    assert resume.checkpoint.failure_state["blocked_attempts"] == [
+        f"write_tool:{compute_args_hash(call.arguments)}"
+    ]
     assert resume.checkpoint.failure_state["last_failure"]["code"] == "PLATFORM_AUTH_REJECTED"
 
 

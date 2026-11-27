@@ -855,6 +855,18 @@ html.chat-route-active body {
   font-size: 12px;
 }
 
+.chat-composer-waiting-stop {
+  width: 32px;
+  height: 32px;
+  min-width: 0;
+  padding: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--semi-color-text-2);
+}
+
 .chat-composer-send {
   margin-left: auto;
   width: 36px;

@@ -34,6 +34,14 @@ DRAFT_ACTIONS = frozenset(
 _ACTION_METHODS = {"import": "import_package"}
 DRAFT_TOOL_NAMES = frozenset({DRAFT_TOOL_NAME})
 
+
+def _draft_write_targets(arguments: Mapping[str, Any]) -> frozenset[str]:
+    draft_id = arguments.get("draft_id")
+    key = arguments.get("key")
+    identity = draft_id if isinstance(draft_id, str) and draft_id else key
+    return frozenset({f"draft:{identity}" if isinstance(identity, str) and identity else "draft"})
+
+
 DRAFT_TOOL_DESCRIPTION = (
     "Manage the current user's skill draft (tenant + user + agent scoped). "
     "Address a draft by draft_id (UUID) or by key (the skill name); create(key) is "
@@ -160,6 +168,7 @@ class SkillDraftTools:
                     ("action",),
                 ),
                 effect=ToolEffect.EXTERNAL,
+                write_targets=_draft_write_targets,
                 handler=self.dispatch,
             ),
         )

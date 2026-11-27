@@ -78,6 +78,7 @@ from .ports import NullPlatformSettingsClient, PlatformSettingsClient
 from .progress import (
     ActivityMessages,
     ExecutionProgress,
+    is_waiting_input_stage,
     iter_with_ticks,
 )
 from .runtime_client import RuntimeClientPort, SseEvent
@@ -1816,7 +1817,10 @@ class InboundPipeline:
             # 留在 renderer 缓冲里，随后被旧终态正文覆盖。
             actions = (*actions, *state.renderer.flush())
         await self._run_actions(adapter, route, state, actions, force=force)
-        if event.type in (INTERRUPT_REQUIRED_EVENT, "memory.confirmation_required"):
+        if (
+            is_waiting_input_stage(event)
+            or event.type in (INTERRUPT_REQUIRED_EVENT, "memory.confirmation_required")
+        ):
             state.awaiting_input = True
         if event.type == TASK_ACCEPTED_EVENT:
             # 任务受理回执是本轮自己的内容（不是 Run 终态正文），保留既有发送与收尾。

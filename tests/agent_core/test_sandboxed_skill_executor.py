@@ -9,7 +9,12 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from muad_agent_core.sandbox import DevUnsafeRunner, SandboxResult, SandboxSpec
+from muad_agent_core.sandbox import (
+    DevUnsafeRunner,
+    SandboxResult,
+    SandboxSpec,
+    SandboxUnavailable,
+)
 from muad_agent_core.skill import (
     OutputLimits,
     SandboxedSkillExecutor,
@@ -52,6 +57,27 @@ def test_sandboxed_executor_satisfies_skill_executor_protocol() -> None:
     executor: SkillExecutor = _executor()
 
     assert hasattr(executor, "execute")
+
+
+class _UnavailableRunner:
+    def __init__(self, *, started: bool) -> None:
+        self._started = started
+
+    async def run(self, _spec: SandboxSpec) -> SandboxResult:
+        raise SandboxUnavailable("sandbox unavailable", started=self._started)
+
+
+@pytest.mark.parametrize(("started", "known"), [(True, False), (False, True)])
+async def test_sandbox_unavailable_carries_execution_boundary_fact(
+    tmp_path: Path, started: bool, known: bool
+) -> None:
+    root = _package(tmp_path / "skill", "print('unused')\n")
+    executor = SandboxedSkillExecutor(runner=_UnavailableRunner(started=started), dev_unsafe=True)
+
+    with pytest.raises(SkillExecutionError) as caught:
+        await executor.execute(_request(root))
+
+    assert caught.value.outcome_known is known
 
 
 async def test_execute_uses_e_s_b_flags_and_imports_adjacent_module(tmp_path: Path) -> None:
@@ -366,9 +392,12 @@ async def test_other_terminal_errors_take_priority_over_window_receipt(monkeypat
     broker = Mock()
     request = SimpleNamespace(egress_broker=broker)
     if kind in {"timeout", "cancel"}:
-        _, status, _, limited = await sandboxed._sandbox_outcome(None, None, request, None)
+        _, status, _, limited, execution_started = await sandboxed._sandbox_outcome(
+            None, None, request, None
+        )
         expected = SkillExecutionStatus.TIMED_OUT if kind == "timeout" else SkillExecutionStatus.CANCELLED
         assert status is expected
+        assert execution_started is True
         assert not limited
     else:
         with pytest.raises(type(errors[kind])) as caught:

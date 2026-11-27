@@ -1189,6 +1189,8 @@ function ChatComposerSurface(props: {
   const pendingSend = props.pendingSend;
   const run = props.run;
   const runActive = run !== null && !isTerminalRunStatus(run.status);
+  const waitingInput =
+    run !== null && runActivityPhase(run.status, run.executionStatus) === 'waiting-input';
   const stopView = run === null ? null : runStopView(run.status, props.stop.snapshot);
   const stopDisabled =
     stopView !== null &&
@@ -1246,6 +1248,7 @@ function ChatComposerSurface(props: {
         onDiscard={pendingSend.discard}
         onCancel={pendingSend.cancel}
         runActive={runActive}
+        waitingInput={waitingInput}
         stopDisabled={stopDisabled}
         stopNotice={stopNotice}
         onStop={handleStop}

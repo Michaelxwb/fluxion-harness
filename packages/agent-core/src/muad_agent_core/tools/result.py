@@ -70,6 +70,8 @@ class ToolCompleted:
     content: str
     artifacts: tuple[ToolEventArtifact, ...] = ()
     follow_ups: tuple[ToolFollowUp, ...] = ()
+    handler_entered: bool = False
+    attempt: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,13 +110,19 @@ class ToolError(Exception):
         detail: Mapping[str, Any] | None = None,
         retryable: bool | None = None,
         retry_after: str | None = None,
+        status_code: int | None = None,
         platform_sessions: Mapping[str, Any] | None = None,
+        sent: bool = False,
+        outcome_known: bool = True,
     ) -> None:
         self.code = code
         self.message = message
         self.detail = dict(detail) if detail else None
         self.retryable = retryable
         self.retry_after = retry_after
+        self.status_code = status_code
+        self.sent = sent
+        self.outcome_known = outcome_known
         self.platform_sessions = dict(platform_sessions) if platform_sessions else None
         super().__init__(message)
 
@@ -122,8 +130,10 @@ class ToolError(Exception):
         error: dict[str, object] = {"code": self.code, "message": self.message}
         if self.detail:
             error["detail"] = self.detail
-        if self.retryable:
+        if self.retryable and self.outcome_known:
             error["retryable"] = True
+        if not self.outcome_known:
+            error["outcome_known"] = False
         payload: dict[str, object] = {"error": error}
         if self.platform_sessions:
             payload["platform_sessions"] = self.platform_sessions
@@ -137,7 +147,10 @@ class ToolError(Exception):
             message=self.message,
             retryable=self.retryable,
             retry_after=self.retry_after,
+            status_code=self.status_code,
             evidence_text=evidence_text,
+            sent=self.sent,
+            outcome_known=self.outcome_known,
         )
 
     def to_result(self) -> ToolResult:
