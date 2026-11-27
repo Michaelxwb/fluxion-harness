@@ -41,7 +41,7 @@ import socket
 import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
-from contextlib import asynccontextmanager, suppress
+from contextlib import aclosing, asynccontextmanager, suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -81,6 +81,7 @@ from muad_agent_runtime.infrastructure.db import get_engine, get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import CanonicalEvent, Conversation, RunRecord
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_common.db_counters import current_stage
 from muad_contracts import (
     ChannelContext,
     MessageInput,
@@ -90,6 +91,7 @@ from muad_contracts import (
     RunRequest,
     RunStatus,
 )
+from sqlalchemy.engine import Connection, ExecutionContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.pool import QueuePool
 
@@ -713,6 +715,88 @@ async def test_b260_shared_tail_reads_do_not_grow_with_observers(
     )
     assert shared_watermark >= len(chunks), "共享追尾不得丢事件"
     assert watermark >= len(chunks)
+
+
+async def test_b260_tail_wakeup_reads_one_statement_per_page(tail_tenant: TailTenant) -> None:
+    hub = EventTailHub(fallback_poll_sec=FAR_FALLBACK_SEC, page_size=2)
+    conversation_id, run_id = await _seed_conversation(tail_tenant)
+    statements = 0
+    engine = get_engine().sync_engine
+
+    def count_reads(
+        _conn: Connection,
+        _cursor: object,
+        _statement: str,
+        _parameters: object,
+        _context: ExecutionContext,
+        _executemany: bool,
+    ) -> None:
+        nonlocal statements
+        if current_stage() == "bg:tail":
+            statements += 1
+
+    try:
+        async with aclosing(
+            hub.tail(tenant_id=tail_tenant.tenant_id, conversation_id=conversation_id)
+        ) as tail:
+            empty = await asyncio.wait_for(anext(tail), timeout=WAIT_TIMEOUT_SEC)
+            assert empty.caught_up and empty.through_seq == 0 and not empty.rows
+            seqs = await _append_rows(
+                tail_tenant,
+                conversation_id,
+                run_id,
+                [(DELTA_STREAM_TYPE, DELTA_STREAM_TYPE, {"delta": text}) for text in ("甲", "乙", "丙")],
+            )
+            sa.event.listen(engine, "before_cursor_execute", count_reads)
+            try:
+                await hub.publish(tenant_id=tail_tenant.tenant_id, conversation_id=conversation_id)
+                first = await asyncio.wait_for(anext(tail), timeout=WAIT_TIMEOUT_SEC)
+                assert statements == 1
+                second = await asyncio.wait_for(anext(tail), timeout=WAIT_TIMEOUT_SEC)
+                assert statements == 2
+            finally:
+                sa.event.remove(engine, "before_cursor_execute", count_reads)
+    finally:
+        await hub.aclose()
+
+    assert tuple(row.seq for row in first.rows) == tuple(seqs[:2])
+    assert tuple(row.seq for row in second.rows) == (seqs[-1],)
+    assert first.through_seq == second.through_seq == seqs[-1]
+    assert not first.caught_up and second.caught_up
+
+
+async def test_b260_tail_reads_persisted_watermark_and_checks_tenant(tail_tenant: TailTenant) -> None:
+    """实际持久行可高于会话计数器，跨租户读应拒绝访问。"""
+    conversation_id, run_id = await _seed_conversation(tail_tenant)
+    async with get_session_factory()() as session, session.begin():
+        session.add(
+            CanonicalEvent(
+                tenant_id=tail_tenant.tenant_id,
+                conversation_id=conversation_id,
+                run_id=run_id,
+                seq=7,
+                event_type=DELTA_STREAM_TYPE,
+                stream_type=DELTA_STREAM_TYPE,
+                payload_json={"delta": "已提交"},
+            )
+        )
+
+    hub = EventTailHub(fallback_poll_sec=FAR_FALLBACK_SEC)
+    try:
+        async with aclosing(
+            hub.tail(tenant_id=tail_tenant.tenant_id, conversation_id=conversation_id)
+        ) as tail:
+            batch = await asyncio.wait_for(anext(tail), timeout=WAIT_TIMEOUT_SEC)
+            assert [(row.seq, row.payload_json["delta"]) for row in batch.rows] == [(7, "已提交")]
+            assert batch.caught_up and batch.through_seq == 7
+
+        foreign_tenant = f"other-{uuid.uuid4().hex}"
+        async with aclosing(hub.tail(tenant_id=foreign_tenant, conversation_id=conversation_id)) as tail:
+            with pytest.raises(AppError) as error:
+                await asyncio.wait_for(anext(tail), timeout=WAIT_TIMEOUT_SEC)
+        assert error.value.code == ErrorCode.COMMON_NOT_FOUND
+    finally:
+        await hub.aclose()
 
 
 # --------------------------------------------------------------------------- #

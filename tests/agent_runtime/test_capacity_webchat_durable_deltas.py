@@ -38,7 +38,7 @@ import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -67,7 +67,7 @@ from muad_agent_runtime.application.executor import (
 )
 from muad_agent_runtime.application.ports import NullPlatformSettingsClient
 from muad_agent_runtime.application.public_events import project_public_stream_event
-from muad_agent_runtime.application.run_events import DeltaWindow
+from muad_agent_runtime.application.run_events import DeltaWindow, delta_payload
 from muad_agent_runtime.application.run_service import RunService, RunStart
 from muad_agent_runtime.infrastructure import db as runtime_db
 from muad_agent_runtime.infrastructure.db import get_session_factory
@@ -82,6 +82,7 @@ from muad_contracts import (
     RunStatus,
 )
 from muad_contracts.webchat_events import WebchatDeltaEvent
+from sqlalchemy.engine import Connection, ExecutionContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agent_runtime.conftest import FakeResolveClient
@@ -754,76 +755,141 @@ async def _terminal_row_or_none(run_id: uuid.UUID) -> CanonicalEvent | None:
         )
 
 
-async def test_b259_event_batch_commits_valid_and_isolates_lease_loss(
-    durable_tenant: DurableTenant,
-) -> None:
-    """同一批里有效事件提交；失效 lease 只失败自己，不回滚同批正常事件（Plan B）。"""
-    now = datetime.now(UTC)
-    async with get_session_factory()() as session:
+async def _seed_batch_delta(tenant: DurableTenant, text: str) -> EventBatchEntry:
+    async with get_session_factory()() as session, session.begin():
         conversation = Conversation(
-            tenant_id=durable_tenant.tenant_id,
-            user_id=durable_tenant.user_id,
-            agent_id=durable_tenant.agent_id,
+            tenant_id=tenant.tenant_id,
+            user_id=tenant.user_id,
+            agent_id=tenant.agent_id,
         )
         session.add(conversation)
         await session.flush()
         run = RunRecord(
-            tenant_id=durable_tenant.tenant_id,
+            tenant_id=tenant.tenant_id,
             conversation_id=conversation.id,
-            user_id=durable_tenant.user_id,
-            agent_id=durable_tenant.agent_id,
+            user_id=tenant.user_id,
+            agent_id=tenant.agent_id,
             status=RunStatus.RUNNING,
             input_text="batch",
             trace_id=uuid.uuid4().hex,
             lease_owner=INSTANCE,
             execution_epoch=0,
-            lease_until=now + timedelta(seconds=300),
+            lease_until=datetime.now(UTC) + timedelta(seconds=300),
         )
         session.add(run)
-        await session.commit()
-        run_id = run.id
-        conversation_id = conversation.id
-        tenant_id = durable_tenant.tenant_id
-    batcher = EventBatcher(get_session_factory)
+    return EventBatchEntry(
+        tenant_id=tenant.tenant_id,
+        conversation_id=conversation.id,
+        run_id=run.id,
+        identity=ExecutionIdentity.of(run),
+        event_type=DELTA_STREAM_TYPE,
+        payload=delta_payload(text),
+        stream_type=DELTA_STREAM_TYPE,
+    )
+
+
+@asynccontextmanager
+async def _batch_writer(batch_size: int) -> AsyncIterator[EventBatcher]:
+    batcher = EventBatcher(get_session_factory, max_batch=batch_size, flush_interval_sec=1.0)
     try:
-        valid = asyncio.create_task(
-            batcher.submit(
-                EventBatchEntry(
-                    tenant_id=tenant_id,
-                    conversation_id=conversation_id,
-                    run_id=run_id,
-                    identity=ExecutionIdentity(tenant_id, run_id, INSTANCE, 0),
-                    event_type="message.delta",
-                    payload={"delta": "a", "reply_generation": 0},
-                    stream_type="message.delta",
-                )
-            )
-        )
-        expired = asyncio.create_task(
-            batcher.submit(
-                EventBatchEntry(
-                    tenant_id=tenant_id,
-                    conversation_id=conversation_id,
-                    run_id=run_id,
-                    identity=ExecutionIdentity(tenant_id, run_id, "other-owner", 0),
-                    event_type="message.delta",
-                    payload={"delta": "b", "reply_generation": 0},
-                    stream_type="message.delta",
-                )
-            )
-        )
-        results = await asyncio.gather(valid, expired, return_exceptions=True)
+        yield batcher
     finally:
         await batcher.aclose()
-    assert isinstance(results[0], int)
-    assert isinstance(results[1], ExecutionLeaseLost)
-    async with get_session_factory()() as session:
-        count = await session.scalar(
-            sa.select(sa.func.count())
-            .select_from(CanonicalEvent)
-            .where(
-                CanonicalEvent.run_id == run_id,
-                CanonicalEvent.stream_type == "message.delta",
-            )
+
+
+async def test_b259_event_batch_commits_valid_and_isolates_lease_loss(
+    durable_tenant: DurableTenant,
+) -> None:
+    """同一批里有效事件提交；失效 lease 只失败自己，不回滚同批正常事件（Plan B）。"""
+    valid = await _seed_batch_delta(durable_tenant, "a")
+    expired = replace(
+        valid, identity=replace(valid.identity, owner="other-owner"), payload=delta_payload("b")
+    )
+    async with _batch_writer(2) as batcher:
+        results = await asyncio.gather(
+            batcher.submit(valid), batcher.submit(expired), return_exceptions=True
         )
-    assert count == 1, "有效事件必须提交，失效 lease 的事件不得写入"
+    assert results[0] == 1
+    assert isinstance(results[1], ExecutionLeaseLost)
+    assert _texts(await _delta_rows(valid.run_id)) == "a"
+
+
+async def test_b259_event_batch_allocates_sequences_in_one_update(durable_tenant: DurableTenant) -> None:
+    """真实 PG 执行一条 UPDATE，并按租户、会话和批内顺序分配序号。"""
+    first = await _seed_batch_delta(durable_tenant, "first")
+    other_tenant = replace(durable_tenant, tenant_id=f"deltas-{uuid.uuid4().hex[:12]}")
+    second = await _seed_batch_delta(other_tenant, "second")
+    last = replace(first, payload=delta_payload("last"))
+    replay = replace(first, source_event_id=uuid.uuid4(), payload=delta_payload("prior"))
+    async with _batch_writer(1) as batcher:
+        assert await batcher.submit(replay) == 1
+
+    updates = 0
+    engine = runtime_db.get_engine().sync_engine
+
+    def count_updates(
+        conn: Connection,
+        cursor: object,
+        statement: str,
+        parameters: object,
+        context: ExecutionContext,
+        executemany: bool,
+    ) -> None:
+        nonlocal updates
+        if "UPDATE runtime.conversation SET" in statement:
+            updates += 1
+
+    sa.event.listen(engine, "before_cursor_execute", count_updates)
+    try:
+        async with _batch_writer(4) as batcher:
+            seqs = await asyncio.gather(
+                batcher.submit(first), batcher.submit(second), batcher.submit(last), batcher.submit(replay)
+            )
+        async with _batch_writer(1) as batcher:
+            assert await batcher.submit(replay) == 1
+    finally:
+        sa.event.remove(engine, "before_cursor_execute", count_updates)
+
+    assert updates == 1
+    assert seqs == [2, 1, 3, 1]
+    assert [(row.seq, _delta_text(row)) for row in await _delta_rows(first.run_id)] == [
+        (1, "prior"), (2, "first"), (3, "last")
+    ]
+    assert [(row.seq, _delta_text(row)) for row in await _delta_rows(second.run_id)] == [(1, "second")]
+
+
+async def test_b259_concurrent_batches_allocate_disjoint_ranges(durable_tenant: DurableTenant) -> None:
+    first = await _seed_batch_delta(durable_tenant, "a")
+    second = await _seed_batch_delta(durable_tenant, "b")
+    async with _batch_writer(2) as left, _batch_writer(2) as right:
+        left_first, left_second, right_second, right_first = await asyncio.wait_for(
+            asyncio.gather(
+                left.submit(first),
+                left.submit(second),
+                right.submit(replace(second, payload=delta_payload("B"))),
+                right.submit(replace(first, payload=delta_payload("A"))),
+            ),
+            timeout=WAIT_TIMEOUT_SEC,
+        )
+
+    assert left_first == left_second
+    assert right_first == right_second
+    assert sorted((left_first, right_first)) == [1, 2]
+    assert [row.seq for row in await _delta_rows(first.run_id)] == [1, 2]
+    assert [row.seq for row in await _delta_rows(second.run_id)] == [1, 2]
+
+
+async def test_b259_event_batch_rolls_back_all_sequences_on_insert_failure(
+    durable_tenant: DurableTenant,
+) -> None:
+    first = await _seed_batch_delta(durable_tenant, "a")
+    second = await _seed_batch_delta(durable_tenant, "b")
+    invalid = replace(second, event_type="invalid-" * 20)
+    async with _batch_writer(2) as batcher:
+        results = await asyncio.gather(
+            batcher.submit(first), batcher.submit(invalid), return_exceptions=True
+        )
+        assert all(isinstance(result, sa.exc.DBAPIError) for result in results)
+        assert await _delta_rows(first.run_id) == []
+        assert await _delta_rows(second.run_id) == []
+        assert await asyncio.gather(batcher.submit(first), batcher.submit(second)) == [1, 1]

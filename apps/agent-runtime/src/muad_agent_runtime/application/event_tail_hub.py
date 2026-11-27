@@ -359,6 +359,48 @@ def _parse_hint(payload: str) -> tuple[str, uuid.UUID] | None:
         return None
 
 
+def _tail_queries(
+    page_size: int,
+) -> tuple[
+    sa.Select[tuple[int]],
+    sa.Select[tuple[CanonicalEvent]],
+    sa.Select[tuple[int, CanonicalEvent]],
+]:
+    tenant = sa.bindparam("tenant_id", type_=sa.String())
+    conversation = sa.bindparam("conversation_id", type_=sa.Uuid())
+    events = sa.select(CanonicalEvent).where(
+        CanonicalEvent.tenant_id == tenant,
+        CanonicalEvent.conversation_id == conversation,
+        CanonicalEvent.is_deleted.is_(False),
+    )
+    # 持久行可能由其他写入方直接追加，水位同时考虑会话计数器和实际事件。
+    persisted_seq = events.with_only_columns(sa.func.max(CanonicalEvent.seq)).scalar_subquery()
+    watermark = sa.select(
+        sa.func.greatest(
+            Conversation.last_seq, sa.func.coalesce(persisted_seq, 0), type_=sa.BigInteger()
+        ).label("through_seq")
+    ).where(
+        Conversation.tenant_id == tenant,
+        Conversation.id == conversation,
+        Conversation.is_deleted.is_(False),
+    )
+    page = (
+        events.where(CanonicalEvent.seq > sa.bindparam("after_seq", type_=sa.BigInteger()))
+        .order_by(CanonicalEvent.seq)
+        .limit(page_size)
+    )
+    watermark_row = watermark.subquery("watermark")
+    event_page = page.subquery("event_page")
+    event_row = sa.orm.aliased(CanonicalEvent, event_page)
+    page_with_watermark = (
+        sa.select(watermark_row.c.through_seq, event_row)
+        .select_from(watermark_row)
+        .outerjoin(event_page, sa.true())
+        .order_by(event_row.seq)
+    )
+    return watermark, page, page_with_watermark
+
+
 class EventTailHub:
     """进程内共享追尾协调器：按会话共享上游读取，提交后唤醒，超时按 PG 有界补查。"""
 
@@ -377,7 +419,7 @@ class EventTailHub:
             raise ValueError("shared window must hold at least one page")
         self._session_factory = session_factory or _default_session_factory
         self._fallback_poll_sec = fallback_poll_sec
-        self._page_size = page_size
+        self._watermark_query, self._page_query, self._page_with_watermark_query = _tail_queries(page_size)
         self._window_rows = window_rows
         self._hint: WakeupHint = hint or NullWakeupHint()
         self._channels: dict[tuple[str, uuid.UUID], _Channel] = {}
@@ -490,21 +532,15 @@ class EventTailHub:
 
     @db_stage_scope("bg:tail")
     async def _read_round(self, channel: _Channel) -> None:
-        """一轮共享上游读取：读水位；水位内读一页入共享窗口；追平且无行即空闲轮。"""
+        """已知水位内读后续页，追平后用同一查询读取水位和新一页。"""
         self._stats.upstream_rounds += 1
-        page: list[CanonicalEventView] = []
         async with self._session_factory()() as session:
             if channel.read_seq >= channel.through_seq:
-                channel.through_seq = max(
-                    channel.through_seq,
-                    await self._watermark_in(
-                        session,
-                        tenant_id=channel.tenant_id,
-                        conversation_id=channel.conversation_id,
-                    ),
-                )
-            if channel.read_seq < channel.through_seq:
+                through_seq, page = await self._page_with_watermark_in(session, channel)
+                channel.through_seq = max(channel.through_seq, through_seq)
+            else:
                 page = await self._page_in(session, channel, after_seq=channel.read_seq)
+            if channel.read_seq < channel.through_seq:
                 self._stats.pages_read += 1
         channel.idle = not page
         self._append_window(channel, page)
@@ -683,48 +719,42 @@ class EventTailHub:
     async def _watermark_in(
         self, session: AsyncSession, *, tenant_id: str, conversation_id: uuid.UUID
     ) -> int:
-        """真实持久水位：会话行 `last_seq` 与已持久行最大 seq 取大者。
-
-        `last_seq` 由会话行锁单调分配（分配顺序即提交顺序）；取已持久行的最大值让水位对
-        "直接写入的行"同样成立，绝不把水位报得比真实已提交事实更小。
-        """
-        row = (
-            await session.execute(
-                sa.select(
-                    Conversation.last_seq,
-                    sa.select(sa.func.max(CanonicalEvent.seq))
-                    .where(
-                        CanonicalEvent.tenant_id == Conversation.tenant_id,
-                        CanonicalEvent.conversation_id == Conversation.id,
-                        CanonicalEvent.is_deleted.is_(False),
-                    )
-                    .scalar_subquery()
-                    .label("persisted_seq"),
-                ).where(
-                    Conversation.id == conversation_id,
-                    Conversation.tenant_id == tenant_id,
-                    Conversation.is_deleted.is_(False),
-                )
-            )
-        ).first()
-        if row is None:
+        through_seq = await session.scalar(
+            self._watermark_query,
+            {"tenant_id": tenant_id, "conversation_id": conversation_id},
+        )
+        if through_seq is None:
             raise AppError(ErrorCode.COMMON_NOT_FOUND)
-        return max(int(row.last_seq), int(row.persisted_seq or 0))
+        return through_seq
+
+    async def _page_with_watermark_in(
+        self, session: AsyncSession, channel: _Channel
+    ) -> tuple[int, list[CanonicalEventView]]:
+        """同一 PG 快照内读水位和有界事件页，空页也返回会话水位。"""
+        result = await session.execute(
+            self._page_with_watermark_query,
+            {
+                "tenant_id": channel.tenant_id,
+                "conversation_id": channel.conversation_id,
+                "after_seq": channel.read_seq,
+            },
+        )
+        rows = result.tuples().all()
+        if not rows:
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
+        return rows[0][0], [_view(row) for _, row in rows if row is not None]
 
     async def _page_in(
         self, session: AsyncSession, channel: _Channel, *, after_seq: int
     ) -> list[CanonicalEventView]:
         """按 seq 升序读一页已提交行：退出会话后才由调用方 yield（不占数据库连接）。"""
         rows = await session.execute(
-            sa.select(CanonicalEvent)
-            .where(
-                CanonicalEvent.tenant_id == channel.tenant_id,
-                CanonicalEvent.conversation_id == channel.conversation_id,
-                CanonicalEvent.seq > after_seq,
-                CanonicalEvent.is_deleted.is_(False),
-            )
-            .order_by(CanonicalEvent.seq)
-            .limit(self._page_size)
+            self._page_query,
+            {
+                "tenant_id": channel.tenant_id,
+                "conversation_id": channel.conversation_id,
+                "after_seq": after_seq,
+            },
         )
         return [_view(row) for row in rows.scalars().all()]
 

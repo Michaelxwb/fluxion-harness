@@ -7,7 +7,7 @@ COMMIT）把 PG 打到 90/100 连接、idle-in-tx 88、324 commits/s。这里把
 - 按 conversation_id / run_id 排序加锁（与单条 `lock_run_source` 同序，避免死锁）；
 - 锁后取一次 PG 时间，逐 Run 校验 lease/epoch/deadline；
 - **Plan B 故障隔离**：某个 Run 失效/会话缺失只失败它自己的 Future，其余事件照常提交；
-- 每会话一次 `last_seq += N RETURNING` 分配 seq 区间，事件顺序不变；
+- 每批一次更新各会话的 `last_seq` 并返回序号区间的上界；
 - 一次 `INSERT` + 一次 `COMMIT`；数据库错误才整批回滚。
 
 调用方仍是 `RunService._persist_event`：`await batcher.submit(entry)` 返回 canonical seq；
@@ -409,17 +409,39 @@ class EventBatcher:
             grouped.setdefault(
                 (pending.entry.tenant_id, pending.entry.conversation_id), []
             ).append(pending)
-        for (tenant_id, conversation_id), group in grouped.items():
-            last = await session.scalar(
-                sa.update(Conversation)
-                .where(
-                    Conversation.id == conversation_id,
-                    Conversation.tenant_id == tenant_id,
-                    Conversation.is_deleted.is_(False),
-                )
-                .values(last_seq=Conversation.last_seq + len(group), update_time=sa.func.now())
-                .returning(Conversation.last_seq)
+        if not grouped:
+            return
+
+        allocations = (
+            sa.func.unnest(
+                sa.bindparam("tenant_ids", type_=sa.ARRAY(sa.String())),
+                sa.bindparam("conversation_ids", type_=sa.ARRAY(sa.Uuid())),
+                sa.bindparam("event_counts", type_=sa.ARRAY(sa.Integer())),
             )
+            .table_valued("tenant_id", "conversation_id", "event_count")
+            .render_derived(name="allocations")
+        )
+        rows = await session.execute(
+            sa.update(Conversation)
+            .where(
+                Conversation.tenant_id == allocations.c.tenant_id,
+                Conversation.id == allocations.c.conversation_id,
+                Conversation.is_deleted.is_(False),
+            )
+            .values(last_seq=Conversation.last_seq + allocations.c.event_count, update_time=sa.func.now())
+            .returning(Conversation.tenant_id, Conversation.id, Conversation.last_seq)
+            .execution_options(synchronize_session=False),
+            {
+                "tenant_ids": [tenant_id for tenant_id, _ in grouped],
+                "conversation_ids": [conversation_id for _, conversation_id in grouped],
+                "event_counts": [len(group) for group in grouped.values()],
+            },
+        )
+        last_by_conversation = {
+            (tenant_id, conversation_id): last for tenant_id, conversation_id, last in rows.tuples()
+        }
+        for key, group in grouped.items():
+            last = last_by_conversation.get(key)
             if last is None:
                 for pending in group:
                     pending.error = ExecutionLeaseLost("conversation missing during allocate")
