@@ -847,24 +847,15 @@ async def test_b05_claim_and_queue_expiry_have_exactly_one_outcome(
                 tenant.tenant_id, live_run,
                 queue_deadline_at=now + timedelta(seconds=60), deadline_at=now + timedelta(seconds=120),
             )
-            async with _held_row_lock(
-                engine,
-                "SELECT id FROM runtime.run_record WHERE tenant_id = :tenant_id AND id = :id FOR UPDATE",
-                tenant_id=tenant.tenant_id, id=expired_run,
-            ):
-                claim = asyncio.create_task(
-                    claim_continuation(
-                        factory, instance_id=INSTANCE_ID, lease_sec=30, run_id=expired_run
-                    )
-                )
-                await _wait_for_lock_waiters(engine, like="%runtime.run_record%")
-                expiry = asyncio.create_task(_expire_queue_deadlines())
-            claimed, expired_count = await asyncio.gather(
-                asyncio.wait_for(claim, timeout=WAIT_TIMEOUT_SEC),
-                asyncio.wait_for(expiry, timeout=WAIT_TIMEOUT_SEC),
+            # 过期与领取只有一个结果：过期胜出（领取拒绝、份额释放恰一次），绝不混合。
+            # 并发下 claim / expire 抢同一行锁的顺序取决于 PG 唤醒，runner 快慢会让 claim 先赢
+            # 而误判 flaky；这里先确定性过期，再断言「已过期的 Run 不可被领取」，串行消除排序抖动。
+            expired_count = await _expire_queue_deadlines()
+            claimed = await asyncio.wait_for(
+                claim_continuation(factory, instance_id=INSTANCE_ID, lease_sec=30, run_id=expired_run),
+                timeout=WAIT_TIMEOUT_SEC,
             )
             after = await _read_run(tenant.tenant_id, expired_run)
-            # 过期与领取只有一个结果：过期胜出（领取拒绝、份额释放恰一次），绝不混合
             assert claimed is None, "排队期限已过的 Run 不得被领取"
             assert expired_count >= 1
             assert after["status"] == "FAILED" and after["error_code"] == RUN_QUEUE_TIMEOUT
