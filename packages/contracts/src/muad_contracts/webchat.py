@@ -375,8 +375,17 @@ class WebchatConfirmation(WebchatContract):
     submission_id: UUID
     source_event_id: UUID
     prompt: ChatText
-    options: Annotated[list[WebchatConfirmationOption], Field(min_length=1)]
+    #: 候选选项；可为空——为空表示纯自由文本问询（见 `free_text`）。
+    options: list[WebchatConfirmationOption] = Field(default_factory=list)
     expires_at: AwareDatetime
+    #: 是否允许「选项之外自由输入」。默认否——是/否、审核批准/拒绝这类场景只允许点选，
+    #: 避免用户绕过固定选项乱填。仅当模型显式声明时前端才在按钮外再给一个输入框。
+    allow_custom: bool = False
+    #: 是否多选（一次可勾多个选项）。默认否——单选，`selection` 是单个 option.value。
+    #: 多选时前端可勾多个，`selection` 以换行分隔的多个 value 提交，后端逐个校验。
+    multi_select: bool = False
+    #: 纯自由文本问询（无候选选项，用户直接打字回答）。此类 `options` 必为空。
+    free_text: bool = False
 
     @model_validator(mode="after")
     def _distinct_options(self) -> Self:

@@ -19,7 +19,7 @@
  * 展示组件只收 typed props 与事件；不发 HTTP、不读 Cookie、不落持久存储、不自带定时器、不持有状态。
  */
 
-import { Button } from '@douyinfe/semi-ui';
+import { Button, Input } from '@douyinfe/semi-ui';
 import { IconInfoCircle } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
 
@@ -94,12 +94,26 @@ export function confirmationExpired(expiresAt: string, nowMs: number): boolean {
   return Number.isFinite(deadline) && deadline <= nowMs;
 }
 
-/** 恢复请求体：submission/source 只取服务端权威确认，selection 必须是真实候选值。 */
+/**
+ * 恢复请求体：submission/source 只取服务端权威确认。
+ * selection 默认必须是真实候选值；仅当 `allow_custom` 为真时额外接受非空的自由输入文本。
+ */
 export function confirmationResumeInput(
   confirmation: WebchatConfirmation,
   input: { selection: string; messageId: string }
 ): WebchatResumeInput {
-  if (!confirmation.options.some((option) => option.value === input.selection)) {
+  const isOption = (value: string) => confirmation.options.some((option) => option.value === value);
+  const valid = confirmation.multi_select
+    ? (() => {
+        const tokens = input.selection.split('\n').map((t) => t.trim()).filter(Boolean);
+        return (
+          tokens.length > 0 &&
+          tokens.every((token) => isOption(token) || confirmation.allow_custom)
+        );
+      })()
+    : confirmation.options.some((option) => option.value === input.selection) ||
+      Boolean(confirmation.allow_custom && input.selection.trim() !== '');
+  if (!valid) {
     throw new ConfirmationError('CONFIRMATION_SELECTION_INVALID');
   }
   const messageId = input.messageId.trim();
@@ -321,40 +335,134 @@ export interface ConfirmationCardProps {
   errorCode: string | null;
   /** 本地过期判定参考时刻（服务端仍是权威）。 */
   nowMs: number;
+  /** 多选已勾选的候选 value（状态由调用方持有；卡片只作受控展示）。 */
+  selectedValues?: readonly string[];
+  /** 自定义输入文本（受控，状态由调用方持有）。 */
+  customText?: string;
   onConfirm(input: { selection: string; messageId: string }): void;
+  /** 多选切换（调用方更新 `selectedValues`）。 */
+  onToggleOption?(value: string): void;
+  /** 自定义输入变更（调用方更新 `customText`）。 */
+  onCustomChange?(value: string): void;
 }
 
 interface ConfirmationOptionListProps {
   options: readonly WebchatConfirmationOption[];
   locked: boolean;
   messageId: string;
+  multiSelect: boolean;
+  /** 多选已勾选的候选 value（状态由调用方持有，组件只作受控展示）。 */
+  selectedValues: readonly string[];
   onConfirm(input: { selection: string; messageId: string }): void;
+  onToggleOption(value: string): void;
 }
 
 /** 候选列表：服务端顺序与文案原样（不重新编号），提交值就是候选值。 */
 function ConfirmationOptionList(props: ConfirmationOptionListProps) {
-  return (
-    <ul className="chat-confirmation-options">
-      {props.options.map((option, index) => (
-        <li
-          key={option.value}
-          className="chat-confirmation-option"
-          data-testid="chat-confirmation-option"
-          data-value={option.value}
-        >
-          <Button
-            size="small"
-            theme={index === 0 ? 'solid' : 'light'}
-            className="chat-confirmation-choose"
-            data-testid="chat-confirmation-choose"
-            disabled={props.locked}
-            onClick={() => props.onConfirm({ selection: option.value, messageId: props.messageId })}
+  const { t } = useTranslation();
+  if (!props.multiSelect) {
+    return (
+      <ul className="chat-confirmation-options">
+        {props.options.map((option, index) => (
+          <li
+            key={option.value}
+            className="chat-confirmation-option"
+            data-testid="chat-confirmation-option"
+            data-value={option.value}
           >
-            {option.label}
-          </Button>
-        </li>
-      ))}
-    </ul>
+            <Button
+              size="small"
+              theme={index === 0 ? 'solid' : 'light'}
+              className="chat-confirmation-choose"
+              data-testid="chat-confirmation-choose"
+              disabled={props.locked}
+              onClick={() => props.onConfirm({ selection: option.value, messageId: props.messageId })}
+            >
+              {option.label}
+            </Button>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  // 多选：点击切换勾选（状态来自调用方），统一「提交」把多个 value 换行拼接提交（后端逐个校验）。
+  const chosen = props.options.map((o) => o.value).filter((v) => props.selectedValues.includes(v));
+  return (
+    <div className="chat-confirmation-multi" data-testid="chat-confirmation-multi">
+      <ul className="chat-confirmation-options">
+        {props.options.map((option) => {
+          const active = props.selectedValues.includes(option.value);
+          return (
+            <li
+              key={option.value}
+              className="chat-confirmation-option"
+              data-testid="chat-confirmation-option"
+              data-value={option.value}
+              data-picked={active ? 'true' : 'false'}
+            >
+              <Button
+                size="small"
+                theme={active ? 'solid' : 'light'}
+                className="chat-confirmation-choose"
+                data-testid="chat-confirmation-choose"
+                disabled={props.locked}
+                onClick={() => props.onToggleOption(option.value)}
+              >
+                {option.label}
+              </Button>
+            </li>
+          );
+        })}
+      </ul>
+      <Button
+        size="small"
+        theme="solid"
+        className="chat-confirmation-submit"
+        data-testid="chat-confirmation-submit"
+        disabled={props.locked || chosen.length === 0}
+        onClick={() => props.onConfirm({ selection: chosen.join('\n'), messageId: props.messageId })}
+      >
+        {t('chat.run.confirm.multiSubmit')}
+      </Button>
+    </div>
+  );
+}
+
+interface ConfirmationCustomInputProps {
+  locked: boolean;
+  messageId: string;
+  value: string;
+  onValueChange(value: string): void;
+  onConfirm(input: { selection: string; messageId: string }): void;
+}
+
+/** 允许自定义时的自由输入（受控）：回车或点「提交」把原文作为 selection 提交（仅 allow_custom 时出现）。 */
+function ConfirmationCustomInput(props: ConfirmationCustomInputProps) {
+  const { t } = useTranslation();
+  const trimmed = props.value.trim();
+  const submit = () => {
+    if (props.locked || trimmed === '') return;
+    props.onConfirm({ selection: trimmed, messageId: props.messageId });
+  };
+  return (
+    <div className="chat-confirmation-custom" data-testid="chat-confirmation-custom">
+      <Input
+        value={props.value}
+        disabled={props.locked}
+        placeholder={t('chat.run.confirm.customPlaceholder')}
+        onChange={props.onValueChange}
+        onEnterPress={submit}
+        data-testid="chat-confirmation-custom-input"
+      />
+      <Button
+        size="small"
+        disabled={props.locked || trimmed === ''}
+        onClick={submit}
+        data-testid="chat-confirmation-custom-submit"
+      >
+        {t('chat.run.confirm.customSubmit')}
+      </Button>
+    </div>
   );
 }
 
@@ -419,12 +527,26 @@ export function ConfirmationCard(props: ConfirmationCardProps) {
       <p className="chat-confirmation-prompt" data-testid="chat-confirmation-prompt">
         {confirmation.prompt}
       </p>
-      <ConfirmationOptionList
-        options={confirmation.options}
-        locked={locked}
-        messageId={props.messageId}
-        onConfirm={props.onConfirm}
-      />
+      {confirmation.options.length > 0 ? (
+        <ConfirmationOptionList
+          options={confirmation.options}
+          locked={locked}
+          messageId={props.messageId}
+          multiSelect={confirmation.multi_select ?? false}
+          selectedValues={props.selectedValues ?? []}
+          onConfirm={props.onConfirm}
+          onToggleOption={props.onToggleOption ?? (() => {})}
+        />
+      ) : null}
+      {confirmation.allow_custom || confirmation.options.length === 0 ? (
+        <ConfirmationCustomInput
+          locked={locked}
+          messageId={props.messageId}
+          value={props.customText ?? ''}
+          onValueChange={props.onCustomChange ?? (() => {})}
+          onConfirm={props.onConfirm}
+        />
+      ) : null}
       <p className="chat-confirmation-expires" data-testid="chat-confirmation-expires">
         {t('chat.run.confirm.expiresAt')}
         <DateTimeText value={confirmation.expires_at} />

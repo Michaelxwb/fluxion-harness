@@ -1149,6 +1149,27 @@ html.chat-route-active body {
   gap: 4px;
 }
 
+.chat-confirmation-multi {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chat-confirmation-multi .chat-confirmation-submit {
+  align-self: flex-start;
+}
+
+.chat-confirmation-custom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.chat-confirmation-custom .semi-input-wrapper {
+  flex: 1 1 auto;
+}
+
 .chat-confirmation-expires,
 .chat-confirmation-expired {
   margin: 0;
