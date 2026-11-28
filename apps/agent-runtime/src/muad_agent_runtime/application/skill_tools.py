@@ -848,10 +848,15 @@ class SkillToolSet:
         except AppError as exc:
             # The submitter can fail after persisting the operation. Only a confirmed rejection
             # can be safely retried as a distinct model call.
-            known = exc.code in {
+            known = bool(getattr(exc, "outcome_known", False)) or exc.code in {
                 ErrorCode.FORBIDDEN, ErrorCode.TOOL_OPERATION_CAPACITY_EXCEEDED,
             }
-            raise SkillToolError(BACKGROUND_SUBMIT_FAILED, str(exc.code), outcome_known=known) from exc
+            raise SkillToolError(
+                BACKGROUND_SUBMIT_FAILED,
+                str(exc.code),
+                retryable=known,
+                outcome_known=known,
+            ) from exc
         return ToolResult(json.dumps(submitted, ensure_ascii=False))
 
     async def _default_background_route(

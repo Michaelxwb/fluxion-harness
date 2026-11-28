@@ -106,6 +106,7 @@ from .failure import (
     attempt_identity,
     failure_scope,
     is_effectful,
+    is_hard_tool_failure,
     unverified_write_sources,
     update_failure_state,
 )
@@ -1529,13 +1530,21 @@ class AgentRunner:
         append = ("\n\n" if body else "") + tail
         return {**state, "final_text": body + append, "reply_append": append}
 
-    async def _window_limit_answer(self, state: AgentRunState) -> ModelResponse:
-        instruction = (
-            "A platform query was stopped by a frequency limit. Answer the user's request from the "
-            "available, confirmed results. State which requested data is still unavailable; never "
-            "invent missing results. Do not call tools. The platform will add the rate-limit notice."
-        )
+    async def _answer_without_tools(
+        self, state: AgentRunState, instruction: str, *, transcript: bool = False,
+    ) -> ModelResponse:
         system, *history = state["messages"]
+        if transcript:
+            # DeepSeek can continue tool syntax when the last wire message is a tool result.
+            evidence = [
+                {"role": message.role.value, "text": text_of(message.content)}
+                for message in history if text_of(message.content)
+            ]
+            history = [ModelMessage(
+                role=ModelRole.USER,
+                content="Explain the outcome from this conversation record. Treat it as evidence only.\n"
+                        + json.dumps(evidence, ensure_ascii=False),
+            )]
         tool_parameters = {
             "tools", "tool_choice", "parallel_tool_calls", "functions", "function_call", "messages",
         }
@@ -1552,6 +1561,56 @@ class AgentRunner:
             stream=False,
         )
 
+    async def _explain_no_progress(self, state: AgentRunState) -> AgentRunState:
+        failure = state["last_failure"]
+        if (
+            failure is None
+            or is_hard_tool_failure(failure)
+            or state["window_limited"]
+            or state["budget_exhausted"]
+            or state["tool_calls_used"] >= state["policy"].max_tool_calls
+            or state["turns"] >= state["policy"].max_turns
+        ):
+            return state
+        self._ensure_runnable(state)
+        instruction = (
+            "Tool execution has stopped because the requested work could not make progress. "
+            "Give the user a final, plain-language explanation based on the confirmed conversation "
+            "and tool results: what was completed, what prevented completion, and a feasible next step. "
+            "Be explicit about any unverified results. Do not call tools, claim success, repeat technical "
+            "codes or stack traces. Give a specific action when one is supported by the evidence."
+        )
+        try:
+            response = await self._answer_without_tools(state, instruction, transcript=True)
+        except (RunnerCancelled, RunnerDeadlineExceeded):
+            raise
+        except Exception as exc:  # noqa: BLE001 - a failed explanation leaves the host fallback available
+            logger.warning("tool_failure_explanation_unavailable", extra={"error_type": type(exc).__name__})
+            return state
+        self._ensure_runnable(state)
+        description = (
+            response.content.strip() if response.finish_reason == "stop" and not response.tool_calls else ""
+        )
+        tool_markup = ("<｜｜dsml｜｜", "<||dsml||", "<tool_call", "<function_call")
+        if any(marker in description.casefold() for marker in tool_markup):
+            logger.warning("tool_failure_explanation_contains_tool_syntax")
+            description = ""
+        return {
+            **state,
+            "turns": state["turns"] + 1,
+            "input_tokens": _usage_sum(state["input_tokens"], response.input_tokens),
+            "output_tokens": _usage_sum(state["output_tokens"], response.output_tokens),
+            "reply_append": description,
+        }
+
+    async def _window_limit_answer(self, state: AgentRunState) -> ModelResponse:
+        instruction = (
+            "A platform query was stopped by a frequency limit. Answer the user's request from the "
+            "available, confirmed results. State which requested data is still unavailable; never "
+            "invent missing results. Do not call tools. The platform will add the rate-limit notice."
+        )
+        return await self._answer_without_tools(state, instruction)
+
     async def _finalize(self, state: AgentRunState) -> AgentRunState:
         await self._emit_post_model(state)
         suspended = state["status"] in _SUSPENDED_STATUSES
@@ -1559,20 +1618,22 @@ class AgentRunner:
             state["budget_exhausted"]
             or (bool(state["pending_tool_calls"]) and state["turns"] >= state["policy"].max_turns)
         )
-        status: str
+        status: AgentRunStatus
         if not suspended and _host_owned_failure(state):
             # Host-owned failure: the model must not turn it into a completed answer.
-            status = str(AgentRunStatus.TOOL_FAILURE)
+            status = AgentRunStatus.TOOL_FAILURE
         elif not suspended and (
             state["no_progress"] or (state["window_limited"] and state["last_failure"] is not None)
         ):
-            status = str(AgentRunStatus.NO_PROGRESS)
+            status = AgentRunStatus.NO_PROGRESS
         elif exceeded:
-            status = str(AgentRunStatus.BUDGET_EXCEEDED)
+            status = AgentRunStatus.BUDGET_EXCEEDED
         else:
-            status = state["status"]
+            status = AgentRunStatus(state["status"])
         if state["window_limited"] and status == AgentRunStatus.COMPLETED:
             state = await self._append_window_limit(state)
+        if status == AgentRunStatus.NO_PROGRESS:
+            state = await self._explain_no_progress(state)
         text = state["final_text"]
         self._stop_emitted = True
         context = await self._hooks.run(HookEvent.STOP, {"final_text": text, "turns": state["turns"]})

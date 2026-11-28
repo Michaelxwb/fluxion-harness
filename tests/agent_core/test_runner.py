@@ -926,13 +926,13 @@ async def test_retryable_failures_follow_the_configured_threshold() -> None:
     result = await AgentRunner(provider=provider, registry=registry).run(_request())
 
     assert result.status is AgentRunStatus.NO_PROGRESS
-    assert len(provider.requests) == 2
-    assert result.reply_append is None, "a code-only failure must not be explained by the model"
+    assert len(provider.requests) == 3
+    assert result.reply_append == "The lookup did not complete."
     assert result.last_failure is not None
     assert result.termination is not None
 
 
-async def test_code_only_failure_does_not_ask_the_model_to_guess() -> None:
+async def test_code_only_failure_gets_a_final_model_explanation() -> None:
     provider = ScriptedModelProvider(
         [
             _tool_call("c1", "failing", {"code": "NET", "retryable": True}),
@@ -946,8 +946,8 @@ async def test_code_only_failure_does_not_ask_the_model_to_guess() -> None:
     result = await AgentRunner(provider=provider, registry=registry).run(_request())
 
     assert result.status is AgentRunStatus.NO_PROGRESS
-    assert len(provider.requests) == 2, "no explanation turn for a code-only failure"
-    assert result.reply_append is None
+    assert len(provider.requests) == 3
+    assert result.reply_append == "The network is down because the endpoint is misconfigured."
 
 
 async def test_different_retryable_codes_do_not_accumulate() -> None:
@@ -985,8 +985,8 @@ async def test_an_unrelated_success_does_not_reset_failure_counter() -> None:
     result = await AgentRunner(provider=provider, registry=registry).run(_request())
 
     assert result.status is AgentRunStatus.NO_PROGRESS
-    assert len(provider.requests) == 3
-    assert result.reply_append is None, "code-only failure is closed out deterministically"
+    assert len(provider.requests) == 4
+    assert result.reply_append == "done"
 
 
 async def test_threshold_comes_from_the_policy() -> None:
@@ -1043,7 +1043,8 @@ async def test_parallel_success_cannot_reopen_a_stopped_run() -> None:
     assert result.status is AgentRunStatus.NO_PROGRESS
     assert "read" in calls, "the independent read in the same batch still completes"
     assert "write" not in calls, "the later write batch must remain stopped"
-    assert len(provider.requests) == 2
+    assert len(provider.requests) == 3
+    assert result.reply_append == "The write could not complete."
 
 
 async def test_host_owned_gate_stops_before_a_model_explanation() -> None:

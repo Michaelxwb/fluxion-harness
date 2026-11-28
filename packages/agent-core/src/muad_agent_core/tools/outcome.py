@@ -465,9 +465,20 @@ def skill_result_outcome(
     if status in ("FAILED", "TIMED_OUT"):
         code, message, envelope_retryable = _failure_envelope(stderr)
         boundary = ExecutionBoundary.TIME if status == "TIMED_OUT" else ExecutionBoundary.NONE
+        review = (
+            _review_progress(result)
+            if execution_status is SkillCallStatus.FAILED and result_error_code is None
+            else None
+        )
+        # A verified review report is a complete business result even though the
+        # checker exits 1 to signal findings; it is not an unverified write.
         retryable = envelope_retryable is True
         partial = output_truncated or status == "TIMED_OUT"
-        known = execution_started is False or (not partial and code is not None)
+        known = (
+            execution_started is False
+            or review is not None
+            or (not partial and code is not None)
+        )
         return ExecutionOutcome(
             business_status=(
                 BusinessStatus.TIMED_OUT if status == "TIMED_OUT" else BusinessStatus.FAILED
@@ -494,10 +505,7 @@ def skill_result_outcome(
                 ),
                 boundary_kind=boundary,
             ),
-            review_progress=(
-                _review_progress(result)
-                if execution_status is SkillCallStatus.FAILED and result_error_code is None else None
-            ),
+            review_progress=review,
             evidence=evidence_for(
                 stderr,
                 stdout,

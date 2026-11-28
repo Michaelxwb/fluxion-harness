@@ -1035,12 +1035,12 @@ async def test_b262_committed_tool_operation_business_key_survives_model_retry(
     assert after[0]["source_tool_call_id"] == "call-1"
 
     run = await _run_row(run_id)
-    assert run is not None and run.status == RunStatus.COMPLETED
-    assert len(probe.calls) == 4
+    assert run is not None and run.status == RunStatus.FAILED
+    assert run.error_code == "RUN_TOOL_FAILURE_UNRESOLVED"
     rows = await _canonical_rows(run_id)
-    terminal = [row for row in rows if row.stream_type == "run.completed"][-1]
+    terminal = [row for row in rows if row.stream_type == "run.failed"][-1]
     final_text = str(_payload(terminal).get("final_text") or "")
-    assert final_text == NEW_GENERATION_TEXT
+    assert "核对" in final_text
     # 站内入口（WebChat）的历史只投影可见消息：结论要以 ASSISTANT_MESSAGE 落库，
     # 且必须排在 RUN_FAILED 之前，页面刷新后看到的才是这段结论。
     assistant = [

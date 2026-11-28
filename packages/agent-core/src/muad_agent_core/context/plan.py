@@ -77,7 +77,12 @@ def plan_context(
     prefix, body = split_protected_prefix(messages)
     groups = list(split_groups(body))
     current_index = _current_group_index(groups, run_input)
-    pinned_indexes = _pinned_indexes(groups, active_skills, current_index)
+    pinned_indexes = _pinned_indexes(
+        groups,
+        active_skills,
+        current_index,
+        pin_previous=bool(earlier_records),
+    )
     older_groups = tuple(
         group
         for index, group in enumerate(groups)
@@ -205,14 +210,18 @@ def _current_group_index(
 
 
 def _pinned_indexes(
-    groups: Sequence[Group], active_skills: Sequence[str], current_index: int | None
+    groups: Sequence[Group],
+    active_skills: Sequence[str],
+    current_index: int | None,
+    *,
+    pin_previous: bool,
 ) -> set[int]:
     indexes: set[int] = set()
     if current_index is not None:
         indexes.add(current_index)
     latest: dict[str, int] = {}
     for index, group in enumerate(groups):
-        if _is_previous_exchange(group):
+        if pin_previous and _is_previous_exchange(group):
             indexes.add(index)
         for message in group:
             for call in message.tool_calls:

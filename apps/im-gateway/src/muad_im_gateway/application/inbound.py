@@ -1605,7 +1605,9 @@ class InboundPipeline:
         async with aclosing(iter_with_ticks(stream, interval=self._tick_interval_sec)) as events:
             if first is not None:
                 await self._apply_run_event(adapter, route, platform_user_id, state, first)
-                if state.terminal or state.awaiting_input:
+                if state.terminal or (
+                    state.awaiting_input and first.type != "run.stage"
+                ):
                     return
             async for event in events:
                 if event is None:
@@ -1616,7 +1618,9 @@ class InboundPipeline:
                     await self._update_progress(route, state)
                     continue
                 await self._apply_run_event(adapter, route, platform_user_id, state, event)
-                if state.terminal or state.awaiting_input:
+                if state.terminal or (
+                    state.awaiting_input and event.type != "run.stage"
+                ):
                     break
 
     async def _reconnect_until_terminal(
