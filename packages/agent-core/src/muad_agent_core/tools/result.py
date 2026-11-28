@@ -9,13 +9,15 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 from .identity import ToolCall
 from .outcome import (
+    AgentDisposition,
     ExecutionOutcome,
+    RetryDisposition,
     not_applicable_outcome,
     platform_sessions_summary,
     tool_exception_outcome,
@@ -114,7 +116,9 @@ class ToolError(Exception):
         platform_sessions: Mapping[str, Any] | None = None,
         sent: bool = False,
         outcome_known: bool = True,
+        diagnostic: Mapping[str, object] | None = None,
     ) -> None:
+        self.diagnostic = diagnostic
         self.code = code
         self.message = message
         self.detail = dict(detail) if detail else None
@@ -126,12 +130,24 @@ class ToolError(Exception):
         self.platform_sessions = dict(platform_sessions) if platform_sessions else None
         super().__init__(message)
 
+    def _host_owned(self) -> bool:
+        return bool(
+            self.diagnostic
+            and self.diagnostic.get("action_owner") in {"ADMIN", "NONE"}
+        )
+
     def content(self) -> str:
         error: dict[str, object] = {"code": self.code, "message": self.message}
         if self.detail:
             error["detail"] = self.detail
-        if self.retryable and self.outcome_known:
-            error["retryable"] = True
+        retryable = False if self._host_owned() else self.retryable
+        if retryable is not None and self.outcome_known:
+            error["retryable"] = retryable
+        if self.diagnostic:
+            for key in ("cause", "next_step", "action_owner"):
+                value = self.diagnostic.get(key)
+                if isinstance(value, str) and value:
+                    error[key] = value
         if not self.outcome_known:
             error["outcome_known"] = False
         payload: dict[str, object] = {"error": error}
@@ -142,7 +158,7 @@ class ToolError(Exception):
     def outcome(self) -> ExecutionOutcome:
         summary = platform_sessions_summary(self.platform_sessions)
         evidence_text = "; ".join(part for part in (self.message, summary) if part)
-        return tool_exception_outcome(
+        outcome = tool_exception_outcome(
             code=self.code,
             message=self.message,
             retryable=self.retryable,
@@ -152,6 +168,25 @@ class ToolError(Exception):
             sent=self.sent,
             outcome_known=self.outcome_known,
         )
+
+        if not self.diagnostic:
+            return outcome
+        outcome = replace(
+            outcome, evidence=replace(outcome.evidence, diagnostic=self.diagnostic)
+        )
+        # A configured failure owned by the host (ADMIN/NONE) is closed at the tool
+        # boundary: the model must not retry another path or explain the cause itself.
+        if self.diagnostic.get("action_owner") in {"ADMIN", "NONE"}:
+            outcome = replace(
+                outcome,
+                retryable=False,
+                control=replace(
+                    outcome.control,
+                    retry_disposition=RetryDisposition.BLOCK,
+                    agent_disposition=AgentDisposition.STOP,
+                ),
+            )
+        return outcome
 
     def to_result(self) -> ToolResult:
         return ToolResult(content=self.content(), outcome=self.outcome())

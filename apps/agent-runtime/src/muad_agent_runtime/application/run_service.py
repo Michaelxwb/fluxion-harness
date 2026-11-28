@@ -23,7 +23,7 @@ from muad_agent_core.agent import (
 )
 from muad_agent_core.agent.continuation import RunnerCheckpoint
 from muad_agent_core.agent.runner import AgentRunStatus, RunnerDeadlineExceeded
-from muad_agent_core.agent.termination import TerminationSnapshot
+from muad_agent_core.agent.termination import TerminationReason, TerminationSnapshot
 from muad_agent_core.model import ModelMessage
 from muad_agent_core.sandbox.workspace import workspace_layout_from_settings
 from muad_api import AppError
@@ -210,7 +210,6 @@ from .finalization import (
     tool_call_record,
 )
 from .finalization.maintenance import frozen_run_locale, partial_submission_reply, write_maintenance_failure
-from .finalization.render import render_technical_details
 from .memory_confirmation_resume import (
     ConfirmationBinding,
     consume_confirmation,
@@ -584,7 +583,6 @@ class SegmentResult:
     terminal_seen: bool = True
     #: Kernel 的终止事实；异常出口从 `RunnerError.termination` 取同一份快照。
     snapshot: TerminationSnapshot | None = None
-    failure_reply: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -3021,6 +3019,7 @@ class RunService:
                 model_members=None if members is None else tuple(members),
                 summary_model_members=None if summary_members is None else tuple(summary_members),
                 credentials_client=self._credentials_client,
+                resolve_client=self._resolve_client,
                 run_context=ExecutorRunContext(
                     tenant_id=run.tenant_id,
                     run_id=run.id,
@@ -3218,7 +3217,6 @@ class RunService:
         text, outcome = "", AgentRunStatus.COMPLETED
         terminal_seen = False
         snapshot: TerminationSnapshot | None = None
-        failure_reply: str | None = None
         consume_started = time.monotonic()
         first_event = True
         first_delta_ms: int | None = None
@@ -3243,8 +3241,6 @@ class RunService:
                     outcome = AgentRunStatus(event.data["status"])
                     text = str(event.data.get("final_text", text))
                     snapshot = TerminationSnapshot.from_payload(event.data.get("termination"))
-                    reply = event.data.get("failure_reply")
-                    failure_reply = reply if isinstance(reply, str) else None
                     terminal_seen = True
                     continue
                 is_first_delta = event.type == "message.delta" and first_delta_ms is None
@@ -3276,7 +3272,7 @@ class RunService:
             record_latency(RUN_CONSUME_SECONDS, persist_seconds, {"stage": "persist"})
             record_latency(RUN_CONSUME_SECONDS, max(0.0, total - persist_seconds), {"stage": "wait"})
         return SegmentResult(
-            outcome, text, terminal_seen=terminal_seen, snapshot=snapshot, failure_reply=failure_reply,
+            outcome, text, terminal_seen=terminal_seen, snapshot=snapshot,
         )
 
     async def _timed_finalize(self, finalize: Awaitable[ExecutorEvent]) -> ExecutorEvent:
@@ -3320,7 +3316,16 @@ class RunService:
                     RunnerNoProgress("identical tool failures reached the configured limit"),
                     agent_key=agent_key,
                     snapshot=result.snapshot,
-                    failure_reply=result.failure_reply,
+                )
+            )
+        if result.outcome == AgentRunStatus.TOOL_FAILURE:
+            return await self._timed_finalize(
+                self._finalize_failed(
+                    run,
+                    submission_id,
+                    RunnerToolFailureUnresolved("tool failure remained unresolved"),
+                    agent_key=agent_key,
+                    snapshot=result.snapshot,
                 )
             )
         if (
@@ -3576,22 +3581,39 @@ class RunService:
     ) -> FinalizationFacts:
         """读取本 Run 的审计事实并构建 facts；读取失败标记 UNKNOWN，不伪造「无失败」。"""
         rows: Sequence[RowMapping] = ()
+        # Success and budget-only finalization never reads failure controls. Keep the
+        # hot/long-run query identical to the baseline and pay for controls only on a
+        # run that actually stopped on an unresolved tool failure.
+        include_control = snapshot is not None and snapshot.reason in {
+            TerminationReason.NO_PROGRESS,
+            TerminationReason.TOOL_FAILURE,
+        }
+        columns: list[Any] = [
+            ToolCallAudit.tool_name,
+            ToolCallAudit.tool_call_id,
+            ToolCallAudit.status,
+            ToolCallAudit.business_status,
+            ToolCallAudit.failure_layer,
+            ToolCallAudit.error_code,
+            ToolCallAudit.exit_code,
+            ToolCallAudit.output_truncated,
+            ToolCallAudit.evidence_preview,
+        ]
+        if include_control:
+            columns.extend(
+                [
+                    ToolCallAudit.retryable,
+                    ToolCallAudit.retry_disposition,
+                    ToolCallAudit.agent_disposition,
+                    ToolCallAudit.diagnostic_json,
+                ]
+            )
+        columns.append(ToolCallAudit.start_time)
         try:
             async with session.begin_nested():
                 rows = (
                     await session.execute(
-                        sa.select(
-                            ToolCallAudit.tool_name,
-                            ToolCallAudit.tool_call_id,
-                            ToolCallAudit.status,
-                            ToolCallAudit.business_status,
-                            ToolCallAudit.failure_layer,
-                            ToolCallAudit.error_code,
-                            ToolCallAudit.exit_code,
-                            ToolCallAudit.output_truncated,
-                            ToolCallAudit.evidence_preview,
-                            ToolCallAudit.start_time,
-                        )
+                        sa.select(*columns)
                         .where(
                             ToolCallAudit.tenant_id == tenant_id,
                             ToolCallAudit.run_id == run_id,
@@ -3606,7 +3628,11 @@ class RunService:
                 extra={"tenant_id": tenant_id, "run_id": str(run_id)},
             )
             facts = build_finalization_facts(error_code=error_code, snapshot=snapshot)
-            return replace(facts, evidence_status=EvidenceStatus.UNKNOWN)
+            return replace(
+                facts,
+                evidence_status=EvidenceStatus.UNKNOWN,
+                evidence_incomplete=True,
+            )
         records = []
         for row in rows:
             started = row["start_time"]
@@ -3632,7 +3658,6 @@ class RunService:
         *,
         agent_key: str,
         snapshot: TerminationSnapshot | None = None,
-        failure_reply: str | None = None,
     ) -> ExecutorEvent:
         code = _error_code_for(exc)
         async with get_session_factory()() as session:
@@ -3652,13 +3677,10 @@ class RunService:
                 snapshot=snapshot,
             )
             locale = await frozen_run_locale(session, current)
-            suffix = (failure_reply or "").strip() or render_finalization(
-                facts, locale=locale, include_technical=False,
-            )
+            suffix = render_finalization(facts, locale=locale, include_technical=False)
             partial, generation = await partial_submission_reply(session, current, submission_id)
             delta = f"\n\n{suffix}" if partial else suffix
             final_text = partial + delta
-            technical_details = render_technical_details(facts, locale=locale, run_id=str(current.id))
             updated = await session.execute(
                 sa.update(RunRecord)
                 .where(RunRecord.id == run.id, RunRecord.status == RunStatus.RUNNING)
@@ -3687,7 +3709,6 @@ class RunService:
                 "error_code": code,
                 "finalization": facts.to_payload(),
                 "final_text": final_text,
-                "technical_details": technical_details,
             }
             # 站内入口（WebChat）的历史只投影可见消息：结论先落一条 ASSISTANT_MESSAGE，
             # 页面刷新后看到的才是平台事实，而不是只有「任务执行失败」的提示。
@@ -3698,7 +3719,6 @@ class RunService:
                 event_type="ASSISTANT_MESSAGE",
                 payload={
                     "text": final_text,
-                    "technical_details": technical_details,
                     "attachments": await self._run_output_attachments(
                         session, tenant_id=run.tenant_id, run_id=run.id,
                     ),
@@ -4043,6 +4063,8 @@ def _error_code_for(exc: Exception) -> str:
         return RUN_ABANDONED
     if isinstance(exc, RunnerNoProgress):
         return str(ErrorCode.RUN_NO_PROGRESS)
+    if isinstance(exc, RunnerToolFailureUnresolved):
+        return str(ErrorCode.RUN_TOOL_FAILURE_UNRESOLVED)
     if isinstance(exc, RunnerBudgetExceeded):
         return str(ErrorCode.RUN_BUDGET_EXCEEDED)
     if isinstance(exc, RunnerDeadlineExceeded):
@@ -4066,6 +4088,10 @@ class RunnerBudgetExceeded(RuntimeError):
 
 class RunnerNoProgress(RuntimeError):
     """同一 (工具, 错误码) 连续失败达到上限：确定性失败原地打转，主动停止。"""
+
+
+class RunnerToolFailureUnresolved(RuntimeError):
+    """工具失败未解决，模型不能继续改用其他执行方式。"""
 
 
 def _persisted_from_row(row: Artifact) -> PersistedAttachment:

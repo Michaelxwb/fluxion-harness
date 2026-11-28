@@ -25,6 +25,7 @@ class TerminationReason(StrEnum):
     TOOL_BUDGET = "TOOL_BUDGET"
     DEADLINE = "DEADLINE"
     NO_PROGRESS = "NO_PROGRESS"
+    TOOL_FAILURE = "TOOL_FAILURE"
     CANCELLED = "CANCELLED"
     RUN_ERROR = "RUN_ERROR"
 
@@ -33,6 +34,7 @@ class TerminationReason(StrEnum):
 _ERROR_REASONS: Mapping[str, TerminationReason] = {
     "RUN_DEADLINE_EXCEEDED": TerminationReason.DEADLINE,
     "RUN_NO_PROGRESS": TerminationReason.NO_PROGRESS,
+    "RUN_TOOL_FAILURE_UNRESOLVED": TerminationReason.TOOL_FAILURE,
     "CANCELLED": TerminationReason.CANCELLED,
 }
 
@@ -60,6 +62,12 @@ class FailureEvidence:
     boundary_kind: str = "NONE"
     stop_confirmed: bool = True
     evidence_preview: str = ""
+    #: Verified repair owner from the shared failure mapping, if one was provided.
+    action_owner: str | None = None
+    #: True/false only when the shared mapping matched; None = no configured explanation.
+    hint_known: bool | None = None
+    write_targets: frozenset[str] = frozenset()
+    write_operation_key: str | None = None
     occurred_at: str = ""
 
     def as_legacy_dict(self) -> dict[str, str]:
@@ -70,7 +78,7 @@ class FailureEvidence:
         return legacy
 
     def as_payload(self) -> dict[str, Any]:
-        return {
+        payload: dict[str, Any] = {
             "tool": self.tool,
             "tool_call_id": self.tool_call_id,
             "status": self.status,
@@ -92,6 +100,15 @@ class FailureEvidence:
             "evidence_preview": self.evidence_preview,
             "occurred_at": self.occurred_at,
         }
+        if self.action_owner is not None:
+            payload["action_owner"] = self.action_owner
+        if self.hint_known is not None:
+            payload["hint_known"] = self.hint_known
+        if self.write_targets:
+            payload["write_targets"] = sorted(self.write_targets)
+        if self.write_operation_key is not None:
+            payload["write_operation_key"] = self.write_operation_key
+        return payload
 
     @classmethod
     def from_payload(cls, payload: Mapping[str, Any] | None) -> FailureEvidence | None:
@@ -100,54 +117,96 @@ class FailureEvidence:
         tool = payload.get("tool")
         if not isinstance(tool, str) or not tool:
             return None
-        return cls(
-            tool=tool,
-            tool_call_id=str(payload.get("tool_call_id") or ""),
-            status=str(payload.get("status") or "FAILED"),
-            code=str(payload.get("code") or "TOOL_FAILED"),
-            message=str(payload.get("message") or ""),
-            failure_layer=str(payload.get("failure_layer") or "TOOL"),
-            exit_code=_optional_int(payload.get("exit_code")),
-            retryable=payload.get("retryable") is True,
-            agent_disposition=str(payload.get("agent_disposition") or "CONTINUE"),
-            retry_disposition=str(payload.get("retry_disposition") or "ALLOW"),
-            scope=str(payload.get("scope") or "CALL"),
-            sent=payload.get("sent") is True,
-            outcome_known=payload.get("outcome_known") is not False,
-            evidence_status=str(payload.get("evidence_status") or "CONFIRMED"),
-            retry_after=(
+        values: dict[str, Any] = {
+            "tool": tool,
+            "tool_call_id": str(payload.get("tool_call_id") or ""),
+            "status": str(payload.get("status") or "FAILED"),
+            "code": str(payload.get("code") or "TOOL_FAILED"),
+            "message": str(payload.get("message") or ""),
+            "failure_layer": str(payload.get("failure_layer") or "TOOL"),
+            "exit_code": _optional_int(payload.get("exit_code")),
+            "retryable": payload.get("retryable") is True,
+            "agent_disposition": str(payload.get("agent_disposition") or "CONTINUE"),
+            "retry_disposition": str(payload.get("retry_disposition") or "ALLOW"),
+            "scope": str(payload.get("scope") or "CALL"),
+            "sent": payload.get("sent") is True,
+            "outcome_known": payload.get("outcome_known") is not False,
+            "evidence_status": str(payload.get("evidence_status") or "CONFIRMED"),
+            "retry_after": (
                 str(payload.get("retry_after"))
                 if payload.get("retry_after") is not None
                 else None
             ),
-            security_disposition=str(payload.get("security_disposition") or "NORMAL"),
-            boundary_kind=str(payload.get("boundary_kind") or "NONE"),
-            stop_confirmed=payload.get("stop_confirmed") is not False,
-            evidence_preview=str(payload.get("evidence_preview") or ""),
-            occurred_at=str(payload.get("occurred_at") or ""),
-        )
+            "security_disposition": str(payload.get("security_disposition") or "NORMAL"),
+            "boundary_kind": str(payload.get("boundary_kind") or "NONE"),
+            "stop_confirmed": payload.get("stop_confirmed") is not False,
+            "evidence_preview": str(payload.get("evidence_preview") or ""),
+            "occurred_at": str(payload.get("occurred_at") or ""),
+        }
+        owner = payload.get("action_owner")
+        if isinstance(owner, str):
+            values["action_owner"] = owner
+        known = payload.get("hint_known")
+        if isinstance(known, bool):
+            values["hint_known"] = known
+        targets = payload.get("write_targets")
+        if isinstance(targets, list | tuple):
+            values["write_targets"] = frozenset(
+                item for item in targets if isinstance(item, str)
+            )
+        operation = payload.get("write_operation_key")
+        if isinstance(operation, str):
+            values["write_operation_key"] = operation
+        return cls(**values)
 
 
 @dataclass(frozen=True, slots=True)
 class FailureState:
     last_failure: FailureEvidence | None = None
+    #: A failure has not yet been followed by a successful corrective call.
+    failure_pending: bool = False
     identical_failures: Mapping[str, int] = field(default_factory=dict)
     no_progress: bool = False
     blocked_attempts: frozenset[str] = frozenset()
+    #: First unresolved failure that put the attempt on the blocked list.
+    blocked_attempt_sources: Mapping[str, str] = field(default_factory=dict)
     unknown_write_targets: frozenset[str] = frozenset()
+    #: First unresolved failure per bounded target (targets without an operation key).
+    unknown_target_sources: Mapping[str, str] = field(default_factory=dict)
     unknown_write_operations: Mapping[str, frozenset[str]] = field(default_factory=dict)
+    #: First unresolved failure per host-owned operation key.
+    unknown_operation_sources: Mapping[str, str] = field(default_factory=dict)
     reviews: Mapping[str, tuple[int, int]] = field(default_factory=dict)
+    #: Frozen when no_progress first becomes true: the call that tripped the limit.
+    no_progress_trigger_call_id: str = ""
+    #: Business failure the trigger points at; same call for a direct failure, explicit
+    #: source for a retry-gate block, empty when the relation cannot be proven.
+    no_progress_source_call_id: str = ""
 
     def as_payload(self) -> dict[str, Any]:
-        return {
+        payload: dict[str, Any] = {
             "last_failure": self.last_failure.as_payload() if self.last_failure else None,
+            "failure_pending": self.failure_pending,
             "identical_failures": dict(self.identical_failures),
             "no_progress": self.no_progress,
             "blocked_attempts": sorted(self.blocked_attempts),
             "unknown_write_targets": sorted(self.unknown_write_targets),
-            "unknown_write_operations": {key: sorted(v) for key, v in self.unknown_write_operations.items()},
+            "unknown_write_operations": {
+                key: sorted(v) for key, v in self.unknown_write_operations.items()
+            },
             "reviews": {key: list(value) for key, value in self.reviews.items()},
         }
+        if self.blocked_attempt_sources:
+            payload["blocked_attempt_sources"] = dict(self.blocked_attempt_sources)
+        if self.unknown_target_sources:
+            payload["unknown_target_sources"] = dict(self.unknown_target_sources)
+        if self.unknown_operation_sources:
+            payload["unknown_operation_sources"] = dict(self.unknown_operation_sources)
+        if self.no_progress_trigger_call_id:
+            payload["no_progress_trigger_call_id"] = self.no_progress_trigger_call_id
+        if self.no_progress_source_call_id:
+            payload["no_progress_source_call_id"] = self.no_progress_source_call_id
+        return payload
 
     @classmethod
     def from_payload(cls, payload: Mapping[str, Any] | None) -> FailureState:
@@ -163,6 +222,19 @@ class FailureState:
         unknown = payload.get("unknown_write_targets")
         operations = payload.get("unknown_write_operations")
         raw_reviews = payload.get("reviews")
+        blocked_set = (
+            frozenset(v for v in blocked if isinstance(v, str))
+            if isinstance(blocked, list) else frozenset()
+        )
+        unknown_targets = (
+            frozenset(v for v in unknown if isinstance(v, str))
+            if isinstance(unknown, list) else frozenset()
+        )
+        operation_targets = {
+            key: frozenset(v for v in targets if isinstance(v, str))
+            for key, targets in operations.items()
+            if isinstance(key, str) and isinstance(targets, list)
+        } if isinstance(operations, Mapping) else {}
         reviews = {}
         if isinstance(raw_reviews, Mapping):
             for key, values in raw_reviews.items():
@@ -171,20 +243,46 @@ class FailureState:
                     and all(type(v) is int for v in values)
                 ):
                     reviews[str(key)] = (values[0], values[1])
+        blocked_sources = payload.get("blocked_attempt_sources")
+        target_sources = payload.get("unknown_target_sources")
+        operation_sources = payload.get("unknown_operation_sources")
+        trigger = payload.get("no_progress_trigger_call_id")
+        source = payload.get("no_progress_source_call_id")
         return cls(
-            blocked_attempts=frozenset(v for v in blocked if isinstance(v, str)) if isinstance(blocked, list)
-            else frozenset(),
-            unknown_write_targets=frozenset(v for v in unknown if isinstance(v, str))
-            if isinstance(unknown, list) else frozenset(),
-            unknown_write_operations={
-                key: frozenset(v for v in targets if isinstance(v, str))
-                for key, targets in operations.items() if isinstance(key, str) and isinstance(targets, list)
-            } if isinstance(operations, Mapping) else {},
+            blocked_attempts=blocked_set,
+            blocked_attempt_sources=(
+                _sources_for(blocked_sources, blocked_set)
+                if isinstance(blocked_sources, Mapping) else {}
+            ),
+            unknown_write_targets=unknown_targets,
+            unknown_target_sources=(
+                _sources_for(target_sources, unknown_targets)
+                if isinstance(target_sources, Mapping) else {}
+            ),
+            unknown_write_operations=operation_targets,
+            unknown_operation_sources=(
+                _sources_for(operation_sources, frozenset(operation_targets))
+                if isinstance(operation_sources, Mapping) else {}
+            ),
             reviews=reviews,
             last_failure=FailureEvidence.from_payload(payload.get("last_failure")),
+            failure_pending=payload.get("failure_pending") is True,
             identical_failures=counts,
             no_progress=payload.get("no_progress") is True,
+            no_progress_trigger_call_id=trigger if isinstance(trigger, str) else "",
+            no_progress_source_call_id=source if isinstance(source, str) else "",
         )
+
+
+def _sources_for(raw: object, keys: frozenset[str]) -> dict[str, str]:
+    """Keep only sources whose referenced attempt/target/operation still exists."""
+    if not isinstance(raw, Mapping):
+        return {}
+    return {
+        str(key): source
+        for key, source in raw.items()
+        if key in keys and isinstance(source, str) and source
+    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -215,6 +313,8 @@ class TerminationSnapshot:
     def reason(self) -> TerminationReason | None:
         if self.status == "NO_PROGRESS":
             return TerminationReason.NO_PROGRESS
+        if self.status == "TOOL_FAILURE":
+            return TerminationReason.TOOL_FAILURE
         if self.status == "BUDGET_EXCEEDED":
             return (
                 TerminationReason.TOOL_BUDGET
@@ -286,8 +386,11 @@ def reason_for_error_code(error_code: str | None) -> TerminationReason:
 def decisive_failure(
     snapshot: TerminationSnapshot | None, reason: TerminationReason
 ) -> FailureEvidence | None:
-    """只有 NO_PROGRESS 把 `last_failure` 关联为本次停止原因；其余保持历史证据。"""
-    if snapshot is None or reason is not TerminationReason.NO_PROGRESS:
+    """Only an unresolved failure stop claims `last_failure` as the stop cause."""
+    if snapshot is None or reason not in {
+        TerminationReason.NO_PROGRESS,
+        TerminationReason.TOOL_FAILURE,
+    }:
         return None
     return snapshot.failure_state.last_failure
 

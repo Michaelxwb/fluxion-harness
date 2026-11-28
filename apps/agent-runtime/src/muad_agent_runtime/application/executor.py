@@ -172,7 +172,7 @@ from .model_allocator import (
 )
 from .model_call_trace import ModelCallTrace
 from .model_capacity_service import ModelCapacityService
-from .ports import CredentialsClient, PlatformSettingsClient
+from .ports import CredentialsClient, PlatformSettingsClient, ResolveClient
 from .run_events import DeltaWindow, delta_payload, delta_window_from_settings
 from .skill_tools import (
     DraftShellContext,
@@ -356,6 +356,8 @@ class ExecutorRequest:
     model_members: tuple[MemberRef, ...] | None = None
     #: API-09 受信解析客户端（密钥只进调用内存）；None = 测试/本地装配，不启用池链路。
     credentials_client: CredentialsClient | None = None
+    #: 失败路径读取当前 Skill invocation contract；只用于校验 allowed_values。
+    resolve_client: ResolveClient | None = None
 
 
 def execution_defaults_for(request: ExecutorRequest) -> ExecutionDefaults:
@@ -529,6 +531,10 @@ class _ExecutorEventEmitter:
         )
 
     async def on_tool_completed(self, completed: ToolCompleted) -> None:
+        diagnostic = completed.outcome.evidence.diagnostic or {}
+        gate_reason = diagnostic.get("gate_reason")
+        source_call_id = diagnostic.get("source_tool_call_id")
+        hint_known = diagnostic.get("hint_known")
         event = ToolCompletedEvent(
             tool_call_id=completed.tool_call_id,
             tool_name=completed.tool_name,
@@ -557,6 +563,30 @@ class _ExecutorEventEmitter:
                 ),
                 review_progress=completed.outcome.review_progress,
                 customer_options=completed.outcome.customer_options,
+                gate_reason=(
+                    cast(
+                        Literal[
+                            "BLOCKED_ATTEMPT",
+                            "UNVERIFIED_WRITE",
+                            "RETRY_GUARDED",
+                            "FAILURE_UNRESOLVED",
+                        ],
+                        gate_reason,
+                    )
+                    if gate_reason
+                    in {
+                        "BLOCKED_ATTEMPT",
+                        "UNVERIFIED_WRITE",
+                        "RETRY_GUARDED",
+                        "FAILURE_UNRESOLVED",
+                    }
+                    else None
+                ),
+                source_tool_call_id=(
+                    source_call_id if isinstance(source_call_id, str) and source_call_id else None
+                ),
+                action_owner=_action_owner(diagnostic),
+                hint_known=hint_known if isinstance(hint_known, bool) else None,
             ),
             content=completed.content,
             artifacts=[
@@ -624,6 +654,60 @@ def _reference_artifact_id(content: str) -> str | None:
     artifact = payload.get("artifact") if isinstance(payload, dict) else None
     raw = artifact.get("artifact_id") if isinstance(artifact, dict) else None
     return raw if isinstance(raw, str) else None
+
+
+_OWNER_VALUES = frozenset({"USER", "ADMIN", "NONE"})
+_MESSAGE_SOURCES = frozenset({"PLATFORM", "CATALOG", "LOCAL"})
+_GATE_REASONS = frozenset({"BLOCKED_ATTEMPT", "UNVERIFIED_WRITE", "RETRY_GUARDED"})
+
+
+def _action_owner(
+    diagnostic: Mapping[str, object],
+) -> Literal["USER", "ADMIN", "NONE"] | None:
+    value = diagnostic.get("action_owner")
+    return cast(Literal["USER", "ADMIN", "NONE"], value) if value in {"USER", "ADMIN", "NONE"} else None
+
+
+def _audit_diagnostic(outcome: ExecutionOutcome | None) -> dict[str, Any] | None:
+    """Project the public diagnostic onto the audit allowlist, bounded by construction."""
+    raw = outcome.evidence.diagnostic if outcome is not None else None
+    if not isinstance(raw, Mapping):
+        return None
+    diagnostic: dict[str, Any] = {}
+    detail = raw.get("detail")
+    if isinstance(detail, Mapping) and detail:
+        diagnostic["detail"] = dict(detail)
+    owner = raw.get("action_owner")
+    if isinstance(owner, str) and owner in _OWNER_VALUES:
+        diagnostic["action_owner"] = owner
+    hint_known = raw.get("hint_known")
+    if isinstance(hint_known, bool):
+        diagnostic["hint_known"] = hint_known
+    source = raw.get("message_source")
+    if isinstance(source, str) and source in _MESSAGE_SOURCES:
+        diagnostic["message_source"] = source
+    gate = raw.get("gate_reason")
+    if isinstance(gate, str) and gate in _GATE_REASONS:
+        diagnostic["gate_reason"] = gate
+    for key in ("trigger_tool_call_id", "source_tool_call_id", "source_attempt"):
+        value = raw.get(key)
+        if isinstance(value, str) and 0 < len(value) <= 128:
+            diagnostic[key] = value
+    return diagnostic or None
+
+
+def _control_facts(
+    outcome: ExecutionOutcome | None,
+) -> tuple[bool | None, str | None, str | None, dict[str, Any] | None]:
+    """Return (retryable, retry_disposition, agent_disposition, diagnostic) for one row."""
+    if outcome is None or not outcome.is_failure:
+        return None, None, None, None
+    return (
+        outcome.retryable if outcome.control.outcome_known else None,
+        outcome.control.retry_disposition.value,
+        outcome.control.agent_disposition.value,
+        _audit_diagnostic(outcome),
+    )
 
 
 class AgentRunnerExecutor:
@@ -730,9 +814,6 @@ class AgentRunnerExecutor:
                 data={
                     "status": str(result.status),
                     "final_text": result.final_text,
-                    "failure_reply": (
-                        result.reply_append if result.status == AgentRunStatus.NO_PROGRESS else None
-                    ),
                     "termination": (
                         result.termination.as_payload() if result.termination is not None else None
                     ),
@@ -1909,6 +1990,9 @@ class ToolCallRecorder:
         )
         if event.definition is None or status == "DENY":
             if self._audit is not None:
+                retryable, retry_disposition, agent_disposition, diagnostic = _control_facts(
+                    event.outcome
+                )
                 await self._audit.record_tool_call(
                     tool_call_id=call.call_id,
                     tool_name=call.tool_name,
@@ -1933,6 +2017,10 @@ class ToolCallRecorder:
                         event.outcome.evidence.output_truncated if event.outcome else None
                     ),
                     evidence_preview=event.outcome.evidence.preview if event.outcome else None,
+                    retryable=retryable,
+                    retry_disposition=retry_disposition,
+                    agent_disposition=agent_disposition,
+                    diagnostic_json=diagnostic,
                 )
             return
         self._round[call.call_id] = _RoundCall(
@@ -2044,6 +2132,7 @@ class ToolCallRecorder:
                 continue
             reference = references.get(call_id)
             outcome = record.outcome
+            retryable, retry_disposition, agent_disposition, diagnostic = _control_facts(outcome)
             await self._audit.record_tool_call(
                 tool_call_id=call_id,
                 tool_name=record.definition.name,
@@ -2064,6 +2153,10 @@ class ToolCallRecorder:
                 exit_code=outcome.exit_code if outcome else None,
                 output_truncated=outcome.evidence.output_truncated if outcome else None,
                 evidence_preview=outcome.evidence.preview if outcome else None,
+                retryable=retryable,
+                retry_disposition=retry_disposition,
+                agent_disposition=agent_disposition,
+                diagnostic_json=diagnostic,
             )
 
 
@@ -2289,6 +2382,7 @@ def _register_other_tools(
             session_factory=get_session_factory,
             settings_client=request.settings_client,
             fallback_timezone=execution_defaults_for(request).timezone,
+            resolve_client=request.resolve_client,
         ).register(registry)
     TimeToolSet(zone=resolve_zone(execution_defaults_for(request).timezone)).register(registry)
     if mcp_adapter is not None and request.mcp_servers and request.run_context is not None:

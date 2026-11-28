@@ -1093,6 +1093,16 @@ def _failure(errors: Sequence[ScheduleFieldError]) -> ScheduleAuthoringError:
         message = "missing required schedule fields: " + ", ".join(
             item.field for item in errors if item.reason == "MISSING"
         )
+    elif any(
+        item.reason in {"CONTRACT_MISSING", "CONTRACT_INVALID"}
+        and item.repair == "REIMPORT_SKILL"
+        for item in errors
+    ):
+        # An unusable invocation contract is a platform configuration failure, not a
+        # user input error: use the same code/owner as Draft preflight so the model
+        # cannot turn it into a completed answer with a USER-owned explanation.
+        code = ErrorCode.SCHEDULE_INVOCATION_CONTRACT_MISSING.value
+        message = "the skill invocation contract is invalid; reimport the skill"
     else:
         code = ErrorCode.SCHEDULE_DRAFT_INVALID.value
         message = "invalid schedule proposal: " + ", ".join(

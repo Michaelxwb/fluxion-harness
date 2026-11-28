@@ -1,7 +1,7 @@
 ---
 {
   "description": "部署单元、边界与容量",
-  "next_rule": 6
+  "next_rule": 10
 }
 ---
 
@@ -20,6 +20,14 @@
 - [RULE-004] 超出平台出站准入窗口的请求必须在外发前拦截并审计。对被判定为可等待且可安全重试的工具调用，在冻结 Run 预算、截止时间、取消和租约约束内按 Retry-After 或退避等待，沿用同一调用身份重试；不满足门禁时不得重发。聊天 Skill 仅因出站窗口限流结束时，保留已有正文和经核实可交付的部分结果，在回复末尾追加受限说明并停止派发后续工具；独立故障按其真实原因收尾。
 
 - [RULE-005] 工具失败控制必须区分 Agent 是否继续、原调用是否允许重试、是否需要等待、失败作用域以及是否必须由宿主硬停止。retryable=false 禁止原调用重做，不单独推出 Run 终止；身份或能力完整性受损、关键事实不可持久化、模型不可用、执行权丢失、截止时间到期、总预算耗尽或停止未确认时，由宿主安全收尾。
+
+- [RULE-006] 外部工具的准备、派发与结果须由受信执行事实分别判定。明确不可重试的已知失败约束原操作，未知副作用只约束可能重复该操作的调用。独立的获授权操作仍可继续。自动重试与正常派发使用同一门禁。普通工具或技能作用域的成功须清除该作用域的连续失败计数。
+
+- [RULE-007] 工具结果在 Kernel 统一为 typed ToolResult/ToolError：成功正文是数据，失败由 outcome/异常表达；pipeline 不得解析正文 JSON 判断成败；outcome_parser、follow_up_messages 与 tool_failure_outcome 的正文推断删除。
+
+- [RULE-008] 上下文压缩边界统一由 ContextPlan 计算：显式当前 Run 输入/来源/活跃 Skill；pinned 不受压缩；older 可摘要；working 可 tail 压缩；受保护预算按 UTF-8 字节且超限可见。
+
+- [RULE-009] 开发阶段 cutover 是破坏性切换：暂停调度生产/停止 claim/收口 RUNNING/处置 WAITING_* 后删除旧 canonical_event/task_event 或重置开发库；不迁移、不保留 v1 分支；cutover 后只向前修复，回滚需重置开发库。
 
 ## Conventions
 - **限流与失败收尾**（RULE-004、RULE-005）
@@ -97,3 +105,11 @@
 - {"source":"2026-11-26/agent-tool-failure-recovery/agent-tool-failure-recovery.md#TASK-001#DELTA-001","op":"add","rule":"RULE-005","payload_sha256":"5153ae36588bb3cdd7f3e18b6ab21864b6a2f3d5dffbce79ce4cbc1a1e687bf3","at":"2026-11-26T12:11:20.729Z"}
 
 - {"source":"2026-11-26/agent-tool-failure-recovery/agent-tool-failure-recovery.md#TASK-002#DELTA-003","op":"update","rule":"RULE-004","payload_sha256":"1533befa31f721cba4f620472f6f727a0b13b1b4bef0ae131e81fd69521f8644","at":"2026-11-26T12:11:20.731Z"}
+
+- {"source":"2026-11-27/agent-tool-failure-chain/agent-tool-failure-chain.md#TASK-001#DELTA-001","op":"add","rule":"RULE-006","payload_sha256":"fa90050a78e3fc158e1ff12bfd941dda3f51ba21fcf5ae5e3464a77f3f0009f3","at":"2026-11-28T00:53:13.869Z"}
+
+- {"source":"2026-11-21/agent-execution-contracts/agent-execution-contracts.md#TASK-001#DELTA-001","op":"add","rule":"RULE-007","payload_sha256":"bed7e67913ba83b0eb133f1b265ded98c5f37e264e34fa00d73d5573762718d8","at":"2026-11-28T01:04:28.946Z"}
+
+- {"source":"2026-11-21/agent-execution-contracts/agent-execution-contracts.md#TASK-005#DELTA-001","op":"add","rule":"RULE-008","payload_sha256":"ba2b1176bfc8cfb66bbede78958b70de3f5042fc5fea6036322ed94fc6472e1a","at":"2026-11-28T01:04:28.947Z"}
+
+- {"source":"2026-11-21/agent-execution-contracts/agent-execution-contracts.md#TASK-013#DELTA-001","op":"add","rule":"RULE-009","payload_sha256":"be9661699a4605ee8ccd30055ead95110e9d048787992a63a1fb6c6edbdd25dd","at":"2026-11-28T01:04:28.949Z"}

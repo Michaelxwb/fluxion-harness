@@ -1198,6 +1198,13 @@ class ToolCallAudit(StandardColumnsMixin, Base):
     exit_code: Mapped[int | None] = mapped_column(sa.Integer())
     output_truncated: Mapped[bool | None] = mapped_column(sa.Boolean())
     evidence_preview: Mapped[str | None] = mapped_column(sa.Text())
+    #: Explicit retry permission for this call. NULL means the tool did not declare it
+    #: (or the outcome was unknown); false is a real "do not replay this call".
+    retryable: Mapped[bool | None] = mapped_column(sa.Boolean())
+    retry_disposition: Mapped[str | None] = mapped_column(sa.String(16))
+    agent_disposition: Mapped[str | None] = mapped_column(sa.String(16))
+    #: Bounded public diagnostic: validated detail, owner, message source, gate attribution.
+    diagnostic_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
 
 class EgressAudit(StandardColumnsMixin, Base):

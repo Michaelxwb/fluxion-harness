@@ -15,6 +15,18 @@ export const COMPACTION_LAYERS = ['summary', 'budget'] as const;
 const LAYERS: ReadonlySet<string> = new Set(COMPACTION_LAYERS);
 export const MODEL_RETRY_REASONS = ['RATE_LIMITED', 'UNAVAILABLE'] as const;
 const RETRY_REASONS: ReadonlySet<string> = new Set(MODEL_RETRY_REASONS);
+export const RETRY_PERMISSIONS = ['YES', 'NO', 'UNKNOWN'] as const;
+const RETRY_PERMISSION_SET: ReadonlySet<string> = new Set(RETRY_PERMISSIONS);
+export const RETRY_DISPOSITIONS = ['ALLOW', 'WAIT_THEN_RETRY', 'BLOCK'] as const;
+const RETRY_DISPOSITION_SET: ReadonlySet<string> = new Set(RETRY_DISPOSITIONS);
+export const AGENT_DISPOSITIONS = ['CONTINUE', 'WAIT', 'STOP'] as const;
+const AGENT_DISPOSITION_SET: ReadonlySet<string> = new Set(AGENT_DISPOSITIONS);
+export const MESSAGE_SOURCES = ['PLATFORM', 'CATALOG', 'LOCAL'] as const;
+const MESSAGE_SOURCE_SET: ReadonlySet<string> = new Set(MESSAGE_SOURCES);
+export const ACTION_OWNERS = ['USER', 'ADMIN', 'NONE'] as const;
+const ACTION_OWNER_SET: ReadonlySet<string> = new Set(ACTION_OWNERS);
+export const GATE_REASONS = ['BLOCKED_ATTEMPT', 'UNVERIFIED_WRITE', 'RETRY_GUARDED'] as const;
+const GATE_REASON_SET: ReadonlySet<string> = new Set(GATE_REASONS);
 
 function EventFields({ detail, onOpenTask }: { detail: RunEventDetail; onOpenTask?: (id: string) => void }) {
   const { t } = useTranslation();
@@ -27,7 +39,14 @@ function EventFields({ detail, onOpenTask }: { detail: RunEventDetail; onOpenTas
     if (key === 'attempt' && typeof value === 'number') display = String(value + 1);
     if (key === 'retry_reason' && RETRY_REASONS.has(display)) display = t(`run.eventDetail.retry.${display}`);
     if (key === 'protocol' && value === 'OPENAI') display = t('run.eventDetail.protocolOpenai');
-    const isId = ['tool_call_id', 'operation_id', 'task_id'].includes(key);
+    if (key === 'retryable' && RETRY_PERMISSION_SET.has(display)) display = t(`run.eventDetail.retryable.${display}`);
+    if (key === 'retry_disposition' && RETRY_DISPOSITION_SET.has(display)) display = t(`run.eventDetail.retryDisposition.${display}`);
+    if (key === 'agent_disposition' && AGENT_DISPOSITION_SET.has(display)) display = t(`run.eventDetail.agentDisposition.${display}`);
+    if (key === 'message_source' && MESSAGE_SOURCE_SET.has(display)) display = t(`run.eventDetail.messageSource.${display}`);
+    if (key === 'action_owner' && ACTION_OWNER_SET.has(display)) display = t(`run.eventDetail.actionOwner.${display}`);
+    if (key === 'gate_reason' && GATE_REASON_SET.has(display)) display = t(`run.eventDetail.gateReason.${display}`);
+    if (key === 'diagnostic_truncated') display = t('run.eventDetail.diagnosticTruncated');
+    const isId = ['tool_call_id', 'operation_id', 'task_id', 'trigger_tool_call_id', 'source_tool_call_id'].includes(key);
     const label = t(`run.eventDetail.field.${key}`);
     return { label, value: key === 'task_id' && onOpenTask ? (
       <span className="run-event-task-link"><Button theme="borderless" onClick={() => onOpenTask(String(value))}>{display.slice(0, 8)}</Button><CopyButton value={String(value)} /></span>

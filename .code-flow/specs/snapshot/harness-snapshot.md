@@ -1,7 +1,7 @@
 ---
 {
   "description": "Run/Task 快照冻结",
-  "next_rule": 7
+  "next_rule": 11
 }
 ---
 
@@ -22,6 +22,14 @@
 - [RULE-005] 工具完成事件记录失败控制事实；检查点保留失败状态、待完成操作和调用去重所需事实。实时执行与检查点恢复使用同一控制判定，不能通过重解析当前工具定义或更换入口重做未知外部操作。
 
 - [RULE-006] 执行边界异常必须以通用事实归一化：边界来源、停止是否确认、发送/结果事实和证据完整性共同决定 CONTINUE/WAIT/STOP。底层错误码只作为诊断来源，不得让不同适配器复制不同恢复流程；停止未确认或执行权/关键事实不可保证时不得继续派发可能产生副作用的调用。
+
+- [RULE-007] 重放和同会话后续执行须沿用与实时派发一致的外部操作身份及重试判定。规范事件必须区分派发前拒绝、结果已知和待核实副作用。受信操作身份缺失时，以冻结授权资源判断潜在重叠；只有可关联的受信事实可以解除待核实状态。
+
+- [RULE-008] 同会话续行应基于可核验的用户目标、已确认条件和已完成执行事实。历史省略标记应对应实际保留的当前输入，续行不可把未知操作或未核实结果当作已完成。
+
+- [RULE-009] Run/Task 工具事件使用版本化 v2 契约：assistant turn 同时保存模型名与内部名；外部执行前写 prepared/STARTED 事实（args_hash、脱敏预览、来源/技能/工具/retry_safety）；完成事件保存 outcome、artifacts role 与 follow-ups；恢复身份只用内部名。
+
+- [RULE-010] SnapshotSkill 必须冻结正式 key 字段（来自 ResolvedSkill.key），catalog/提示词/执行路由/子 Task 快照统一使用；不得从 frontmatter.key 推断。
 
 ## Conventions
 
@@ -64,3 +72,11 @@
 - {"source":"2026-11-26/agent-tool-failure-recovery/agent-tool-failure-recovery.md#TASK-001#DELTA-002","op":"add","rule":"RULE-005","payload_sha256":"3cfa9c44a658563bfb7e262c0c3f1136fb0cb70d56f5c416cfa63970b2acd879","at":"2026-11-26T12:11:20.731Z"}
 
 - {"source":"2026-11-26/agent-tool-failure-recovery/agent-tool-failure-recovery.md#TASK-006#DELTA-005","op":"add","rule":"RULE-006","payload_sha256":"a031846d2bdadcc86d18f34e150240fde04de72d84df738e50aae3445933f182","at":"2026-11-26T12:11:20.732Z"}
+
+- {"source":"2026-11-27/agent-tool-failure-chain/agent-tool-failure-chain.md#TASK-002#DELTA-001","op":"add","rule":"RULE-007","payload_sha256":"b2466af2968c9055e40f37c9258ff1f57855b4e54d5d0d42aeff19c72c0c8149","at":"2026-11-28T00:53:13.870Z"}
+
+- {"source":"2026-11-27/agent-tool-failure-chain/agent-tool-failure-chain.md#TASK-005#DELTA-001","op":"add","rule":"RULE-008","payload_sha256":"affcbed29907af9bb37de52293127a8576e8926fd763b8302dab15c5a24dcfd2","at":"2026-11-28T00:53:13.871Z"}
+
+- {"source":"2026-11-21/agent-execution-contracts/agent-execution-contracts.md#TASK-002#DELTA-001","op":"add","rule":"RULE-009","payload_sha256":"5a2dc2a49e5f7d211b07eacbcf64daf3b267d472eaf63a1820f6018bb6b26b48","at":"2026-11-28T01:04:28.947Z"}
+
+- {"source":"2026-11-21/agent-execution-contracts/agent-execution-contracts.md#TASK-008#DELTA-001","op":"add","rule":"RULE-010","payload_sha256":"5c523609ec758497da21d78a5e4ac7d736a0b7fc506479381431e73c76c60258","at":"2026-11-28T01:04:28.948Z"}

@@ -16,6 +16,7 @@ from .run_event_view import (
     TEXT_LIMIT,
     ModelRunSummary,
     RunEventDetail,
+    add_diagnostic_fields,
     add_fields,
     argument_views,
     attachment_view,
@@ -129,6 +130,7 @@ def _call_details(detail: RunEventDetail, row: RunEventDetailRow) -> None:
         data = row.tool or row.event_data
         add_fields(detail, data, ("tool_name", "tool_call_id", "status", "duration_ms", "error_code"))
         add_fields(detail, data, ("execution_status", "business_status", "exit_code"))
+        add_diagnostic_fields(detail, data)
         arguments = data.get("arguments")
         detail.arguments = argument_views(arguments)
         if isinstance(arguments, dict):

@@ -1,7 +1,7 @@
 ---
 {
   "description": "API 封套、错误码与幂等",
-  "next_rule": 6
+  "next_rule": 7
 }
 ---
 
@@ -21,6 +21,8 @@
 - [RULE-004] Draft Confirm 必须用当前依赖与下一次触发重跑调度预检；失败不得创建或更新 Schedule；REMINDER 不参与 Skill 契约预检；并发 confirm 仍只允许一次成功。
 
 - [RULE-005] Authoring 必须按 Skill invocation_contract 生成 SKILL_PLAN 并选择 argv/stdin 通道；缺必填业务值只向用户提一个业务问题，禁止静默降级为 AGENT_TURN；技术参数错误必须作为结构化字段错误返回给 agent。
+
+- [RULE-006] Operation owner 恢复视图按 tenant + execution + call_id 返回冻结 arguments/input_hash/status/task_id；只对受信内部调用方开放；缺失/越权 404；用于幂等补齐执行载体。
 
 ## Conventions
 
@@ -216,3 +218,5 @@ if len(password) < policy.min_password_length:
 - {"source":"2026-11-20/scheduled-skill-invocation/scheduled-skill-invocation.md#TASK-004#DELTA-004","op":"add","rule":"RULE-004","payload_sha256":"e885270e62abd6bb7e3925bb928cb00c36c632ebd0dcd05e9c9a8a9336a03c86","at":"2026-11-20T13:18:06.407Z"}
 
 - {"source":"2026-11-20/scheduled-skill-invocation/scheduled-skill-invocation.md#TASK-006#DELTA-006","op":"add","rule":"RULE-005","payload_sha256":"acc7708c02737f260b09d8b9ea3a57422cee78f00e55935845eabe9125fa8a6c","at":"2026-11-20T13:18:06.407Z"}
+
+- {"source":"2026-11-21/agent-execution-contracts/agent-execution-contracts.md#TASK-004#DELTA-001","op":"add","rule":"RULE-006","payload_sha256":"e3df33851fea6eed5d4f5fef3ee82fb4d1977d1014b23b1ba6777598f4affcf5","at":"2026-11-28T01:04:28.947Z"}

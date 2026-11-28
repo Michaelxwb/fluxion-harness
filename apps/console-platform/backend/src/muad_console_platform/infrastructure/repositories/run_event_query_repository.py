@@ -42,7 +42,9 @@ SELECT e.seq, e.event_type,
         'status', a.status, 'duration_ms', a.latency_ms,
         'error_code', a.error_code, 'arguments', a.args_preview_json,
         'execution_status', a.execution_status, 'business_status', a.business_status,
-        'exit_code', a.exit_code) AS detail
+        'exit_code', a.exit_code, 'retryable', a.retryable,
+        'retry_disposition', a.retry_disposition, 'agent_disposition', a.agent_disposition,
+        'diagnostic', a.diagnostic_json) AS detail
       FROM runtime.tool_call_audit a
      WHERE a.tenant_id = e.tenant_id AND a.run_id = e.run_id AND NOT a.is_deleted
        AND a.tool_call_id = e.payload_json->>'tool_call_id'

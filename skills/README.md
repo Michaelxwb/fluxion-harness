@@ -16,6 +16,7 @@ zip 是**构建产物**，不进版本库：先跑 `./skills/package.sh`（无�
 | `daily-duty-report-mssp-local.zip` | 每日值守日报手动验证：Smoke 测试平台 MSSP 端点，全资产/非全资产/空数据/场景 1-11，输出正文 + xlsx 附件 |
 | `weather-query.zip` | 只读天气查询样例：按城市调用 Open-Meteo 实时天气与 1–7 天预报，无需平台登录态 |
 | `mssp-asset-query-local.zip` | 本地 MSSP 资产查询夹具：客户资产 IP 明细、分页、关键字过滤与完整 CSV 导出；`9001` 提供 1200 条批量资产 |
+| `uat-fail-retryable.zip` | B-02 阈值对照夹具：每次调用稳定返回同一可重试错误，无副作用 |
 
 打包脚本：
 
@@ -42,6 +43,7 @@ Skill key 由 `SKILL.md` 的 `name` 生成，默认脚本取 manifest 的 `entry
 | `daily-duty-report-mssp-local` | MSSP 日报手动验证源目录；fake 平台见 `tools/fake-business-platform` |
 | `weather-query` | 只读天气查询源目录；直接调用 Open-Meteo，不需要平台会话 |
 | `mssp-asset-query-local` | MSSP 资产查询源目录；需要 fake platform（18080），`9001` 为批量资产客户 |
+| `uat-fail-retryable` | B-02 阈值对照源目录；不读文件、不访问网络、不写数据 |
 | `self-skill-creator` / `self-skill-review` / `self-skill-upload` | 自建 Skill 三件套源目录 |
 
 ## 自建 Skill 三件套说明

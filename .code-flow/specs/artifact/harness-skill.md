@@ -1,7 +1,7 @@
 ---
 {
   "description": "Skill 产物、缓存与子进程",
-  "next_rule": 7
+  "next_rule": 11
 }
 ---
 
@@ -19,9 +19,17 @@
 
 - [RULE-004] 可执行 Skill 可在 SKILL.md frontmatter 声明 invocation_contract（version、invocation=argv|stdin、参数 schema）；定时任务新 Draft 必须声明，对话直接调用有声明时校验；契约随不可变 artifact 版本冻结，导入链路必须保留，缺失或非法时不得进入调度。
 
-- [RULE-005] 对话直接调用 Skill 时，若默认入口声明 invocation_contract，必须在启动子进程或提交异步操作前按同一通道/参数 schema 校验；失败返回 SKILL_INVOCATION_INVALID（retryable=true）且不启动执行；辅助脚本不套用主入口契约；load_skill.manifest 返回 entrypoint 与 invocation_contract；无契约时保持现有行为。
+- [RULE-005] 对话直接调用 Skill 时，若默认入口声明 invocation_contract，必须在启动子进程或提交异步操作前按同一通道/参数 schema 校验；失败返回 SKILL_INVOCATION_INVALID（retryable=true）且不启动执行；load_skill.manifest 返回 entrypoint 与 invocation_contract；无契约时保持现有行为。不存在辅助脚本绕过入口。
 
 - [RULE-006] 可执行 Skill 的结果契约绑定不可变 artifact 及确定的默认入口，在导入时校验并随执行冻结。共享执行器独立记录真实退出事实、执行判定与业务结论。仅当受信 profile 允许且本次结果通过校验，才能将非零退出判为已完成的业务结果。宿主停止事实优先，结果声明不授予工具权限或重试安全性。
+
+- [RULE-007] 模型侧执行入口只声明目标对应的受支持能力与参数。正式 Skill 通过冻结的默认入口执行，草稿通过受权的独立试跑能力执行。未在冻结集合中生效的 Skill 须以可解释的错误反馈指引发现可用能力。`execute_skill` / `run_skill_script` 不是可执行别名，`target=skill` 不接受 `script`。
+
+- [RULE-008] Agent 根据用户指定的类型、数据性质和用途准备产物，按类型核验成品及其覆盖范围。仅有截断预览时不得推断缺失内容。程序产物通过既有工作区或产物入口登记，沿用其归属和不可变版本。
+
+- [RULE-009] 模型唯一执行入口是 execute(target=...)；删除 ToolRegistry 兼容命名空间与 execute_skill/run_skill_script/workspace_shell/skill_draft_shell 隐藏别名；能力声明与注册在装配期校验，提示词承诺不得无工具。
+
+- [RULE-010] read_attachment/view_image 由共享工具实现；文本/图片读取按 tenant + task execution 限定；跨 Task/租户 404；非文本明确不支持；不得用租户级引用端点替代 owner scope。
 
 ## Conventions
 
@@ -83,3 +91,13 @@
 - {"source":"2026-11-20/scheduled-skill-invocation/scheduled-skill-invocation.md#TASK-008#DELTA-008","op":"add","rule":"RULE-005","payload_sha256":"a9d34e87b9b7b63a8a8b049a252acc36a1bd71dd7b4a0f3e5efa3f0d8a21c264","at":"2026-11-20T13:18:06.408Z"}
 
 - {"source":"2026-11-24/skill-results-conversation-finalization/skill-results-conversation-finalization.md#TASK-001#DELTA-001","op":"add","rule":"RULE-006","payload_sha256":"b9d4c970fc8acd873dcd66e082c851e155c05d6a1852ce100cd4f89c4f2dae54","at":"2026-11-24T09:27:16.301Z"}
+
+- {"source":"2026-11-27/agent-tool-failure-chain/agent-tool-failure-chain.md#TASK-003#DELTA-001","op":"update","rule":"RULE-005","payload_sha256":"c2e2170887353d2517a99cba8dad2cf2bd34fd67ac5885a9f7d21606fa6df310","at":"2026-11-28T00:53:13.870Z"}
+
+- {"source":"2026-11-27/agent-tool-failure-chain/agent-tool-failure-chain.md#TASK-003#DELTA-002","op":"add","rule":"RULE-007","payload_sha256":"5d90f949a7d7283a92d81adb4d90b18468964c723f098e3c8b1411145344d6f3","at":"2026-11-28T00:53:13.871Z"}
+
+- {"source":"2026-11-27/agent-tool-failure-chain/agent-tool-failure-chain.md#TASK-007#DELTA-001","op":"add","rule":"RULE-008","payload_sha256":"68e9e1b4e5d444a0c281f8531e05467ae5e71f1a1821dd8aa2d1714c55cbb68e","at":"2026-11-28T00:53:13.871Z"}
+
+- {"source":"2026-11-21/agent-execution-contracts/agent-execution-contracts.md#TASK-007#DELTA-001","op":"add","rule":"RULE-009","payload_sha256":"9da849aa2e477595b51b404faec388cfc8a727f18a5ec24d3b235f19cf271f5b","at":"2026-11-28T01:04:28.948Z"}
+
+- {"source":"2026-11-21/agent-execution-contracts/agent-execution-contracts.md#TASK-010#DELTA-001","op":"add","rule":"RULE-010","payload_sha256":"3ec257d164edf7ab679c63ea4b5bcfa786b45ba76f03bf17f31f328ad4426c8e","at":"2026-11-28T01:04:28.948Z"}

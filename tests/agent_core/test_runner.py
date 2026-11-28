@@ -35,6 +35,7 @@ from muad_agent_core.model import (
 from muad_agent_core.tools import (
     PreparedToolCall,
     ToolCall,
+    ToolCompleted,
     ToolConcurrency,
     ToolDefinition,
     ToolEffect,
@@ -334,6 +335,49 @@ async def test_tool_handler_failure_is_fed_back_to_model() -> None:
 
     assert result.final_text == "recovered"
     assert "handler exploded" in provider.requests[1].messages[-1].content
+
+
+async def test_structured_tool_error_lets_the_model_fix_and_succeed() -> None:
+    calls: list[Mapping[str, Any]] = []
+
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        calls.append(dict(arguments))
+        if arguments.get("days") == 99:
+            raise ToolError(
+                "SKILL_INVOCATION_INVALID",
+                "payload.input.days: INVALID_VALUE",
+                detail={
+                    "field": "payload.input.days",
+                    "reason": "INVALID_VALUE",
+                    "repair": "FIX_SKILL_INPUT",
+                },
+                retryable=True,
+            )
+        return ToolResult('{"ok":true}')
+
+    registry = ToolRegistry()
+    registry.register(
+        ToolDefinition(
+            "weather", "weather", {"type": "object"}, ToolEffect.READ, handler
+        )
+    )
+    provider = ScriptedModelProvider(
+        [
+            _tool_call("c1", "weather", {"city": "北京", "days": 99}),
+            _tool_call("c2", "weather", {"city": "北京", "days": 2}),
+            _text("已按错误提示改为 2 天并完成。"),
+        ]
+    )
+
+    result = await AgentRunner(provider=provider, registry=registry).run(_request())
+
+    assert result.status is AgentRunStatus.COMPLETED
+    assert result.final_text == "已按错误提示改为 2 天并完成。"
+    assert calls == [{"city": "北京", "days": 99}, {"city": "北京", "days": 2}]
+    tool_message = provider.requests[1].messages[-1]
+    assert tool_message.role is ModelRole.TOOL
+    assert "INVALID_VALUE" in tool_message.content
+    assert "payload.input.days" in tool_message.content
 
 
 class _CodedToolError(RuntimeError):
@@ -882,9 +926,28 @@ async def test_retryable_failures_follow_the_configured_threshold() -> None:
     result = await AgentRunner(provider=provider, registry=registry).run(_request())
 
     assert result.status is AgentRunStatus.NO_PROGRESS
-    assert len(provider.requests) == 3
-    assert not provider.requests[-1].tools
-    assert result.reply_append == "The lookup did not complete."
+    assert len(provider.requests) == 2
+    assert result.reply_append is None, "a code-only failure must not be explained by the model"
+    assert result.last_failure is not None
+    assert result.termination is not None
+
+
+async def test_code_only_failure_does_not_ask_the_model_to_guess() -> None:
+    provider = ScriptedModelProvider(
+        [
+            _tool_call("c1", "failing", {"code": "NET", "retryable": True}),
+            _tool_call("c2", "failing", {"code": "NET", "retryable": True}),
+            _text("The network is down because the endpoint is misconfigured."),
+        ]
+    )
+    registry = ToolRegistry()
+    _failing_tool(registry)
+
+    result = await AgentRunner(provider=provider, registry=registry).run(_request())
+
+    assert result.status is AgentRunStatus.NO_PROGRESS
+    assert len(provider.requests) == 2, "no explanation turn for a code-only failure"
+    assert result.reply_append is None
 
 
 async def test_different_retryable_codes_do_not_accumulate() -> None:
@@ -922,8 +985,8 @@ async def test_an_unrelated_success_does_not_reset_failure_counter() -> None:
     result = await AgentRunner(provider=provider, registry=registry).run(_request())
 
     assert result.status is AgentRunStatus.NO_PROGRESS
-    assert len(provider.requests) == 4
-    assert not provider.requests[-1].tools
+    assert len(provider.requests) == 3
+    assert result.reply_append is None, "code-only failure is closed out deterministically"
 
 
 async def test_threshold_comes_from_the_policy() -> None:
@@ -980,14 +1043,13 @@ async def test_parallel_success_cannot_reopen_a_stopped_run() -> None:
     assert result.status is AgentRunStatus.NO_PROGRESS
     assert "read" in calls, "the independent read in the same batch still completes"
     assert "write" not in calls, "the later write batch must remain stopped"
-    assert len(provider.requests) == 3
-    assert not provider.requests[-1].tools
+    assert len(provider.requests) == 2
 
 
-async def test_failure_explanation_can_read_tool_fact_without_reissuing_calls() -> None:
+async def test_host_owned_gate_stops_before_a_model_explanation() -> None:
     provider = ScriptedModelProvider(
         [
-            _tool_call("c1", "rejecting"), _tool_call("c2", "rejecting"), _tool_call("c3", "rejecting"),
+            _tool_call("c1", "rejecting"), _tool_call("c2", "rejecting"),
             _text("The requested action was refused."),
         ]
     )
@@ -996,14 +1058,10 @@ async def test_failure_explanation_can_read_tool_fact_without_reissuing_calls() 
 
     result = await AgentRunner(provider=provider, registry=registry).run(_request())
 
-    assert result.status is AgentRunStatus.NO_PROGRESS
-    assert len(provider.requests) == 4
-    assert not provider.requests[-1].tools
-    assert result.reply_append == "The requested action was refused."
-    messages = provider.requests[-1].messages
-    assert [message.role for message in messages] == [ModelRole.SYSTEM, ModelRole.USER]
-    assert "PLATFORM_AUTH_REJECTED" in messages[-1].content
-    assert '"role": "user", "text": "hi"' in messages[-1].content
+    assert result.status is AgentRunStatus.TOOL_FAILURE
+    assert len(provider.requests) == 2
+    assert result.final_text == ""
+    assert result.reply_append is None
     assert result.last_failure is not None
     assert result.last_failure["code"] == "TOOL_RETRY_UNSAFE"
 
@@ -1033,8 +1091,12 @@ async def test_write_retry_gate_uses_result_and_frozen_target(known: bool) -> No
 
     result = await AgentRunner(provider=provider, registry=registry).run(_request())
 
-    assert result.status is AgentRunStatus.COMPLETED
-    assert invoked == (["first", "alias", "independent"] if known else ["first", "independent"])
+    if known:
+        assert result.status is AgentRunStatus.COMPLETED
+        assert invoked == ["first", "alias", "independent"]
+    else:
+        assert result.status is AgentRunStatus.TOOL_FAILURE
+        assert invoked == ["first"], "unverified writes block other effectful targets"
 
 
 async def test_hard_tool_budget_stop_skips_failure_explanation() -> None:
@@ -1053,24 +1115,25 @@ async def test_hard_tool_budget_stop_skips_failure_explanation() -> None:
     _tool_call("c3", "echo"), _text(""), _text('<｜｜DSML｜｜invoke name="echo">'),
     ModelUnavailableError("down"),
 ])
-async def test_unusable_failure_explanation_falls_back_without_dispatch(
+async def test_host_owned_failure_does_not_consume_a_fallback_response(
     response: ModelResponse | Exception,
 ) -> None:
     provider = ScriptedModelProvider([
-        _tool_call("c1", "failing", {"retryable": True}),
-        _tool_call("c2", "failing", {"retryable": True}),
+        _tool_call("c1", "rejecting"),
+        _tool_call("c2", "rejecting"),
+        _tool_call("c3", "rejecting"),
         response,
     ])
     registry = ToolRegistry()
-    _failing_tool(registry)
+    _error_returning_tool(registry)
     calls: list[dict[str, Any]] = []
     _echo_tool(registry, calls)
 
     result = await AgentRunner(provider=provider, registry=registry).run(_request())
 
-    assert result.status is AgentRunStatus.NO_PROGRESS
+    assert result.status is AgentRunStatus.TOOL_FAILURE
     assert not result.reply_append
-    assert len(provider.requests) == 3
+    assert len(provider.requests) == 2
     assert not calls
 
 
@@ -1096,7 +1159,7 @@ async def test_policy_denied_shape_is_gated_before_policy_runs_again() -> None:
     ).run(_request())
 
     assert decisions == 1, "second identical call must be blocked before policy"
-    assert result.status is AgentRunStatus.COMPLETED
+    assert result.status is AgentRunStatus.TOOL_FAILURE
     assert result.last_failure is not None
     assert result.last_failure["code"] == "TOOL_RETRY_UNSAFE"
 
@@ -1313,3 +1376,355 @@ async def test_window_limit_appends_notice_after_a_tool_free_answer(other_failur
         assert any(message.content == "ok" for message in provider.requests[-1].messages)
         assert result.final_text == "I found a result.\n\nThe available result is 42.\n\ntry again later"
         assert result.reply_append == "\n\nThe available result is 42.\n\ntry again later"
+
+
+async def test_admin_failure_is_not_completed_by_a_model_explanation() -> None:
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        raise ToolError(
+            "PLATFORM_AUTH_REJECTED",
+            "rejected",
+            retryable=False,
+            diagnostic={
+                "action_owner": "ADMIN",
+                "cause": "平台登录失败。",
+                "next_step": "请联系管理员检查凭据。",
+            },
+        )
+
+    registry = ToolRegistry()
+    registry.register(
+        ToolDefinition("execute", "execute", {"type": "object"}, ToolEffect.READ, handler)
+    )
+    provider = ScriptedModelProvider(
+        [_tool_call("c1", "execute"), _text("默认脚本缺失，已改用其他执行方式")]
+    )
+
+    result = await AgentRunner(provider=provider, registry=registry).run(_request())
+
+    assert result.status is AgentRunStatus.TOOL_FAILURE
+    assert result.termination is not None
+    assert result.termination.failure_state.last_failure is not None
+    assert result.termination.failure_state.last_failure.action_owner == "ADMIN"
+
+
+async def test_user_owned_failure_can_ask_in_a_normal_reply() -> None:
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        raise ToolError(
+            "SCHEDULE_PARAMETER_INCOMPLETE",
+            "缺少客户",
+            retryable=True,
+            diagnostic={
+                "action_owner": "USER",
+                "hint_known": True,
+                "cause": "定时任务缺少必填信息。",
+                "next_step": "请补充客户编号。",
+            },
+        )
+
+    registry = ToolRegistry()
+    registry.register(ToolDefinition("first", "first", {"type": "object"}, ToolEffect.READ, handler))
+    provider = ScriptedModelProvider(
+        [_tool_call("c1", "first"), _text("请提供客户编号。")]
+    )
+
+    result = await AgentRunner(provider=provider, registry=registry).run(_request())
+
+    assert result.status is AgentRunStatus.COMPLETED
+    assert result.final_text == "请提供客户编号。"
+
+
+async def test_user_owned_failure_can_ask_the_user_and_wait() -> None:
+    from uuid import uuid4
+
+    from muad_agent_core.agent.suspension import SuspensionRequest
+
+    class _QuestionPort:
+        request: SuspensionRequest | None = None
+
+        @property
+        def suspend_request(self) -> SuspensionRequest | None:
+            return self.request
+
+        async def suspend(self, progress: object) -> None:
+            self.checkpoint = progress
+
+    port = _QuestionPort()
+
+    async def fail(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        raise ToolError(
+            "SCHEDULE_PARAMETER_INCOMPLETE",
+            "缺少客户",
+            retryable=True,
+            diagnostic={
+                "action_owner": "USER",
+                "hint_known": True,
+                "cause": "定时任务缺少必填信息。",
+                "next_step": "请补充客户编号。",
+            },
+        )
+
+    async def ask(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        port.request = SuspensionRequest(
+            uuid4(), "HUMAN_INPUT", "请提供客户编号。"
+        )
+        return ToolResult('{"waiting_for_user":true}')
+
+    registry = ToolRegistry()
+    registry.register(ToolDefinition("first", "first", {"type": "object"}, ToolEffect.READ, fail))
+    registry.register(
+        ToolDefinition("ask_user", "ask_user", {"type": "object"}, ToolEffect.READ, ask)
+    )
+    provider = ScriptedModelProvider(
+        [_tool_call("c1", "first"), _tool_call("c2", "ask_user")]
+    )
+
+    result = await AgentRunner(
+        provider=provider, registry=registry, tool_suspension=port
+    ).run(_request())
+
+    assert result.status is AgentRunStatus.WAITING_INPUT
+    assert port.request is not None
+    assert "客户编号" in port.request.prompt
+
+
+async def test_configured_failure_without_owner_is_not_completed_by_model_text() -> None:
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        raise ToolError(
+            "SCHEDULE_INVOCATION_CONTRACT_MISSING",
+            "技能的定时执行配置未通过预检",
+            retryable=False,
+            diagnostic={
+                "action_owner": None,
+                "hint_known": True,
+                "cause": "定时任务预检未通过。",
+                "next_step": "具体配置原因尚未确定。",
+            },
+        )
+
+    registry = ToolRegistry()
+    registry.register(ToolDefinition("execute", "execute", {"type": "object"}, ToolEffect.READ, handler))
+    provider = ScriptedModelProvider(
+        [_tool_call("c1", "execute"), _text("默认脚本缺失")]
+    )
+
+    result = await AgentRunner(provider=provider, registry=registry).run(_request())
+
+    assert result.status is AgentRunStatus.TOOL_FAILURE
+    assert result.last_failure is not None
+    assert result.last_failure["code"] == "SCHEDULE_INVOCATION_CONTRACT_MISSING"
+
+
+async def test_unresolved_failure_blocks_another_effectful_tool() -> None:
+    calls: list[str] = []
+
+    async def first(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        raise ToolError(
+            "SCHEDULE_INVOCATION_CONTRACT_MISSING",
+            "技能的定时执行配置未通过预检",
+            retryable=False,
+            diagnostic={
+                "action_owner": "USER",
+                "cause": "技能缺少定时执行配置。",
+                "next_step": "请修改任务信息。",
+            },
+        )
+
+    async def other(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        calls.append(call.name)
+        return ToolResult("should not run")
+
+    registry = ToolRegistry()
+    registry.register(ToolDefinition("first", "first", {"type": "object"}, ToolEffect.WRITE, first))
+    registry.register(
+        ToolDefinition(
+            "other",
+            "other",
+            {"type": "object"},
+            ToolEffect.WRITE,
+            other,
+            write_targets=lambda _arguments: frozenset({"platform:b"}),
+        )
+    )
+    provider = ScriptedModelProvider(
+        [_tool_call("c1", "first"), _tool_call("c2", "other"), _text("changed approach")]
+    )
+
+    result = await AgentRunner(provider=provider, registry=registry).run(_request())
+
+    assert calls == []
+    assert result.status is AgentRunStatus.TOOL_FAILURE
+    assert result.termination is not None
+    assert result.termination.failure_state.last_failure is not None
+    assert result.termination.failure_state.last_failure.code == "TOOL_RETRY_UNSAFE"
+    assert result.termination.failure_state.last_failure.evidence_preview
+
+
+async def test_retry_gate_names_the_blocked_attempt_source() -> None:
+    completed: list[ToolCompleted] = []
+
+    async def on_completed(item: ToolCompleted) -> None:
+        completed.append(item)
+
+    provider = ScriptedModelProvider(
+        [
+            _tool_call("c1", "failing", {"code": "PLATFORM_AUTH_REJECTED"}),
+            _tool_call("c2", "failing", {"code": "PLATFORM_AUTH_REJECTED"}),
+            _text("The retry is blocked."),
+        ]
+    )
+    registry = ToolRegistry()
+    _failing_tool(registry)
+
+    result = await AgentRunner(provider=provider, registry=registry).run(
+        _request(), on_tool_completed=on_completed
+    )
+
+    assert result.status is AgentRunStatus.TOOL_FAILURE
+    assert completed[1].status == "BLOCKED"
+    assert completed[1].outcome.error_code == "TOOL_RETRY_UNSAFE"
+    diagnostic = completed[1].outcome.evidence.diagnostic or {}
+    assert diagnostic["gate_reason"] == "BLOCKED_ATTEMPT"
+    assert diagnostic["trigger_tool_call_id"] == "c2"
+    assert diagnostic["source_tool_call_id"] == "c1"
+    assert diagnostic["source_attempt"] is not None
+    assert result.termination is not None
+    assert result.termination.failure_state.blocked_attempt_sources == {
+        diagnostic["source_attempt"]: "c1"
+    }
+
+
+async def test_unresolved_write_failure_blocks_other_effectful_targets() -> None:
+    invoked: list[tuple[str, str]] = []
+    completed: list[ToolCompleted] = []
+
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        target = str(arguments.get("target"))
+        invoked.append((call.call_id, target))
+        if target == "a":
+            raise ToolError(
+                "REMOTE_TIMEOUT", "write outcome unknown", sent=True, outcome_known=False
+            )
+        return ToolResult("ok")
+
+    async def on_completed(item: ToolCompleted) -> None:
+        completed.append(item)
+
+    registry = ToolRegistry()
+    registry.register(
+        ToolDefinition(
+            "write",
+            "write",
+            {"type": "object"},
+            ToolEffect.WRITE,
+            handler,
+            write_targets=lambda arguments: frozenset({f"platform:{arguments['target']}"}),
+        )
+    )
+    provider = ScriptedModelProvider(
+        [
+            _tool_call("c1", "write", {"target": "a"}),
+            _tool_call("c2", "write", {"target": "a", "n": 2}),
+            _tool_call("c3", "write", {"target": "b"}),
+            _text("done"),
+        ]
+    )
+
+    result = await AgentRunner(provider=provider, registry=registry).run(
+        _request(), on_tool_completed=on_completed
+    )
+
+    assert result.status is AgentRunStatus.TOOL_FAILURE
+    assert invoked == [("c1", "a")]
+    assert completed[1].status == "BLOCKED"
+    diagnostic = completed[1].outcome.evidence.diagnostic or {}
+    assert diagnostic["gate_reason"] == "UNVERIFIED_WRITE"
+    assert diagnostic["source_tool_call_id"] == "c1"
+    assert diagnostic["trigger_tool_call_id"] == "c2"
+    assert [item.outcome.error_code for item in completed] == [
+        "REMOTE_TIMEOUT",
+        "TOOL_RETRY_UNSAFE",
+    ]
+
+
+async def test_retry_gate_reports_guarded_when_both_reasons_hold() -> None:
+    completed: list[ToolCompleted] = []
+
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        raise ToolError("REMOTE_TIMEOUT", "write outcome unknown", sent=True, outcome_known=False)
+
+    async def on_completed(item: ToolCompleted) -> None:
+        completed.append(item)
+
+    registry = ToolRegistry()
+    registry.register(
+        ToolDefinition(
+            "write",
+            "write",
+            {"type": "object"},
+            ToolEffect.WRITE,
+            handler,
+            write_targets=lambda _arguments: frozenset({"platform:a"}),
+        )
+    )
+    provider = ScriptedModelProvider(
+        [
+            _tool_call("c1", "write"),
+            _tool_call("c2", "write"),
+            _text("guarded"),
+        ]
+    )
+
+    result = await AgentRunner(provider=provider, registry=registry).run(
+        _request(), on_tool_completed=on_completed
+    )
+
+    assert result.status is AgentRunStatus.TOOL_FAILURE
+    diagnostic = completed[1].outcome.evidence.diagnostic or {}
+    assert diagnostic["gate_reason"] == "RETRY_GUARDED"
+    assert diagnostic["source_tool_call_id"] == "c1"
+
+
+async def test_tool_failure_gate_trigger_points_at_the_original_business_failure() -> None:
+    provider = ScriptedModelProvider(
+        [
+            _tool_call("c1", "failing", {"code": "PLATFORM_AUTH_REJECTED"}),
+            _tool_call("c2", "failing", {"code": "PLATFORM_AUTH_REJECTED"}),
+            _tool_call("c3", "failing", {"code": "PLATFORM_AUTH_REJECTED"}),
+            _text("stopped"),
+        ]
+    )
+    registry = ToolRegistry()
+    _failing_tool(registry)
+
+    result = await AgentRunner(provider=provider, registry=registry).run(
+        _request(AgentPolicy(max_identical_failures=2))
+    )
+
+    assert result.status is AgentRunStatus.TOOL_FAILURE
+    assert len(provider.requests) == 2
+    assert result.termination is not None
+    failure = result.termination.failure_state
+    assert failure.no_progress_trigger_call_id == "c2"
+    assert failure.no_progress_source_call_id == "c1"
+
+
+async def test_no_progress_direct_failure_is_its_own_source() -> None:
+    provider = ScriptedModelProvider(
+        [
+            _tool_call("c1", "failing", {"code": "PLATFORM_AUTH_REJECTED", "retryable": True}),
+            _tool_call("c2", "failing", {"code": "PLATFORM_AUTH_REJECTED", "retryable": True}),
+            _text("stopped"),
+        ]
+    )
+    registry = ToolRegistry()
+    _failing_tool(registry)
+
+    result = await AgentRunner(provider=provider, registry=registry).run(
+        _request(AgentPolicy(max_identical_failures=2))
+    )
+
+    assert result.status is AgentRunStatus.NO_PROGRESS
+    assert result.termination is not None
+    failure = result.termination.failure_state
+    assert failure.no_progress_trigger_call_id == "c2"
+    assert failure.no_progress_source_call_id == "c2"

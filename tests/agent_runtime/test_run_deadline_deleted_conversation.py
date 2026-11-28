@@ -80,7 +80,8 @@ async def test_deadline_sweep_closes_run_whose_conversation_was_deleted(runtime_
             CanonicalEvent.run_id == run.id, CanonicalEvent.event_type == "ASSISTANT_MESSAGE",
         ))
         assert reply.payload_json["text"] == events[0].payload_json["final_text"]
-        assert any("RUN_DEADLINE_EXCEEDED" in line for line in reply.payload_json["technical_details"])
+        assert "technical_details" not in reply.payload_json
+        assert "RUN_DEADLINE_EXCEEDED" not in reply.payload_json["text"]
 
 
 async def test_plain_appends_still_reject_deleted_conversations(runtime_factory):

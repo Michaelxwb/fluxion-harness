@@ -187,6 +187,7 @@ async def _inherit_unverified_writes(
                 prepared.write_targets,
                 prepared.write_operation_key,
                 fallback_target=f"tool:{prepared.tool_name or 'unknown'}",
+                # The source belongs to another Run; its ID is local to that Run.
             )
     return state
 

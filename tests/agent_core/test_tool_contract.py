@@ -198,6 +198,79 @@ async def test_pipeline_failures_are_typed() -> None:
     assert missing.result.outcome.retryable is True
 
 
+async def test_explicit_retry_false_is_serialized_and_kept_in_the_outcome() -> None:
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        raise ToolError(
+            "SCHEDULE_INVOCATION_CONTRACT_MISSING",
+            "contract missing",
+            detail={"reason": "CONTRACT_MISSING", "repair": "REIMPORT_SKILL"},
+            retryable=False,
+        )
+
+    execution = await _execute(handler)
+
+    payload = json.loads(execution.result.content)
+    assert payload["error"]["retryable"] is False
+    assert payload["error"]["detail"]["repair"] == "REIMPORT_SKILL"
+    assert execution.result.outcome.retryable is False
+
+
+async def test_unknown_outcome_never_permits_retry() -> None:
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        raise ToolError("REMOTE_TIMEOUT", "timeout", retryable=True, sent=True, outcome_known=False)
+
+    execution = await _execute(handler)
+
+    error = json.loads(execution.result.content)["error"]
+    assert "retryable" not in error
+    assert error["outcome_known"] is False
+    outcome = execution.result.outcome
+    assert outcome.retryable is False
+    assert outcome.control.sent is True
+    assert outcome.control.outcome_known is False
+    assert outcome.control.retry_disposition.value == "BLOCK"
+
+
+async def test_diagnostic_is_the_same_fact_for_tool_content_and_outcome() -> None:
+    diagnostic = {
+        "detail": {"reason": "CONTRACT_MISSING", "repair": "REIMPORT_SKILL"},
+        "action_owner": "ADMIN",
+        "message_source": "PLATFORM",
+    }
+
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        raise ToolError(
+            "SCHEDULE_INVOCATION_CONTRACT_MISSING",
+            "contract missing",
+            detail={"reason": "CONTRACT_MISSING", "repair": "REIMPORT_SKILL"},
+            retryable=False,
+            diagnostic=diagnostic,
+        )
+
+    execution = await _execute(handler)
+
+    error = json.loads(execution.result.content)["error"]
+    assert error["action_owner"] == "ADMIN"
+    assert error["retryable"] is False
+    outcome = execution.result.outcome
+    assert outcome.error_code == "SCHEDULE_INVOCATION_CONTRACT_MISSING"
+    assert outcome.evidence.diagnostic == diagnostic
+    assert outcome.error_message == "contract missing"
+    assert outcome.retryable is False
+    assert outcome.control.retry_disposition.value == "BLOCK"
+    assert outcome.control.agent_disposition.value == "STOP"
+
+
+async def test_success_path_does_not_construct_a_diagnostic() -> None:
+    async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
+        return ToolResult('{"ok":true}')
+
+    execution = await _execute(handler)
+
+    assert execution.result.outcome.evidence.diagnostic is None
+    assert json.loads(execution.result.content) == {"ok": True}
+
+
 async def test_externalizable_result_false_is_propagated_to_the_result() -> None:
     async def handler(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
         return ToolResult("full text that must stay inline")

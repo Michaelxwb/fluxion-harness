@@ -1,0 +1,7 @@
+{
+  "name": "uat-self-correct",
+  "author": "fluxion-harness",
+  "description": "UAT fixture for agent self-correction",
+  "version": "1.0.0",
+  "entrypoint": "scripts/run.py"
+}

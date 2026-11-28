@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+import pytest
 from muad_agent_core.agent import AgentPolicy, AgentRunner, AgentRunRequest
 from muad_agent_core.model import (
     ModelMessage,
@@ -30,7 +31,9 @@ from muad_contracts import (
     TOOL_EVENT_SCHEMA_VERSION,
     PreparedCallEvent,
     ToolCompletedEvent,
+    ToolEventOutcome,
 )
+from pydantic import ValidationError
 
 
 class _Provider:
@@ -301,6 +304,27 @@ async def test_typed_round_port_rewrites_result_and_completed_event_keeps_artifa
     assert completed[0].follow_ups[0].kind == "image"
     assert completed[0].follow_ups[0].media_type == "image/png"
     assert completed[0].follow_ups[0].artifact_id == "artifact-1"
+
+
+def test_tool_event_outcome_carries_verified_gate_attribution() -> None:
+    outcome = ToolEventOutcome(
+        business_status="FAILED",
+        failure_layer="TOOL",
+        error_code="TOOL_RETRY_UNSAFE",
+        retryable=False,
+        gate_reason="UNVERIFIED_WRITE",
+        source_tool_call_id="call-1",
+    )
+
+    assert outcome.gate_reason == "UNVERIFIED_WRITE"
+    assert outcome.source_tool_call_id == "call-1"
+
+    with pytest.raises(ValidationError):
+        ToolEventOutcome(
+            business_status="FAILED",
+            failure_layer="TOOL",
+            gate_reason="NOT_A_GATE_REASON",
+        )
 
 
 def test_image_artifact_is_marked_as_image_in_completed_events() -> None:

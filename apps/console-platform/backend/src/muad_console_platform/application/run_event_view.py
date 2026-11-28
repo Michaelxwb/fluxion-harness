@@ -2,7 +2,7 @@
 
 import json
 import re
-from typing import Literal
+from typing import Literal, cast
 
 from muad_logging.redaction import redact_text, redact_value
 from pydantic import BaseModel, Field, JsonValue
@@ -36,6 +36,21 @@ EventFieldKey = Literal[
     "operation_status",
     "protocol",
     "model_revision",
+    "retryable",
+    "retry_disposition",
+    "agent_disposition",
+    "message_source",
+    "action_owner",
+    "gate_reason",
+    "trigger_tool_call_id",
+    "source_tool_call_id",
+    "field",
+    "fields",
+    "reason",
+    "repair",
+    "allowed_values",
+    "entry",
+    "diagnostic_truncated",
 ]
 TEXT_LIMIT = 12000
 ITEM_LIMIT = 20
@@ -114,6 +129,69 @@ def add_fields(detail: RunEventDetail, data: dict[str, JsonValue], keys: tuple[E
         normalized = integer(value) if isinstance(value, int) else safe_text(value)
         if normalized is not None:
             detail.fields.append(EventField(key=key, value=normalized))
+
+
+def add_diagnostic_fields(detail: RunEventDetail, data: dict[str, JsonValue]) -> None:
+    """Project the audit diagnostic without leaking unlisted keys."""
+    if "retryable" in data:
+        raw = data.get("retryable")
+        text = "UNKNOWN" if raw is None else "YES" if raw is True else "NO"
+        detail.fields.append(EventField(key="retryable", value=text))
+    add_fields(
+        detail,
+        data,
+        (
+            "retry_disposition",
+            "agent_disposition",
+            "message_source",
+            "action_owner",
+            "gate_reason",
+            "trigger_tool_call_id",
+            "source_tool_call_id",
+        ),
+    )
+    diagnostic = data.get("diagnostic")
+    if not isinstance(diagnostic, dict):
+        return
+    if diagnostic.get("truncated") is True:
+        detail.fields.append(EventField(key="diagnostic_truncated", value="YES"))
+    inner = diagnostic.get("detail")
+    if isinstance(inner, dict):
+        for key in ("field", "fields", "reason", "repair", "allowed_values", "entry"):
+            value = inner.get(key)
+            if isinstance(value, list | tuple):
+                if key == "fields":
+                    parts = [
+                        (
+                            f"{item.get('field')} ({item.get('reason')})"
+                            if isinstance(item, dict) and item.get("field")
+                            else str(item)
+                        )
+                        for item in value[:ITEM_LIMIT]
+                    ]
+                    text = ", ".join(redact_text(part) for part in parts)
+                else:
+                    text = ", ".join(redact_text(str(item)) for item in value[:ITEM_LIMIT])
+            elif isinstance(value, str):
+                text = redact_text(value)
+            else:
+                continue
+            normalized = safe_text(text, 512)
+            if normalized is not None:
+                detail.fields.append(EventField(key=key, value=normalized))
+    for key in (
+        "message_source",
+        "action_owner",
+        "gate_reason",
+        "trigger_tool_call_id",
+        "source_tool_call_id",
+    ):
+        value = diagnostic.get(key)
+        normalized = safe_text(value, 512)
+        if normalized is not None and normalized not in {
+            str(item.value) for item in detail.fields if item.key == key
+        }:
+            detail.fields.append(EventField(key=cast(EventFieldKey, key), value=normalized))
 
 
 def argument_views(value: JsonValue) -> list[EventArgument]:

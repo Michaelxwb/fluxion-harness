@@ -851,7 +851,6 @@ const MESSAGES = [
     seq: 2,
     run_id: RUN_1,
     role: 'ASSISTANT',
-    technical_details: ['Technical details (for support):', '- Error code: FORBIDDEN', 'Run ID: example'],
     text: '__HTML_TEXT__\n__MDX_TEXT__\n[危险](javascript:alert(3))\n[协议相对](//evil.example/x)',
     attachments: []
   },
@@ -1537,15 +1536,14 @@ def test_join_reply_replay_does_not_duplicate_durable_history(message_logic: dic
     }
 
 
-def test_failure_details_strip_stored_list_markers(message_render: dict[str, Any]) -> None:
+def test_user_visible_thread_has_no_technical_details(
+    message_render: dict[str, Any],
+) -> None:
     markup = message_render["markup"]["thread-zh"]["shell"]
-    details = markup.split('<details class="chat-message-technical-details">', 1)[1].split("</details>", 1)[0]
-    assert "<summary>技术详情</summary>" in details
-    assert '<ul role="list">' in details
-    assert "<li>Technical details (for support):</li>" in details
-    assert "<li>Error code: FORBIDDEN</li>" in details
-    assert "<li>Run ID: example</li>" in details
-    assert "<li>- " not in details
+    assert "chat-message-technical-details" not in markup
+    assert "技术详情" not in markup
+    assert "Technical details (for support)" not in markup
+    assert "Error code: FORBIDDEN" not in markup
 
 
 def test_b280_thread_renders_roles_markdown_and_escapes_html(

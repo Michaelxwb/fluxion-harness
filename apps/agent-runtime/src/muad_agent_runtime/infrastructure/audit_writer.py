@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import uuid
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
 
@@ -59,6 +61,21 @@ def _is_sensitive_key(key: str) -> bool:
     return any(marker in lowered for marker in SENSITIVE_KEY_MARKERS)
 
 
+#: Emergency guard only; the executor already projects the public diagnostic.
+MAX_DIAGNOSTIC_BYTES = 4096
+
+
+def bounded_diagnostic(value: object) -> dict[str, Any] | None:
+    """Redact nested values and keep the stored diagnostic bounded."""
+    if not isinstance(value, Mapping):
+        return None
+    redacted: object = redact_sensitive(dict(value))
+    encoded = json.dumps(redacted, ensure_ascii=False, sort_keys=True, default=str)
+    if len(encoded.encode("utf-8")) > MAX_DIAGNOSTIC_BYTES:
+        return {"truncated": True}
+    return redacted if isinstance(redacted, dict) else None
+
+
 class RuntimeAuditWriter:
     """注入执行链的审计 port；每个事件独立短事务，不携带凭据字段。"""
 
@@ -103,6 +120,10 @@ class RuntimeAuditWriter:
         exit_code: int | None = None,
         output_truncated: bool | None = None,
         evidence_preview: str | None = None,
+        retryable: bool | None = None,
+        retry_disposition: str | None = None,
+        agent_disposition: str | None = None,
+        diagnostic_json: Mapping[str, Any] | None = None,
     ) -> None:
         """写一条工具审计；同一 Run 内同一 `tool_call_id` 只保留**首次**行（幂等重放）。
 
@@ -136,6 +157,10 @@ class RuntimeAuditWriter:
             exit_code=exit_code,
             output_truncated=output_truncated,
             evidence_preview=evidence_preview,
+            retryable=retryable,
+            retry_disposition=retry_disposition,
+            agent_disposition=agent_disposition,
+            diagnostic_json=diagnostic_json,
         )
         if inserted is None:
             record_outcome(TOOL_AUDIT_METRIC, "replay_skipped")
@@ -166,6 +191,10 @@ class RuntimeAuditWriter:
         exit_code: int | None,
         output_truncated: bool | None,
         evidence_preview: str | None,
+        retryable: bool | None,
+        retry_disposition: str | None,
+        agent_disposition: str | None,
+        diagnostic_json: Mapping[str, Any] | None,
     ) -> uuid.UUID | None:
         """幂等插入：命中原行（重放）返回 None，新行返回其 id。"""
         async with self._session_factory()() as session:
@@ -194,6 +223,10 @@ class RuntimeAuditWriter:
                     output_truncated=output_truncated,
                     # skill stdout 不默认可信：写入前必须脱敏（design §4.7）。
                     evidence_preview=redact_text(evidence_preview) if evidence_preview else None,
+                    retryable=retryable,
+                    retry_disposition=retry_disposition,
+                    agent_disposition=agent_disposition,
+                    diagnostic_json=bounded_diagnostic(diagnostic_json),
                 )
                 .on_conflict_do_nothing(
                     index_elements=["run_id", "tool_call_id"],

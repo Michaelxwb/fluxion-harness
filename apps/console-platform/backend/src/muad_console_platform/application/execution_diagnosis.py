@@ -56,6 +56,10 @@ class FailureCandidate:
     exit_code: int | None = None
     output_truncated: bool | None = None
     evidence_preview: str | None = None
+    retryable: bool | None = None
+    retry_disposition: str | None = None
+    agent_disposition: str | None = None
+    diagnostic: Mapping[str, Any] | None = None
     is_retry: bool = False
     related_ids: Mapping[str, str] = field(default_factory=dict)
 
@@ -75,6 +79,10 @@ class FailureCandidate:
             "exit_code": self.exit_code,
             "output_truncated": self.output_truncated,
             "evidence_preview": self.evidence_preview,
+            "retryable": self.retryable,
+            "retry_disposition": self.retry_disposition,
+            "agent_disposition": self.agent_disposition,
+            "diagnostic": dict(self.diagnostic) if self.diagnostic else None,
             "is_retry": self.is_retry,
             "related_ids": dict(self.related_ids),
         }
@@ -203,6 +211,10 @@ def _candidate(
     exit_code: Any = None,
     output_truncated: Any = None,
     evidence_preview: Any = None,
+    retryable: Any = None,
+    retry_disposition: Any = None,
+    agent_disposition: Any = None,
+    diagnostic: Any = None,
     occurred_at: Any = None,
     seq: Any = None,
     related: Mapping[str, Any] | None = None,
@@ -227,6 +239,14 @@ def _candidate(
         exit_code=exit_code if isinstance(exit_code, int) and not isinstance(exit_code, bool) else None,
         output_truncated=output_truncated if isinstance(output_truncated, bool) else None,
         evidence_preview=str(evidence_preview) if evidence_preview not in (None, "") else None,
+        retryable=retryable if isinstance(retryable, bool) else None,
+        retry_disposition=(
+            retry_disposition if isinstance(retry_disposition, str) and retry_disposition else None
+        ),
+        agent_disposition=(
+            agent_disposition if isinstance(agent_disposition, str) and agent_disposition else None
+        ),
+        diagnostic=dict(diagnostic) if isinstance(diagnostic, Mapping) else None,
         is_retry=is_retry,
         related_ids=related_ids,
     )
@@ -314,6 +334,10 @@ def _tool_candidates(bundle: ExecutionExportBundle) -> list[FailureCandidate]:
                 exit_code=row.get("exit_code"),
                 output_truncated=row.get("output_truncated"),
                 evidence_preview=row.get("evidence_preview"),
+                retryable=row.get("retryable"),
+                retry_disposition=row.get("retry_disposition"),
+                agent_disposition=row.get("agent_disposition"),
+                diagnostic=row.get("diagnostic_json"),
                 occurred_at=row.get("create_time") or row.get("start_time"),
                 related={
                     "tool_call_id": row.get("tool_call_id"),

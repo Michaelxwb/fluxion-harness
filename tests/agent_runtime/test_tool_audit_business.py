@@ -39,10 +39,10 @@ async def _cleanup() -> AsyncIterator[None]:
         await session.commit()
 
 
-async def _record(**fields) -> None:
+async def _record(*, tool_call_id: str | None = None, **fields) -> None:
     now = datetime.now(UTC)
     await _writer().record_tool_call(
-        tool_call_id=f"call-{uuid.uuid4().hex[:8]}",
+        tool_call_id=tool_call_id or f"call-{uuid.uuid4().hex[:8]}",
         tool_name="execute",
         tool_kind="SKILL",
         prepared_args_hash="sha256:" + "0" * 64,
@@ -106,3 +106,90 @@ async def test_evidence_preview_is_redacted_before_write() -> None:
     assert row.evidence_preview is not None
     assert "super-secret-value" not in row.evidence_preview
     assert "***" in row.evidence_preview
+
+
+async def test_failure_control_facts_round_trip() -> None:
+    await _record(
+        business_status="FAILED",
+        failure_layer="TOOL",
+        retryable=False,
+        retry_disposition="BLOCK",
+        agent_disposition="STOP",
+        diagnostic_json={
+            "detail": {"reason": "CONTRACT_MISSING", "repair": "REIMPORT_SKILL"},
+            "action_owner": "ADMIN",
+            "message_source": "PLATFORM",
+            "gate_reason": "BLOCKED_ATTEMPT",
+            "source_tool_call_id": "call-1",
+        },
+    )
+
+    row = await _row()
+    assert row.retryable is False
+    assert row.retry_disposition == "BLOCK"
+    assert row.agent_disposition == "STOP"
+    assert row.diagnostic_json == {
+        "detail": {"reason": "CONTRACT_MISSING", "repair": "REIMPORT_SKILL"},
+        "action_owner": "ADMIN",
+        "message_source": "PLATFORM",
+        "gate_reason": "BLOCKED_ATTEMPT",
+        "source_tool_call_id": "call-1",
+    }
+
+
+async def test_legacy_rows_leave_new_columns_null() -> None:
+    await _record()
+
+    row = await _row()
+    assert row.retryable is None
+    assert row.retry_disposition is None
+    assert row.agent_disposition is None
+    assert row.diagnostic_json is None
+
+
+async def test_replay_does_not_replace_failure_control_facts() -> None:
+    call_id = f"call-{uuid.uuid4().hex[:8]}"
+    await _record(
+        tool_call_id=call_id,
+        business_status="FAILED",
+        failure_layer="TOOL",
+        retryable=False,
+        diagnostic_json={"gate_reason": "BLOCKED_ATTEMPT"},
+    )
+    await _record(
+        tool_call_id=call_id,
+        business_status="FAILED",
+        failure_layer="TOOL",
+        retryable=True,
+        diagnostic_json={"gate_reason": "UNVERIFIED_WRITE"},
+    )
+
+    row = await _row()
+    assert row.retryable is False
+    assert row.diagnostic_json == {"gate_reason": "BLOCKED_ATTEMPT"}
+
+
+async def test_diagnostic_is_redacted_and_bounded() -> None:
+    await _record(
+        business_status="FAILED",
+        failure_layer="TOOL",
+        diagnostic_json={"detail": {"api_key": "super-secret-value"}},
+    )
+
+    row = await _row()
+    assert row.diagnostic_json is not None
+    assert "super-secret-value" not in str(row.diagnostic_json)
+
+    await _record(
+        business_status="FAILED",
+        failure_layer="TOOL",
+        diagnostic_json={"detail": {"payload": "x" * 5000}},
+    )
+    async with get_session_factory()() as session:
+        bounded = await session.scalar(
+            select(ToolCallAudit)
+            .where(ToolCallAudit.tenant_id == TENANT)
+            .order_by(ToolCallAudit.create_time.desc())
+        )
+    assert bounded is not None
+    assert bounded.diagnostic_json == {"truncated": True}

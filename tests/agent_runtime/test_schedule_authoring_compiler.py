@@ -230,6 +230,32 @@ class TestSkillContract:
         assert error["reason"] == "ENTRYPOINT_INVALID"
         assert error["repair"] == "REIMPORT_SKILL"
 
+    def test_invalid_contract_is_a_platform_failure_not_user_input(self) -> None:
+        skill = _skill(
+            frontmatter={
+                "invocation_contract": {
+                    "version": 1,
+                    "invocation": "stdin",
+                    "schema": {
+                        "type": "object",
+                        "properties": {},
+                        "required": [],
+                        "additionalProperties": True,
+                    },
+                }
+            }
+        )
+        with pytest.raises(ScheduleAuthoringError) as caught:
+            compile_schedule_plan(
+                _args({"skill_key": "daily-report"}), context=_context(skills=(skill,))
+            )
+        assert caught.value.code == "SCHEDULE_INVOCATION_CONTRACT_MISSING"
+        error = _fields(caught.value)[0]
+        assert error["field"] == "payload.skill_key"
+        assert error["reason"] == "CONTRACT_INVALID"
+        assert error["repair"] == "REIMPORT_SKILL"
+
+
     def test_missing_entrypoint_falls_back_to_the_package_default(self) -> None:
         result = compile_schedule_plan(
             _args({"skill_key": "daily-report"}), context=_context(skills=(_skill(),))

@@ -22,8 +22,8 @@ codes:
   SCHEDULE_INVOCATION_CONTRACT_MISSING:
     http_status: 422
     messages:
-      zh-CN: "该 Skill 缺少可调度的调用契约"
-      en-US: "This Skill has no schedulable invocation contract"
+      zh-CN: "技能的定时执行配置未通过预检"
+      en-US: "The skill scheduling configuration did not pass preflight"
   SCHEDULE_ARGV_INVALID:
     http_status: 422
     messages:
@@ -962,6 +962,11 @@ codes:
     messages:
       zh-CN: 工具调用失败，继续尝试没有意义，已停止（详见最后一次工具结果）
       en-US: The run stopped after a tool failure because retrying would not help; see the last tool result.
+  RUN_TOOL_FAILURE_UNRESOLVED:
+    http_status: 409
+    messages:
+      zh-CN: 工具失败尚未解决，已停止继续执行
+      en-US: The tool failure is still unresolved, so the run stopped.
   MODEL_CAPACITY_UNAVAILABLE:
     http_status: 503
     messages:

@@ -150,7 +150,30 @@ async def test_tool_details_join_audit_without_copying_payload(
         {"tool_call_id": "call-weather", "tool_name": "run_skill_script", "preview": "深圳：晴"},
     )
     async with get_session_factory()() as session:
-        session.add(tool_audit(tenant.tenant_id, run))
+        session.add(
+            tool_audit(
+                tenant.tenant_id,
+                run,
+                business_status="FAILED",
+                failure_layer="TOOL",
+                error_code="SCHEDULE_INVOCATION_CONTRACT_MISSING",
+                retryable=False,
+                retry_disposition="BLOCK",
+                agent_disposition="STOP",
+                diagnostic_json={
+                    "detail": {
+                        "field": "payload.skill_id",
+                        "reason": "CONTRACT_MISSING",
+                        "repair": "REIMPORT_SKILL",
+                    },
+                    "action_owner": "ADMIN",
+                    "message_source": "PLATFORM",
+                    "gate_reason": "BLOCKED_ATTEMPT",
+                    "trigger_tool_call_id": "call-weather",
+                    "source_tool_call_id": "call-original",
+                },
+            )
+        )
         session.add(
             tool_audit(tenant.tenant_id, run, run_id=uuid.uuid4(), tool_name="wrong-run", latency_ms=99999)
         )
@@ -159,8 +182,87 @@ async def test_tool_details_join_audit_without_copying_payload(
     fields = {field["key"]: field["value"] for field in detail["fields"]}
     assert fields["tool_name"] == "run_skill_script" and fields["duration_ms"] == 1234
     assert fields["skill_key"] == "weather-query" and fields["script"] == "scripts/main.py"
+    assert fields["retryable"] == "NO"
+    assert fields["retry_disposition"] == "BLOCK"
+    assert fields["agent_disposition"] == "STOP"
+    assert fields["message_source"] == "PLATFORM"
+    assert fields["action_owner"] == "ADMIN"
+    assert fields["gate_reason"] == "BLOCKED_ATTEMPT"
+    assert fields["trigger_tool_call_id"] == "call-weather"
+    assert fields["source_tool_call_id"] == "call-original"
+    assert fields["field"] == "payload.skill_id"
+    assert fields["reason"] == "CONTRACT_MISSING"
+    assert fields["repair"] == "REIMPORT_SKILL"
     assert detail["text"] == "深圳：晴"
     assert "canary" not in json.dumps(detail) and len(detail["arguments"]) == 4
+
+
+async def test_tool_detail_renders_field_list_as_name_and_reason(
+    client: AsyncClient, tenant: TenantContext, run: RunSeed
+) -> None:
+    await seed_event(
+        tenant,
+        run,
+        "TOOL_CALL",
+        {"tool_call_id": "call-weather", "tool_name": "draft_schedule", "preview": "预检失败"},
+    )
+    async with get_session_factory()() as session:
+        session.add(
+            tool_audit(
+                tenant.tenant_id,
+                run,
+                tool_name="draft_schedule",
+                business_status="FAILED",
+                failure_layer="TOOL",
+                error_code="SCHEDULE_INVOCATION_CONTRACT_MISSING",
+                retryable=False,
+                retry_disposition="BLOCK",
+                agent_disposition="STOP",
+                diagnostic_json={
+                    "detail": {
+                        "fields": [
+                            {
+                                "field": "payload.skill_key",
+                                "reason": "CONTRACT_INVALID",
+                                "repair": "REIMPORT_SKILL",
+                            }
+                        ],
+                        "reason": "CONTRACT_INVALID",
+                        "repair": "REIMPORT_SKILL",
+                    },
+                    "action_owner": "ADMIN",
+                    "message_source": "LOCAL",
+                },
+            )
+        )
+        await session.commit()
+
+    detail = await read_detail(client, run)
+    fields = {field["key"]: field["value"] for field in detail["fields"]}
+
+    assert fields["fields"] == "payload.skill_key (CONTRACT_INVALID)"
+    assert "{'field'" not in json.dumps(detail)
+    assert fields["reason"] == "CONTRACT_INVALID"
+    assert fields["repair"] == "REIMPORT_SKILL"
+    assert fields["action_owner"] == "ADMIN"
+
+
+async def test_legacy_tool_audit_shows_unknown_control_facts(
+    client: AsyncClient, tenant: TenantContext, run: RunSeed
+) -> None:
+    await seed_event(
+        tenant, run, "TOOL_CALL_STARTED", {"tool_call_id": "call-weather", "tool_name": "real-tool"}
+    )
+    async with get_session_factory()() as session:
+        session.add(tool_audit(tenant.tenant_id, run))
+        await session.commit()
+
+    detail = await read_detail(client, run)
+    fields = {field["key"]: field["value"] for field in detail["fields"]}
+
+    assert fields["retryable"] == "UNKNOWN"
+    assert "retry_disposition" not in fields
+    assert "diagnostic_truncated" not in fields
 
 
 @pytest.mark.parametrize("mode", ["other-tenant", "deleted"])

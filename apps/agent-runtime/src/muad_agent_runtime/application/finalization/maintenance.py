@@ -9,7 +9,7 @@ from ...infrastructure.models.runtime import CanonicalEvent, RunRecord, RunSubmi
 from ..channel_notifications import KIND_RUN_COMPLETED, run_terminal_delivery_key, write_run_notification
 from ..run_events import EventAppend, EventWriter, delta_payload
 from .facts import build_finalization_facts
-from .render import render_finalization, render_technical_details
+from .render import render_finalization
 
 
 async def frozen_run_locale(session: AsyncSession, run: RunRecord) -> str | None:
@@ -60,16 +60,14 @@ async def write_maintenance_failure(session: AsyncSession, run: RunRecord, code:
     suffix = render_finalization(facts, locale=locale, include_technical=False)
     delta = f"\n\n{suffix}" if partial else suffix
     text = partial + delta
-    details = render_technical_details(facts, locale=locale, run_id=str(run.id))
     terminal_event_id = uuid.uuid4()
     source = (run.tenant_id, run.conversation_id, run.id)
     terminal = {"status": "FAILED", "error_code": code}
     _, _, seq = await EventWriter(session, allow_deleted_conversation=True).append_many((
-        EventAppend(*source, "ASSISTANT_MESSAGE", {"text": text, "technical_details": details},
-                    submission_id=submission_id),
+        EventAppend(*source, "ASSISTANT_MESSAGE", {"text": text}, submission_id=submission_id),
         EventAppend(*source, "ASSISTANT_DELTA", delta_payload(delta, reply_generation=generation),
                     submission_id=submission_id, stream_type="message.delta"),
-        EventAppend(*source, "RUN_FAILED", {**terminal, "final_text": text, "technical_details": details},
+        EventAppend(*source, "RUN_FAILED", {**terminal, "final_text": text},
                     submission_id=submission_id, stream_type="run.failed", event_id=terminal_event_id),
     ))
     await write_run_notification(

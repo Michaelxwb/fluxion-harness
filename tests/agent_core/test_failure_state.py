@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from muad_agent_core.agent.failure import (
+    RETRY_GATE_UNVERIFIED_WRITE,
     FailureSignal,
     has_unverified_write,
     overlaps_unknown_write,
+    record_unverified_write,
+    unverified_write_sources,
     update_failure_state,
 )
 from muad_agent_core.agent.termination import FailureState
@@ -159,3 +162,188 @@ def test_trusted_success_clears_the_same_operation_key() -> None:
 
     assert not state.unknown_write_operations
     assert state.unknown_write_targets == frozenset()
+
+
+def test_unverified_write_source_is_the_first_failure_and_clears_with_the_operation() -> None:
+    targets = frozenset({"platform:a"})
+    state = record_unverified_write(
+        FailureState(),
+        targets,
+        "order:42",
+        fallback_target="tool:write",
+        source_call_id="call-1",
+    )
+    state = record_unverified_write(
+        state,
+        targets,
+        "order:42",
+        fallback_target="tool:write",
+        source_call_id="call-2",
+    )
+
+    assert unverified_write_sources(
+        state, targets, "order:42", fallback_target="tool:write"
+    ) == frozenset({"call-1"})
+    restored = FailureState.from_payload(state.as_payload())
+    assert restored.unknown_operation_sources == {"order:42": "call-1"}
+
+    state = update_failure_state(
+        restored,
+        FailureSignal(
+            tool="write",
+            business_status="SUCCEEDED",
+            write_targets=targets,
+            write_operation_key="order:42",
+        ),
+        max_identical_failures=2,
+    )
+
+    assert unverified_write_sources(
+        state, targets, "order:42", fallback_target="tool:write"
+    ) is None
+    assert state.unknown_operation_sources == {}
+
+
+def test_overlapping_unknown_targets_keep_each_candidate_source() -> None:
+    state = record_unverified_write(
+        FailureState(),
+        frozenset({"platform:a"}),
+        None,
+        fallback_target="tool:write",
+        source_call_id="call-a",
+    )
+    state = record_unverified_write(
+        state,
+        frozenset({"platform:b"}),
+        None,
+        fallback_target="tool:write",
+        source_call_id="call-b",
+    )
+
+    assert unverified_write_sources(
+        state, frozenset({"platform:a"}), None, fallback_target="tool:write"
+    ) == frozenset({"call-a"})
+    assert unverified_write_sources(
+        state, frozenset({"platform:a", "platform:b"}), None, fallback_target="tool:write"
+    ) == frozenset({"call-a", "call-b"})
+
+
+def test_blocked_attempt_keeps_the_first_source_and_survives_checkpoint_roundtrip() -> None:
+    state = update_failure_state(
+        FailureState(),
+        FailureSignal(
+            tool="skill::deliver::run",
+            tool_call_id="call-1",
+            business_status="FAILED",
+            failure_layer="TOOL",
+            error_code="PLATFORM_AUTH_REJECTED",
+            retryable=False,
+            attempt="attempt-1",
+        ),
+        max_identical_failures=5,
+    )
+    state = update_failure_state(
+        state,
+        FailureSignal(
+            tool="skill::deliver::run",
+            tool_call_id="call-2",
+            business_status="FAILED",
+            failure_layer="TOOL",
+            error_code="PLATFORM_AUTH_REJECTED",
+            retryable=False,
+            attempt="attempt-1",
+        ),
+        max_identical_failures=5,
+    )
+
+    assert state.blocked_attempts == frozenset({"attempt-1"})
+    assert state.blocked_attempt_sources == {"attempt-1": "call-1"}
+
+    restored = FailureState.from_payload(state.as_payload())
+    assert restored.blocked_attempt_sources == state.blocked_attempt_sources
+
+    orphan = FailureState.from_payload(
+        {
+            "blocked_attempts": ["attempt-1"],
+            "blocked_attempt_sources": {
+                "attempt-1": "call-1",
+                "attempt-removed": "call-9",
+            },
+        }
+    )
+    assert orphan.blocked_attempt_sources == {"attempt-1": "call-1"}
+
+
+def test_no_progress_freezes_the_direct_trigger_as_its_own_source() -> None:
+    state = update_failure_state(
+        FailureState(),
+        _failure(retryable=False),
+        max_identical_failures=2,
+    )
+    state = update_failure_state(state, _failure(retryable=False), max_identical_failures=2)
+    assert state.no_progress is True
+    assert state.no_progress_trigger_call_id == "call-1"
+    assert state.no_progress_source_call_id == "call-1"
+
+    state = update_failure_state(
+        state,
+        FailureSignal(
+            tool="skill::deliver::run",
+            tool_call_id="call-2",
+            business_status="FAILED",
+            failure_layer="TOOL",
+            error_code="PLATFORM_AUTH_REJECTED",
+            retryable=False,
+            attempt="skill::deliver::run:",
+        ),
+        max_identical_failures=2,
+    )
+    assert state.no_progress_trigger_call_id == "call-1"
+    assert state.no_progress_source_call_id == "call-1"
+
+
+def test_gate_trigger_uses_only_the_explicit_business_source() -> None:
+    key = "skill::deliver::run:TOOL_RETRY_BLOCKED:TOOL"
+    blocked = FailureState(
+        blocked_attempts=frozenset({"skill::deliver::run:abc"}),
+        blocked_attempt_sources={"skill::deliver::run:abc": "call-1"},
+        identical_failures={key: 1},
+    )
+    state = update_failure_state(
+        blocked,
+        FailureSignal(
+            tool="skill::deliver::run",
+            tool_call_id="call-2",
+            business_status="FAILED",
+            failure_layer="TOOL",
+            error_code="TOOL_RETRY_UNSAFE",
+            retryable=False,
+            attempt="skill::deliver::run:abc",
+            source_call_id="call-1",
+        ),
+        max_identical_failures=2,
+    )
+
+    assert state.no_progress is True
+    assert state.no_progress_trigger_call_id == "call-2"
+    assert state.no_progress_source_call_id == "call-1"
+
+    ambiguous = update_failure_state(
+        blocked,
+        FailureSignal(
+            tool="skill::deliver::run",
+            tool_call_id="call-3",
+            business_status="FAILED",
+            failure_layer="TOOL",
+            error_code="TOOL_RETRY_UNSAFE",
+            retryable=False,
+            attempt="skill::deliver::run:abc",
+        ),
+        max_identical_failures=2,
+    )
+    assert ambiguous.no_progress_trigger_call_id == "call-3"
+    assert ambiguous.no_progress_source_call_id == ""
+
+
+def test_unverified_write_gate_reason_is_stable() -> None:
+    assert RETRY_GATE_UNVERIFIED_WRITE == "UNVERIFIED_WRITE"

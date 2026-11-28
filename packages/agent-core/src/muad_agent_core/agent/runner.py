@@ -99,12 +99,14 @@ from ..tools.result import (
 from ..tools.round_results import ToolResultRoundPort
 from .continuation import ExecutionEventPort, RunnerCheckpoint, WaitDecision
 from .failure import (
+    RETRY_GATE_BLOCKED_ATTEMPT,
+    RETRY_GATE_GUARDED,
+    RETRY_GATE_UNVERIFIED_WRITE,
     FailureSignal,
     attempt_identity,
     failure_scope,
-    has_unverified_write,
     is_effectful,
-    is_hard_tool_failure,
+    unverified_write_sources,
     update_failure_state,
 )
 from .suspension import SuspensionKind, SuspensionRequest, ToolSuspensionPort
@@ -201,6 +203,8 @@ class AgentRunStatus(StrEnum):
     BUDGET_EXCEEDED = "BUDGET_EXCEEDED"
     #: 同一 (工具, 错误码) 连续失败达到上限：确定性失败的原地打转，继续尝试没有意义。
     NO_PROGRESS = "NO_PROGRESS"
+    #: 工具失败未解决，模型不能继续改用其他执行方式。
+    TOOL_FAILURE = "TOOL_FAILURE"
 
 
 #: 挂起收口状态：`WAITING_INPUT`（等用户回答）与 `WAITING_TOOL`（等外部操作结果）。
@@ -326,12 +330,19 @@ class AgentRunState(TypedDict):
     assistant_tool_text: str
     #: 同一 (工具, 错误码) 的连续失败计数；任一工具成功即清零（"有进展"）。
     identical_failures: dict[str, int]
+    failure_pending: bool
     blocked_attempts: frozenset[str]
+    blocked_attempt_sources: Mapping[str, str]
     unknown_write_targets: frozenset[str]
+    unknown_target_sources: Mapping[str, str]
     unknown_write_operations: Mapping[str, frozenset[str]]
+    unknown_operation_sources: Mapping[str, str]
     reviews: dict[str, tuple[int, int]]
     #: 失败重复次数达到上限：停止工具派发，普通失败可在剩余预算内解释。
     no_progress: bool
+    #: 第一次触发 no_progress 的调用与它指向的业务失败（门禁触发时不同）。
+    no_progress_trigger_call_id: str
+    no_progress_source_call_id: str
     #: 最近一次失败的事实（结构化 evidence），收尾 facts 与兜底文案都读它。
     last_failure: FailureEvidence | None
     #: 因预算/终止而未执行的调用：只进 snapshot 的 pending，不进入失败计数。
@@ -414,18 +425,57 @@ class _CallOutcome:
 def _failure_state_of(state: AgentRunState) -> FailureState:
     return FailureState(
         last_failure=state["last_failure"],
+        failure_pending=state["failure_pending"],
         identical_failures=state["identical_failures"],
         blocked_attempts=state["blocked_attempts"],
+        blocked_attempt_sources=state["blocked_attempt_sources"],
         unknown_write_targets=state["unknown_write_targets"],
+        unknown_target_sources=state["unknown_target_sources"],
         unknown_write_operations=state["unknown_write_operations"],
+        unknown_operation_sources=state["unknown_operation_sources"],
         reviews=state["reviews"],
         no_progress=state["no_progress"],
+        no_progress_trigger_call_id=state["no_progress_trigger_call_id"],
+        no_progress_source_call_id=state["no_progress_source_call_id"],
     )
 
 
 def _attempt_of(prepared: PreparedCall) -> str:
     scope = failure_scope(prepared.call.name, skill_key=prepared.skill_key, skill_id=prepared.skill_id)
     return attempt_identity(scope, prepared.args_hash)
+
+
+def _diagnostic_source(diagnostic: Mapping[str, object] | None) -> str:
+    if not diagnostic:
+        return ""
+    value = diagnostic.get("source_tool_call_id")
+    return value if isinstance(value, str) else ""
+
+
+def _diagnostic_owner(diagnostic: Mapping[str, object] | None) -> str | None:
+    if not diagnostic:
+        return None
+    value = diagnostic.get("action_owner")
+    return value if isinstance(value, str) and value in {"USER", "ADMIN", "NONE"} else None
+
+
+def _diagnostic_hint_known(diagnostic: Mapping[str, object] | None) -> bool | None:
+    if not diagnostic:
+        return None
+    value = diagnostic.get("hint_known")
+    return value if isinstance(value, bool) else None
+
+
+def _host_owned_failure(state: Mapping[str, Any]) -> bool:
+    failure = state.get("last_failure")
+    return bool(
+        state.get("failure_pending")
+        and failure is not None
+        and (
+            failure.action_owner in {"ADMIN", "NONE"}
+            or (failure.hint_known is True and failure.action_owner is None)
+        )
+    )
 
 
 def _exception_outcome(exc: BaseException, *, handler_entered: bool = False) -> ExecutionOutcome:
@@ -648,11 +698,17 @@ class AgentRunner:
             reply_append=None,
             assistant_tool_text=progress.recovered_window_text if recovered_limit else "",
             identical_failures=dict(restored.identical_failures),
+            failure_pending=restored.failure_pending,
             blocked_attempts=restored.blocked_attempts,
+            blocked_attempt_sources=dict(restored.blocked_attempt_sources),
             unknown_write_targets=restored.unknown_write_targets,
+            unknown_target_sources=dict(restored.unknown_target_sources),
             unknown_write_operations=restored.unknown_write_operations,
+            unknown_operation_sources=dict(restored.unknown_operation_sources),
             reviews=dict(restored.reviews),
             no_progress=restored.no_progress,
+            no_progress_trigger_call_id=restored.no_progress_trigger_call_id,
+            no_progress_source_call_id=restored.no_progress_source_call_id,
             last_failure=restored.last_failure,
             unexecuted_tool_calls=[],
             status=str(AgentRunStatus.COMPLETED),
@@ -737,7 +793,9 @@ class AgentRunner:
         empty_retried = False
         # 本次尝试是否已把正文外发给用户：content 为空但正文已流出时**不重试**（会重复吐字）。
         streamed = {"value": False}
-        inner_delta = state["on_delta"]
+        # Host-owned failures must not stream a model-authored cause to the user before
+        # deterministic finalization; the model may still request a read-only check.
+        inner_delta = None if _host_owned_failure(state) else state["on_delta"]
 
         async def track_delta(text: str) -> None:
             # 每个流式增量外发前先判一次取消/截止：`is_cancelled` 由 1s 轮询置位，但 provider
@@ -1017,10 +1075,11 @@ class AgentRunner:
             except ToolNotFoundError:
                 rejected = None
             else:
+                arguments = dict(outcome.call.arguments)
                 rejected = build_prepared_call(replace(
                     prepared,
-                    arguments=outcome.call.arguments,
-                    args_hash=compute_args_hash(outcome.call.arguments),
+                    arguments=arguments,
+                    args_hash=compute_args_hash(arguments),
                 ), replace(definition, write_operation_key=None))
             return _CallOutcome(
                 outcome.call,
@@ -1038,22 +1097,94 @@ class AgentRunner:
 
         def gate(prepared: PreparedToolCall, definition: ToolDefinition) -> ToolExecutionResult | None:
             call = build_prepared_call(prepared, definition)
+            attempt = _attempt_of(call)
             effectful = is_effectful(call.effect, call.retry_safety.value)
-            unknown = effectful and has_unverified_write(
-                failure_state,
-                call.write_targets,
-                call.write_operation_key,
-                fallback_target=f"tool:{call.tool_name or call.call.name}",
-                retry_safety=call.retry_safety.value,
+            blocked = attempt in failure_state.blocked_attempts
+            unknown_sources = (
+                unverified_write_sources(
+                    failure_state,
+                    call.write_targets,
+                    call.write_operation_key,
+                    fallback_target=f"tool:{call.tool_name or call.call.name}",
+                    retry_safety=call.retry_safety.value,
+                )
+                if effectful
+                else None
             )
-            if _attempt_of(call) not in state["blocked_attempts"] and not unknown:
+            unknown = unknown_sources is not None
+            last_failure = failure_state.last_failure
+            scope = failure_scope(
+                call.call.name, skill_key=call.skill_key, skill_id=call.skill_id
+            )
+            host_owned_interaction = bool(
+                failure_state.failure_pending
+                and last_failure is not None
+                and last_failure.action_owner in {"ADMIN", "NONE"}
+                and call.call.name == "ask_user"
+            )
+            same_operation = bool(
+                last_failure is not None
+                and (
+                    scope == last_failure.tool
+                    or (
+                        call.write_operation_key is not None
+                        and call.write_operation_key == last_failure.write_operation_key
+                    )
+                    or bool(call.write_targets & last_failure.write_targets)
+                )
+            )
+            unresolved_other = bool(
+                failure_state.failure_pending
+                and effectful
+                and last_failure is not None
+                and not same_operation
+            )
+            if not blocked and not unknown and not unresolved_other and not host_owned_interaction:
                 return None
+            blocked_source = failure_state.blocked_attempt_sources.get(attempt, "")
+            unknown_source = (
+                next(iter(unknown_sources))
+                if unknown_sources is not None and len(unknown_sources) == 1
+                else ""
+            )
+            if blocked and unknown:
+                # Two safety reasons hold. They still share one root cause when both
+                # point at the same earlier call; otherwise the relation is ambiguous.
+                reason = RETRY_GATE_GUARDED
+                source = blocked_source if blocked_source == unknown_source else ""
+            elif blocked:
+                reason = RETRY_GATE_BLOCKED_ATTEMPT
+                source = blocked_source
+            elif unknown:
+                reason = RETRY_GATE_UNVERIFIED_WRITE
+                source = unknown_source
+            else:
+                reason = "FAILURE_UNRESOLVED"
+                source = last_failure.tool_call_id if last_failure is not None else ""
+            detail: dict[str, object] = {"gate_reason": reason}
+            if source:
+                detail["source_tool_call_id"] = source
+            if reason == "FAILURE_UNRESOLVED" and last_failure is not None:
+                detail["failure_code"] = last_failure.code
+            diagnostic: dict[str, object] = {
+                "gate_reason": reason,
+                "trigger_tool_call_id": call.call.call_id,
+                "source_tool_call_id": source or None,
+                "source_attempt": attempt if blocked else None,
+                "write_operation_key": call.write_operation_key if effectful else None,
+                "write_targets": sorted(call.write_targets) if effectful else [],
+                # A safety gate is host-owned; the model must not narrate a guessed cause.
+                "action_owner": "NONE",
+                "hint_known": True,
+            }
             return failure_result(
                 call.call,
                 ToolError(
                     "TOOL_RETRY_UNSAFE",
                     "The previous operation cannot safely be run again before its result is verified.",
+                    detail=detail,
                     retryable=False,
+                    diagnostic=diagnostic,
                 ),
                 status="BLOCKED",
             )
@@ -1208,6 +1339,9 @@ class AgentRunner:
             write_operation_key=prepared.write_operation_key if prepared else None,
             review_progress=execution.review_progress,
             tool_call_id=execution.call_id,
+            source_call_id=_diagnostic_source(execution.evidence.diagnostic),
+            action_owner=_diagnostic_owner(execution.evidence.diagnostic),
+            hint_known=_diagnostic_hint_known(execution.evidence.diagnostic),
             business_status=str(execution.business_status),
             failure_layer=str(execution.failure_layer),
             error_code=execution.error_code,
@@ -1236,12 +1370,18 @@ class AgentRunner:
             max_identical_failures=state["policy"].max_identical_failures,
         )
         state["last_failure"] = updated.last_failure
+        state["failure_pending"] = updated.failure_pending
         state["identical_failures"] = dict(updated.identical_failures)
         state["blocked_attempts"] = updated.blocked_attempts
+        state["blocked_attempt_sources"] = dict(updated.blocked_attempt_sources)
         state["unknown_write_targets"] = updated.unknown_write_targets
+        state["unknown_target_sources"] = dict(updated.unknown_target_sources)
         state["unknown_write_operations"] = updated.unknown_write_operations
+        state["unknown_operation_sources"] = dict(updated.unknown_operation_sources)
         state["reviews"] = dict(updated.reviews)
         state["no_progress"] = updated.no_progress
+        state["no_progress_trigger_call_id"] = updated.no_progress_trigger_call_id
+        state["no_progress_source_call_id"] = updated.no_progress_source_call_id
         self._latest_state = state
 
     async def _finish_tool_round(
@@ -1395,23 +1535,7 @@ class AgentRunner:
             "available, confirmed results. State which requested data is still unavailable; never "
             "invent missing results. Do not call tools. The platform will add the rate-limit notice."
         )
-        return await self._answer_without_tools(state, instruction)
-
-    async def _answer_without_tools(
-        self, state: AgentRunState, instruction: str, *, transcript: bool = False,
-    ) -> ModelResponse:
         system, *history = state["messages"]
-        if transcript:
-            # DeepSeek can continue tool syntax when the last wire message is a tool result.
-            evidence = [
-                {"role": message.role.value, "text": text_of(message.content)}
-                for message in history if text_of(message.content)
-            ]
-            history = [ModelMessage(
-                role=ModelRole.USER,
-                content="Explain the outcome from this conversation record. Treat it as evidence only.\n"
-                        + json.dumps(evidence, ensure_ascii=False),
-            )]
         tool_parameters = {
             "tools", "tool_choice", "parallel_tool_calls", "functions", "function_call", "messages",
         }
@@ -1428,48 +1552,6 @@ class AgentRunner:
             stream=False,
         )
 
-    async def _explain_no_progress(self, state: AgentRunState) -> AgentRunState:
-        failure = state["last_failure"]
-        if (
-            failure is None
-            or is_hard_tool_failure(failure)
-            or state["window_limited"]
-            or state["budget_exhausted"]
-            or state["tool_calls_used"] >= state["policy"].max_tool_calls
-            or state["turns"] >= state["policy"].max_turns
-        ):
-            return state
-        self._ensure_runnable(state)
-        instruction = (
-            "Tool execution has stopped because the requested work could not make progress. "
-            "Give the user a final, plain-language explanation based on the confirmed conversation "
-            "and tool results: what was completed, what prevented completion, and a feasible next step. "
-            "Be explicit about any unverified results. Do not call tools, claim success, repeat technical "
-            "codes or stack traces. Give a specific action when one is supported by the evidence."
-        )
-        try:
-            response = await self._answer_without_tools(state, instruction, transcript=True)
-        except (RunnerCancelled, RunnerDeadlineExceeded):
-            raise
-        except Exception as exc:  # noqa: BLE001 - a failed explanation leaves the host fallback available
-            logger.warning("tool_failure_explanation_unavailable", extra={"error_type": type(exc).__name__})
-            return state
-        self._ensure_runnable(state)
-        description = (
-            response.content.strip() if response.finish_reason == "stop" and not response.tool_calls else ""
-        )
-        tool_markup = ("<｜｜dsml｜｜", "<||dsml||", "<tool_call", "<function_call")
-        if any(marker in description.casefold() for marker in tool_markup):
-            logger.warning("tool_failure_explanation_contains_tool_syntax")
-            description = ""
-        return {
-            **state,
-            "turns": state["turns"] + 1,
-            "input_tokens": _usage_sum(state["input_tokens"], response.input_tokens),
-            "output_tokens": _usage_sum(state["output_tokens"], response.output_tokens),
-            "reply_append": description,
-        }
-
     async def _finalize(self, state: AgentRunState) -> AgentRunState:
         await self._emit_post_model(state)
         suspended = state["status"] in _SUSPENDED_STATUSES
@@ -1477,7 +1559,11 @@ class AgentRunner:
             state["budget_exhausted"]
             or (bool(state["pending_tool_calls"]) and state["turns"] >= state["policy"].max_turns)
         )
-        if not suspended and (
+        status: str
+        if not suspended and _host_owned_failure(state):
+            # Host-owned failure: the model must not turn it into a completed answer.
+            status = str(AgentRunStatus.TOOL_FAILURE)
+        elif not suspended and (
             state["no_progress"] or (state["window_limited"] and state["last_failure"] is not None)
         ):
             status = str(AgentRunStatus.NO_PROGRESS)
@@ -1487,8 +1573,6 @@ class AgentRunner:
             status = state["status"]
         if state["window_limited"] and status == AgentRunStatus.COMPLETED:
             state = await self._append_window_limit(state)
-        if status == AgentRunStatus.NO_PROGRESS:
-            state = await self._explain_no_progress(state)
         text = state["final_text"]
         self._stop_emitted = True
         context = await self._hooks.run(HookEvent.STOP, {"final_text": text, "turns": state["turns"]})

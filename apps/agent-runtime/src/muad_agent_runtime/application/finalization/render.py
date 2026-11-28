@@ -9,6 +9,8 @@ facts 中已脱敏、有界的摘要，不渲染原始 stdout/stderr，也不写
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from muad_agent_core.agent.termination import TerminationReason
 from muad_agent_core.failures import FailureHint, failure_hint
 from muad_logging import get_logger
@@ -38,9 +40,18 @@ def render_finalization(
     lines = [
         _pick(zh, "执行未完成。", "The run did not complete."),
         _pick(zh, "原因：", "Cause: ") + reason_text,
-        _pick(zh, "下一步：", "Next step: ") + next_step,
-        _completion_line(facts, zh),
     ]
+    if facts.has_unverified_write:
+        next_step = _pick(zh, "请先核对上一次操作的结果。", "Verify the previous operation first.")
+    impact = _impact_line(facts, primary, zh)
+    if impact:
+        lines.append(_pick(zh, "影响：", "Impact: ") + impact)
+    lines.extend(
+        [
+            _pick(zh, "下一步：", "Next step: ") + next_step,
+            _completion_line(facts, zh),
+        ]
+    )
     if include_technical:
         lines.extend(["", *render_technical_details(facts, locale=locale, run_id=run_id)])
     return "\n".join(lines)
@@ -87,10 +98,13 @@ def render_cancelled(
 
 
 def _primary_failure(facts: FinalizationFacts) -> FailureSummary | None:
-    """NO_PROGRESS 用决定性失败；预算/期限仍用最近失败作为技术信息。"""
+    """NO_PROGRESS uses only the frozen decisive failure; never the last row."""
     evidence = facts.business_failure_evidence
-    if facts.termination.reason is TerminationReason.NO_PROGRESS:
-        return evidence.decisive_failure or evidence.last_failure
+    if facts.termination.reason in {
+        TerminationReason.NO_PROGRESS,
+        TerminationReason.TOOL_FAILURE,
+    }:
+        return evidence.decisive_failure
     return evidence.last_failure
 
 
@@ -135,25 +149,38 @@ def _reason_and_next(
             _pick(zh, "本轮执行超过期限，已停止。", "The run exceeded its deadline and stopped."),
             _pick(zh, "请缩小范围或延长期限后重试。", "Narrow the task or extend the deadline, then retry."),
         )
-    if reason is TerminationReason.NO_PROGRESS:
+    if reason in {TerminationReason.NO_PROGRESS, TerminationReason.TOOL_FAILURE}:
+        if primary is None:
+            return (
+                _pick(
+                    zh,
+                    "执行未能继续，具体原因尚无法确认。",
+                    "The run could not continue, and the specific cause is not confirmed.",
+                ),
+                _pick(
+                    zh,
+                    "请重试；若持续失败，请联系管理员在运行记录中查看。",
+                    "Retry; if it persists, ask an administrator to check the run record.",
+                ),
+            )
         hint = _hint(
-            primary.error_code if primary is not None else facts.termination.error_code,
+            primary.error_code,
             locale=locale,
-            tool=primary.tool if primary is not None else None,
+            tool=primary.tool,
+            detail=_hint_detail(primary),
         )
-        if primary is not None and not primary.retryable:
-            prefix = _pick(
-                zh, "失败不可重试，已停止。", "The failure is not retryable, so the run stopped."
-            )
-        elif primary is not None:
-            prefix = _pick(
+        next_step = hint.next_step
+        if hint.action_owner == "ADMIN":
+            next_step = _sentence(
+                next_step,
+                _pick(
+                    zh,
+                    "管理员可在运行记录中查看详情。",
+                    "An administrator can see the details in the run record.",
+                ),
                 zh,
-                "同一失败重复达到上限，已停止。",
-                "The same failure reached the retry limit, so the run stopped.",
             )
-        else:
-            prefix = _pick(zh, "执行失败，已停止。", "The run failed and stopped.")
-        return _sentence(prefix, hint.title, zh), hint.next_step
+        return hint.title, next_step
 
     hint = _hint(facts.termination.error_code, locale=locale)
     if hint.known:
@@ -168,9 +195,58 @@ def _reason_and_next(
     )
 
 
-def _hint(code: str | None, *, locale: str | None, tool: str | None = None) -> FailureHint:
+def _detail_of(primary: FailureSummary | None) -> dict[str, object]:
+    if primary is None or not isinstance(primary.diagnostic, Mapping):
+        return {}
+    detail = primary.diagnostic.get("detail")
+    return dict(detail) if isinstance(detail, Mapping) else {}
+
+
+def _hint_detail(primary: FailureSummary | None) -> dict[str, object] | None:
+    detail = _detail_of(primary)
+    if primary is not None and isinstance(primary.diagnostic, Mapping):
+        for key in ("gate_reason", "source_tool_call_id"):
+            value = primary.diagnostic.get(key)
+            if isinstance(value, str) and value:
+                detail.setdefault(key, value)
+    return detail or None
+
+
+def _impact_line(
+    facts: FinalizationFacts, primary: FailureSummary | None, zh: bool
+) -> str:
+    if facts.has_unverified_write is True:
+        return _pick(
+            zh,
+            "上一次操作是否已经生效尚未确认，请先核对结果。",
+            "Whether the earlier operation took effect is not confirmed; verify it first.",
+        )
+    detail = _detail_of(primary)
+    confirmed_preflight = (
+        facts.has_unverified_write is False
+        and primary is not None
+        and primary.tool in {"draft_schedule", "draft_schedule_update"}
+        and primary.error_code == "SCHEDULE_INVOCATION_CONTRACT_MISSING"
+        and bool(detail.get("reason") or detail.get("repair") or detail.get("fields"))
+    )
+    if confirmed_preflight:
+        return _pick(
+            zh,
+            "本次草稿未通过预检。",
+            "This draft did not pass preflight.",
+        )
+    return ""
+
+
+def _hint(
+    code: str | None,
+    *,
+    locale: str | None,
+    tool: str | None = None,
+    detail: Mapping[str, object] | None = None,
+) -> FailureHint:
     """Render a hint and make an unregistered code family visible to operators."""
-    hint = failure_hint(code, locale=locale, tool=tool)
+    hint = failure_hint(code, locale=locale, tool=tool, detail=detail)
     if not hint.known:
         record_counter(FINALIZATION_FAILURE_HINT_MISSING_METRIC)
         logger.warning("finalization_failure_hint_missing code=%s", code or "")
@@ -186,7 +262,23 @@ def _technical_lines(
 ) -> list[str]:
     lines = [_pick(zh, "技术信息（提供给开发排查）：", "Technical details (for support):")]
     if facts.termination.error_code:
-        lines.append(_pick(zh, "- 终止码：", "- Termination code: ") + facts.termination.error_code)
+        left, right = ("（", "）") if zh else (" (", ")")
+        lines.append(
+            _pick(zh, "- 终止原因：", "- Termination reason: ")
+            + str(facts.termination.reason)
+            + left
+            + facts.termination.error_code
+            + right
+        )
+    evidence = facts.business_failure_evidence
+    if evidence.trigger_tool_call_id:
+        lines.append(
+            _pick(zh, "- 触发调用：", "- Trigger call: ") + evidence.trigger_tool_call_id
+        )
+    if evidence.source_tool_call_id:
+        lines.append(
+            _pick(zh, "- 来源调用：", "- Source call: ") + evidence.source_tool_call_id
+        )
     if primary is not None:
         if primary.error_code:
             lines.append(_pick(zh, "- 错误码：", "- Error code: ") + primary.error_code)
@@ -194,8 +286,44 @@ def _technical_lines(
             lines.append(_pick(zh, "- 工具：", "- Tool: ") + primary.tool)
         if primary.exit_code is not None:
             lines.append(_pick(zh, "- 退出码：", "- Exit code: ") + str(primary.exit_code))
-        if primary.retryable:
-            lines.append(_pick(zh, "- 可重试：是", "- Retryable: yes"))
+        lines.append(
+            _pick(zh, "- 原调用可重放：", "- Original call replayable: ")
+            + _retry_label(primary.retryable, zh)
+        )
+        if primary.retry_disposition:
+            lines.append(
+                _pick(zh, "- 重试处置：", "- Retry disposition: ") + primary.retry_disposition
+            )
+        if primary.agent_disposition:
+            lines.append(
+                _pick(zh, "- Agent 处置：", "- Agent disposition: ") + primary.agent_disposition
+            )
+        diagnostic = primary.diagnostic or {}
+        owner = diagnostic.get("action_owner")
+        if isinstance(owner, str) and owner:
+            lines.append(_pick(zh, "- 修复责任方：", "- Action owner: ") + owner)
+        source = diagnostic.get("message_source")
+        if isinstance(source, str) and source:
+            lines.append(_pick(zh, "- 消息来源：", "- Message source: ") + source)
+        gate = diagnostic.get("gate_reason")
+        if isinstance(gate, str) and gate:
+            lines.append(_pick(zh, "- 门禁原因：", "- Gate reason: ") + gate)
+        lines.extend(_detail_lines(_detail_of(primary), zh))
+    protecting = next(
+        (
+            item
+            for item in evidence.failures
+            if item.error_code == "TOOL_RETRY_UNSAFE"
+            and item.tool_call_id == evidence.trigger_tool_call_id
+        ),
+        None,
+    )
+    if protecting is not None and protecting is not primary:
+        gate_reason = (protecting.diagnostic or {}).get("gate_reason")
+        lines.append(
+            _pick(zh, "- 保护动作：", "- Protection: ")
+            + _gate_label(gate_reason, zh)
+        )
     if run_id:
         lines.append(_pick(zh, "- Run ID：", "- Run ID: ") + str(run_id))
     usage = _usage_brief(facts, zh)
@@ -204,7 +332,7 @@ def _technical_lines(
     lines.append("- " + _evidence_line(facts, zh))
     if primary is not None and primary.evidence_preview.strip():
         lines.append(
-            _pick(zh, "- 平台返回：", "- Platform response: ") + _clip(primary.evidence_preview)
+            _message_label(primary, zh) + _clip(primary.evidence_preview)
         )
     if facts.pending_tool_calls:
         names = "、".join(
@@ -219,6 +347,77 @@ def _technical_lines(
             )
         )
     return lines
+
+
+_DETAIL_LABELS = {
+    "field": ("- 字段：", "- Field: "),
+    "fields": ("- 字段：", "- Fields: "),
+    "reason": ("- 原因：", "- Reason: "),
+    "repair": ("- 修复动作：", "- Repair: "),
+    "allowed_values": ("- 可选值：", "- Allowed values: "),
+    "entry": ("- 入口：", "- Entry: "),
+}
+
+
+def _detail_lines(detail: Mapping[str, object], zh: bool) -> list[str]:
+    lines: list[str] = []
+    for key, (zh_label, en_label) in _DETAIL_LABELS.items():
+        if key not in detail:
+            continue
+        value = detail[key]
+        if key == "fields" and isinstance(value, (list, tuple)):
+            parts: list[str] = []
+            for item in value:
+                if not isinstance(item, Mapping):
+                    parts.append(str(item))
+                    continue
+                name = str(item.get("field") or "").strip()
+                reason = str(item.get("reason") or "").strip()
+                parts.append(f"{name} ({reason})" if name and reason else name or reason)
+            text = ", ".join(_clip(part) for part in parts if part)
+        elif isinstance(value, (list, tuple)):
+            text = ", ".join(_clip(str(item)) for item in value)
+        else:
+            text = _clip(str(value))
+        if text:
+            lines.append((zh_label if zh else en_label) + text)
+    return lines
+
+
+def _message_label(primary: FailureSummary, zh: bool) -> str:
+    source = (primary.diagnostic or {}).get("message_source")
+    if source == "PLATFORM":
+        return _pick(zh, "- 平台返回：", "- Platform response: ")
+    if source == "LOCAL":
+        return _pick(zh, "- 工具描述：", "- Tool description: ")
+    if source == "CATALOG":
+        return _pick(zh, "- 诊断摘要：", "- Diagnostic summary: ")
+    return _pick(zh, "- 证据摘要：", "- Evidence summary: ")
+
+
+def _retry_label(value: bool | None, zh: bool) -> str:
+    if value is True:
+        return _pick(zh, "是", "yes")
+    if value is False:
+        return _pick(zh, "否", "no")
+    return _pick(zh, "未知", "unknown")
+
+
+def _gate_label(value: object, zh: bool) -> str:
+    labels = {
+        "RETRY_GUARDED": ("已阻止未核对的原样重试", "guarded retry blocked"),
+        "UNVERIFIED_WRITE": (
+            "已阻止未核对写入的其他操作",
+            "other operations blocked until the write is verified",
+        ),
+        "BLOCKED_ATTEMPT": ("已阻止已失败的相同尝试", "blocked the failed attempt"),
+    }
+    key = str(value or "")
+    zh_text, en_text = labels.get(
+        key, ("已阻止不安全的继续执行", "unsafe continuation blocked")
+    )
+    suffix = f"（{key}）" if zh and key else f" ({key})" if key else ""
+    return (zh_text if zh else en_text) + suffix
 
 
 def _usage_brief(facts: FinalizationFacts, zh: bool) -> str:

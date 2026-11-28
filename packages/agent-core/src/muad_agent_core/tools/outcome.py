@@ -139,6 +139,7 @@ class ExecutionEvidence:
     preview: str = ""
     output_truncated: bool = False
     artifact_id: str | None = None
+    diagnostic: Mapping[str, object] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -282,7 +283,8 @@ def tool_exception_outcome(
     `evidence_text` 允许宿主把已脱敏的附加事实（如逐平台报告）并入证据预览。
     """
     resolved = code or "COMMON_INTERNAL_ERROR"
-    resolved_retryable = _retryable_for(resolved, retryable)
+    # An unknown result never permits a retry: the previous write may have landed.
+    resolved_retryable = _retryable_for(resolved, retryable) if outcome_known else False
     rate_limited = resolved == "LOCAL_RATE_LIMITED" or (
         resolved == "MCP_TRANSPORT_FAILED" and status_code == 429
     )

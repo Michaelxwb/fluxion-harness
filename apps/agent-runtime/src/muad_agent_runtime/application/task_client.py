@@ -14,8 +14,6 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
-from muad_api import AppError
-from muad_api.error_codes import ErrorCode
 from muad_contracts import (
     TASK_SNAPSHOT_SCHEMA_VERSION,
     DeliveryRouteInput,
@@ -30,6 +28,8 @@ from muad_contracts import (
 from muad_contracts import build_task_snapshot as build_execution_snapshot
 from muad_contracts.platform_settings import TaskSettings
 from muad_logging import get_logger
+
+from .worker_errors import WorkerResponseError
 
 TASKS_PATH = "/internal/tasks"
 SCHEDULES_PATH = "/internal/schedules"
@@ -438,19 +438,20 @@ class WorkerTaskClient:
                 json=json_body,
                 headers=headers,
             )
-        except httpx.HTTPError:
+        except httpx.HTTPError as exc:
             logger.warning("worker_task_request_failed method=%s path=%s", method, path)
-            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from None
+            raise WorkerResponseError(None, locale, outcome_known=False, sent=not isinstance(
+                exc, (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout)
+            )) from None
         payload: Any
         try:
             payload = response.json()
         except ValueError:
             payload = None
         if response.status_code >= 400:
-            code = payload.get("code") if isinstance(payload, dict) else None
-            raise AppError(code if isinstance(code, str) and code else ErrorCode.COMMON_INTERNAL_ERROR)
+            raise WorkerResponseError(payload, locale, outcome_known=response.status_code < 500, sent=True)
         data = payload.get("data") if isinstance(payload, dict) else None
         if not isinstance(data, dict):
             logger.warning("worker_task_envelope_invalid method=%s path=%s", method, path)
-            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
+            raise WorkerResponseError(None, locale, outcome_known=False, sent=True)
         return data

@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
@@ -21,6 +21,20 @@ from muad_agent_core.agent.termination import (
 SCHEMA_VERSION = 1
 FAILURE_STATUSES = frozenset(("FAILED", "TIMED_OUT", "DENIED"))
 FAILURE_LAYERS = frozenset(("TOOL", "CONTENT"))
+RETRY_DISPOSITIONS = frozenset(("ALLOW", "WAIT_THEN_RETRY", "BLOCK"))
+AGENT_DISPOSITIONS = frozenset(("CONTINUE", "WAIT", "STOP"))
+DIAGNOSTIC_KEYS = frozenset(
+    (
+        "detail",
+        "action_owner",
+        "hint_known",
+        "message_source",
+        "gate_reason",
+        "trigger_tool_call_id",
+        "source_tool_call_id",
+        "source_attempt",
+    )
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,7 +48,11 @@ class ToolCallRecord:
     failure_layer: str | None = None
     error_code: str | None = None
     exit_code: int | None = None
-    retryable: bool = False
+    #: ``None`` for legacy rows or unknown outcomes; false is explicit refusal.
+    retryable: bool | None = None
+    retry_disposition: str | None = None
+    agent_disposition: str | None = None
+    diagnostic: Mapping[str, Any] | None = None
     evidence_preview: str = ""
     output_truncated: bool | None = None
     occurred_at: str = ""
@@ -52,6 +70,9 @@ def tool_call_record(row: Mapping[str, Any]) -> ToolCallRecord:
     raw_status = row.get("business_status")
     raw_layer = row.get("failure_layer")
     truncated = row.get("output_truncated")
+    retryable = row.get("retryable")
+    retry_disposition = row.get("retry_disposition")
+    agent_disposition = row.get("agent_disposition")
     return ToolCallRecord(
         tool_name=str(row.get("tool_name") or ""),
         tool_call_id=str(row.get("tool_call_id") or ""),
@@ -64,11 +85,28 @@ def tool_call_record(row: Mapping[str, Any]) -> ToolCallRecord:
             if isinstance(row.get("exit_code"), int) and not isinstance(row.get("exit_code"), bool)
             else None
         ),
-        retryable=row.get("retryable") is True,
+        retryable=retryable if isinstance(retryable, bool) else None,
+        retry_disposition=(
+            retry_disposition if retry_disposition in RETRY_DISPOSITIONS else None
+        ),
+        agent_disposition=(
+            agent_disposition if agent_disposition in AGENT_DISPOSITIONS else None
+        ),
+        diagnostic=_diagnostic_of(row.get("diagnostic_json")),
         evidence_preview=str(row.get("evidence_preview") or ""),
         output_truncated=truncated if isinstance(truncated, bool) else None,
         occurred_at=str(row.get("occurred_at") or ""),
     )
+
+
+def _diagnostic_of(value: object) -> dict[str, Any] | None:
+    if not isinstance(value, Mapping):
+        return None
+    return {
+        str(key): item
+        for key, item in value.items()
+        if key in DIAGNOSTIC_KEYS
+    } or None
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,7 +190,10 @@ class FailureSummary:
     failure_layer: str
     error_code: str | None
     exit_code: int | None
-    retryable: bool
+    retryable: bool | None
+    retry_disposition: str | None
+    agent_disposition: str | None
+    diagnostic: Mapping[str, Any] | None
     evidence_preview: str
     occurred_at: str
 
@@ -166,6 +207,9 @@ class FailureSummary:
             error_code=record.error_code,
             exit_code=record.exit_code,
             retryable=record.retryable,
+            retry_disposition=record.retry_disposition,
+            agent_disposition=record.agent_disposition,
+            diagnostic=record.diagnostic,
             evidence_preview=record.evidence_preview,
             occurred_at=record.occurred_at,
         )
@@ -182,6 +226,9 @@ class FailureSummary:
             error_code=evidence.code,
             exit_code=evidence.exit_code,
             retryable=evidence.retryable,
+            retry_disposition=evidence.retry_disposition,
+            agent_disposition=evidence.agent_disposition,
+            diagnostic=None,
             evidence_preview=evidence.evidence_preview,
             occurred_at=evidence.occurred_at,
         )
@@ -190,7 +237,12 @@ class FailureSummary:
 @dataclass(frozen=True, slots=True)
 class BusinessFailureFacts:
     failures: tuple[FailureSummary, ...] = ()
+    #: Timeline view only; never used to infer the root cause.
     last_failure: FailureSummary | None = None
+    #: Frozen by the kernel when NO_PROGRESS was reached.
+    trigger_tool_call_id: str | None = None
+    source_tool_call_id: str | None = None
+    #: Audit row matching the frozen source ID; None means the root cause is unproven.
     decisive_failure: FailureSummary | None = None
 
 
@@ -215,6 +267,8 @@ class FinalizationFacts:
     business_failure_evidence: BusinessFailureFacts = field(default_factory=BusinessFailureFacts)
     evidence_status: str = EvidenceStatus.NOT_OBSERVED
     evidence_incomplete: bool = False
+    #: True when this Run still has a write whose outcome was never verified.
+    has_unverified_write: bool | None = None
     pending_tool_calls: tuple[dict[str, str], ...] = ()
     completion: CompletionFacts = field(default_factory=CompletionFacts)
     schema_version: int = SCHEMA_VERSION
@@ -252,6 +306,8 @@ class FinalizationFacts:
                 "last_failure": (
                     _failure_payload(failures.last_failure) if failures.last_failure else None
                 ),
+                "trigger_tool_call_id": failures.trigger_tool_call_id,
+                "source_tool_call_id": failures.source_tool_call_id,
                 "decisive_failure": (
                     _failure_payload(failures.decisive_failure)
                     if failures.decisive_failure
@@ -260,6 +316,7 @@ class FinalizationFacts:
             },
             "evidence_status": self.evidence_status,
             "evidence_incomplete": self.evidence_incomplete,
+            "has_unverified_write": self.has_unverified_write,
             "pending_tool_calls": [dict(call) for call in self.pending_tool_calls],
             "completion": {"status": self.completion.status, "source": self.completion.source},
         }
@@ -290,18 +347,23 @@ def build_finalization_facts(
     )
     if last_failure is None and snapshot_failure is not None:
         last_failure = FailureSummary.of_evidence(snapshot_failure)
-    elif (
-        last_failure is not None
-        and snapshot_failure is not None
-        and snapshot_failure.retryable
-        and snapshot_failure.tool == last_failure.tool
-        and snapshot_failure.code == last_failure.error_code
-    ):
-        # 审计表没有 retryable 列；同一失败以 Runner 冻结的 failure_state 为准，
-        # 否则“同类失败达到阈值”会被误渲染成“失败不可重试”。
-        last_failure = replace(last_failure, retryable=True)
-        summaries = (*summaries[:-1], last_failure)
-    decisive = last_failure if termination.reason is TerminationReason.NO_PROGRESS else None
+    trigger_id = source_id = None
+    decisive = None
+    if termination.reason in {
+        TerminationReason.NO_PROGRESS,
+        TerminationReason.TOOL_FAILURE,
+    } and snapshot is not None:
+        trigger_id = snapshot.failure_state.no_progress_trigger_call_id or None
+        source_id = snapshot.failure_state.no_progress_source_call_id or None
+        if source_id:
+            decisive = next(
+                (item for item in summaries if item.tool_call_id == source_id), None
+            )
+            if decisive is None and last_failure is not None:
+                # Audit unavailable/missing: only the frozen evidence may stand in,
+                # and only when it is the frozen source itself.
+                if last_failure.tool_call_id == source_id:
+                    decisive = last_failure
     return FinalizationFacts(
         termination=termination,
         usage=UsageFacts.of(snapshot),
@@ -309,10 +371,20 @@ def build_finalization_facts(
         business_failure_evidence=BusinessFailureFacts(
             failures=summaries,
             last_failure=last_failure,
+            trigger_tool_call_id=trigger_id,
+            source_tool_call_id=source_id,
             decisive_failure=decisive,
         ),
         evidence_status=_evidence_status(records, bool(failures) or snapshot_failure is not None),
         evidence_incomplete=any(record.output_truncated is True for record in records),
+        has_unverified_write=(
+            bool(
+                snapshot.failure_state.unknown_write_targets
+                or snapshot.failure_state.unknown_write_operations
+            )
+            if snapshot is not None
+            else None
+        ),
         pending_tool_calls=(
             tuple(call.as_payload() for call in snapshot.pending_tool_calls)
             if snapshot is not None
@@ -381,6 +453,9 @@ def _failure_payload(summary: FailureSummary) -> dict[str, Any]:
         "error_code": summary.error_code,
         "exit_code": summary.exit_code,
         "retryable": summary.retryable,
+        "retry_disposition": summary.retry_disposition,
+        "agent_disposition": summary.agent_disposition,
+        "diagnostic": dict(summary.diagnostic) if summary.diagnostic else None,
         "evidence_preview": summary.evidence_preview,
         "occurred_at": summary.occurred_at,
     }

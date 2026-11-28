@@ -53,6 +53,15 @@ class ToolEventOutcome(_ToolEventModel):
     execution_status: str | None = None
     review_progress: tuple[str, int, int] | None = None
     customer_options: tuple[dict[str, str], ...] = ()
+    #: Pre-dispatch gate attribution; only present on a retry-gated call.
+    gate_reason: Literal[
+        "BLOCKED_ATTEMPT", "UNVERIFIED_WRITE", "RETRY_GUARDED", "FAILURE_UNRESOLVED"
+    ] | None = None
+    source_tool_call_id: str | None = None
+    #: Verified repair owner from the shared failure mapping.
+    action_owner: Literal["USER", "ADMIN", "NONE"] | None = None
+    #: Whether the shared mapping actually matched this code.
+    hint_known: bool | None = None
 
 
 class AssistantToolCallEvent(_ToolEventModel):

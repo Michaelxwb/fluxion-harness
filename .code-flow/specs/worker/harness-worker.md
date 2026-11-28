@@ -1,7 +1,7 @@
 ---
 {
   "description": "任务、调度与投递",
-  "next_rule": 8
+  "next_rule": 10
 }
 ---
 
@@ -24,6 +24,10 @@
 - [RULE-006] 每次 Fire 必须用当前 Skill artifact 的 invocation_contract 重新校验渲染后的参数；契约缺失、参数不兼容或工具通配必须作为永久 admission 失败处理，不得创建 Execution，CRON 进入 NEEDS_ATTENTION、ONCE 进入 ENDED。
 
 - [RULE-007] Worker 按共享结果契约完成结算并持久化原始退出事实、执行判定、业务结论及可访问结果引用。后台回执传递已验证事实。报告和业务数据不能作为等待、扇出或投递指令，投递状态不改写已经确定的执行或业务结论。
+
+- [RULE-008] Agentic 恢复必须按 assistant 声明逐个 call 对账，覆盖 declared-only、prepared-partial、prepared-only、operation pending/without-child、denied-before-prepared、sync-unknown；不得把声明窗口当首次执行，不得从原始 assistant 参数重放。
+
+- [RULE-009] Worker 的 execute(target=skill) 必须通过 SkillExecutionRouter 映射 SnapshotSkill.key + tool → 冻结 allowlist/schema/retry_safety；只有说明的 Skill 返回 SKILL_NOT_EXECUTABLE；结果映射 typed ToolResult，ASYNC 子 Task 冻结所选工具 retry_safety。
 
 ## Conventions
 
@@ -76,3 +80,7 @@
 - {"source":"2026-11-20/scheduled-skill-invocation/scheduled-skill-invocation.md#TASK-005#DELTA-005","op":"add","rule":"RULE-006","payload_sha256":"bab36447c2a8a66f430bbb55e0d2395800f7c023762b2015a9e5df3e28bda669","at":"2026-11-20T13:18:06.407Z"}
 
 - {"source":"2026-11-24/skill-results-conversation-finalization/skill-results-conversation-finalization.md#TASK-003#DELTA-001","op":"add","rule":"RULE-007","payload_sha256":"a26c8d21cc1ffb7b64ac0d453fce8a3b8807c761affaebb32d67939861dbc703","at":"2026-11-24T09:27:16.305Z"}
+
+- {"source":"2026-11-21/agent-execution-contracts/agent-execution-contracts.md#TASK-003#DELTA-001","op":"add","rule":"RULE-008","payload_sha256":"d002637124e6bffb2884fd217bffc012b75eb0ab0dc80efd2c9ffc96038deae4","at":"2026-11-28T01:04:28.947Z"}
+
+- {"source":"2026-11-21/agent-execution-contracts/agent-execution-contracts.md#TASK-009#DELTA-001","op":"add","rule":"RULE-009","payload_sha256":"a54acfe70f961e725c837ba8cbcce57e783930efbba7866959de80c9e47d6182","at":"2026-11-28T01:04:28.948Z"}

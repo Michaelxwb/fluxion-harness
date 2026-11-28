@@ -103,6 +103,9 @@ class CompletedFact:
     outcome_known: bool = True
     handler_entered: bool | None = None
     attempt: str | None = None
+    source_tool_call_id: str = ""
+    action_owner: str | None = None
+    hint_known: bool | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -257,6 +260,7 @@ def replay_failure_state(fold: RecoveryFold, *, max_identical_failures: int) -> 
                     prepared.write_targets,
                     prepared.write_operation_key,
                     fallback_target=f"tool:{prepared.tool_name or call.declaration.tool_name}",
+                    source_call_id=call.declaration.call_id,
                 )
             continue
         if completed.error_code in {NOT_EXECUTED_CODE, "TOOL_BUDGET_EXHAUSTED"}:
@@ -279,6 +283,9 @@ def replay_failure_state(fold: RecoveryFold, *, max_identical_failures: int) -> 
                 security_disposition=completed.security_disposition,
                 stop_confirmed=completed.stop_confirmed,
                 attempt=attempt,
+                source_call_id=completed.source_tool_call_id,
+                action_owner=completed.action_owner,
+                hint_known=completed.hint_known,
                 external_started=effectful and completed.handler_entered is not False,
                 write_targets=prepared.write_targets if prepared else frozenset(),
                 write_operation_key=prepared.write_operation_key if prepared else None,
@@ -466,6 +473,22 @@ def _completed_fact(call_id: str, payload: Mapping[str, Any]) -> CompletedFact:
         outcome_known=outcome_map.get("outcome_known") is not False,
         handler_entered=phase if isinstance(phase, bool) else None,
         attempt=attempt if isinstance(attempt, str) else None,
+        source_tool_call_id=(
+            source
+            if isinstance(source := outcome_map.get("source_tool_call_id"), str)
+            else ""
+        ),
+        action_owner=(
+            owner
+            if isinstance(owner := outcome_map.get("action_owner"), str)
+            and owner in {"USER", "ADMIN", "NONE"}
+            else None
+        ),
+        hint_known=(
+            outcome_map["hint_known"]
+            if isinstance(outcome_map.get("hint_known"), bool)
+            else None
+        ),
 
         artifacts=tuple(
             item for item in payload.get("artifacts") or () if isinstance(item, Mapping)

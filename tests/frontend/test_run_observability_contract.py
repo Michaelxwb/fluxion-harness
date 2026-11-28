@@ -137,6 +137,12 @@ def test_event_detail_fields_and_statuses_have_translations() -> None:
             ("EVENT_DETAIL_STATUSES", "status"),
             ("COMPACTION_LAYERS", "layer"),
             ("MODEL_RETRY_REASONS", "retry"),
+            ("RETRY_PERMISSIONS", "retryable"),
+            ("RETRY_DISPOSITIONS", "retryDisposition"),
+            ("AGENT_DISPOSITIONS", "agentDisposition"),
+            ("MESSAGE_SOURCES", "messageSource"),
+            ("ACTION_OWNERS", "actionOwner"),
+            ("GATE_REASONS", "gateReason"),
         ]
         for array, prefix in arrays:
             for key in _string_array(component, array):

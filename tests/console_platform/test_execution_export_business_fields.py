@@ -128,6 +128,18 @@ def _bundle(*, timeline_size: int = 2) -> ExecutionExportBundle:
                         "exit_code": 2,
                         "output_truncated": True,
                         "evidence_preview": "missing --company-id",
+                        "retryable": False,
+                        "retry_disposition": "BLOCK",
+                        "agent_disposition": "STOP",
+                        "diagnostic_json": {
+                            "detail": {
+                                "field": "payload.argv",
+                                "reason": "MISSING_REQUIRED",
+                                "repair": "PROVIDE_SKILL_ARGV",
+                            },
+                            "action_owner": "USER",
+                            "message_source": "PLATFORM",
+                        },
                         "latency_ms": 30,
                     },
                     {
@@ -184,6 +196,10 @@ def test_transport_ok_business_failed_is_a_content_failure_candidate() -> None:
     assert content[0].exit_code == 2
     assert content[0].output_truncated is True
     assert content[0].evidence_preview == "missing --company-id"
+    assert content[0].retryable is False
+    assert content[0].retry_disposition == "BLOCK"
+    assert content[0].agent_disposition == "STOP"
+    assert content[0].diagnostic["detail"]["repair"] == "PROVIDE_SKILL_ARGV"
 
 
 def test_report_exposes_business_fields_and_finalization() -> None:
@@ -196,6 +212,10 @@ def test_report_exposes_business_fields_and_finalization() -> None:
     assert execute_row["exit_code"] == 2
     assert execute_row["output_truncated"] is True
     assert execute_row["evidence_preview"] == "missing --company-id"
+    assert execute_row["retryable"] is False
+    assert execute_row["retry_disposition"] == "BLOCK"
+    assert execute_row["agent_disposition"] == "STOP"
+    assert execute_row["diagnostic"]["detail"]["field"] == "payload.argv"
 
     assert report["execution"]["finalization"]["termination"]["reason"] == "NO_PROGRESS"
     assert report["failure_evidence"]["failures"][0]["error_code"] == "SKILL_INPUT_INVALID"
@@ -267,7 +287,11 @@ def test_failures_csv_lists_confirmed_business_failure_only() -> None:
     text = render_failures_csv(report)
     rows = list(csv.DictReader(io.StringIO(text)))
 
-    assert any(row["error_code"] == "SKILL_INPUT_INVALID" for row in rows)
+    primary = next(row for row in rows if row["error_code"] == "SKILL_INPUT_INVALID")
+    assert primary["retryable"] == "False"
+    assert primary["retry_disposition"] == "BLOCK"
+    assert primary["agent_disposition"] == "STOP"
+    assert "PROVIDE_SKILL_ARGV" in primary["diagnostic"]
     assert all(row["business_status"] not in {"UNKNOWN", "NOT_APPLICABLE"} for row in rows)
     assert "call-2" not in text
     assert "call-3" not in text
@@ -283,6 +307,10 @@ def test_calls_csv_keeps_transport_status_next_to_business_fields() -> None:
     assert execute["failure_layer"] == "CONTENT"
     assert execute["exit_code"] == "2"
     assert execute["output_truncated"] == "True"
+    assert execute["retryable"] == "False"
+    assert execute["retry_disposition"] == "BLOCK"
+    assert execute["agent_disposition"] == "STOP"
+    assert "MISSING_REQUIRED" in execute["diagnostic"]
 
 
 def test_truncation_keeps_failure_evidence_and_finalization() -> None:

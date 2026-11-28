@@ -444,7 +444,7 @@ TASK-007 负责普通正文与超限产物交付。原 TASK-008 的提前发送�
 - **Source**: agent-tool-failure-chain.backend.design.md#34-设置诊断与默认值评估, agent-tool-failure-chain.frontend.design.md#3-前端技术设计
 - **Scenarios**: S-08, B-02
 - **Spec-Refs**: snapshot/harness-snapshot, model/harness-model, frontend/harness-frontend, i18n/harness-i18n, test/harness-test
-- **Paths**: packages/contracts/src/muad_contracts/platform_settings.py, packages/contracts/src/muad_contracts/scheduling.py, packages/agent-core/src/muad_agent_core/agent/runner.py, apps/agent-runtime/src/muad_agent_runtime/application/run_service.py, apps/agent-runtime/src/muad_agent_runtime/application/execution_checkpoint.py, apps/agent-runtime/src/muad_agent_runtime/application/context_settings.py, apps/agent-worker/src/muad_agent_worker/application/schedule_admission.py, apps/console-platform/backend/src/muad_console_platform/application/platform_settings_catalog.py, apps/console-platform/backend/src/muad_console_platform/application/execution_export_view.py, apps/console-platform/frontend/src/modules/settings/**, apps/console-platform/frontend/src/locales/**, tests/test_platform_settings_schema.py, tests/agent_runtime/test_platform_settings_source.py, tests/agent_runtime/test_runner_executor.py, tests/agent_worker/test_schedule_budget_from_settings.py, tests/console_platform/test_platform_settings_api.py, tests/console_platform/test_execution_export_business_fields.py, tests/frontend/test_platform_settings_contract.py
+- **Paths**: packages/contracts/src/muad_contracts/platform_settings.py, packages/contracts/src/muad_contracts/scheduling.py, packages/agent-core/src/muad_agent_core/agent/runner.py, apps/agent-runtime/src/muad_agent_runtime/application/run_service.py, apps/agent-runtime/src/muad_agent_runtime/application/execution_checkpoint.py, apps/agent-runtime/src/muad_agent_runtime/application/context_settings.py, apps/agent-worker/src/muad_agent_worker/application/schedule_admission.py, apps/console-platform/backend/src/muad_console_platform/application/platform_settings_catalog.py, apps/console-platform/backend/src/muad_console_platform/application/execution_export_view.py, apps/console-platform/frontend/src/modules/settings/**, apps/console-platform/frontend/src/locales/**, skills/uat-fail-retryable/**, agent-tool-failure-chain.b02-evaluation.md, tests/test_platform_settings_schema.py, tests/agent_runtime/test_platform_settings_source.py, tests/agent_runtime/test_runner_executor.py, tests/agent_worker/test_schedule_budget_from_settings.py, tests/console_platform/test_platform_settings_api.py, tests/console_platform/test_execution_export_business_fields.py, tests/frontend/test_platform_settings_contract.py
 - **E2E**:
 - **Skip-Tests**: false
 - **Skip-Reason**:
@@ -466,7 +466,8 @@ TASK-007 负责普通正文与超限产物交付。原 TASK-008 的提前发送�
       "tests/agent_worker/test_schedule_budget_from_settings.py",
       "tests/console_platform/test_platform_settings_api.py",
       "tests/console_platform/test_execution_export_business_fields.py",
-      "tests/frontend/test_platform_settings_contract.py"
+      "tests/frontend/test_platform_settings_contract.py",
+      "tests/skills/test_uat_fail_retryable.py"
     ],
     "timeout": 900
   }
@@ -484,6 +485,7 @@ TASK-007 负责普通正文与超限产物交付。原 TASK-008 的提前发送�
 - [x] 记录发布前已有低阈值修订和活跃执行清点。用内网组合做对照，默认值变更依据经评审证据。
 - [x] 2026-11-27 review：最小值 2 在 `AgentPolicy`、runtime_config、Task `SnapshotBudget`、页面/后端校验和共享内核一致；旧 revision 不做兼容迁移，开发数据重置。
 - [x] 2026-11-27 review：执行导出对 RUN 与 TASK 使用同一冻结预算投影；Task 读 `execution_snapshot_json.budget`，缺失字段保留未记录。
+- [x] 2026-11-28 B-02 补充：阈值 2/3 同提示词 A/B、历史预算 256/1024/65536 同对话、摘要开关同会话完成；默认值不变，详见专项报告。
 
 ### Spec Delta
 
@@ -497,6 +499,7 @@ TASK-007 负责普通正文与超限产物交付。原 TASK-008 的提前发送�
 - [2026-11-27T08:04:16.500Z] started tests=4df3424a3ff8
 - [2026-11-27T10:44:16.898Z] reopen: 2026-11-27 review remediation: write identity, unknown lifecycle, outcome propagation, no-compat cleanup
 - [2026-11-27T12:00:53.971Z] reopen: final verification after review remediation
+- [2026-11-27T17:11:36.986Z] reopen: B-02 threshold/history/summary evaluation
 
 ### Verification
 
@@ -506,6 +509,8 @@ TASK-007 负责普通正文与超限产物交付。原 TASK-008 的提前发送�
 - 2026-11-27T11:38:36.235Z PASS commands=1/1 executed=1 deduped=0 elapsed=60189ms tests=4df3424a3ff8 head=4dd92b29c100 dirty=1
   - regression PASS exit=0
 - 2026-11-27T12:03:10.073Z PASS commands=1/1 executed=1 deduped=0 elapsed=62664ms tests=4df3424a3ff8 head=4dd92b29c100 dirty=1
+  - regression PASS exit=0
+- 2026-11-27T17:12:37.698Z PASS commands=1/1 executed=1 deduped=0 elapsed=60604ms tests=ad7654494c31 head=3fa9835389a7 dirty=1 tests-changed
   - regression PASS exit=0
 ## TASK-007: 按结果大小交付正文或产物
 

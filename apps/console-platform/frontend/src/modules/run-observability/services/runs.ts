@@ -66,7 +66,10 @@ export const EVENT_DETAIL_FIELDS = [
   'model', 'provider', 'attempt', 'retry_reason', 'input_tokens', 'output_tokens',
   'operation_id', 'task_id', 'task_status', 'completion_mode', 'wait_generation',
   'execution_epoch', 'error_code', 'covers_up_to_seq', 'bytes_before', 'bytes_after', 'operation_status',
-  'protocol', 'model_revision'
+  'protocol', 'model_revision',
+  'retryable', 'retry_disposition', 'agent_disposition', 'message_source', 'action_owner',
+  'gate_reason', 'trigger_tool_call_id', 'source_tool_call_id', 'field', 'fields', 'reason',
+  'repair', 'allowed_values', 'entry', 'diagnostic_truncated'
 ] as const;
 export type EventDetailFieldKey = typeof EVENT_DETAIL_FIELDS[number];
 

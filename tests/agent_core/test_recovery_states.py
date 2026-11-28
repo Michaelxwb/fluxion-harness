@@ -13,6 +13,7 @@ from muad_agent_core.agent.recovery import (
     replay_failure_state,
     turn_state,
 )
+from muad_agent_core.agent.termination import FailureState
 
 
 def _events(*, calls: list[dict], prepared: list[dict] = (), completed: list[dict] = ()):
@@ -198,6 +199,39 @@ def test_prepared_async_with_accepted_operation_is_not_an_unknown_write() -> Non
     assert state is RecoveryState.OPERATION_PENDING
     assert not failure.unknown_write_targets
     assert not failure.unknown_write_operations
+
+
+def test_replay_preserves_gate_and_unknown_write_sources() -> None:
+    denial = {
+        **_completed("c1", "denied", code="PLATFORM_AUTH_REJECTED"),
+        "handler_entered": False,
+        "attempt": "skill:missing:sha256:x",
+    }
+    gate = {
+        **_completed("c2", "blocked", code="TOOL_RETRY_UNSAFE"),
+        "attempt": "skill:missing:sha256:x",
+    }
+    gate["outcome"].update(
+        {"source_tool_call_id": "c1", "gate_reason": "BLOCKED_ATTEMPT"}
+    )
+    fold = fold_events(
+        _events(
+            calls=[_declaration("c1"), _declaration("c2"), _declaration("c3")],
+            prepared=[_prepared("c3", mode="SYNC")],
+            completed=[denial, gate],
+        )
+    )
+
+    failure = replay_failure_state(fold, max_identical_failures=5)
+
+    assert failure.blocked_attempts == {"skill:missing:sha256:x"}
+    assert failure.blocked_attempt_sources == {"skill:missing:sha256:x": "c1"}
+    assert failure.unknown_write_targets == {"tool:skill::s::run"}
+    assert failure.unknown_target_sources == {"tool:skill::s::run": "c3"}
+
+    restored = FailureState.from_payload(failure.as_payload())
+    assert restored.blocked_attempt_sources == failure.blocked_attempt_sources
+    assert restored.unknown_target_sources == failure.unknown_target_sources
 
 
 def test_prepared_partial_classifies_the_turn() -> None:

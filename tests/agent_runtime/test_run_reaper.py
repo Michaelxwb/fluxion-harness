@@ -105,5 +105,6 @@ async def test_e04_reaper_cas_on_expired_running_only() -> None:
             "ASSISTANT_MESSAGE", "ASSISTANT_DELTA", "RUN_FAILED",
         ]
         assert "失去连接，已停止" in events[0].payload_json["text"]
-        assert any(RUN_ABANDONED in line for line in events[0].payload_json["technical_details"])
+        assert "technical_details" not in events[0].payload_json
+        assert RUN_ABANDONED not in events[0].payload_json["text"]
         assert events[2].payload_json["final_text"] == events[0].payload_json["text"]

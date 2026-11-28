@@ -1,5 +1,8 @@
 ---
-{"description": "MCP 目录与运行时", "next_rule": 1}
+{
+  "description": "MCP 目录与运行时",
+  "next_rule": 3
+}
 ---
 
 # harness-mcp
@@ -8,6 +11,10 @@
 
 - [RULE-mcp-001] V1 仅支持 Streamable HTTP；Tool Catalog 由 `discover-tools` 唯一维护并落 PostgreSQL；用户范围仅 Server 级（ALL/SELECTED），不做 Tool 级启停或授权；MCP Tool 必须进入统一 ToolRegistry。
 - [RULE-mcp-002] MCP HTTP 认证支持服务级三态：无认证、Authorization Bearer、自定义请求头；自定义头拆分为非密 headers 与单个 auth_secret 的 secret_header，密钥不得进入 auth_config、审计、Snapshot 或 API 响应。
+
+- [RULE-001] MCP 协议/会话/内容转换只保留共享实现：singleflight initialize、请求 ID 严格匹配、任何失败丢弃会话、404 重建；失败事实分开 recoverable/sent/outcome_known/replay_safe；retryable = recoverable and (not sent or replay_safe)；响应/SSE/媒体有界。
+
+- [RULE-002] Runtime/Worker 共用 MCP client 但注入各自 transport/auth/audit/artifact；逻辑审计在解码校验后记录，HTTP 200 + isError/RPC/ID 错配记 ERROR；MCP effect 来自冻结 catalog；两宿主行为一致。
 
 ## Conventions
 
@@ -75,3 +82,7 @@ Console 侧 `discover-tools` 的 Catalog 维护与缓存（PG 为权威源）：
 ## Applied Deltas
 
 - {"source":"2026-11-12/mcp-http-auth/mcp-http-auth.md#TASK-001#DELTA-001","op":"add","rule":"RULE-mcp-002","payload_sha256":"4677a6248fbcec589ff0f9a35111384adfacbe7d50609312df04961a460dff7a","at":"2026-11-12T09:16:05.266Z"}
+
+- {"source":"2026-11-21/agent-execution-contracts/agent-execution-contracts.md#TASK-011#DELTA-001","op":"add","rule":"RULE-001","payload_sha256":"2ad1dddb441ab3cf4b2765aea3980b65d42209ba398b04adecad4aacb9af2245","at":"2026-11-28T01:04:28.948Z"}
+
+- {"source":"2026-11-21/agent-execution-contracts/agent-execution-contracts.md#TASK-012#DELTA-001","op":"add","rule":"RULE-002","payload_sha256":"286531ad580c41eb66c8d7ac9e7b7067fb933ba8a9cd12227e55ba3d73058407","at":"2026-11-28T01:04:28.948Z"}

@@ -24,8 +24,10 @@ import hashlib
 import json
 import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
+from dataclasses import replace
 from typing import Any
 
+from muad_agent_core.failures import failure_hint
 from muad_agent_core.tools import (
     ToolCall,
     ToolCapability,
@@ -38,14 +40,17 @@ from muad_agent_core.tools import (
     ToolResult,
     static_write_targets,
 )
+from muad_agent_core.tools.outcome import AgentDisposition, ExecutionOutcome
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import (
     SCHEDULE_CONFIRM_COMMAND,
     DeliveryRouteInput,
     DraftKind,
+    ResolveDefinitionRequest,
     ResolvedSkill,
     SchedulePreview,
+    SkillInvocationContract,
 )
 from muad_contracts.enums import OUTBOUND_CHANNELS, ScheduleStatus
 from muad_contracts.platform_settings import PlatformSettingsError, parse_platform_settings
@@ -54,7 +59,7 @@ from muad_logging import get_logger
 from pydantic import ValidationError
 
 from ..infrastructure.db import SessionFactoryProvider
-from .ports import PlatformSettingsClient
+from .ports import PlatformSettingsClient, ResolveClient
 from .schedule_authoring import (
     DeliveryTargetOption,
     ScheduleAuthoringContext,
@@ -74,6 +79,7 @@ from .task_client import (
     WorkerTaskClient,
     submission_idempotency_key,
 )
+from .worker_errors import WorkerResponseError, public_message
 
 logger = get_logger(__name__)
 
@@ -296,16 +302,42 @@ class TaskToolError(ToolError):
         data: dict[str, Any] | None = None,
         *,
         retryable: bool | None = None,
+        sent: bool = False,
+        outcome_known: bool = True,
+        diagnostic: Mapping[str, object] | None = None,
+        needs_external_action: bool = False,
     ) -> None:
-        if retryable is None and data:
+        if retryable is None and data and outcome_known:
             retryable = code not in self._NON_RETRYABLE_DATA_CODES
         super().__init__(
             code,
             message,
             detail=data,
             retryable=retryable,
+            sent=sent,
+            outcome_known=outcome_known,
+            diagnostic=diagnostic,
         )
         self.data = data
+        self.needs_external_action = needs_external_action
+
+    def outcome(self) -> ExecutionOutcome:
+        outcome = super().outcome()
+        if not self.needs_external_action:
+            return outcome
+        return replace(outcome, control=replace(outcome.control, agent_disposition=AgentDisposition.STOP))
+
+
+def _invocation_contract(skill: ResolvedSkill | None) -> SkillInvocationContract | None:
+    if skill is None:
+        return None
+    raw = skill.frontmatter.get("invocation_contract")
+    if not isinstance(raw, Mapping):
+        return None
+    try:
+        return SkillInvocationContract.model_validate(raw)
+    except ValidationError:
+        return None
 
 
 def _schema(properties: Mapping[str, Any], required: Sequence[str]) -> dict[str, Any]:
@@ -444,6 +476,7 @@ class BackgroundTaskToolSet:
         session_factory: SessionFactoryProvider | None = None,
         settings_client: PlatformSettingsClient | None = None,
         fallback_timezone: str | None = None,
+        resolve_client: ResolveClient | None = None,
     ) -> None:
         self._client = client
         self._context = context
@@ -451,6 +484,7 @@ class BackgroundTaskToolSet:
         self._session_factory = session_factory
         self._settings_client = settings_client
         self._fallback_timezone = fallback_timezone
+        self._resolve_client = resolve_client
 
     def register(self, registry: ToolRegistry) -> None:
         for definition in self._definitions():
@@ -460,13 +494,137 @@ class BackgroundTaskToolSet:
         async def run(arguments: Mapping[str, Any], *, call: ToolCall) -> ToolResult:
             try:
                 payload = await handler(arguments, call_id=call.call_id)
-            except TaskToolError:
+            except TaskToolError as exc:
+                self._attach_local_owner(exc)
                 raise
+            except WorkerResponseError as exc:
+                data = await self._validated_worker_detail(exc, arguments)
+                hint = failure_hint(exc.code, locale=self._context.locale, detail=data)
+                raise TaskToolError(
+                    exc.code,
+                    exc.public_message,
+                    data,
+                    needs_external_action=(
+                        hint.action_owner == "ADMIN" or (not data and exc.retryable is not True)
+                    ),
+                    retryable=exc.retryable,
+                    sent=exc.sent,
+                    outcome_known=exc.outcome_known,
+                    diagnostic={
+                        "detail": data,
+                        "cause": hint.title,
+                        "next_step": hint.next_step,
+                        "action_owner": hint.action_owner,
+                        "hint_known": hint.known,
+                        "message_source": exc.message_source,
+                    },
+                ) from exc
             except AppError as exc:
-                raise ToolError(str(exc.code), str(exc.code)) from exc
+                hint = failure_hint(exc.code, locale=self._context.locale)
+                raise TaskToolError(
+                    exc.code,
+                    public_message(exc.code, self._context.locale),
+                    diagnostic={
+                        "detail": {},
+                        "cause": hint.title,
+                        "next_step": hint.next_step,
+                        "action_owner": hint.action_owner,
+                        "hint_known": hint.known,
+                        "message_source": "CATALOG",
+                    },
+                ) from exc
             return ToolResult(json.dumps(payload, ensure_ascii=False, default=str))
 
         return run
+
+    def _attach_local_owner(self, exc: TaskToolError) -> None:
+        """Local tool errors keep their in-process text; add the shared grounded facts."""
+        hint = failure_hint(exc.code, locale=self._context.locale, detail=exc.detail)
+        diagnostic = dict(exc.diagnostic or {})
+        diagnostic.update(
+            {
+                "detail": exc.detail or {},
+                "cause": hint.title,
+                "next_step": hint.next_step,
+                "hint_known": hint.known,
+                "message_source": diagnostic.get("message_source") or "LOCAL",
+            }
+        )
+        if hint.action_owner is not None:
+            diagnostic["action_owner"] = hint.action_owner
+        exc.diagnostic = diagnostic
+
+    async def _validated_worker_detail(
+        self, exc: WorkerResponseError, arguments: Mapping[str, Any]
+    ) -> dict[str, Any]:
+        """Keep allowed_values only when the latest frozen Skill contract proves them."""
+        detail = dict(exc.data)
+        allowed = detail.get("allowed_values")
+        if not isinstance(allowed, list) or not allowed:
+            return detail
+        skill = await self._latest_skill(arguments)
+        contract = _invocation_contract(skill)
+        expected_channel = (
+            "argv" if detail.get("field") == "payload.argv" else "stdin"
+        )
+        properties = (
+            contract.contract_schema.get("properties")
+            if contract is not None and contract.invocation == expected_channel
+            else None
+        )
+        if not isinstance(properties, dict):
+            detail.pop("allowed_values", None)
+            return detail
+        accepted: list[str] = []
+        for item in allowed:
+            if not isinstance(item, str):
+                continue
+            name = item[2:] if item.startswith("--") else item
+            if name in properties:
+                accepted.append(item)
+        if accepted:
+            detail["allowed_values"] = accepted
+        else:
+            detail.pop("allowed_values", None)
+        return detail
+
+    async def _latest_skill(self, arguments: Mapping[str, Any]) -> ResolvedSkill | None:
+        if self._resolve_client is None:
+            return None
+        payload = arguments.get("payload")
+        key = payload.get("skill_key") if isinstance(payload, Mapping) else None
+        identifier = payload.get("skill_id") if isinstance(payload, Mapping) else None
+        if not isinstance(key, str) or not key.strip():
+            key = None
+        if isinstance(identifier, str) and identifier.strip():
+            try:
+                skill_id = uuid.UUID(identifier)
+            except ValueError:
+                skill_id = None
+        else:
+            skill_id = None
+        if key is None and skill_id is None:
+            return None
+        try:
+            resolved = await self._resolve_client.resolve(
+                ResolveDefinitionRequest(
+                    agent_id=self._context.agent.id,
+                    actor_user_id=self._context.actor_user_id,
+                ),
+                tenant_id=self._context.tenant_id,
+                trace_id=self._context.trace_id,
+            )
+        except Exception as resolve_error:  # noqa: BLE001 - never replace the original tool failure
+            logger.warning(
+                "latest_skill_contract_unavailable error=%s", type(resolve_error).__name__
+            )
+            return None
+        for skill in resolved.skills:
+            if skill_id is not None and skill.skill_id == skill_id:
+                return skill
+            if key is not None and skill.key == key.strip():
+                return skill
+        return None
 
     def _definitions(self) -> tuple[ToolDefinition, ...]:
         return tuple(
@@ -1152,7 +1310,8 @@ def _draft_card(response: Mapping[str, Any], *, kind: DraftKind) -> WebchatSched
         )
     except (KeyError, TypeError, ValueError, ValidationError) as exc:
         raise TaskToolError(
-            ErrorCode.COMMON_INTERNAL_ERROR.value, "the draft service returned an invalid response"
+            ErrorCode.COMMON_INTERNAL_ERROR.value, "the draft service returned an invalid response",
+            sent=True, outcome_known=False, needs_external_action=True,
         ) from exc
 
 
