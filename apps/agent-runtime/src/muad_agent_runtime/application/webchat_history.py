@@ -36,6 +36,7 @@ from muad_contracts.webchat import (
     WebchatActiveRun,
     WebchatAttachment,
     WebchatConfirmation,
+    WebchatConfirmationOption,
     WebchatConversationDetail,
     WebchatConversationItem,
     WebchatConversationPage,
@@ -614,11 +615,49 @@ class WebchatHistoryService:
             )
         )
         if interrupt is None:
-            return None
+            return await self._generic_option_confirmation(run)
         proposal = await validated_proposal(self._session, run, interrupt)
         if proposal is None or interrupt.expires_at is None:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
         return confirmation_view(proposal, interrupt.id, interrupt.prompt_text, interrupt.expires_at)
+
+    async def _generic_option_confirmation(self, run: RunRecord) -> WebchatConfirmation | None:
+        """把 `HUMAN_INPUT` 挂起（`ask_user`）投影成确认卡片。
+
+        记忆确认优先（`_confirmation_view` 先查 MEMORY_CONFIRMATION）。带候选 → 选项卡；
+        无候选 → 纯自由文本问询（`free_text=True`、`options=[]`），前端渲染成输入框。
+        候选值 = 落库 `id`（与 `resolve_generic_interrupts` 同源），标签 = `name`。
+        submission/source 取该中断 id：generic resume 不据它消费，仅为满足卡片契约的权威身份。
+        """
+        interrupt = await self._session.scalar(
+            sa.select(RunInterrupt).where(
+                RunInterrupt.tenant_id == run.tenant_id,
+                RunInterrupt.run_id == run.id,
+                RunInterrupt.conversation_id == run.conversation_id,
+                RunInterrupt.interrupt_type == "HUMAN_INPUT",
+                RunInterrupt.status == "WAITING",
+                RunInterrupt.is_deleted.is_(False),
+            )
+        )
+        if interrupt is None or interrupt.expires_at is None:
+            return None
+        options = [
+            WebchatConfirmationOption(value=item["id"], label=item["name"])
+            for item in (interrupt.options_json or [])
+            if isinstance(item, dict) and "id" in item and "name" in item
+        ]
+        meta = interrupt.proposal_json or {}
+        free_text = not options
+        return WebchatConfirmation(
+            submission_id=interrupt.id,
+            source_event_id=interrupt.id,
+            prompt=interrupt.prompt_text,
+            options=options,
+            expires_at=interrupt.expires_at,
+            allow_custom=bool(meta.get("allow_custom")) or free_text,
+            multi_select=bool(meta.get("multi_select")),
+            free_text=free_text,
+        )
 
     async def _message_page(
         self,

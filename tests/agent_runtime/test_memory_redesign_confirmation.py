@@ -176,6 +176,76 @@ def test_short_confirmation_without_pending_is_a_normal_message() -> None:
     assert prepare_confirmation([], "拒绝") is None
 
 
+def _human_input_interrupt(*, options: list[dict[str, str]], status: str = "WAITING"):
+    from muad_agent_runtime.infrastructure.models.runtime import RunInterrupt
+
+    return RunInterrupt(
+        tenant_id="t",
+        run_id=uuid4(),
+        conversation_id=uuid4(),
+        interrupt_type="HUMAN_INPUT",
+        prompt_text="pick one",
+        options_json=options,
+        status=status,
+    )
+
+
+def test_binding_with_pending_option_human_input_resumes_generically() -> None:
+    """带候选的 ask_user 也经网页卡片 resume：binding 放行给 generic 路径，不报记忆过期。"""
+    from muad_agent_runtime.application.dto import ConfirmationBinding
+    from muad_agent_runtime.application.memory_confirmation_resume import prepare_confirmation
+
+    interrupt = _human_input_interrupt(options=[{"id": "approve", "name": "批准"}])
+    binding = ConfirmationBinding(submission_id=uuid4(), source_event_id=uuid4())
+    # 没有 MEMORY_CONFIRMATION 待确认，但有带候选的 HUMAN_INPUT → 不报过期，交由 generic 处理。
+    assert prepare_confirmation([interrupt], "approve", confirmation=binding) is None
+
+
+def test_binding_with_pending_free_text_human_input_resumes_generically() -> None:
+    """无候选的自由问答（free_text）也是待回答的 HUMAN_INPUT：binding 放行给 generic，不报过期。
+
+    自由问答的 `options_json` 是空数组，但它是网页可消费的 `HUMAN_INPUT`；不能因为候选为空就
+    误判为「确认了别的东西」而过期（否则 free_text 卡片提交必然 410）。
+    """
+    from muad_agent_runtime.application.dto import ConfirmationBinding
+    from muad_agent_runtime.application.memory_confirmation_resume import prepare_confirmation
+
+    binding = ConfirmationBinding(submission_id=uuid4(), source_event_id=uuid4())
+    interrupt = _human_input_interrupt(options=[])  # 无候选的自由问答
+    assert prepare_confirmation([interrupt], "anything", confirmation=binding) is None
+
+
+def test_binding_without_any_pending_is_still_expired() -> None:
+    """真正没有待回答的中断时，带 binding 的 resume 仍显式过期（不静默降级）。"""
+    from muad_agent_runtime.application.dto import ConfirmationBinding
+    from muad_agent_runtime.application.memory_confirmation_resume import prepare_confirmation
+    from muad_api import AppError
+    from muad_api.error_codes import ErrorCode
+
+    binding = ConfirmationBinding(submission_id=uuid4(), source_event_id=uuid4())
+    # 已 RESOLVED 的 HUMAN_INPUT 不再等待回答，等价于没有 pending。
+    interrupt = _human_input_interrupt(options=[], status="RESOLVED")
+    with pytest.raises(AppError) as excinfo:
+        prepare_confirmation([interrupt], "anything", confirmation=binding)
+    assert excinfo.value.code == ErrorCode.MEMORY_CONFIRMATION_EXPIRED
+
+
+def test_parse_options_validates_and_normalizes() -> None:
+    from muad_agent_core.tools import ToolError
+    from muad_agent_runtime.application.human_question import _parse_options
+
+    assert _parse_options(None) == []
+    assert _parse_options([{"id": "approve", "label": "批准"}]) == [
+        {"id": "approve", "label": "批准"}
+    ]
+    with pytest.raises(ToolError):
+        _parse_options([{"id": "dup", "label": "a"}, {"id": "dup", "label": "b"}])
+    with pytest.raises(ToolError):
+        _parse_options([{"id": "", "label": "a"}])
+    with pytest.raises(ToolError):
+        _parse_options([])
+
+
 def test_memory_confirmation_prompt_formats_expiry_in_user_timezone() -> None:
     """文本渠道的期限按冻结时区展示，避免 UTC 时间看起来像已过期。"""
     from datetime import UTC, datetime
@@ -645,3 +715,178 @@ async def test_local_b15_terminal_run_takes_priority_over_confirmation(
         assert (await rows(stack, RunInterrupt))[0].status == "WAITING"
         assert before == (len(await rows(stack, CanonicalEvent)), len(await rows(stack, RunSubmission)))
         assert await rows(stack, UserMemory) == [] and stack.captured == []
+
+
+async def test_generic_option_human_input_projects_confirmation_card(async_tool_database):
+    """带候选的 ask_user（HUMAN_INPUT + options_json）在历史投影里显示为确认卡片。
+
+    无候选的自由问答不投影卡片（仍是纯文本），保证只有「可点选」的问询才出卡片。
+    """
+    from muad_agent_runtime.application.webchat_history import WebchatHistoryService
+
+    from tests.agent_runtime.memory_confirmation_support import source
+
+    factory, run, _identity, _submission = await source(async_tool_database)
+    run.status = "WAITING_INPUT"
+    async with factory.begin() as session:
+        (await session.get(RunRecord, run.id)).status = "WAITING_INPUT"
+        session.add(
+            RunInterrupt(
+                tenant_id=run.tenant_id,
+                run_id=run.id,
+                conversation_id=run.conversation_id,
+                interrupt_type="HUMAN_INPUT",
+                prompt_text="是否执行该审批命令？",
+                options_json=[{"id": "approve", "name": "批准"}, {"id": "reject", "name": "拒绝"}],
+                status="WAITING",
+                expires_at=datetime.now(UTC) + timedelta(minutes=5),
+            )
+        )
+    async with factory() as session:
+        card = await WebchatHistoryService(session)._confirmation_view(run)
+    assert card is not None
+    assert card.prompt == "是否执行该审批命令？"
+    assert [(opt.value, opt.label) for opt in card.options] == [("approve", "批准"), ("reject", "拒绝")]
+
+
+async def test_free_form_human_input_has_no_confirmation_card(async_tool_database):
+    """无候选的 ask_user 挂起也产生卡片，但为纯自由文本（free_text=True、options 空、无按钮）。"""
+    from muad_agent_runtime.application.webchat_history import WebchatHistoryService
+
+    from tests.agent_runtime.memory_confirmation_support import source
+
+    factory, run, _identity, _submission = await source(async_tool_database)
+    run.status = "WAITING_INPUT"
+    async with factory.begin() as session:
+        (await session.get(RunRecord, run.id)).status = "WAITING_INPUT"
+        session.add(
+            RunInterrupt(
+                tenant_id=run.tenant_id,
+                run_id=run.id,
+                conversation_id=run.conversation_id,
+                interrupt_type="HUMAN_INPUT",
+                prompt_text="请提供 ticket",
+                options_json=[],
+                status="WAITING",
+                expires_at=datetime.now(UTC) + timedelta(minutes=5),
+            )
+        )
+    async with factory() as session:
+        card = await WebchatHistoryService(session)._confirmation_view(run)
+    assert card is not None
+    assert card.free_text is True
+    assert card.options == []
+    assert card.allow_custom is True
+
+
+def _option_interrupt(*, allow_custom: bool | None):
+    from muad_agent_runtime.infrastructure.models.runtime import RunInterrupt
+
+    return RunInterrupt(
+        tenant_id="t",
+        run_id=uuid4(),
+        conversation_id=uuid4(),
+        interrupt_type="HUMAN_INPUT",
+        prompt_text="选择客户",
+        options_json=[{"id": "c1", "name": "客户一"}, {"id": "c2", "name": "客户二"}],
+        proposal_json={"allow_custom": allow_custom} if allow_custom is not None else None,
+        status="WAITING",
+    )
+
+
+async def test_resume_rejects_free_text_when_custom_not_allowed(async_tool_database):
+    """默认（allow_custom 缺省/false）带选项时只接受候选 id，自定义文本被拒。"""
+    from muad_agent_runtime.application.run_resume import resolve_generic_interrupts
+    from muad_api import AppError
+    from muad_api.error_codes import ErrorCode
+
+    from tests.agent_runtime.memory_confirmation_support import source
+
+    factory, _run, _identity, _submission = await source(async_tool_database)
+    for allow_custom in (None, False):
+        row = _option_interrupt(allow_custom=allow_custom)
+        async with factory() as session:
+            with pytest.raises(AppError) as excinfo:
+                await resolve_generic_interrupts(session, [row], "客户三")
+            assert excinfo.value.code == ErrorCode.COMMON_VALIDATION_ERROR
+            # 命中候选 id 仍然可以
+            row.status = "WAITING"
+            await resolve_generic_interrupts(session, [row], "c1")
+            assert row.resolution_json == {"input": "c1"}
+
+
+async def test_resume_accepts_free_text_when_custom_allowed(async_tool_database):
+    """allow_custom=true 时，选项之外的自定义文本被接受并回灌给模型。"""
+    from muad_agent_runtime.application.run_resume import resolve_generic_interrupts
+
+    from tests.agent_runtime.memory_confirmation_support import source
+
+    factory, _run, _identity, _submission = await source(async_tool_database)
+    row = _option_interrupt(allow_custom=True)
+    async with factory() as session:
+        await resolve_generic_interrupts(session, [row], "以上都不对，用客户四")
+    assert row.status == "RESOLVED"
+    assert row.resolution_json == {"input": "以上都不对，用客户四"}
+
+
+def _multi_interrupt(*, allow_custom: bool = False):
+    from muad_agent_runtime.infrastructure.models.runtime import RunInterrupt
+
+    return RunInterrupt(
+        tenant_id="t",
+        run_id=uuid4(),
+        conversation_id=uuid4(),
+        interrupt_type="HUMAN_INPUT",
+        prompt_text="选择客户（可多选）",
+        options_json=[
+            {"id": "c1", "name": "客户一"},
+            {"id": "c2", "name": "客户二"},
+            {"id": "c3", "name": "客户三"},
+        ],
+        proposal_json={"allow_custom": allow_custom, "multi_select": True},
+        status="WAITING",
+    )
+
+
+async def test_resume_multi_select_accepts_multiple_ids(async_tool_database):
+    """多选：换行分隔的多个 id 全部命中候选时接受，回灌含 selections。"""
+    from muad_agent_runtime.application.run_resume import resolve_generic_interrupts
+
+    from tests.agent_runtime.memory_confirmation_support import source
+
+    factory, _run, _identity, _submission = await source(async_tool_database)
+    row = _multi_interrupt()
+    async with factory() as session:
+        await resolve_generic_interrupts(session, [row], "c1\nc3")
+    assert row.status == "RESOLVED"
+    assert row.resolution_json == {"input": "c1\nc3", "selections": ["c1", "c3"]}
+
+
+async def test_resume_multi_select_rejects_unknown_id(async_tool_database):
+    """多选：含未知 id 且不允许自定义时拒绝。"""
+    from muad_agent_runtime.application.run_resume import resolve_generic_interrupts
+    from muad_api import AppError
+    from muad_api.error_codes import ErrorCode
+
+    from tests.agent_runtime.memory_confirmation_support import source
+
+    factory, _run, _identity, _submission = await source(async_tool_database)
+    row = _multi_interrupt()
+    async with factory() as session:
+        with pytest.raises(AppError) as excinfo:
+            await resolve_generic_interrupts(session, [row], "c1\ncX")
+        assert excinfo.value.code == ErrorCode.COMMON_VALIDATION_ERROR
+
+
+async def test_resume_multi_select_allows_custom_when_enabled(async_tool_database):
+    """多选 + allow_custom：混入未知项也接受（自由补充），并保留全部。"""
+    from muad_agent_runtime.application.run_resume import resolve_generic_interrupts
+
+    from tests.agent_runtime.memory_confirmation_support import source
+
+    factory, _run, _identity, _submission = await source(async_tool_database)
+    row = _multi_interrupt(allow_custom=True)
+    async with factory() as session:
+        await resolve_generic_interrupts(session, [row], "c1\n客户四")
+    assert row.status == "RESOLVED"
+    assert row.resolution_json == {"input": "c1\n客户四", "selections": ["c1", "客户四"]}

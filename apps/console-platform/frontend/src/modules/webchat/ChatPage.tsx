@@ -1057,11 +1057,22 @@ interface ChatConfirmationProps {
   binding: ConfirmationBinding;
 }
 
-/** 原 Run 确认卡：完整候选 + 服务端 submission/source 原样带出；无待确认不占位。 */
+/** 原 Run 确认卡：完整候选 + 服务端 submission/source 原样带出；无待确认不占位。
+ *
+ * 多选勾选与自定义输入的状态由本层持有（卡片是无状态展示单元），Run 切换时清空（不把 A 的选择
+ * 带进 B）。
+ */
 function ChatConfirmation(props: ChatConfirmationProps) {
   const run = props.run;
   const projection = run === null ? null : run.confirmation;
   const messageId = props.messageId;
+  const runId = run === null ? null : run.runId;
+  const [selectedValues, setSelectedValues] = useState<readonly string[]>([]);
+  const [customText, setCustomText] = useState('');
+  useEffect(() => {
+    setSelectedValues([]);
+    setCustomText('');
+  }, [runId]);
   if (run === null || projection === null || messageId === null) return null;
   const controller = props.binding.controller;
   return (
@@ -1072,6 +1083,14 @@ function ChatConfirmation(props: ChatConfirmationProps) {
       submitting={props.binding.snapshot.phase === 'SUBMITTING'}
       errorCode={props.binding.snapshot.errorCode}
       nowMs={Date.now()}
+      selectedValues={selectedValues}
+      customText={customText}
+      onToggleOption={(value) =>
+        setSelectedValues((cur) =>
+          cur.includes(value) ? cur.filter((v) => v !== value) : [...cur, value]
+        )
+      }
+      onCustomChange={setCustomText}
       onConfirm={(input) => controller.confirm(run.runId, projection, input)}
     />
   );

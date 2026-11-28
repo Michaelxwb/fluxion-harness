@@ -412,9 +412,10 @@ def test_e09_deadline_exhausted_fails_without_retrying(
 ) -> None:
     """deadline 不足：不再重试，Run 失败终态（`_retry_delay` 判定后抛 `RunnerDeadlineExceeded`）。"""
     _point_model_at_probe(live_stack, fault_probe)
-    # Retry-After 远大于剩余 deadline ⇒ 不重试
-    _set_policy(live_stack, max_model_retries=3, deadline_ms=1_000)
-    fault_probe.plan = ["429:30"] * 5
+    # Retry-After(120s) 远大于剩余 deadline(约 30s) ⇒ 不重试。deadline 给足 30s，确保慢 runner
+    # 上首次模型调用能在 deadline 耗尽前完成（否则退回 calls=0，只剩「deadline 太短」而非「不重试」）。
+    _set_policy(live_stack, max_model_retries=3, deadline_ms=30_000)
+    fault_probe.plan = ["429:120"] * 5
     fault_probe.calls.clear()
 
     events = _run(live_stack, fault_probe, wait=RUN_TIMEOUT_SEC)

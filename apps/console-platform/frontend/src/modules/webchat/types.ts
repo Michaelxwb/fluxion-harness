@@ -125,6 +125,12 @@ export interface WebchatConfirmation {
   prompt: string;
   options: WebchatConfirmationOption[];
   expires_at: string;
+  /** 允许在选项之外自由输入（默认 false：是/否、审核类只允许点选）。 */
+  allow_custom?: boolean;
+  /** 多选：可勾多个选项，提交时以换行分隔的多个 value（默认 false 单选）。 */
+  multi_select?: boolean;
+  /** 纯自由文本问询（无候选选项，用户直接打字回答）。 */
+  free_text?: boolean;
 }
 
 /** 会话详情里的活跃 Run（API-15）；终态 Run 不出现在这里。 */

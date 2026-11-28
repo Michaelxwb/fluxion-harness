@@ -117,11 +117,32 @@ async def resolve_generic_interrupts(session: AsyncSession, rows: list[RunInterr
             continue
         if row.interrupt_type == "MEMORY_CONFIRMATION":
             raise RuntimeError("memory confirmation must use the dedicated dispatcher")
+        selections: list[str] | None = None
         if row.interrupt_type == "HUMAN_INPUT":
             if row.expires_at is not None and row.expires_at <= now:
                 raise AppError(ErrorCode.REVISION_CONFLICT)
             options = row.options_json
-            if not text.strip() or (options and text.strip() not in {item["id"] for item in options}):
+            meta = row.proposal_json or {}
+            allow_custom = bool(meta.get("allow_custom"))
+            multi_select = bool(meta.get("multi_select"))
+            option_ids = {item["id"] for item in options}
+            if multi_select:
+                # 多选：回答是换行分隔的多个值，逐个校验；允许自定义时容忍非 id 的自由文本项。
+                chunks = [part.strip() for part in text.split("\n") if part.strip()]
+                if not chunks or (
+                    options
+                    and not allow_custom
+                    and any(chunk not in option_ids for chunk in chunks)
+                ):
+                    raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+                selections = chunks
+            elif not text.strip() or (
+                options and not allow_custom and text.strip() not in option_ids
+            ):
+                # 单选：带选项且不允许自定义时，回答必须命中某个 id。
                 raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
         row.status, row.resolved_at, row.update_time = "RESOLVED", now, now
-        row.resolution_json = {"input": text}
+        if selections is not None:
+            row.resolution_json = {"input": text, "selections": selections}
+        else:
+            row.resolution_json = {"input": text}

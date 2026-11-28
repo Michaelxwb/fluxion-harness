@@ -762,8 +762,12 @@ async def test_b294_lifespan_runs_independent_maintenance_loops_and_stops_them_o
         assert main.app.state.execution_supervisor.execution_count == 0
         assert not main.app.state.http_pools.control.is_closed
         calls_during = len(wiring_env.console.calls)
-        await asyncio.sleep(REAPER_INTERVAL_SEC + 0.5)
-        assert len(wiring_env.console.calls) > calls_during, "保留清理循环在运行期必须真的推进"
+        # 首次 tick 要等一个间隔才发生，再叠加设置读取与清理的 DB 往返；用轮询而不是固定
+        # sleep(间隔+余量)，避免慢 runner 上首轮还没跑完就断言失败（时间敏感抖动）。
+        await _wait_for(
+            lambda: len(wiring_env.console.calls) > calls_during,
+            message="保留清理循环在运行期必须真的推进",
+        )
 
     assert all(task.done() for task in loops.values()), "退出即停：循环任务必须全部结束"
     leftover = [

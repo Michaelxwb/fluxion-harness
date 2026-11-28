@@ -148,6 +148,11 @@ def prepare_confirmation(
             observe("memory_confirmation_total", labels={"outcome": "EXPIRED"})
             raise AppError(ErrorCode.MEMORY_CONFIRMATION_EXPIRED)
         if confirmation is not None:
+            # 带候选的 `ask_user`（HUMAN_INPUT）也经网页确认卡片 resume：它的 binding 不是记忆
+            # 提议身份，放行给 generic 路径消费（`resolve_generic_interrupts` 按 id 严格匹配）。
+            # 没有这类待问答时，binding 仍是「确认了别的东西」的显式过期，不静默降级。
+            if _has_pending_human_input(interrupts):
+                return None
             # 网页 resume 带了原提议身份，就不能再把它当普通消息：没有可消费的中断只能显式
             # 过期，否则模型会替一次「确认」生成新回复，用户看到的正文和真实写入事实相反。
             observe("memory_confirmation_total", labels={"outcome": "EXPIRED"})
@@ -175,6 +180,17 @@ def prepare_confirmation(
     return PendingConfirmation(
         pending[0],
         MemoryConfirmationInput(proposal_id=pending[0].id, action=action),
+    )
+
+
+def _has_pending_human_input(interrupts: list[RunInterrupt]) -> bool:
+    """是否存在等待用户回答的 `ask_user` 挂起（网页确认卡片的消费对象）。
+
+    带候选（点选）与纯自由文本（`options_json` 为空）都属于网页可消费的 `HUMAN_INPUT`，
+    因此不按 `options_json` 非空过滤——否则 free_text 问询会被误判为「确认了别的东西」而过期。
+    """
+    return any(
+        row.interrupt_type == "HUMAN_INPUT" and row.status == "WAITING" for row in interrupts
     )
 
 

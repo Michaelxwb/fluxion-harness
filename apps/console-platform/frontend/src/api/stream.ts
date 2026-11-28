@@ -823,8 +823,9 @@ function readToolProgress(source: Record<string, unknown>): WebchatToolProgress 
 
 function readConfirmation(source: Record<string, unknown>): WebchatConfirmation {
   const options = source['options'];
-  if (!Array.isArray(options) || options.length === 0) {
-    throw new WebchatStreamError('MALFORMED_FRAME', 'confirmation options must be a non-empty array');
+  // options 允许为空（纯自由文本问询 free_text）：此时不解析选项，由卡片渲染成输入框。
+  if (!Array.isArray(options)) {
+    throw new WebchatStreamError('MALFORMED_FRAME', 'confirmation options must be an array');
   }
   const parsed = options.map((option) => {
     if (typeof option !== 'object' || option === null) {
@@ -838,7 +839,11 @@ function readConfirmation(source: Record<string, unknown>): WebchatConfirmation 
     source_event_id: readString(source, 'source_event_id'),
     prompt: readString(source, 'prompt'),
     options: parsed,
-    expires_at: readString(source, 'expires_at')
+    expires_at: readString(source, 'expires_at'),
+    // 必须原样透传，否则卡片拿不到这些标志（allow_custom 决定是否显示输入框、multi_select 决定多选、free_text 决定纯文本问询）。
+    allow_custom: source['allow_custom'] === true,
+    multi_select: source['multi_select'] === true,
+    free_text: source['free_text'] === true
   };
 }
 
